@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements/dev.txt
+      - run: python -m compileall api workers
+      - run: bash -n scripts/bootstrap_kali_host.sh
+      - run: bash -n scripts/install_security_tools.sh
+      - run: bash -n scripts/init_runtime_dirs.sh
+      - run: bash -n scripts/verify_host.sh
+      - run: bash -n scripts/verify_stack.sh
+      - run: pytest

@@ -1,0 +1,125 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      ARTIFACTS_STORAGE_MODE: ${ARTIFACTS_STORAGE_MODE}
+      ARTIFACTS_S3_ENDPOINT: ${ARTIFACTS_S3_ENDPOINT}
+      ARTIFACTS_S3_BUCKET: ${ARTIFACTS_S3_BUCKET}
+      ARTIFACTS_S3_ACCESS_KEY: ${ARTIFACTS_S3_ACCESS_KEY}
+      ARTIFACTS_S3_SECRET_KEY: ${ARTIFACTS_S3_SECRET_KEY}
+      ZAP_BASE_URL: ${ZAP_BASE_URL}
+      ZAP_API_KEY: ${ZAP_API_KEY}
+      AUTO_CREATE_TABLES: ${AUTO_CREATE_TABLES}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: workers/Dockerfile
+    volumes:
+      - ../..:/workspace/repo:ro
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      ARTIFACTS_STORAGE_MODE: ${ARTIFACTS_STORAGE_MODE}
+      ARTIFACTS_S3_ENDPOINT: ${ARTIFACTS_S3_ENDPOINT}
+      ARTIFACTS_S3_BUCKET: ${ARTIFACTS_S3_BUCKET}
+      ARTIFACTS_S3_ACCESS_KEY: ${ARTIFACTS_S3_ACCESS_KEY}
+      ARTIFACTS_S3_SECRET_KEY: ${ARTIFACTS_S3_SECRET_KEY}
+      ZAP_BASE_URL: ${ZAP_BASE_URL}
+      ZAP_API_KEY: ${ZAP_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      zapd:
+        condition: service_healthy
+
+  zapd:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    command:
+      - zap.sh
+      - -daemon
+      - -silent
+      - -host
+      - 0.0.0.0
+      - -port
+      - "8080"
+      - -config
+      - api.key=${ZAP_API_KEY}
+      - -config
+      - api.addrs.addr.name=.*
+      - -config
+      - api.addrs.addr.regex=true
+    env_file:
+      - .env
+    expose:
+      - "8080"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS \"http://127.0.0.1:8080/JSON/core/view/version/?apikey=$$ZAP_API_KEY\" >/dev/null",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ${POSTGRES_DATA_DIR:-/srv/aegispt/postgres}:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ${MINIO_DATA_DIR:-/srv/aegispt/minio}:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
