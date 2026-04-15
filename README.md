@@ -21,6 +21,7 @@ The repository now delivers the first operational platform slice, the first code
 - curated Semgrep rule provenance metadata on stored evidence
 - curated internal validation scenarios with preflight checks, step approvals and step-to-run evidence linkage
 - additive methodology alignment to PTES, OWASP WSTG, and NIST SP 800-115, with optional ASVS references on findings
+- adaptive post-inventory testing support with inventory snapshots, threat intelligence records, relevance decisions, capability packs, validation gates, deployment records, and runtime pack binding
 - CI and verification scripts
 
 ## Canonical Kali layout
@@ -135,6 +136,16 @@ This slice now includes passive web validation, approval-gated ZAP validation, p
 - `docs/methodology_mapping.md`
 - `docs/testing_coverage_matrix.md`
 - `docs/methodology_alignment_summary.md`
+- `docs/inventory_model.md`
+- `docs/threat_intel_model.md`
+- `docs/relevance_engine.md`
+- `docs/capability_factory.md`
+- `docs/testpack_registry.md`
+- `docs/promotion_pipeline.md`
+- `docs/codex_build_lane.md`
+- `docs/runtime_pack_binding.md`
+- `docs/operator_flow_adaptive_testing.md`
+- `docs/adaptive_testing_summary.md`
 - `docs/threat-model.md`
 - `docs/runbooks/README.md`
 - `docs/runbooks/passive-web-validation-workflow.md`
@@ -149,3 +160,4 @@ This slice now includes passive web validation, approval-gated ZAP validation, p
 - Active ZAP scanning is now also available behind explicit approval through `active-web-zap-active`, while `EXECUTION_KILL_SWITCH=true` blocks new dispatches globally.
 - Curated internal validation now reuses the same run, task, artifact and finding model through `curated-code-validation` and `curated-web-validation`.
 - The methodology layer is an alignment patch, not a new subsystem: findings, reports, and workflow language now map cleanly to PTES, OWASP WSTG, and NIST SP 800-115 while preserving the current evidence-first architecture.
+- The adaptive testing lane is also additive: inventory and threat intelligence can produce customer-specific packs, but only deployed pack versions can bind to runs and the runtime never self-modifies during an active assessment.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import dataclass, replace
 
 from api.app.methodology import derive_finding_methodology
@@ -24,6 +25,12 @@ class NormalizedFinding:
     wstg_version: str | None = None
     asvs_reference: str | None = None
     control_family: str | None = None
+    finding_origin: str = "standard"
+    source_pack_id: uuid.UUID | None = None
+    source_pack_artifact_id: uuid.UUID | None = None
+    source_inventory_snapshot_id: uuid.UUID | None = None
+    source_relevance_decision_id: uuid.UUID | None = None
+    source_pack_version: str | None = None
 
 
 SEVERITY_ORDER = {
@@ -58,6 +65,17 @@ def finding_signature(*, title: str, target_id: str) -> tuple[str, str]:
     return (title.strip().lower(), target_id.strip().lower())
 
 
+def _uuid_or_none(value: object) -> uuid.UUID | None:
+    if isinstance(value, uuid.UUID):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            return uuid.UUID(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
 def merge_finding(existing: Finding, incoming: NormalizedFinding) -> bool:
     changed = False
 
@@ -83,12 +101,27 @@ def merge_finding(existing: Finding, incoming: NormalizedFinding) -> bool:
         "wstg_version",
         "asvs_reference",
         "control_family",
+        "source_pack_version",
     ):
         existing_value = getattr(existing, field_name)
         incoming_value = getattr(incoming, field_name)
         if incoming_value and not existing_value:
             setattr(existing, field_name, incoming_value)
             changed = True
+    for field_name in (
+        "source_pack_id",
+        "source_pack_artifact_id",
+        "source_inventory_snapshot_id",
+        "source_relevance_decision_id",
+    ):
+        existing_value = getattr(existing, field_name)
+        incoming_value = getattr(incoming, field_name)
+        if incoming_value is not None and existing_value is None:
+            setattr(existing, field_name, incoming_value)
+            changed = True
+    if incoming.finding_origin == "adaptive_pack" and existing.finding_origin != "adaptive_pack":
+        existing.finding_origin = incoming.finding_origin
+        changed = True
     if existing.status == "resolved":
         existing.status = "reopened"
         changed = True
@@ -97,25 +130,49 @@ def merge_finding(existing: Finding, incoming: NormalizedFinding) -> bool:
 
 
 def enrich_finding_with_methodology(*, finding: NormalizedFinding, task: Task) -> NormalizedFinding:
+    pack_context = task.params_json.get("capability_pack", {})
+    if not isinstance(pack_context, dict):
+        pack_context = {}
     methodology = derive_finding_methodology(
         title=finding.title,
         summary=finding.summary,
         tool=task.tool,
         run_class=str(task.params_json.get("run_class") or ""),
     )
+    pack_tags = [
+        tag
+        for tag in pack_context.get("methodology_tags", [])
+        if isinstance(tag, str) and tag.strip()
+    ]
+    derived_tags = [
+        tag
+        for tag in methodology.get("methodology_tags", [])
+        if isinstance(tag, str) and tag.strip()
+    ]
+    artifact_refs = pack_context.get("artifact_refs", [])
+    first_artifact_id = None
+    if isinstance(artifact_refs, list):
+        for artifact_ref in artifact_refs:
+            if not isinstance(artifact_ref, dict):
+                continue
+            first_artifact_id = _uuid_or_none(artifact_ref.get("artifact_id"))
+            if first_artifact_id is not None:
+                break
     return replace(
         finding,
-        methodology_tags=tuple(
-            tag
-            for tag in methodology.get("methodology_tags", [])
-            if isinstance(tag, str) and tag.strip()
-        ),
+        methodology_tags=tuple(dict.fromkeys([*finding.methodology_tags, *pack_tags, *derived_tags])),
         ptes_phase=str(methodology.get("ptes_phase") or "") or None,
         nist_phase=str(methodology.get("nist_phase") or "") or None,
         wstg_id=str(methodology.get("wstg_id") or "") or None,
         wstg_version=str(methodology.get("wstg_version") or "") or None,
         asvs_reference=str(methodology.get("asvs_reference") or "") or None,
         control_family=str(methodology.get("control_family") or "") or None,
+        finding_origin="adaptive_pack" if pack_context.get("pack_id") else finding.finding_origin,
+        source_pack_id=_uuid_or_none(pack_context.get("pack_id")),
+        source_pack_artifact_id=first_artifact_id,
+        source_inventory_snapshot_id=_uuid_or_none(pack_context.get("source_inventory_snapshot_id")),
+        source_relevance_decision_id=_uuid_or_none(pack_context.get("relevance_decision_id")),
+        source_pack_version=str(pack_context.get("version") or "") or None,
     )
 
 
@@ -339,6 +396,12 @@ def store_findings(
 
             created_finding = Finding(
                 run_id=task.run_id,
+                source_pack_id=finding.source_pack_id,
+                source_pack_artifact_id=finding.source_pack_artifact_id,
+                source_inventory_snapshot_id=finding.source_inventory_snapshot_id,
+                source_relevance_decision_id=finding.source_relevance_decision_id,
+                source_pack_version=finding.source_pack_version,
+                finding_origin=finding.finding_origin,
                 title=finding.title,
                 severity=finding.severity,
                 target_id=finding.target_id,

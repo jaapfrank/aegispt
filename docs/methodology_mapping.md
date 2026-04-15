@@ -80,6 +80,9 @@ ASVS is the primary answer to: "Which secure application control expectation doe
 | Passive reconnaissance and discovery runs | PTES, NIST SP 800-115, WSTG | Operator workflow labels stay simple, but passive runs map to intelligence gathering / discovery. |
 | Approval-gated active validation runs | PTES, NIST SP 800-115, WSTG | Active and intrusive run classes map to controlled exploitation / verification and NIST attack discipline. |
 | Internal validation sessions | PTES, NIST SP 800-115 | Treated as controlled, stepwise adversary validation with approvals and replayable evidence. |
+| Inventory analyzer and normalized inventory snapshots | PTES, NIST SP 800-115 | Inventory sits between pre-engagement scoping and later validation planning without changing the evidence-first architecture. |
+| Threat intelligence and relevance decisions | PTES, NIST SP 800-115, WSTG | Advisory relevance planning remains pre-runtime and reuses existing methodology metadata instead of introducing a second taxonomy layer. |
+| Customer-specific capability packs | PTES, NIST SP 800-115, WSTG, optional ASVS | Adaptive packs inherit Prompt 1 methodology tags and must pass validation, approval, and deployment before runtime use. |
 | ZAP-based web validation | OWASP WSTG | Primary web testing coverage source for dynamic web findings. |
 | Nuclei-based validation | NIST SP 800-115, WSTG where applicable | Template-driven validation contributes evidence and may map to WSTG when the finding is clearly web/API relevant. |
 | Semgrep-based code validation | PTES, NIST SP 800-115, optional ASVS | Code findings may not always have a direct WSTG reference; WSTG remains web/API-first. |
@@ -199,6 +202,19 @@ Implementation guidance:
 - `verification_status` currently maps to the existing finding status model.
 - `replay_status` is currently derived from evidence linkage in reports rather than persisted as a dedicated database field.
 
+### Additional Adaptive Provenance Fields
+
+Prompt 2 extends the finding package additively with provenance fields for adaptive coverage:
+
+- `source_pack_id`
+- `source_pack_artifact_id`
+- `source_inventory_snapshot_id`
+- `source_relevance_decision_id`
+- `source_pack_version`
+- `finding_origin`
+
+These fields do not replace Prompt 1 methodology metadata. They provide the evidence chain for customer-specific pack generation and runtime binding.
+
 ## 8. Non-Goals
 
 This methodology layer does not change:
@@ -211,3 +227,9 @@ This methodology layer does not change:
 - the prohibition on autonomous self-propagation or worming
 
 It is an alignment patch, not a re-architecture.
+
+The adaptive testing lane is also additive:
+
+- it does not redefine the methodology constants
+- it does not replace the evidence-first execution model
+- it does not allow live self-modification of the runtime

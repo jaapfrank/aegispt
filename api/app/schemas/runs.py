@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.app.schemas.packs import RunPackBindingRead
+
 
 class RunProfileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -71,3 +73,4 @@ class RunRead(BaseModel):
     approvals: list[ApprovalRead]
     tasks: list[TaskRead]
     findings: FindingSummaryRead
+    pack_binding: RunPackBindingRead | None = None

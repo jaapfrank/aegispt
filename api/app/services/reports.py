@@ -50,6 +50,8 @@ def load_run_report(session: Session, run_id: UUID | str) -> Run | None:
         .options(
             selectinload(Run.engagement).selectinload(Engagement.scopes),
             selectinload(Run.profile),
+            selectinload(Run.bound_pack),
+            selectinload(Run.bound_pack_deployment),
             selectinload(Run.approvals),
             selectinload(Run.findings),
             selectinload(Run.tasks)
@@ -135,6 +137,26 @@ def methodology_context_for_run(run: Run) -> dict[str, str]:
     }
 
 
+def adaptive_pack_context(run: Run) -> dict[str, object]:
+    if run.bound_pack is None:
+        return {
+            "active": False,
+            "label": "Standard baseline coverage only",
+            "manifest": {},
+            "deployment_target": None,
+            "deployment_status": None,
+        }
+
+    deployment = run.bound_pack_deployment
+    return {
+        "active": True,
+        "label": f"{run.bound_pack.name} {run.bound_pack.version}",
+        "manifest": dict(run.bound_pack.manifest_json or {}),
+        "deployment_target": deployment.deployment_target if deployment is not None else None,
+        "deployment_status": deployment.status if deployment is not None else None,
+    }
+
+
 def methodology_coverage_summary(findings: list[Finding], tasks: list[Task]) -> dict[str, list[str]]:
     wstg_areas = {
         area
@@ -192,6 +214,8 @@ def finding_methodology_lines(finding: Finding) -> list[str]:
         f"- ASVS Reference: {finding.asvs_reference or 'Not Assigned'}",
         f"- Control Family: {control_family_label(finding.control_family) or 'Not Assigned'}",
         f"- Methodology Tags: {', '.join(finding.methodology_tags or []) or 'None'}",
+        f"- Finding Origin: {finding.finding_origin}",
+        f"- Source Pack Version: {finding.source_pack_version or 'Standard Coverage'}",
     ]
     return lines
 
@@ -205,6 +229,7 @@ def render_markdown_report(run: Run) -> str:
     approvals = sort_approvals(list(run.approvals))
     findings_by_severity, findings_by_status = findings_summary(findings)
     methodology = methodology_context_for_run(run)
+    adaptive_pack = adaptive_pack_context(run)
     coverage = methodology_coverage_summary(findings, tasks)
     latest_scope = latest_scope_for_engagement(run.engagement)
     remediation_counts = remediation_priority_counts(findings)
@@ -223,6 +248,7 @@ def render_markdown_report(run: Run) -> str:
         f"- Operator Workflow Stage: {methodology['operator_stage']}",
         f"- PTES Mapping for This Run: {methodology['ptes_phase_label']}",
         f"- NIST Mapping for This Run: {methodology['nist_phase_label']}",
+        f"- Adaptive Coverage: {adaptive_pack['label']}",
         f"- Finding Count: {len(findings)}",
         "",
         "## Scope",
@@ -289,6 +315,16 @@ def render_markdown_report(run: Run) -> str:
             f"- Methodology Tags Seen: {', '.join(coverage['methodology_tags']) or 'Not Assigned'}",
             f"- By Severity: {findings_by_severity or {}}",
             f"- By Status: {findings_by_status or {}}",
+            "",
+            "## Adaptive Coverage",
+            "",
+            f"- Runtime Pack: {adaptive_pack['label']}",
+            f"- Deployment Target: {adaptive_pack['deployment_target'] or 'Not Bound'}",
+            f"- Deployment Status: {adaptive_pack['deployment_status'] or 'Not Bound'}",
+            f"- Inventory Snapshot Used: {adaptive_pack['manifest'].get('inventory_snapshot_id') or 'Not Assigned'}",
+            f"- Relevance Decision: {adaptive_pack['manifest'].get('relevance_decision_id') or 'Not Assigned'}",
+            f"- Threat Intel References: {', '.join(adaptive_pack['manifest'].get('threat_intel_refs', [])) or 'None'}",
+            f"- Generation Reason: {adaptive_pack['manifest'].get('generation_reason') or 'Standard coverage only'}",
             "",
             "## Remediation Priorities",
             "",
@@ -381,6 +417,7 @@ def render_html_report(run: Run) -> str:
     approvals = sort_approvals(list(run.approvals))
     findings_by_severity, findings_by_status = findings_summary(findings)
     methodology = methodology_context_for_run(run)
+    adaptive_pack = adaptive_pack_context(run)
     coverage = methodology_coverage_summary(findings, tasks)
     latest_scope = latest_scope_for_engagement(run.engagement)
     remediation_counts = remediation_priority_counts(findings)
@@ -395,6 +432,7 @@ def render_html_report(run: Run) -> str:
         ("Operator Workflow Stage", methodology["operator_stage"]),
         ("PTES Mapping", methodology["ptes_phase_label"]),
         ("NIST Mapping", methodology["nist_phase_label"]),
+        ("Adaptive Coverage", str(adaptive_pack["label"])),
         ("Finding Count", str(len(findings))),
     ]
     summary_html = "".join(
@@ -436,6 +474,18 @@ def render_html_report(run: Run) -> str:
         "</ul>"
     )
 
+    adaptive_pack_html = (
+        "<ul>"
+        f"<li><strong>Runtime Pack:</strong> {escape(str(adaptive_pack['label']))}</li>"
+        f"<li><strong>Deployment Target:</strong> {escape(str(adaptive_pack['deployment_target'] or 'Not Bound'))}</li>"
+        f"<li><strong>Deployment Status:</strong> {escape(str(adaptive_pack['deployment_status'] or 'Not Bound'))}</li>"
+        f"<li><strong>Inventory Snapshot Used:</strong> {escape(str(adaptive_pack['manifest'].get('inventory_snapshot_id') or 'Not Assigned'))}</li>"
+        f"<li><strong>Relevance Decision:</strong> {escape(str(adaptive_pack['manifest'].get('relevance_decision_id') or 'Not Assigned'))}</li>"
+        f"<li><strong>Threat Intel References:</strong> {escape(', '.join(adaptive_pack['manifest'].get('threat_intel_refs', [])) or 'None')}</li>"
+        f"<li><strong>Generation Reason:</strong> {escape(str(adaptive_pack['manifest'].get('generation_reason') or 'Standard coverage only'))}</li>"
+        "</ul>"
+    )
+
     findings_html = "".join(
         "<article class='finding'>"
         f"<div class='finding-header'><h3>{escape(finding.title)}</h3><span class='priority'>{escape(remediation_priority_for_finding(finding))}</span></div>"
@@ -447,6 +497,8 @@ def render_html_report(run: Run) -> str:
         f"NIST {escape(nist_phase_label(finding.nist_phase) or 'Not Assigned')} | "
         f"WSTG {escape(format_wstg_reference(finding.wstg_id, finding.wstg_version) or 'Not Assigned')}</p>"
         f"<p><strong>Control Family:</strong> {escape(control_family_label(finding.control_family) or 'Not Assigned')}</p>"
+        f"<p><strong>Finding Origin:</strong> {escape(finding.finding_origin)} | "
+        f"<strong>Source Pack Version:</strong> {escape(finding.source_pack_version or 'Standard Coverage')}</p>"
         + (f"<p>{escape(finding.summary)}</p>" if finding.summary else "")
         + f"<p><strong>Remediation Summary:</strong> {escape(default_remediation_summary(finding.control_family))}</p>"
         + "</article>"
@@ -606,6 +658,11 @@ def render_html_report(run: Run) -> str:
     <section class="panel">
       <h2>Coverage Summary</h2>
       {coverage_html}
+    </section>
+
+    <section class="panel">
+      <h2>Adaptive Coverage</h2>
+      {adaptive_pack_html}
     </section>
 
     <section class="panel">

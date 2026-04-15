@@ -12,6 +12,12 @@ class FindingRead(BaseModel):
 
     id: UUID
     run_id: UUID | None
+    source_pack_id: UUID | None
+    source_pack_artifact_id: UUID | None
+    source_inventory_snapshot_id: UUID | None
+    source_relevance_decision_id: UUID | None
+    source_pack_version: str | None
+    finding_origin: str
     title: str
     severity: str
     target_id: str

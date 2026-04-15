@@ -19,6 +19,7 @@ from api.app.models import (
 )
 from api.app.policy.engine import execution_kill_switch_enabled
 from api.app.services.audit import write_audit_event
+from api.app.services.packs import bind_pack_to_run, latest_pack_deployment
 from api.app.services.runs import latest_scope_query, queue_run_tasks, required_approvals
 from api.app.services.task_dispatch import dispatch_task_batch
 
@@ -542,12 +543,21 @@ def execute_internal_validation_step(
     run = Run(
         engagement_id=validation_session.engagement_id,
         profile_id=profile.id,
+        profile=profile,
         requested_by=actor,
         status="requested",
     )
     session.add(run)
     session.flush()
     validation_session_id = validation_session.id
+
+    deployment = latest_pack_deployment(
+        session,
+        engagement_id=validation_session.engagement_id,
+        run_profile_name=profile.name,
+    )
+    if deployment is not None and deployment.pack is not None:
+        bind_pack_to_run(session, run=run, pack=deployment.pack)
 
     write_audit_event(
         session=session,
@@ -560,6 +570,8 @@ def execute_internal_validation_step(
             "profile_name": profile.name,
             "internal_validation_session_id": str(validation_session.id),
             "internal_validation_step_id": step.step_id,
+            "bound_pack_id": str(run.bound_pack_id) if run.bound_pack_id else None,
+            "bound_pack_version": run.bound_pack_version,
         },
     )
 

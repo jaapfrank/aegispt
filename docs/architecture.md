@@ -10,7 +10,7 @@ AegisPT is organized into five planes:
 - Evidence plane
 - UI plane
 
-The current scaffold implements the first operational slice of the control plane, seeded run profiles, approval-gated run planning, explicit dispatch, executable `httpx`, `nuclei`, `semgrep` and ZAP API execution paths, curated internal validation orchestration, centralized policy limits, a global execution kill switch, run cancellation, MinIO-backed artifact persistence, redaction before storage for textual evidence, curated provenance for Nuclei templates plus Semgrep rules, and additive methodology metadata aligned to PTES, OWASP WSTG, and NIST SP 800-115.
+The current scaffold implements the first operational slice of the control plane, seeded run profiles, approval-gated run planning, explicit dispatch, executable `httpx`, `nuclei`, `semgrep` and ZAP API execution paths, curated internal validation orchestration, centralized policy limits, a global execution kill switch, run cancellation, MinIO-backed artifact persistence, redaction before storage for textual evidence, curated provenance for Nuclei templates plus Semgrep rules, additive methodology metadata aligned to PTES, OWASP WSTG, and NIST SP 800-115, plus an adaptive post-inventory build lane for customer-specific capability packs.
 
 ## Service map
 
@@ -29,6 +29,11 @@ Responsibilities:
 - readiness and liveness
 - policy hooks
 - methodology metadata normalization for findings and reports
+- normalized inventory ingestion and summary
+- threat intelligence ingestion and search
+- relevance analysis for adaptive testing
+- capability pack generation, validation, approval, deployment, and rollback
+- explicit run-to-pack runtime binding
 - audit event creation
 
 ### Worker service
@@ -77,6 +82,7 @@ Responsibilities:
 7. Worker executes supported tasks through runner wrappers.
 8. Artifacts are hashed and stored.
 9. Findings link back to evidence and replay metadata.
+10. When adaptive coverage is used, the run binds to a deployed pack version before task materialization.
 
 For the current ZAP slice, overlapping scope seeds such as `example.com` and `https://example.com` collapse into one planned ZAP target, and active ZAP runs are dispatched as one consolidated task per run so the shared daemon session stays deterministic.
 For the current active ZAP slice, `active-web-zap-active` adds a spider plus active scan path that still requires approval before dispatch and records its scan mode in execution metadata and artifacts.
@@ -84,6 +90,7 @@ For the current Nuclei slice, the worker only executes the curated built-in temp
 For the current Semgrep slice, the worker accepts allowlisted `paths`, scans the read-only repository mount under `/workspace/repo`, stores JSON evidence in MinIO and normalizes findings into the same run-level model as the web pipelines.
 For the current internal validation slice, curated sessions expose ordered scenario steps that each require their own approvals, launch standard run profiles and only unlock the next step after the previous launched run completes.
 For the current methodology alignment slice, findings can additionally store PTES phase, NIST phase, WSTG references, optional ASVS references, control family, and methodology tags without changing the existing evidence-first execution flow.
+For the current adaptive testing slice, inventory and threat intelligence can drive customer-specific pack generation in a supervised build lane, but runtime execution still uses only deployed, versioned packs and never self-modifies live.
 
 ## Current API slice
 
@@ -98,9 +105,26 @@ Current implemented endpoints:
 - `GET /api/v1/engagements/{engagement_id}/runs`
 - `POST /api/v1/engagements/{engagement_id}/runs`
 - `GET /api/v1/runs/{run_id}`
+- `GET /api/v1/runs/{run_id}/pack`
+- `POST /api/v1/runs/{run_id}/bind-pack`
 - `POST /api/v1/runs/{run_id}/approvals`
 - `POST /api/v1/runs/{run_id}/cancel`
 - `POST /api/v1/runs/{run_id}/dispatch`
+- `POST /api/v1/inventory/runs`
+- `GET /api/v1/inventory/{id}`
+- `GET /api/v1/inventory/{id}/summary`
+- `POST /api/v1/threat-intel/ingest`
+- `GET /api/v1/threat-intel/search`
+- `GET /api/v1/threat-intel/{id}`
+- `POST /api/v1/relevance/analyze`
+- `GET /api/v1/relevance/{id}`
+- `POST /api/v1/packs/generate`
+- `GET /api/v1/packs/{id}`
+- `GET /api/v1/packs/{id}/artifacts`
+- `POST /api/v1/packs/{id}/validate`
+- `POST /api/v1/packs/{id}/approve`
+- `POST /api/v1/packs/{id}/deploy`
+- `POST /api/v1/packs/{id}/rollback`
 - `GET /api/v1/internal-validations/scenarios`
 - `GET /api/v1/engagements/{engagement_id}/internal-validations`
 - `POST /api/v1/engagements/{engagement_id}/internal-validations`
@@ -139,6 +163,14 @@ All runners must follow these rules:
 - `internal_validation_steps`
 - `internal_validation_approvals`
 - `audit_events`
+- `inventory_snapshots`
+- `threat_intel_records`
+- `relevance_decisions`
+- `capability_packs`
+- `capability_pack_artifacts`
+- `capability_pack_validation_results`
+- `capability_pack_approvals`
+- `capability_pack_deployments`
 - `secrets_refs`
 - `tasks`
 - `tool_executions`
@@ -155,3 +187,5 @@ These are intentionally not implemented in the first slice:
 - multi-step approval workflows beyond `run.launch`
 - free-form or agent-driven internal validation planning beyond curated scenarios
 - external vault integration
+
+The adaptive build lane remains intentionally supervised and closed-loop. It extends planning and pack preparation, not live runtime autonomy.

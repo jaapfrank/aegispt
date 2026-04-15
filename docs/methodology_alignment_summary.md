@@ -34,6 +34,21 @@
 - The existing API shape for requesting runs, listing findings, or exporting reports.
 - The no-worming / no autonomous self-propagation posture.
 
+## Prompt 2 Additive Extension
+
+The adaptive testing patch builds on this methodology alignment without replacing it.
+
+It adds:
+
+- inventory snapshots
+- threat intelligence normalization
+- relevance decisions
+- customer-specific capability packs
+- validation and promotion records
+- runtime pack binding and finding provenance
+
+It does not replace the Prompt 1 methodology constants, metadata fields, or report structure. It reuses them.
+
 ## Why This Is an Alignment Patch
 
 This patch professionalizes the existing implementation without introducing a new subsystem.

@@ -3,8 +3,9 @@ from __future__ import annotations
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, selectinload
 
-from api.app.models import Approval, Finding, Run, RunProfile, Scope, Task
+from api.app.models import Approval, CapabilityPack, Finding, Run, RunProfile, Scope, Task
 from api.app.policy.engine import normalize_profile_limits
+from api.app.services.packs import artifact_refs_for_tool
 from workers.runners.httpx.runner import normalize_http_target
 
 TARGET_KEY_MAP = {
@@ -120,9 +121,29 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     targets = derive_targets(scope)
     tools = planned_tools(profile)
     normalized_limits = normalize_profile_limits(profile.run_class, profile.limits_json)
+    pack: CapabilityPack | None = None
+    if run.bound_pack_id is not None:
+        pack = session.scalar(
+            select(CapabilityPack)
+            .options(selectinload(CapabilityPack.artifacts))
+            .where(CapabilityPack.id == run.bound_pack_id)
+        )
 
     for tool in tools:
         tool_targets = planned_targets_for_tool(tool, targets)
+        pack_metadata = None
+        if pack is not None:
+            pack_metadata = {
+                "pack_id": str(pack.id),
+                "version": pack.version,
+                "deployment_id": str(run.bound_pack_deployment_id) if run.bound_pack_deployment_id else None,
+                "methodology_tags": list(pack.methodology_tags),
+                "source_inventory_snapshot_id": (
+                    str(pack.source_inventory_snapshot_id) if pack.source_inventory_snapshot_id else None
+                ),
+                "relevance_decision_id": str(pack.relevance_decision_id) if pack.relevance_decision_id else None,
+                "artifact_refs": artifact_refs_for_tool(pack, tool),
+            }
         if tool == "zap":
             if not tool_targets:
                 continue
@@ -139,6 +160,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     "profile_name": profile.name,
                     "run_class": profile.run_class,
                     "limits": normalized_limits,
+                    **({"capability_pack": pack_metadata} if pack_metadata is not None else {}),
                 },
             )
             session.add(task)
@@ -156,6 +178,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     "profile_name": profile.name,
                     "run_class": profile.run_class,
                     "limits": normalized_limits,
+                    **({"capability_pack": pack_metadata} if pack_metadata is not None else {}),
                 },
             )
             session.add(task)
@@ -170,6 +193,8 @@ def load_run(session: Session, run_id) -> Run | None:
         select(Run)
         .options(
             selectinload(Run.profile),
+            selectinload(Run.bound_pack).selectinload(CapabilityPack.artifacts),
+            selectinload(Run.bound_pack_deployment),
             selectinload(Run.approvals),
             selectinload(Run.tasks),
             selectinload(Run.findings),

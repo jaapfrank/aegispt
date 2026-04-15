@@ -11,6 +11,7 @@ from api.app.config import Settings, get_settings
 from api.app.db import get_session
 from api.app.models import Approval, Engagement, Run, RunProfile
 from api.app.policy.engine import execution_kill_switch_enabled
+from api.app.schemas.packs import RunPackBindCreate, RunPackBindingRead
 from api.app.schemas.runs import (
     ApprovalCreate,
     ApprovalRead,
@@ -22,6 +23,7 @@ from api.app.schemas.runs import (
     TaskRead,
 )
 from api.app.services.audit import write_audit_event
+from api.app.services.packs import bind_pack_to_run, latest_pack_deployment, load_pack
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.task_dispatch import dispatch_task_batch, supported_execution_tools
 from api.app.services.runs import (
@@ -39,6 +41,25 @@ from api.app.services.runs import (
 from api.app.services.reports import load_run_report, render_html_report, render_markdown_report
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
+
+
+def serialize_run_pack_binding(run: Run) -> RunPackBindingRead | None:
+    if run.bound_pack is None:
+        return None
+
+    deployment = run.bound_pack_deployment
+    return RunPackBindingRead(
+        pack_id=run.bound_pack.id,
+        pack_version=run.bound_pack_version,
+        deployment_id=deployment.id if deployment is not None else None,
+        deployment_status=deployment.status if deployment is not None else None,
+        deployment_target=deployment.deployment_target if deployment is not None else None,
+        run_profile_name=deployment.run_profile_name if deployment is not None else None,
+        methodology_tags=list(run.bound_pack.methodology_tags or []),
+        source_inventory_snapshot_id=run.bound_pack.source_inventory_snapshot_id,
+        relevance_decision_id=run.bound_pack.relevance_decision_id,
+        manifest_json=dict(run.bound_pack.manifest_json or {}),
+    )
 
 
 def serialize_run(run: Run) -> RunRead:
@@ -75,6 +96,7 @@ def serialize_run(run: Run) -> RunRead:
             findings_by_severity=findings_by_severity,
             findings_by_status=findings_by_status,
         ),
+        pack_binding=serialize_run_pack_binding(run),
     )
 
 
@@ -125,11 +147,16 @@ def create_run(
     run = Run(
         engagement_id=engagement.id,
         profile_id=profile.id,
+        profile=profile,
         requested_by=actor,
         status="requested",
     )
     session.add(run)
     session.flush()
+
+    deployment = latest_pack_deployment(session, engagement_id=engagement.id, run_profile_name=profile.name)
+    if deployment is not None and deployment.pack is not None:
+        bind_pack_to_run(session, run=run, pack=deployment.pack)
 
     write_audit_event(
         session=session,
@@ -137,7 +164,12 @@ def create_run(
         action="run.requested",
         object_type="run",
         object_id=str(run.id),
-        metadata={"engagement_id": str(engagement.id), "profile_name": profile.name},
+        metadata={
+            "engagement_id": str(engagement.id),
+            "profile_name": profile.name,
+            "bound_pack_id": str(run.bound_pack_id) if run.bound_pack_id else None,
+            "bound_pack_version": run.bound_pack_version,
+        },
     )
 
     if required_approvals(profile) == 0:
@@ -167,6 +199,59 @@ def get_run(run_id: UUID, session: Session = Depends(get_session)) -> RunRead:
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
     return serialize_run(run)
+
+
+@router.get("/runs/{run_id}/pack", response_model=RunPackBindingRead)
+def get_run_pack_binding(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+) -> RunPackBindingRead:
+    run = load_run(session, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    binding = serialize_run_pack_binding(run)
+    if binding is None:
+        raise HTTPException(status_code=404, detail="no pack bound to run")
+    return binding
+
+
+@router.post("/runs/{run_id}/bind-pack", response_model=RunPackBindingRead)
+def bind_pack_for_run(
+    run_id: UUID,
+    payload: RunPackBindCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(get_current_actor),
+) -> RunPackBindingRead:
+    run = load_run(session, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    if run.status in {"running", "completed", "completed_with_errors", "failed", "cancelled", "cancelling"}:
+        raise HTTPException(status_code=409, detail="run pack binding is locked after execution starts")
+
+    pack = load_pack(session, payload.pack_id)
+    if pack is None:
+        raise HTTPException(status_code=404, detail="capability pack not found")
+    try:
+        bind_pack_to_run(session, run=run, pack=pack)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="run.pack_bound",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={"pack_id": str(pack.id), "pack_version": pack.version},
+    )
+    session.commit()
+    hydrated_run = load_run(session, run.id)
+    if hydrated_run is None:
+        raise HTTPException(status_code=500, detail="run could not be reloaded after pack binding")
+    binding = serialize_run_pack_binding(hydrated_run)
+    if binding is None:
+        raise HTTPException(status_code=500, detail="pack binding missing after update")
+    return binding
 
 
 @router.get("/runs/{run_id}/report")

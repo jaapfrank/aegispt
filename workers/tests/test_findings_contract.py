@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from api.app.methodology import WSTG_STABLE_VERSION, derive_finding_methodology
 from api.app.models import Finding
 from workers.orchestration.findings import (
@@ -95,3 +97,42 @@ def test_methodology_mapping_handles_idor() -> None:
     assert methodology["wstg_id"] == "WSTG-ATHZ-04"
     assert methodology["wstg_version"] == WSTG_STABLE_VERSION
     assert methodology["control_family"] == "authorization"
+
+
+def test_merge_finding_preserves_adaptive_pack_provenance() -> None:
+    pack_id = uuid.uuid4()
+    artifact_id = uuid.uuid4()
+    snapshot_id = uuid.uuid4()
+    decision_id = uuid.uuid4()
+
+    existing = Finding(
+        title="Session Misconfiguration",
+        severity="medium",
+        target_id="https://example.com",
+        evidence_ref="s3://old",
+        status="open",
+        finding_origin="standard",
+    )
+    incoming = NormalizedFinding(
+        title="Session Misconfiguration",
+        severity="medium",
+        target_id="https://example.com",
+        evidence_ref="s3://new",
+        summary="Generated pack confirmed a session weakness.",
+        finding_origin="adaptive_pack",
+        source_pack_id=pack_id,
+        source_pack_artifact_id=artifact_id,
+        source_inventory_snapshot_id=snapshot_id,
+        source_relevance_decision_id=decision_id,
+        source_pack_version="v2",
+    )
+
+    changed = merge_finding(existing, incoming)
+
+    assert changed is True
+    assert existing.finding_origin == "adaptive_pack"
+    assert existing.source_pack_id == pack_id
+    assert existing.source_pack_artifact_id == artifact_id
+    assert existing.source_inventory_snapshot_id == snapshot_id
+    assert existing.source_relevance_decision_id == decision_id
+    assert existing.source_pack_version == "v2"
