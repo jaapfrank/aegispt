@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 
 def create_engagement_with_scope(client) -> str:
@@ -142,6 +143,58 @@ def test_run_configuration_and_inventory_binding_round_trip(client) -> None:
     assert payload["source_inventory_snapshot_id"] == inventory_id
     assert payload["configuration_json"]["assessment_type"] == "Mixed Assessment"
     assert payload["configuration_json"]["test_profile"] == "Adaptive Customer-Specific Mode"
+
+
+def test_run_configuration_materializes_secret_references(client) -> None:
+    engagement_id = create_engagement_with_scope(client)
+
+    run_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-safe",
+            "configuration_json": {
+                "assessment_type": "Authenticated App",
+                "test_profile": "Authenticated Only",
+                "targets": {"urls": ["https://example.com/login"]},
+                "modules": {"auth_flows": True, "web_crawling": True},
+                "access": {
+                    "accounts": [
+                        {
+                            "label": "Admin",
+                            "username": "admin@example.com",
+                            "role": "Administrator",
+                            "secret_ref": "CorrectHorseBatteryStaple!",
+                            "api_key_ref": "vault://prod/customer/api-key",
+                            "bearer_token_ref": "Bearer abc.def.ghi",
+                            "session_ref": "session-cookie=name=value; Path=/; HttpOnly",
+                        }
+                    ]
+                },
+            },
+        },
+    )
+
+    assert run_response.status_code == 201
+    payload = run_response.json()
+    account = payload["configuration_json"]["access"]["accounts"][0]
+    assert "secret_ref" not in account
+    assert "api_key_ref" not in account
+    assert "bearer_token_ref" not in account
+    assert "session_ref" not in account
+    assert set(account["secret_bindings"]) == {"password", "api_key", "bearer_token", "session"}
+    assert payload["configuration_json"]["access"]["secret_storage"]["binding_count"] == 4
+
+    from api.app.models import SecretRef
+
+    with client.app.state.session_factory() as session:
+        rows = session.scalars(select(SecretRef)).all()
+
+    assert len(rows) == 4
+    assert {str(row.engagement_id) for row in rows} == {engagement_id}
+    assert {row.storage_backend for row in rows} == {"encrypted_local", "external_pointer"}
+    assert any(row.secret_kind == "password" and row.encrypted_value for row in rows)
+    assert any(row.secret_kind == "api_key" and row.vault_pointer == "vault://prod/customer/api-key" for row in rows)
 
 
 def test_active_run_requires_approval_before_queueing(client) -> None:

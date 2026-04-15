@@ -47,7 +47,24 @@ bash scripts/export_run_report.sh "${RUN_ID}" html
 
 Dan wordt `report.html` naast de JSON-bestanden geplaatst.
 
-## 4. Aangepaste outputmap gebruiken
+## 4. PDF export maken
+
+Voor PDF-export moet Playwright Chromium beschikbaar zijn op de host:
+
+```bash
+python -m playwright install chromium
+```
+
+Daarna:
+
+```bash
+cd /opt/aegispt/repo
+bash scripts/export_run_report.sh "${RUN_ID}" pdf
+```
+
+Dan wordt `report.pdf` naast de JSON-bestanden geplaatst.
+
+## 5. Aangepaste outputmap gebruiken
 
 ```bash
 cd /opt/aegispt/repo
@@ -59,3 +76,4 @@ bash scripts/export_run_report.sh "${RUN_ID}" markdown "/srv/aegispt/reports/cus
 - het script gebruikt standaard `http://127.0.0.1:${API_PORT:-8000}`
 - je kunt dit overschrijven met `API_BASE_URL`
 - de export leest alleen uit de API; het verandert geen runstatus of findings
+- de PDF-export gebruikt dezelfde report-semantiek als markdown en HTML, maar rendert via Playwright Chromium

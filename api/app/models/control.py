@@ -396,6 +396,11 @@ class SecretRef(UUIDMixin, TimestampMixin, Base):
     engagement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("engagements.id"), nullable=False)
     vault_pointer: Mapped[str] = mapped_column(String(255), nullable=False)
     purpose: Mapped[str] = mapped_column(String(255), nullable=False)
+    secret_kind: Mapped[str] = mapped_column(String(50), nullable=False, default="reference")
+    storage_backend: Mapped[str] = mapped_column(String(50), nullable=False, default="external_pointer")
+    display_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    encrypted_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
 
 class Task(UUIDMixin, TimestampMixin, Base):

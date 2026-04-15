@@ -25,6 +25,7 @@ from api.app.schemas.runs import (
 )
 from api.app.services.audit import write_audit_event
 from api.app.services.packs import bind_pack_to_run, latest_pack_deployment, load_pack
+from api.app.services.report_pdf import render_pdf_report
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.task_dispatch import dispatch_task_batch, supported_execution_tools
 from api.app.services.runs import (
@@ -39,6 +40,7 @@ from api.app.services.runs import (
     sorted_findings,
     sorted_tasks,
 )
+from api.app.services.secrets import materialize_run_configuration_secrets, sanitize_run_configuration
 from api.app.services.reports import (
     build_report_catalog,
     load_run_report,
@@ -103,7 +105,7 @@ def serialize_run(run: Run) -> RunRead:
             findings_by_severity=findings_by_severity,
             findings_by_status=findings_by_status,
         ),
-        configuration_json=dict(run.configuration_json or {}),
+        configuration_json=sanitize_run_configuration(dict(run.configuration_json or {})),
         pack_binding=serialize_run_pack_binding(run),
     )
 
@@ -137,6 +139,7 @@ def create_run(
     payload: RunCreate,
     session: Session = Depends(get_session),
     actor: str = Depends(get_current_actor),
+    settings: Settings = Depends(get_settings),
 ) -> RunRead:
     ensure_default_run_profiles(session)
 
@@ -163,6 +166,13 @@ def create_run(
         if inventory_snapshot is None:
             raise HTTPException(status_code=404, detail="inventory snapshot not found for engagement")
 
+    sanitized_configuration, created_secret_refs = materialize_run_configuration_secrets(
+        session,
+        engagement_id=engagement.id,
+        configuration=payload.configuration_json,
+        settings=settings,
+    )
+
     run = Run(
         engagement_id=engagement.id,
         profile_id=profile.id,
@@ -170,7 +180,7 @@ def create_run(
         source_inventory_snapshot_id=source_inventory_snapshot_id,
         requested_by=actor,
         status="requested",
-        configuration_json=dict(payload.configuration_json or {}),
+        configuration_json=sanitized_configuration,
     )
     session.add(run)
     session.flush()
@@ -190,6 +200,7 @@ def create_run(
             "profile_name": profile.name,
             "bound_pack_id": str(run.bound_pack_id) if run.bound_pack_id else None,
             "bound_pack_version": run.bound_pack_version,
+            "secret_binding_count": len(created_secret_refs),
         },
     )
 
@@ -278,9 +289,10 @@ def bind_pack_for_run(
 @router.get("/runs/{run_id}/report")
 def export_run_report(
     run_id: UUID,
-    format: str = Query(default="markdown", pattern="^(markdown|html)$"),
+    format: str = Query(default="markdown", pattern="^(markdown|html|pdf)$"),
     variant: str = Query(default="technical", pattern="^(executive|technical|evidence|retest)$"),
     session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
 ) -> Response:
     run = load_run_report(session, run_id)
     if run is None:
@@ -290,6 +302,13 @@ def export_run_report(
         content = render_html_report(run, variant=variant)
         media_type = "text/html; charset=utf-8"
         extension = "html"
+    elif format == "pdf":
+        try:
+            content = render_pdf_report(run, variant=variant, settings=settings)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        media_type = "application/pdf"
+        extension = "pdf"
     else:
         content = render_markdown_report(run, variant=variant)
         media_type = "text/markdown; charset=utf-8"

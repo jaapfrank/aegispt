@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from io import BytesIO
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from pypdf import PdfReader
 
 
 @pytest.fixture
@@ -139,6 +141,7 @@ def test_run_report_exports_markdown_and_html(
 
     markdown_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown")
     html_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=html")
+    pdf_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=pdf")
 
     assert fake_zap_server.startswith("http://127.0.0.1:")
     assert markdown_response.status_code == 200
@@ -164,6 +167,14 @@ def test_run_report_exports_markdown_and_html(
     assert "Missing X-Frame-Options Header" in html_response.text
     assert "/api/v1/artifacts/" in html_response.text
 
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"].startswith("application/pdf")
+    assert pdf_response.content.startswith(b"%PDF")
+    pdf_reader = PdfReader(BytesIO(pdf_response.content))
+    extracted_text = "\n".join(page.extract_text() or "" for page in pdf_reader.pages)
+    assert "AegisPT Run Report" in extracted_text
+    assert "Missing X-Frame-Options Header" in extracted_text
+
     reports_response = inline_client.get(f"/api/v1/runs/{run_id}/reports")
     executive_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=executive")
     evidence_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=html&variant=evidence")
@@ -171,6 +182,8 @@ def test_run_report_exports_markdown_and_html(
     assert reports_response.status_code == 200
     catalog = reports_response.json()
     assert {item["variant"] for item in catalog} == {"executive", "technical", "evidence", "retest"}
+    assert all("pdf" in item["available_formats"] for item in catalog)
+    assert all("pdf" in item["export_paths"] for item in catalog)
     assert executive_response.status_code == 200
     assert "# AegisPT Executive Report:" in executive_response.text
     assert "## Risk Highlights" in executive_response.text

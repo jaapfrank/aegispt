@@ -6,6 +6,7 @@ target-version = ["py312"]
 addopts = "-q"
 testpaths = [
   "api/tests",
+  "ui/tests",
   "workers/tests",
 ]
 

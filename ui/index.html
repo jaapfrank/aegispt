@@ -30,6 +30,11 @@
         </div>
       </header>
 
+      <section class="context-strip">
+        <div id="flow-overview" class="flow-overview"></div>
+        <div id="next-actions" class="action-row"></div>
+      </section>
+
       <div class="workspace">
         <aside class="rail">
           <div class="rail-card">
@@ -39,9 +44,9 @@
             </div>
             <label class="field compact">
               <span>Engagement</span>
-              <select id="engagement-select"></select>
+              <select id="engagement-select" data-testid="engagement-select"></select>
             </label>
-            <button id="refresh-btn" class="action ghost" type="button">Refresh State</button>
+            <button id="refresh-btn" class="action ghost" type="button" data-testid="refresh-state">Refresh State</button>
             <div id="selected-engagement-summary" class="badge-stack split-top"></div>
           </div>
 
@@ -50,15 +55,15 @@
               <p class="eyebrow">Views</p>
               <h2>Operator Flow</h2>
             </div>
-            <button class="screen-link active" data-screen="wizard" type="button">Mandatory Wizard</button>
-            <button class="screen-link" data-screen="mission-control" type="button">Mission Control</button>
-            <button class="screen-link" data-screen="surface-map" type="button">Surface / Attack Map</button>
-            <button class="screen-link" data-screen="findings-theater" type="button">Findings Theater</button>
-            <button class="screen-link" data-screen="evidence-replay" type="button">Evidence Replay</button>
-            <button class="screen-link" data-screen="pack-forge" type="button">Pack Forge</button>
-            <button class="screen-link" data-screen="report-center" type="button">Report Center</button>
-            <button class="screen-link" data-screen="explorer" type="button">Explorer</button>
-            <button class="screen-link" data-screen="history" type="button">History & Comparison</button>
+            <button class="screen-link active" data-screen="wizard" data-testid="nav-wizard" type="button">Mandatory Wizard</button>
+            <button class="screen-link" data-screen="mission-control" data-testid="nav-mission-control" type="button">Mission Control</button>
+            <button class="screen-link" data-screen="surface-map" data-testid="nav-surface-map" type="button">Surface / Attack Map</button>
+            <button class="screen-link" data-screen="findings-theater" data-testid="nav-findings" type="button">Findings Theater</button>
+            <button class="screen-link" data-screen="evidence-replay" data-testid="nav-evidence" type="button">Evidence Replay</button>
+            <button class="screen-link" data-screen="pack-forge" data-testid="nav-packs" type="button">Pack Forge</button>
+            <button class="screen-link" data-screen="report-center" data-testid="nav-reports" type="button">Report Center</button>
+            <button class="screen-link" data-screen="explorer" data-testid="nav-explorer" type="button">Explorer</button>
+            <button class="screen-link" data-screen="history" data-testid="nav-history" type="button">History & Comparison</button>
           </nav>
 
           <div class="rail-card">
@@ -71,7 +76,7 @@
         </aside>
 
         <main class="stage">
-          <section id="screen-wizard" class="screen active">
+          <section id="screen-wizard" class="screen active" data-testid="screen-wizard">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Mandatory Start</p>
@@ -89,9 +94,9 @@
                 <div id="wizard-panel" class="wizard-panel"></div>
                 <div id="wizard-errors" class="inline-errors"></div>
                 <div class="wizard-actions">
-                  <button id="wizard-back-btn" class="action ghost" type="button">Back</button>
-                  <button id="wizard-next-btn" class="action primary" type="button">Next</button>
-                  <button id="wizard-confirm-btn" class="action primary hidden" type="button">Confirm Mission</button>
+                  <button id="wizard-back-btn" class="action ghost" type="button" data-testid="wizard-back">Back</button>
+                  <button id="wizard-next-btn" class="action primary" type="button" data-testid="wizard-next">Next</button>
+                  <button id="wizard-confirm-btn" class="action primary hidden" type="button" data-testid="wizard-confirm">Confirm Mission</button>
                 </div>
               </article>
 
@@ -107,7 +112,7 @@
             </div>
           </section>
 
-          <section id="screen-mission-control" class="screen">
+          <section id="screen-mission-control" class="screen" data-testid="screen-mission-control">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Live Operations</p>
@@ -123,21 +128,21 @@
               <article class="panel span-2">
                 <div class="panel-head">
                   <div>
-                    <p class="eyebrow">Timeline</p>
-                    <h3>Mission Phases</h3>
+                    <p class="eyebrow">Now</p>
+                    <h3>Current Activity</h3>
                   </div>
                 </div>
-                <div id="mission-timeline" class="timeline-grid"></div>
+                <div id="mission-activity" class="detail-surface emphasis-surface" data-testid="mission-activity"></div>
               </article>
 
               <article class="panel span-2">
                 <div class="panel-head">
                   <div>
-                    <p class="eyebrow">Now</p>
-                    <h3>Current Activity</h3>
+                    <p class="eyebrow">Timeline</p>
+                    <h3>Mission Phases</h3>
                   </div>
                 </div>
-                <div id="mission-activity" class="detail-surface"></div>
+                <div id="mission-timeline" class="timeline-grid" data-testid="mission-timeline"></div>
               </article>
 
               <article class="panel">
@@ -222,7 +227,7 @@
             </div>
           </section>
 
-          <section id="screen-surface-map" class="screen">
+          <section id="screen-surface-map" class="screen" data-testid="screen-surface-map">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Coverage</p>
@@ -269,7 +274,7 @@
             </div>
           </section>
 
-          <section id="screen-findings-theater" class="screen">
+          <section id="screen-findings-theater" class="screen" data-testid="screen-findings-theater">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Findings</p>
@@ -291,7 +296,7 @@
                     <h3>Finding Groups</h3>
                   </div>
                 </div>
-                <div id="findings-group-list" class="stack-zone"></div>
+                <div id="findings-group-list" class="stack-zone" data-testid="findings-group-list"></div>
               </article>
               <article class="panel span-2">
                 <div class="panel-head">
@@ -300,12 +305,12 @@
                     <h3>Finding Detail</h3>
                   </div>
                 </div>
-                <div id="finding-theater-detail" class="detail-surface tall"></div>
+                <div id="finding-theater-detail" class="detail-surface tall" data-testid="finding-theater-detail"></div>
               </article>
             </div>
           </section>
 
-          <section id="screen-evidence-replay" class="screen">
+          <section id="screen-evidence-replay" class="screen" data-testid="screen-evidence-replay">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Evidence</p>
@@ -325,7 +330,7 @@
                     <h3>Replay Context</h3>
                   </div>
                 </div>
-                <div id="evidence-overview" class="detail-surface"></div>
+                <div id="evidence-overview" class="detail-surface" data-testid="evidence-overview"></div>
               </article>
               <article class="panel span-2">
                 <div class="panel-head">
@@ -357,7 +362,7 @@
             </div>
           </section>
 
-          <section id="screen-pack-forge" class="screen">
+          <section id="screen-pack-forge" class="screen" data-testid="screen-pack-forge">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Adaptive Testing</p>
@@ -387,11 +392,11 @@
                     <h3>Pack Summary</h3>
                   </div>
                 </div>
-                <div id="pack-summary" class="detail-surface"></div>
+                <div id="pack-summary" class="detail-surface" data-testid="pack-summary"></div>
                 <div class="action-row split-top">
-                  <button id="validate-pack-btn" class="action ghost" type="button">Validate Pack</button>
-                  <button id="approve-pack-btn" class="action ghost" type="button">Approve Pack</button>
-                  <button id="deploy-pack-btn" class="action secondary" type="button">Deploy Pack</button>
+                  <button id="validate-pack-btn" class="action ghost" type="button" data-testid="validate-pack">Validate Pack</button>
+                  <button id="approve-pack-btn" class="action ghost" type="button" data-testid="approve-pack">Approve Pack</button>
+                  <button id="deploy-pack-btn" class="action secondary" type="button" data-testid="deploy-pack">Deploy Pack</button>
                 </div>
               </article>
 
@@ -413,7 +418,7 @@
                   </div>
                 </div>
                 <form id="codex-task-form" class="stack-form"></form>
-                <button id="prepare-codex-task-btn" class="action ghost split-top" type="button">Prepare Selected Task</button>
+                <button id="prepare-codex-task-btn" class="action ghost split-top" type="button" data-testid="prepare-codex-task">Prepare Selected Task</button>
               </article>
 
               <article class="panel">
@@ -429,7 +434,7 @@
             </div>
           </section>
 
-          <section id="screen-report-center" class="screen">
+          <section id="screen-report-center" class="screen" data-testid="screen-report-center">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Reports</p>
@@ -449,7 +454,7 @@
                     <h3>Report Variants</h3>
                   </div>
                 </div>
-                <div id="report-catalog" class="stack-zone"></div>
+                <div id="report-catalog" class="stack-zone" data-testid="report-catalog"></div>
               </article>
 
               <article class="panel">
@@ -459,8 +464,8 @@
                     <h3>Report Details</h3>
                   </div>
                 </div>
-                <div id="report-metadata" class="detail-surface"></div>
-                <div id="report-actions" class="action-row split-top"></div>
+                <div id="report-metadata" class="detail-surface" data-testid="report-metadata"></div>
+                <div id="report-actions" class="action-row split-top" data-testid="report-actions"></div>
               </article>
 
               <article class="panel span-2">
@@ -470,8 +475,8 @@
                     <h3>Reader</h3>
                   </div>
                 </div>
-                <pre id="report-preview" class="report-preview"></pre>
-                <iframe id="report-frame" class="report-frame" title="Report Preview"></iframe>
+                <pre id="report-preview" class="report-preview" data-testid="report-preview"></pre>
+                <iframe id="report-frame" class="report-frame" title="Report Preview" data-testid="report-frame"></iframe>
               </article>
 
               <article class="panel span-2">
@@ -486,7 +491,7 @@
             </div>
           </section>
 
-          <section id="screen-explorer" class="screen">
+          <section id="screen-explorer" class="screen" data-testid="screen-explorer">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Dossiers</p>
@@ -506,7 +511,7 @@
                     <h3>Customer Index</h3>
                   </div>
                 </div>
-                <div id="customer-index" class="stack-zone"></div>
+                <div id="customer-index" class="stack-zone" data-testid="customer-index"></div>
               </article>
               <article class="panel">
                 <div class="panel-head">
@@ -524,12 +529,12 @@
                     <h3>Selected Run Dossier</h3>
                   </div>
                 </div>
-                <div id="run-dossier" class="detail-surface tall"></div>
+                <div id="run-dossier" class="detail-surface tall" data-testid="run-dossier"></div>
               </article>
             </div>
           </section>
 
-          <section id="screen-history" class="screen">
+          <section id="screen-history" class="screen" data-testid="screen-history">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">History</p>
@@ -541,7 +546,7 @@
               </p>
             </div>
 
-            <div id="history-toolbar" class="toolbar"></div>
+            <div id="history-toolbar" class="toolbar" data-testid="history-toolbar"></div>
 
             <div class="grid history-grid">
               <article class="panel">
@@ -551,7 +556,7 @@
                     <h3>Run Comparison</h3>
                   </div>
                 </div>
-                <div id="comparison-summary" class="detail-surface"></div>
+                <div id="comparison-summary" class="detail-surface" data-testid="comparison-summary"></div>
               </article>
               <article class="panel">
                 <div class="panel-head">

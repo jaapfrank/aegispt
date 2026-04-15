@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _default_local_secret_key() -> str:
+    digest = hashlib.sha256(b"aegispt-development-local-secret-key").digest()
+    return base64.urlsafe_b64encode(digest).decode("utf-8")
 
 
 class Settings(BaseSettings):
@@ -20,6 +27,8 @@ class Settings(BaseSettings):
     artifacts_s3_access_key: str = "minioadmin"
     artifacts_s3_secret_key: str = "change-me"
     zap_api_key: str = "change-me-zap-key"
+    app_public_base_url: str = "http://127.0.0.1:8000"
+    local_secret_encryption_key: str = _default_local_secret_key()
     auto_create_tables: bool = True
     runner_timeout_seconds: float = 10.0
     execution_kill_switch: bool = False

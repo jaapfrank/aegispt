@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -lt 1 || $# -gt 3 ]]; then
-  echo "Usage: $0 RUN_ID [markdown|html] [OUTPUT_DIR]" >&2
+  echo "Usage: $0 RUN_ID [markdown|html|pdf] [OUTPUT_DIR]" >&2
   exit 1
 fi
 
@@ -14,8 +14,9 @@ API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:${API_PORT:-8000}}"
 case "${FORMAT}" in
   markdown) REPORT_EXTENSION="md" ;;
   html) REPORT_EXTENSION="html" ;;
+  pdf) REPORT_EXTENSION="pdf" ;;
   *)
-    echo "Unsupported format: ${FORMAT}. Use markdown or html." >&2
+    echo "Unsupported format: ${FORMAT}. Use markdown, html, or pdf." >&2
     exit 1
     ;;
 esac

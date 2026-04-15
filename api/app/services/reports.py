@@ -26,6 +26,7 @@ from api.app.methodology import (
 )
 from api.app.models import Approval, Engagement, EvidenceArtifact, Finding, Run, Scope, Task, ToolExecution
 from api.app.schemas.report_center import RunReportCatalogItemRead
+from api.app.services.secrets import sanitize_run_configuration
 
 SEVERITY_ORDER = {
     "critical": 0,
@@ -241,7 +242,7 @@ def _humanize_key(value: str) -> str:
 
 
 def run_configuration_context(run: Run) -> dict[str, object]:
-    configuration = dict(run.configuration_json or {})
+    configuration = sanitize_run_configuration(dict(run.configuration_json or {}))
     raw_modules = configuration.get("modules", {})
     enabled_modules = []
     if isinstance(raw_modules, dict):
@@ -516,7 +517,7 @@ def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
                 description=REPORT_VARIANT_DESCRIPTIONS[variant],
                 source_run_id=run.id,
                 generated_at=run.created_at,
-                available_formats=["markdown", "html"],
+                available_formats=["markdown", "html", "pdf"],
                 methodology_references=report_methodology_references(run),
                 source_scope_profile={
                     "run_profile": context["profile_name"],
@@ -539,6 +540,7 @@ def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
                 export_paths={
                     "markdown": f"/api/v1/runs/{run.id}/report?format=markdown&variant={variant}",
                     "html": f"/api/v1/runs/{run.id}/report?format=html&variant={variant}",
+                    "pdf": f"/api/v1/runs/{run.id}/report?format=pdf&variant={variant}",
                 },
             )
         )

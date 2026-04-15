@@ -2,37 +2,52 @@
 
 ## Purpose
 
-Mission Control is the primary live operations screen after the wizard. It is designed to answer:
+Mission Control is the operational home screen after the Assessment Wizard. It should let an operator understand the current mission state in a few seconds and move directly into the right drilldown without hunting through the UI.
 
-- what is happening now
-- what is blocked
-- how far the run has progressed
-- what evidence and findings are available
-- what should happen next
+## Final hierarchy
 
-## Main areas
+1. Current Activity
+2. Mission Timeline
+3. Going Well / Issues / Unknown
+4. ETA Intelligence
+5. Findings Pulse
+6. AI Signal
+7. Pack Forge Status
+8. Active Scope and Profile
 
-- mission timeline
-- current activity panel
-- going well / issues / unknown board
-- ETA intelligence
-- findings pulse
-- AI narrative
-- pack forge status
-- active scope and profile summary
+## Behavior
+
+- Current Activity is the first panel and always states:
+  - what the platform is doing now
+  - whether the mission is healthy, blocked, or standing by
+  - what the operator should do next
+- loading and empty states should stay explicit rather than leaving panels blank
+- ETA is always visible and uses a blended model:
+  - original wizard estimate
+  - current phase completion
+  - run age
+- Findings Pulse links naturally into Findings Theater and Evidence Replay.
+- Pack Forge Status links naturally into adaptive pack review and promotion workflows.
+- The global context strip above the workspace keeps the product flow coherent:
+  - Wizard
+  - Mission Control
+  - Drilldowns
+  - Reports
+  - History
 
 ## Data sources
 
-Mission Control reuses:
-
-- engagement and scope endpoints
+- engagement and scope
+- selected mission record
 - inventory snapshots
 - relevance decisions
-- capability packs
-- runs and approvals
-- findings
+- capability packs and deployments
+- findings and evidence linkage
 - report catalog metadata
 
-## UX rule
+## UX rules
 
-Mission Control is not a generic admin grid. It should stay readable at a glance, with drilldowns reserved for detail.
+- prioritize readability over density
+- no dead-end panels
+- every high-signal panel should suggest the next logical screen
+- keep this screen operational, not administrative

@@ -14,3 +14,10 @@
 - Added additive run configuration persistence on the existing run model so wizard output becomes the run-backed source of truth used by mission control and reports.
 - Added report catalog metadata, report variants, and finding theater / evidence replay API views without replacing the existing evidence-first reporting and findings architecture.
 - Added concise UI docs covering the wizard, mission flow, visual system, ETA model, report center, explorer hierarchy, and history/comparison model.
+- Polished the operator UI into a more coherent product flow with a persistent lifecycle strip, clearer next actions, improved Mission Control hierarchy, consistent severity/status presentation, cleaner report previews, and more intuitive history/explorer drilldowns.
+- Hardened the report pipeline with direct `format=pdf` support, a Playwright-backed PDF renderer, and updated export tooling/runbooks for markdown, HTML, and PDF outputs.
+- Added a safer credential-handling baseline by materializing wizard-entered secrets into protected `SecretRef` bindings, sanitizing run configuration responses, and documenting the baseline storage model.
+- Split the operator-console frontend into focused native modules so `ui/assets/app.js` now acts as a thinner orchestration layer instead of a monolithic controller.
+- Added browser-level Playwright validation for `/app/`, the mandatory wizard flow, Mission Control, drilldowns, empty states, and report preview/export wiring, with traces and screenshots on failure.
+- Added `TESTING_POLICY.md` plus hardening docs for browser validation, PDF rendering, secret handling, and frontend modularization.
+- Verified the hardening pass with `python -m compileall api/app api/tests ui/tests` and `python -m pytest -q -s api/tests ui/tests`.

@@ -24,12 +24,19 @@ AegisPT currently consists of:
 - a FastAPI-served operator console at `/app` with a mandatory assessment wizard, mission control, surface mapping, findings theater, evidence replay, pack forge, report center, explorer, and history/comparison views over existing backend contracts
 - run-backed UI configuration storage through additive `configuration_json` on the existing run model
 - report catalog metadata and report variants for executive, technical, evidence, and retest workflows
+- dedicated PDF export for report variants through the existing report service plus a Playwright-backed renderer
+- browser-level validation for the operator console through Playwright Chromium
+- protected secret binding materialization for wizard-entered credentials and tokens on run creation
+- modularized operator-console frontend modules for wizard, mission control, findings/evidence, packs, reports, and explorer/history
 - finding theater and evidence replay API views derived from existing findings, tasks, artifacts, inventory, relevance, and pack provenance
+- UI polish layer with a persistent lifecycle strip, consistent severity/state treatment, cleaner drilldown actions, improved ETA phrasing, and reduced dead ends between wizard, mission control, evidence, reports, and history
 
 ## Partial
 
 - Codex workspace export exists, but reviewed artifact re-import into existing pack artifacts is not yet implemented
 - the operator console is now the primary product UI, but future work can still deepen live streaming, richer map overlays, and heavier dossier workflows
+- browser validation is Chromium-first; Firefox and WebKit expansion is still future work
+- secret handling is now safer and protected, but still a baseline rather than a full external vault integration
 - future attack paths, identity awareness, risk scoring, continuous mode, customer memory, and integrations are prepared only as docs/placeholders
 
 ## Adaptive testing status
@@ -59,6 +66,7 @@ The capability factory is operational and should remain authoritative for pack g
 ## Known risks
 
 - reviewed workspace artifacts still need a controlled import path back into the pack artifact store
-- report-side PDF handling is still HTML-to-PDF oriented rather than a dedicated PDF generator
+- local secret handling is intentionally baseline-grade and should be backed by an explicit deployment key or future vault integration in production
+- browser validation currently targets Chromium only
 - task governance is file-backed and intentionally simple; future work may need stronger merge conflict handling
 - future placeholder modules must not accidentally become de facto runtime systems before explicit activation
