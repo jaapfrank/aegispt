@@ -22,5 +22,4 @@
 1. Add richer dry-run validators for Playwright and ZAP artifacts once those execution paths become first-class runtime consumers.
 2. Add report-side analyst editing for adaptive coverage narratives and business impact framing.
 3. Expand API-first and product/version matching logic as more customer telemetry becomes available.
-4. Add end-to-end API tests once the local dev environment includes FastAPI and pytest by default.
-
+4. Add end-to-end API tests for the adaptive pack lifecycle now that the local dev environment and host verification path are in place.

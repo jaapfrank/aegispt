@@ -20,6 +20,8 @@ class RunProfileRead(BaseModel):
 
 class RunCreate(BaseModel):
     profile_name: str = Field(default="passive-web-baseline")
+    source_inventory_snapshot_id: UUID | None = None
+    configuration_json: dict[str, Any] = Field(default_factory=dict)
 
 
 class ApprovalCreate(BaseModel):
@@ -64,6 +66,7 @@ class RunRead(BaseModel):
     engagement_id: UUID
     requested_by: str
     status: str
+    source_inventory_snapshot_id: UUID | None = None
     started_at: datetime | None
     created_at: datetime
     profile: RunProfileRead
@@ -73,4 +76,5 @@ class RunRead(BaseModel):
     approvals: list[ApprovalRead]
     tasks: list[TaskRead]
     findings: FindingSummaryRead
+    configuration_json: dict[str, Any] = Field(default_factory=dict)
     pack_binding: RunPackBindingRead | None = None

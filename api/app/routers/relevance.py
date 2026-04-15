@@ -16,6 +16,19 @@ from api.app.services.relevance import analyze_relevance
 router = APIRouter(prefix="/api/v1", tags=["relevance"])
 
 
+@router.get("/engagements/{engagement_id}/relevance", response_model=list[RelevanceDecisionRead])
+def list_relevance_decisions(
+    engagement_id: UUID,
+    session: Session = Depends(get_session),
+) -> list[RelevanceDecisionRead]:
+    decisions = session.scalars(
+        select(RelevanceDecision)
+        .where(RelevanceDecision.engagement_id == engagement_id)
+        .order_by(RelevanceDecision.created_at.desc(), RelevanceDecision.id.desc())
+    ).all()
+    return [RelevanceDecisionRead.model_validate(decision) for decision in decisions]
+
+
 @router.post("/relevance/analyze", response_model=RelevanceDecisionRead, status_code=status.HTTP_201_CREATED)
 def analyze_inventory_relevance(
     payload: RelevanceAnalyzeCreate,
@@ -76,4 +89,3 @@ def get_relevance_decision(
     if decision is None:
         raise HTTPException(status_code=404, detail="relevance decision not found")
     return RelevanceDecisionRead.model_validate(decision)
-

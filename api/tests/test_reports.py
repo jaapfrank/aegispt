@@ -113,7 +113,17 @@ def test_run_report_exports_markdown_and_html(
     run_response = inline_client.post(
         f"/api/v1/engagements/{engagement_id}/runs",
         headers={"X-Actor": "tester"},
-        json={"profile_name": "active-web-safe"},
+        json={
+            "profile_name": "active-web-safe",
+            "configuration_json": {
+                "assessment_type": "Website / Web App",
+                "test_profile": "Deep",
+                "targets": {"urls": ["https://example.com"]},
+                "modules": {"web_crawling": True, "zap_active_checks": True},
+                "safety": {"rate_limit_rps": 1, "concurrency": 1, "time_budget_minutes": 60},
+                "eta": {"estimated_total_minutes": 60, "estimated_impact": "medium", "confidence": "medium"},
+            },
+        },
     )
     run_id = run_response.json()["id"]
 
@@ -136,6 +146,7 @@ def test_run_report_exports_markdown_and_html(
     assert "# AegisPT Run Report:" in markdown_response.text
     assert "## Methodology" in markdown_response.text
     assert "## Scope" in markdown_response.text
+    assert "## Run Configuration" in markdown_response.text
     assert "## Confirmed Findings" in markdown_response.text
     assert "WSTG-CLNT-09" in markdown_response.text
     assert "PTES Phase: Exploitation" in markdown_response.text
@@ -147,7 +158,34 @@ def test_run_report_exports_markdown_and_html(
     assert "<h1>AegisPT Run Report</h1>" in html_response.text
     assert "Methodology Summary" in html_response.text
     assert "Coverage Summary" in html_response.text
+    assert "Run Configuration" in html_response.text
     assert "Confirmed Findings" in html_response.text
     assert "WSTG-CLNT-09" in html_response.text
     assert "Missing X-Frame-Options Header" in html_response.text
     assert "/api/v1/artifacts/" in html_response.text
+
+    reports_response = inline_client.get(f"/api/v1/runs/{run_id}/reports")
+    executive_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=executive")
+    evidence_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=html&variant=evidence")
+
+    assert reports_response.status_code == 200
+    catalog = reports_response.json()
+    assert {item["variant"] for item in catalog} == {"executive", "technical", "evidence", "retest"}
+    assert executive_response.status_code == 200
+    assert "# AegisPT Executive Report:" in executive_response.text
+    assert "## Risk Highlights" in executive_response.text
+    assert evidence_response.status_code == 200
+    assert "<h1>AegisPT Evidence Appendix</h1>" in evidence_response.text
+    assert "Task Evidence" in evidence_response.text
+
+    findings_payload = inline_client.get(f"/api/v1/runs/{run_id}/findings").json()
+    finding_id = findings_payload[0]["id"]
+    theater_response = inline_client.get(f"/api/v1/findings/{finding_id}/theater")
+    replay_response = inline_client.get(f"/api/v1/findings/{finding_id}/evidence")
+
+    assert theater_response.status_code == 200
+    assert theater_response.json()["finding"]["id"] == finding_id
+    assert "remediation" in theater_response.json()
+    assert replay_response.status_code == 200
+    assert replay_response.json()["finding"]["id"] == finding_id
+    assert replay_response.json()["related_executions"]

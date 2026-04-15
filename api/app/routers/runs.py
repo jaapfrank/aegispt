@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from api.app.auth import get_current_actor
 from api.app.config import Settings, get_settings
 from api.app.db import get_session
-from api.app.models import Approval, Engagement, Run, RunProfile
+from api.app.models import Approval, Engagement, InventorySnapshot, Run, RunProfile
 from api.app.policy.engine import execution_kill_switch_enabled
 from api.app.schemas.packs import RunPackBindCreate, RunPackBindingRead
+from api.app.schemas.report_center import RunReportCatalogItemRead
 from api.app.schemas.runs import (
     ApprovalCreate,
     ApprovalRead,
@@ -38,7 +39,12 @@ from api.app.services.runs import (
     sorted_findings,
     sorted_tasks,
 )
-from api.app.services.reports import load_run_report, render_html_report, render_markdown_report
+from api.app.services.reports import (
+    build_report_catalog,
+    load_run_report,
+    render_html_report,
+    render_markdown_report,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
 
@@ -83,6 +89,7 @@ def serialize_run(run: Run) -> RunRead:
         engagement_id=run.engagement_id,
         requested_by=run.requested_by,
         status=run.status,
+        source_inventory_snapshot_id=run.source_inventory_snapshot_id,
         started_at=run.started_at,
         created_at=run.created_at,
         profile=RunProfileRead.model_validate(profile),
@@ -96,6 +103,7 @@ def serialize_run(run: Run) -> RunRead:
             findings_by_severity=findings_by_severity,
             findings_by_status=findings_by_status,
         ),
+        configuration_json=dict(run.configuration_json or {}),
         pack_binding=serialize_run_pack_binding(run),
     )
 
@@ -144,12 +152,25 @@ def create_run(
     if profile is None:
         raise HTTPException(status_code=404, detail="run profile not found")
 
+    source_inventory_snapshot_id = payload.source_inventory_snapshot_id
+    if source_inventory_snapshot_id is not None:
+        inventory_snapshot = session.scalar(
+            select(InventorySnapshot).where(
+                InventorySnapshot.id == source_inventory_snapshot_id,
+                InventorySnapshot.engagement_id == engagement.id,
+            )
+        )
+        if inventory_snapshot is None:
+            raise HTTPException(status_code=404, detail="inventory snapshot not found for engagement")
+
     run = Run(
         engagement_id=engagement.id,
         profile_id=profile.id,
         profile=profile,
+        source_inventory_snapshot_id=source_inventory_snapshot_id,
         requested_by=actor,
         status="requested",
+        configuration_json=dict(payload.configuration_json or {}),
     )
     session.add(run)
     session.flush()
@@ -258,6 +279,7 @@ def bind_pack_for_run(
 def export_run_report(
     run_id: UUID,
     format: str = Query(default="markdown", pattern="^(markdown|html)$"),
+    variant: str = Query(default="technical", pattern="^(executive|technical|evidence|retest)$"),
     session: Session = Depends(get_session),
 ) -> Response:
     run = load_run_report(session, run_id)
@@ -265,16 +287,27 @@ def export_run_report(
         raise HTTPException(status_code=404, detail="run not found")
 
     if format == "html":
-        content = render_html_report(run)
+        content = render_html_report(run, variant=variant)
         media_type = "text/html; charset=utf-8"
         extension = "html"
     else:
-        content = render_markdown_report(run)
+        content = render_markdown_report(run, variant=variant)
         media_type = "text/markdown; charset=utf-8"
         extension = "md"
 
-    headers = {"Content-Disposition": f'attachment; filename="aegispt-run-{run_id}.{extension}"'}
+    headers = {"Content-Disposition": f'attachment; filename="aegispt-run-{run_id}-{variant}.{extension}"'}
     return Response(content=content, media_type=media_type, headers=headers)
+
+
+@router.get("/runs/{run_id}/reports", response_model=list[RunReportCatalogItemRead])
+def list_run_reports(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+) -> list[RunReportCatalogItemRead]:
+    run = load_run_report(session, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return build_report_catalog(run)
 
 
 @router.post("/runs/{run_id}/approvals", response_model=RunRead)

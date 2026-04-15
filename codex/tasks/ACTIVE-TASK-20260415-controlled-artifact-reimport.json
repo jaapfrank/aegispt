@@ -1,0 +1,24 @@
+{
+  "task_type": "codex_artifact_reimport",
+  "scope": "Add a supervised mechanism to re-import reviewed Codex workspace artifacts into existing capability pack artifacts before validation.",
+  "inputs": {
+    "build_lane_only": true,
+    "existing_pack_registry": true
+  },
+  "constraints": {
+    "no_runtime_mutation": true,
+    "no_new_methodology_layer": true,
+    "no_new_pack_registry": true,
+    "protected_files": [
+      "api/app/methodology.py",
+      "api/app/models/control.py",
+      "api/app/schemas/findings.py",
+      "api/app/services/reports.py"
+    ]
+  },
+  "expected_output": {
+    "artifact_import_path": "controlled",
+    "validation_required": true,
+    "approval_required": true
+  }
+}

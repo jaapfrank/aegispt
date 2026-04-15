@@ -31,6 +31,19 @@ from api.app.services.packs import (
 router = APIRouter(prefix="/api/v1", tags=["packs"])
 
 
+@router.get("/engagements/{engagement_id}/packs", response_model=list[CapabilityPackRead])
+def list_capability_packs_for_engagement(
+    engagement_id: UUID,
+    session: Session = Depends(get_session),
+) -> list[CapabilityPackRead]:
+    packs = session.scalars(
+        select(CapabilityPack)
+        .where(CapabilityPack.engagement_id == engagement_id)
+        .order_by(CapabilityPack.created_at.desc(), CapabilityPack.id.desc())
+    ).all()
+    return [CapabilityPackRead.model_validate(pack) for pack in packs]
+
+
 @router.post("/packs/generate", response_model=CapabilityPackRead, status_code=status.HTTP_201_CREATED)
 def generate_capability_pack(
     payload: CapabilityPackGenerateCreate,
@@ -208,4 +221,3 @@ def rollback_capability_pack(
     )
     session.commit()
     return CapabilityPackDeploymentRead.model_validate(deployment)
-

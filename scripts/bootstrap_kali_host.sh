@@ -16,6 +16,7 @@ $SUDO apt install -y \
   git curl wget jq unzip zip ca-certificates gnupg lsb-release \
   build-essential make tree tmux htop ripgrep \
   pipx python3 python3-venv python3-pip \
+  openjdk-17-jre-headless \
   docker.io docker-compose
 
 $SUDO systemctl enable --now docker

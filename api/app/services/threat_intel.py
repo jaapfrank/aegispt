@@ -37,7 +37,7 @@ def upsert_threat_intel_record(session: Session, payload: dict[str, Any]) -> Thr
     record.severity = str(payload.get("severity") or "").strip() or None
     record.references_json = list(payload.get("references") or [])
     record.published_at = payload.get("published_at")
-    record.updated_at = payload.get("updated_at")
+    record.advisory_updated_at = payload.get("updated_at")
     record.normalization_status = str(payload.get("normalization_status") or "normalized")
     record.metadata_json = {
         "affected_product_count": len(record.affected_products_json),
@@ -94,4 +94,3 @@ def search_threat_intel_records(
 
 def load_threat_intel_record(session: Session, record_id: UUID) -> ThreatIntelRecord | None:
     return session.scalar(select(ThreatIntelRecord).where(ThreatIntelRecord.id == record_id))
-

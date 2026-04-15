@@ -51,3 +51,22 @@ The build lane should preserve:
 - which artifacts were generated or refined
 - which validation result approved the pack for promotion
 
+## Companion implementation assets
+
+Prompt 3 adds companion assets around this existing build lane without redefining the adaptive pack model:
+
+- `GET /api/v1/packs/{id}/codex-context`
+- `GET /api/v1/packs/{id}/codex-review-bundle`
+- `POST /api/v1/codex/tasks`
+- `GET /api/v1/codex/tasks/{id}`
+- `POST /api/v1/codex/tasks/{id}/run`
+- `GET /api/v1/codex/tasks/{id}/result`
+- `scripts/export_codex_pack_workspace.sh`
+- `scripts/validate_codex_pack.sh`
+- `docs/codex_build_lane_architecture.md`
+- `docs/codex_task_interface.md`
+- `docs/codex_sandbox.md`
+- `docs/codex_repo_working_conventions.md`
+- `docs/codex_operator_visibility.md`
+- `docs/codex_ui_support.md`
+- `docs/runbooks/codex-pack-refinement-workflow.md`

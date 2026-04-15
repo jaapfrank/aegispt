@@ -8,6 +8,7 @@ Current runbooks:
 - `../Kali-VM-Reuse-Guide.md`
 - `passive-web-validation-workflow.md`
 - `code-semgrep-validation-workflow.md`
+- `codex-pack-refinement-workflow.md`
 - `internal-validation-workflow.md`
 - `report-export-workflow.md`
 

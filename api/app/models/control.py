@@ -81,6 +81,7 @@ class Run(UUIDMixin, TimestampMixin, Base):
     )
     requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="requested")
+    configuration_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     engagement: Mapped["Engagement"] = relationship(back_populates="runs")
@@ -223,7 +224,11 @@ class ThreatIntelRecord(UUIDMixin, TimestampMixin, Base):
     severity: Mapped[str | None] = mapped_column(String(50), nullable=True)
     references_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    advisory_updated_at: Mapped[datetime | None] = mapped_column(
+        "advisory_updated_at",
+        DateTime(timezone=True),
+        nullable=True,
+    )
     normalization_status: Mapped[str] = mapped_column(String(50), nullable=False, default="normalized")
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 

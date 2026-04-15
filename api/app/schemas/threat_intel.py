@@ -47,7 +47,6 @@ class ThreatIntelRecordRead(BaseModel):
     severity: str | None
     references_json: list[str]
     published_at: datetime | None
-    updated_at: datetime | None
+    updated_at: datetime | None = Field(validation_alias="advisory_updated_at")
     normalization_status: str
     created_at: datetime
-

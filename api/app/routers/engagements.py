@@ -20,6 +20,20 @@ from api.app.services.audit import write_audit_event
 router = APIRouter(prefix="/api/v1/engagements", tags=["engagements"])
 
 
+@router.get("", response_model=list[EngagementRead])
+def list_engagements(session: Session = Depends(get_session)) -> list[EngagementRead]:
+    engagements = session.scalars(select(Engagement).order_by(Engagement.created_at.desc(), Engagement.id.desc())).all()
+    return [EngagementRead.model_validate(engagement) for engagement in engagements]
+
+
+@router.get("/{engagement_id}", response_model=EngagementRead)
+def get_engagement(engagement_id: UUID, session: Session = Depends(get_session)) -> EngagementRead:
+    engagement = session.scalar(select(Engagement).where(Engagement.id == engagement_id))
+    if engagement is None:
+        raise HTTPException(status_code=404, detail="engagement not found")
+    return EngagementRead.model_validate(engagement)
+
+
 @router.post("", response_model=EngagementRead, status_code=status.HTTP_201_CREATED)
 def create_engagement(
     payload: EngagementCreate,
@@ -84,4 +98,23 @@ def create_scope(
 
     session.commit()
     session.refresh(scope)
+    return ScopeRead.model_validate(scope)
+
+
+@router.get("/{engagement_id}/scope", response_model=ScopeRead)
+def get_latest_scope(
+    engagement_id: UUID,
+    session: Session = Depends(get_session),
+) -> ScopeRead:
+    engagement = session.scalar(select(Engagement).where(Engagement.id == engagement_id))
+    if engagement is None:
+        raise HTTPException(status_code=404, detail="engagement not found")
+
+    scope = session.scalar(
+        select(Scope)
+        .where(Scope.engagement_id == engagement_id)
+        .order_by(Scope.created_at.desc(), Scope.id.desc())
+    )
+    if scope is None:
+        raise HTTPException(status_code=404, detail="scope not found")
     return ScopeRead.model_validate(scope)

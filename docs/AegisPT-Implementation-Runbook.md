@@ -19,7 +19,7 @@ De repository levert inmiddels de eerste bruikbare implementatieslice: FastAPI c
 De huidige baseline van AegisPT bestaat uit:
 
 - host bootstrap scripts voor Kali
-- security tool installatie voor ZAP, Nuclei, httpx, ffuf, feroxbuster, testssl.sh, Metasploit en Semgrep
+- security tool installatie voor ZAP, Nuclei, httpx-toolkit, ffuf, feroxbuster, testssl.sh en Semgrep, met optionele Metasploit-installatie wanneer package sources dat toelaten
 - een FastAPI control plane met health, engagement, run profile en approval-gated run endpoints
 - expliciete run dispatch en task inspection endpoints
 - run cancellation en globale execution kill switch
@@ -161,25 +161,29 @@ sudo apt install -y \
   docker.io docker-compose
 ```
 
-Installeer daarna de Kali security tools voor de MVP:
+Installeer daarna de host dependencies voor de MVP-tooling:
 
 ```bash
 sudo apt install -y \
-  zaproxy nuclei nmap httpx-toolkit ffuf feroxbuster testssl.sh \
-  metasploit-framework
+  curl unzip tar ca-certificates pipx \
+  openjdk-17-jre-headless \
+  nmap ffuf testssl.sh
 ```
 
-Semgrep niet via system pip installeren. Gebruik `pipx`:
+Gebruik daarna de repo-installer voor de pinned security-tooling:
 
 ```bash
-pipx ensurepath
-pipx install semgrep
+cd /opt/aegispt/repo
+bash scripts/install_security_tools.sh
 ```
 
 Opmerking:
 
+- `scripts/install_security_tools.sh` installeert `nuclei`, `httpx-toolkit`, `feroxbuster` en ZAP via pinned officiële release-archieven wanneer distro-packages ontbreken.
+- Semgrep wordt via `pipx` onder de operator-user geplaatst, niet via system pip.
 - Playwright bij voorkeur in een runner container installeren, niet als host-level dependency van de VM.
-- Metasploit wel installeren, maar nog niet opnemen in de eerste MVP pipeline.
+- Metasploit alleen toevoegen als de huidige distro- of vendor-repository `metasploit-framework` levert; het hoort nog steeds niet in de eerste MVP pipeline.
+- Op Kali Rolling zelf is `metasploit-framework` op 15 april 2026 expliciet bevestigd als aanwezig via de standaard Kali-repository (`6.4.124-0kali1`).
 
 ### Stap 3: Docker activeren
 
@@ -597,11 +601,11 @@ Om de VM later herbruikbaar te houden, moeten deze scripts in de repository kome
 - `scripts/bootstrap_kali_host.sh`
   Installeert algemene host packages.
 - `scripts/install_security_tools.sh`
-  Installeert de Kali security tools en Semgrep via pipx.
+  Installeert de core security tools via apt plus pinned officiële release-archieven, en zet Semgrep via pipx onder de operator-user.
 - `scripts/init_runtime_dirs.sh`
   Maakt `/opt/aegispt`, `/srv/aegispt` en `/var/log/aegispt` aan.
 - `scripts/verify_host.sh`
-  Controleert Docker, Python, tool versions en SSH status.
+  Controleert Docker, Python en tool versions, inclusief proxy-robuuste Semgrep-validatie.
 - `scripts/verify_stack.sh`
   Controleert of Compose services gezond zijn.
 

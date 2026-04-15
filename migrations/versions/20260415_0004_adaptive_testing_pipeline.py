@@ -47,7 +47,7 @@ def upgrade() -> None:
         sa.Column("severity", sa.String(length=50), nullable=True),
         sa.Column("references_json", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("advisory_updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("normalization_status", sa.String(length=50), nullable=False, server_default="normalized"),
         sa.Column("metadata_json", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -172,87 +172,86 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    op.add_column("runs", sa.Column("source_inventory_snapshot_id", sa.Uuid(), nullable=True))
-    op.add_column("runs", sa.Column("bound_pack_id", sa.Uuid(), nullable=True))
-    op.add_column("runs", sa.Column("bound_pack_version", sa.String(length=50), nullable=True))
-    op.add_column("runs", sa.Column("bound_pack_deployment_id", sa.Uuid(), nullable=True))
-    op.create_foreign_key(
-        "fk_runs_source_inventory_snapshot_id",
-        "runs",
-        "inventory_snapshots",
-        ["source_inventory_snapshot_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_runs_bound_pack_id",
-        "runs",
-        "capability_packs",
-        ["bound_pack_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_runs_bound_pack_deployment_id",
-        "runs",
-        "capability_pack_deployments",
-        ["bound_pack_deployment_id"],
-        ["id"],
-    )
+    with op.batch_alter_table("runs", recreate="auto") as batch_op:
+        batch_op.add_column(sa.Column("source_inventory_snapshot_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("bound_pack_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("bound_pack_version", sa.String(length=50), nullable=True))
+        batch_op.add_column(sa.Column("bound_pack_deployment_id", sa.Uuid(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_runs_source_inventory_snapshot_id",
+            "inventory_snapshots",
+            ["source_inventory_snapshot_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_runs_bound_pack_id",
+            "capability_packs",
+            ["bound_pack_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_runs_bound_pack_deployment_id",
+            "capability_pack_deployments",
+            ["bound_pack_deployment_id"],
+            ["id"],
+        )
 
-    op.add_column("findings", sa.Column("source_pack_id", sa.Uuid(), nullable=True))
-    op.add_column("findings", sa.Column("source_pack_artifact_id", sa.Uuid(), nullable=True))
-    op.add_column("findings", sa.Column("source_inventory_snapshot_id", sa.Uuid(), nullable=True))
-    op.add_column("findings", sa.Column("source_relevance_decision_id", sa.Uuid(), nullable=True))
-    op.add_column("findings", sa.Column("source_pack_version", sa.String(length=50), nullable=True))
-    op.add_column("findings", sa.Column("finding_origin", sa.String(length=50), nullable=False, server_default="standard"))
-    op.create_foreign_key(
-        "fk_findings_source_pack_id",
-        "findings",
-        "capability_packs",
-        ["source_pack_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_findings_source_pack_artifact_id",
-        "findings",
-        "capability_pack_artifacts",
-        ["source_pack_artifact_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_findings_source_inventory_snapshot_id",
-        "findings",
-        "inventory_snapshots",
-        ["source_inventory_snapshot_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_findings_source_relevance_decision_id",
-        "findings",
-        "relevance_decisions",
-        ["source_relevance_decision_id"],
-        ["id"],
-    )
+    with op.batch_alter_table("findings", recreate="auto") as batch_op:
+        batch_op.add_column(sa.Column("source_pack_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("source_pack_artifact_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("source_inventory_snapshot_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("source_relevance_decision_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("source_pack_version", sa.String(length=50), nullable=True))
+        batch_op.add_column(
+            sa.Column("finding_origin", sa.String(length=50), nullable=False, server_default="standard")
+        )
+        batch_op.create_foreign_key(
+            "fk_findings_source_pack_id",
+            "capability_packs",
+            ["source_pack_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_findings_source_pack_artifact_id",
+            "capability_pack_artifacts",
+            ["source_pack_artifact_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_findings_source_inventory_snapshot_id",
+            "inventory_snapshots",
+            ["source_inventory_snapshot_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_findings_source_relevance_decision_id",
+            "relevance_decisions",
+            ["source_relevance_decision_id"],
+            ["id"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("fk_findings_source_relevance_decision_id", "findings", type_="foreignkey")
-    op.drop_constraint("fk_findings_source_inventory_snapshot_id", "findings", type_="foreignkey")
-    op.drop_constraint("fk_findings_source_pack_artifact_id", "findings", type_="foreignkey")
-    op.drop_constraint("fk_findings_source_pack_id", "findings", type_="foreignkey")
-    op.drop_column("findings", "finding_origin")
-    op.drop_column("findings", "source_pack_version")
-    op.drop_column("findings", "source_relevance_decision_id")
-    op.drop_column("findings", "source_inventory_snapshot_id")
-    op.drop_column("findings", "source_pack_artifact_id")
-    op.drop_column("findings", "source_pack_id")
+    with op.batch_alter_table("findings", recreate="auto") as batch_op:
+        batch_op.drop_constraint("fk_findings_source_relevance_decision_id", type_="foreignkey")
+        batch_op.drop_constraint("fk_findings_source_inventory_snapshot_id", type_="foreignkey")
+        batch_op.drop_constraint("fk_findings_source_pack_artifact_id", type_="foreignkey")
+        batch_op.drop_constraint("fk_findings_source_pack_id", type_="foreignkey")
+        batch_op.drop_column("finding_origin")
+        batch_op.drop_column("source_pack_version")
+        batch_op.drop_column("source_relevance_decision_id")
+        batch_op.drop_column("source_inventory_snapshot_id")
+        batch_op.drop_column("source_pack_artifact_id")
+        batch_op.drop_column("source_pack_id")
 
-    op.drop_constraint("fk_runs_bound_pack_deployment_id", "runs", type_="foreignkey")
-    op.drop_constraint("fk_runs_bound_pack_id", "runs", type_="foreignkey")
-    op.drop_constraint("fk_runs_source_inventory_snapshot_id", "runs", type_="foreignkey")
-    op.drop_column("runs", "bound_pack_deployment_id")
-    op.drop_column("runs", "bound_pack_version")
-    op.drop_column("runs", "bound_pack_id")
-    op.drop_column("runs", "source_inventory_snapshot_id")
+    with op.batch_alter_table("runs", recreate="auto") as batch_op:
+        batch_op.drop_constraint("fk_runs_bound_pack_deployment_id", type_="foreignkey")
+        batch_op.drop_constraint("fk_runs_bound_pack_id", type_="foreignkey")
+        batch_op.drop_constraint("fk_runs_source_inventory_snapshot_id", type_="foreignkey")
+        batch_op.drop_column("bound_pack_deployment_id")
+        batch_op.drop_column("bound_pack_version")
+        batch_op.drop_column("bound_pack_id")
+        batch_op.drop_column("source_inventory_snapshot_id")
 
     op.drop_table("capability_pack_deployments")
     op.drop_table("capability_pack_approvals")

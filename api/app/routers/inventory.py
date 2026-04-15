@@ -16,6 +16,19 @@ from api.app.services.inventory import inventory_summary_from_normalized, normal
 router = APIRouter(prefix="/api/v1", tags=["inventory"])
 
 
+@router.get("/engagements/{engagement_id}/inventory", response_model=list[InventorySnapshotRead])
+def list_inventory_runs(
+    engagement_id: UUID,
+    session: Session = Depends(get_session),
+) -> list[InventorySnapshotRead]:
+    snapshots = session.scalars(
+        select(InventorySnapshot)
+        .where(InventorySnapshot.engagement_id == engagement_id)
+        .order_by(InventorySnapshot.created_at.desc(), InventorySnapshot.id.desc())
+    ).all()
+    return [InventorySnapshotRead.model_validate(snapshot) for snapshot in snapshots]
+
+
 @router.post("/inventory/runs", response_model=InventorySnapshotRead, status_code=status.HTTP_201_CREATED)
 def create_inventory_run(
     payload: InventoryRunCreate,
@@ -80,4 +93,3 @@ def get_inventory_summary(
     if snapshot is None:
         raise HTTPException(status_code=404, detail="inventory snapshot not found")
     return InventorySummaryRead(**snapshot.summary_json)
-

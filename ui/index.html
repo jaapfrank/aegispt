@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AegisPT Operator Console</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <div class="bg-orbit orbit-a"></div>
+    <div class="bg-orbit orbit-b"></div>
+    <div class="scan-grid"></div>
+
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">AegisPT</p>
+          <h1>Operator Console</h1>
+          <p class="hero-subcopy">
+            Guided, evidence-first assessment operations across wizard-driven setup, live mission control,
+            adaptive pack governance, evidence replay, and report delivery.
+          </p>
+        </div>
+        <div class="hero-side">
+          <label class="field compact">
+            <span>Actor</span>
+            <input id="actor-input" type="text" placeholder="operator-ui" />
+          </label>
+          <div id="hero-metrics" class="hero-metrics"></div>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <aside class="rail">
+          <div class="rail-card">
+            <div class="rail-card-head">
+              <p class="eyebrow">Mission</p>
+              <h2>Dossier</h2>
+            </div>
+            <label class="field compact">
+              <span>Engagement</span>
+              <select id="engagement-select"></select>
+            </label>
+            <button id="refresh-btn" class="action ghost" type="button">Refresh State</button>
+            <div id="selected-engagement-summary" class="badge-stack split-top"></div>
+          </div>
+
+          <nav class="screen-nav rail-card">
+            <div class="rail-card-head">
+              <p class="eyebrow">Views</p>
+              <h2>Operator Flow</h2>
+            </div>
+            <button class="screen-link active" data-screen="wizard" type="button">Mandatory Wizard</button>
+            <button class="screen-link" data-screen="mission-control" type="button">Mission Control</button>
+            <button class="screen-link" data-screen="surface-map" type="button">Surface / Attack Map</button>
+            <button class="screen-link" data-screen="findings-theater" type="button">Findings Theater</button>
+            <button class="screen-link" data-screen="evidence-replay" type="button">Evidence Replay</button>
+            <button class="screen-link" data-screen="pack-forge" type="button">Pack Forge</button>
+            <button class="screen-link" data-screen="report-center" type="button">Report Center</button>
+            <button class="screen-link" data-screen="explorer" type="button">Explorer</button>
+            <button class="screen-link" data-screen="history" type="button">History & Comparison</button>
+          </nav>
+
+          <div class="rail-card">
+            <div class="rail-card-head">
+              <p class="eyebrow">Status</p>
+              <h2>Live Feed</h2>
+            </div>
+            <div id="status-feed" class="status-feed"></div>
+          </div>
+        </aside>
+
+        <main class="stage">
+          <section id="screen-wizard" class="screen active">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Mandatory Start</p>
+                <h2>Mandatory Assessment Wizard</h2>
+              </div>
+              <p class="screen-copy">
+                Every mission begins here. The wizard establishes the assessment type, scope, access context,
+                operator profile, enabled modules, safety boundaries, and estimated mission shape before the run exists.
+              </p>
+            </div>
+
+            <div class="wizard-layout">
+              <article class="panel wizard-main">
+                <div id="wizard-stepper" class="wizard-stepper"></div>
+                <div id="wizard-panel" class="wizard-panel"></div>
+                <div id="wizard-errors" class="inline-errors"></div>
+                <div class="wizard-actions">
+                  <button id="wizard-back-btn" class="action ghost" type="button">Back</button>
+                  <button id="wizard-next-btn" class="action primary" type="button">Next</button>
+                  <button id="wizard-confirm-btn" class="action primary hidden" type="button">Confirm Mission</button>
+                </div>
+              </article>
+
+              <aside class="panel wizard-summary-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Live Summary</p>
+                    <h3>Run Configuration</h3>
+                  </div>
+                </div>
+                <div id="wizard-summary" class="stack-zone"></div>
+              </aside>
+            </div>
+          </section>
+
+          <section id="screen-mission-control" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Live Operations</p>
+                <h2>Mission Control</h2>
+              </div>
+              <p class="screen-copy">
+                The main command view answers what is happening now, what is blocked, how far the run has progressed,
+                what evidence is accumulating, and what needs operator attention next.
+              </p>
+            </div>
+
+            <div class="grid mission-grid">
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Timeline</p>
+                    <h3>Mission Phases</h3>
+                  </div>
+                </div>
+                <div id="mission-timeline" class="timeline-grid"></div>
+              </article>
+
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Now</p>
+                    <h3>Current Activity</h3>
+                  </div>
+                </div>
+                <div id="mission-activity" class="detail-surface"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Green</p>
+                    <h3>Going Well</h3>
+                  </div>
+                </div>
+                <div id="mission-good" class="stack-zone"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Amber / Red</p>
+                    <h3>Issues / Failures</h3>
+                  </div>
+                </div>
+                <div id="mission-bad" class="stack-zone"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Unknown</p>
+                    <h3>Under Investigation</h3>
+                  </div>
+                </div>
+                <div id="mission-unknown" class="stack-zone"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Timing</p>
+                    <h3>ETA Intelligence</h3>
+                  </div>
+                </div>
+                <div id="mission-eta" class="detail-surface"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Pulse</p>
+                    <h3>Findings Snapshot</h3>
+                  </div>
+                </div>
+                <div id="mission-findings-pulse" class="detail-surface"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Narrative</p>
+                    <h3>AI Signal</h3>
+                  </div>
+                </div>
+                <div id="mission-ai-narrative" class="stack-zone"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Adaptive</p>
+                    <h3>Pack Forge Status</h3>
+                  </div>
+                </div>
+                <div id="mission-pack-status" class="detail-surface"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Scope</p>
+                    <h3>Active Scope & Profile</h3>
+                  </div>
+                </div>
+                <div id="mission-scope-summary" class="detail-surface"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="screen-surface-map" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Coverage</p>
+                <h2>Surface / Attack Map</h2>
+              </div>
+              <p class="screen-copy">
+                Visualize hosts, apps, APIs, trust boundaries, hotspots, and pack impact zones. Future attack paths,
+                identity overlays, and risk layers plug into this surface without changing the current runtime.
+              </p>
+            </div>
+
+            <div class="toolbar">
+              <div id="surface-toggle-bar" class="chip-row"></div>
+            </div>
+
+            <div class="grid surface-grid">
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Map</p>
+                    <h3>Operational Surface</h3>
+                  </div>
+                </div>
+                <div id="surface-map-canvas" class="surface-map-canvas"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Insights</p>
+                    <h3>Hotspots & Boundaries</h3>
+                  </div>
+                </div>
+                <div id="surface-insights" class="stack-zone"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Legend</p>
+                    <h3>Overlay Readout</h3>
+                  </div>
+                </div>
+                <div id="surface-legend" class="stack-zone"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="screen-findings-theater" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Findings</p>
+                <h2>Findings Theater</h2>
+              </div>
+              <p class="screen-copy">
+                Triage, group, and interpret findings as a mission outcome rather than a flat table. Every item
+                carries severity, provenance, methodology, replay posture, and recommended next steps.
+              </p>
+            </div>
+
+            <div id="findings-filter-bar" class="toolbar"></div>
+
+            <div class="grid theater-grid">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Queue</p>
+                    <h3>Finding Groups</h3>
+                  </div>
+                </div>
+                <div id="findings-group-list" class="stack-zone"></div>
+              </article>
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Selected</p>
+                    <h3>Finding Detail</h3>
+                  </div>
+                </div>
+                <div id="finding-theater-detail" class="detail-surface tall"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="screen-evidence-replay" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Evidence</p>
+                <h2>Evidence Replay</h2>
+              </div>
+              <p class="screen-copy">
+                Evidence is first-class. Replay traces, artifact access, validation history, and pack provenance are
+                visible together so the operator can validate trust in every outcome.
+              </p>
+            </div>
+
+            <div class="grid evidence-grid">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Summary</p>
+                    <h3>Replay Context</h3>
+                  </div>
+                </div>
+                <div id="evidence-overview" class="detail-surface"></div>
+              </article>
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Execution</p>
+                    <h3>Validation History</h3>
+                  </div>
+                </div>
+                <div id="evidence-executions" class="stack-zone"></div>
+              </article>
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Artifacts</p>
+                    <h3>Artifacts & Replay Details</h3>
+                  </div>
+                </div>
+                <div id="evidence-artifacts" class="stack-zone"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Provenance</p>
+                    <h3>Source Lineage</h3>
+                  </div>
+                </div>
+                <div id="evidence-lineage" class="detail-surface"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="screen-pack-forge" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Adaptive Testing</p>
+                <h2>Pack Forge</h2>
+              </div>
+              <p class="screen-copy">
+                Adaptive planning, generated pack review, validation, promotion, and Codex-supervised refinement stay
+                visible and approval-aware before any pack reaches the deterministic runtime.
+              </p>
+            </div>
+
+            <div class="grid pack-grid">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Plan</p>
+                    <h3>Adaptive Planning</h3>
+                  </div>
+                </div>
+                <form id="adaptive-form" class="stack-form"></form>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Selected Pack</p>
+                    <h3>Pack Summary</h3>
+                  </div>
+                </div>
+                <div id="pack-summary" class="detail-surface"></div>
+                <div class="action-row split-top">
+                  <button id="validate-pack-btn" class="action ghost" type="button">Validate Pack</button>
+                  <button id="approve-pack-btn" class="action ghost" type="button">Approve Pack</button>
+                  <button id="deploy-pack-btn" class="action secondary" type="button">Deploy Pack</button>
+                </div>
+              </article>
+
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Registry</p>
+                    <h3>Artifacts, Validation, and Deployments</h3>
+                  </div>
+                </div>
+                <div id="pack-forge-detail" class="stack-zone"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Codex</p>
+                    <h3>Task Planner</h3>
+                  </div>
+                </div>
+                <form id="codex-task-form" class="stack-form"></form>
+                <button id="prepare-codex-task-btn" class="action ghost split-top" type="button">Prepare Selected Task</button>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Governance</p>
+                    <h3>Build Lane Output</h3>
+                  </div>
+                </div>
+                <div id="codex-context" class="detail-surface"></div>
+                <div id="codex-task-result" class="detail-surface split-top"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="screen-report-center" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Reports</p>
+                <h2>Report Center</h2>
+              </div>
+              <p class="screen-copy">
+                Executive, technical, evidence, and retest outputs are treated as product workflows, complete with
+                status, scope inheritance, methodology references, preview, export, and comparison context.
+              </p>
+            </div>
+
+            <div class="grid report-center-grid">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Catalog</p>
+                    <h3>Report Variants</h3>
+                  </div>
+                </div>
+                <div id="report-catalog" class="stack-zone"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Metadata</p>
+                    <h3>Report Details</h3>
+                  </div>
+                </div>
+                <div id="report-metadata" class="detail-surface"></div>
+                <div id="report-actions" class="action-row split-top"></div>
+              </article>
+
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Preview</p>
+                    <h3>Reader</h3>
+                  </div>
+                </div>
+                <pre id="report-preview" class="report-preview"></pre>
+                <iframe id="report-frame" class="report-frame" title="Report Preview"></iframe>
+              </article>
+
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Compare</p>
+                    <h3>Prior Report Delta</h3>
+                  </div>
+                </div>
+                <div id="report-compare" class="detail-surface"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="screen-explorer" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Dossiers</p>
+                <h2>Customer / Project / Run Explorer</h2>
+              </div>
+              <p class="screen-copy">
+                Navigate the platform by customer, engagement, and run. Each mission remains a dossier with its own
+                inventory, configuration, packs, findings, evidence, reports, and delivery history.
+              </p>
+            </div>
+
+            <div class="grid explorer-grid">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Customers</p>
+                    <h3>Customer Index</h3>
+                  </div>
+                </div>
+                <div id="customer-index" class="stack-zone"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Engagements</p>
+                    <h3>Project Dossiers</h3>
+                  </div>
+                </div>
+                <div id="engagement-dossiers" class="stack-zone"></div>
+              </article>
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Run</p>
+                    <h3>Selected Run Dossier</h3>
+                  </div>
+                </div>
+                <div id="run-dossier" class="detail-surface tall"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="screen-history" class="screen">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">History</p>
+                <h2>Comparison & Next Steps</h2>
+              </div>
+              <p class="screen-copy">
+                Compare runs over time, track what changed, identify what improved or worsened, and keep next-step
+                actions visible for remediation and retest planning.
+              </p>
+            </div>
+
+            <div id="history-toolbar" class="toolbar"></div>
+
+            <div class="grid history-grid">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Delta</p>
+                    <h3>Run Comparison</h3>
+                  </div>
+                </div>
+                <div id="comparison-summary" class="detail-surface"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Trend</p>
+                    <h3>Run History</h3>
+                  </div>
+                </div>
+                <div id="history-trend" class="stack-zone"></div>
+              </article>
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Actions</p>
+                    <h3>Next-Step Queue</h3>
+                  </div>
+                </div>
+                <div id="next-steps-queue" class="stack-zone"></div>
+              </article>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script type="module" src="./assets/app.js"></script>
+  </body>
+</html>

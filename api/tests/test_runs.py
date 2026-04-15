@@ -88,6 +88,60 @@ def test_passive_run_is_queued_with_tasks(client) -> None:
     assert payload["findings"]["finding_count"] == 0
     assert payload["findings"]["findings_by_severity"] == {}
     assert payload["findings"]["findings_by_status"] == {}
+    assert payload["configuration_json"] == {}
+
+
+def test_run_configuration_and_inventory_binding_round_trip(client) -> None:
+    engagement_id = create_engagement_with_scope(client)
+
+    inventory_response = client.post(
+        "/api/v1/inventory/runs",
+        headers={"X-Actor": "planner"},
+        json={
+            "engagement_id": engagement_id,
+            "source_tools": ["wizard-input"],
+            "observations": [
+                {
+                    "tool": "wizard-input",
+                    "kind": "inventory-seed",
+                    "data": {
+                        "hosts": ["example.com"],
+                        "urls": ["https://example.com"],
+                        "confidence": 0.8,
+                    },
+                }
+            ],
+            "environment_notes": ["Wizard-seeded inventory"],
+            "assumptions": ["Assessment starts from reviewed wizard input"],
+        },
+    )
+    inventory_id = inventory_response.json()["id"]
+
+    configuration_json = {
+        "assessment_type": "Mixed Assessment",
+        "test_profile": "Adaptive Customer-Specific Mode",
+        "execution_profile": "active-web-safe",
+        "targets": {"domains": ["example.com"], "urls": ["https://example.com"]},
+        "modules": {"discovery": True, "adaptive_ai_generated_tests": True},
+        "safety": {"rate_limit_rps": 2, "concurrency": 2, "time_budget_minutes": 120},
+        "eta": {"estimated_total_minutes": 120, "estimated_impact": "medium", "confidence": "medium"},
+    }
+
+    run_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-safe",
+            "source_inventory_snapshot_id": inventory_id,
+            "configuration_json": configuration_json,
+        },
+    )
+
+    assert run_response.status_code == 201
+    payload = run_response.json()
+    assert payload["source_inventory_snapshot_id"] == inventory_id
+    assert payload["configuration_json"]["assessment_type"] == "Mixed Assessment"
+    assert payload["configuration_json"]["test_profile"] == "Adaptive Customer-Specific Mode"
 
 
 def test_active_run_requires_approval_before_queueing(client) -> None:

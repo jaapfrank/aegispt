@@ -4,6 +4,10 @@
 
 The operator flow stays simple even though the platform now supports customer-specific adaptive packs.
 
+## Current implementation
+
+The current repository includes an initial operator console at `/app` that follows this flow directly. It reuses the existing backend models and exposes the wizard, mission control, drilldowns, reporting, evidence access, and Codex build-lane visibility without introducing a second backend architecture.
+
 ## Workflow
 
 1. Create engagement
@@ -83,4 +87,3 @@ Show:
 ## UX note
 
 The operator should feel like they are approving an assessment plan extension, not managing a generic CI/CD system.
-

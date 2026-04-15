@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from html import escape
@@ -24,6 +25,7 @@ from api.app.methodology import (
     wstg_area_for_identifier,
 )
 from api.app.models import Approval, Engagement, EvidenceArtifact, Finding, Run, Scope, Task, ToolExecution
+from api.app.schemas.report_center import RunReportCatalogItemRead
 
 SEVERITY_ORDER = {
     "critical": 0,
@@ -41,6 +43,20 @@ REMEDIATION_PRIORITY = {
     "low": "Routine",
     "info": "Advisory",
     "unknown": "Review",
+}
+
+REPORT_VARIANT_LABELS = {
+    "executive": "Executive Report",
+    "technical": "Technical Report",
+    "evidence": "Evidence Appendix",
+    "retest": "Retest / Verification Report",
+}
+
+REPORT_VARIANT_DESCRIPTIONS = {
+    "executive": "Leadership-ready summary of scope, outcomes, risk posture, and next steps.",
+    "technical": "Full technical narrative with methodology, findings, evidence, and remediation detail.",
+    "evidence": "Artifact-oriented appendix for replay, validation, and operator review.",
+    "retest": "Verification-focused output tracking open, fixed, and still-unverified items.",
 }
 
 
@@ -220,19 +236,337 @@ def finding_methodology_lines(finding: Finding) -> list[str]:
     return lines
 
 
-def render_markdown_report(run: Run) -> str:
-    profile_name = run.profile.name if run.profile is not None else "unknown-profile"
-    engagement_name = run.engagement.name if run.engagement is not None else "unknown-engagement"
-    client_name = run.engagement.client if run.engagement is not None and run.engagement.client else "unknown-client"
+def _humanize_key(value: str) -> str:
+    return value.replace("_", " ").replace("-", " ").title()
+
+
+def run_configuration_context(run: Run) -> dict[str, object]:
+    configuration = dict(run.configuration_json or {})
+    raw_modules = configuration.get("modules", {})
+    enabled_modules = []
+    if isinstance(raw_modules, dict):
+        enabled_modules = sorted(
+            _humanize_key(module)
+            for module, enabled in raw_modules.items()
+            if isinstance(module, str) and bool(enabled)
+        )
+
+    raw_targets = configuration.get("targets", {})
+    normalized_targets: dict[str, list[str]] = {}
+    if isinstance(raw_targets, dict):
+        for key, values in raw_targets.items():
+            if isinstance(key, str) and isinstance(values, list):
+                normalized_targets[key] = [value for value in values if isinstance(value, str) and value.strip()]
+
+    access = configuration.get("access", {})
+    accounts_summary: list[str] = []
+    if isinstance(access, dict):
+        accounts = access.get("accounts", [])
+        if isinstance(accounts, list):
+            for account in accounts:
+                if not isinstance(account, dict):
+                    continue
+                label = str(account.get("label") or account.get("username") or "Account").strip()
+                role = str(account.get("role") or "role not set").strip()
+                accounts_summary.append(f"{label} ({role})")
+
+    eta = configuration.get("eta", {})
+    if not isinstance(eta, dict):
+        eta = {}
+    safety = configuration.get("safety", {})
+    if not isinstance(safety, dict):
+        safety = {}
+
+    return {
+        "assessment_type": str(configuration.get("assessment_type") or "Not recorded"),
+        "test_profile": str(configuration.get("test_profile") or (run.profile.name if run.profile is not None else "Not recorded")),
+        "targets": normalized_targets,
+        "enabled_modules": enabled_modules,
+        "accounts_summary": accounts_summary,
+        "safety": safety,
+        "eta": eta,
+    }
+
+
+def report_methodology_references(run: Run) -> list[str]:
+    references = [
+        "PTES",
+        f"OWASP WSTG {WSTG_STABLE_VERSION}",
+        "NIST SP 800-115",
+    ]
+    if any(finding.asvs_reference for finding in run.findings):
+        references.append(f"OWASP ASVS {ASVS_STABLE_VERSION}")
+    return references
+
+
+def report_context(run: Run) -> dict[str, object]:
     findings = sort_findings(list(run.findings))
     tasks = sort_tasks(list(run.tasks))
     approvals = sort_approvals(list(run.approvals))
     findings_by_severity, findings_by_status = findings_summary(findings)
-    methodology = methodology_context_for_run(run)
-    adaptive_pack = adaptive_pack_context(run)
-    coverage = methodology_coverage_summary(findings, tasks)
-    latest_scope = latest_scope_for_engagement(run.engagement)
-    remediation_counts = remediation_priority_counts(findings)
+    return {
+        "profile_name": run.profile.name if run.profile is not None else "unknown-profile",
+        "engagement_name": run.engagement.name if run.engagement is not None else "unknown-engagement",
+        "client_name": run.engagement.client if run.engagement is not None and run.engagement.client else "unknown-client",
+        "findings": findings,
+        "tasks": tasks,
+        "approvals": approvals,
+        "findings_by_severity": findings_by_severity,
+        "findings_by_status": findings_by_status,
+        "methodology": methodology_context_for_run(run),
+        "adaptive_pack": adaptive_pack_context(run),
+        "coverage": methodology_coverage_summary(findings, tasks),
+        "latest_scope": latest_scope_for_engagement(run.engagement),
+        "remediation_counts": remediation_priority_counts(findings),
+        "configuration": run_configuration_context(run),
+    }
+
+
+def _render_configuration_markdown(context: dict[str, object]) -> list[str]:
+    configuration = context["configuration"]
+    assert isinstance(configuration, dict)
+    eta = configuration.get("eta", {})
+    safety = configuration.get("safety", {})
+    targets = configuration.get("targets", {})
+    return [
+        "## Run Configuration",
+        "",
+        f"- Assessment Type: {configuration.get('assessment_type') or 'Not Recorded'}",
+        f"- Test Profile: {configuration.get('test_profile') or 'Not Recorded'}",
+        f"- Enabled Modules: {', '.join(configuration.get('enabled_modules', [])) or 'Not Recorded'}",
+        f"- Active Accounts / Roles: {', '.join(configuration.get('accounts_summary', [])) or 'None Recorded'}",
+        f"- Target Inputs: {targets or {}}",
+        f"- Safety Settings: {safety or {}}",
+        f"- ETA Model: {eta or {}}",
+        "",
+    ]
+
+
+def _render_configuration_html(context: dict[str, object]) -> str:
+    configuration = context["configuration"]
+    assert isinstance(configuration, dict)
+    return (
+        "<ul>"
+        f"<li><strong>Assessment Type:</strong> {escape(str(configuration.get('assessment_type') or 'Not Recorded'))}</li>"
+        f"<li><strong>Test Profile:</strong> {escape(str(configuration.get('test_profile') or 'Not Recorded'))}</li>"
+        f"<li><strong>Enabled Modules:</strong> {escape(', '.join(configuration.get('enabled_modules', [])) or 'Not Recorded')}</li>"
+        f"<li><strong>Active Accounts / Roles:</strong> {escape(', '.join(configuration.get('accounts_summary', [])) or 'None Recorded')}</li>"
+        f"<li><strong>Target Inputs:</strong> {escape(str(configuration.get('targets') or {}))}</li>"
+        f"<li><strong>Safety Settings:</strong> {escape(str(configuration.get('safety') or {}))}</li>"
+        f"<li><strong>ETA Model:</strong> {escape(str(configuration.get('eta') or {}))}</li>"
+        "</ul>"
+    )
+
+
+def _render_executive_markdown(run: Run, context: dict[str, object]) -> str:
+    findings = context["findings"]
+    methodology = context["methodology"]
+    adaptive_pack = context["adaptive_pack"]
+    remediation_counts = context["remediation_counts"]
+    return "\n".join(
+        [
+            f"# AegisPT Executive Report: {run.id}",
+            "",
+            "## Mission Snapshot",
+            "",
+            f"- Engagement: {context['engagement_name']}",
+            f"- Client: {context['client_name']}",
+            f"- Run Profile: {context['profile_name']}",
+            f"- Run Status: {run.status}",
+            f"- Adaptive Coverage: {adaptive_pack['label']}",
+            f"- Findings by Severity: {context['findings_by_severity'] or {}}",
+            f"- Findings by Status: {context['findings_by_status'] or {}}",
+            "",
+            *_render_configuration_markdown(context),
+            "## Methodology",
+            "",
+            f"- PTES Lifecycle Mapping: {methodology['ptes_phase_label']}",
+            f"- NIST Mapping: {methodology['nist_phase_label']}",
+            f"- OWASP WSTG Baseline: {WSTG_STABLE_VERSION}",
+            "",
+            "## Risk Highlights",
+            "",
+            f"- Remediation Priorities: {remediation_counts or {}}",
+            *(
+                [f"- {finding.severity.upper()}: {finding.title}" for finding in findings[:5]]
+                if findings
+                else ["- No confirmed findings recorded."]
+            ),
+            "",
+            "## Recommended Next Steps",
+            "",
+            "- Validate remediation order with the customer owner and retain the evidence-backed run as the baseline.",
+            "- Use the Technical Report for analyst detail and the Evidence Appendix for replay artifacts.",
+            "- Schedule retest coverage for any item that remains open after remediation.",
+            "",
+        ]
+    ).rstrip() + "\n"
+
+
+def _render_evidence_markdown(run: Run, context: dict[str, object]) -> str:
+    findings = context["findings"]
+    tasks = context["tasks"]
+    lines = [
+        f"# AegisPT Evidence Appendix: {run.id}",
+        "",
+        *_render_configuration_markdown(context),
+        "## Methodology References",
+        "",
+        *[f"- {reference}" for reference in report_methodology_references(run)],
+        "",
+        "## Findings Evidence Map",
+        "",
+    ]
+    if findings:
+        for finding in findings:
+            lines.extend(
+                [
+                    f"### {finding.title}",
+                    "",
+                    f"- Evidence Ref: {finding.evidence_ref}",
+                    f"- Severity: {finding.severity}",
+                    f"- Status: {finding.status}",
+                    *finding_methodology_lines(finding),
+                    "",
+                ]
+            )
+    else:
+        lines.extend(["- No findings recorded.", ""])
+
+    lines.extend(["## Task Evidence", ""])
+    if tasks:
+        for task in tasks:
+            lines.extend(
+                [
+                    f"### Task {task.id}",
+                    "",
+                    f"- Tool: {task.tool}",
+                    f"- Target: {task_targets_display(task)}",
+                    f"- Status: {task.status}",
+                ]
+            )
+            for execution in task.executions:
+                lines.append(
+                    f"- Execution {execution.id}: exit_code={execution.exit_code}, tool_version={execution.tool_version}"
+                )
+                for artifact in sort_artifacts(list(execution.artifacts)):
+                    lines.append(
+                        f"  artifact: {artifact.metadata_json.get('name', artifact.id)} download={artifact_download_path(artifact.id)}"
+                    )
+            lines.append("")
+    else:
+        lines.extend(["- No task evidence recorded.", ""])
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _render_retest_markdown(run: Run, context: dict[str, object]) -> str:
+    findings = context["findings"]
+    lines = [
+        f"# AegisPT Retest / Verification Report: {run.id}",
+        "",
+        "## Verification Summary",
+        "",
+        f"- Run Status: {run.status}",
+        f"- Verification Status Counts: {context['findings_by_status'] or {}}",
+        f"- Resolved Findings: {sum(1 for finding in findings if finding.status == 'resolved')}",
+        f"- Still Open: {sum(1 for finding in findings if finding.status in {'open', 'triaged', 'in_progress', 'reopened'})}",
+        "",
+        *_render_configuration_markdown(context),
+        "## Findings Verification State",
+        "",
+    ]
+    if findings:
+        for finding in findings:
+            lines.extend(
+                [
+                    f"### {finding.title}",
+                    "",
+                    f"- Severity: {finding.severity}",
+                    f"- Status: {finding.status}",
+                    f"- Replay Status: {replay_status_for_finding(finding)}",
+                    f"- Remediation Summary: {default_remediation_summary(finding.control_family)}",
+                    "",
+                ]
+            )
+    else:
+        lines.extend(["- No findings recorded.", ""])
+    lines.extend(
+        [
+            "## Retest Guidance",
+            "",
+            "- Re-run validated checks after remediation and attach new evidence under the same engagement dossier.",
+            "- Update finding status only after replay confirms the fix or the customer accepts residual risk.",
+            "",
+        ]
+    )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
+    context = report_context(run)
+    linked_evidence = sum(1 for finding in context["findings"] if finding.evidence_ref)
+    catalog: list[RunReportCatalogItemRead] = []
+    for variant, title in REPORT_VARIANT_LABELS.items():
+        markdown_content = render_markdown_report(run, variant=variant)
+        catalog.append(
+            RunReportCatalogItemRead(
+                variant=variant,
+                title=title,
+                description=REPORT_VARIANT_DESCRIPTIONS[variant],
+                source_run_id=run.id,
+                generated_at=run.created_at,
+                available_formats=["markdown", "html"],
+                methodology_references=report_methodology_references(run),
+                source_scope_profile={
+                    "run_profile": context["profile_name"],
+                    "assessment_type": context["configuration"].get("assessment_type"),
+                    "enabled_modules": context["configuration"].get("enabled_modules", []),
+                    "targets": context["configuration"].get("targets", {}),
+                },
+                included_findings={
+                    "count": len(context["findings"]),
+                    "by_severity": context["findings_by_severity"],
+                    "by_status": context["findings_by_status"],
+                },
+                evidence_status={
+                    "linked_findings": linked_evidence,
+                    "total_findings": len(context["findings"]),
+                    "completeness_ratio": (linked_evidence / len(context["findings"])) if context["findings"] else 0.0,
+                },
+                version_label=f"{variant}-{run.created_at:%Y%m%dT%H%M%S}",
+                content_sha256=hashlib.sha256(markdown_content.encode("utf-8")).hexdigest(),
+                export_paths={
+                    "markdown": f"/api/v1/runs/{run.id}/report?format=markdown&variant={variant}",
+                    "html": f"/api/v1/runs/{run.id}/report?format=html&variant={variant}",
+                },
+            )
+        )
+    return catalog
+
+
+def render_markdown_report(run: Run, *, variant: str = "technical") -> str:
+    context = report_context(run)
+    if variant == "executive":
+        return _render_executive_markdown(run, context)
+    if variant == "evidence":
+        return _render_evidence_markdown(run, context)
+    if variant == "retest":
+        return _render_retest_markdown(run, context)
+
+    profile_name = context["profile_name"]
+    engagement_name = context["engagement_name"]
+    client_name = context["client_name"]
+    findings = context["findings"]
+    tasks = context["tasks"]
+    approvals = context["approvals"]
+    findings_by_severity = context["findings_by_severity"]
+    findings_by_status = context["findings_by_status"]
+    methodology = context["methodology"]
+    adaptive_pack = context["adaptive_pack"]
+    coverage = context["coverage"]
+    latest_scope = context["latest_scope"]
+    remediation_counts = context["remediation_counts"]
 
     lines = [
         f"# AegisPT Run Report: {run.id}",
@@ -274,6 +608,8 @@ def render_markdown_report(run: Run) -> str:
         )
     else:
         lines.extend(["- No scope snapshot loaded for this run.", ""])
+
+    lines.extend(_render_configuration_markdown(context))
 
     lines.extend(
         [
@@ -408,19 +744,21 @@ def render_markdown_report(run: Run) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_html_report(run: Run) -> str:
-    profile_name = run.profile.name if run.profile is not None else "unknown-profile"
-    engagement_name = run.engagement.name if run.engagement is not None else "unknown-engagement"
-    client_name = run.engagement.client if run.engagement is not None and run.engagement.client else "unknown-client"
-    findings = sort_findings(list(run.findings))
-    tasks = sort_tasks(list(run.tasks))
-    approvals = sort_approvals(list(run.approvals))
-    findings_by_severity, findings_by_status = findings_summary(findings)
-    methodology = methodology_context_for_run(run)
-    adaptive_pack = adaptive_pack_context(run)
-    coverage = methodology_coverage_summary(findings, tasks)
-    latest_scope = latest_scope_for_engagement(run.engagement)
-    remediation_counts = remediation_priority_counts(findings)
+def render_html_report(run: Run, *, variant: str = "technical") -> str:
+    context = report_context(run)
+    profile_name = context["profile_name"]
+    engagement_name = context["engagement_name"]
+    client_name = context["client_name"]
+    findings = context["findings"]
+    tasks = context["tasks"]
+    approvals = context["approvals"]
+    findings_by_severity = context["findings_by_severity"]
+    findings_by_status = context["findings_by_status"]
+    methodology = context["methodology"]
+    adaptive_pack = context["adaptive_pack"]
+    coverage = context["coverage"]
+    latest_scope = context["latest_scope"]
+    remediation_counts = context["remediation_counts"]
 
     summary_rows = [
         ("Engagement", engagement_name),
@@ -537,11 +875,89 @@ def render_html_report(run: Run) -> str:
 
     tasks_html = "".join(task_sections) or "<p>No tasks recorded.</p>"
 
+    configuration_html = _render_configuration_html(context)
+
+    executive_panel = f"""
+    <section class="panel">
+      <h2>Risk Highlights</h2>
+      <p><strong>Priority Counts:</strong> {escape(str(remediation_counts or {}))}</p>
+      <ul class="meta-list">{"".join(f"<li>{escape(finding.severity.upper())}: {escape(finding.title)}</li>" for finding in findings[:5]) or "<li>No confirmed findings recorded.</li>"}</ul>
+    </section>
+    """
+
+    if variant == "executive":
+        findings_section = executive_panel
+        evidence_section = ""
+        verification_section = """
+        <section class="panel">
+          <h2>Recommended Next Steps</h2>
+          <ul class="meta-list">
+            <li>Use the Technical Report for analyst detail and the Evidence Appendix for replay artifacts.</li>
+            <li>Prioritize remediation in the order shown above and schedule retest coverage for remaining open items.</li>
+          </ul>
+        </section>
+        """
+        title = "AegisPT Executive Report"
+    elif variant == "evidence":
+        findings_section = f"""
+        <section class="panel">
+          <h2>Findings Evidence Map</h2>
+          {findings_html}
+        </section>
+        """
+        evidence_section = f"""
+        <section class="panel">
+          <h2>Task Evidence</h2>
+          {tasks_html}
+        </section>
+        """
+        verification_section = ""
+        title = "AegisPT Evidence Appendix"
+    elif variant == "retest":
+        findings_section = f"""
+        <section class="panel">
+          <h2>Findings Verification State</h2>
+          {findings_html}
+        </section>
+        """
+        evidence_section = ""
+        verification_section = f"""
+        <section class="panel">
+          <h2>Retest and Verification</h2>
+          <p><strong>Verification Status Counts:</strong> {escape(str(findings_by_status or {}))}</p>
+          <p><strong>Resolved Findings:</strong> {sum(1 for finding in findings if finding.status == 'resolved')}</p>
+          <p><strong>Findings Requiring Further Validation:</strong> {sum(1 for finding in findings if finding.status in {'open', 'triaged', 'in_progress', 'reopened'})}</p>
+        </section>
+        """
+        title = "AegisPT Retest / Verification Report"
+    else:
+        findings_section = f"""
+        <section class="panel">
+          <h2>Confirmed Findings</h2>
+          {findings_html}
+        </section>
+        """
+        evidence_section = f"""
+        <section class="panel">
+          <h2>Evidence and Reproduction</h2>
+          {tasks_html}
+        </section>
+        """
+        verification_section = f"""
+        <section class="panel">
+          <h2>Retest and Verification</h2>
+          <p><strong>Verification Status Counts:</strong> {escape(str(findings_by_status or {}))}</p>
+          <p><strong>Resolved Findings:</strong> {sum(1 for finding in findings if finding.status == 'resolved')}</p>
+          <p><strong>Findings Requiring Further Validation:</strong> {sum(1 for finding in findings if finding.status in {'open', 'triaged', 'in_progress', 'reopened'})}</p>
+        </section>
+        """
+        title = "AegisPT Run Report"
+
     return f"""<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>AegisPT Run Report {escape(str(run.id))}</title>
+    <title>{escape(title)} {escape(str(run.id))}</title>
     <style>
       :root {{
         --ink: #1f2937;
@@ -629,7 +1045,7 @@ def render_html_report(run: Run) -> str:
     </style>
   </head>
   <body>
-    <h1>AegisPT Run Report</h1>
+    <h1>{escape(title)}</h1>
     <p class="lede">Evidence-first assessment output aligned to PTES, OWASP WSTG, and NIST SP 800-115 without changing the core execution model.</p>
 
     <section class="panel">
@@ -642,6 +1058,11 @@ def render_html_report(run: Run) -> str:
     <section class="panel">
       <h2>Scope</h2>
       {scope_html}
+    </section>
+
+    <section class="panel">
+      <h2>Run Configuration</h2>
+      {configuration_html}
     </section>
 
     <section class="panel">
@@ -665,22 +1086,9 @@ def render_html_report(run: Run) -> str:
       {adaptive_pack_html}
     </section>
 
-    <section class="panel">
-      <h2>Confirmed Findings</h2>
-      {findings_html}
-    </section>
-
-    <section class="panel">
-      <h2>Evidence and Reproduction</h2>
-      {tasks_html}
-    </section>
-
-    <section class="panel">
-      <h2>Retest and Verification</h2>
-      <p><strong>Verification Status Counts:</strong> {escape(str(findings_by_status or {}))}</p>
-      <p><strong>Resolved Findings:</strong> {sum(1 for finding in findings if finding.status == 'resolved')}</p>
-      <p><strong>Findings Requiring Further Validation:</strong> {sum(1 for finding in findings if finding.status in {'open', 'triaged', 'in_progress', 'reopened'})}</p>
-    </section>
+    {findings_section}
+    {evidence_section}
+    {verification_section}
   </body>
 </html>
 """
