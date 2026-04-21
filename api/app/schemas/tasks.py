@@ -42,4 +42,5 @@ class TaskDetailRead(BaseModel):
     params_json: dict[str, Any]
     status: str
     created_at: datetime
+    updated_at: datetime
     executions: list[ToolExecutionRead]

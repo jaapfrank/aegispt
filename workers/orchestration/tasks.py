@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
+from ipaddress import ip_address, ip_network
+from urllib.parse import urlparse
 from uuid import UUID
 
 import dramatiq
@@ -12,13 +15,21 @@ from api.app.services.artifact_storage import (
     artifact_storage_config_from_env,
     store_artifact_bytes_with_fallback,
 )
+from api.app.services.audit import write_audit_event
+from api.app.services.inventory import (
+    create_inventory_snapshot_record,
+    httpx_observation_from_jsonl,
+    nmap_observation_from_xml,
+)
 from api.app.policy.engine import execution_kill_switch_enabled
 from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
+from api.app.models import InventorySnapshot
 from api.app.models import Run, Scope, Task, ToolExecution
 from api.app.services.redaction import redact_artifact_bytes, redact_text
 from api.app.services.runs import derive_targets, latest_scope_query
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
 from workers.runners.httpx.runner import execute_httpx_probe
+from workers.runners.nmap.runner import execute_nmap_scan
 from workers.runners.nuclei.runner import execute_nuclei_scan
 from workers.runners.semgrep.runner import execute_semgrep_scan
 from workers.runners.zap.runner import execute_zap_scan
@@ -28,18 +39,30 @@ from workers.orchestration.runtime import session_scope
 redis_broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 dramatiq.set_broker(redis_broker)
 
-SUPPORTED_TOOLS = {"httpx", "nuclei", "semgrep", "zap"}
+SUPPORTED_TOOLS = {"httpx", "nmap", "nuclei", "semgrep", "zap"}
 
 
 def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
     rate_limit = int(request.params.get("limits", {}).get("max_rps", 2))
     timeout_seconds = float(request.params.get("timeout_seconds", 10.0))
+    limits = request.params.get("limits", {}) if isinstance(request.params.get("limits", {}), dict) else {}
 
     if request.tool == "httpx":
         return execute_httpx_probe(
             targets=request.targets,
             rate_limit=rate_limit,
             timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "nmap":
+        return execute_nmap_scan(
+            targets=request.targets,
+            binary=os.getenv("NMAP_BINARY", "nmap"),
+            discovery_only=bool(request.params.get("discovery_only", limits.get("discovery_only", True))),
+            service_detection=bool(request.params.get("service_detection", limits.get("service_detection", False))),
+            skip_discovery=bool(request.params.get("skip_discovery", limits.get("skip_discovery", False))),
+            top_ports=request.params.get("top_ports", limits.get("top_ports"))
+            if isinstance(request.params.get("top_ports", limits.get("top_ports")), int)
+            else None,
         )
     if request.tool == "nuclei":
         return execute_nuclei_scan(
@@ -84,8 +107,42 @@ def _scope_for_run(session, run: Run | None) -> Scope | None:
 
 
 def _target_is_allowed(scope: Scope, target_id: str) -> bool:
-    allowed_targets = {target["value"] for target in derive_targets(scope)}
-    return target_id in allowed_targets
+    allowed_targets = derive_targets(scope)
+    allowed_values = {target["value"] for target in allowed_targets}
+    if target_id in allowed_values:
+        return True
+
+    cidr_ranges = []
+    domain_like_targets: set[str] = set()
+    for target in allowed_targets:
+        if target["kind"] == "cidr":
+            try:
+                cidr_ranges.append(ip_network(target["value"], strict=False))
+            except ValueError:
+                continue
+        elif target["kind"] in {"host", "domain", "url", "target"}:
+            domain_like_targets.add(target["value"])
+            parsed_target = urlparse(target["value"])
+            if parsed_target.hostname:
+                domain_like_targets.add(parsed_target.hostname)
+
+    parsed = urlparse(target_id if "://" in target_id else f"//{target_id}")
+    host_candidate = parsed.hostname or target_id.split(":", 1)[0]
+    try:
+        ip_candidate = ip_address(host_candidate)
+    except ValueError:
+        ip_candidate = None
+
+    if ip_candidate is not None:
+        return any(ip_candidate in network for network in cidr_ranges)
+
+    normalized_host = str(host_candidate or "").strip().lower()
+    normalized_allowed = {value.strip().lower() for value in domain_like_targets if isinstance(value, str)}
+    return any(
+        normalized_host == allowed or normalized_host.endswith(f".{allowed}")
+        for allowed in normalized_allowed
+        if allowed
+    )
 
 
 def _task_targets(task: Task) -> list[str]:
@@ -200,6 +257,109 @@ def _store_execution(session, task: Task, execution: RunnerExecution) -> None:
         stored_artifact_pairs.append((redacted_contract_artifact, artifact_record))
 
     store_findings(session=session, task=task, artifact_pairs=stored_artifact_pairs)
+    _store_inventory_snapshot_from_execution(
+        session=session,
+        task=task,
+        execution=execution,
+        artifact_pairs=stored_artifact_pairs,
+    )
+
+
+def _store_inventory_snapshot_from_execution(
+    *,
+    session,
+    task: Task,
+    execution: RunnerExecution,
+    artifact_pairs: list[tuple[EvidenceArtifact, EvidenceArtifactRecord]],
+) -> InventorySnapshot | None:
+    if execution.exit_code != 0 or task.run is None:
+        return None
+
+    if task.tool == "nmap":
+        artifact_pair = next(
+            ((artifact, artifact_record) for artifact, artifact_record in artifact_pairs if artifact.name == "nmap-results.xml"),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = nmap_observation_from_xml(xml_bytes=artifact.data, target_id=task.target_id)
+        except Exception:
+            return None
+
+        notes = [
+            f"Nmap discovery imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only hosts and services emitted by the nmap execution are reflected in this snapshot.",
+            "Snapshot was derived after controlled execution and does not mutate the active runtime lane.",
+        ]
+    elif task.tool == "httpx":
+        artifact_pair = next(
+            ((artifact, artifact_record) for artifact, artifact_record in artifact_pairs if artifact.name == "httpx-results.jsonl"),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = httpx_observation_from_jsonl(jsonl_bytes=artifact.data, target_id=task.target_id)
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"HTTP profiling imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only HTTP endpoints and fingerprints emitted by the httpx execution are reflected in this snapshot.",
+            "HTTP endpoint visibility depends on the exact target list generated for the profiling run.",
+        ]
+    else:
+        return None
+
+    snapshot = create_inventory_snapshot_record(
+        engagement_id=task.run.engagement_id,
+        requested_by=task.run.requested_by,
+        source_tools=[task.tool],
+        observations=[observation],
+        environment_notes=notes,
+        assumptions=assumptions,
+        raw_inputs_json={
+            "task_id": str(task.id),
+            "run_id": str(task.run_id) if task.run_id else None,
+            "target_id": task.target_id,
+            "artifact_uri": artifact_record.uri,
+            "runner_digest": execution.metadata.get("runner_digest"),
+        },
+    )
+    session.add(snapshot)
+    session.flush()
+    write_audit_event(
+        session=session,
+        actor="runner:nmap",
+        action="inventory.snapshot.created",
+        object_type="inventory_snapshot",
+        object_id=str(snapshot.id),
+        metadata={
+            "engagement_id": str(task.run.engagement_id),
+            "run_id": str(task.run_id) if task.run_id else None,
+            "task_id": str(task.id),
+            "source_tools": [task.tool],
+            "derived_from_execution": True,
+        },
+    )
+    return snapshot
 
 
 def process_task_by_id(task_id: str) -> dict[str, object]:

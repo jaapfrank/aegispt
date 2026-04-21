@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AegisPT Operator Console</title>
-    <link rel="stylesheet" href="./assets/styles.css" />
+    <link rel="stylesheet" href="./assets/styles.css?v=20260418-phase1-focus" />
   </head>
   <body>
     <div class="bg-orbit orbit-a"></div>
@@ -17,8 +17,7 @@
           <p class="eyebrow">AegisPT</p>
           <h1>Operator Console</h1>
           <p class="hero-subcopy">
-            Guided, evidence-first assessment operations across wizard-driven setup, live mission control,
-            adaptive pack governance, evidence replay, and report delivery.
+            Guided setup, live run control, evidence review, and report delivery in one quieter operator workspace.
           </p>
         </div>
         <div class="hero-side">
@@ -31,45 +30,38 @@
       </header>
 
       <section class="context-strip">
-        <div id="flow-overview" class="flow-overview"></div>
-        <div id="next-actions" class="action-row"></div>
-      </section>
-
-      <div class="workspace">
-        <aside class="rail">
-          <div class="rail-card">
-            <div class="rail-card-head">
-              <p class="eyebrow">Mission</p>
-              <h2>Dossier</h2>
-            </div>
+        <div id="flow-overview" class="flow-overview" data-testid="phase-nav"></div>
+        <div class="context-strip-row">
+          <div class="context-controls">
             <label class="field compact">
               <span>Engagement</span>
               <select id="engagement-select" data-testid="engagement-select"></select>
             </label>
             <button id="refresh-btn" class="action ghost" type="button" data-testid="refresh-state">Refresh State</button>
-            <div id="selected-engagement-summary" class="badge-stack split-top"></div>
           </div>
+          <div id="next-actions" class="action-row quiet-actions"></div>
+        </div>
+        <div id="selected-engagement-summary" class="context-summary" data-testid="persistent-context"></div>
+      </section>
 
+      <div class="workspace">
+        <aside class="rail">
           <nav class="screen-nav rail-card">
             <div class="rail-card-head">
-              <p class="eyebrow">Views</p>
-              <h2>Operator Flow</h2>
+              <div>
+                <p class="eyebrow">Current Phase</p>
+                <h2 id="phase-subnav-title">Intake</h2>
+              </div>
             </div>
-            <button class="screen-link active" data-screen="wizard" data-testid="nav-wizard" type="button">Mandatory Wizard</button>
-            <button class="screen-link" data-screen="mission-control" data-testid="nav-mission-control" type="button">Mission Control</button>
-            <button class="screen-link" data-screen="surface-map" data-testid="nav-surface-map" type="button">Surface / Attack Map</button>
-            <button class="screen-link" data-screen="findings-theater" data-testid="nav-findings" type="button">Findings Theater</button>
-            <button class="screen-link" data-screen="evidence-replay" data-testid="nav-evidence" type="button">Evidence Replay</button>
-            <button class="screen-link" data-screen="pack-forge" data-testid="nav-packs" type="button">Pack Forge</button>
-            <button class="screen-link" data-screen="report-center" data-testid="nav-reports" type="button">Report Center</button>
-            <button class="screen-link" data-screen="explorer" data-testid="nav-explorer" type="button">Explorer</button>
-            <button class="screen-link" data-screen="history" data-testid="nav-history" type="button">History & Comparison</button>
+            <div id="phase-subnav" class="nav-group" data-testid="phase-subnav"></div>
           </nav>
 
-          <div class="rail-card">
+          <div id="phase-feed-card" class="rail-card hidden" data-testid="phase-feed-card">
             <div class="rail-card-head">
-              <p class="eyebrow">Status</p>
-              <h2>Live Feed</h2>
+              <div>
+                <p class="eyebrow" id="phase-feed-kicker">Activity</p>
+                <h2 id="phase-feed-title">Recent Signals</h2>
+              </div>
             </div>
             <div id="status-feed" class="status-feed"></div>
           </div>
@@ -80,11 +72,10 @@
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Mandatory Start</p>
-                <h2>Mandatory Assessment Wizard</h2>
+                <h2>Conversational Mission Intake</h2>
               </div>
               <p class="screen-copy">
-                Every mission begins here. The wizard establishes the assessment type, scope, access context,
-                operator profile, enabled modules, safety boundaries, and estimated mission shape before the run exists.
+                Describe the mission in plain language. Advanced controls stay available whenever you want exact run settings.
               </p>
             </div>
 
@@ -92,11 +83,16 @@
               <article class="panel wizard-main">
                 <div id="wizard-stepper" class="wizard-stepper"></div>
                 <div id="wizard-panel" class="wizard-panel"></div>
+                <div class="wizard-toolbar">
+                  <button id="wizard-advanced-toggle" class="action ghost" type="button" data-testid="wizard-advanced-toggle">Advanced Configuration</button>
+                  <button id="wizard-restart-btn" class="action ghost" type="button" data-testid="wizard-restart">Restart Intake</button>
+                </div>
+                <div id="wizard-advanced-drawer" class="advanced-drawer hidden" data-testid="wizard-advanced-drawer"></div>
                 <div id="wizard-errors" class="inline-errors"></div>
                 <div class="wizard-actions">
-                  <button id="wizard-back-btn" class="action ghost" type="button" data-testid="wizard-back">Back</button>
-                  <button id="wizard-next-btn" class="action primary" type="button" data-testid="wizard-next">Next</button>
-                  <button id="wizard-confirm-btn" class="action primary hidden" type="button" data-testid="wizard-confirm">Confirm Mission</button>
+                  <button id="wizard-back-btn" class="action ghost" type="button" data-testid="wizard-back">Previous Topic</button>
+                  <button id="wizard-next-btn" class="action primary" type="button" data-testid="wizard-next">Apply Answer</button>
+                  <button id="wizard-confirm-btn" class="action primary hidden" type="button" data-testid="wizard-confirm">Create Mission & Open Mission Control</button>
                 </div>
               </article>
 
@@ -119,13 +115,12 @@
                 <h2>Mission Control</h2>
               </div>
               <p class="screen-copy">
-                The main command view answers what is happening now, what is blocked, how far the run has progressed,
-                what evidence is accumulating, and what needs operator attention next.
+                See what is running now, what is blocked, how far the run is, and where to go next.
               </p>
             </div>
 
             <div class="grid mission-grid">
-              <article class="panel span-2">
+              <article class="panel span-2 mission-primary-panel">
                 <div class="panel-head">
                   <div>
                     <p class="eyebrow">Now</p>
@@ -135,7 +130,17 @@
                 <div id="mission-activity" class="detail-surface emphasis-surface" data-testid="mission-activity"></div>
               </article>
 
-              <article class="panel span-2">
+              <article class="panel mission-sidebar-panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Execution</p>
+                    <h3>Run Activity</h3>
+                  </div>
+                </div>
+                <div id="mission-run-activity" class="detail-surface tall" data-testid="mission-run-activity"></div>
+              </article>
+
+              <article class="panel span-2 mission-primary-panel">
                 <div class="panel-head">
                   <div>
                     <p class="eyebrow">Timeline</p>
@@ -145,84 +150,57 @@
                 <div id="mission-timeline" class="timeline-grid" data-testid="mission-timeline"></div>
               </article>
 
-              <article class="panel">
+              <article class="panel mission-sidebar-panel" data-testid="mission-snapshot-panel">
                 <div class="panel-head">
                   <div>
-                    <p class="eyebrow">Green</p>
-                    <h3>Going Well</h3>
+                    <p class="eyebrow">Snapshot</p>
+                    <h3>Operational Snapshot</h3>
                   </div>
                 </div>
-                <div id="mission-good" class="stack-zone"></div>
+                <div class="mission-secondary-stack">
+                  <div id="mission-eta" class="detail-surface compact-surface"></div>
+                  <div id="mission-findings-pulse" class="detail-surface compact-surface"></div>
+                  <div class="detail-surface compact-surface">
+                    <h4>Status Board</h4>
+                    <div class="mission-status-stack split-top">
+                      <div class="mission-status-lane">
+                        <p class="eyebrow">Going Well</p>
+                        <div id="mission-good" class="stack-zone compact-stack"></div>
+                      </div>
+                      <div class="mission-status-lane">
+                        <p class="eyebrow">Issues / Failures</p>
+                        <div id="mission-bad" class="stack-zone compact-stack"></div>
+                      </div>
+                      <div class="mission-status-lane">
+                        <p class="eyebrow">Under Investigation</p>
+                        <div id="mission-unknown" class="stack-zone compact-stack"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </article>
 
-              <article class="panel">
+              <article class="panel span-full mission-support-panel" data-testid="mission-support-panel">
                 <div class="panel-head">
                   <div>
-                    <p class="eyebrow">Amber / Red</p>
-                    <h3>Issues / Failures</h3>
+                    <p class="eyebrow">Context</p>
+                    <h3>Supporting Context</h3>
                   </div>
                 </div>
-                <div id="mission-bad" class="stack-zone"></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Unknown</p>
-                    <h3>Under Investigation</h3>
+                <div class="mission-support-grid">
+                  <div class="detail-surface compact-surface">
+                    <h4>AI Signal</h4>
+                    <div id="mission-ai-narrative" class="stack-zone compact-stack"></div>
+                  </div>
+                  <div class="detail-surface compact-surface">
+                    <h4>Pack Forge Status</h4>
+                    <div id="mission-pack-status" class="stack-zone compact-stack"></div>
+                  </div>
+                  <div class="detail-surface compact-surface">
+                    <h4>Active Scope & Profile</h4>
+                    <div id="mission-scope-summary" class="stack-zone compact-stack"></div>
                   </div>
                 </div>
-                <div id="mission-unknown" class="stack-zone"></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Timing</p>
-                    <h3>ETA Intelligence</h3>
-                  </div>
-                </div>
-                <div id="mission-eta" class="detail-surface"></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Pulse</p>
-                    <h3>Findings Snapshot</h3>
-                  </div>
-                </div>
-                <div id="mission-findings-pulse" class="detail-surface"></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Narrative</p>
-                    <h3>AI Signal</h3>
-                  </div>
-                </div>
-                <div id="mission-ai-narrative" class="stack-zone"></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Adaptive</p>
-                    <h3>Pack Forge Status</h3>
-                  </div>
-                </div>
-                <div id="mission-pack-status" class="detail-surface"></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Scope</p>
-                    <h3>Active Scope & Profile</h3>
-                  </div>
-                </div>
-                <div id="mission-scope-summary" class="detail-surface"></div>
               </article>
             </div>
           </section>
@@ -234,8 +212,7 @@
                 <h2>Surface / Attack Map</h2>
               </div>
               <p class="screen-copy">
-                Visualize hosts, apps, APIs, trust boundaries, hotspots, and pack impact zones. Future attack paths,
-                identity overlays, and risk layers plug into this surface without changing the current runtime.
+                Review mapped hosts, apps, APIs, and hotspots without leaving the mission flow.
               </p>
             </div>
 
@@ -252,6 +229,24 @@
                   </div>
                 </div>
                 <div id="surface-map-canvas" class="surface-map-canvas"></div>
+              </article>
+              <article class="panel span-2">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Inventory</p>
+                    <h3>Asset Browser</h3>
+                  </div>
+                </div>
+                <div id="surface-asset-browser" class="stack-zone" data-testid="surface-asset-browser"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Detail</p>
+                    <h3>Selected Asset</h3>
+                  </div>
+                </div>
+                <div id="surface-asset-detail" class="stack-zone" data-testid="surface-asset-detail"></div>
               </article>
               <article class="panel">
                 <div class="panel-head">
@@ -281,8 +276,7 @@
                 <h2>Findings Theater</h2>
               </div>
               <p class="screen-copy">
-                Triage, group, and interpret findings as a mission outcome rather than a flat table. Every item
-                carries severity, provenance, methodology, replay posture, and recommended next steps.
+                Triage findings by severity, status, origin, and methodology with the evidence trail close at hand.
               </p>
             </div>
 
@@ -317,8 +311,7 @@
                 <h2>Evidence Replay</h2>
               </div>
               <p class="screen-copy">
-                Evidence is first-class. Replay traces, artifact access, validation history, and pack provenance are
-                visible together so the operator can validate trust in every outcome.
+                Inspect the execution trail, artifacts, and provenance behind a finding in one place.
               </p>
             </div>
 
@@ -369,8 +362,7 @@
                 <h2>Pack Forge</h2>
               </div>
               <p class="screen-copy">
-                Adaptive planning, generated pack review, validation, promotion, and Codex-supervised refinement stay
-                visible and approval-aware before any pack reaches the deterministic runtime.
+                Review adaptive pack planning, validation, approval, and Codex-supervised changes before deployment.
               </p>
             </div>
 
@@ -428,8 +420,10 @@
                     <h3>Build Lane Output</h3>
                   </div>
                 </div>
-                <div id="codex-context" class="detail-surface"></div>
-                <div id="codex-task-result" class="detail-surface split-top"></div>
+                <div id="codex-suggestions" class="detail-surface" data-testid="codex-suggestions"></div>
+                <div id="codex-pack-preview" class="detail-surface split-top" data-testid="codex-pack-preview"></div>
+                <div id="codex-context" class="detail-surface split-top" data-testid="codex-context"></div>
+                <div id="codex-task-result" class="detail-surface split-top" data-testid="codex-task-result"></div>
               </article>
             </div>
           </section>
@@ -441,8 +435,7 @@
                 <h2>Report Center</h2>
               </div>
               <p class="screen-copy">
-                Executive, technical, evidence, and retest outputs are treated as product workflows, complete with
-                status, scope inheritance, methodology references, preview, export, and comparison context.
+                Preview and export executive, technical, evidence, and retest reports with the current run context attached.
               </p>
             </div>
 
@@ -498,8 +491,7 @@
                 <h2>Customer / Project / Run Explorer</h2>
               </div>
               <p class="screen-copy">
-                Navigate the platform by customer, engagement, and run. Each mission remains a dossier with its own
-                inventory, configuration, packs, findings, evidence, reports, and delivery history.
+                Move through customers, engagements, and runs, then inspect the selected run as a full dossier.
               </p>
             </div>
 
@@ -541,8 +533,7 @@
                 <h2>Comparison & Next Steps</h2>
               </div>
               <p class="screen-copy">
-                Compare runs over time, track what changed, identify what improved or worsened, and keep next-step
-                actions visible for remediation and retest planning.
+                Compare runs, see what changed, and keep follow-up actions visible for remediation and retest work.
               </p>
             </div>
 
@@ -582,6 +573,6 @@
       </div>
     </div>
 
-    <script type="module" src="./assets/app.js"></script>
+    <script type="module" src="./assets/app.js?v=20260418-phase1-focus"></script>
   </body>
 </html>

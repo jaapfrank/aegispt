@@ -1,0 +1,109 @@
+{
+  "id": "backlog-04-jira-integration-foundation",
+  "task_file": "codex/tasks/backlog-04-jira-integration-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Jira Integration Foundation",
+  "goal": "Open the first enterprise workflow handoff path by adding Jira-only integration configuration, finding linkage, and on-demand status synchronization without creating a shadow runtime lane.",
+  "scope": "Implement the first integration slice with a generic integration configuration model that supports only Jira in this slice, an API path to link findings to Jira issues, and on-demand sync of the linked issue state back into AegisPT. Keep Slack, Teams, ServiceNow, and generic webhooks out of scope for this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 4,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/integrations.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_integrations",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/integrations.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to Jira-only configuration, finding linkage, and on-demand sync. Defer notifications, ServiceNow, Teams, Slack, and generic webhook work.",
+    "runtime_mutation": false,
+    "no_standalone_integration_screen": true,
+    "notes": [
+      "Use a generic integration configuration model so later integrations can reuse it, but support only integration_type = jira in this slice.",
+      "Expose configuration and sync through API and existing finding surfaces rather than inventing a new runtime workflow."
+    ]
+  },
+  "success_criteria": [
+    "An engagement can store a Jira integration configuration through a repo-backed API contract.",
+    "A finding can be linked to a Jira issue and retain the linked key, URL, and last sync state.",
+    "Operators can trigger an on-demand Jira sync and see the latest linked issue status in AegisPT.",
+    "Findings Theater or adjacent finding detail surfaces expose the linked Jira issue truthfully.",
+    "API and browser coverage prove the Jira-only slice without implying that other integrations exist yet."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/routers/findings.py",
+    "api/app/routers/integrations.py",
+    "api/app/services/audit.py",
+    "api/app/services/finding_views.py",
+    "ui/assets/modules/findings.js",
+    "docs/integrations.md"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/packs.py",
+    "api/app/services/reports.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A finding can link to one Jira issue without changing the finding schema contract.",
+      "A failed Jira sync reports a truthful sync-state error instead of silently discarding linkage.",
+      "The slice remains clearly Jira-only and does not imply Slack, Teams, ServiceNow, or webhook support."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "No additional integration type is added unless TASK_QUEUE.md and the task package are explicitly revised together."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the Jira foundation behavior and validation evidence.",
+      "Update CURRENT_STATE.md with the shipped Jira linkage scope and the integrations still missing.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "Slack notifications",
+    "Teams notifications",
+    "ServiceNow support",
+    "Generic webhook support",
+    "Automatic background sync workers"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}

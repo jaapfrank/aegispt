@@ -26,6 +26,20 @@ Prompt 3 extends the canonical task with controlled build-lane metadata:
 - `validation_status`
 - `approval_status`
 
+Repo-backed backlog task packages should also add:
+
+- `id`
+- `task_file`
+- `title`
+- `goal`
+- `status`
+- `success_criteria`
+- `likely_touched_files`
+- `must_not_touch`
+- `validation`
+- `promotion_requirements`
+- `out_of_scope`
+
 ## Source context
 
 `source_context` should point back to existing Prompt 2 state where relevant:
@@ -71,6 +85,12 @@ The repository-backed task interface uses:
 - `codex/tasks/*.json` for task definitions
 - `codex/results/*.json` for prepared run results
 - `NEXT_TASK.md` for the single active human-readable task
+
+For anti-drift backlog control:
+
+- `TASK_QUEUE.md` should point one-to-one to queued `codex/tasks/backlog-*.json` task packages
+- `NEXT_TASK.md` should remain the only active human-readable task
+- `python3 scripts/validate_backlog_tasks.py` should pass before queue promotion or queue reordering
 
 ## API support
 

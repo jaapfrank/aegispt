@@ -8,6 +8,32 @@ from api.app.policy.engine import RunClass, normalize_profile_limits
 
 DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
     {
+        "name": "passive-network-discovery",
+        "run_class": RunClass.PASSIVE.value,
+        "limits_json": {
+            "description": "Passive-safe host and range discovery using Nmap ping scan semantics.",
+            "required_approvals": 0,
+            "tools": ["nmap"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+        },
+    },
+    {
+        "name": "passive-network-service-enumeration",
+        "run_class": RunClass.PASSIVE.value,
+        "limits_json": {
+            "description": "Passive-safe service identification across discovered hosts using Nmap top-port and service detection.",
+            "required_approvals": 0,
+            "tools": ["nmap"],
+            "discovery_only": False,
+            "service_detection": True,
+            "skip_discovery": True,
+            "top_ports": 50,
+            "max_rps": 1,
+            "max_concurrency": 1,
+        },
+    },
+    {
         "name": "passive-web-baseline",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {

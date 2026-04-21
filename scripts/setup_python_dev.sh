@@ -11,7 +11,7 @@ if ! python3 -m venv --help >/dev/null 2>&1; then
   exit 1
 fi
 
-python3 -m venv .venv
+python3 -m venv --clear .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements/dev.txt

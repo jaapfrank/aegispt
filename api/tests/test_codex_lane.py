@@ -119,8 +119,18 @@ def test_codex_context_exposes_guardrails_and_hooks(client: TestClient) -> None:
     assert payload["repo_conventions"]["suggested_branch_name"].startswith("codex/pack-")
     assert payload["repo_conventions"]["validation_command"].endswith(pack_id)
     assert any(hook["path"].endswith(f"/packs/{pack_id}/validate") for hook in payload["validation_hooks"])
+    playwright_hook = next(hook for hook in payload["validation_hooks"] if hook["name"] == "artifact.playwright_flow.validate")
+    assert playwright_hook["artifact_types"] == ["playwright_flow"]
+    assert playwright_hook["expected_checks"] == ["has steps array"]
+    assert any(path.endswith("validation-result.json") for path in playwright_hook["workspace_files"])
+    zap_hook = next(hook for hook in payload["validation_hooks"] if hook["name"] == "artifact.zap_job.validate")
+    assert zap_hook["artifact_types"] == ["zap_job"]
+    assert zap_hook["expected_checks"] == ["has tool", "has targets or note"]
+    assert any("/artifacts/" in path for path in zap_hook["workspace_files"])
     assert "Runtime mutation blocked" in payload["operator_visibility"]["required_badges"]
     assert payload["artifacts"]
+    playwright_artifact = next(artifact for artifact in payload["artifacts"] if artifact["artifact_type"] == "playwright_flow")
+    assert playwright_artifact["validation_checks"] == ["has steps array"]
 
 
 def test_codex_review_bundle_reuses_existing_pack_records(client: TestClient) -> None:
@@ -136,6 +146,8 @@ def test_codex_review_bundle_reuses_existing_pack_records(client: TestClient) ->
     assert payload["pack"]["generation_mode"] == "codex-supervised"
     assert payload["artifacts"]
     assert any(artifact["artifact_type"] == "workflow" for artifact in payload["artifacts"])
+    assert any(hook["name"] == "artifact.playwright_flow.validate" for hook in payload["context"]["validation_hooks"])
+    assert any(hook["name"] == "artifact.zap_job.validate" for hook in payload["context"]["validation_hooks"])
     assert any(
         field == "source_pack_version"
         for field in payload["context"]["operator_visibility"]["finding_provenance_fields"]

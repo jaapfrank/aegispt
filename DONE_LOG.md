@@ -1,5 +1,1305 @@
 # Done Log
 
+## 2026-04-20
+
+- 2026-04-21: repaired repository ignore hygiene after the local workspace became noisy with generated artifacts:
+  - updated `.gitignore` so local caches, Codex marker state, Playwright browser downloads, `.vscode`, UI test results, and generated `codex/results` proof artifacts no longer appear as untracked work while preserving `codex/results/README.md`
+  - updated `.dockerignore` so Docker build contexts no longer include `.git/`, local caches, Playwright browser downloads, editor state, UI test results, generated proof artifacts, local env files, or coverage/build outputs
+  - revalidated this repo-hygiene fix with:
+    - `git diff --check -- .gitignore .dockerignore`
+    - `git check-ignore -v .cache/foo .codex .playwright-browsers/chromium-1208/chrome-linux64/chrome .playwright/chromium-1208/chrome-linux64/chrome .vscode/settings.json ui/test-results/example.zip codex/results/tmp-example.json codex/results/README.md infra/compose/.env foo.db`
+    - `git ls-files --others --exclude-standard`
+    - `git fsck --no-progress --connectivity-only`
+  - important truth notes:
+    - `git fsck --connectivity-only` reported dangling blobs only, not broken references
+    - Docker is installed, but the `docker compose` plugin is unavailable in this environment, so compose config validation could not run through `docker compose`
+    - this did not stage, delete, reset, or revert any existing work-in-progress
+    - `NEXT_TASK.md` remains unchanged and no next task was promoted
+
+- 2026-04-21: completed the Findings Theater browser-exposure substep inside the active `Remediation Tracking and Single-Finding Retest Foundation` task:
+  - extended the existing Findings Theater remediation card in `ui/assets/modules/findings.js` so it now renders the additive remediation record state/owner/notes, linked single-finding retest runs, latest retest status, proof-of-resolution readiness, task counts, verification timestamp, and the existing retest proof-report link
+  - kept this as rendering-only browser exposure; it does not add batch retesting, ticketing, SLA automation, a second workflow lane, or finding-schema changes
+  - added `ui/tests/test_operator_console_e2e.py::test_findings_theater_surfaces_remediation_and_retest_truth`, which feeds the browser the same remediation/retest shape returned by the API and proves the operator-facing card shows remediation notes, linked retest truth, proof readiness, operator retest notes, and a `variant=retest` proof-report link
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'findings_theater_surfaces_remediation_and_retest_truth'`
+  - important truth notes:
+    - `node --check ui/assets/modules/findings.js` could not run because `node` is not installed in this environment
+    - this does not close the active task yet; full `NEXT_TASK.md` closure validation remains open
+    - this did not touch `api/app/schemas/findings.py`, workers, pack registry, validation/approval/deployment/runtime binding, or Prompt 1 / Prompt 2 foundations
+    - `NEXT_TASK.md` remains unchanged and no next task was promoted
+
+- 2026-04-21: completed the proof-of-resolution report-output substep inside the active `Remediation Tracking and Single-Finding Retest Foundation` task:
+  - wired the existing single-finding retest metadata into the existing `retest` report variant so markdown output now shows source finding, source run, source severity/target/evidence, source summary, remediation state/notes, retest operator notes, retest run status, verification timestamp, and retest evidence artifacts
+  - added the same proof-of-resolution section to the HTML retest report path using existing task, execution, artifact, and download-link structures instead of creating a second report lineage model
+  - added a stable `source_finding_summary` key to newly created retest metadata while preserving the prior `source_summary` field for compatibility with already-created retest runs
+  - extended `api/tests/test_finding_remediation.py` so a linked retest run is marked completed, receives a real `ToolExecution` plus `EvidenceArtifact`, and proves the markdown and HTML retest reports contain the original finding, remediation notes, proof artifact, artifact URI, and verification timestamp
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/reports.py api/app/routers/findings.py api/tests/test_finding_remediation.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_finding_remediation.py`
+  - important truth notes:
+    - this does not complete the active task; browser rendering plus the full `NEXT_TASK.md` validation contract remain open
+    - this did not touch `api/app/schemas/findings.py`, workers, pack registry, validation/approval/deployment/runtime binding, or Prompt 1 / Prompt 2 foundations
+    - `NEXT_TASK.md` remains unchanged and no next task was promoted
+
+- 2026-04-21: completed the Finding Theater API exposure substep inside the active `Remediation Tracking and Single-Finding Retest Foundation` task:
+  - updated `api/app/services/finding_views.py` so the existing `remediation` block now includes the additive remediation record, linked single-finding retest runs, latest retest status, verification state, task counts, and verification timestamp metadata
+  - kept the existing `FindingTheaterRead` schema shape intact by using the existing additive `remediation: dict` surface instead of changing finding schema fields or introducing a second view contract
+  - extended `api/tests/test_finding_remediation.py` so the linked retest API path also proves Finding Theater returns the remediation record and retest linkage truthfully
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_finding_remediation.py`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/finding_views.py api/tests/test_finding_remediation.py`
+  - important truth notes:
+    - this does not complete the active task; proof-of-resolution output, report-surface exposure, and browser rendering remain open
+    - this did not touch `api/app/schemas/findings.py`, report generation, frontend rendering, workers, pack registry, validation/approval/deployment/runtime binding, or Prompt 1 / Prompt 2 foundations
+    - `NEXT_TASK.md` remains unchanged and no next task was promoted
+
+- 2026-04-21: completed the single-finding retest launch/linkage substep inside the active `Remediation Tracking and Single-Finding Retest Foundation` task:
+  - added `POST /api/v1/findings/{finding_id}/retest` to create one deterministic retest run from the source finding's existing run context instead of inventing a second execution lane
+  - reused the existing run profile, engagement scope, pack binding, approval requirement, task queueing, secret-materialization, and audit primitives so retest launch does not bypass runtime safety controls
+  - stamped `single_finding` retest metadata into the new run's `configuration_json.retest`, including `source_finding_id`, `source_run_id`, source evidence reference, remediation state/notes, and operator notes
+  - stamped the same retest linkage into queued task params when the selected run profile does not require approval, while approval-gated profiles remain `pending_approval` through the existing run approval flow
+  - extended `api/tests/test_finding_remediation.py` to prove linked retest-run creation, source finding status preservation, queued task linkage, audit trail creation, and the 409 guard for findings that have no source run
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_finding_remediation.py`
+    - `source .venv/bin/activate && python -m py_compile api/app/routers/findings.py api/app/schemas/remediation.py`
+  - important truth notes:
+    - at completion time this did not complete the active task; the later Finding Theater API slice closed the backend theater exposure gap, while proof-of-resolution output, report-surface exposure, and browser rendering remain open
+    - this did not dispatch retest runs automatically, add batch retesting, touch `api/app/schemas/findings.py`, modify workers, bypass pack validation/approval/deployment/runtime binding, or change Prompt 1 / Prompt 2 foundations
+    - `NEXT_TASK.md` remains unchanged and no next task was promoted
+
+- 2026-04-21: completed the first additive remediation-tracking substep inside the active `Remediation Tracking and Single-Finding Retest Foundation` task:
+  - added a `FindingRemediation` model and `finding_remediations` Alembic migration so remediation state, notes, owner, and actor attribution live beside findings instead of redefining existing finding schema fields
+  - added `GET` / `PUT` remediation endpoints under the existing findings router, reusing the current audit trail and preserving `FindingUpdate.status` unchanged
+  - added `api/app/schemas/remediation.py` for remediation-specific payloads so `api/app/schemas/findings.py` remains untouched
+  - added `api/tests/test_finding_remediation.py` proving remediation state/notes are additive, existing finding status stays `open`, audit metadata is recorded, and finding-status values such as `resolved` are rejected as remediation states
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_finding_remediation.py`
+    - `source .venv/bin/activate && python -m py_compile migrations/versions/20260421_0007_finding_remediation_tracking.py api/app/schemas/remediation.py`
+  - important truth notes:
+    - at completion time this did not complete the active task; the later retest-linkage substep closed the launch/linkage gap, while proof-of-resolution output and Findings Theater/report/browser exposure remain open
+    - this did not touch `api/app/schemas/findings.py`, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, or worker orchestration
+    - `NEXT_TASK.md` remains unchanged and no next task was promoted
+
+- 2026-04-20: anti-drift hardened the new broader backlog so queued product work no longer relies on prose-only roadmap memory:
+  - narrowed the broad post-intake queue themes in `TASK_QUEUE.md` into 10 explicit first-slice backlog items, each with a one-to-one repo-backed task-package reference under `codex/tasks/backlog-*.json`
+  - added 10 decision-complete backlog task packages covering the first executable slice for:
+    - commercial-viability UI
+    - remediation and single-finding retest
+    - live run streaming
+    - Jira integration
+    - attack-path summary
+    - scheduled validation
+    - SOC 2 reporting
+    - LDAP / AD enumeration
+    - AI finding enrichment
+    - runtime-store hardening
+  - updated `codex/tasks/README.md`, `docs/codex_task_interface.md`, `docs/repo_map.md`, and `docs/product_recommendations_scope_alignment.md` so the queue-to-task-package contract is explicit in repo guidance instead of only implied
+  - added `scripts/validate_backlog_tasks.py`, which now enforces:
+    - exactly one active task in `NEXT_TASK.md`
+    - one-to-one `TASK_QUEUE.md` mapping to `codex/tasks/backlog-*.json`
+    - required backlog task-package metadata, validation, and promotion fields
+  - updated `CURRENT_STATE.md` and `DONE_LOG.md` so repo truth now records that the broader backlog is mechanically packaged and validated instead of only documented
+  - validation for this anti-drift hardening step:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 - <<'PY' ... json.loads each codex/tasks/backlog-*.json ... PY`
+    - `git diff --check -- TASK_QUEUE.md codex/tasks/README.md docs/codex_task_interface.md docs/repo_map.md docs/product_recommendations_scope_alignment.md scripts/validate_backlog_tasks.py codex/tasks/backlog-*.json CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - this substep does not complete any of the queued product slices; it only makes them explicit, decision-complete, and promotable without drift
+    - `NEXT_TASK.md` remains unchanged as the single active task contract, so the conversational-intake expansion work is still the only active implementation task
+
+- 2026-04-20: absorbed the supplied full product recommendations into repo-backed project scope and backlog instead of leaving `PRODUCT_RECOMMENDATIONS.md` as a standalone reference:
+  - added `docs/product_recommendations_scope_alignment.md` to turn the supplied recommendations into an ordered broader product program with explicit workstreams, sequencing, existing design anchors, and non-goals
+  - updated `TASK_QUEUE.md` so the repo backlog now reflects the post-intake commercial-viability, remediation, live-operations, integration, attack-path, continuous-mode, compliance, cloud/identity, AI/MCP, and frontend-state-watch slices instead of a single generic placeholder line
+  - updated `docs/operator_console_stabilization_plan.md` and `CURRENT_STATE.md` so the canonical operator-assurance plan and repo truth both point to that broader absorbed roadmap
+  - validation for this documentation-only backlog-alignment step:
+    - `rg -n "product_recommendations_scope_alignment|Commercial-viability UI|Remediation closure|Live-operations streaming|AI leverage and MCP" docs/product_recommendations_scope_alignment.md TASK_QUEUE.md docs/operator_console_stabilization_plan.md CURRENT_STATE.md`
+    - `git diff --check -- docs/product_recommendations_scope_alignment.md TASK_QUEUE.md docs/operator_console_stabilization_plan.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - this substep intentionally changed documentation and backlog truth only; it did not implement remediation, live streaming, integrations, attack-path graphing, compliance packaging, cloud/identity coverage, or MCP capabilities
+    - `NEXT_TASK.md` remains unchanged because the active implementation task is still the conversational-intake expansion work
+
+- 2026-04-20: recorded the supplied midterm review inside repo scope instead of leaving it as off-repo guidance only:
+  - added `docs/midterm_review_scope_alignment.md` to map the review's UI, competitive, architecture, and commercialization points into explicit project scope
+  - updated `docs/operator_console_stabilization_plan.md` so the canonical operator-assurance plan now references that review and explicitly keeps the cited font-stack, onboarding, navigation compression, calmer visual treatment, attack-path storytelling, remediation, attack-path graphing, Jira/integration, continuous mode, cloud/identity, managed deployment, and frontend-state watch items inside the broader program
+  - updated `CURRENT_STATE.md` and `DONE_LOG.md` so repo truth now reflects that this review has been absorbed into project scope rather than only acknowledged in chat
+  - validation for this documentation-only scope-alignment step:
+    - `rg -n "font-stack|empty states|navigation compression|attack-path|remediation|Jira|continuous|cloud / identity|managed-cloud|vanilla-JS|runtime-state" docs/midterm_review_scope_alignment.md docs/operator_console_stabilization_plan.md CURRENT_STATE.md`
+    - `git diff --check -- docs/midterm_review_scope_alignment.md docs/operator_console_stabilization_plan.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - this substep intentionally changed documentation and scope records only; it did not implement remediation, attack-path graphing, integrations, continuous mode, cloud/identity coverage, or hosted deployment
+    - `NEXT_TASK.md` remains unchanged because the active implementation task is still the conversational-intake expansion work
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the remaining account-backed `Previous Topic` proof gap for advanced access detail instead of leaving that visible back-button truth mostly tied to a single credential example:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - the existing advanced credential `Previous Topic` route still reopens the exact stored username-plus-secret draft after being moved onto a shared helper
+    - `Previous Topic` on advanced session detail reopens the exact stored session draft and preserves `auth_strategy = session-access`
+    - `Previous Topic` on advanced API-token detail reopens the exact stored token draft and preserves `auth_strategy = api-access`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `CURRENT_STATE.md`, and `DONE_LOG.md` so repo truth now explicitly says that the visible account-backed `Previous Topic` route is proven across credential, session, and API-token advanced detail instead of leaning on a generic wording claim
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_previous_topic_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or test_previous_topic_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or test_previous_topic_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'go_back_reopens_last_answered_access_topic_and_returns_to_safety or previous_topic_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or previous_topic_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or previous_topic_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or previous_topic_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or access_stepper_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or previous_topic_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or access_stepper_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-previous-topic-advanced-access-proof-20260420.json`
+    - `python3 -m json.tool codex/results/live-host-previous-topic-advanced-access-proof-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - this substep did not require another product-code change; the visible back-button router already kept these advanced session/API routes on the exact stored access draft, but that broader account-backed proof packet was still missing
+    - the independent supported-host proof now covers advanced credential, session, and API-token `Previous Topic` routes and shows each preserving the expected auth strategy and protected binding type after revision
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the remaining advanced credential-route auth alias proof gap instead of leaving `edit auth` / `revise auth` stronger in repo wording than in explicit evidence:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - `edit auth` on advanced credential detail reopens the exact stored username-plus-secret draft and persists the updated credential role
+    - `revise auth` on advanced credential detail does the same instead of falling back to the older coarse auth-strategy question
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `CURRENT_STATE.md`, and `DONE_LOG.md` so repo truth now explicitly includes that advanced credential-route `change` / `edit` / `revise auth` symmetry instead of stopping at the earlier partial proof
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_edit_auth_after_advanced_credential_detail_reopens_detail_draft_and_persists_updated_role or test_revise_auth_after_advanced_credential_detail_reopens_detail_draft_and_persists_updated_role'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'advanced_access_placeholder_opens_drawer_and_realigns_to_safety or change_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or edit_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or previous_topic_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or change_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or change_auth_after_advanced_credential_detail_reopens_detail_draft_and_persists_updated_role or edit_auth_after_advanced_credential_detail_reopens_detail_draft_and_persists_updated_role or revise_auth_after_advanced_credential_detail_reopens_detail_draft_and_persists_updated_role or edit_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or revise_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or auth_details_advanced_settings_reply_opens_access_drawer or change_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or revise_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or edit_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or change_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or edit_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or revise_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or change_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or revise_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or advanced_drawer_overrides_stay_synchronized or session_reference_in_advanced_drawer_reaches_run_dossier'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-advanced-credential-auth-alias-proof-20260420.json`
+    - `python3 -m json.tool codex/results/live-host-advanced-credential-auth-alias-proof-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - this substep did not require another product-code change; the advanced-drawer revision router already kept these credential auth aliases on the exact stored detail draft, but that explicit proof packet was still missing
+    - the independent supported-host proof now covers both newly recorded credential-detail aliases and shows them preserving `auth_strategy = credentialed` together with the expected protected password binding
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the adjacent advanced-access auth/session/token symmetry proof gap instead of leaving those remaining advanced-drawer routes partly implied by older revision evidence:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - `change auth` on advanced credential detail reopens the exact stored credential draft and persists the updated credential role
+    - `edit auth` on advanced session detail reopens the exact stored session draft and preserves `auth_strategy = session-access`
+    - `revise session` on advanced session detail reopens the exact stored session draft and preserves `auth_strategy = session-access`
+    - `revise token` on advanced API-token detail reopens the exact stored token draft and preserves `auth_strategy = api-access`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `CURRENT_STATE.md`, and `DONE_LOG.md` so repo truth now explicitly includes those newly proven advanced-access symmetry routes instead of stopping at the earlier `change`/partial `edit` subset
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_change_auth_after_advanced_credential_detail_reopens_detail_draft_and_persists_updated_role or test_edit_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or test_revise_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or test_revise_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'advanced_access_placeholder_opens_drawer_and_realigns_to_safety or change_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or edit_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or previous_topic_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or change_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or change_auth_after_advanced_credential_detail_reopens_detail_draft_and_persists_updated_role or edit_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or revise_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or auth_details_advanced_settings_reply_opens_access_drawer or change_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or revise_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or edit_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or change_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or edit_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or revise_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or change_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or revise_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or advanced_drawer_overrides_stay_synchronized or session_reference_in_advanced_drawer_reaches_run_dossier'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-advanced-access-auth-symmetry-proof-20260420.json`
+    - `python3 -m json.tool codex/results/live-host-advanced-access-auth-symmetry-proof-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - this substep did not require another product-code change; the access-topic router already handled these symmetry routes correctly, but the explicit proof packet and matrix wording were incomplete
+    - the independent supported-host proof now covers all four newly recorded routes across advanced credential, session, and API-token detail, each preserving the expected auth strategy and protected binding type
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the remaining advanced-access edit/revise alias proof gap instead of leaving several advanced-drawer routes documented more strongly than they were independently evidenced:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - `edit access` reopens advanced credential detail as the exact stored `Access Detail` draft and persists the updated credential role
+    - `edit credential` and `revise credential` do the same on advanced credential detail instead of silently leaning on the generic parser family
+    - `revise auth` and `edit session` reopen advanced session detail as the exact stored session draft and preserve `auth_strategy = session-access`
+    - `change token` and `edit token` reopen advanced API-token detail as the exact stored token draft and preserve `auth_strategy = api-access`
+  - updated `docs/ui_browser_validation.md`, `CURRENT_STATE.md`, and `DONE_LOG.md` so repo truth now explicitly cites browser-, API-, and supported-host evidence for those remaining advanced-access aliases instead of only the earlier `change ...` subset
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_edit_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or test_edit_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or test_revise_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or test_revise_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or test_edit_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or test_change_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'advanced_access_placeholder_opens_drawer_and_realigns_to_safety or change_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or edit_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or previous_topic_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or change_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or edit_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or revise_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or auth_details_advanced_settings_reply_opens_access_drawer or change_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or revise_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or change_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or edit_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or change_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access or advanced_drawer_overrides_stay_synchronized or session_reference_in_advanced_drawer_reaches_run_dossier'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-advanced-access-edit-revise-proof-20260420.json`
+    - `python3 -m json.tool codex/results/live-host-advanced-access-edit-revise-proof-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_browser_validation.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - this substep did not require another product-code change; the advanced-drawer revision routing already handled these aliases correctly, but the explicit proof packet was incomplete
+    - the independent supported-host proof now covers all seven newly recorded routes across credential, session, and API-token advanced detail, each preserving the expected auth strategy and protected binding type
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the remaining shared no-account `edit auth` prefix parser-proof gap instead of leaving that verb half-covered by the earlier generic auth-prefix note proof:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - a shared manual-auth note update beginning with `Edit auth ...` is stored as revised note text instead of being hijacked as another topic-jump command
+    - a shared session note update beginning with `Edit auth ...` is stored as revised note text instead of being hijacked as another topic-jump command
+  - updated `docs/ui_browser_validation.md`, `CURRENT_STATE.md`, and `DONE_LOG.md` so repo truth now explicitly points to evidence for the remaining `edit auth` prefix route instead of only relying on the broader auth-prefix summary
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_edit_auth_after_shared_manual_auth_note_without_accounts_accepts_prefix_style_longer_note_text or test_edit_auth_after_shared_session_note_without_accounts_accepts_prefix_style_longer_note_text'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_change_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_change_auth_after_shared_manual_auth_note_without_accounts_accepts_longer_note_text_containing_change_auth_phrase or test_revise_auth_after_shared_manual_auth_note_without_accounts_accepts_prefix_style_longer_note_text or test_edit_auth_after_shared_manual_auth_note_without_accounts_accepts_prefix_style_longer_note_text or test_change_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_session_note_without_accounts_accepts_longer_note_text_containing_edit_auth_phrase or test_change_auth_after_shared_session_note_without_accounts_accepts_prefix_style_longer_note_text or test_edit_auth_after_shared_session_note_without_accounts_accepts_prefix_style_longer_note_text'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-edit-auth-prefix-parser-truth-20260420.json`
+    - `python3 -m json.tool codex/results/live-host-shared-edit-auth-prefix-parser-truth-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_browser_validation.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require another logic change in this substep; the stricter exact-command parser already handled prefix-style longer `edit auth` note text correctly, but that explicit proof had not yet been recorded
+    - the independent supported-host proof now shows both a manual shared note beginning with `Edit auth ...` and a session shared note beginning with `Edit auth ...` persisting as note-only access context with `accounts = []`
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the adjacent shared no-account access/session-prefix parser-proof gap instead of only proving `revise access` / `edit session` when those words appeared later in the replacement note text:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - a shared manual-auth note update beginning with `Revise access ...` is stored as revised note text instead of being hijacked as another topic-jump command
+    - a shared session note update beginning with `Edit session ...` is stored as revised note text instead of being hijacked as another topic-jump command
+  - updated `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `CURRENT_STATE.md`, and `DONE_LOG.md` so repo truth now explicitly includes prefix-style longer note text for the shared no-account `revise access` / `edit session` routes
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_revise_access_after_shared_manual_auth_note_without_accounts_accepts_prefix_style_longer_note_text or test_edit_session_after_shared_session_note_without_accounts_accepts_prefix_style_longer_note_text'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_access_after_shared_manual_auth_note_without_accounts_accepts_prefix_style_longer_note_text or test_change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_session_after_shared_session_note_without_accounts_accepts_prefix_style_longer_note_text or test_revise_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-access-prefix-parser-truth-20260420.json`
+    - `python3 -m json.tool codex/results/live-host-shared-access-prefix-parser-truth-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_browser_validation.md docs/product_test_matrix.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require another logic change in this substep; the stricter exact-command parser already handled prefix-style longer `revise access` / `edit session` note text correctly, but that stronger proof had not yet been recorded
+    - the independent supported-host proof now shows both a manual shared note beginning with `Revise access ...` and a session shared note beginning with `Edit session ...` persisting as note-only access context with `accounts = []`
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the adjacent shared no-account auth-prefix parser-proof gap instead of only proving command-like auth phrases when they appear later in the replacement note text:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - a shared manual-auth note update beginning with `Revise auth ...` is stored as revised note text instead of being hijacked as another topic-jump command
+    - a shared session note update beginning with `Change auth ...` is stored as revised note text instead of being hijacked as another topic-jump command
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `CURRENT_STATE.md`, and `DONE_LOG.md` so repo truth now explicitly includes prefix-style longer auth-note text under the same no-account parser guarantees
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_revise_auth_after_shared_manual_auth_note_without_accounts_accepts_prefix_style_longer_note_text or test_change_auth_after_shared_session_note_without_accounts_accepts_prefix_style_longer_note_text'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_change_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_change_auth_after_shared_manual_auth_note_without_accounts_accepts_longer_note_text_containing_change_auth_phrase or test_revise_auth_after_shared_manual_auth_note_without_accounts_accepts_prefix_style_longer_note_text or test_change_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_session_note_without_accounts_accepts_longer_note_text_containing_edit_auth_phrase or test_change_auth_after_shared_session_note_without_accounts_accepts_prefix_style_longer_note_text'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-auth-prefix-parser-truth-20260420.json`
+    - `python3 -m json.tool codex/results/live-host-shared-auth-prefix-parser-truth-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require another logic change in this substep; the stricter exact-command parser already handled prefix-style longer auth-note text correctly, but this stronger proof had not yet been recorded
+    - the independent supported-host proof now shows both a manual shared note beginning with `Revise auth ...` and a session shared note beginning with `Change auth ...` persisting as note-only access context with `accounts = []`
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the adjacent shared no-account auth-phrase parser-proof gap instead of assuming the earlier alias proof already covered longer replacement note text:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - a shared manual-auth note update that literally contains the phrase `change auth` is stored as revised note text instead of being hijacked as another topic-jump command
+    - a shared session note update that literally contains the phrase `edit auth` is stored as revised note text instead of being hijacked as another topic-jump command
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes this longer-note parser behavior instead of stopping at the shorter explicit-command proof
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_change_auth_after_shared_manual_auth_note_without_accounts_accepts_longer_note_text_containing_change_auth_phrase or test_edit_auth_after_shared_session_note_without_accounts_accepts_longer_note_text_containing_edit_auth_phrase'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_change_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or test_change_auth_after_shared_manual_auth_note_without_accounts_accepts_longer_note_text_containing_change_auth_phrase or test_change_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_revise_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or test_edit_auth_after_shared_session_note_without_accounts_accepts_longer_note_text_containing_edit_auth_phrase'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-auth-phrase-parser-truth-20260420.json`
+    - `python3 -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `python3 -m json.tool codex/results/live-host-shared-auth-phrase-parser-truth-20260420.json >/dev/null`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md codex/tasks/ui_acceptance_matrix.json CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require another logic change in this substep; the stricter parser introduced in the earlier no-account edit/revise fix already handled these longer auth-phrase notes correctly, but this adjacent `change auth` / `edit auth` proof had not yet been recorded
+    - the first broader browser-cluster attempt only selected the two new tests because the `-k` expression used stale function names; I reran the cluster with the exact current test names and recorded the real 8-test result instead of overclaiming the first partial selection
+    - the first supporting API/static run failed before executing tests due to a pytest capture-stack `FileNotFoundError`; rerunning the same selection with `--capture=no` produced the real result (`4 passed`), so this was treated as test-runner plumbing noise rather than a product regression
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the adjacent shared no-account `auth`-alias proof gap instead of leaving those note-only routes implied by the broader access-family evidence:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - `change auth`, `edit auth`, and `revise auth` reopen shared manual-auth guidance without account rows as editable note text, return to `Safety`, and preserve `accounts = []`
+    - `change auth`, `edit auth`, and `revise auth` reopen shared session guidance without account rows as editable note text, return to `Safety`, and preserve `accounts = []`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes those shared no-account auth-alias routes instead of leaving them implied by the generic auth/access alias family
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_auth_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or change_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_auth_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-auth-alias-no-account-20260420.json`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md codex/tasks/ui_acceptance_matrix.json CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require another logic change in this substep; the no-account auth-alias routes were already truthful, but they had not yet been explicitly proven across both shared manual-auth and shared session note paths
+    - the new supported-host proof covers all six supported combinations (`change` / `edit` / `revise` across both shared manual-auth and shared session guidance), each keeping `accounts = []` intact in the stored run and Explorer dossier
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by fixing and proving the remaining shared no-account edit/revise alias bug for `revise access` and `edit session` instead of leaving those note-only routes vulnerable to false command parsing:
+  - updated `ui/assets/modules/wizard.js` so conversational topic-jump commands are now parsed as short explicit commands instead of firing on any longer free-text answer that merely contains words like `revise access` or `edit session`
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - typed `revise access` reopens shared manual-auth guidance without account rows as editable note text, returns to `Safety`, and preserves `accounts = []`
+    - typed `edit session` reopens shared session guidance without account rows as editable note text, returns to `Safety`, and preserves `accounts = []`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth now explicitly includes those two routes plus the stricter command parsing behavior
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'revise_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or edit_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-access-secondary-edit-revise-20260420.json`
+    - `git diff --check -- ui/assets/modules/wizard.js ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - unlike the immediately previous no-account alias slice, this substep required a real wizard fix because the old parser treated longer free-text note updates containing `revise access` or `edit session` as commands instead of storing them as revised note text
+    - the new supported-host proof now shows `revise access` preserving note-only `credentialed` shared manual-auth context and `edit session` preserving note-only `session-access` shared session context, both with `accounts = []` intact in the stored run and Explorer dossier
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the shared no-account edit/revise alias gap for `edit access` and `revise session` instead of leaving those special access-note routes covered only by the generic account-backed alias proofs:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - typed `edit access` reopens shared manual-auth guidance without account rows as editable note text, returns to `Safety`, and preserves `accounts = []`
+    - typed `revise session` reopens shared session guidance without account rows as editable note text, returns to `Safety`, and preserves `accounts = []`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes those shared no-account edit/revise alias routes instead of leaving them implied by the generic parser-family proof
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or revise_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-access-edit-revise-20260420.json`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md codex/tasks/ui_acceptance_matrix.json CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require changes in this substep; these special no-account alias routes were already working, but they were not explicitly proven on those access-note paths
+    - the new supported-host proof now shows `edit access` preserving note-only `credentialed` shared manual-auth context and `revise session` preserving note-only `session-access` shared session context, both with `accounts = []` intact in the stored run and Explorer dossier
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by closing the remaining shared no-account last-answer alias gap for `undo` and `go back` instead of assuming the generic alias family proof already covered those note-only access routes:
+  - extended `ui/tests/test_operator_console_e2e.py` with browser regressions proving:
+    - typed `undo` reopens shared manual-auth guidance without account rows as editable note text, returns to `Safety`, and preserves `accounts = []`
+    - typed `go back` reopens shared session guidance without account rows as editable note text, returns to `Safety`, and preserves `accounts = []`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth now explicitly includes those last two shared no-account last-answer aliases instead of only `change that` and `previous`
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'undo_alias_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or go_back_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_that_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or undo_alias_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or previous_alias_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or go_back_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-access-undo-go-back-20260420.json`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require changes in this substep; these remaining alias routes were already working, but they were not explicitly proven on the shared no-account access-note paths
+    - the new supported-host proof now shows `undo` preserving note-only `credentialed` shared manual-auth context and `go back` preserving note-only `session-access` shared session context, both with `accounts = []` intact in the stored run and Explorer dossier
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by revalidating typed last-answer commands on shared no-account access notes and fixing the regression proof so it tests the real product behavior instead of retriggering the command parser from inside the replacement note text:
+  - updated `ui/tests/test_operator_console_e2e.py` so the shared-session `previous` regression now uses neutral replacement note text (`back-alias-updated`) instead of the self-triggering string `previous-alias-updated`, which the intake correctly interprets as another revision command
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes typed `change that` and typed `previous` on shared manual-auth/session guidance without account rows
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_that_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or previous_alias_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-shared-access-last-answer-commands-20260420.json`
+    - `git diff --check -- ui/tests/test_operator_console_e2e.py docs/ui_conversational_intake.md docs/ui_browser_validation.md docs/product_test_matrix.md codex/tasks/ui_acceptance_matrix.json CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - the wizard code did not require another logic change in this substep; the initially failing path was a proof bug caused by embedding the literal command word `previous` inside the updated session note
+    - after correcting that test input, both supported command routes stay truthful on the supported host: `change that` reopens shared manual-auth guidance as note-only `credentialed`, and `previous` reopens shared session guidance as note-only `session-access`, with `accounts = []` preserved in the stored run and Explorer dossier
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by fixing and proving note-only per-role MFA/manual-auth access contexts instead of assuming every meaningful access role must also carry a username, token, or secret:
+  - updated `ui/assets/modules/shared.js` so an account with only `mfa_notes` is now treated as a real access context instead of being silently dropped during summary rendering, run creation, Mission Control validation, and Explorer dossier review
+  - extended `api/tests/test_runs.py` with a regression that creates an authenticated run containing only labels, roles, per-role MFA notes, and shared manual-auth steps, then proves the stored run keeps both roles while still creating no `SecretRef` rows and no `secret_storage` block
+  - extended `ui/tests/test_operator_console_e2e.py` with a browser regression that completes that same note-only route through the advanced drawer and proves the created Explorer dossier shows:
+    - both roles
+    - `0 secret bindings`
+    - `Username: Not recorded`
+    - the per-role MFA notes
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth now explicitly includes note-only per-role MFA/manual-auth context rather than only broader manual-auth / SSO wording
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'manual_note_only_roles_without_secret_bindings or manual_multi_role_access_without_secret_bindings or materializes_secret_references'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'manual_note_only_roles_persist_into_run_and_dossier_context or multi_role_manual_auth_access_persists_into_run_and_dossier_context or multi_role_advanced_access_persists_into_run_and_dossier_context'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-manual-note-only-access-proof-20260420.json`
+    - `git diff --check`
+  - important truth notes:
+    - before this fix, the note-only per-role route was at real risk of drifting out of the deterministic run model because `hasMeaningfulAccount()` ignored `mfa_notes`
+    - the proven supported route now keeps manual-auth context visible even when both roles intentionally omit usernames and secret refs
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by proving the remaining manual-auth / SSO multi-role access family instead of leaving it implied by the generic access-mode matrix:
+  - extended `ui/tests/test_operator_console_e2e.py` with a real browser regression for a dual-role authenticated portal mission that uses:
+    - usernames and roles for two operators
+    - shared manual-auth / SSO handoff notes
+    - per-role MFA notes
+    - zero protected secret bindings
+  - extended `api/tests/test_runs.py` with an API regression proving that the created run preserves those multi-role manual-auth details without creating `SecretRef` rows or a fake `secret_storage` block
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth now reflects that the safe Explorer `Access Contexts` dossier path is also evidence-backed for multi-role manual-auth / SSO context
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'manual_multi_role_access_without_secret_bindings or materializes_secret_references'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'multi_role_advanced_access_persists_into_run_and_dossier_context or multi_role_api_access_persists_into_run_and_dossier_context or multi_role_session_access_persists_into_run_and_dossier_context or multi_role_manual_auth_access_persists_into_run_and_dossier_context'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-multi-role-manual-auth-proof-20260420.json`
+    - `git diff --check`
+  - important truth notes:
+    - this slice proves a distinct supported route where the operator needs multiple roles plus shared SSO choreography, but does not provide raw passwords, tokens, or cookie material to the run dossier
+    - the created Explorer dossier now truthfully shows `0 secret bindings`, keeps the shared manual-auth note visible, and exposes per-role MFA notes under `Access Detail`
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by proving the already-supported typed goal-revision commands instead of leaving them as undocumented parser behavior:
+  - extended `ui/tests/test_operator_console_e2e.py` with direct browser regression for:
+    - typed `change goal` reopening the captured goal draft from a later safety step and realigning the flow onto the auth question when the revised goal becomes `Deep internal validation`
+    - typed `change profile` acting as a supported alias that reopens the same goal question with the same editable draft
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so repo truth now explicitly includes `change goal` and the goal-revision aliases instead of only the narrower scope/access/safety wording
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_goal_command_reopens_goal_question_and_realigns_to_auth or change_profile_alias_reopens_goal_question_with_editable_goal_draft'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'revising_an_earlier_topic_shows_return_to_main_intake_flow or change_goal_command_reopens_goal_question_and_realigns_to_auth or change_profile_alias_reopens_goal_question_with_editable_goal_draft or change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_access_command_reopens_editable_access_details_and_returns_to_safety or change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-goal-revision-commands-20260420-021627.json`
+  - important truth notes:
+    - no wizard code change was needed for this slice because the supported command behavior already existed; the work here was to close the proof and documentation gap so the repo does not underdocument or overclaim typed goal-revision support
+    - the supported-host proof now shows both a typed `change goal` route that persists `internal-validation` and a typed `change profile` alias route that persists `standard-assessment`, both on the existing deterministic internal-range discovery-first lane
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by repairing access-strategy reversals from inside the `Access Detail` question instead of forcing operators back through a broken detail-only loop:
+  - updated `ui/assets/modules/wizard.js` so `applyAuthDetailsAnswer()` now accepts direct access-strategy changes such as `Keep it unauthenticated` and routes them through the existing deterministic auth-strategy handler instead of rejecting them as missing access detail
+  - clarified the `Access Detail` question copy so operators are explicitly told they can withdraw access there instead of having to guess that only usernames/tokens/sessions are allowed
+  - added browser regression in `ui/tests/test_operator_console_e2e.py` proving that:
+    - the `Access Detail` question itself can switch back to unauthenticated without dead-ending
+    - the previously broken `Change Access` regression after an advanced session handoff now works again and clears session/manual-auth state
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so repo truth now explicitly covers access-strategy changes from inside `Access Detail`
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'auth_details_question_can_switch_back_to_unauthenticated_without_dead_end or revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan or change_access_command_reopens_editable_access_details_and_returns_to_safety or advanced_access_placeholder_opens_drawer_and_realigns_to_safety or auth_details_advanced_settings_reply_opens_access_drawer'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'auth_details_question_can_switch_back_to_unauthenticated_without_dead_end or revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan or change_access_command_reopens_editable_access_details_and_returns_to_safety or advanced_access_placeholder_opens_drawer_and_realigns_to_safety or auth_details_advanced_settings_reply_opens_access_drawer or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-auth-detail-unauth-revision-20260420-021145.json`
+  - important truth notes:
+    - the live-host proof first failed because I assumed the advanced-session route would always be back on confirmation immediately after closing the drawer; the real supported path may still require `Safety` and `Boundaries`, and the final proof was rerun against that true flow
+    - on the supported host, both the direct access-detail downgrade and the advanced-session `Change Access` downgrade now persist `auth_strategy = unauthenticated`, `goal = standard-assessment`, empty access accounts, and cleared manual/session notes
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the next concrete substep inside the active conversational-intake follow-on task by hardening direct topic-jump revisions instead of adding a second revision model:
+  - updated `ui/assets/modules/wizard.js` so typed topic-jump commands now reopen editable source drafts for already-captured topics instead of landing on lossy summaries
+  - `change access` now resolves to the last captured access question in history, which means credentialed/API/session routes reopen `Access Detail` when that is the real captured topic instead of bouncing the operator back to the higher-level access prompt
+  - `Change Access` in the quieter `Revise Captured Topic` disclosure now uses that same captured-topic resolution path, while freeform turn-history `Change` actions remain question-specific
+  - auth-question revision drafts now use operator-usable phrases such as `Keep it unauthenticated`, `I have portal/app accounts`, or `I will add access in advanced settings` instead of static summaries
+  - boundary-question revision drafts now reopen as the stored operator-facing boundary reply or note text, including `Report adjacent internal ranges only` and `No extra exclusions`, rather than a synthesized boundary summary
+  - extended browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - typed `change scope` reopening exact CIDR scope text and returning to the next required safety step
+    - typed `change access` reopening editable access-detail text and returning to safety
+    - typed `change safety` reopening the current posture and returning to boundaries
+    - confirmation-step `Change Boundaries` reopening the editable stored boundary reply instead of a summary
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so the repo truth now distinguishes between typed revisions during live intake and disclosure-based revisions on the confirmation card
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_access_command_reopens_editable_access_details_and_returns_to_safety or change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_access_command_reopens_editable_access_details_and_returns_to_safety or change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or revising_boundaries_to_no_extra_exclusions_clears_previous_boundary_state or revising_boundaries_to_notes_only_replaces_previous_explicit_exclusions'`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-wizard-topic-revisions-20260420-020259.json`
+  - important truth notes:
+    - the first live-host proof attempt failed because the script looked for `configuration_json['intake_preferences']`; the supported payload shape is still `configuration_json['intake']['preferences']`, and the final proof was rerun against that real structure
+    - the live-host `change safety` proof shows that revising an authenticated portal mission from `Balanced` to `Conservative` truthfully downgrades the stored lane to `passive-web-baseline`; this substep therefore proves editable topic jumps, not that every richer auth route remains on the same lane after safety is reduced
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the first concrete substep inside the active conversational-intake follow-on task by hardening natural-language revision commands instead of adding a second intake model:
+  - updated `ui/assets/modules/wizard.js` so typed `change that` now reopens the last answered topic through the same safe review path as `go back` instead of keeping the operator on the current question
+  - improved auth-detail revision drafts so the wizard now reconstructs an editable access line such as `analyst@example.com role Security Analyst secret vault://portal/analyst` instead of collapsing it into a lossy role summary
+  - tightened `buildAccountFromFreeText()` so role parsing no longer swallows following secret/token keywords into the role name during access-entry or access-revision
+  - updated the `Targets & Access` summary disclosure so revised scope values remain visible as exact target detail instead of only a count, which makes scope revisions auditable before mission creation
+  - extended browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - typed `change that` from the safety question reopening the last answered scope topic and returning cleanly to the main path
+    - typed `go back` from the safety question reopening the last answered access topic with an editable draft and persisting the revised access context
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so the repo truth now reflects the natural-language revision path as a supported operator behavior
+  - revalidated this touched slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'revising_an_earlier_topic_shows_return_to_main_intake_flow or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly or repeating_access_answer_at_safety_gives_contextual_guidance or authenticated_app_can_stay_unauthenticated_without_access_dead_end'`
+    - `source .venv/bin/activate && git diff --check`
+    - an independent live-host browser-plus-API proof on the supported `127.0.0.1:8000` path recorded at `codex/results/live-host-wizard-natural-revision-20260420-015137.json`
+  - important truth notes:
+    - the first live-host proof attempt failed because my verification script assumed sanitized run configs would still expose raw `secret_ref`; that assumption was corrected and the final evidence now checks the real `secret_bindings` shape instead
+    - this substep improves the active conversational-intake task but does not complete the broader intake-expansion program in `NEXT_TASK.md`
+
+- 2026-04-20: completed the active follow-on task, `Richer validation hooks for Playwright and ZAP artifacts in the build lane`, as an additive Codex build-lane visibility slice rather than a second validation model:
+  - updated `api/app/services/packs.py` so artifact validation expectations now come from one shared helper instead of being re-declared in multiple places
+  - updated `api/app/services/codex_lane.py` and `api/app/schemas/codex.py` so Codex context, review bundles, and prepared-task output now expose artifact-specific validation expectations for:
+    - `playwright_flow` via `artifact.playwright_flow.validate`
+    - `zap_job` via `artifact.zap_job.validate`
+  - added workspace-side handoff detail to those hooks, including the expected exported artifact paths and the existing `validation-result.json` capture path
+  - updated `ui/assets/modules/packs.js` so Pack Forge now renders:
+    - per-artifact validation expectations in the generated-pack preview
+    - richer validation-hook detail in the build-lane guardrails section
+    - a dedicated prepared-task `Validation Handoff` disclosure for operators
+  - extended regression coverage in:
+    - `api/tests/test_codex_lane.py`
+    - `api/tests/test_codex_tasks.py`
+    - `ui/tests/test_product_feature_matrix_e2e.py`
+  - updated `docs/codex_ui_support.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so the repo truth now reflects the richer Playwright/ZAP validation cues without redefining the existing pack lifecycle
+  - revalidated the touched slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/packs.py api/app/services/codex_lane.py api/app/schemas/codex.py api/tests/test_codex_lane.py api/tests/test_codex_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_codex_lane.py api/tests/test_codex_tasks.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'pack_forge_surfaces_codex_suggestions_preview_and_prepared_task'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_codex_tasks.py -k 'workspace_scripts_export_bundle_and_capture_validation_against_live_host'`
+    - an independent live-host HTTP/workspace proof recorded at `codex/results/live-host-codex-validation-hooks-20260420-014016.json`
+    - `source .venv/bin/activate && git diff --check`
+  - important truth notes:
+    - two early ad-hoc host-proof attempts failed because my verification script made bad assumptions about where temporary workspace metadata lived; those script defects were fixed and discarded instead of being reused as product evidence
+    - the final signoff evidence is the passing temporary-host pytest proof plus the independent repo-recorded live-host artifact at `codex/results/live-host-codex-validation-hooks-20260420-014016.json`
+
+- 2026-04-20: completed the active follow-on task, `End-to-end tests for Codex task lifecycle plus workspace export/import flows`, as an additive Codex build-lane hardening slice rather than a new artifact model:
+  - updated `api/app/services/codex_tasks.py` so prepared Codex tasks now include the explicit validation handoff command and expected `validation-result.json` output path alongside the existing workspace export command
+  - updated `scripts/export_codex_pack_workspace.sh` and `scripts/validate_codex_pack.sh` so the supervised workspace export/validation flow no longer depends on `jq`; both wrappers now rely only on `curl` plus `python3`, which is a better fit for the supported host path
+  - updated `api/tests/test_codex_tasks.py` with a real shellscript integration test that starts a temporary live FastAPI host, exports a workspace, captures `validation-result.json`, and confirms that the pack review bundle records the resulting validation
+  - extended the Pack Forge browser proof in `ui/tests/test_product_feature_matrix_e2e.py` so the operator-visible prepared-task output must show the `validation-result.json` handoff path rather than only the export command
+  - updated `docs/codex_ui_support.md`, `docs/runbooks/codex-pack-refinement-workflow.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so the repo truth now reflects the exact supported build-lane handoff
+  - revalidated the touched slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/codex_tasks.py api/tests/test_codex_tasks.py ui/tests/test_product_feature_matrix_e2e.py`
+    - `git diff --check`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_codex_tasks.py api/tests/test_codex_lane.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'pack_forge_surfaces_codex_suggestions_preview_and_prepared_task'`
+    - an independent host-path validation on `127.0.0.1:8017` using `.venv/bin/uvicorn api.app.main:create_app --factory`, followed by real `scripts/export_codex_pack_workspace.sh` and `scripts/validate_codex_pack.sh` execution against that started host
+  - important truth notes:
+    - the first shellscript integration attempt failed for a real portability reason because this machine did not have `jq`; that is now fixed in the scripts instead of being hand-waved as an environment-only issue
+    - the first ad-hoc background host proof on `127.0.0.1:8016` did not stay up long enough to count as signoff evidence, so it was discarded and rerun on a stable foreground host before the slice was called complete
+
+- 2026-04-20: completed the active follow-on task, `Report-side Change Summaries for Codex-reviewed Adaptive Coverage`, as an additive reporting slice rather than a new provenance layer:
+  - updated `api/app/services/reports.py` and `api/app/schemas/report_center.py` so report catalog items and rendered report variants now reuse the existing bound-pack, validation, approval, deployment, methodology, and repo-backed Codex task state to summarize adaptive change context
+  - added a compact adaptive-change summary to report metadata and exported executive / technical report content, including:
+    - whether the run is standard-only or bound to adaptive coverage
+    - the latest linked Codex task and prepared-review state when present
+    - current pack governance status across validation, approval, and deployment
+    - whether findings in the run currently inherit bound-pack provenance
+  - updated `ui/assets/modules/reports.js` so Report Center surfaces the same adaptive-change note without duplicating the deeper Pack Forge workflow
+  - extended regression coverage in:
+    - `api/tests/test_reports.py`
+    - `ui/tests/test_product_feature_matrix_e2e.py`
+  - updated `docs/codex_ui_support.md` so the repo truth now records report-side Codex visibility in addition to Pack Forge operator visibility
+  - revalidated the touched slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/reports.py api/app/schemas/report_center.py api/tests/test_reports.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py -k 'reports_include_codex_reviewed_adaptive_change_summary or discovery_reports_include_inventory_without_findings or follow_up_reports_include_service_inventory_without_findings'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'report_center_surfaces_codex_reviewed_adaptive_change_summary or report_download_actions_create_real_browser_files or adaptive_pack_matrix_keeps_pack_status_binding_and_report_context_visible'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'authenticated_webapp_flow_supports_reports_and_secret_binding or discovery_report_center_shows_inventory_even_without_findings'`
+    - an independent live-host API validation on a separately started FastAPI host at `127.0.0.1:8014` plus a loopback probe target, proving report catalog, markdown, HTML, and PDF outputs all carried the adaptive-change summary
+  - important truth notes:
+    - my first host-path browser proof failed because the ad-hoc verification script made a brittle assumption about engagement selection inside the live UI; that script failure was not reused as product truth
+    - my first live-host API proof also failed due a case-sensitive header lookup in the verification script, not because the app omitted the report output; the rerun with normalized headers passed
+
+- 2026-04-20: completed the active Prompt 3 follow-on task, `Operator-facing Codex Suggestions Panel and Pack Preview Wiring`, as an additive Pack Forge visibility slice rather than a new backend model:
+  - updated `ui/index.html`, `ui/assets/app.js`, `ui/assets/modules/packs.js`, and `ui/assets/styles.css` so Pack Forge now exposes:
+    - a four-stage pack lifecycle summary for proposal, validation, approval, and deployment
+    - a dedicated operator suggestions panel that reuses the linked Codex task, pack status, and existing operator-visibility metadata
+    - a generated-pack preview with artifact type/count, methodology tags, provenance highlights, and content-shape hints
+    - build-lane guardrails, validation hooks, repo conventions, and prepared-task output in separate, calmer review sections
+  - kept the implementation inside the existing Prompt 2 / Prompt 3 contracts:
+    - no second pack registry
+    - no second approval model
+    - no runtime mutation path
+  - hardened the Pack Forge state synchronization by:
+    - resetting stale selected Codex task/result state when the engagement changes
+    - auto-aligning the selected Codex task to the selected pack on bundle load
+    - fixing a real frontend defect where pack actions silently failed because `withPackAction()` lived outside the module scope and called an undefined `renderPackForge()`
+  - extended browser regression coverage in `ui/tests/test_product_feature_matrix_e2e.py` so the operator console now proves:
+    - the lifecycle summary is visible
+    - the suggestions panel renders the linked task reason
+    - the generated-pack preview renders real artifact names
+    - the `Prepare Selected Task` path now surfaces dry-run output in the UI
+  - updated `docs/codex_ui_support.md` and `docs/repo_map.md` so the repo truth reflects the new Pack Forge visibility path
+  - revalidated the touched slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_codex_tasks.py api/tests/test_codex_lane.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'pack_forge_surfaces_codex_suggestions_preview_and_prepared_task or adaptive_pack_matrix_keeps_pack_status_binding_and_report_context_visible'`
+    - a direct host-path validation using `bash scripts/run_host_api.sh` on `127.0.0.1:8010` plus a real Playwright browser session that seeded a pack/task and verified the new `codex-suggestions` and `codex-pack-preview` panels against the started host
+  - important truth notes:
+    - the first validation attempt failed at the environment layer because the shell path used `python3` instead of the repo `.venv`, and the system interpreter lacked `playwright`
+    - local Playwright Chromium was then installed reproducibly under `.playwright-browsers/` and the final validation was rerun from the repo venv
+    - the first browser run also exposed the real `renderPackForge is not defined` module-scope bug above; that defect is fixed and the rerun is green
+
+## 2026-04-19
+
+- 2026-04-19: completed the optional broader training-lab acceptance slice with real WebGoat/crAPI evidence instead of leaving those catalog entries as implied future work:
+  - updated `scripts/acceptance_harness.py` so the harness now:
+    - preflights `active-web-safe` prerequisites by checking the local ZAP daemon and the configured target URLs before engagement/run creation
+    - supports `runtime_fixture: docker_webgoat`, which launches WebGoat on isolated loopback ports and rewrites the target scope for the duration of the run
+  - updated `scripts/run_acceptance_matrix.py` to enforce the new prerequisite gate before it creates the acceptance engagement
+  - extended `api/tests/test_acceptance_harness.py` with regression coverage for:
+    - the WebGoat Docker runtime fixture materialization
+    - active-safe prerequisite checking across ZAP + target URLs
+  - updated `codex/tasks/target_lab_matrix.json` so the `owasp-webgoat-local` target now declares the reviewed `docker_webgoat` runtime fixture instead of relying on a static host port that conflicts with the local ZAP daemon
+  - revalidated the touched helper slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q api/tests/test_acceptance_harness.py`
+    - `python3 -m py_compile scripts/acceptance_harness.py scripts/run_acceptance_matrix.py`
+    - `git diff --check`
+  - revalidated the real-run slice on the supported host with:
+    - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id crapi-authenticated-safe`
+    - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id webgoat-auth-safe`
+    - result evidence:
+      - `codex/results/acceptance-crapi-authenticated-safe-20260419-215821.json`
+      - `codex/results/acceptance-webgoat-auth-safe-20260419-215958.json`
+  - revalidated the browser/export side with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q ui/tests/test_product_feature_matrix_e2e.py -k report_download_actions_create_real_browser_files`
+    - direct host-level HTML/PDF export checks against the new WebGoat/crAPI run ids, confirming `text/html` and `%PDF-1.4` outputs on both technical-report links
+  - important truth notes:
+    - the first `crapi-authenticated-safe` attempt failed honestly because no local ZAP daemon was reachable, and the prerequisite gate now catches that situation before a half-broken acceptance run is created
+    - the current successful `crapi-authenticated-safe` evidence packet still records `run_status = completed_with_errors` because the `/identity/api` subtarget reset the connection; the scenario is still acceptance-green because the primary target produced the stored ZAP artifact, 21 findings, and 4 reports
+    - the broader active-safe lab story is now proven for the currently supported WebGoat/crAPI slices, but additional future labs still need their own live target stack plus supporting services before they can be called validated
+
+- 2026-04-19: closed the active Operator Product Operational Assurance Program Phase 2 execution-truth task with a broader evidence packet instead of stopping at the earlier targeted slices:
+  - re-ran the targeted Phase 2 API/browser regressions that cover approval-gated blocking, queued dispatch, thin-output truth, discovery follow-up continuity, report-center discovery context, evidence replay context, surface-map filtering, dossier-summary review, and history comparison review
+  - re-ran the full composite product matrix with `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane all` so the repo-owned API + browser contract was re-proven end to end after the latest Mission Control dispatch-truth fixes
+  - added a fresh live-host browser signoff artifact at `codex/results/live-host-phase2-run-execution-signoff-20260419.json` plus screenshots `codex/results/live-host-phase2-run-execution-blocked-20260419.png` and `codex/results/live-host-phase2-run-execution-dispatch-20260419.png`, proving both:
+    - approval-gated active-web-safe missions stay blocked with no misleading `Start Validation` action
+    - queued standard web missions move from explicit operator-dispatch state into a truthful completed Mission Control state on the supported `127.0.0.1:8000` host path
+  - updated `docs/operator_console_phase2_checklist.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so the repo truth now records Phase 2 as signoff-complete instead of leaving it as an implied in-progress slice
+- moved `NEXT_TASK.md` forward to the next approved backlog item, `Optional Broader Training-Lab Acceptance Runs`, and removed that promoted item from `TASK_QUEUE.md`
+
+- 2026-04-19: completed the next Phase 2 run-dispatch truth slice for queued web validation, thin-output honesty, and deterministic browser coverage:
+  - updated `api/app/services/runs.py` so `passive-web-nuclei-audit` now prefers explicit URL targets over derived host/IP targets when both are present in the same web run configuration
+  - updated `ui/assets/app.js` so the Mission Control dispatch mask now clears as soon as the selected run is observed beyond `queued`, instead of waiting for the original dispatch promise to finish
+  - updated `ui/assets/modules/mission-control.js` so dispatch-only copy is now shown only while the run is still actually queued, and thin-output runs now also render an explicit review warning inside Run Activity itself
+  - updated `ui/tests/conftest.py` to inject a deterministic fake `nuclei` binary for browser validation, keeping the thin-output dispatch path reproducible instead of depending on host tool timing
+  - added API regression coverage in `api/tests/test_nuclei_dispatch.py` proving that a web run with both URL and IP scope now queues only the URL-target nuclei task
+  - revalidated the touched slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_nuclei_dispatch.py api/tests/test_task_dispatch.py -k 'inline_dispatch_executes_httpx_task or nuclei_prefers_explicit_url_targets_over_derived_hosts_for_web_runs or inline_dispatch_executes_nuclei_task'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'ready_to_start_and_thin_output_states_keep_one_dispatch_action_and_truthful_completion or dispatch_and_status_history_work_after_conversational_intake or manual_dispatch_mode_explains_why_start_validation_does_not_launch_work'`
+    - `git diff --check`
+  - recorded fresh live-host proof on the supported `http://127.0.0.1:8000/app/` path after restarting a repo-local inline host process from the current workspace:
+    - `codex/results/live-host-web-dispatch-truth-20260419.json`
+    - `codex/results/live-host-web-dispatch-truth-20260419.png`
+  - important truth note:
+    - the older root-owned `127.0.0.1:8000` process initially kept serving stale backend behavior and still queued both host and URL nuclei targets
+    - that stale host process was explicitly stopped and replaced with a fresh inline uvicorn process from the current repo before the final live-host proof above was recorded
+
+- 2026-04-19: completed the remaining supported-assessment manual-review baseline for Phase 1 and closed the approval-gated Mission Control truth gap that review exposed:
+  - ran a fresh live-host browser review matrix across all eight supported assessment types on `http://127.0.0.1:8000/app/` and recorded the resulting confirmation + Mission Control states at:
+    - `codex/results/live-host-wizard-operator-review-matrix-20260419.json`
+    - `codex/results/live-host-wizard-operator-review-matrix-20260419/`
+  - that matrix showed a real operator-truth defect on approval-gated `active-web-safe` runs: Mission Control fell back to generic `Run exists but no deep-analysis tasks are queued yet.` wording even though the real state was `pending_approval`
+  - updated `ui/assets/modules/mission-control.js` so approval-gated runs now render:
+    - `Run launch is blocked pending approval` in Current Activity
+    - `Approval is still required before active checks can be queued` in Run Activity
+    - explicit required / granted / pending approval counts
+    - no misleading `Start Validation` action before the approval gate clears
+  - aligned `codex/tasks/ui_acceptance_matrix.json` to the new truthful wording
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'active_run_requires_approval_before_queueing'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py -k 'execution_outcome_matrix_surfaces_blocked_pending_approval_state'`
+    - `curl -sS http://127.0.0.1:8000/health/live`
+    - independent live-host Playwright proof against the supported host path
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-pending-approval-run-activity-20260419.json`
+    - `codex/results/live-host-pending-approval-run-activity-20260419.png`
+
+- 2026-04-19: cleared the open composite UI-matrix signoff question for the current Phase 1 wizard-trust slice:
+  - reran `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui` end-to-end on the current workspace and it exited cleanly
+  - reran `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py` so the touched browser-support contract stayed green outside the composite lane
+  - reconfirmed the live supported host at `http://127.0.0.1:8000` with `curl -fsS http://127.0.0.1:8000/health/live`
+  - recorded a fresh independent live-host Playwright proof at:
+    - `codex/results/live-host-wizard-composite-revalidation-20260419.json`
+    - `codex/results/live-host-wizard-composite-revalidation-20260419.png`
+  - note:
+    - the first two ad-hoc proof attempts failed because the temporary verification script asked for non-existent payload keys/selectors; those were proof-script mistakes, not reproduced product failures
+- 2026-04-19: completed the follow-on Phase 1 wizard-trust slice for calm goal-to-scope transitions without hiding real scope defects:
+  - updated `ui/assets/modules/wizard.js` so a successful conversational step no longer carries the untouched empty-state scope error `Add at least one target in scope.` onto the newly active `Scope` question
+  - refined that transition logic so real advanced-scope validation defects still remain visible when the wizard returns focus to `Scope`, instead of being masked by the calmer forward-transition behavior
+  - restored `ui/tests/test_operator_console_e2e.py` from the newest repo-local Playwright trace snapshot after an accidental local corruption during patching, then reapplied the current-slice regressions on top of that newer 3616-line test source instead of keeping an older stale copy
+  - added `test_goal_to_scope_transition_does_not_show_scope_error_before_scope_input` and restored `test_initial_current_essentials_do_not_overclaim_default_lane_before_intake_context` in `ui/tests/test_operator_console_e2e.py`
+  - revalidated the touched scope with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'initial_current_essentials_do_not_overclaim_default_lane_before_intake_context or goal_to_scope_transition_does_not_show_scope_error_before_scope_input or internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly or repeating_access_answer_at_safety_gives_contextual_guidance'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py --maxfail=1`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py -k 'invalid_tls_scope_advanced_override_returns_focus_to_scope_instead_of_fake_confirmation or assessment_type_matrix_presets_render_expected_scope_and_lane or profile_matrix_presets_align_execution_lane_and_guardrails or safety_cluster_matrix_keeps_guardrails_and_lane_alignment_visible'`
+    - `for i in 1 2 3; do TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py::test_invalid_tls_scope_advanced_override_returns_focus_to_scope_instead_of_fake_confirmation; done`
+    - `for i in 1 2 3; do TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py::test_scope_guardrail_confirmation_summary_handles_plural_exclusions_cleanly; done`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-scope-transition-truth-20260419.json`
+    - `codex/results/live-host-wizard-scope-transition-truth-20260419.png`
+  - remaining note:
+    - the long composite `scripts/run_product_e2e_matrix.py --lane ui` run still showed intermittent late-suite flake behavior while the isolated failing cases passed repeatedly; do not overclaim that composite lane as fully stable until that combined-run flake is reproduced or cleared cleanly
+- 2026-04-19: completed the follow-on Phase 1 wizard-trust slice for opening-summary honesty before intake context exists:
+  - updated `ui/assets/modules/wizard.js` so the untouched intake no longer shows a stale default `Website / Web App` / `Standard profile` / `passive-web-nuclei-audit` / ETA bundle in `Current Essentials`
+  - extended that same honesty rule into the collapsed `Coverage & Safety` and `Execution Lane & ETA` disclosures, which now stay on `Waiting for mission shape` until the intake has enough confirmed or safely inferred mission context
+  - preserved deterministic advanced-drawer behavior by allowing explicit advanced mission/profile/module/safety choices to surface the resulting summary and lane information immediately instead of hiding real operator overrides
+  - added `test_initial_current_essentials_do_not_overclaim_default_lane_before_intake_context` to `ui/tests/test_operator_console_e2e.py`
+  - revalidated the touched scope with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'initial_current_essentials_do_not_overclaim_default_lane_before_intake_context or initial_intake_defers_access_and_output_until_they_are_relevant or operator_console_empty_states_render'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py -k 'assessment_type_matrix_presets_render_expected_scope_and_lane or profile_matrix_presets_align_execution_lane_and_guardrails or module_toggle_matrix_controls_render_and_sync_into_summary or safety_cluster_matrix_keeps_guardrails_and_lane_alignment_visible'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-current-essentials-truth-20260419.json`
+    - `codex/results/live-host-wizard-current-essentials-truth-20260419.png`
+
+- 2026-04-19: completed the follow-on Phase 1 wizard-trust slice for repeated access-answer guidance at the boundary step:
+  - updated `ui/assets/modules/wizard.js` so `Boundaries` no longer accepts a repeated access answer such as `Unauthenticated` as a boundary note; it now keeps the wizard on `Boundaries` and returns contextual guidance
+  - kept the deterministic run model unchanged: the route still stays on `Boundaries`, but now explicitly tells the operator that access is already set and asks for boundary guidance such as `No extra exclusions`, `Report adjacent internal ranges only`, or custom exclusions / boundary notes
+  - added `test_repeating_access_answer_at_boundaries_gives_contextual_guidance` to `ui/tests/test_operator_console_e2e.py` so the browser lane proves the wizard no longer silently converts `Unauthenticated` into `Boundary notes only`
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'repeating_access_answer_at_boundaries_gives_contextual_guidance or repeating_safety_answer_at_boundaries_gives_contextual_guidance or repeating_access_answer_at_safety_gives_contextual_guidance or internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-boundaries-access-repeat-guidance-20260419.json`
+    - `codex/results/live-host-wizard-boundaries-access-repeat-guidance-20260419.png`
+
+- 2026-04-19: completed the follow-on Phase 1 wizard-trust slice for repeated safety-answer guidance at the boundary step:
+  - updated `ui/assets/modules/wizard.js` so `Boundaries` no longer accepts a repeated standalone safety answer such as `Balanced` as a boundary note; it now keeps the wizard on `Boundaries` and returns contextual guidance
+  - kept the deterministic run model unchanged: the route still stays on `Boundaries`, but now explicitly tells the operator that safety is already set and asks for boundary guidance such as `No extra exclusions`, `Report adjacent internal ranges only`, or custom exclusions / boundary notes
+  - added `test_repeating_safety_answer_at_boundaries_gives_contextual_guidance` to `ui/tests/test_operator_console_e2e.py` so the browser lane proves the wizard no longer silently converts `Balanced` into `Boundary notes only`
+  - caught and fixed two real JS scope defects during validation:
+    - `boundaryQuestionConfig is not defined`
+    - `isInternalRangeAssessment is not defined`
+    both were caused by a new helper initially calling create-module-local functions from file-scope; the final helper now uses only safe file-scope data
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'repeating_safety_answer_at_boundaries_gives_contextual_guidance or repeating_access_answer_at_safety_gives_contextual_guidance or internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-boundaries-safety-repeat-guidance-20260419.json`
+    - `codex/results/live-host-wizard-boundaries-safety-repeat-guidance-20260419.png`
+
+- 2026-04-19: completed the next Phase 1 wizard-trust slice for repeated access-answer guidance on the safety step:
+  - updated `ui/assets/modules/wizard.js` so if access is already resolved and the operator types `Unauthenticated` again while the current question is `Safety`, the wizard now returns contextual guidance instead of a loop-like generic validation error
+  - kept the deterministic run model unchanged: the route still stays on `Safety`, but now explicitly tells the operator that access is already set to unauthenticated and asks for a safety choice such as `Conservative`, `Balanced`, `Thorough`, `Passive only`, or `Aggressive with approval`
+  - added `test_repeating_access_answer_at_safety_gives_contextual_guidance` to `ui/tests/test_operator_console_e2e.py` so the browser lane proves this path no longer feels stuck after the common internal/LAN phrasing sequence
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly or repeating_access_answer_at_safety_gives_contextual_guidance or authenticated_app_can_stay_unauthenticated_without_access_dead_end'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'session_reference_in_advanced_drawer_reaches_run_dossier'`
+    - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-safety-auth-repeat-guidance-20260419.json`
+    - `codex/results/live-host-wizard-safety-auth-repeat-guidance-20260419.png`
+  - observed one transient failure on the first composite UI-matrix rerun in `test_session_reference_in_advanced_drawer_reaches_run_dossier`; rerunning that test in isolation and rerunning the full UI matrix both passed, so there is no currently reproducible blocker from that observation
+
+- Added the adjacent Phase 1 wizard-trust slice for supported-route explicit boundary confirmation after `Safety`:
+  - standard `Website / Web App`, `Domain / Domains`, and `External IP / WAN` routes now stop on `Boundaries` before confirmation instead of silently inheriting `Standard Scope Only`
+  - standard unauthenticated `API` and `Authenticated App` routes now do the same, and the earlier unauthenticated `Deep assessment` defaults for generic web/domain routes now also require that explicit boundary answer before confirmation
+  - hardened the Playwright artifact path generation in `ui/tests/conftest.py` so long parametrized wizard cases still emit screenshots and traces instead of failing on overlong filenames
+- Added targeted browser regression coverage in `ui/tests/test_operator_console_e2e.py` for the supported standard/deep boundary-confirmation matrix and updated the deep website/domain unauthenticated-default regressions to reflect the new explicit boundary step.
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'standard_supported_routes_require_boundaries_before_confirmation or tls_only_standard_route_requires_safety_and_boundaries_before_confirmation or web_deep_assessment_stays_unauthenticated_by_default or domain_deep_assessment_stays_unauthenticated_by_default'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - independent live-host Playwright proof saved to `codex/results/live-host-wizard-supported-boundaries-20260419.json` and `codex/results/live-host-wizard-supported-boundaries-20260419.png`
+- Followed that slice immediately with a stale-browser-expectation cleanup so the broader wizard suite matched the new explicit-boundary truth instead of expecting older silent confirmation paths:
+  - updated `ui/tests/test_operator_console_e2e.py` expectations for initial path-note horizons, advanced profile overrides, customer-portal intake, WAN wording, passive-lane confirmation, advanced auto-dossier sync, and LAN-to-web scope revision handoffs
+  - reran the previously failing nine-test cluster until clean and then reran the full `ui/tests/test_operator_console_e2e.py` suite to completion with no remaining failures
+- Added the follow-on Phase 1 documentation-truth slice for advanced-drawer realignment on the supported live host:
+  - verified via targeted browser coverage plus the full product matrix that the representative web route no longer realigns from the stale safety prompt to an auth question; it now realigns to `Boundaries`
+  - verified on `127.0.0.1:8000` that this advanced-override route persists `Deep` plus `active-web-zap-active`, while the separate internal-validation-to-web scope-revision route still re-prompts `Boundaries` and lands on `active-web-safe`
+  - recorded fresh host evidence in `codex/results/live-host-wizard-advanced-realignment-20260419.json` and `codex/results/live-host-wizard-advanced-realignment-20260419.png`
+  - updated the repo truth docs so they no longer imply the outdated auth-question handoff for that slice
+
+- Added the adjacent Phase 1 wizard-trust coverage slice for hand-entered dossier-name preservation across advanced scope and profile overrides:
+  - once the operator types a manual dossier name, later advanced scope and profile changes no longer have any path that can replace it with a refreshed suggestion
+  - confirmation handoff, selected engagement, and stored `configuration_json.intake.engagement_context.engagement_name` now stay aligned on that manual value through mission creation on the supported `127.0.0.1:8000` host path
+- Added targeted browser regression coverage in `ui/tests/test_operator_console_e2e.py` for the manual dossier-name preservation route.
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'manual_dossier_name_survives_advanced_scope_and_profile_overrides'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'engagement_name or confirmation_summary or route_metadata'`
+  - independent live-host Playwright proof saved to `codex/results/live-host-wizard-manual-dossier-name-preserved-20260419.json` and `codex/results/live-host-wizard-manual-dossier-name-preserved-20260419.png`
+
+- Added the follow-on Phase 1 wizard-trust slice for auto-generated dossier-name sync across advanced scope and profile overrides:
+  - when the operator keeps the suggested new-dossier name, advanced scope input now refreshes it from the generic assessment label to the actual target instead of freezing on the older default
+  - later advanced profile changes now keep that same generated name aligned with the effective mission goal, for example `portal.example.com Quick Overview` and `portal.example.com Deep Assessment`, without overwriting hand-entered dossier names
+  - confirmation handoff, selected engagement, and stored `configuration_json.intake.engagement_context.engagement_name` now stay aligned for that route instead of drifting to the stale standard-assessment label
+- Added targeted browser regression coverage in `ui/tests/test_operator_console_e2e.py` for the advanced scope/profile auto-generated dossier-name route.
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'automatic_new_dossier_name_tracks_advanced_scope_and_profile_overrides'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'engagement_name or confirmation_summary or route_metadata'`
+  - independent live-host Playwright proof saved to `codex/results/live-host-wizard-auto-dossier-name-sync-20260419.json` and `codex/results/live-host-wizard-auto-dossier-name-sync-20260419.png`
+
+- Added the follow-on Phase 1 wizard-trust slice for external WAN authenticated-review discovery-first truth:
+  - typed `Authenticated review` with supplied protected access on an explicit WAN IP/CIDR mission now keeps the access context attached but stages the created run as `External Surface Only` / `passive-network-discovery`
+  - the confirmation handoff now explains that access-aware follow-up happens only after reachable services and protected application surfaces are confirmed instead of pairing `Authenticated Only` wording with a passive discovery first run
+- Added targeted browser regression coverage in `ui/tests/test_operator_console_e2e.py` for the WAN authenticated-review discovery-first route.
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'external_ip_authenticated_review_stages_perimeter_discovery_first_with_access_context'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - independent live-host Playwright proof saved to `codex/results/live-host-wizard-external-wan-authenticated-review-20260419.json` and `codex/results/live-host-wizard-external-wan-authenticated-review-20260419.png`
+
+- Added the follow-on Phase 1 wizard-trust slice for external WAN discovery-first truth:
+  - `External IP / WAN` rich-goal quick replies now use staged perimeter wording (`Quick perimeter overview`, `Perimeter review`, `Deep follow-up after discovery`, `Adaptive follow-up after discovery`) instead of implying that the first run is already deep/adaptive
+  - typed `Deep assessment` and `Adaptive customer-specific testing` answers on an explicit WAN IP/CIDR mission now stage the created run as `External Surface Only` / `passive-network-discovery`, skip the premature access question after scope, and keep `active_checks = passive-only`
+  - the confirmation handoff now explains that passive perimeter discovery happens first and that deeper or adaptive follow-up appears only after reachable hosts and services are confirmed
+- Added targeted browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+  - WAN goal quick-reply wording truth
+  - deep WAN discovery-first staging
+  - adaptive WAN discovery-first staging
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'external_ip_goal_choices_flag_discovery_first_follow_up_language or external_ip_deep_assessment_stages_perimeter_discovery_first or external_ip_adaptive_testing_stages_perimeter_discovery_first'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - independent live-host Playwright proof saved to `codex/results/live-host-wizard-external-wan-discovery-first-20260419.json` and `codex/results/live-host-wizard-external-wan-discovery-first-20260419.png`
+
+- Added the follow-on Phase 1 wizard-trust slice for assessment-type wording truth across external-edge, passive-lane, and mixed-surface copy:
+  - `Our internet-facing IP range` now stays in the `External IP / WAN` route through the scope step instead of briefly asking for `internal hosts`
+  - passive execution lanes such as `passive-web-nuclei-audit` now keep the confirmation safety line truthful by saying active exploitation-style checks are not enabled in that run
+  - `Mixed Assessment` confirmation copy now uses a single `mixed assessment` phrase instead of `mixed assessment assessment`
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'external_ip_intent_keeps_public_scope_language_and_type_truthful or passive_execution_lanes_do_not_claim_guarded_active_validation_in_confirmation_copy or mixed_assessment_confirmation_copy_avoids_duplicate_assessment_wording'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-assessment-wording-truth-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for narrow/mobile confirmation post-settle truth and stale browser-expectation cleanup:
+  - removed stale browser assertions that still expected the old generic still-needed wording and a closed advanced drawer after the current access handoff behavior had already changed
+  - updated the internal-validation helper so it answers the real remaining boundary step before claiming the wizard is confirmation-ready
+  - scheduled the narrow/mobile confirmation scroll target after the render settles and anchored it to the recent conversation thread so the final confirmation view is calmer and more reproducible
+  - changed the narrow/mobile confirmation geometry check to wait for the settled final state instead of reading an in-flight transition frame
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-mobile-confirmation-post-settle-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for calmer revision controls plus authenticated-app unauthenticated continuity:
+  - the intake now keeps `Revise Captured Topic` hidden until a real earlier topic has been locked into the deterministic run dossier, and it only lists already-captured topics instead of surfacing premature `Change ...` actions for unanswered later steps
+  - `Authenticated App` missions that explicitly stay unauthenticated, or are revised back to `Keep it unauthenticated`, no longer fall back into an access-detail dead end; they continue to the next real topic and persist a compatible unauthenticated `Standard` / `active-web-safe` plan with no stored accounts
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'partial_intake_moves_older_context_and_revision_controls_into_quieter_disclosures or revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan or internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly or authenticated_app_can_stay_unauthenticated_without_access_dead_end'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-revision-calmness-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for TLS-only goal guardrails so pure certificate/protocol missions no longer advertise or persist impossible deep/adaptive goal promises:
+  - once intent resolves to `SSL/TLS Only`, the goal step now offers only TLS-safe quick replies (`Quick overview`, `Standard assessment`)
+  - unsupported typed goals such as `Deep assessment` now normalize immediately into a standard TLS-only mission with explicit operator-facing explanation instead of leaving the wizard in a contradictory half-open state
+  - the created run dossier now persists `SSL/TLS Only`, `SSL/TLS Only`, `passive-web-baseline`, and the normalized `standard-assessment` goal
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'tls_only_intent_limits_goal_choices_to_tls_safe_options or tls_only_deep_goal_normalizes_to_standard_tls_assessment or conversational_completion_matrix_covers_every_assessment_type'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-tls-goal-guardrails-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for common portal-language classification so the conversational example `Our customer portal` no longer enters the wrong generic web-app path:
+  - plain-language portal phrasing such as `Our customer portal` now resolves to `Authenticated App`
+  - the next goal step now offers auth-aware quick replies such as `Authenticated review` instead of the generic web quick-reply set
+  - the still-needed horizon now correctly includes `Access` for that mission type, and the created run persists `Authenticated App`, `Authenticated Only`, and `active-web-safe`
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'customer_portal_intent_enters_authenticated_app_path or authenticated_webapp_flow_supports_reports_and_secret_binding or conversational_completion_matrix_covers_every_assessment_type'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-customer-portal-authenticated-app-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for initial-topic visibility so the opening conversational screen no longer overclaims downstream requirements before they are actually relevant:
+  - before the operator answers the first intent question, the still-needed summary and inline progress note no longer claim that `Access` or `Output` are already blocking topics
+  - the opening horizon now stays on the real near-term intake topics: `Target Type`, `Goal`, `Scope`, and `Safety`
+  - once mission type, goal, or operator choices make auth/output relevant, those topics still surface normally instead of being removed from the deterministic intake model
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'initial_intake_defers_access_and_output_until_they_are_relevant or still_needed_summary_deduplicates_goal_linked_actions or path_note_deduplicates_goal_linked_topics or advanced_access_placeholder_opens_drawer_and_realigns_to_safety'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-initial-topic-visibility-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for the advanced-access bridge so the conversational access placeholder no longer leaves operators in a contradictory or quietly looping state:
+  - choosing `I will add access in advanced settings` now keeps `Access` visibly pending instead of letting the inline progress note imply that only `Safety` remains
+  - the still-needed `Access` action now opens Advanced Configuration directly on the access step
+  - the auth-details quick reply for advanced settings now opens that same drawer instead of silently re-answering the same question
+  - once access detail is filled in the drawer, the live question realigns to `Safety`
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'advanced_access_placeholder_opens_drawer_and_realigns_to_safety or auth_details_advanced_settings_reply_opens_access_drawer or auth_details_question_does_not_repeat_access_in_summary_or_path_note'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-advanced-access-bridge-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for current-question progress-note dedup so the inline `Mission Progress` note no longer repeats the topic family the operator is already answering:
+  - the goal step now suppresses `Goal` / `Output` in the inline progress note and keeps only the genuinely remaining `Scope`, `Safety`, and `Boundaries`
+  - the access-detail step now suppresses `Access` in both the inline progress note and the still-needed quick actions so only the later `Safety` topic remains visible
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'still_needed_summary_hides_current_topic_from_jump_actions or still_needed_summary_deduplicates_goal_linked_actions or path_note_deduplicates_goal_linked_topics or auth_details_question_does_not_repeat_access_in_summary_or_path_note'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-path-note-dedup-20260419.json`
+  - `git diff --check`
+
+- Added the follow-on Phase 1 wizard-trust slice for linked-badge dedup in the still-needed summary so the wizard no longer leaves `Output` behind as a second visual affordance while the operator is already answering `Goal`:
+  - the `What Still Needs Confirmation` card now suppresses leftover badges for linked topics that resolve through the already-active question
+  - the common LAN goal step now keeps only the genuinely remaining `Scope`, `Safety`, and `Boundaries` actions visible instead of also surfacing `Output` as a competing badge
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'still_needed_summary_hides_current_topic_from_jump_actions or still_needed_summary_deduplicates_goal_linked_actions'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-linked-badge-dedup-20260419.json`
+  - `git diff --check`
+
+- Added the next Phase 1 wizard-trust slice for validation-aware advanced override truth and profile-matrix run parity:
+  - the conversational intake now treats advanced-drawer validation failures as blocking topics instead of allowing a fake `Confirmation Ready` state
+  - the `SSL/TLS Only` advanced path now falls back to `Scope`, keeps `Create Mission` hidden, and surfaces `Invalid IP address: ...` when a hostname is mistakenly entered into the `IP Addresses` field
+  - the right-hand summary and progress stepper now keep `Scope` / `Access` / `Goal` in the still-needed state when advanced validation is still blocking instead of prematurely marking those topics complete
+  - the profile matrix catalog now includes the real scope/auth defaults needed to create missions, and browser coverage now verifies persisted `assessment_type`, `test_profile`, `execution_profile`, and approved scope instead of summary-only lane labels
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py -k 'invalid_tls_scope_advanced_override_returns_focus_to_scope_instead_of_fake_confirmation or profile_matrix_presets_create_truthful_run_dossiers'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'confirmation_summary'`
+  - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `curl -fsS http://127.0.0.1:8000/health/live`
+  - a restarted live inline host at `http://127.0.0.1:8000/app/`
+  - an independent live-host Playwright proof saved to `codex/results/live-host-wizard-validation-aware-profile-parity-20260419.json`
+  - `git diff --check`
+
+- Added the next Phase 1 wizard-trust slice for assessment-type dossier parity so the supported conversational completion matrix no longer stops at Mission Control labels:
+  - the browser matrix now fetches the created run for every supported assessment type and verifies persisted `assessment_type`, `test_profile`, `execution_profile`, and approved scope against the wizard expectation
+  - the repo-owned UI acceptance catalog now records this as explicit `run_dossier_parity` coverage instead of leaving it implicit
+  - an independent live-host Playwright proof now captures those same checks across all eight supported assessment types on `127.0.0.1:8000`
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'test_conversational_completion_matrix_covers_every_assessment_type'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'confirmation_summary'`
+  - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright walkthrough saved to `codex/results/live-host-wizard-assessment-type-parity-20260419.json`
+  - `git diff --check`
+
+- Added the next Phase 1 wizard-trust slice for internal rich-goal staging truth so LAN/CIDR `Deep Assessment` and `Adaptive Customer-Specific Testing` no longer claim a deep/adaptive first run while the real lane is still discovery-first:
+  - the wizard now keeps those operator goals but stages the first run as `Standard` + `passive-network-discovery` for internal-range missions
+  - the natural-language confirmation handoff now says that deeper or adaptive follow-up coverage begins after reachable hosts and services are confirmed instead of implying that the first passive discovery run is already the deep/adaptive lane
+  - revising an adaptive web mission onto LAN scope now lands on that same full discovery-first internal plan, including the `Standard` / guarded module-and-safety baseline, instead of leaving `Adaptive Customer-Specific Mode` next to `passive-network-discovery` or quietly keeping the old light/passive scope preset
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'internal_range_deep_assessment_stages_discovery_first or internal_range_adaptive_testing_stages_discovery_first or scope_revision_from_adaptive_web_to_internal_range_realigns_to_discovery_first_internal_plan'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'confirmation_summary'`
+  - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright walkthrough saved to `codex/results/live-host-wizard-internal-rich-goal-discovery-20260419.json`
+  - `git diff --check`
+
+- Added the next Phase 1 wizard-trust slice for credentialed internal-range staging truth so `Authenticated Review` on LAN/CIDR scope no longer claims an authenticated app-style first run while the real lane is still discovery-first:
+  - once protected access is supplied for an internal-range mission, the wizard now keeps the operator goal as `Authenticated Review` but stages the first run as `Standard` + `passive-network-discovery`
+  - the natural-language confirmation handoff now says that AegisPT will keep the access context attached and surface credential-aware follow-up options after reachable services are confirmed
+  - revising a credentialed authenticated web mission onto LAN scope now lands on that same discovery-first internal plan instead of leaving `Authenticated Only` beside `passive-network-discovery`
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'internal_range_authenticated_review_stages_discovery_first_with_access_context or scope_revision_from_authenticated_web_to_internal_range_realigns_to_discovery_first_internal_plan'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'confirmation_summary'`
+  - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright walkthrough saved to `codex/results/live-host-wizard-internal-auth-discovery-20260419.json`
+  - `git diff --check`
+
+- Added the next Phase 1 wizard-trust slice for goal/assessment compatibility truth so `Internal Validation` cannot survive onto non-LAN scope with a contradictory or lighter-than-intended plan:
+  - if the operator asks for `Deep internal validation` on a website/API mission, the deterministic run model now normalizes that to a compatible `Deep Assessment` plan
+  - if the operator starts on a valid LAN internal-validation route and later uses `Change Scope` to switch to a website, the wizard now realigns the profile and lane to the same `Deep` / `active-web-safe` web plan as the direct conversational route instead of silently keeping the lighter `Standard` / `passive-web-nuclei-audit` preset
+  - this remains additive inside `ui/assets/modules/wizard.js` and still respects explicit profile/module/safety overrides
+- Revalidated the slice on the required layers with:
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'web_internal_validation_intent_normalizes_to_deep_assessment or scope_revision_from_internal_validation_lan_realigns_to_deep_web_plan'`
+  - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'confirmation_summary'`
+  - `TMPDIR=/var/tmp ./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - an independent live-host Playwright walkthrough saved to `codex/results/live-host-wizard-goal-compatibility-20260419.json`
+  - `git diff --check`
+
+## 2026-04-18
+
+- Added the next Phase 1 wizard-trust slice for auth-revision truth so `Change Access -> Keep it unauthenticated` no longer leaves contradictory authenticated handoff state behind:
+  - revising away from authenticated access now clears stale account/session payload, shared manual-auth notes, and cookie/session notes from the deterministic run model
+  - when the mission had been shaped as `Authenticated Review` / `Authenticated Only`, the confirmation handoff now downgrades to a compatible unauthenticated plan instead of claiming authenticated validation without access
+  - the created run dossier and persisted `configuration_json` now match that unauthenticated downgrade instead of carrying stale access context forward
+- Revalidated the slice on the required layers with:
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan or session_reference_in_advanced_drawer_reaches_run_dossier or internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'confirmation_summary or new_engagement_route_metadata or engagement_route_metadata'`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - a direct live-host Playwright walkthrough saved to `codex/results/live-host-auth-revision-unauthenticated-downgrade-20260418.json`
+  - `git diff --check`
+- Added the next Phase 1 wizard-trust slice for boundary-revision truth so revising `Boundaries` no longer leaves contradictory stale guardrails behind:
+  - `Change Boundaries -> No extra exclusions` now clears older advanced denylist targets and boundary notes from the real mission state instead of only relabeling the boundary mode
+  - `Change Boundaries` from explicit exclusions to notes-only guidance now replaces the older denylist payload instead of showing both meanings at once in confirmation or Explorer
+  - the fix stays additive inside `ui/assets/modules/wizard.js` and keeps the deterministic run dossier synchronized with the conversational revision path
+- Revalidated the slice on the required layers with:
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'revising_boundaries_to_no_extra_exclusions_clears_previous_boundary_state or revising_boundaries_to_notes_only_replaces_previous_explicit_exclusions or notes_only_boundary_guardrails_remain_truthful_from_confirmation_into_explorer_dossier or scope_guardrails_remain_visible_from_confirmation_into_explorer_dossier'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'notes_only_scope_guardrail_metadata or scope_guardrail_metadata or confirmation_summary'`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - a direct live-host Playwright walkthrough saved to `codex/results/live-host-boundary-revision-clear-20260418.json`
+  - `git diff --check`
+- Added the next Phase 1 wizard-trust slice for notes-only boundary truth so recorded boundary notes no longer masquerade as explicit exclusions:
+  - advanced scope synchronization now keeps notes-only boundary guidance on `notes-only-boundaries` instead of incorrectly collapsing it into `custom-exclusions`
+  - the confirmation summary now says `Boundary Notes Recorded. The recorded boundary note stays in force ...` instead of the broken `Boundary notes only remain outside this mission` wording
+  - Explorer now uses the same notes-only meaning for boundary handling when showing dossier scope guardrails
+  - browser regression now also forces older/missing `boundary_handling` metadata back through the wizard and Explorer renderers so that fallback path is covered instead of only the happy-path metadata
+- Revalidated the slice on the required layers with:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'notes_only_scope_guardrail_metadata or scope_guardrail_metadata or confirmation_summary'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'notes_only_boundary_guardrails_remain_truthful_from_confirmation_into_explorer_dossier or scope_guardrails_remain_visible_from_confirmation_into_explorer_dossier or scope_guardrail_confirmation_summary_handles_plural_exclusions_cleanly'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - a foreground inline host on `http://127.0.0.1:8014`
+  - `curl -sS http://127.0.0.1:8014/health/live`
+  - a direct live-host Playwright walkthrough saved to `codex/results/live-host-wizard-notes-only-guardrails-20260418-233446.json`
+  - `git diff --check`
+- Added the next Phase 1 wizard-trust slice for confirmation-copy truth so scope-guardrail wording reads like a real operator handoff instead of a generated fragment:
+  - the confirmation summary now uses the correct singular/plural verb for explicit exclusions (`remains` vs `remain`)
+  - browser regression now proves both the one-exclusion and multi-exclusion variants of that wording
+- Revalidated the slice on the required layers with:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'scope_guardrail_metadata or confirmation_summary'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'scope_guardrails_remain_visible_from_confirmation_into_explorer_dossier or scope_guardrail_confirmation_summary_handles_plural_exclusions_cleanly'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - a foreground inline host on `http://127.0.0.1:8013`
+  - `curl -sS http://127.0.0.1:8013/health/live`
+  - a direct live-host Playwright walkthrough saved to `codex/results/live-host-wizard-scope-guardrail-copy-20260418-232414.json`
+  - `git diff --check`
+- Added the next Phase 1 wizard-trust slice for scope guardrails so explicit exclusions do not disappear into implicit scope state after mission creation:
+  - the confirmation card now shows `Output Style`, `Boundary Handling`, `Exclusions`, and `Boundary Notes`
+  - Explorer now shows the same guardrail context from the stored run dossier after mission creation
+  - the natural-language confirmation summary now explicitly mentions structured exclusions when they exist
+- Fixed a real Phase 1 sync defect uncovered by the new browser test:
+  - adding structured exclusions in the Advanced Drawer could leave `configuration_json.intake.preferences.boundary_handling` stuck on `standard-scope-only`
+  - step-1 advanced scope synchronization now upgrades that stored boundary mode to `custom-exclusions` or `notes-only-boundaries` when the operator adds real denylist or boundary-note content
+- Added regression coverage for that slice on all required layers:
+  - API round-trip coverage in `api/tests/test_runs.py` for scope-guardrail metadata
+  - browser regression in `ui/tests/test_operator_console_e2e.py` proving exclusions, boundary notes, output style, and boundary handling survive from confirmation into Explorer
+  - independent live-host Playwright proof recorded in `codex/results/live-host-wizard-scope-guardrails-20260418-230804.json`
+- Revalidated the slice with:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'scope_guardrail_metadata or engagement_route_metadata or new_engagement_route_metadata or confirmation_summary'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'scope_guardrails_remain_visible_from_confirmation_into_explorer_dossier or existing_engagement_route_reuses_selected_dossier_without_creating_new_engagement or new_engagement_route_creates_one_dossier_and_keeps_creation_route_visible'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - a foreground inline host on `http://127.0.0.1:8012`
+  - `curl -sS http://127.0.0.1:8012/health/live`
+  - a direct live-host Playwright walkthrough saved to `codex/results/live-host-wizard-scope-guardrails-20260418-230804.json`
+- Added the next Phase 1 wizard-trust slice for dossier authorization context so `Customer` / `ROE Reference` truth is no longer dependent on the browser wizard alone:
+  - the central run-create path now normalizes `configuration_json.intake.engagement_context` against the real engagement before persistence
+  - the confirmation card now renders dossier authorization context for reuse-existing and create-new routes
+  - Explorer now keeps that same authorization context visible in the stored run dossier after mission creation
+- Fixed a real contract defect uncovered by targeted API regression:
+  - direct `POST /api/v1/engagements/{id}/runs` calls with `intake.engagement_context` but no explicit `roe_ref` now persist the engagement's real `ROE Reference`
+  - direct API callers and the browser wizard now land on the same persisted dossier truth instead of diverging
+- Revalidated the slice on all required layers with:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'engagement_route_metadata or new_engagement_route_metadata or confirmation_summary'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'existing_engagement_route_reuses_selected_dossier_without_creating_new_engagement or new_engagement_route_creates_one_dossier_and_keeps_creation_route_visible or authenticated_webapp_flow_supports_reports_and_secret_binding'`
+  - a foreground inline host on `http://127.0.0.1:8011`
+  - `curl -sS http://127.0.0.1:8011/health/live`
+  - an independent live-host Playwright walkthrough recorded in `codex/results/live-host-wizard-authorization-context-20260418-225146.json`
+- Added the next Phase 1 wizard-trust slice for the default new-engagement route so new-dossier creation is no longer implicit:
+  - the confirmation summary now says when AegisPT will create a new engagement dossier before the run starts
+  - the real created engagement ID is now written into the additive `configuration_json.intake.engagement_context` before run creation
+  - the Explorer dossier already had route visibility, and it now carries the create-new route with the actual created engagement context
+- Fixed a real Phase 1 defect uncovered by the new browser test:
+  - editing only dossier metadata (`engagement name`, `customer`, `ROE`) in Advanced Configuration no longer skips the opening intent question
+  - hand-entered dossier names are no longer overwritten later by conversational intent, goal, or scope answers
+  - auto-generated names still refresh only when the current name is still the automatic suggestion
+- Added regression coverage for that slice on all required layers:
+  - API round-trip coverage in `api/tests/test_runs.py` for additive `create-new-engagement` route metadata
+  - browser regression in `ui/tests/test_operator_console_e2e.py` proving the wizard creates exactly one new dossier, keeps the chosen dossier name, and preserves the create-new route in Explorer
+  - live-host Playwright proof against `http://127.0.0.1:8000/app/` confirming the same route on the real local host path
+- Revalidated the slice with:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'new_engagement_route_metadata or engagement_route_metadata or confirmation_summary'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'new_engagement_route_creates_one_dossier_and_keeps_creation_route_visible or existing_engagement_route_reuses_selected_dossier_without_creating_new_engagement or authenticated_webapp_flow_supports_reports_and_secret_binding'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'new_engagement_route_creates_one_dossier_and_keeps_creation_route_visible or existing_engagement_route_reuses_selected_dossier_without_creating_new_engagement or advanced_override_realigns_the_current_question_to_the_next_required_topic'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - a direct live-host Playwright walkthrough that created `Live Host New Dossier 1776544860` and proved engagement count increased from `25` to `26`
+  - `git diff --check`
+- Added the next Phase 1 wizard-trust slice for engagement-dossier reuse so the advanced `Use the selected engagement dossier` path is explicit and auditable instead of being an implicit backend branch:
+  - the wizard mission brief now shows `Engagement Route: Reuse existing dossier` when that route is chosen
+  - `configuration_json.intake` now carries additive `engagement_route` and `engagement_context` metadata
+  - the natural-language confirmation summary now explicitly says when the run will attach to an existing engagement dossier
+  - Explorer now shows the stored engagement-route context alongside the mission handoff after mission creation
+- Added regression coverage for that slice on all required layers:
+  - API round-trip coverage in `api/tests/test_runs.py` for the additive engagement-route metadata
+  - browser regression in `ui/tests/test_operator_console_e2e.py` proving the selected dossier is reused without creating a duplicate engagement and that the Explorer handoff preserves the route
+  - live-host Playwright proof against `http://127.0.0.1:8000/app/` confirming the same route on the real local host path
+- Revalidated the slice with:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'engagement_route_metadata or confirmation_summary'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'existing_engagement_route_reuses_selected_dossier_without_creating_new_engagement or authenticated_webapp_flow_supports_reports_and_secret_binding'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'operator_console_empty_states_render or existing_engagement_route_reuses_selected_dossier_without_creating_new_engagement'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'existing_engagement_route_reuses_selected_dossier_without_creating_new_engagement or revising_an_earlier_topic_shows_return_to_main_intake_flow or still_needed_actions_can_jump_ahead_without_losing_main_path or advanced_override_realigns_the_current_question_to_the_next_required_topic'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - a direct live-host Playwright walkthrough that created a run under an existing engagement and proved no duplicate engagement was created
+  - `git diff --check`
+- Re-opened the repo’s active work as an explicit `Operator Product Operational Assurance Program` instead of leaving the project in an implied “done enough” state.
+- Upgraded `docs/operator_console_stabilization_plan.md` into the canonical side-project plan for:
+  - truthful end-to-end supported-path validation
+  - supported-combination coverage
+  - calmer operator UX
+  - grounded AI leverage
+  - evidence-backed assurance/certificate output
+- Updated `NEXT_TASK.md` so this program is now the active task Codex must read and follow before further implementation work.
+- Updated `CURRENT_STATE.md` so the repo truth no longer overstates the current signoff level and now records the gap between broad coverage and full operational assurance.
+- Added `docs/competitive_landscape_2026.md` after an online competitor review of Horizon3.ai, Pentera, Cobalt, Cymulate, XM Cyber, and BreachLock, then updated `CURRENT_STATE.md` so the repo records the main competitive gaps and the strategic direction for AI-backed differentiation.
+- Added `docs/operational_truth_signoff.md` to formalize how AegisPT decides that a scoped milestone is truly complete, including multi-layer release gates and a triple-validation rule.
+- Added `docs/multi_agent_red_team_program.md` to document the future controlled multi-agent and multi-worker red-team direction, including agent roles, orchestration boundaries, and safety constraints.
+- Re-ran the Phase 0 reality baseline on 2026-04-18 with:
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane all`
+  - `./.venv/bin/pytest -q -s api/tests/test_reports.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py::test_report_download_actions_create_real_browser_files ui/tests/test_operator_console_e2e.py::test_authenticated_webapp_flow_supports_reports_and_secret_binding`
+  - `./.venv/bin/python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke`
+- Reproduced a real live-host defect during that baseline pass: HTML report export worked, but PDF export returned `503` because the transient/local restart path set `PLAYWRIGHT_BROWSERS_PATH=/opt/aegispt/ms-playwright` without ensuring Chromium in that path.
+- Fixed that host-lane defect by adding `scripts/ensure_playwright_chromium.sh` and wiring it into `scripts/install_host_service.sh`, `scripts/restart_local_inline_host.sh`, and `scripts/restart_local_inline_host_systemd.sh`.
+- Verified the fix with:
+  - a restarted transient local host
+  - a fresh passing `local-app-smoke` run written to `codex/results/acceptance-local-app-smoke-20260418-184034.json`
+  - a live HTML export response
+  - a live PDF export response returning `200`, `application/pdf`, and `%PDF-1.4`
+- Re-ran `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane all` after the host-lane fix and confirmed the broader composite API/UI matrix stayed green.
+- Updated `docs/operator_console_phase0_baseline.md`, `docs/host_service_install.md`, `docs/Kali-VM-Reuse-Guide.md`, and `CURRENT_STATE.md` so the baseline and host rollout docs reflect the repaired PDF export path and the current next step.
+- Tightened the conversational wizard trust slice without changing the backend model:
+  - the current-question card now distinguishes normal progress from earlier-topic revision
+  - revisiting an earlier topic changes the primary action to `Apply Answer & Return`
+  - the common human auth phrase `Keep it unauthenticated` is now explicitly covered on the internal-validation path
+  - desktop answer autofocusing now skips narrow/mobile viewports so the wizard does not jump out of position on small screens
+- Added browser coverage for those trust improvements in `ui/tests/test_operator_console_e2e.py`, then revalidated with:
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly or revising_an_earlier_topic_shows_return_to_main_intake_flow or internal_validation_conversation_stays_operational_without_credentials or dispatch_and_status_history_work_after_conversational_intake'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'mobile_conversational_wizard_keeps_core_controls_visible or internal_validation_accepts_keep_it_unauthenticated_and_advances_cleanly or revising_an_earlier_topic_shows_return_to_main_intake_flow'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - live-host Playwright checks against `http://127.0.0.1:8000/app/` for:
+    - the internal-validation unauthenticated path
+    - revision-mode note/button behavior
+    - confirmation-to-Mission-Control handoff
+- Updated `docs/ui_assessment_wizard.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `docs/operator_console_phase1_checklist.md` so the repo truth reflects the new wizard-progress cues and validation evidence.
+- Closed the last explicit Phase 1 browser-gap around session/cookie access by adding a real end-to-end browser regression in `ui/tests/test_operator_console_e2e.py` that:
+  - takes the conversational authenticated-web path
+  - moves the session reference into the advanced drawer
+  - verifies manual-auth and session notes stay visible in the summary
+  - creates the mission
+  - proves the created run dossier preserves only protected-access metadata (`Protected Access`, `1 secret binding`, `encrypted_local`)
+- Revalidated that slice on all three required layers:
+  - API contract: `./.venv/bin/pytest -q -s api/tests/test_runs.py -k test_run_configuration_materializes_secret_references`
+  - browser regression: `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'session_reference_in_advanced_drawer_reaches_run_dossier or authenticated_webapp_flow_supports_reports_and_secret_binding'`
+  - broader browser lane: `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - live host proof: a direct Playwright run against `http://127.0.0.1:8000/app/` that completed the session/cookie intake path and confirmed the Explorer dossier showed protected-access metadata instead of raw session material
+- Updated `docs/operator_console_phase1_checklist.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so the repo no longer describes session/cookie access as only partially reviewed.
+- Added a focused Intake-phase calmness patch instead of jumping phases:
+  - the context strip now keeps only essential mission context expanded during intake
+  - secondary run/module/lane/ETA/AI detail now lives behind `More Mission Context`
+  - non-active phase cards in the top strip are visually quieter during intake
+  - the question-level progress block now uses a lighter inline intake note instead of another large heavy surface
+- Added browser coverage for that calmer intake-shell behavior in `ui/tests/test_operator_console_e2e.py`, including:
+  - `data-phase-layout="focus"` on the intake shell
+  - the new `persistent-context-secondary` disclosure
+  - continued narrow-screen visibility for the core wizard controls
+- Revalidated the patch with:
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'intake_focus_shell_keeps_secondary_context_in_disclosure or mobile_conversational_wizard_keeps_core_controls_visible or operator_console_empty_states_render'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - a live-host Playwright screenshot/review pass against `http://127.0.0.1:8000/app/` confirming the quieter intake shell rendered with the new collapsed secondary context
+- Added a second Phase 1 operator-trust slice so the wizard no longer makes operators guess how to reach missing topics:
+  - the `What Still Needs Confirmation` card now renders direct jump controls for missing mission topics
+  - jumping ahead to a later missing topic now shows `Reviewing Another Topic` instead of incorrectly saying an earlier topic is being revised
+  - after answering the jumped-to topic, the wizard returns to the next truly required main-path question
+- Revalidated that slice with:
+  - `curl -sS http://127.0.0.1:8000/health/live`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'still_needed_actions_can_jump_ahead_without_losing_main_path or intake_focus_shell_keeps_secondary_context_in_disclosure or mobile_conversational_wizard_keeps_core_controls_visible'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - a direct live-host Playwright route against `http://127.0.0.1:8000/app/` that:
+    - answered `My LAN network`
+    - used the `Safety` still-needed jump control
+    - verified the `Reviewing Another Topic` note
+    - answered `Balanced`
+    - confirmed the wizard returned to the `Goal` question on the main intake path
+- Added another focused Phase 1 wizard-trust repair so advanced-drawer changes cannot leave a stale conversational question visible after the real run model changed:
+  - opening the advanced drawer from a live intake question, changing profile/safety, and closing it now realigns the wizard to the next actual required topic
+  - this prevents operators from re-answering a question that advanced overrides already resolved or reordered
+  - explicit earlier-topic revision remains intact and still shows the `Revising Earlier Topic` note
+- Added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+  - advanced override realignment from a stale safety prompt to the auth question after a `Deep` profile plus active/deep safety override
+  - continued earlier-topic revision behavior so the repair does not break the existing `Apply Answer & Return` flow
+- Revalidated the slice on three layers:
+  - API regression safety net: `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'run_configuration_and_inventory_binding_round_trip or run_configuration_materializes_secret_references'`
+  - targeted browser regression: `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'advanced_override_realigns_the_current_question_to_the_next_required_topic or revising_an_earlier_topic_shows_return_to_main_intake_flow or still_needed_actions_can_jump_ahead_without_losing_main_path or advanced_drawer_overrides_stay_synchronized'`
+  - broader browser lane: `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - live-host Playwright proof against `http://127.0.0.1:8000/app/` confirming the visible question moved from the stale safety prompt to the auth question and the mission brief preserved the advanced overrides
+  - diff hygiene: `git diff --check`
+- Added the next Phase 1 dossier-alignment slice so the wizard’s natural-language confirmation summary is no longer transient:
+  - Explorer now renders a dedicated `Mission Handoff` block using the stored `configuration_json.intake.confirmation_summary`
+  - this lets operators verify the promised mission wording after creation instead of trusting a pre-launch-only card
+- Added regression coverage for that alignment on two layers:
+  - API regression in `api/tests/test_runs.py` proving `confirmation_summary` survives create + get round-trips
+  - browser regression in `ui/tests/test_operator_console_e2e.py` proving the authenticated-web flow shows the same planned mission text in the Explorer dossier after run creation
+- Revalidated the slice with:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'run_configuration_preserves_confirmation_summary or run_configuration_and_inventory_binding_round_trip'`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'authenticated_webapp_flow_supports_reports_and_secret_binding or advanced_override_realigns_the_current_question_to_the_next_required_topic'`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+  - live-host Playwright proof against `http://127.0.0.1:8000/app/` showing the planned mission text before creation and the same stored mission handoff in Explorer after creation
+
+## 2026-04-16
+
+- Added `docs/operator_console_stabilization_plan.md` as a separate side-project roadmap for UI/usability recovery, truthful end-to-end operator flow, LAN/internal follow-through, report/export reliability, and Kali reproducibility.
+- Updated `CURRENT_STATE.md` so the repo now states explicitly that operator-console stabilization is still needed and is tracked as phased work instead of being implied complete.
+
+## 2026-04-17
+
+- Started Phase 1 of the operator-console stabilization side project by adding `docs/operator_console_phase1_checklist.md`, which turns wizard completion and trust into an explicit tracked checklist instead of an implied follow-up.
+- Expanded the repo-owned UI acceptance catalog with a conversational completion matrix covering every supported assessment type, so browser validation now proves full intake completion instead of only preset rendering.
+- Added browser regression coverage for the remaining conversational wizard paths:
+  - Website / Web App
+  - Domain / Domains
+  - External IP / WAN
+  - SSL/TLS Only
+  - Mixed Assessment
+- Fixed three real conversational-intake mapping problems exposed by the new matrix:
+  - `Mixed Assessment` intent now resolves before pure API wording
+  - `SSL/TLS Only` no longer collapses into `Domain / Domains` after scope entry
+  - `Authenticated App` no longer collapses into `Website / Web App` after scope entry
+- Updated the wizard/browser/test-matrix docs so the new Phase 1 checklist and full conversational coverage are part of the repo truth.
+- Re-ran the targeted browser validation successfully:
+  - `./.venv/bin/pytest -s ui/tests/test_operator_console_e2e.py`
+  - `./.venv/bin/pytest -s ui/tests/test_product_feature_matrix_e2e.py`
+- Started Phase 2 of the operator-console stabilization side project by adding `docs/operator_console_phase2_checklist.md` and shifting the focus from wizard completion to dispatch/execution truth.
+- Added additive run/task `updated_at` serialization so the UI can show real last-change timing instead of only original queue timestamps.
+- Mission Control now surfaces a selected-check focus block with tool, target, target type, execution lane, last change, and latest execution/artifact summary.
+- Mission Control now flags failed-task runs and thin-output runs more explicitly instead of letting them read like clean success states.
+- The frontend refresh loop now tightens automatically while a selected run is queued, dispatching, or running, then relaxes again during idle review.
+- Re-ran the targeted validation successfully after the Mission Control truth changes:
+  - `./.venv/bin/pytest -q -s api/tests/test_runs.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+- Started and completed Phase 3 of the operator-console stabilization side project by adding `docs/operator_console_phase3_checklist.md` and turning LAN/internal follow-through into a concrete checked slice.
+- Mission Control now treats completed discovery-derived follow-up runs as useful completed work, surfaces strategy/rationale/source-discovery context, and stops falling back to generic standing-by copy for service-identification style runs.
+- Explorer now shows a dedicated `Follow-Up Lineage` card with source run, source inventory snapshot, rationale, and direct trace-back actions for discovery-derived runs.
+- History cards now label follow-up runs explicitly and expose `Trace Origin`, so operators can move back to the source discovery run without reconstructing the lineage manually.
+- Report Center metadata now surfaces discovery-follow-up lineage for the selected run without changing the existing report semantics or backend reporting model.
+- Zero-finding follow-up runs now receive strategy-specific next-step guidance instead of generic empty review messaging.
+- Re-ran the targeted Phase 3 browser validation successfully:
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+- Started and completed Phase 4 of the operator-console stabilization side project by adding `docs/operator_console_phase4_checklist.md` and `docs/ui_evidence_replay.md`, then tightening findings/evidence/report consistency around zero-finding discovery and follow-up runs.
+- Findings Theater now explains zero-finding follow-up runs honestly instead of dropping back to the generic “no findings” state, while Evidence Replay can render a run-level evidence posture with task, artifact, inventory, methodology, and lineage context when no finding exists.
+- Added browser regression coverage for zero-finding Evidence Replay on both discovery and follow-up runs, so operators no longer have to rely on finding-linked evidence only.
+- Added API regression coverage for follow-up report integrity so discovery-derived service-identification runs still produce truthful technical/evidence report output without inventing findings.
+- Re-ran the targeted Phase 4 validation successfully:
+  - `./.venv/bin/pytest -q -s api/tests/test_reports.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+- Started and completed Phase 5 of the operator-console stabilization side project by adding `docs/operator_console_phase5_checklist.md` and making Surface Map, Explorer, and History more practical for larger post-run review.
+- Surface / Attack Map now exposes search/filter controls plus a clearer browser summary, so discovery-confirmed inventories can be narrowed quickly without losing selected-asset detail or follow-up launch actions.
+- Explorer now opens the selected run with a compact dossier summary for inventory, evidence, reports/pack state, and the next operator review action before the deeper configuration/task blocks.
+- History / Comparison now supports run search and explicit inventory delta reporting across hosts, services, and endpoints instead of speaking only in findings language.
+- Added browser regression coverage for:
+  - Surface Map search/filter behavior
+  - Explorer dossier-summary behavior for follow-up runs
+  - History inventory-delta/search behavior
+- Re-ran the targeted Phase 5 validation successfully:
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `./.venv/bin/pytest -q -s api/tests/test_reports.py`
+  - `git diff --check`
+
+- Promoted operator-console stabilization into the active repo task by replacing the previous `NEXT_TASK.md` focus with `Operator Console Stabilization Phase 0`.
+- Added `docs/operator_console_phase0_baseline.md` as the first concrete side-project artifact, capturing what currently works, what is still misleading/noisy/incomplete, and why the next repair slice should start with wizard trust, run-truth, and LAN/internal follow-through rather than cosmetic polish.
+- Updated `CURRENT_STATE.md` so the repo truth now reflects that Phase 0 has actually begun, not just been planned.
+
+- Reorganized the operator console into a true 3-phase shell:
+  - Intake
+  - Run
+  - Analysis
+- Replaced the old always-visible multi-destination rail with phase-aware sub-navigation and moved mission context into a compact persistent strip at the top of the workspace.
+- Removed the stale 5-step lifecycle rendering logic from the active shell implementation, fixed phase navigation rerendering, and ensured screen changes now rerender the whole shell instead of only toggling the center panel.
+- Updated the wizard handoff so newly created runs move the operator into Mission Control immediately with a coherent temporary run state before the background refresh finishes.
+- Added browser regression coverage for phase isolation, contextual sub-navigation, and the persistent context strip.
+- Added new UI architecture docs:
+  - `docs/ui_phase_architecture.md`
+  - `docs/ui_navigation_model.md`
+  - `docs/ui_screen_mapping.md`
+- Updated `docs/ui_information_hierarchy.md` and stabilized the Playwright harness so each UI test gets its own temporary backend instance.
+
+- Added a repo-owned product feature matrix with additive API and Playwright suites:
+  - `api/tests/test_product_feature_matrix.py`
+  - `ui/tests/test_product_feature_matrix_e2e.py`
+  - `scripts/run_product_e2e_matrix.py`
+- Extended the machine-readable acceptance catalogs so assessment-type presets, profile/lane mappings, module toggles, browser report downloads, and adaptive pack/runtime flow are now represented explicitly in `codex/tasks/`.
+- Fixed a real wizard stability bug where static toolbar listeners were rebound on rerender, which could make `Advanced Configuration` and `Restart Intake` feel inconsistent after multiple conversational answers.
+- Fixed advanced assessment-type synchronization so changing the target type in the drawer keeps the recommended profile/execution-lane mapping coherent unless the operator later makes an explicit profile override.
+- Added explicit browser download names to report-catalog metadata and updated the Report Center links so markdown, HTML, and PDF exports save with the intended filenames instead of relying on browser fallbacks.
+- Reduced visual clutter on the first operator screen by shrinking the hero and top strip, toning down CTA/button weight, compacting the conversation history, hiding pointless assistant-side "Change" actions, and collapsing secondary wizard summary sections by default.
+- Re-ran the combined product validation lane successfully:
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane all`
+  - `./.venv/bin/pytest -q -s api/tests/test_nmap_dispatch.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+
+- Fixed the conversational internal-LAN dead end where `Internal Validation` plus an unauthenticated answer could land on a non-actionable confirmation screen; short-form `Unauthenticated` answers are now accepted, auth-flow requirements no longer force credentials for explicitly unauthenticated missions, and internal network missions explicitly ask for safety and boundary intent before confirmation.
+- Reworked deep internal-LAN wizard mapping so the initial execution lane starts with real passive network discovery instead of immediately selecting the intrusive lane against a raw CIDR, then updated Mission Control copy so operators can see that deeper follow-up validation begins only after hosts/services are confirmed.
+- Added browser regression coverage for the exact internal validation LAN path, including unauthenticated conversational intake, staged discovery dispatch, and visible follow-up service-identification actions after discovery completes.
+
+- Closed the post-LAN-discovery operator gap by adding real follow-up actions in the UI that create and dispatch deterministic next-step runs for service identification, discovered web profiling, and extra already-approved internal ranges.
+- Fixed the “only the last host shows up” multi-task inventory bug by aggregating all same-run inventory snapshots into one run-level surface/report view instead of only reading the latest task snapshot.
+- Expanded Surface / Attack Map with a scrollable asset browser, per-asset detail panel, map-node selection, and a high-level/low-clutter map layout that remains usable for larger inventories.
+- Updated Report Center metadata so discovery-first runs show asset/service/endpoint counts and explain why a report can be valuable even when findings remain at zero.
+- Fixed the inline `nmap` dispatch path to inherit service-enumeration flags from profile limits, then aligned fake `nmap` runners in API/UI tests so discovery and service-enumeration flows validate the real intended execution shapes.
+- Re-ran the targeted operational validation suite:
+  - `./.venv/bin/pytest -q -s api/tests/test_reports.py api/tests/test_runs.py api/tests/test_nmap_dispatch.py workers/tests/test_runner_contract.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `./.venv/bin/python -m compileall api ui workers`
+
+- Fixed the "LAN discovery looked instant and empty" operator gap by surfacing a dedicated discovery-in-progress state during dispatch, converting completed inventory-only runs into an explicit inventory result summary, and automatically steering the operator to Surface Map / Explorer once hosts are mapped.
+- Hardened browser validation for LAN discovery by replacing real-host `nmap` dependency in the UI suite with a deterministic fake-`nmap` runner, then asserting that dispatch results in visible discovered hosts on Surface Map rather than only a generic completed status.
+- Fixed a concrete operator-UX dead end by making Run History cards explicitly actionable (`Load Run`, `Set Baseline`, `Open Surface`) and by replacing empty discovery-run findings with guidance that explains why no findings exist yet and where to inspect discovered assets instead.
+- Replaced the visible fixed-step wizard flow with a conversational mission intake that asks one focused question at a time, maps answers into the existing deterministic run model, and keeps a synchronized advanced configuration drawer for full operator control.
+- Added structured conversational-intake docs plus updated browser/product validation coverage for internal inventory, authenticated webapp, API/adaptive, advanced-override, and unsafe-scope rejection paths.
+- Expanded Mission Control scope context so the active scope summary shows exact target previews and boundary-note context instead of only count-based badges.
+- Reduced operator clutter without dropping context by turning the wizard review, right-rail mission summary, Mission Control secondary detail, and Explorer acceptance context into disclosure-based hierarchy instead of always-open dense cards.
+- Grouped the left-rail navigation into quieter `Core Flow` and `Drilldowns` sections, and compacted the Live Feed so the newest signal stays prominent while older updates remain available on demand.
+- Added a repo-owned safe target catalog plus product/UI acceptance matrix JSON files under `codex/tasks/`, and hardened Codex task loading so those catalog files stay out of the visible task queue.
+- Added `scripts/acceptance_harness.py` and `scripts/run_acceptance_matrix.py` so Codex or an operator can execute controlled acceptance runs only against local, authorized, or deliberately vulnerable lab targets and record machine-readable result files.
+- Added acceptance-harness regression coverage plus documentation for UI information hierarchy, safe target policy, lab run profiles, acceptance execution, and Codex-driven acceptance workflow.
+- Fixed LAN-run visibility confusion by making engagement runs sort newest-first, resolving Mission Control / Surface Map inventory against the selected run, and expanding Run History cards with run status, scope summary, and linked host-count context.
+- Fixed passive LAN discovery so completed `nmap` execution artifacts are normalized into inventory snapshots, which lets Mission Control and Surface / Attack Map show discovery-confirmed hosts instead of remaining stuck on wizard-seeded scope.
+- Added regression coverage for inline `nmap` dispatch plus same-run inventory ordering, ensuring a discovery snapshot sorts ahead of the wizard seed snapshot when both are created in the same operator flow.
+- Added `created_at` to serialized run-task responses so the UI can show concrete queued timestamps in Mission Control and Explorer instead of `Queued Unknown`.
+- Hardened the host install lane so `scripts/setup_python_dev.sh` clears any copied `.venv` before rebuilding and `scripts/install_host_service.sh` always restarts an existing `aegispt.service` after refreshing the unit.
+- Redeployed the refreshed repo to Kali under `/opt/aegispt/repo`, reinstalled `aegispt.service`, and live-verified that `http://127.0.0.1:8000/app/` serves the current UI bundle from the direct-host service.
+- Ran a practical API round on Kali against `10.0.20.0/24`, confirming a queued `passive-network-discovery` run dispatched inline, completed successfully, and stored an `nmap`-backed inventory snapshot with 28 discovered hosts.
+- Ran a practical browser round against the live Kali service through a local tunnel, completed the Internal Range / LAN wizard path, dispatched validation from Mission Control, and confirmed the Surface / Attack Map rendered 29 discovered hosts from live discovery-confirmed inventory.
+
 ## 2026-04-15
 
 - Added the initial Prompt 3 Codex build lane with read-only pack review endpoints, repo workspace export, validation wrapper scripts, and companion runbooks/docs.
@@ -18,6 +1318,1224 @@
 - Hardened the report pipeline with direct `format=pdf` support, a Playwright-backed PDF renderer, and updated export tooling/runbooks for markdown, HTML, and PDF outputs.
 - Added a safer credential-handling baseline by materializing wizard-entered secrets into protected `SecretRef` bindings, sanitizing run configuration responses, and documenting the baseline storage model.
 - Split the operator-console frontend into focused native modules so `ui/assets/app.js` now acts as a thinner orchestration layer instead of a monolithic controller.
+- Added the next Phase 1 wizard-trust slice for still-needed summary calmness so the wizard no longer repeats the same missing topic through multiple competing controls:
+  - the `What Still Needs Confirmation` card now hides jump actions for the question that is already active
+  - linked same-question topics such as `Goal` / `Output` no longer show up as duplicate jump actions while the goal question is already on screen
+  - duplicate badges for items that already appear as jump actions are suppressed, and the card now uses a calmer helper line instead
+  - targeted browser regression proves the calmer card on repo hosts, and a live-host Playwright proof confirms that the supported `127.0.0.1:8000` path now shows only the genuinely remaining action (`Safety`) while `Scope` is already the active question
+  - validation:
+    - `git diff --check`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'still_needed_summary_hides_current_topic_from_jump_actions or still_needed_summary_deduplicates_goal_linked_actions or quick_reply_driven_intake_flows_create_truthful_runs'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `printf '1234\n' | sudo -S env PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright\" AEGISPT_LOCAL_HOST_LOG=\"$PWD/.tmp/aegispt-inline-host.log\" bash scripts/restart_local_inline_host.sh`
+    - live-host Playwright walkthrough recorded at `codex/results/live-host-wizard-needed-summary-dedup-20260419.json`
+- Added the next Phase 1 wizard-trust slice for suggested-answer chip truth so the clickable intake suggestions are now an explicitly supported path instead of a best-effort shortcut:
+  - the current question now tells operators they can use a suggested reply for the common path or type their own wording for a more specific mission
+  - added a new machine-readable quick-reply matrix in `codex/tasks/ui_acceptance_matrix.json` plus targeted browser coverage in `ui/tests/test_operator_console_e2e.py`
+  - uncovered and fixed a real trust regression on the internal LAN `Visibility with clear per-item detail` quick-reply route, where the wizard was silently inferring safety and skipping the explicit safety question before boundaries and confirmation
+  - representative chip-driven web, LAN, and API flows are now browser-proven and live-host-proven through real mission creation with run-dossier parity
+  - validation:
+    - `git diff --check`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'quick_reply_driven_intake_flows_create_truthful_runs or conversational_completion_matrix_covers_every_assessment_type'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `printf '1234\n' | sudo -S env PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright\" AEGISPT_LOCAL_HOST_LOG=\"$PWD/.tmp/aegispt-inline-host.log\" bash scripts/restart_local_inline_host.sh`
+    - live-host Playwright walkthrough recorded at `codex/results/live-host-wizard-quick-reply-matrix-20260419.json`
+- Added the next Phase 1 wizard-trust slice for narrow-screen confirmation layout truth so the supported mobile/narrow intake no longer stays squeezed beside the rail:
+  - phase-specific workspace CSS now yields to the responsive single-column intake layout on small screens instead of forcing a lingering two-column rail+wizard shell
+  - the narrow/mobile confirmation card now keeps the planned-mission summary capped and readable while preserving a visible enabled `Create Mission` CTA
+  - browser regression now checks actual narrow-screen layout truth instead of a stale desktop-order assumption, including single-column workspace collapse, readable wizard width, visible confirmation summary, and visible confirm CTA
+  - live-host proof confirms the repaired layout on `http://127.0.0.1:8000/app/`, then creates a mission successfully from that narrow/mobile confirmation state
+  - validation:
+    - `git diff --check`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'mobile_conversational_wizard_keeps_core_controls_visible or mobile_confirmation_state_keeps_summary_readable_and_confirm_visible'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `printf '1234\n' | sudo -S env PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright\" AEGISPT_LOCAL_HOST_LOG=\"$PWD/.tmp/aegispt-inline-host.log\" bash scripts/restart_local_inline_host.sh`
+    - live-host Playwright walkthrough recorded at `codex/results/live-host-wizard-mobile-confirmation-layout-20260419.json`
 - Added browser-level Playwright validation for `/app/`, the mandatory wizard flow, Mission Control, drilldowns, empty states, and report preview/export wiring, with traces and screenshots on failure.
 - Added `TESTING_POLICY.md` plus hardening docs for browser validation, PDF rendering, secret handling, and frontend modularization.
 - Verified the hardening pass with `python -m compileall api/app api/tests ui/tests` and `python -m pytest -q -s api/tests ui/tests`.
+- Hardened the repo-backed Codex task loader so legacy task JSON no longer crashes `/api/v1/codex/tasks`, and added regression coverage for compatibility normalization.
+- Adjusted the operator console for Kali-scale viewports so the active wizard screen appears before the rail, the wizard CTA stays visible on small screens, cache-busted the UI assets, and added an explicit Mission Control `Start Validation` action that dispatches queued runs through the existing backend contract.
+- Added a passive network-discovery execution lane with `nmap` support for LAN/WAN assessments, routed internal-range and external-IP wizard missions into that profile, and clarified report downloads so the UI shows the selected run context and uses direct download links.
+- Fixed a frontend regression where cache-busted submodule imports created duplicate ES-module runtime state, which broke the live Report Center and caused repeated `Failed to fetch`-style operator confusion after the UI partially booted.
+- Added a browser-level regression guard that fails Playwright tests on unexpected page errors, so split-runtime UI crashes are caught during validation instead of only in the Kali browser.
+- Surfaced `Start Validation` directly in the lifecycle next-actions strip for queued runs, making the operator path from wizard completion to run dispatch less fussy.
+- Redeployed the current repository state to the Kali VM, reran the targeted UI and nmap dispatch tests there, restarted `aegispt.service`, and live-verified `/app/`, LAN run dispatch, and direct HTML/PDF report export on the running Kali service.
+- Updated the run-profile regression test to include the additive `passive-network-discovery` profile, then reran the full repo suites (`api/tests`, `workers/tests`, `ui/tests`) and a live Kali Playwright end-to-end flow covering wizard, dispatch, history/report navigation, and direct PDF export.
+- Reviewed the wizard and report center from a human-operator perspective, then added explicit per-step guidance, inline helper copy, hover help badges, clearer safety terminology, and a more explicit review handoff toward Mission Control and `Start Validation`.
+- Refined the HTML/PDF report presentation with a stronger report cover, clearer run context chips, improved section spacing, and more readable print styling so exported PDFs scan more cleanly for operators and report consumers.
+- Added a reproducible direct-host installation lane with a shared host env template, a repo-local host runner script, a systemd service template, a full `install_aegispt_host.sh` wrapper, and a targeted `install_host_service.sh` refresh path for updates and redeploys.
+- Added `docs/host_service_install.md` and updated the Kali reuse guide plus the implementation runbook so the working Kali deployment path is now documented as a direct host service as well as a Compose option.
+- Hardened the wizard so assessment-type and profile presets now reset modules and safety coherently, preventing stale settings from another wizard path from leaking into the selected mission.
+- Clarified the operator UI so review, Mission Control, the left-rail summary, and Report Center now show the enforced execution lane and planned tools separately from the broader coverage-intent module list.
+- Corrected seeded-inventory presentation so wizard-provided scope is labeled as seeded operator input rather than implied live discovery telemetry.
+- Expanded Playwright coverage across every assessment type so scope fields, preset profiles, execution-lane summaries, and the post-create Mission Control / Report Center context are regression-tested.
+- Reduced operator confusion in the console by turning the top 1–5 lifecycle strip into clickable navigation, adding a visible Mission Control run-activity panel, surfacing recent task status in the run dossier, and trimming screen-level copy so the UI feels calmer and scans are easier to find.
+- Hardened the left-rail status feed so repeated identical errors collapse into a counted item and raw `Failed to fetch` messages are translated into a clearer API-reachability explanation.
+- Started and completed Phase 6 of the operator-console stabilization side project by adding `docs/operator_console_phase6_checklist.md` and finishing the calmness/hierarchy slice across the shell, wizard, and Mission Control.
+- The intake now keeps only the newest conversation context inline, moves older context and revision controls into quiet disclosures, and leads the live summary with `Current Essentials`, `What Still Needs Confirmation`, and `Mission Brief`.
+- Mission Control now groups secondary context into `Operational Snapshot` and `Supporting Context`, and the shell-level recent-feed card is only shown during the Run phase so Intake and Analysis stay calmer.
+- Bumped the operator-console asset versions in `ui/index.html` so redeployed hosts pick up the Phase 6 bundle instead of serving stale cached UI code.
+- Re-ran the targeted Phase 6 browser validation successfully:
+  - `./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `git diff --check`
+- Started Phase 7 of the operator-console stabilization side project by adding `docs/operator_console_phase7_checklist.md` and widening the explicit acceptance matrix instead of relying only on representative browser paths.
+- Added browser-level matrix coverage for access-mode variants:
+  - unauthenticated
+  - credential reference
+  - API key reference
+  - bearer token reference
+  - session reference
+  - manual-auth-only notes
+- Added browser-level matrix coverage for guardrail/safety clusters:
+  - passive light
+  - guarded standard
+  - deep guarded
+  - active approved
+- Expanded the composite product matrix runner so the API lane now includes `api/tests/test_acceptance_harness.py` and `api/tests/test_nmap_dispatch.py` alongside the existing report/run/product regression suite.
+- Fixed a stale static-console expectation in `api/tests/test_ui_support.py` so the composite runner now validates the current conversational shell instead of the pre-conversational wizard wording.
+- Re-ran the widened composite matrix successfully:
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane all`
+- Added a second concrete Phase 7 matrix slice for dual-role authenticated context and execution-outcome truth instead of leaving those paths only as documented gaps.
+- Browser validation now covers a dual-role authenticated run from intake through Mission Control and Explorer dossier review, including protected secret-binding visibility after run creation.
+- Browser validation now covers two explicit execution-outcome states:
+  - blocked `pending_approval`
+  - failed `completed_with_errors`
+- Expanded the composite product runner again so the API lane now also includes `api/tests/test_task_dispatch.py`.
+- Re-ran the widened matrix successfully after the new Phase 7 additions:
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane all`
+- Added a third concrete Phase 7 matrix slice for adaptive-pack cross-surface truth instead of leaving pack/report visibility as an implied expectation.
+- Browser validation now seeds a fully promoted adaptive pack and verifies that Mission Control, Pack Forge, Report Center, Explorer, and History all keep the selected pack version and adaptive reporting context visible to the operator.
+- Updated History cards so the bound pack version is visible alongside run status and inventory summary, closing a real operator-context gap exposed by the new adaptive-pack browser matrix.
+- Updated the repo-owned acceptance catalogs and docs so adaptive-pack visibility is part of the supported-path contract, and marked Phase 7 complete because every meaningful supported operator path now has explicit validation or an explicit documented non-blocker.
+- Re-ran the full widened matrix successfully after the adaptive-pack additions:
+  - `./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+  - `./.venv/bin/python scripts/run_product_e2e_matrix.py --lane all`
+  - `git diff --check`
+- Fixed the local smoke acceptance scenario so it no longer targets the control plane itself during inline dispatch; the safe target catalog now materializes a harness-owned loopback HTTP probe for `local-app-smoke`.
+- Added runtime-fixture support to `scripts/acceptance_harness.py`, plus regression coverage proving that the local probe fixture resolves into a live safe target URL before the acceptance run starts.
+- Hardened `scripts/run_acceptance_matrix.py` so manual-dispatch hosts fail fast with a clear worker/inline-host message instead of hanging on a permanently queued run.
+- Practically validated the safe-run lane in two real ways:
+  - against `http://127.0.0.1:8000`, the harness now exits quickly with an explicit `manual` dispatch warning
+  - against a temporary inline host, `local-app-smoke` passed end-to-end and wrote `codex/results/acceptance-local-app-smoke-20260417-111922.json`
+- Extended the practical safe-run validation into a live training-lab path by starting a local OWASP Juice Shop container, running `scripts/run_acceptance_matrix.py --scenario-id juice-shop-baseline` against a temporary inline host, and recording `codex/results/acceptance-juice-shop-baseline-20260417-112346.json`.
+- Confirmed that the Juice Shop baseline acceptance run completed with 4 reports and 1 info-level finding, which closes the current repo-owned safe-lab validation scope while leaving broader WebGoat/crAPI breadth as optional future expansion.
+- Fixed the operator-console `Start Validation` path for stale/manual direct-host installs so the UI now surfaces an explicit manual-dispatch blocker instead of letting the queued run look endlessly clickable with no visible explanation.
+- Hardened `scripts/run_host_api.sh` so direct-host runs fall back to `TASK_DISPATCH_MODE=inline` and `ARTIFACTS_STORAGE_MODE=inline` when older env files omitted those values.
+- Added browser regression coverage for the manual-dispatch case, proving that Mission Control now explains the worker/inline requirement instead of failing silently after the wizard handoff.
+- Added `scripts/restart_local_inline_host.sh` plus Kali/direct-host documentation for the practical recovery case where port `8000` is still served by an old ad-hoc Uvicorn process instead of the documented `aegispt.service` lane.
+- Hardened `scripts/restart_local_inline_host.sh` so it now waits for `/health/live` and prints the recent host log on failure instead of assuming the restarted local host is healthy.
+- Re-aligned the repo truth so it now distinguishes clearly between completed repository work and the remaining environment-dependent rollout step on the actual machine serving `127.0.0.1:8000`.
+- Added `scripts/restart_local_inline_host_systemd.sh` plus host/Kali documentation for a more durable transient systemd-unit recovery path when a plain detached local `uvicorn` restart is not persistent enough.
+- Used `scripts/restart_local_inline_host_systemd.sh` to bring the actual local host on `127.0.0.1:8000` onto the inline execution lane, then verified it with a passing `local-app-smoke` acceptance run that wrote `codex/results/acceptance-local-app-smoke-20260418-093631.json`.
+- 2026-04-19: completed the next Phase 1 wizard-trust slice for rich-route boundary confirmation instead of leaving mixed/auth/adaptive launches on an implied default:
+  - updated `ui/assets/modules/wizard.js` so mixed assessment, adaptive coverage, and access-aware routes now require explicit `Boundaries` confirmation before launch rather than silently carrying `Standard Scope Only` straight from `Safety`
+  - added scope-change reset logic so revising from a simpler authenticated web route into a boundary-sensitive route such as an internal CIDR clears the old generic boundary confirmation and re-prompts `Boundaries`
+  - expanded `ui/tests/test_operator_console_e2e.py` coverage for mixed/adaptive, credentialed app, API token, WAN staged-discovery, existing-engagement reuse, quick-reply API, auth-path note, advanced-access, and scope-revision routes under the new boundary-truth model
+  - updated `codex/tasks/ui_acceptance_matrix.json` so the API quick-reply matrix now records its explicit boundary answer
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_runs.py -k 'engagement_name or confirmation_summary or route_metadata'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+    - `git diff --check`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-rich-boundary-confirmation-20260419.json`
+    - `codex/results/live-host-wizard-rich-boundary-confirmation-20260419.png`
+- 2026-04-19: completed the next Phase 1 wizard-trust slice for stale internal lateral-boundary cleanup on scope revision:
+  - updated `ui/assets/modules/wizard.js` so revising a LAN mission away from internal scope now clears internal-only lateral guardrails such as `Report Adjacent Ranges Only` instead of carrying that copy into a revised website mission
+  - kept the fix narrow by only clearing that state when there are no explicit exclusions or boundary notes to preserve and the revised scope is no longer `Internal Range / LAN`
+  - added `test_scope_revision_from_internal_report_only_boundaries_to_web_clears_stale_lateral_copy` to `ui/tests/test_operator_console_e2e.py` so the browser suite now proves the stale internal copy disappears from confirmation and the persisted run dossier falls back to `standard-scope-only` plus `lateral_discovery = not-requested`
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'scope_revision_from_internal_report_only_boundaries_to_web_clears_stale_lateral_copy or scope_revision_from_internal_validation_lan_realigns_to_deep_web_plan or scope_revision_from_authenticated_web_to_internal_range_realigns_to_discovery_first_internal_plan or scope_revision_from_adaptive_web_to_internal_range_realigns_to_discovery_first_internal_plan'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+    - `git diff --check`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-internal-lateral-scope-revision-20260419.json`
+    - `codex/results/live-host-wizard-internal-lateral-scope-revision-20260419.png`
+- 2026-04-19: completed the next Phase 1 wizard-trust slice for API scope-revision truth on plain web URLs:
+  - updated `ui/assets/modules/wizard.js` so `parseTargetsFromText` no longer forces every reviewed scope URL into `api_base_urls` just because the mission started as `API`; on a true `Change Scope` review path, a plain website URL now reclassifies normally
+  - added `test_scope_revision_from_api_to_plain_web_url_reclassifies_scope_truthfully` to `ui/tests/test_operator_console_e2e.py` so the browser suite now proves the revised mission becomes `Website / Web App`, the target moves into `urls`, `api_base_urls` becomes empty, and confirmation stays blocked until `Boundaries` is re-confirmed for the still access-aware token route
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'scope_revision_from_api_to_plain_web_url_reclassifies_scope_truthfully or api_token_route_requires_boundary_confirmation_before_confirmation or scope_revision_from_internal_report_only_boundaries_to_web_clears_stale_lateral_copy'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+    - `git diff --check`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-api-scope-revision-20260419.json`
+    - `codex/results/live-host-wizard-api-scope-revision-20260419.png`
+- 2026-04-19: completed the next Phase 1 wizard-trust slice for non-internal boundary-copy truth after scope revision:
+  - updated `ui/assets/modules/wizard.js` so the conversational `Boundaries` question is now scope-aware: true `Internal Range / LAN` routes keep adjacent-range guidance, while non-internal routes now use generic exclusion/scope wording and hide the internal-only quick reply
+  - updated the Advanced Configuration boundary-notes copy in `ui/assets/modules/wizard.js` so non-internal routes no longer show the internal-range placeholder text there either
+  - updated `ui/tests/test_operator_console_e2e.py` and `ui/tests/test_product_feature_matrix_e2e.py` to detect boundary questions by stable semantics instead of the old internal-only title, and expanded the API-to-web scope-revision regression so it now proves the revised web route drops both the internal copy and the internal-only quick reply
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'scope_revision_from_api_to_plain_web_url_reclassifies_scope_truthfully or scope_revision_from_internal_report_only_boundaries_to_web_clears_stale_lateral_copy or authenticated_webapp_flow_supports_reports_and_secret_binding or internal_inventory_conversation_creates_a_real_run'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-non-internal-boundary-copy-20260419.json`
+    - `codex/results/live-host-wizard-non-internal-boundary-copy-20260419.png`
+- 2026-04-19: completed the next Phase 1 wizard-trust slice for external-domain auth defaults on rich profiles:
+  - updated `ui/assets/modules/wizard.js` so `shouldAskAuthQuestion()` no longer treats `Domain / Domains`, `External IP / WAN`, or `SSL/TLS Only` as auth-capable merely because a generic profile turns on `auth_flows`; those automatic auth prompts now stay limited to the assessment types that actually support credential-aware routing by default
+  - added `test_domain_deep_assessment_stays_unauthenticated_by_default` to `ui/tests/test_operator_console_e2e.py` so the browser suite now proves `Domain / Domains` + `Deep assessment` moves from `Scope` to `Safety`, not `Access`, and persists `auth_strategy = unauthenticated` with `modules.auth_flows = false`
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'domain_deep_assessment_stays_unauthenticated_by_default or authenticated_webapp_flow_supports_reports_and_secret_binding or scope_revision_from_api_to_plain_web_url_reclassifies_scope_truthfully or test_external_ip_deep_assessment_stages_perimeter_discovery_first'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-domain-deep-no-auth-default-20260419.json`
+    - `codex/results/live-host-wizard-domain-deep-no-auth-default-20260419.png`
+- 2026-04-19: completed the follow-on Phase 1 wizard-trust slice for generic web rich-profile auth defaults:
+  - updated `ui/assets/modules/wizard.js` so `shouldAskAuthQuestion()` no longer treats generic `Website / Web App` rich-profile routes as auth-capable merely because a preset enables `auth_flows`; those automatic auth prompts now stay limited to explicitly auth-aware routes plus the internal LAN discovery-first exception
+  - added `test_web_deep_assessment_stays_unauthenticated_by_default` and `test_web_adaptive_assessment_stays_unauthenticated_by_default` to `ui/tests/test_operator_console_e2e.py` so the browser suite now proves `Website / Web App` + `Deep assessment` and `Adaptive customer-specific testing` move from `Scope` to `Safety`, not `Access`, and persist `auth_strategy = unauthenticated` with `modules.auth_flows = false`
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'web_deep_assessment_stays_unauthenticated_by_default or web_adaptive_assessment_stays_unauthenticated_by_default or authenticated_webapp_flow_supports_reports_and_secret_binding or domain_deep_assessment_stays_unauthenticated_by_default or test_external_ip_adaptive_testing_stages_perimeter_discovery_first or test_scope_revision_from_api_to_plain_web_url_reclassifies_scope_truthfully'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `./.venv/bin/python` live-host browser proof script against `http://127.0.0.1:8000/app/`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-web-rich-profile-no-auth-default-20260419.json`
+    - `codex/results/live-host-wizard-web-rich-profile-no-auth-default-20260419.png`
+- 2026-04-19: completed the follow-on Phase 1 wizard-trust slice for TLS-only explicit safety and boundary confirmation:
+  - updated `ui/assets/modules/wizard.js` so `SSL/TLS Only` no longer auto-infers `Safety` or `Boundaries`; after scope the wizard now stops on `Safety`, then `Boundaries`, before mission creation
+  - kept the change narrow by preserving TLS-safe goal normalization and the passive `SSL/TLS Only` lane while making the guardrails explicit instead of silently inferred
+  - added `test_tls_only_standard_route_requires_safety_and_boundaries_before_confirmation` and tightened `test_tls_only_deep_goal_normalizes_to_standard_tls_assessment` in `ui/tests/test_operator_console_e2e.py` so the browser suite now proves both the standard TLS route and the typed-deep-normalized TLS route go `Scope -> Safety -> Boundaries -> Confirm`
+  - revalidated this slice with:
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_operator_console_e2e.py -k 'tls_only_standard_route_requires_safety_and_boundaries_before_confirmation or tls_only_deep_goal_normalizes_to_standard_tls_assessment or test_tls_only_intent_limits_goal_choices_to_tls_safe_options'`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s api/tests/test_ui_support.py`
+    - `TMPDIR=/var/tmp ./.venv/bin/pytest -q -s ui/tests/test_product_feature_matrix_e2e.py`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `./.venv/bin/python` live-host browser proof script against `http://127.0.0.1:8000/app/`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-wizard-tls-safety-boundaries-20260419.json`
+    - `codex/results/live-host-wizard-tls-safety-boundaries-20260419.png`
+- 2026-04-20: completed the next active conversational-intake proof slice for revision-command aliases and token-bearing access-detail truth:
+  - updated `ui/assets/modules/wizard.js` so `Access Detail` now only short-circuits back through the strategy parser for a true unauthenticated withdrawal; token-bearing secret refs such as `vault://.../updated-token` no longer get misread as a high-level auth-strategy phrase and leave the wizard stuck on `Access Detail`
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `change depth`
+    - `undo`
+    - `previous`
+    - `change target`
+    - `change token`
+  - kept the token-alias regression honest by verifying the created run through the API after mission creation, including protected secret-binding materialization instead of raw `api_key_ref` echo
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `codex/tasks/ui_acceptance_matrix.json` so the documented alias matrix matches the now-proven supported behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_depth_alias_reopens_goal_question_with_editable_goal_draft or undo_alias_reopens_last_answered_scope_topic_and_returns_to_safety or previous_alias_reopens_last_answered_access_topic_and_returns_to_safety or change_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or test_api_token_route_requires_boundary_confirmation_before_confirmation'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_goal_command_reopens_goal_question_and_realigns_to_auth or change_profile_alias_reopens_goal_question_with_editable_goal_draft or change_depth_alias_reopens_goal_question_with_editable_goal_draft or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or undo_alias_reopens_last_answered_scope_topic_and_returns_to_safety or previous_alias_reopens_last_answered_access_topic_and_returns_to_safety or change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_access_command_reopens_editable_access_details_and_returns_to_safety or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or test_api_token_route_requires_boundary_confirmation_before_confirmation or auth_details_question_can_switch_back_to_unauthenticated_without_dead_end or revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py api/tests/test_runs.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host conversation alias proof ... PY`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-conversation-alias-proof-20260420-023033.json`
+    - `codex/results/live-host-conversation-alias-proof-20260420-023033.png`
+- 2026-04-20: completed the next active conversational-intake proof slice for access-family aliases and direct session-reference truth:
+  - updated `ui/assets/modules/wizard.js` so direct session-reference detail capture now keeps `auth_strategy = session-access` instead of incorrectly downgrading to `credentialed`
+  - updated `ui/assets/modules/wizard.js` session parsing so a label such as `Analyst Session role Security Analyst session session-cookie=abc123` no longer misreads the first `Session` word as the actual session value
+  - updated `ui/assets/modules/wizard.js` draft rendering so session-only revise drafts now preserve the operator-facing label instead of collapsing into a lossy `role ... session role` reconstruction
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `change auth`
+    - `change credential`
+    - direct `I have a session reference` intake plus `change session`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `codex/tasks/ui_acceptance_matrix.json` so the documented access-family alias matrix matches the now-proven supported behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or change_credential_alias_reopens_credential_detail_and_persists_updated_role or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or session_reference_in_advanced_drawer_reaches_run_dossier or revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or change_credential_alias_reopens_credential_detail_and_persists_updated_role or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or change_goal_command_reopens_goal_question_and_realigns_to_auth or change_profile_alias_reopens_goal_question_with_editable_goal_draft or change_depth_alias_reopens_goal_question_with_editable_goal_draft or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or undo_alias_reopens_last_answered_scope_topic_and_returns_to_safety or previous_alias_reopens_last_answered_access_topic_and_returns_to_safety or change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_access_command_reopens_editable_access_details_and_returns_to_safety or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or auth_details_question_can_switch_back_to_unauthenticated_without_dead_end or revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan or session_reference_in_advanced_drawer_reaches_run_dossier or test_api_token_route_requires_boundary_confirmation_before_confirmation'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host access-alias proof ... PY`
+    - `git diff --check`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-access-alias-proof-20260420-024118.json`
+    - `codex/results/live-host-access-alias-proof-20260420-024118.png`
+- 2026-04-20: completed the next active conversational-intake proof slice for parser-supported `edit` / `revise` verb coverage:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `edit profile`
+    - `revise target`
+    - `edit auth`
+    - `revise token`
+  - kept this slice additive by proving the existing parser behavior rather than widening backend scope or introducing a parallel run model
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `codex/tasks/ui_acceptance_matrix.json` so the documented revision-command matrix matches the now-proven supported behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_profile_alias_reopens_goal_question_with_editable_goal_draft or revise_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or edit_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or revise_token_alias_reopens_api_access_details_and_persists_updated_secret_reference'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_goal_command_reopens_goal_question_and_realigns_to_auth or change_profile_alias_reopens_goal_question_with_editable_goal_draft or edit_profile_alias_reopens_goal_question_with_editable_goal_draft or change_depth_alias_reopens_goal_question_with_editable_goal_draft or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or undo_alias_reopens_last_answered_scope_topic_and_returns_to_safety or previous_alias_reopens_last_answered_access_topic_and_returns_to_safety or change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or revise_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_access_command_reopens_editable_access_details_and_returns_to_safety or change_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or edit_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or change_credential_alias_reopens_credential_detail_and_persists_updated_role or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or auth_details_question_can_switch_back_to_unauthenticated_without_dead_end or revising_authenticated_access_to_unauthenticated_clears_access_context_and_downgrades_plan or session_reference_in_advanced_drawer_reaches_run_dossier or test_api_token_route_requires_boundary_confirmation_before_confirmation'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host edit/revise proof ... PY`
+    - `git diff --check`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-edit-revise-proof-20260420-025415.json`
+    - `codex/results/live-host-edit-revise-proof-edit-profile-20260420-025415.png`
+    - `codex/results/live-host-edit-revise-proof-edit-auth-20260420-025415.png`
+    - `codex/results/live-host-edit-revise-proof-revise-token-20260420-025415.png`
+- 2026-04-20: completed the next active conversational-intake proof slice for advanced-drawer access-detail revision synchronization:
+  - fixed `ui/assets/modules/wizard.js` so `change access` / `change auth` now prefer the current data-driven auth revision topic over stale historical intake turns; this prevents advanced-captured access detail from reopening the older high-level auth-strategy question
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `change access` after advanced credential detail
+    - `change auth` after advanced session detail
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `codex/tasks/ui_acceptance_matrix.json` so the documented override-sync behavior matches the now-proven supported behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or change_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'advanced_override_realigns_the_current_question_to_the_next_required_topic or advanced_access_placeholder_opens_drawer_and_realigns_to_safety or auth_details_advanced_settings_reply_opens_access_drawer or auth_details_question_can_switch_back_to_unauthenticated_without_dead_end or advanced_drawer_overrides_stay_synchronized or change_access_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or change_auth_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access or session_reference_in_advanced_drawer_reaches_run_dossier'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host advanced-access revision proof ... PY`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-advanced-access-revision-proof-20260420-030404.json`
+    - `codex/results/live-host-advanced-access-revision-detail-20260420-030404.png`
+    - `codex/results/live-host-advanced-access-revision-session-20260420-030404.png`
+- 2026-04-20: extended the same advanced-drawer access-detail proof slice to the remaining access-family aliases without changing runtime behavior:
+  - revalidated browser coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `change_credential_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role`
+    - `change_session_after_advanced_session_detail_reopens_detail_draft_and_preserves_session_access`
+  - replayed the surrounding advanced/revision browser cluster so the alias-specific proof stays attached to the same deterministic intake path instead of standing alone
+  - rechecked the existing API truth with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+  - captured a fresh supported-host proof outside pytest with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host advanced-access alias proof ... PY`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-advanced-access-alias-proof-20260420-011348.json`
+    - `codex/results/live-host-advanced-access-alias-credential-20260420-011348.png`
+    - `codex/results/live-host-advanced-access-alias-session-20260420-011348.png`
+- 2026-04-20: extended the conversational revision proof slice to the adjacent safety/boundary verb family without changing runtime behavior:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or undo_alias_reopens_last_answered_scope_topic_and_returns_to_safety or previous_alias_reopens_last_answered_access_topic_and_returns_to_safety'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host safety/boundary alias proof ... PY`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-safety-boundary-alias-proof-20260420-011921.json`
+    - `codex/results/live-host-safety-boundary-alias-edit-safety-20260420-011921.png`
+    - `codex/results/live-host-safety-boundary-alias-change-boundary-20260420-011921.png`
+- 2026-04-20: extended the conversational revision proof slice to the adjacent scope/access edit-revise family without changing runtime behavior:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope`
+    - `revise_access_alias_reopens_editable_access_details_and_persists_updated_role`
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or revise_access_alias_reopens_editable_access_details_and_persists_updated_role'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or revise_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or change_access_command_reopens_editable_access_details_and_returns_to_safety or change_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or edit_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or revise_access_alias_reopens_editable_access_details_and_persists_updated_role or change_credential_alias_reopens_credential_detail_and_persists_updated_role'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host scope/access alias proof ... PY`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-scope-access-alias-proof-20260420-012517.json`
+    - `codex/results/live-host-scope-access-alias-edit-scope-20260420-012517.png`
+    - `codex/results/live-host-scope-access-alias-revise-access-20260420-012517.png`
+- 2026-04-20: extended the conversational revision proof slice to the adjacent safety/boundary edit-revise family without changing runtime behavior:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_that_reopens_last_answered_topic_and_returns_to_main_path or go_back_reopens_last_answered_access_topic_and_returns_to_safety or undo_alias_reopens_last_answered_scope_topic_and_returns_to_safety or previous_alias_reopens_last_answered_access_topic_and_returns_to_safety'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host safety/boundary edit-revise proof ... PY`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-safety-boundary-edit-revise-proof-20260420-013019.json`
+    - `codex/results/live-host-safety-boundary-edit-revise-safety-20260420-013019.png`
+    - `codex/results/live-host-safety-boundary-edit-revise-boundary-20260420-013019.png`
+- 2026-04-20: extended the conversational revision proof slice to the next secondary alias family without changing runtime behavior:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `edit_access_alias_reopens_editable_access_details_and_persists_updated_role`
+    - `revise_auth_alias_can_withdraw_access_and_persist_unauthenticated_run`
+    - `direct_session_reference_route_and_revise_session_alias_keep_session_access_truth`
+    - `revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `codex/tasks/ui_acceptance_matrix.json` so the documented verb-family coverage matches the now-proven supported aliases
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_access_alias_reopens_editable_access_details_and_persists_updated_role or revise_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_access_command_reopens_editable_access_details_and_returns_to_safety or revise_access_alias_reopens_editable_access_details_and_persists_updated_role or edit_access_alias_reopens_editable_access_details_and_persists_updated_role or change_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or edit_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or revise_auth_alias_can_withdraw_access_and_persist_unauthenticated_run or change_credential_alias_reopens_credential_detail_and_persists_updated_role or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `python3 -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `python3 -m json.tool codex/results/live-host-secondary-revision-alias-proof-20260420-034015.json`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-secondary-revision-alias-proof-20260420-034015.json`
+    - `codex/results/live-host-secondary-revision-alias-edit-access-20260420-034015.png`
+    - `codex/results/live-host-secondary-revision-alias-revise-auth-20260420-034015.png`
+    - `codex/results/live-host-secondary-revision-alias-revise-session-20260420-034015.png`
+    - `codex/results/live-host-secondary-revision-alias-revise-boundary-20260420-034015.png`
+- 2026-04-20: extended the conversational revision proof slice to the next tertiary alias family without changing runtime behavior:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `revise_profile_alias_reopens_goal_question_with_editable_goal_draft`
+    - `edit_target_alias_reopens_scope_with_editable_draft_and_persists_updated_scope`
+    - `edit_credential_alias_reopens_credential_detail_and_persists_updated_role`
+    - `direct_session_reference_route_and_edit_session_alias_keep_session_access_truth`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `codex/tasks/ui_acceptance_matrix.json` so the documented verb-family coverage matches the now-proven supported aliases
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'revise_profile_alias_reopens_goal_question_with_editable_goal_draft or edit_target_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or edit_credential_alias_reopens_credential_detail_and_persists_updated_role or direct_session_reference_route_and_edit_session_alias_keep_session_access_truth'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_profile_alias_reopens_goal_question_with_editable_goal_draft or edit_profile_alias_reopens_goal_question_with_editable_goal_draft or revise_profile_alias_reopens_goal_question_with_editable_goal_draft or change_depth_alias_reopens_goal_question_with_editable_goal_draft or change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or revise_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or edit_target_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or change_credential_alias_reopens_credential_detail_and_persists_updated_role or edit_credential_alias_reopens_credential_detail_and_persists_updated_role or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or direct_session_reference_route_and_edit_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `python3 -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `python3 -m json.tool codex/results/live-host-tertiary-revision-alias-proof-20260420-034757.json`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-tertiary-revision-alias-proof-20260420-034757.json`
+    - `codex/results/live-host-tertiary-revision-alias-revise-profile-20260420-034757.png`
+    - `codex/results/live-host-tertiary-revision-alias-edit-target-20260420-034757.png`
+    - `codex/results/live-host-tertiary-revision-alias-edit-credential-20260420-034757.png`
+    - `codex/results/live-host-tertiary-revision-alias-edit-session-20260420-034757.png`
+- 2026-04-20: extended the conversational revision proof slice to the next quaternary alias family without changing runtime behavior:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `edit_goal_alias_reopens_goal_question_with_editable_goal_draft`
+    - `revise_goal_alias_reopens_goal_question_with_editable_goal_draft`
+    - `revise_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope`
+    - `revise_credential_alias_reopens_credential_detail_and_persists_updated_role`
+    - `edit_token_alias_reopens_api_access_details_and_persists_updated_secret_reference`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `codex/tasks/ui_acceptance_matrix.json` so the documented verb-family coverage matches the now-proven supported aliases
+  - revalidated this slice with:
+    - `python3 -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'test_run_configuration_materializes_secret_references or test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_goal_alias_reopens_goal_question_with_editable_goal_draft or revise_goal_alias_reopens_goal_question_with_editable_goal_draft or revise_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or revise_credential_alias_reopens_credential_detail_and_persists_updated_role or edit_token_alias_reopens_api_access_details_and_persists_updated_secret_reference'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_goal_command_reopens_goal_question_and_realigns_to_auth or edit_goal_alias_reopens_goal_question_with_editable_goal_draft or revise_goal_alias_reopens_goal_question_with_editable_goal_draft or change_profile_alias_reopens_goal_question_with_editable_goal_draft or edit_profile_alias_reopens_goal_question_with_editable_goal_draft or revise_profile_alias_reopens_goal_question_with_editable_goal_draft or change_depth_alias_reopens_goal_question_with_editable_goal_draft or change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or revise_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or edit_target_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or change_credential_alias_reopens_credential_detail_and_persists_updated_role or edit_credential_alias_reopens_credential_detail_and_persists_updated_role or revise_credential_alias_reopens_credential_detail_and_persists_updated_role or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_token_alias_reopens_api_access_details_and_persists_updated_secret_reference'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host quaternary revision alias proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-quaternary-revision-alias-proof-20260420-035919.json`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-quaternary-revision-alias-proof-20260420-035919.json`
+    - `codex/results/live-host-quaternary-revision-alias-edit-goal-20260420-035919.png`
+    - `codex/results/live-host-quaternary-revision-alias-revise-goal-20260420-035919.png`
+    - `codex/results/live-host-quaternary-revision-alias-revise-scope-20260420-035919.png`
+    - `codex/results/live-host-quaternary-revision-alias-revise-credential-20260420-035919.png`
+    - `codex/results/live-host-quaternary-revision-alias-edit-token-20260420-035919.png`
+- 2026-04-20: repaired advanced-confirmation realignment so Advanced Configuration can no longer leave a silently fake-ready confirmation card after the mission becomes invalid:
+  - updated `ui/assets/modules/wizard.js` so advanced changes made while the intake is on `Confirm` now still realign the active question back onto the newly blocking topic instead of keeping the stale `confirm` question id
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback`
+    - `authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so the documented advanced-drawer synchronization truth matches the repaired confirmation-exit behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback or authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py -k 'test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'advanced_drawer_overrides_stay_synchronized or automatic_new_dossier_name_tracks_advanced_scope_and_profile_overrides or manual_dossier_name_survives_advanced_scope_and_profile_overrides or clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback or authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python - <<'PY' ... live-host advanced confirmation realignment proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-advanced-confirmation-realignment-proof-20260420-040923.json`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-advanced-confirmation-realignment-proof-20260420-040923.json`
+    - `codex/results/live-host-advanced-confirmation-realignment-scope-error-20260420-040923.png`
+    - `codex/results/live-host-advanced-confirmation-realignment-access-required-20260420-040923.png`
+- 2026-04-20: surfaced multi-role advanced access safely through the Explorer dossier so authenticated role context does not disappear after run creation:
+  - updated `ui/assets/modules/explorer-history.js` to add a safe `Access Contexts` dossier block that shows auth strategy, protected-binding count, shared manual-auth notes, and per-role protected-binding metadata without exposing raw secret material
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for `test_multi_role_advanced_access_persists_into_run_and_dossier_context`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, and `docs/product_test_matrix.md` so the conversational-intake and validation docs now describe the multi-role dossier visibility truth
+  - refreshed `CURRENT_STATE.md` so repo truth now states that multi-role advanced access remains visible across confirmation, run storage, and Explorer dossier review
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'advanced_access_placeholder_opens_drawer_and_realigns_to_safety or multi_role_advanced_access_persists_into_run_and_dossier_context'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py -k 'test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && python - <<'PY' ... live-host multi-role advanced-access proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-multi-role-advanced-access-proof-20260420.json`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-multi-role-advanced-access-proof-20260420.json`
+    - `codex/results/live-host-multi-role-advanced-access-proof-20260420.png`
+- 2026-04-20: expanded the same multi-role dossier proof onto the API token/bearer auth family so the safe Explorer access-context view is no longer only evidenced for credentialed login:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for `test_multi_role_api_access_persists_into_run_and_dossier_context`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth now reflects that the protected multi-role dossier path is proven for both credentialed and API-token/bearer access
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'multi_role_advanced_access_persists_into_run_and_dossier_context or multi_role_api_access_persists_into_run_and_dossier_context'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py -k 'test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && python - <<'PY' ... live-host multi-role api-access proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-multi-role-api-access-proof-20260420.json`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-multi-role-api-access-proof-20260420.json`
+    - `codex/results/live-host-multi-role-api-access-proof-20260420.png`
+- 2026-04-20: expanded the same multi-role dossier proof onto the session/cookie auth family so the protected Explorer access-context view is no longer limited to credentialed and API-token paths:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for `test_multi_role_session_access_persists_into_run_and_dossier_context`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth now reflects that the protected multi-role dossier path is also proven for session/cookie access
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'multi_role_advanced_access_persists_into_run_and_dossier_context or multi_role_api_access_persists_into_run_and_dossier_context or multi_role_session_access_persists_into_run_and_dossier_context'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ui_support.py -k 'test_static_operator_console_is_served or test_ui_support_list_endpoints_reuse_existing_contracts'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && python - <<'PY' ... live-host multi-role session-access proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-multi-role-session-access-proof-20260420.json`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-multi-role-session-access-proof-20260420.json`
+    - `codex/results/live-host-multi-role-session-access-proof-20260420.png`
+- 2026-04-20: closed the no-account shared-access dead end in the conversational intake so shared manual/session guidance no longer depends on fake account rows:
+  - updated `ui/assets/modules/shared.js` with additive helpers for shared access guidance, truthful access-context counting, access-summary rendering, and auth-strategy inference from stored access metadata
+  - updated `ui/assets/modules/wizard.js`, `ui/assets/modules/mission-control.js`, and `ui/assets/modules/explorer-history.js` so shared `Manual Auth` or `Session Notes` without account rows now complete the access path truthfully, stay visible as `1 access context`, and no longer degrade to `No access context recorded`
+  - added API regression coverage in `api/tests/test_runs.py` for:
+    - `test_run_configuration_keeps_shared_manual_auth_notes_without_accounts`
+    - `test_run_configuration_keeps_shared_session_notes_without_accounts`
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_shared_manual_auth_note_without_accounts_persists_into_run_and_dossier_context`
+    - `test_shared_session_note_without_accounts_persists_into_run_and_dossier_context`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth now explicitly includes the proven no-account shared manual/session routes
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or manual_note_only_roles_without_secret_bindings or manual_multi_role_access_without_secret_bindings'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'shared_manual_auth_note_without_accounts_persists_into_run_and_dossier_context or shared_session_note_without_accounts_persists_into_run_and_dossier_context or manual_note_only_roles_persist_into_run_and_dossier_context'`
+    - `curl -sS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && python - <<'PY' ... live-host shared access-context proof ... PY`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-shared-manual-auth-no-account-20260420.json`
+    - `codex/results/live-host-shared-manual-auth-no-account-20260420.png`
+    - `codex/results/live-host-shared-session-note-no-account-20260420.json`
+    - `codex/results/live-host-shared-session-note-no-account-20260420.png`
+- 2026-04-20: repaired the adjacent no-account shared-access revision gap so those same supported routes remain editable instead of falling back to account-only parsing:
+  - updated `ui/assets/modules/wizard.js` so the `Access Detail` parser now distinguishes shared no-account guidance text from structured credential/session detail when the current route is already a shared manual-auth or shared session note path
+  - shared manual-auth guidance reopened through `change access` now stays an editable note and persists back into the run as `manual_auth_steps` with `accounts = []`
+  - shared session guidance reopened through `change session` now stays an editable note and persists back into the run as `cookie_notes` with `accounts = []`, instead of being misread as a fake session account because the sentence happened to contain the word `cookie`
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance`
+    - `test_change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now includes revision support for the already-supported shared no-account access routes
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'shared_manual_auth_note_without_accounts_persists_into_run_and_dossier_context or shared_session_note_without_accounts_persists_into_run_and_dossier_context or change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python - <<'PY' ... live-host shared no-account access revision proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-shared-access-revision-no-account-20260420.json`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-shared-access-revision-no-account-20260420.json`
+    - `codex/results/live-host-shared-manual-auth-revision-no-account-20260420.png`
+    - `codex/results/live-host-shared-session-note-revision-no-account-20260420.png`
+- 2026-04-20: closed the adjacent confirmation-click proof gap for the same shared no-account access contexts:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_access_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance`
+    - `test_change_access_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance`
+  - this proves the disclosure/button route from the confirmation card, not just typed commands:
+    - after `Safety` and `Boundaries` are already confirmed, `Change Access` reopens the stored shared manual-auth note or shared session note as raw editable text
+    - applying the revised note returns directly to the confirmation card instead of unnecessarily re-asking already-confirmed topics
+    - the created run still keeps `accounts = []` while persisting the updated `manual_auth_steps` or `cookie_notes`
+  - no wizard code change was needed for this slice; the work here was to close the evidence gap around the operator click path and verify the real confirmation-layer behavior instead of assuming the typed-command proof covered it
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes the confirmation-card `Change Access` path for shared no-account manual/session routes
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_access_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_access_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'shared_manual_auth_note_without_accounts_persists_into_run_and_dossier_context or shared_session_note_without_accounts_persists_into_run_and_dossier_context or change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or change_access_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_access_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - initial run of that broader cluster produced a single setup-time page-load miss in `loaded_page`; rerunning the same cluster immediately afterward passed cleanly (`6 passed`), so the flow itself is evidenced while the transient setup miss remains recorded honestly here
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python - <<'PY' ... live-host shared no-account confirmation Change Access proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-shared-access-confirmation-change-access-20260420.json`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-shared-access-confirmation-change-access-20260420.json`
+    - `codex/results/live-host-shared-manual-auth-confirmation-change-access-20260420.png`
+    - `codex/results/live-host-shared-session-note-confirmation-change-access-20260420.png`
+- 2026-04-20: closed the adjacent inline-history revision gap for the same shared no-account access contexts:
+  - updated `ui/assets/modules/wizard.js` so Advanced Configuration can sync a truthful revisable history turn for shared manual-auth guidance or shared session guidance when those routes have no account rows and no authentic `auth-details` turn exists yet
+  - this keeps the deterministic run model unchanged, avoids exposing raw secret-backed account details in synthetic history, and makes the older inline `Change` button path in `Earlier Intake Context` work for the already-supported shared no-account access routes
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_inline_change_from_history_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance`
+    - `test_inline_change_from_history_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes the inline-history `Change` path for shared no-account manual/session routes
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'inline_change_from_history_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or inline_change_from_history_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'shared_manual_auth_note_without_accounts_persists_into_run_and_dossier_context or shared_session_note_without_accounts_persists_into_run_and_dossier_context or change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_access_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or inline_change_from_history_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or change_access_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or inline_change_from_history_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python - <<'PY' ... live-host shared no-account inline-history Change proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-shared-access-inline-history-change-20260420.json`
+  - the first ad-hoc live probe before the code change exposed the real product gap: no revisable conversation turn existed yet for shared advanced-access notes, so the inline `Change` route could not work from history
+  - one intermediate live-host proof script attempt used the wrong phase-navigation test id (`phase-analysis` instead of `phase-nav-analysis`); that was a probe-script mistake, not a product failure, and the immediately corrected rerun passed
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-shared-access-inline-history-change-20260420.json`
+    - `codex/results/live-host-shared-manual-auth-inline-history-change-20260420.png`
+    - `codex/results/live-host-shared-session-inline-history-change-20260420.png`
+- 2026-04-20: closed the adjacent progress-stepper revision gap for the same shared no-account access contexts:
+  - updated `ui/assets/modules/wizard.js` so the top progress-stepper `Access` button now routes through the same truthful access-topic resolution as the other revision controls instead of always jumping back to the coarse `auth` strategy question
+  - this specifically fixes the live operator path where shared manual-auth guidance or shared session guidance had already been captured through Advanced Configuration with no account rows, but clicking the `Access` step still reopened `Should this stay unauthenticated...` instead of the stored note text
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_access_stepper_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance`
+    - `test_access_stepper_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes the top-stepper `Access` path for shared no-account manual/session routes
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'access_stepper_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or access_stepper_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'shared_manual_auth_note_without_accounts_persists_into_run_and_dossier_context or shared_session_note_without_accounts_persists_into_run_and_dossier_context or change_access_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_access_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or inline_change_from_history_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or access_stepper_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or change_session_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or change_access_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or inline_change_from_history_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or access_stepper_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python - <<'PY' ... live-host shared no-account stepper Change proof ... PY`
+    - `python3 -m json.tool codex/results/live-host-shared-access-stepper-change-20260420.json`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-shared-access-stepper-change-20260420.json`
+    - `codex/results/live-host-shared-manual-auth-stepper-change-20260420.png`
+    - `codex/results/live-host-shared-session-stepper-change-20260420.png`
+- 2026-04-20: closed the adjacent visible `Previous Topic` access-revision gap for advanced drawer access routes:
+  - updated `ui/assets/modules/wizard.js` so `goBackConversation()` now resolves access topics through the same truthful access-topic router as the other revision controls instead of using the raw last history question id
+  - this specifically fixes the live operator path where the visible `Previous Topic` button could reopen the coarse auth-strategy question after advanced drawer access capture even though a richer `Access Detail` draft already existed
+  - the same routed back-navigation is now explicitly proven for shared no-account advanced-access notes too, where `Previous Topic` reopens the exact stored shared manual-auth or shared session note and returns to `Safety` after the revised note is applied
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_previous_topic_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role`
+    - `test_previous_topic_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance`
+    - `test_previous_topic_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth now explicitly includes the visible `Previous Topic` path for advanced access detail plus shared no-account manual/session routes
+  - one intermediate browser run failed because the new test payloads accidentally included the reserved command word `previous`, which intentionally triggers intake back-navigation; that was a test-data mistake, not a product failure, and the immediately corrected rerun passed
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'go_back_reopens_last_answered_access_topic_and_returns_to_safety or previous_topic_after_advanced_drawer_detail_reopens_detail_draft_and_persists_updated_role or previous_topic_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or access_stepper_button_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance or previous_topic_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance or access_stepper_button_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_ui_support.py -k 'shared_manual_auth_notes_without_accounts or shared_session_notes_without_accounts or static_operator_console_is_served or ui_support_list_endpoints_reuse_existing_contracts'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python /tmp/aegispt_live_previous_topic_access.py`
+    - `python3 -m json.tool codex/results/live-host-previous-topic-access-20260420.json`
+    - `git diff --check`
+  - recorded fresh live-host proof at:
+    - `codex/results/live-host-previous-topic-access-20260420.json`
+    - `codex/results/live-host-previous-topic-account-20260420.png`
+    - `codex/results/live-host-previous-topic-shared-manual-20260420.png`
+    - `codex/results/live-host-previous-topic-shared-session-20260420.png`
+- 2026-04-20: closed the adjacent plural-boundary revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `boundary` and `boundaries` through the same parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that plural topic-jump forms such as `change boundaries`, `edit boundaries`, and `revise boundaries` are supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-20: closed the adjacent plural-target revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_targets_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation`
+    - `test_edit_targets_alias_reopens_scope_with_editable_draft_and_persists_updated_scope`
+    - `test_revise_targets_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `target` and `targets` through the same scope parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that plural topic-jump forms such as `change targets`, `edit targets`, and `revise targets` are supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_targets_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or edit_targets_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or revise_targets_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or change_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or revise_target_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or revise_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or edit_target_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or change_targets_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation or edit_targets_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or revise_targets_alias_reopens_scope_with_editable_draft_and_returns_to_confirmation'`
+    - `git diff --check`
+- 2026-04-20: closed the adjacent plural auth-detail revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_credentials_alias_reopens_credential_detail_and_persists_updated_role`
+    - `test_edit_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference`
+    - `test_direct_session_reference_route_and_revise_sessions_alias_keep_session_access_truth`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed singular and plural auth-detail nouns through the same auth parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that representative plural auth-detail topic-jump forms such as `change credentials`, `edit tokens`, and `revise sessions` are supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_credentials_alias_reopens_credential_detail_and_persists_updated_role or edit_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or direct_session_reference_route_and_revise_sessions_alias_keep_session_access_truth'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_credential_alias_reopens_credential_detail_and_persists_updated_role or edit_credential_alias_reopens_credential_detail_and_persists_updated_role or revise_credential_alias_reopens_credential_detail_and_persists_updated_role or change_credentials_alias_reopens_credential_detail_and_persists_updated_role or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or direct_session_reference_route_and_edit_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_sessions_alias_keep_session_access_truth'`
+    - `git diff --check`
+- 2026-04-20: closed the adjacent boundary-synonym revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed boundary synonyms such as `exclude`, `exclusion`, `exclusions`, and `lateral` through the same boundary parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that representative boundary-synonym topic-jump forms such as `change exclusions`, `edit exclusion`, and `revise lateral` are supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-20: closed the adjacent goal-depth revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_edit_depth_alias_reopens_goal_question_with_editable_goal_draft`
+    - `test_revise_depth_alias_reopens_goal_question_with_editable_goal_draft`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `depth` through the same goal parser group as `goal` and `profile`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that goal-worded depth aliases such as `edit depth` and `revise depth` are supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'edit_depth_alias_reopens_goal_question_with_editable_goal_draft or revise_depth_alias_reopens_goal_question_with_editable_goal_draft'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_goal_command_reopens_goal_question_and_realigns_to_auth or edit_goal_alias_reopens_goal_question_with_editable_goal_draft or revise_goal_alias_reopens_goal_question_with_editable_goal_draft or change_profile_alias_reopens_goal_question_with_editable_goal_draft or edit_profile_alias_reopens_goal_question_with_editable_goal_draft or revise_profile_alias_reopens_goal_question_with_editable_goal_draft or change_depth_alias_reopens_goal_question_with_editable_goal_draft or edit_depth_alias_reopens_goal_question_with_editable_goal_draft or revise_depth_alias_reopens_goal_question_with_editable_goal_draft'`
+    - `git diff --check`
+- 2026-04-20: closed the remaining plural-credential revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_edit_credentials_alias_reopens_credential_detail_and_persists_updated_role`
+    - `test_revise_credentials_alias_reopens_credential_detail_and_persists_updated_role`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `credential` and `credentials` through the same auth parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the plural credential family `change credentials`, `edit credentials`, and `revise credentials` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_credentials_alias_reopens_credential_detail_and_persists_updated_role or edit_credentials_alias_reopens_credential_detail_and_persists_updated_role or revise_credentials_alias_reopens_credential_detail_and_persists_updated_role'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_credential_alias_reopens_credential_detail_and_persists_updated_role or edit_credential_alias_reopens_credential_detail_and_persists_updated_role or revise_credential_alias_reopens_credential_detail_and_persists_updated_role or change_credentials_alias_reopens_credential_detail_and_persists_updated_role or edit_credentials_alias_reopens_credential_detail_and_persists_updated_role or revise_credentials_alias_reopens_credential_detail_and_persists_updated_role or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or direct_session_reference_route_and_edit_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_sessions_alias_keep_session_access_truth'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining plural-token revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference`
+    - `test_revise_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `token` and `tokens` through the same auth parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the plural token family `change tokens`, `edit tokens`, and `revise tokens` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_credential_alias_reopens_credential_detail_and_persists_updated_role or edit_credential_alias_reopens_credential_detail_and_persists_updated_role or revise_credential_alias_reopens_credential_detail_and_persists_updated_role or change_credentials_alias_reopens_credential_detail_and_persists_updated_role or edit_credentials_alias_reopens_credential_detail_and_persists_updated_role or revise_credentials_alias_reopens_credential_detail_and_persists_updated_role or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or change_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or direct_session_reference_route_and_edit_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_sessions_alias_keep_session_access_truth'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining plural-session revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_direct_session_reference_route_and_change_sessions_alias_keep_session_access_truth`
+    - `test_direct_session_reference_route_and_edit_sessions_alias_keep_session_access_truth`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `session` and `sessions` through the same auth parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the plural session family `change sessions`, `edit sessions`, and `revise sessions` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'direct_session_reference_route_and_change_sessions_alias_keep_session_access_truth or direct_session_reference_route_and_edit_sessions_alias_keep_session_access_truth or direct_session_reference_route_and_revise_sessions_alias_keep_session_access_truth'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_credential_alias_reopens_credential_detail_and_persists_updated_role or edit_credential_alias_reopens_credential_detail_and_persists_updated_role or revise_credential_alias_reopens_credential_detail_and_persists_updated_role or change_credentials_alias_reopens_credential_detail_and_persists_updated_role or edit_credentials_alias_reopens_credential_detail_and_persists_updated_role or revise_credentials_alias_reopens_credential_detail_and_persists_updated_role or change_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_token_alias_reopens_api_access_details_and_persists_updated_secret_reference or change_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or edit_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or revise_tokens_alias_reopens_api_access_details_and_persists_updated_secret_reference or direct_session_reference_route_and_change_session_alias_keep_session_access_truth or direct_session_reference_route_and_change_sessions_alias_keep_session_access_truth or direct_session_reference_route_and_edit_session_alias_keep_session_access_truth or direct_session_reference_route_and_edit_sessions_alias_keep_session_access_truth or direct_session_reference_route_and_revise_session_alias_keep_session_access_truth or direct_session_reference_route_and_revise_sessions_alias_keep_session_access_truth'`
+    - `git diff --check`
+- 2026-04-21: closed the adjacent safety-synonym revision-alias evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `test_edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `test_revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `test_edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `careful`, `conservative`, `aggressive`, and `thorough` through the same safety parser group; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that representative safety synonyms such as `change careful`, `edit conservative`, `revise aggressive`, and `edit thorough` are supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `careful` safety-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `test_revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `careful` through the same safety parser group as `safety`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `careful` alias family `change careful`, `edit careful`, and `revise careful` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `conservative` safety-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `test_revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `conservative` through the same safety parser group as `safety`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `conservative` alias family `change conservative`, `edit conservative`, and `revise conservative` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `aggressive` safety-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `test_edit_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `aggressive` through the same safety parser group as `safety`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `aggressive` alias family `change aggressive`, `edit aggressive`, and `revise aggressive` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `thorough` safety-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+    - `test_revise_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `thorough` through the same safety parser group as `safety`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `thorough` alias family `change thorough`, `edit thorough`, and `revise thorough` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_careful_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_conservative_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_aggressive_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or edit_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_thorough_alias_reopens_existing_safety_choice_and_returns_to_boundaries or change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `avoid` boundary-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `avoid` through the same boundaries parser group as `boundary`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `avoid` alias family `change avoid`, `edit avoid`, and `revise avoid` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `exclude` boundary-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `exclude` through the same boundaries parser group as `boundary`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `exclude` alias family `change exclude`, `edit exclude`, and `revise exclude` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `excludes` boundary-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `excludes` through the same boundaries parser group as `boundary`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `excludes` alias family `change excludes`, `edit excludes`, and `revise excludes` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `exclusion` boundary-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - reused the existing `test_edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump` proof so the full parser-supported `exclusion` family is now covered without duplicating an already-green route
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `exclusion` through the same boundaries parser group as `boundary`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `exclusion` alias family `change exclusion`, `edit exclusion`, and `revise exclusion` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `exclusions` boundary-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_edit_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_revise_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - reused the existing `test_change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump` proof so the full parser-supported `exclusions` family is now covered without duplicating an already-green route
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `exclusions` through the same boundaries parser group as `boundary`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `exclusions` alias family `change exclusions`, `edit exclusions`, and `revise exclusions` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: closed the remaining `lateral` boundary-synonym verb-family evidence gap inside the active intake task:
+  - added browser regression coverage in `ui/tests/test_operator_console_e2e.py` for:
+    - `test_change_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+    - `test_edit_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump`
+  - reused the existing `test_revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump` proof so the full parser-supported `lateral` family is now covered without duplicating an already-green route
+  - no product code change was needed for this slice because `ui/assets/modules/wizard.js` already routed `lateral` through the same boundaries parser group as `boundary`; the gap here was evidence and repo truth, not runtime behavior
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so the repo now states explicitly that the `lateral` alias family `change lateral`, `edit lateral`, and `revise lateral` is supported and covered
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_boundaries_button_reopens_editable_boundary_draft_and_returns_to_confirmation or edit_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundary_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_boundaries_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_lateral_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusions_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_excludes_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclusion_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_avoid_alias_reopens_existing_boundary_draft_after_safety_revision_jump or change_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or edit_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump or revise_exclude_alias_reopens_existing_boundary_draft_after_safety_revision_jump'`
+    - `git diff --check`
+- 2026-04-21: aligned the access topic-jump acceptance matrix with existing browser proof inside the active intake task:
+  - added the already-supported and already-tested `change access` command to `codex/tasks/ui_acceptance_matrix.json` beside the existing `edit access` and `revise access` entries
+  - no product code or browser test code change was needed for this slice because `ui/tests/test_operator_console_e2e.py` already proves `change_access_command_reopens_editable_access_details_and_returns_to_safety`, `edit_access_alias_reopens_editable_access_details_and_persists_updated_role`, and `revise_access_alias_reopens_editable_access_details_and_persists_updated_role`
+  - updated `CURRENT_STATE.md` so repo truth records that this was an acceptance-matrix under-reporting fix, not new runtime behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_access_command_reopens_editable_access_details_and_returns_to_safety or edit_access_alias_reopens_editable_access_details_and_persists_updated_role or revise_access_alias_reopens_editable_access_details_and_persists_updated_role'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: aligned the safety topic-jump acceptance matrix with existing browser proof inside the active intake task:
+  - added the already-supported and already-tested `change safety` command to `codex/tasks/ui_acceptance_matrix.json` beside the existing `edit safety` and `revise safety` entries
+  - no product code or browser test code change was needed for this slice because `ui/tests/test_operator_console_e2e.py` already proves `change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation`, `edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries`, and `revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries`
+  - updated `CURRENT_STATE.md` so repo truth records that this was an acceptance-matrix under-reporting fix, not new runtime behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_safety_command_reopens_existing_safety_choice_and_returns_to_confirmation or edit_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries or revise_safety_alias_reopens_existing_safety_choice_and_returns_to_boundaries'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: aligned the goal topic-jump acceptance matrix with existing browser proof inside the active intake task:
+  - added the already-supported and already-tested `change goal` command to `codex/tasks/ui_acceptance_matrix.json` beside the existing `edit goal` and `revise goal` entries
+  - no product code or browser test code change was needed for this slice because `ui/tests/test_operator_console_e2e.py` already proves `change_goal_command_reopens_goal_question_and_realigns_to_auth`, `edit_goal_alias_reopens_goal_question_with_editable_goal_draft`, and `revise_goal_alias_reopens_goal_question_with_editable_goal_draft`
+  - updated `CURRENT_STATE.md` so repo truth records that this was an acceptance-matrix under-reporting fix, not new runtime behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_goal_command_reopens_goal_question_and_realigns_to_auth or edit_goal_alias_reopens_goal_question_with_editable_goal_draft or revise_goal_alias_reopens_goal_question_with_editable_goal_draft'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: aligned the profile topic-jump acceptance matrix with existing browser proof inside the active intake task:
+  - added the already-supported and already-tested `change profile` command to `codex/tasks/ui_acceptance_matrix.json` beside the existing `edit profile` and `revise profile` entries
+  - no product code or browser test code change was needed for this slice because `ui/tests/test_operator_console_e2e.py` already proves `change_profile_alias_reopens_goal_question_with_editable_goal_draft`, `edit_profile_alias_reopens_goal_question_with_editable_goal_draft`, and `revise_profile_alias_reopens_goal_question_with_editable_goal_draft`
+  - updated `CURRENT_STATE.md` so repo truth records that this was an acceptance-matrix under-reporting fix, not new runtime behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_profile_alias_reopens_goal_question_with_editable_goal_draft or edit_profile_alias_reopens_goal_question_with_editable_goal_draft or revise_profile_alias_reopens_goal_question_with_editable_goal_draft'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: aligned the scope topic-jump acceptance matrix with existing browser proof inside the active intake task:
+  - added the already-supported and already-tested `change scope` command to `codex/tasks/ui_acceptance_matrix.json` beside the existing `edit scope` and `revise scope` entries
+  - no product code or browser test code change was needed for this slice because `ui/tests/test_operator_console_e2e.py` already proves `change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation`, `edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope`, and `revise_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope`
+  - updated `CURRENT_STATE.md` so repo truth records that this was an acceptance-matrix under-reporting fix, not new runtime behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_scope_command_reopens_scope_with_editable_draft_and_returns_to_confirmation or edit_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope or revise_scope_alias_reopens_scope_with_editable_draft_and_persists_updated_scope'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: aligned the last-answer command acceptance matrix with existing browser proof inside the active intake task:
+  - added the already-supported and already-tested `change that` command to `codex/tasks/ui_acceptance_matrix.json` beside the existing `undo` and `previous` entries
+  - no product code or browser test code change was needed for this slice because `ui/tests/test_operator_console_e2e.py` already proves `change_that_reopens_last_answered_topic_and_returns_to_main_path` and `change_that_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance`
+  - updated `CURRENT_STATE.md` so repo truth records that this was an acceptance-matrix under-reporting fix, not new runtime behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_that_reopens_last_answered_topic_and_returns_to_main_path or change_that_after_shared_manual_auth_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: aligned the go-back command acceptance matrix with existing browser proof inside the active intake task:
+  - added the already-supported and already-tested `go back` command to `codex/tasks/ui_acceptance_matrix.json` beside the existing `undo`, `previous`, and `change that` entries
+  - no product code or browser test code change was needed for this slice because `ui/tests/test_operator_console_e2e.py` already proves `go_back_reopens_last_answered_access_topic_and_returns_to_safety` and `go_back_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance`
+  - updated `CURRENT_STATE.md` so repo truth records that this was an acceptance-matrix under-reporting fix, not new runtime behavior
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'go_back_reopens_last_answered_access_topic_and_returns_to_safety or go_back_after_shared_session_note_without_accounts_reopens_note_and_persists_updated_guidance'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added a static revision-alias matrix parity guard inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_matrix_matches_proven_typed_command_coverage`, which compares exact typed revision commands proven in `ui/tests/test_operator_console_e2e.py` with `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.commands`
+  - kept product/runtime code unchanged because this is a regression guard for existing browser proof and repo truth, not a new intake behavior or command
+  - updated `CURRENT_STATE.md` so future work can see that matrix/test parity is now enforced by a targeted static check
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added a parser-to-matrix revision-command parity guard inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_matrix_matches_parser_supported_commands`, which derives parser-supported back commands and `change` / `edit` / `revise` target aliases from `ui/assets/modules/wizard.js` and compares them with `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.commands`
+  - kept product/runtime code unchanged because this is a static drift guard for the active intake matrix, not new wizard behavior
+  - updated `CURRENT_STATE.md` so future work can see parser-to-matrix parity is now enforced alongside browser-test-to-matrix parity
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added polite-wrapper browser proof for parser-supported revision commands inside the active intake task:
+  - added `ui/tests/test_operator_console_e2e.py::test_polite_revision_command_wrappers_reopen_scope_with_editable_draft`, covering `please change scope?` and `change target please.` as normalized variants of the existing scope/topic-jump revision path
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth states that these wrappers are evidence-backed parser normalization, not separate canonical matrix commands
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'polite_revision_command_wrappers_reopen_scope_with_editable_draft'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added case/spacing browser proof for parser-supported revision commands inside the active intake task:
+  - added `ui/tests/test_operator_console_e2e.py::test_revision_command_case_and_spacing_normalization_reopens_scope_draft`, covering `CHANGE   SCOPE!` and `edit   targets` as normalized variants of the existing scope/topic-jump revision path
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth states that casing and whitespace normalization is evidence-backed parser behavior, not a separate canonical command family
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'revision_command_case_and_spacing_normalization_reopens_scope_draft'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added back-command normalization browser proof inside the active intake task:
+  - added `ui/tests/test_operator_console_e2e.py::test_back_command_normalization_reopens_last_answered_access_topic`, covering `please go back?` and `UNDO!` as normalized variants of the existing last-answer/access-detail revision path
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, `codex/tasks/ui_acceptance_matrix.json`, and `CURRENT_STATE.md` so repo truth states that back-command normalization is evidence-backed parser behavior, not a separate canonical command family
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'back_command_normalization_reopens_last_answered_access_topic'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: expanded back-command normalization browser proof to the remaining parser-supported back aliases inside the active intake task:
+  - extended `ui/tests/test_operator_console_e2e.py::test_back_command_normalization_reopens_last_answered_access_topic` with `please change that?` and `PREVIOUS!`, so the same normalized access-detail revision path now covers `go back`, `undo`, `change that`, and `previous`
+  - updated `docs/ui_conversational_intake.md`, `docs/ui_browser_validation.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth states that the full parser-backed back-command family is evidence-backed without adding separate canonical matrix commands
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'back_command_normalization_reopens_last_answered_access_topic'`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added a static anti-drift guard that keeps normalized revision examples out of the canonical command matrix:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_matrix_excludes_normalized_command_examples`, which fails if browser-normalization examples such as `please go back?`, `UNDO!`, `CHANGE   SCOPE!`, or `edit   targets` are added to `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.commands`
+  - kept product/runtime code unchanged because this is a matrix-governance guard for the active intake/revision task, not new wizard behavior
+  - updated `CURRENT_STATE.md` so future work can see normalized examples are evidence-backed browser variants, not canonical matrix commands
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_matrix_excludes_normalized_command_examples'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: tied the normalized revision-example static guard back to the actual browser proof inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_normalized_revision_command_examples_match_browser_proof`, which derives normalized revision examples from the relevant `ui/tests/test_operator_console_e2e.py` parametrized browser tests and compares them with `NORMALIZED_REVISION_COMMAND_EXAMPLES`
+  - kept product/runtime code unchanged because this is a static drift guard linking existing browser proof to matrix governance, not new wizard behavior
+  - updated `CURRENT_STATE.md` so future work can see browser-normalization proof and canonical-matrix exclusion examples are now tied together
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added canonical-resolution drift prevention for normalized revision examples inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_normalized_revision_command_examples_resolve_to_canonical_commands`, which mirrors the wizard parser's trim/lowercase/spacing/punctuation/`please` normalization for browser-normalization examples and asserts each normalized form is already present in `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.commands`
+  - kept product/runtime code unchanged because this is a static governance guard for existing parser behavior and browser proof
+  - updated `CURRENT_STATE.md` so future work can see normalized examples must both stay out of the canonical matrix and resolve back into it after parser normalization
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added parser-shape drift prevention for the normalized revision-command canonicalizer inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_normalized_revision_command_canonicalizer_matches_wizard_parser_shape`, which fails if `ui/assets/modules/wizard.js::parseConversationCommand` no longer exposes the trim/lowercase/spacing/punctuation/`please` normalization steps mirrored by the static canonicalizer
+  - kept product/runtime code unchanged because this is a static alignment guard for existing parser behavior and matrix governance
+  - updated `CURRENT_STATE.md` so future work can see normalized example canonicalization is tied back to the parser shape, not only to duplicated Python expectations
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added expected-output drift prevention for normalized revision-command coverage inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_matrix_records_normalized_command_outputs`, which asserts `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.expected_outputs` keeps `back_command_normalization_truth`, `polite_revision_command_wrapper_truth`, and `case_whitespace_revision_command_normalization_truth`
+  - kept product/runtime code unchanged because this is a repo-truth guard tying existing browser normalization proof to acceptance-matrix metadata
+  - updated `CURRENT_STATE.md` so future work can see normalized command evidence must stay recorded in the matrix expected outputs
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added operator-doc drift prevention for canonical revision aliases inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_matrix_commands_are_documented_for_operators`, which asserts every command in `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.commands` is explicitly listed in `docs/ui_conversational_intake.md`
+  - kept product/runtime code unchanged because this is a documentation-truth guard for existing parser, browser-proof, and acceptance-matrix behavior
+  - updated `CURRENT_STATE.md` so future work can see parser/matrix revision aliases must stay represented in operator-facing intake docs
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added product-matrix expected-output drift prevention for revision aliases inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_matrix_outputs_are_documented_in_product_matrix`, which asserts every `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.expected_outputs` anchor is explicitly listed in `docs/product_test_matrix.md`
+  - updated `docs/product_test_matrix.md` with the current revision-alias expected-output anchor list so the human-readable product test matrix stays tied to the machine-readable acceptance matrix
+  - kept product/runtime code unchanged because this is a documentation-truth guard for existing parser, browser-proof, and acceptance-matrix behavior
+  - updated `CURRENT_STATE.md` so future work can see revision-alias expected-output metadata must stay represented in product-test documentation
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added product-matrix command drift prevention for canonical revision aliases inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_matrix_commands_are_documented_in_product_matrix`, which asserts every `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.commands` entry is explicitly listed in `docs/product_test_matrix.md`
+  - kept product/runtime code unchanged because this is a documentation-truth guard for existing parser, browser-proof, and acceptance-matrix behavior
+  - updated `CURRENT_STATE.md` so future work can see revision-alias command metadata must stay represented in product-test documentation
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added documentation drift prevention for normalized revision-command examples inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_normalized_revision_command_examples_are_documented`, which asserts every browser-proven normalized command example is explicitly listed in both `docs/ui_conversational_intake.md` and `docs/product_test_matrix.md`
+  - kept product/runtime code unchanged because this is a documentation-truth guard for existing parser normalization, browser proof, and matrix governance
+  - updated `CURRENT_STATE.md` so future work can see normalized command examples must stay represented in both operator-facing and product-test documentation
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'normalized_revision_command_examples_are_documented or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added browser-validation documentation drift prevention for normalized revision-command proof inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_normalized_revision_command_browser_tests_are_documented`, which asserts the three Playwright tests backing normalized back-command, polite-wrapper, and case/whitespace revision behavior are explicitly listed in `docs/ui_browser_validation.md`
+  - updated `docs/ui_browser_validation.md` with those concrete normalized-command regression names beside the existing supported-host proof links
+  - kept product/runtime code unchanged because this is a validation-documentation guard for existing browser proof and matrix governance
+  - updated `CURRENT_STATE.md` so future work can see normalized command browser proof must stay represented in the browser validation notes
+  - revalidated this slice with:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'normalized_revision_command_browser_tests_are_documented or normalized_revision_command_examples_are_documented or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `source .venv/bin/activate && python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: clarified normalized revision-command documentation guard diagnostics inside the active intake task:
+  - updated `ui/tests/test_product_feature_matrix_e2e.py::test_normalized_revision_command_examples_are_documented` so failures identify the exact documentation path and browser-proven normalized command example that drifted out of docs
+  - kept product/runtime code unchanged because this is a static test-diagnostics hardening step for existing parser normalization, browser proof, and documentation guards
+  - updated `CURRENT_STATE.md` so future work can see normalized example doc parity now reports actionable missing-path detail
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'normalized_revision_command_examples_are_documented or normalized_revision_command_browser_tests_are_documented or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_canonicalizer_matches_wizard_parser_shape or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_examples_match_browser_proof or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json`
+    - `git diff --check`
+- 2026-04-21: added revision-alias documentation overclaim drift prevention inside the active intake task:
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_revision_alias_docs_do_not_claim_unsupported_canonical_commands`, which scans `docs/ui_conversational_intake.md` and `docs/product_test_matrix.md` for backticked canonical revision commands and fails if either document claims a command outside `codex/tasks/ui_acceptance_matrix.json::wizard_revision_alias_matrix.commands`
+  - kept product/runtime code unchanged because this is a documentation-truth guard for existing parser, browser-proof, and acceptance-matrix behavior
+  - updated `CURRENT_STATE.md` so future work can see revision-alias docs are guarded bidirectionally against both missing supported commands and unsupported overclaims
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or normalized_revision_command_examples_are_documented or normalized_revision_command_browser_tests_are_documented or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added dedicated output-style conversational revision controls inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so `change output`, `edit output`, and `revise output` route to a dedicated `Output` question, reopen the existing reporting-style draft, and update only `intake_preferences.output_style` before returning to the next deterministic intake topic
+  - added browser coverage in `ui/tests/test_operator_console_e2e.py` for all three output aliases and updated `codex/tasks/ui_acceptance_matrix.json` with the new canonical commands plus `output_style_revision_truth`
+  - updated `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, and `CURRENT_STATE.md` so repo truth describes the supported output-style revision route without claiming scope, safety, execution-lane, or run-model changes
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_output_command_reopens_output_question_and_updates_style or edit_output_alias_reopens_output_question_with_editable_style_draft or revise_output_alias_reopens_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added output-style revision command normalization proof inside the active intake task:
+  - added `ui/tests/test_operator_console_e2e.py::test_output_revision_command_normalization_reopens_output_style_draft`, proving `please change output?` and `EDIT   OUTPUT!` normalize into the canonical output-style revision route and update only the reporting preference
+  - extended the normalized revision-command static guards in `ui/tests/test_product_feature_matrix_e2e.py` so the new output-normalization examples stay tied to browser proof, resolve to canonical matrix commands, remain out of `wizard_revision_alias_matrix.commands`, and keep `output_style_normalization_truth` recorded in matrix metadata
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, and `CURRENT_STATE.md` so repo truth represents the normalized output-style route without claiming a new command family or runtime behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'output_revision_command_normalization_reopens_output_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'normalized_revision_command_examples_are_documented or normalized_revision_command_browser_tests_are_documented or normalized_revision_command_examples_match_browser_proof or normalized_revision_command_examples_resolve_to_canonical_commands or revision_alias_matrix_excludes_normalized_command_examples or revision_alias_matrix_records_normalized_command_outputs or revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_docs_do_not_claim_unsupported_canonical_commands'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added reporting-worded output-style revision aliases inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so `change reporting`, `edit reporting`, and `revise reporting` resolve to the same dedicated output-style revision question as `change output`
+  - added `ui/tests/test_operator_console_e2e.py::test_reporting_aliases_reopen_output_question_with_editable_style_draft` to prove those reporting-worded aliases reopen the existing output-style draft and update only `intake_preferences.output_style`
+  - updated `ui/tests/test_product_feature_matrix_e2e.py` so the revision-alias parity guard also recognizes parametrized canonical command browser proof instead of only direct `_answer_current_question(...)` calls
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, and `CURRENT_STATE.md` so repo truth records the alias family without introducing a separate reporting workflow or runtime behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added report-worded output-style revision aliases inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so `change report`, `edit report`, and `revise report` resolve to the same dedicated output-style revision question as `change output` and `change reporting`
+  - extended `ui/tests/test_operator_console_e2e.py::test_reporting_aliases_reopen_output_question_with_editable_style_draft` to prove those report-worded aliases reopen the existing output-style draft and update only `intake_preferences.output_style`
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth records the alias family without introducing a separate reporting workflow or runtime behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added format-worded output-style revision aliases inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so `change format`, `edit format`, and `revise format` resolve to the same dedicated output-style revision question as `change output`, `change report`, and `change reporting`
+  - extended `ui/tests/test_operator_console_e2e.py::test_reporting_aliases_reopen_output_question_with_editable_style_draft` to prove those format-worded aliases reopen the existing output-style draft and update only `intake_preferences.output_style`
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth records the alias family without introducing a separate format workflow or runtime behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added multiword output-style revision aliases inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so `change output style`, `edit output style`, and `revise output style` resolve through the existing multiword parser route to the same dedicated output-style revision question as `change output`
+  - extended `ui/tests/test_operator_console_e2e.py::test_reporting_aliases_reopen_output_question_with_editable_style_draft` to prove those multiword aliases reopen the existing output-style draft and update only `intake_preferences.output_style`
+  - updated `ui/tests/test_product_feature_matrix_e2e.py` so the revision-alias and documentation guards recognize parser-supported multiword canonical commands instead of only one-word targets
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth records the alias family without introducing a separate style workflow or runtime behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added reporting-style multiword output aliases inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so `change reporting style`, `edit reporting style`, and `revise reporting style` resolve through the existing multiword parser route to the same dedicated output-style revision question as `change output style`
+  - extended `ui/tests/test_operator_console_e2e.py::test_reporting_aliases_reopen_output_question_with_editable_style_draft` to prove those reporting-style aliases reopen the existing output-style draft and update only `intake_preferences.output_style`
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth records the alias family without introducing a separate reporting-style workflow or runtime behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added report-style multiword output aliases inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so `change report style`, `edit report style`, and `revise report style` resolve through the existing multiword parser route to the same dedicated output-style revision question as `change output style` and `change reporting style`
+  - extended `ui/tests/test_operator_console_e2e.py::test_reporting_aliases_reopen_output_question_with_editable_style_draft` to prove those report-style aliases reopen the existing output-style draft and update only `intake_preferences.output_style`
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` so repo truth records the alias family without introducing a separate report-style workflow or runtime behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: hardened output-style revision drift prevention inside the active intake task:
+  - extended `ui/tests/test_operator_console_e2e.py::test_reporting_aliases_reopen_output_question_with_editable_style_draft` so every output-style alias now also proves the locked target type, goal, summarized scope, and exact target detail remain visible after the output-style revision
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` with `output_style_scope_preservation_truth` so repo truth records that output-style aliases should not mutate mission shape
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: hardened output-style safety/lane preservation inside the active intake task:
+  - added `ui/tests/test_operator_console_e2e.py::test_output_style_revision_after_safety_preserves_safety_and_lane_context` to prove `change output style` after a locked safety answer preserves the visible safety posture, `Guarded Active` check mode, and `passive-network-discovery` execution-lane context while changing only the output-style summary
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` with `output_style_safety_lane_preservation_truth` so repo truth records that output-style aliases should not mutate safety or execution lane context
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'output_style_revision_after_safety_preserves_safety_and_lane_context or reporting_aliases_reopen_output_question_with_editable_style_draft'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: added confirmation-level `Change Output` control inside the active intake task:
+  - updated `ui/assets/modules/wizard.js` so confirmed output-style choices appear in the existing `Revise Captured Topic` controls as `Change Output`, reusing the same output-style question instead of introducing a second reporting workflow
+  - added `ui/tests/test_operator_console_e2e.py::test_change_output_button_from_confirmation_preserves_boundary_context` to prove the confirmation-ready `Change Output` path preserves the locked safety choice, exact scope detail, boundary notes, and confirmation scope guardrails while changing only the output-style summary
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` with `output_style_confirmation_button_boundary_truth`
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_output_button_from_confirmation_preserves_boundary_context or output_style_revision_after_safety_preserves_safety_and_lane_context'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: hardened mid-intake `Change Output` control inside the active intake task:
+  - added `ui/tests/test_operator_console_e2e.py::test_change_output_button_mid_intake_returns_to_safety_without_scope_drift` to prove the captured-topic `Change Output` control can be used while the safety question is active, reopens the existing output-style draft, and returns to the safety question after changing only the output style
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` with `output_style_mid_intake_button_truth` so repo truth records that the in-progress button path preserves target type, goal, summarized scope, and exact target detail
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_output_button_mid_intake_returns_to_safety_without_scope_drift or change_output_button_from_confirmation_preserves_boundary_context'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: hardened output-style run-dossier persistence inside the active intake task:
+  - extended `ui/tests/test_operator_console_e2e.py::test_change_output_button_from_confirmation_preserves_boundary_context` so the confirmation-level `Change Output` path now creates the run and API-verifies the persisted `configuration_json`
+  - the browser/API proof now checks that `configuration_json.intake.preferences.output_style` stores `executive-summary` while boundary handling, boundary notes, and the approved `10.0.20.0/24` CIDR scope remain intact
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` with `output_style_run_config_truth`
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_output_button_from_confirmation_preserves_boundary_context'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: hardened mid-intake output-style run-dossier persistence inside the active intake task:
+  - extended `ui/tests/test_operator_console_e2e.py::test_change_output_button_mid_intake_returns_to_safety_without_scope_drift` so the safety-question `Change Output` path now completes the mission and API-verifies the persisted `configuration_json`
+  - the browser/API proof checks that `configuration_json.intake.preferences.output_style` stores `technical-detail` while `standard-scope-only` boundary handling and the approved `10.0.20.0/24` CIDR scope remain intact
+  - updated `codex/tasks/ui_acceptance_matrix.json`, `docs/ui_conversational_intake.md`, `docs/product_test_matrix.md`, and `CURRENT_STATE.md` with `output_style_mid_intake_run_config_truth`
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_output_button_mid_intake_returns_to_safety_without_scope_drift'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented'`
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `git diff --check`
+- 2026-04-21: narrowed the active conversational-intake task into closure mode instead of adding more breadth:
+  - added `docs/conversational_intake_closure_audit.md` as the closure checklist for the current `NEXT_TASK.md` task only, explicitly preventing it from becoming a second active task source
+  - updated `NEXT_TASK.md` with a `Current Closure Focus` section that limits remaining work to evidence reconciliation, demonstrated-gap repair, closure validation, and task closure
+  - updated `CURRENT_STATE.md` so future work sees the active task is now in closure mode and queued backlog work remains inactive until promotion
+  - kept runtime/product code unchanged because this was a governance and documentation streamlining pass, not a behavior change
+- 2026-04-21: closed the conversational-intake active task and promoted exactly one next backlog package:
+  - ran the closure validation cluster from `docs/conversational_intake_closure_audit.md`:
+    - `.venv/bin/python -m json.tool codex/tasks/ui_acceptance_matrix.json >/dev/null`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'revision_alias_matrix_matches_parser_supported_commands or revision_alias_matrix_matches_proven_typed_command_coverage or revision_alias_docs_do_not_claim_unsupported_canonical_commands or revision_alias_matrix_commands_are_documented_in_product_matrix or revision_alias_matrix_commands_are_documented_for_operators or revision_alias_matrix_outputs_are_documented_in_product_matrix or revision_alias_matrix_records_normalized_command_outputs or normalized_revision_command_browser_tests_are_documented or normalized_revision_command_examples_are_documented or normalized_revision_command_examples_match_browser_proof or normalized_revision_command_examples_resolve_to_canonical_commands or normalized_revision_command_canonicalizer_matches_wizard_parser_shape'`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - reran the representative browser/API proof for the last output-style run-dossier claims:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'change_output_button_from_confirmation_preserves_boundary_context or change_output_button_mid_intake_returns_to_safety_without_scope_drift'`
+  - replaced `NEXT_TASK.md` with the single promoted `Commercial-Viability UI Foundation` task from `codex/tasks/backlog-01-commercial-ui-foundation.json`
+  - updated `CURRENT_STATE.md` to record that conversational intake is closed for active-task purposes and further intake work requires a newly promoted task
+- 2026-04-21: completed the font-stack hardening substep inside the active `Commercial-Viability UI Foundation` task:
+  - updated `ui/assets/styles.css` with repo-local `--font-body` and `--font-display` stacks headed by `Inter, ui-sans-serif, system-ui`, replacing the prior `Aptos` and `Bahnschrift` primary font declarations in the operator shell
+  - updated `ui/assets/modules/reports.js` so report-preview placeholder HTML uses the same local-safe stack instead of hardcoded `Aptos`
+  - added `ui/tests/test_product_feature_matrix_e2e.py::test_commercial_ui_font_stacks_are_local_safe` to prevent `Aptos`, `Bahnschrift`, remote Google font fetches, or `@import url` drift in the touched UI/font-preview surfaces
+  - updated `docs/ui_information_hierarchy.md` and `CURRENT_STATE.md` to record the typography guard without claiming the rest of the commercial UI foundation is complete
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k 'commercial_ui_font_stacks_are_local_safe'`
+    - `rg -n "Aptos|Bahnschrift|fonts\\.googleapis|fonts\\.gstatic|@import url" ui/assets/styles.css ui/assets/modules/reports.js` returned no matches
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+- 2026-04-21: completed the first-run/no-engagement guidance substep inside the active `Commercial-Viability UI Foundation` task:
+  - updated `ui/assets/app.js` so the true empty-start shell state now says `Start your first mission`, explains that execution/analysis/reports/Surface Map stay locked until mission creation, and offers a direct `Start Mission Intake` action before any operator answer exists
+  - updated `ui/assets/modules/mission-control.js` so manually opening Mission Control with no engagement now explains that the operator must answer the first intake question before live operations unlock
+  - tightened `ui/tests/test_operator_console_e2e.py::test_operator_console_empty_states_render` and preserved `test_intake_focus_shell_keeps_secondary_context_in_disclosure` so the first-run guidance and intake disclosure contract are browser-pinned
+  - updated `docs/ui_information_hierarchy.md` with the no-engagement start-state rule instead of leaving it as UI-only behavior
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'operator_console_empty_states_render'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'intake_focus_shell_keeps_secondary_context_in_disclosure'`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - this did not broaden into major empty-state copy, Surface Map host-card fallback, backend endpoints, Prompt 1/2 foundations, or finding schema changes
+    - `NEXT_TASK.md` remains unchanged because the active commercial UI task is still not complete
+- 2026-04-21: completed the no-run analysis empty-state copy substep inside the active `Commercial-Viability UI Foundation` task:
+  - updated `ui/assets/modules/reports.js` so Report Center metadata, preview, HTML placeholder, and comparison panels tell the operator to create a mission/run before report workflows unlock
+  - updated `ui/assets/modules/findings.js` so Findings Theater and Evidence Replay no-run states point back to Conversational Intake / mission creation instead of passive `appears here` copy
+  - tightened `ui/tests/test_operator_console_e2e.py::test_operator_console_empty_states_render` so the empty-start browser path now covers Reports, Evidence, and Findings no-run guidance
+  - updated `docs/ui_information_hierarchy.md` with the analysis empty-state rule that no-run panels must point back to intake/run creation
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'operator_console_empty_states_render'`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - this did not implement Surface Map host-card fallback, add a graph library, add backend endpoints, touch finding schema fields, or change Prompt 1 / Prompt 2 foundations
+    - `NEXT_TASK.md` remains unchanged because the active commercial UI task still needs Surface Map host-card fallback plus no-inventory/populated-inventory validation
+- 2026-04-21: completed the populated-inventory Surface Map host-card fallback substep inside the active `Commercial-Viability UI Foundation` task:
+  - updated `ui/assets/modules/mission-control.js` so host records in the Surface / Attack Map asset browser render as explicit host cards from existing normalized inventory, including source, service count, endpoint count, and confidence context
+  - tightened `ui/tests/test_operator_console_e2e.py::test_surface_map_search_filters_large_inventory_without_losing_detail` so populated inventory proves host cards exist before search and still resolve to a host card after filtering
+  - updated `docs/ui_information_hierarchy.md` to record that Surface Map must use existing normalized inventory host-card fallback content before any heavier graph implementation is introduced
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'surface_map_search_filters_large_inventory_without_losing_detail'`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - this reused existing inventory aggregation and did not add a graph library, backend endpoint, runtime mutation, finding-schema change, or Prompt 1 / Prompt 2 foundation change
+    - `NEXT_TASK.md` remains unchanged because the active commercial UI task still needs no-inventory Surface Map validation and a final closure check
+- 2026-04-21: completed the no-inventory Surface Map validation substep inside the active `Commercial-Viability UI Foundation` task:
+  - updated `ui/assets/modules/mission-control.js` so an empty Surface / Attack Map explains whether the operator should create a mission in Conversational Intake or return to Mission Control for run/inventory creation
+  - tightened `ui/tests/test_operator_console_e2e.py::test_operator_console_empty_states_render` so the no-engagement browser path now also covers the Surface Map no-inventory state
+  - updated `docs/ui_information_hierarchy.md` to record that no-inventory Surface Map panels must point back to Intake or Mission Control instead of implying the map is simply empty
+  - revalidated this slice with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'operator_console_empty_states_render'`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - this did not add backend endpoints, graph rendering, runtime mutation, finding-schema changes, or Prompt 1 / Prompt 2 foundation changes
+    - `NEXT_TASK.md` remains unchanged because the active commercial UI task still needs the final closure validation and exact-one promotion step
+- 2026-04-21: repaired the commercial UI closure validation blocker without broadening the active task:
+  - updated `ui/assets/modules/wizard.js` so inferred output-style defaults stay deferred while `Goal` is the active unresolved decision, instead of showing `Output` as a mandatory still-needed topic
+  - clarified the `Access Detail` prompt so it no longer repeats the broader `stay unauthenticated` access-choice wording that caused the browser matrix helper to answer the detail question with the previous access strategy
+  - updated `docs/ui_information_hierarchy.md` and `CURRENT_STATE.md` with the narrow intake-copy and still-needed-summary truth from this repair
+  - revalidated this repair with:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'customer_portal_intent_enters_authenticated_app_path or tls_only_intent_limits_goal_choices_to_tls_safe_options or conversational_completion_matrix_covers_every_assessment_type or still_needed_summary_deduplicates_goal_linked_actions or path_note_deduplicates_goal_linked_topics'`
+  - important truth notes:
+    - this did not add a new intake topic, workflow, backend endpoint, finding-schema change, runtime mutation, graph library, or Prompt 1 / Prompt 2 foundation change
+    - `NEXT_TASK.md` remains unchanged because the full active-task validation and exact-one promotion step still need to run
+- 2026-04-21: repaired one stale UI acceptance-matrix expectation found during the commercial UI closure run:
+  - updated `codex/tasks/ui_acceptance_matrix.json::access_mode_matrix.manual_auth_only.expected_summary` from `No account context recorded` to `Shared manual auth and session guidance recorded`
+  - kept product code unchanged because the existing UI already surfaces the more truthful no-account handoff/session guidance
+  - updated `CURRENT_STATE.md` so future runs know this was an acceptance expectation repair, not a new access workflow
+  - important truth notes:
+    - this did not change access storage, secret binding, finding schema fields, backend endpoints, runtime behavior, Prompt 1 / Prompt 2 foundations, or the active task scope
+    - `NEXT_TASK.md` remains unchanged because the full active-task validation and exact-one promotion step still need to run
+- 2026-04-21: closed the active `Commercial-Viability UI Foundation` task and promoted exactly one next backlog package:
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py`
+    - `.venv/bin/python scripts/run_product_e2e_matrix.py --lane ui`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Remediation Tracking and Single-Finding Retest Foundation` task from `codex/tasks/backlog-02-remediation-status-and-single-finding-retest.json`
+  - updated `CURRENT_STATE.md` so repo truth records the commercial UI task as closed and remediation as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not silently changed
+    - no remediation implementation was started during this closure step
+    - the new active task must preserve existing finding schema fields and use additive remediation tracking

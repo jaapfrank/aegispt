@@ -1,5 +1,72 @@
 import { MODULES, SEVERITY_RANK } from "./constants.js";
 
+const RUN_PROFILE_PLAN_FALLBACKS = {
+  "passive-network-discovery": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive-safe host and range discovery using Nmap ping scan semantics.",
+      required_approvals: 0,
+      tools: ["nmap"],
+    },
+  },
+  "passive-network-service-enumeration": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive-safe service identification across discovered hosts using Nmap top-port and service detection.",
+      required_approvals: 0,
+      tools: ["nmap"],
+    },
+  },
+  "passive-web-baseline": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive HTTP fingerprinting with the Python httpx runner.",
+      required_approvals: 0,
+      tools: ["httpx"],
+    },
+  },
+  "passive-code-semgrep-audit": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive Semgrep scan over allowlisted local code paths with curated rules.",
+      required_approvals: 0,
+      tools: ["semgrep"],
+    },
+  },
+  "passive-web-nuclei-audit": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive-safe nuclei validation with a pinned local template.",
+      required_approvals: 0,
+      tools: ["nuclei"],
+    },
+  },
+  "active-web-safe": {
+    run_class: "active",
+    limits_json: {
+      description: "Approval-gated ZAP crawl and passive validation with safer defaults.",
+      required_approvals: 1,
+      tools: ["zap"],
+    },
+  },
+  "active-web-zap-active": {
+    run_class: "active",
+    limits_json: {
+      description: "Approval-gated ZAP spider plus active scan against allowlisted web targets.",
+      required_approvals: 1,
+      tools: ["zap"],
+    },
+  },
+  "intrusive-validation": {
+    run_class: "intrusive",
+    limits_json: {
+      description: "Higher-risk internal validation flow with two-person approval.",
+      required_approvals: 2,
+      tools: ["zap", "nuclei"],
+    },
+  },
+};
+
 export function splitLines(value) {
   return String(value || "")
     .split("\n")
@@ -82,11 +149,23 @@ export function isLikelyUrl(value) {
 }
 
 export function isLikelyIp(value) {
-  return /^(\d{1,3}\.){3}\d{1,3}$/.test(String(value || "").trim());
+  const normalized = String(value || "").trim();
+  const octets = normalized.split(".");
+  if (octets.length !== 4) return false;
+  return octets.every((octet) => {
+    if (!/^\d{1,3}$/.test(octet)) return false;
+    const number = Number(octet);
+    return number >= 0 && number <= 255;
+  });
 }
 
 export function isLikelyCidr(value) {
-  return /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(String(value || "").trim());
+  const normalized = String(value || "").trim();
+  const [host, prefix] = normalized.split("/");
+  if (!host || prefix === undefined) return false;
+  if (!isLikelyIp(host) || !/^\d{1,2}$/.test(prefix)) return false;
+  const mask = Number(prefix);
+  return mask >= 0 && mask <= 32;
 }
 
 export function isLikelyDomain(value) {
@@ -136,10 +215,38 @@ export function hasMeaningfulAccount(accounts) {
         account.api_key_ref ||
         account.bearer_token_ref ||
         account.session_ref ||
+        account.mfa_notes ||
         (account.secret_bindings && Object.keys(account.secret_bindings).length)
       )
     )
   );
+}
+
+export function hasSharedAccessGuidance(access) {
+  return Boolean(
+    stringValue(access?.manual_auth_steps) ||
+    stringValue(access?.cookie_notes)
+  );
+}
+
+export function hasMeaningfulAccessContext(access) {
+  return hasMeaningfulAccount(access?.accounts || []) || hasSharedAccessGuidance(access);
+}
+
+export function countMeaningfulAccessContexts(access) {
+  const accountCount = (access?.accounts || []).filter((account) => hasMeaningfulAccount([account])).length;
+  if (accountCount) return accountCount;
+  return hasSharedAccessGuidance(access) ? 1 : 0;
+}
+
+export function inferAuthStrategyFromAccess(access) {
+  const meaningfulAccounts = (access?.accounts || []).filter((account) => hasMeaningfulAccount([account]));
+  if (meaningfulAccounts.some((account) => account.api_key_ref || account.bearer_token_ref)) return "api-access";
+  if (meaningfulAccounts.some((account) => account.session_ref)) return "session-access";
+  if (meaningfulAccounts.length) return "credentialed";
+  if (stringValue(access?.manual_auth_steps)) return "credentialed";
+  if (stringValue(access?.cookie_notes)) return "session-access";
+  return "";
 }
 
 export function renderAccountSummary(accounts) {
@@ -148,9 +255,20 @@ export function renderAccountSummary(accounts) {
   return meaningful.map((account) => `${account.label || account.username || "Account"} (${account.role || "role not set"})`).join(", ");
 }
 
+export function renderAccessContextSummary(access) {
+  const accountSummary = renderAccountSummary(access?.accounts || []);
+  if (accountSummary !== "No account context recorded") return accountSummary;
+  const hasManualAuth = Boolean(stringValue(access?.manual_auth_steps));
+  const hasCookieNotes = Boolean(stringValue(access?.cookie_notes));
+  if (hasManualAuth && hasCookieNotes) return "Shared manual auth and session guidance recorded";
+  if (hasManualAuth) return "Shared manual auth guidance recorded";
+  if (hasCookieNotes) return "Shared session guidance recorded";
+  return accountSummary;
+}
+
 export function readinessSummary(data) {
   const targetCount = flattenTargetValues(data.targets).length;
-  const accountCount = (data.access.accounts || []).filter((account) => hasMeaningfulAccount([account])).length;
+  const accountCount = countMeaningfulAccessContexts(data.access || {});
   const moduleCount = enabledModules(data.modules).length;
   return `${targetCount} scoped target${targetCount === 1 ? "" : "s"} · ${accountCount} access context${accountCount === 1 ? "" : "s"} · ${moduleCount} enabled module${moduleCount === 1 ? "" : "s"}`;
 }
@@ -158,14 +276,72 @@ export function readinessSummary(data) {
 export function requiresCredentials(config) {
   const profile = config.test_profile || "";
   const assessmentType = config.assessment_type || "";
-  return ["Authenticated Only", "Authenticated App", "Internal Validation"].includes(profile) ||
-    ["Authenticated App"].includes(assessmentType) ||
-    Boolean(config.modules?.auth_flows);
+  const authStrategy = String(config.intake_preferences?.auth_strategy || "").trim();
+  if (authStrategy === "unauthenticated" && profile !== "Authenticated Only") {
+    return false;
+  }
+  if (["Authenticated Only"].includes(profile) || ["Authenticated App"].includes(assessmentType)) {
+    return true;
+  }
+  if (["credentialed", "api-access", "session-access", "advanced-details"].includes(authStrategy)) {
+    return true;
+  }
+  if (Boolean(config.modules?.auth_flows) && authStrategy && authStrategy !== "unauthenticated") {
+    return true;
+  }
+  return false;
 }
 
 export function countScopeTargets(scope) {
   if (!scope) return 0;
   return Object.values(scope.allowlist_json || {}).reduce((count, values) => count + (Array.isArray(values) ? values.length : 0), 0);
+}
+
+export function executionPlanForProfile(profileName, runProfiles = []) {
+  const profile =
+    runProfiles.find((item) => item && item.name === profileName) ||
+    RUN_PROFILE_PLAN_FALLBACKS[profileName] ||
+    null;
+  const limits = profile?.limits_json || {};
+  const tools = Array.isArray(limits.tools)
+    ? limits.tools.filter((tool) => typeof tool === "string" && tool.trim()).map((tool) => tool.trim())
+    : [];
+  const requiredApprovals = Number.isFinite(Number(limits.required_approvals))
+    ? Number(limits.required_approvals)
+    : 0;
+  return {
+    profileName: profileName || "unknown-profile",
+    runClass: String(profile?.run_class || "unknown"),
+    description: String(limits.description || "Execution lane details are not available."),
+    tools,
+    toolsLabel: tools.length ? tools.join(", ") : "No explicit tools recorded",
+    requiredApprovals,
+  };
+}
+
+export function humanizeCheckMode(value) {
+  const mapping = {
+    "passive-only": "Passive Only",
+    guarded: "Guarded Active",
+    active: "Active Validation",
+  };
+  return mapping[String(value || "").trim()] || String(value || "Not set");
+}
+
+export function humanizeDepthLabel(value) {
+  const mapping = {
+    light: "Light",
+    standard: "Standard",
+    deep: "Deep",
+  };
+  return mapping[String(value || "").trim()] || String(value || "Not set");
+}
+
+export function isSeedOnlyInventory(snapshot) {
+  if (!snapshot || !Array.isArray(snapshot.source_tools_json) || !snapshot.source_tools_json.length) {
+    return false;
+  }
+  return snapshot.source_tools_json.every((tool) => tool === "wizard-input");
 }
 
 export function summarizeTaskStatuses(tasks) {
@@ -191,11 +367,80 @@ export function heroChip(label, meta) {
   return `<div class="hero-chip">${escapeHtml(label)} · ${escapeHtml(meta)}</div>`;
 }
 
-export function textareaField(id, label, values, placeholder) {
+export function renderBadgeList(items, className = "") {
+  const filtered = (items || []).filter(Boolean);
+  if (!filtered.length) return "";
+  return `
+    <div class="pill-grid ${escapeHtml(className)}">
+      ${filtered.map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("")}
+    </div>
+  `;
+}
+
+export function renderDisclosure({
+  title,
+  summary = "",
+  body = "",
+  open = false,
+  className = "",
+  testId = "",
+} = {}) {
+  return `
+    <details class="disclosure-card ${escapeHtml(className)}" ${open ? "open" : ""} ${
+      testId ? `data-testid="${escapeHtml(testId)}"` : ""
+    }>
+      <summary class="disclosure-summary">
+        <span class="disclosure-copy">
+          <strong>${escapeHtml(title || "Details")}</strong>
+          ${summary ? `<small>${escapeHtml(summary)}</small>` : ""}
+        </span>
+        <span class="disclosure-caret" aria-hidden="true">Expand</span>
+      </summary>
+      <div class="disclosure-body">
+        ${body}
+      </div>
+    </details>
+  `;
+}
+
+export function helpBadge(text, label = "Why?") {
+  return `
+    <span
+      class="help-badge"
+      tabindex="0"
+      role="note"
+      aria-label="${escapeHtml(text)}"
+      data-tooltip="${escapeHtml(text)}"
+    >${escapeHtml(label)}</span>
+  `;
+}
+
+export function fieldLabel(label, helpText = "", helpLabel = "Why?") {
+  return `
+    <span class="field-label">
+      <span>${escapeHtml(label)}</span>
+      ${helpText ? helpBadge(helpText, helpLabel) : ""}
+    </span>
+  `;
+}
+
+export function fieldHelp(text = "") {
+  return text ? `<small class="field-help">${escapeHtml(text)}</small>` : "";
+}
+
+export function textareaField(
+  id,
+  label,
+  values,
+  placeholder,
+  helpText = "",
+  tooltipText = "",
+) {
   return `
     <label class="field">
-      <span>${escapeHtml(label)}</span>
+      ${fieldLabel(label, tooltipText || helpText)}
       <textarea id="${id}" rows="6" placeholder="${escapeHtml(placeholder)}">${escapeHtml((values || []).join("\n"))}</textarea>
+      ${fieldHelp(helpText)}
     </label>
   `;
 }
@@ -229,6 +474,15 @@ export function findingOriginLabel(origin) {
     adaptive_pack: "Adaptive Pack",
   };
   return mapping[String(origin || "").toLowerCase()] || String(origin || "Unknown Origin");
+}
+
+export function followUpStrategyLabel(strategy) {
+  const mapping = {
+    "service-enumeration": "Service Identification",
+    "web-baseline": "Web Profiling",
+    "approved-range-discovery": "Additional Range Discovery",
+  };
+  return mapping[String(strategy || "").toLowerCase()] || String(strategy || "Inventory Follow-Up");
 }
 
 export function renderStringList(items, emptyMessage) {

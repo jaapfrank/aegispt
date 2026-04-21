@@ -1,0 +1,28 @@
+{
+  "approval_status": "not_requested",
+  "constraints": {
+    "runtime_mutation": false
+  },
+  "created_at": "2026-04-19T22:20:41.327140Z",
+  "expected_output": {
+    "workspace_export": true
+  },
+  "generated_by": "codex",
+  "generation_reason": "Host validation for Codex suggestions panel.",
+  "id": "task-20260419222041-pack-refinement-4a87c4a7",
+  "inputs": {},
+  "requested_by": "codex-planner",
+  "scope": "Host-level visibility check.",
+  "source_context": {
+    "inventory_snapshot_id": null,
+    "pack_id": "cdff2436-07a2-4eac-8a12-cc47fa03fe39",
+    "pack_version": "v1",
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "status": "created",
+  "task_file": "codex/tasks/task-20260419222041-pack-refinement-4a87c4a7.json",
+  "task_type": "pack_refinement",
+  "updated_at": "2026-04-19T22:20:41.327140Z",
+  "validation_status": "not_run"
+}

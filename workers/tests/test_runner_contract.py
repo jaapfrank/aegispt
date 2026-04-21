@@ -4,6 +4,7 @@ from pathlib import Path
 
 from workers.runners.base.contracts import EvidenceArtifact
 from workers.runners.httpx.runner import build_httpx_command
+from workers.runners.nmap.runner import build_nmap_command
 from workers.runners.nuclei.runner import build_nuclei_command
 from workers.runners.semgrep.runner import build_semgrep_command, normalize_semgrep_rule_id
 from workers.runners.zap.runner import build_zap_api_url
@@ -61,6 +62,49 @@ def test_nuclei_command_is_structured(tmp_path: Path) -> None:
         "0",
         "-no-stdin",
         "-nc",
+    ]
+
+
+def test_nmap_command_is_structured(tmp_path: Path) -> None:
+    command = build_nmap_command(
+        binary="nmap",
+        output_file=tmp_path / "nmap-results.xml",
+        targets=["10.10.0.0/24", "10.10.1.15"],
+        discovery_only=True,
+    )
+
+    assert command == [
+        "nmap",
+        "-n",
+        "-oX",
+        str(tmp_path / "nmap-results.xml"),
+        "-sn",
+        "10.10.0.0/24",
+        "10.10.1.15",
+    ]
+
+
+def test_nmap_service_enumeration_command_is_structured(tmp_path: Path) -> None:
+    command = build_nmap_command(
+        binary="nmap",
+        output_file=tmp_path / "nmap-results.xml",
+        targets=["10.10.1.15"],
+        discovery_only=False,
+        service_detection=True,
+        skip_discovery=True,
+        top_ports=50,
+    )
+
+    assert command == [
+        "nmap",
+        "-n",
+        "-oX",
+        str(tmp_path / "nmap-results.xml"),
+        "-Pn",
+        "-sV",
+        "--top-ports",
+        "50",
+        "10.10.1.15",
     ]
 
 

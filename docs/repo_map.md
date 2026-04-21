@@ -23,18 +23,30 @@ This map makes the repository easier for Codex to navigate while keeping Prompt 
 - `AGENTS.md` - top-level Codex behavior constraints
 - `CURRENT_STATE.md` - current architecture and implementation summary
 - `NEXT_TASK.md` - single active task
-- `TASK_QUEUE.md` - ordered backlog
+- `TASK_QUEUE.md` - ordered backlog with one-to-one references to queued backlog task packages
 - `DONE_LOG.md` - append-only change log
 - `DECISIONS.md` - durable architectural decisions
 
 ## Codex working directories
 
-- `codex/tasks/` - repo-backed structured task definitions
+- `codex/tasks/` - repo-backed structured task definitions, including queued `backlog-*.json` task packages
 - `codex/results/` - prepared task results and safe command plans
 - `codex/packs/` - future exported or staged pack workspaces
 - `codex/templates/` - future template candidates
 - `codex/flows/` - future Playwright/browser flow candidates
 - `codex/rules/` - future Semgrep rule candidates
+
+## Operator console surfaces
+
+- `ui/index.html` - served operator shell and screen layout
+- `ui/assets/app.js` - phase routing, shared runtime state, and screen wiring
+- `ui/assets/modules/` - screen-specific frontend modules
+  - `wizard.js` - conversational intake and advanced deterministic controls
+  - `mission-control.js` - live execution truth and dispatch visibility
+  - `packs.js` - adaptive pack review plus Codex build-lane visibility
+  - `reports.js` - report center and export actions
+  - `findings.js` / `explorer-history.js` - analysis-phase dossier and comparison surfaces
+- `ui/tests/` - Playwright browser validation for the operator console and product feature matrix
 
 ## Supporting scripts
 

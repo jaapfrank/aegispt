@@ -1,0 +1,31 @@
+{
+  "approval_status": "not_requested",
+  "constraints": {
+    "runtime_mutation": false
+  },
+  "created_at": "2026-04-19T22:38:46.810031Z",
+  "expected_output": {
+    "validation_required": true,
+    "workspace_export": true
+  },
+  "generated_by": "codex",
+  "generation_reason": "Refine the host-api-report-pack-2 before report signoff.",
+  "id": "task-20260419223846-pack-refinement-931e60e6",
+  "inputs": {
+    "review_bundle": true
+  },
+  "requested_by": "codex-planner",
+  "scope": "Review the bound adaptive pack in the supervised build lane.",
+  "source_context": {
+    "inventory_snapshot_id": null,
+    "pack_id": "a4b3c214-2e56-43c9-bbd2-736f084a4b67",
+    "pack_version": "v1",
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "status": "prepared",
+  "task_file": "codex/tasks/task-20260419223846-pack-refinement-931e60e6.json",
+  "task_type": "pack_refinement",
+  "updated_at": "2026-04-19T22:38:46.818146Z",
+  "validation_status": "ready_for_existing_pipeline"
+}

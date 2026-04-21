@@ -1,0 +1,108 @@
+{
+  "id": "backlog-09-ai-finding-enrichment-foundation",
+  "task_file": "codex/tasks/backlog-09-ai-finding-enrichment-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "AI Finding Enrichment Foundation",
+  "goal": "Add the first specific AI leverage slice by storing additive finding enrichment that improves operator context without changing canonical evidence or risk fields.",
+  "scope": "Implement the first AI-leverage slice as an opt-in finding-enrichment pipeline with a provider abstraction, disabled-by-default configuration, additive storage for enriched copy, and findings-surface rendering that prefers enriched context only when it exists. Keep MCP, AI mission planning, AI report drafting, and generic chat out of scope for this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 9,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/operator_console_stabilization_plan.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_leverage",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/operator_console_stabilization_plan.md",
+      "docs/ai_question_strategy.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to opt-in finding enrichment only. Defer MCP, AI mission planning, AI report drafting, and threat-actor mapping.",
+    "runtime_mutation": false,
+    "default_disabled": true,
+    "notes": [
+      "Never overwrite canonical severity, status, methodology, or evidence references with AI output.",
+      "Use additive storage such as ai_enrichment_json and render enriched copy only when it exists."
+    ]
+  },
+  "success_criteria": [
+    "Finding enrichment is controlled by explicit configuration and remains disabled by default.",
+    "A provider abstraction supports at least a test or mock provider and one production-style adapter without requiring AI services in local tests.",
+    "Enriched business impact, technical context, and remediation narrative are stored separately from canonical finding fields.",
+    "Findings surfaces render enriched content when present and fall back cleanly when enrichment is disabled or fails.",
+    "Tests cover disabled, success, timeout or failure, and fallback behavior."
+  ],
+  "likely_touched_files": [
+    "api/app/config.py",
+    "api/app/models/control.py",
+    "workers/orchestration/findings.py",
+    "api/app/services/finding_views.py",
+    "ui/assets/modules/findings.js",
+    "workers/tests/test_findings_contract.py"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "api/app/services/packs.py",
+    "ui/assets/modules/wizard.js",
+    "docs/multi_agent_red_team_program.md"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests api/tests",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The product behaves exactly as before when AI enrichment is disabled.",
+      "Provider failures or timeouts never block finding creation or mutate canonical finding truth.",
+      "The slice does not imply MCP or AI-assisted report writing support yet."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "The task remains opt-in and additive rather than changing canonical finding truth."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the AI finding-enrichment slice and validation evidence.",
+      "Update CURRENT_STATE.md with the new additive AI behavior and the larger AI backlog still pending.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "MCP read or write tools",
+    "AI mission planning",
+    "AI report drafting",
+    "Threat-actor mapping",
+    "Generic chat over findings"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -29,6 +30,7 @@ from api.app.services.report_pdf import render_pdf_report
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.task_dispatch import dispatch_task_batch, supported_execution_tools
 from api.app.services.runs import (
+    align_run_configuration_with_engagement,
     cancel_run_tasks,
     granted_approvals,
     latest_scope_query,
@@ -94,6 +96,7 @@ def serialize_run(run: Run) -> RunRead:
         source_inventory_snapshot_id=run.source_inventory_snapshot_id,
         started_at=run.started_at,
         created_at=run.created_at,
+        updated_at=run.updated_at,
         profile=RunProfileRead.model_validate(profile),
         required_approvals=required,
         granted_approvals=granted,
@@ -124,7 +127,11 @@ def list_engagement_runs(
     engagement_id: UUID,
     session: Session = Depends(get_session),
 ) -> list[RunRead]:
-    runs = session.scalars(select(Run).where(Run.engagement_id == engagement_id)).all()
+    runs = session.scalars(
+        select(Run)
+        .where(Run.engagement_id == engagement_id)
+        .order_by(Run.created_at.desc(), Run.id.desc())
+    ).all()
     hydrated_runs = [load_run(session, run.id) for run in runs]
     return [serialize_run(run) for run in hydrated_runs if run is not None]
 
@@ -166,12 +173,17 @@ def create_run(
         if inventory_snapshot is None:
             raise HTTPException(status_code=404, detail="inventory snapshot not found for engagement")
 
+    aligned_configuration = align_run_configuration_with_engagement(
+        payload.configuration_json,
+        engagement=engagement,
+    )
     sanitized_configuration, created_secret_refs = materialize_run_configuration_secrets(
         session,
         engagement_id=engagement.id,
-        configuration=payload.configuration_json,
+        configuration=aligned_configuration,
         settings=settings,
     )
+    timestamp = datetime.now(tz=UTC)
 
     run = Run(
         engagement_id=engagement.id,
@@ -181,6 +193,8 @@ def create_run(
         requested_by=actor,
         status="requested",
         configuration_json=sanitized_configuration,
+        created_at=timestamp,
+        updated_at=timestamp,
     )
     session.add(run)
     session.flush()

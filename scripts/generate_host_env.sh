@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TEMPLATE_PATH="${REPO_ROOT}/infra/host/aegispt-host.env.example"
+TARGET_PATH="${1:-/srv/aegispt/env/aegispt-host.env}"
+
+if [[ ! -f "${TEMPLATE_PATH}" ]]; then
+  echo "Host env template is missing: ${TEMPLATE_PATH}" >&2
+  exit 1
+fi
+
+if [[ -f "${TARGET_PATH}" && "${AEGISPT_OVERWRITE_HOST_ENV:-0}" != "1" ]]; then
+  echo "Refusing to overwrite existing host env file: ${TARGET_PATH}" >&2
+  echo "Set AEGISPT_OVERWRITE_HOST_ENV=1 if you intentionally want to replace it." >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "${TARGET_PATH}")"
+cp "${TEMPLATE_PATH}" "${TARGET_PATH}"
+
+APP_ENV="${AEGISPT_APP_ENV:-development}"
+APP_PUBLIC_BASE_URL="${AEGISPT_PUBLIC_BASE_URL:-http://127.0.0.1:8000}"
+DATABASE_URL="${AEGISPT_DATABASE_URL:-sqlite+pysqlite:///./aegispt.db}"
+AEGISPT_BIND_HOST="${AEGISPT_BIND_HOST:-127.0.0.1}"
+AEGISPT_PORT="${AEGISPT_PORT:-8000}"
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/aegispt/ms-playwright}"
+
+sed -i "s|^APP_ENV=.*$|APP_ENV=${APP_ENV}|" "${TARGET_PATH}"
+sed -i "s|^APP_PUBLIC_BASE_URL=.*$|APP_PUBLIC_BASE_URL=${APP_PUBLIC_BASE_URL}|" "${TARGET_PATH}"
+sed -i "s|^DATABASE_URL=.*$|DATABASE_URL=${DATABASE_URL}|" "${TARGET_PATH}"
+sed -i "s|^AEGISPT_BIND_HOST=.*$|AEGISPT_BIND_HOST=${AEGISPT_BIND_HOST}|" "${TARGET_PATH}"
+sed -i "s|^AEGISPT_PORT=.*$|AEGISPT_PORT=${AEGISPT_PORT}|" "${TARGET_PATH}"
+sed -i "s|^PLAYWRIGHT_BROWSERS_PATH=.*$|PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}|" "${TARGET_PATH}"
+
+if [[ -n "${AEGISPT_LOCAL_SECRET_ENCRYPTION_KEY:-}" ]]; then
+  printf 'LOCAL_SECRET_ENCRYPTION_KEY=%s\n' "${AEGISPT_LOCAL_SECRET_ENCRYPTION_KEY}" >>"${TARGET_PATH}"
+fi
+
+chmod 600 "${TARGET_PATH}"
+
+echo "Host env generated at ${TARGET_PATH}"

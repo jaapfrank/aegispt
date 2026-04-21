@@ -11,8 +11,8 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required" >&2
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required" >&2
   exit 1
 fi
 
@@ -20,6 +20,7 @@ BASE_URL="${1%/}"
 PACK_ID="$2"
 OUTPUT_DIR="$3"
 ACTOR="${AEGISPT_ACTOR:-codex-operator}"
+VALIDATION_OUTPUT_PATH="${OUTPUT_DIR}/validation-result.json"
 
 mkdir -p "${OUTPUT_DIR}/artifacts"
 
@@ -29,29 +30,36 @@ curl -fsS \
   "${BASE_URL}/api/v1/packs/${PACK_ID}/codex-review-bundle" \
   -o "${BUNDLE_PATH}"
 
-jq '.context' "${BUNDLE_PATH}" > "${OUTPUT_DIR}/codex-context.json"
-jq '.pack' "${BUNDLE_PATH}" > "${OUTPUT_DIR}/pack.json"
-jq '.artifacts' "${BUNDLE_PATH}" > "${OUTPUT_DIR}/artifacts.json"
-jq '.validations' "${BUNDLE_PATH}" > "${OUTPUT_DIR}/validations.json"
-jq '.approvals' "${BUNDLE_PATH}" > "${OUTPUT_DIR}/approvals.json"
-jq '.deployments' "${BUNDLE_PATH}" > "${OUTPUT_DIR}/deployments.json"
+python3 - "${BUNDLE_PATH}" "${OUTPUT_DIR}" <<'PY'
+import json
+import sys
+from pathlib import Path
 
-while IFS= read -r artifact; do
-  logical_name="$(printf '%s\n' "${artifact}" | jq -r '.logical_name')"
-  target_path="${OUTPUT_DIR}/artifacts/${logical_name}"
-  mkdir -p "$(dirname "${target_path}")"
+bundle_path = Path(sys.argv[1])
+output_dir = Path(sys.argv[2])
+bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
 
-  has_text="$(printf '%s\n' "${artifact}" | jq -r '.content_text != null')"
-  has_json="$(printf '%s\n' "${artifact}" | jq -r '.content_json != null')"
+for name in ("context", "pack", "artifacts", "validations", "approvals", "deployments"):
+    payload = bundle.get(name, {} if name in {"context", "pack"} else [])
+    (output_dir / f"{'codex-context' if name == 'context' else name}.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
-  if [[ "${has_text}" == "true" ]]; then
-    printf '%s\n' "${artifact}" | jq -r '.content_text' > "${target_path}"
-  elif [[ "${has_json}" == "true" ]]; then
-    printf '%s\n' "${artifact}" | jq '.content_json' > "${target_path}"
-  else
-    : > "${target_path}"
-  fi
-done < <(jq -c '.artifacts[]' "${BUNDLE_PATH}")
+for artifact in bundle.get("artifacts", []):
+    logical_name = str(artifact.get("logical_name") or "unnamed-artifact")
+    target_path = output_dir / "artifacts" / logical_name
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    if artifact.get("content_text") is not None:
+        target_path.write_text(str(artifact.get("content_text")), encoding="utf-8")
+    elif artifact.get("content_json") is not None:
+        target_path.write_text(
+            json.dumps(artifact.get("content_json"), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    else:
+        target_path.touch()
+PY
 
 cat > "${OUTPUT_DIR}/operator-notes.md" <<EOF
 # Operator Notes
@@ -93,7 +101,7 @@ Suggested next steps:
 1. Refine only the exported artifacts and review notes.
 2. Keep methodology/provenance references intact.
 3. Trigger validation with:
-   \`bash scripts/validate_codex_pack.sh ${BASE_URL} ${PACK_ID}\`
+   \`bash scripts/validate_codex_pack.sh ${BASE_URL} ${PACK_ID} ${VALIDATION_OUTPUT_PATH}\`
 4. Use the existing approval and deployment APIs after successful validation.
 EOF
 

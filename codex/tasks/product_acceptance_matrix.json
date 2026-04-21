@@ -1,0 +1,299 @@
+{
+  "catalog_only": true,
+  "matrix_id": "product_acceptance_matrix_v1",
+  "purpose": "Complete operator acceptance coverage for AegisPT using only local, authorized, or training-lab targets.",
+  "decision_rules": {
+    "default_order": [
+      "ui_browser",
+      "api_regression",
+      "real_run"
+    ],
+    "safe_target_policy": "Only targets from target_lab_matrix.json may be used for automated real runs.",
+    "unauthorized_public_scanning": false
+  },
+  "coverage_axes": {
+    "wizard_steps": [
+      "Assessment Type",
+      "Scope Input",
+      "Credentials / Access",
+      "Test Profile",
+      "Test Modules",
+      "Safety / Limits",
+      "Review / Confirm"
+    ],
+    "assessment_types": [
+      "Website / Web App",
+      "Domain / Domains",
+      "External IP / WAN",
+      "Internal Range / LAN",
+      "API",
+      "SSL/TLS Only",
+      "Authenticated App",
+      "Mixed Assessment"
+    ],
+    "profiles": [
+      "Light",
+      "Standard",
+      "Deep",
+      "External Surface Only",
+      "Authenticated Only",
+      "SSL/TLS Only",
+      "Internal Validation",
+      "Adaptive Customer-Specific Mode"
+    ],
+    "module_clusters": [
+      "passive_baseline",
+      "authenticated_surface",
+      "tls_only",
+      "adaptive_customer_specific",
+      "internal_validation"
+    ],
+    "access_modes": [
+      "unauthenticated",
+      "credential_reference",
+      "api_key_reference",
+      "bearer_token_reference",
+      "session_reference",
+      "manual_auth_only"
+    ],
+    "safety_clusters": [
+      "passive_light",
+      "guarded_standard",
+      "deep_guarded",
+      "active_approved"
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "ui-wizard-assessment-matrix",
+      "lane": "ui_browser",
+      "priority": 10,
+      "enabled": true,
+      "covers": {
+        "wizard_steps": "all",
+        "assessment_types": "all"
+      },
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#wizard_assessment_matrix",
+      "expected_outputs": [
+        "wizard_summary",
+        "mission_control_context"
+      ]
+    },
+    {
+      "id": "ui-wizard-profile-matrix",
+      "lane": "ui_browser",
+      "priority": 15,
+      "enabled": true,
+      "covers": {
+        "profiles": "all"
+      },
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#wizard_profile_matrix",
+      "expected_outputs": [
+        "profile_presets",
+        "execution_lane_alignment",
+        "guardrail_sync"
+      ]
+    },
+    {
+      "id": "ui-flow-and-drilldowns",
+      "lane": "ui_browser",
+      "priority": 20,
+      "enabled": true,
+      "covers": {
+        "screens": [
+          "Mission Control",
+          "Surface / Attack Map",
+          "Findings Theater",
+          "Evidence Replay",
+          "Pack Forge",
+          "Report Center",
+          "Explorer",
+          "History & Comparison"
+        ]
+      },
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#operator_flow_navigation",
+      "expected_outputs": [
+        "navigation",
+        "empty_states",
+        "report_preview"
+      ]
+    },
+    {
+      "id": "ui-report-downloads",
+      "lane": "ui_browser",
+      "priority": 25,
+      "enabled": true,
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#report_download_matrix",
+      "expected_outputs": [
+        "markdown_download",
+        "html_download",
+        "pdf_download"
+      ]
+    },
+    {
+      "id": "ui-module-toggle-matrix",
+      "lane": "ui_browser",
+      "priority": 27,
+      "enabled": true,
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#module_toggle_matrix",
+      "expected_outputs": [
+        "module_controls",
+        "toggle_updates",
+        "coverage_sync"
+      ]
+    },
+    {
+      "id": "ui-access-mode-matrix",
+      "lane": "ui_browser",
+      "priority": 28,
+      "enabled": true,
+      "covers": {
+        "access_modes": "all"
+      },
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#access_mode_matrix",
+      "expected_outputs": [
+        "access_summary_sync",
+        "manual_auth_note_visibility"
+      ]
+    },
+    {
+      "id": "ui-safety-cluster-matrix",
+      "lane": "ui_browser",
+      "priority": 29,
+      "enabled": true,
+      "covers": {
+        "safety_clusters": "all"
+      },
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#safety_cluster_matrix",
+      "expected_outputs": [
+        "guardrail_controls",
+        "coverage_sync",
+        "execution_lane_alignment"
+      ]
+    },
+    {
+      "id": "ui-multi-role-access-matrix",
+      "lane": "ui_browser",
+      "priority": 30,
+      "enabled": true,
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#multi_role_access_matrix",
+      "expected_outputs": [
+        "multi_role_summary_sync",
+        "mission_scope_context",
+        "protected_secret_binding_count"
+      ]
+    },
+    {
+      "id": "ui-execution-outcome-matrix",
+      "lane": "ui_browser",
+      "priority": 31,
+      "enabled": true,
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#execution_outcome_matrix",
+      "expected_outputs": [
+        "mission_activity_truth",
+        "status_board_truth",
+        "run_activity_failed_counts"
+      ]
+    },
+    {
+      "id": "ui-adaptive-pack-visibility-matrix",
+      "lane": "ui_browser",
+      "priority": 32,
+      "enabled": true,
+      "source_matrix": "codex/tasks/ui_acceptance_matrix.json#adaptive_pack_visibility_matrix",
+      "expected_outputs": [
+        "mission_pack_binding_visibility",
+        "pack_forge_registry_visibility",
+        "report_adaptive_context",
+        "dossier_and_history_pack_visibility"
+      ]
+    },
+    {
+      "id": "api-secret-handling-and-pdf-export",
+      "lane": "api_regression",
+      "priority": 35,
+      "enabled": true,
+      "expected_outputs": [
+        "secret_binding_sanitization",
+        "pdf_export",
+        "report_catalog"
+      ],
+      "source_tests": [
+        "api/tests/test_runs.py",
+        "api/tests/test_reports.py"
+      ]
+    },
+    {
+      "id": "api-adaptive-pack-runtime-flow",
+      "lane": "api_regression",
+      "priority": 36,
+      "enabled": true,
+      "expected_outputs": [
+        "inventory_to_relevance",
+        "pack_validation_and_deploy",
+        "run_binding",
+        "report_exports"
+      ],
+      "source_tests": [
+        "api/tests/test_product_feature_matrix.py"
+      ]
+    },
+    {
+      "id": "api-acceptance-harness-and-nmap-discovery",
+      "lane": "api_regression",
+      "priority": 37,
+      "enabled": true,
+      "expected_outputs": [
+        "safe_target_enforcement",
+        "acceptance_metadata",
+        "inline_nmap_dispatch",
+        "inventory_snapshot_ordering",
+        "dispatch_failure_outcome"
+      ],
+      "source_tests": [
+        "api/tests/test_acceptance_harness.py",
+        "api/tests/test_nmap_dispatch.py",
+        "api/tests/test_task_dispatch.py"
+      ]
+    },
+    {
+      "id": "real-run-local-smoke",
+      "lane": "real_run",
+      "priority": 40,
+      "enabled": true,
+      "real_run_scenario_id": "local-app-smoke",
+      "expected_outputs": [
+        "inventory",
+        "task_evidence",
+        "reports",
+        "history_entry"
+      ]
+    },
+    {
+      "id": "real-run-juice-shop",
+      "lane": "real_run",
+      "priority": 50,
+      "enabled": true,
+      "real_run_scenario_id": "juice-shop-baseline",
+      "expected_outputs": [
+        "inventory",
+        "task_evidence",
+        "reports",
+        "findings_surface"
+      ]
+    },
+    {
+      "id": "real-run-lab-authenticated",
+      "lane": "real_run",
+      "priority": 60,
+      "enabled": true,
+      "real_run_scenario_id": "crapi-authenticated-safe",
+      "expected_outputs": [
+        "approval_path",
+        "task_evidence",
+        "reports",
+        "pack_state"
+      ]
+    }
+  ]
+}

@@ -54,14 +54,10 @@ Open `codex-context.json` and confirm:
 
 ```bash
 cd /opt/aegispt/repo
-bash scripts/validate_codex_pack.sh http://127.0.0.1:8000 <pack_id>
-```
-
-Optional output capture:
-
-```bash
 bash scripts/validate_codex_pack.sh http://127.0.0.1:8000 <pack_id> ./codex-workspaces/<pack-name>-<version>/validation-result.json
 ```
+
+That captured file is the supported handoff record for the validation result inside the exported workspace.
 
 ## 5. Review approval readiness
 

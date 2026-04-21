@@ -11,9 +11,15 @@ from api.app.db import get_session
 from api.app.models import Engagement, InventorySnapshot
 from api.app.schemas.inventory import InventoryRunCreate, InventorySnapshotRead, InventorySummaryRead
 from api.app.services.audit import write_audit_event
-from api.app.services.inventory import inventory_summary_from_normalized, normalize_inventory_observations
+from api.app.services.inventory import create_inventory_snapshot_record
 
 router = APIRouter(prefix="/api/v1", tags=["inventory"])
+
+
+def _inventory_sort_key(snapshot: InventorySnapshot) -> tuple[object, int, str]:
+    source_tools = snapshot.source_tools_json or []
+    is_seed_only = bool(source_tools) and all(tool == "wizard-input" for tool in source_tools)
+    return (snapshot.created_at, 0 if is_seed_only else 1, snapshot.id.hex)
 
 
 @router.get("/engagements/{engagement_id}/inventory", response_model=list[InventorySnapshotRead])
@@ -24,8 +30,8 @@ def list_inventory_runs(
     snapshots = session.scalars(
         select(InventorySnapshot)
         .where(InventorySnapshot.engagement_id == engagement_id)
-        .order_by(InventorySnapshot.created_at.desc(), InventorySnapshot.id.desc())
     ).all()
+    snapshots = sorted(snapshots, key=_inventory_sort_key, reverse=True)
     return [InventorySnapshotRead.model_validate(snapshot) for snapshot in snapshots]
 
 
@@ -39,23 +45,14 @@ def create_inventory_run(
     if engagement is None:
         raise HTTPException(status_code=404, detail="engagement not found")
 
-    normalized = normalize_inventory_observations(
+    snapshot = create_inventory_snapshot_record(
+        engagement_id=payload.engagement_id,
+        requested_by=actor,
+        source_tools=payload.source_tools,
         observations=[item.model_dump() for item in payload.observations],
         environment_notes=payload.environment_notes,
         assumptions=payload.assumptions,
-    )
-    summary = inventory_summary_from_normalized(normalized)
-    snapshot = InventorySnapshot(
-        engagement_id=payload.engagement_id,
-        requested_by=actor,
-        status="completed",
-        source_tools_json=list(dict.fromkeys(payload.source_tools)),
         raw_inputs_json={"observations": [item.model_dump() for item in payload.observations]},
-        normalized_inventory_json=normalized,
-        summary_json=summary,
-        environment_notes_json=list(payload.environment_notes),
-        assumptions_json=list(payload.assumptions),
-        confidence_score=float(normalized.get("confidence_score") or 0.0),
     )
     session.add(snapshot)
     session.flush()

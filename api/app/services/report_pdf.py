@@ -21,8 +21,16 @@ def _inject_pdf_base_and_styles(html: str, *, base_url: str) -> str:
       body {
         margin: 0;
         background: #ffffff !important;
+        font-size: 13px;
+        line-height: 1.58;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+      }
+      h1 {
+        font-size: 22px;
+      }
+      h2 {
+        font-size: 15px;
       }
       .panel,
       .finding,
@@ -47,6 +55,26 @@ def _inject_pdf_base_and_styles(html: str, *, base_url: str) -> str:
       .pdf-cover p {
         color: #4b5563;
         margin: 0.2rem 0;
+      }
+      .report-context {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.75rem;
+      }
+      .context-chip {
+        padding: 0.28rem 0.48rem;
+        border-radius: 999px;
+        border: 1px solid #d1d5db;
+        background: #fcfcfd;
+        color: #374151;
+        font-size: 8.5px;
+      }
+      code,
+      pre {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: pre-wrap;
       }
     </style>
     """

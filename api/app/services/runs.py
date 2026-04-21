@@ -1,21 +1,57 @@
 from __future__ import annotations
 
+import copy
+from urllib.parse import urlparse
+
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, selectinload
 
-from api.app.models import Approval, CapabilityPack, Finding, Run, RunProfile, Scope, Task
+from api.app.models import Approval, CapabilityPack, Engagement, Finding, Run, RunProfile, Scope, Task
 from api.app.policy.engine import normalize_profile_limits
 from api.app.services.packs import artifact_refs_for_tool
 from workers.runners.httpx.runner import normalize_http_target
 
 TARGET_KEY_MAP = {
     "domains": "domain",
+    "subdomains": "domain",
     "urls": "url",
+    "api_base_urls": "url",
     "paths": "path",
     "cidrs": "cidr",
+    "cidr_ranges": "cidr",
     "hosts": "host",
+    "ip_addresses": "host",
     "targets": "target",
 }
+
+
+def align_run_configuration_with_engagement(
+    configuration: dict[str, object] | None,
+    *,
+    engagement: Engagement,
+) -> dict[str, object]:
+    payload = copy.deepcopy(configuration or {})
+    intake = payload.get("intake")
+    if not isinstance(intake, dict):
+        return payload
+
+    engagement_context = intake.get("engagement_context")
+    if not isinstance(engagement_context, dict):
+        return payload
+
+    normalized_context = dict(engagement_context)
+    normalized_context["engagement_id"] = str(engagement.id)
+    normalized_context["engagement_name"] = (
+        str(normalized_context.get("engagement_name") or "").strip() or engagement.name
+    )
+
+    if not str(normalized_context.get("client") or "").strip() and engagement.client:
+        normalized_context["client"] = engagement.client
+    if not str(normalized_context.get("roe_ref") or "").strip() and engagement.roe_ref:
+        normalized_context["roe_ref"] = engagement.roe_ref
+
+    intake["engagement_context"] = normalized_context
+    return payload
 
 
 def required_approvals(profile: RunProfile) -> int:
@@ -47,11 +83,15 @@ def latest_scope_query(engagement_id) -> Select[tuple[Scope]]:
 
 
 def derive_targets(scope: Scope) -> list[dict[str, str]]:
+    return derive_targets_from_target_map(scope.allowlist_json)
+
+
+def derive_targets_from_target_map(target_map: dict[str, object] | None) -> list[dict[str, str]]:
     targets: list[dict[str, str]] = []
     seen: set[str] = set()
 
     for key, kind in TARGET_KEY_MAP.items():
-        values = scope.allowlist_json.get(key, [])
+        values = (target_map or {}).get(key, [])
         if not isinstance(values, list):
             continue
 
@@ -65,6 +105,16 @@ def derive_targets(scope: Scope) -> list[dict[str, str]]:
             targets.append({"kind": kind, "value": normalized})
 
     return targets
+
+
+def derive_targets_for_run(scope: Scope, run: Run) -> list[dict[str, str]]:
+    configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
+    configured_targets = configuration.get("targets", {})
+    if isinstance(configured_targets, dict):
+        derived = derive_targets_from_target_map(configured_targets)
+        if derived:
+            return derived
+    return derive_targets(scope)
 
 
 def planned_tools(profile: RunProfile) -> list[str]:
@@ -88,6 +138,23 @@ def _target_preference(kind: str) -> int:
 
 
 def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[dict[str, str]]:
+    if tool == "nmap":
+        return [
+            target
+            for target in targets
+            if target["kind"] in {"host", "cidr", "domain", "target"}
+        ]
+
+    if tool == "nuclei":
+        url_targets = [target for target in targets if target["kind"] == "url"]
+        if url_targets:
+            return list(url_targets)
+        return [
+            target
+            for target in targets
+            if target["kind"] in {"host", "domain", "target"}
+        ]
+
     if tool != "zap":
         return list(targets)
 
@@ -118,7 +185,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
         return list(existing_tasks)
 
     tasks: list[Task] = []
-    targets = derive_targets(scope)
+    targets = derive_targets_for_run(scope, run)
     tools = planned_tools(profile)
     normalized_limits = normalize_profile_limits(profile.run_class, profile.limits_json)
     pack: CapabilityPack | None = None

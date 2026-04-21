@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC, datetime
+import json
 from typing import Any
 from urllib.parse import urlparse
+from xml.etree import ElementTree as ET
 
 from api.app.models import InventorySnapshot
 
@@ -33,6 +36,181 @@ def _host_from_value(value: str) -> str:
     if parsed.scheme and parsed.netloc:
         return parsed.netloc.strip()
     return value.strip()
+
+
+def nmap_observation_from_xml(
+    *,
+    xml_bytes: bytes,
+    target_id: str | None = None,
+) -> dict[str, Any]:
+    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))
+
+    hosts: list[str] = []
+    services: list[dict[str, Any]] = []
+    fingerprints: list[dict[str, Any]] = []
+    seen_hosts: set[str] = set()
+    seen_services: set[tuple[str, int, str]] = set()
+
+    def add_host(value: str) -> None:
+        normalized = value.strip()
+        if not normalized or normalized in seen_hosts:
+            return
+        seen_hosts.add(normalized)
+        hosts.append(normalized)
+
+    for host in root.findall("host"):
+        state = host.find("status")
+        if state is not None and state.get("state") not in {None, "", "up"}:
+            continue
+
+        preferred_address = None
+        fallback_address = None
+        for address in host.findall("address"):
+            raw_address = str(address.get("addr") or "").strip()
+            if not raw_address:
+                continue
+            fallback_address = fallback_address or raw_address
+            if address.get("addrtype") in {"ipv4", "ipv6"}:
+                preferred_address = raw_address
+                break
+        primary_host = preferred_address or fallback_address
+        if primary_host:
+            add_host(primary_host)
+
+        for hostname in host.findall("./hostnames/hostname"):
+            name = str(hostname.get("name") or "").strip()
+            if name:
+                add_host(name)
+
+        for port in host.findall("./ports/port"):
+            state_node = port.find("state")
+            if state_node is not None and state_node.get("state") != "open":
+                continue
+            try:
+                port_number = int(port.get("portid") or 0)
+            except ValueError:
+                continue
+            if port_number <= 0:
+                continue
+            service_node = port.find("service")
+            service_name = str(
+                (service_node.get("name") if service_node is not None else None)
+                or (service_node.get("product") if service_node is not None else None)
+                or "unknown-service"
+            ).strip()
+            key = ((primary_host or target_id or "unknown-host").lower(), port_number, service_name.lower())
+            if key in seen_services:
+                continue
+            seen_services.add(key)
+            product = str(service_node.get("product") or "").strip() if service_node is not None else ""
+            version = str(service_node.get("version") or "").strip() if service_node is not None else ""
+            services.append(
+                {
+                    "host": primary_host or target_id or "unknown-host",
+                    "port": port_number,
+                    "protocol": str(port.get("protocol") or "tcp"),
+                    "service": service_name,
+                    "product": product or None,
+                    "version": version or None,
+                    "confidence": 0.9,
+                }
+            )
+            if product:
+                fingerprints.append(
+                    {
+                        "vendor": None,
+                        "product": product,
+                        "version": version or None,
+                        "confidence": 0.82,
+                    }
+                )
+
+    return {
+        "tool": "nmap",
+        "kind": "inventory",
+        "data": {
+            "hosts": hosts,
+            "services": services,
+            "fingerprints": fingerprints,
+            "confidence": 0.88,
+        },
+    }
+
+
+def httpx_observation_from_jsonl(
+    *,
+    jsonl_bytes: bytes,
+    target_id: str | None = None,
+) -> dict[str, Any]:
+    hosts: list[str] = []
+    endpoints: list[dict[str, Any]] = []
+    technologies: list[dict[str, Any]] = []
+    fingerprints: list[dict[str, Any]] = []
+    seen_hosts: set[str] = set()
+    seen_endpoints: set[str] = set()
+
+    for raw_line in jsonl_bytes.decode("utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        payload = json.loads(line)
+        if not isinstance(payload, dict) or not payload.get("ok"):
+            continue
+
+        final_url = str(payload.get("final_url") or payload.get("request_url") or "").strip()
+        if not final_url:
+            continue
+
+        parsed = urlparse(final_url)
+        host = str(parsed.hostname or payload.get("input_target") or target_id or "").strip()
+        if host and host not in seen_hosts:
+            seen_hosts.add(host)
+            hosts.append(host)
+
+        if final_url in seen_endpoints:
+            continue
+        seen_endpoints.add(final_url)
+
+        content_type = str(payload.get("content_type") or "").strip() or None
+        endpoints.append(
+            {
+                "url": final_url,
+                "methods": ["GET"],
+                "status_code": payload.get("status_code"),
+                "title": None,
+                "confidence": 0.84,
+            }
+        )
+        if content_type:
+            technologies.append(
+                {
+                    "name": content_type,
+                    "vendor": "http-content-type",
+                    "version": None,
+                    "confidence": 0.55,
+                }
+            )
+            fingerprints.append(
+                {
+                    "vendor": "http-content-type",
+                    "product": content_type,
+                    "version": None,
+                    "confidence": 0.55,
+                }
+            )
+
+    return {
+        "tool": "httpx",
+        "kind": "inventory",
+        "data": {
+            "hosts": hosts,
+            "endpoints": endpoints,
+            "technologies": technologies,
+            "fingerprints": fingerprints,
+            "confidence": 0.8,
+        },
+    }
 
 
 def normalize_inventory_observations(
@@ -457,3 +635,123 @@ def inventory_summary_from_normalized(normalized_inventory: dict[str, Any]) -> d
 def inventory_summary_for_snapshot(snapshot: InventorySnapshot) -> dict[str, Any]:
     return inventory_summary_from_normalized(snapshot.normalized_inventory_json)
 
+
+def observation_from_normalized_inventory(
+    normalized_inventory: dict[str, Any],
+    *,
+    source: str = "inventory-aggregate",
+) -> dict[str, Any]:
+    tls_posture = normalized_inventory.get("tls_posture", {})
+    return {
+        "tool": source,
+        "kind": "inventory",
+        "data": {
+            "hosts": [
+                str(entry.get("host") or "").strip()
+                for entry in normalized_inventory.get("hosts", [])
+                if isinstance(entry, dict) and str(entry.get("host") or "").strip()
+            ],
+            "services": [
+                entry for entry in normalized_inventory.get("services", []) if isinstance(entry, dict)
+            ],
+            "endpoints": [
+                entry for entry in normalized_inventory.get("http_endpoints", []) if isinstance(entry, dict)
+            ],
+            "technologies": [
+                entry for entry in normalized_inventory.get("technologies", []) if isinstance(entry, dict)
+            ],
+            "auth_mechanisms": [
+                entry for entry in normalized_inventory.get("auth_mechanisms", []) if isinstance(entry, dict)
+            ],
+            "api_types": [
+                entry for entry in normalized_inventory.get("api_types", []) if isinstance(entry, dict)
+            ],
+            "tls_summary": tls_posture if isinstance(tls_posture, dict) else {},
+            "fingerprints": [
+                entry
+                for entry in normalized_inventory.get("vendor_product_fingerprints", [])
+                if isinstance(entry, dict)
+            ],
+            "confidence": float(normalized_inventory.get("confidence_score") or 0.0),
+        },
+    }
+
+
+def aggregate_inventory_snapshots(snapshots: Iterable[InventorySnapshot]) -> dict[str, Any] | None:
+    snapshot_list = [snapshot for snapshot in snapshots if snapshot is not None]
+    if not snapshot_list:
+        return None
+
+    observations = [
+        observation_from_normalized_inventory(
+            snapshot.normalized_inventory_json or {},
+            source=(snapshot.source_tools_json[0] if snapshot.source_tools_json else "inventory-aggregate"),
+        )
+        for snapshot in snapshot_list
+    ]
+    environment_notes = [
+        note
+        for snapshot in snapshot_list
+        for note in (snapshot.environment_notes_json or [])
+        if isinstance(note, str) and note.strip()
+    ]
+    assumptions = [
+        note
+        for snapshot in snapshot_list
+        for note in (snapshot.assumptions_json or [])
+        if isinstance(note, str) and note.strip()
+    ]
+    normalized = normalize_inventory_observations(
+        observations=observations,
+        environment_notes=environment_notes,
+        assumptions=assumptions,
+    )
+    return {
+        "normalized_inventory_json": normalized,
+        "summary_json": inventory_summary_from_normalized(normalized),
+        "source_tools_json": list(
+            dict.fromkeys(
+                tool
+                for snapshot in snapshot_list
+                for tool in (snapshot.source_tools_json or [])
+                if isinstance(tool, str) and tool.strip()
+            )
+        ),
+        "environment_notes_json": environment_notes,
+        "assumptions_json": assumptions,
+        "confidence_score": float(normalized.get("confidence_score") or 0.0),
+    }
+
+
+def create_inventory_snapshot_record(
+    *,
+    engagement_id,
+    requested_by: str,
+    source_tools: Iterable[str],
+    observations: Iterable[dict[str, Any]],
+    environment_notes: Iterable[str] = (),
+    assumptions: Iterable[str] = (),
+    raw_inputs_json: dict[str, Any] | None = None,
+) -> InventorySnapshot:
+    observation_list = list(observations)
+    normalized = normalize_inventory_observations(
+        observations=observation_list,
+        environment_notes=environment_notes,
+        assumptions=assumptions,
+    )
+    summary = inventory_summary_from_normalized(normalized)
+    timestamp = datetime.now(tz=UTC)
+    return InventorySnapshot(
+        engagement_id=engagement_id,
+        requested_by=requested_by,
+        status="completed",
+        source_tools_json=list(dict.fromkeys([tool for tool in source_tools if isinstance(tool, str) and tool.strip()])),
+        raw_inputs_json=raw_inputs_json or {"observations": observation_list},
+        normalized_inventory_json=normalized,
+        summary_json=summary,
+        environment_notes_json=list(environment_notes),
+        assumptions_json=list(assumptions),
+        confidence_score=float(normalized.get("confidence_score") or 0.0),
+        created_at=timestamp,
+        updated_at=timestamp,
+    )

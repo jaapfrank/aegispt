@@ -8,6 +8,7 @@ This repository keeps production hardening grounded in repeatable validation. Br
 
 - API and service regression: `python -m pytest api/tests -q`
 - Browser validation: `python -m pytest ui/tests -q`
+- Acceptance harness regression: `python -m pytest api/tests/test_acceptance_harness.py -q`
 - Targeted report export validation:
   - included in `api/tests/test_reports.py`
   - covers markdown, HTML, and PDF report output
@@ -36,6 +37,15 @@ This repository keeps production hardening grounded in repeatable validation. Br
 
 - Wizard completion path
 - Mission Control loading
+- Mission Control task-focus truth before and after dispatch
+- Discovery-to-follow-up continuity for LAN/internal runs
+- Surface Map search/filter behavior for discovery-confirmed inventories
+- Zero-finding run-level Evidence Replay context
 - Findings / Evidence / Pack / Report / Explorer / History navigation
+- Explorer dossier-summary behavior and actionable next-review guidance
+- History search plus finding/inventory delta clarity
+- Follow-up lineage visibility in Explorer, History, and Report Center
+- Discovery-only and follow-up report integrity without synthetic findings
 - Empty and loading states for major screens
 - Report preview and export actions
+- Safe-target acceptance scenario selection and result recording

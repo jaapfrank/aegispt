@@ -16,7 +16,7 @@ from api.app.schemas.packs import (
     CapabilityPackRead,
     CapabilityPackValidationRead,
 )
-from api.app.services.packs import latest_validation_for_pack
+from api.app.services.packs import latest_validation_for_pack, validation_checks_for_artifact_type
 
 
 def _branch_slug(pack: CapabilityPack) -> str:
@@ -29,9 +29,54 @@ def _workspace_root(pack: CapabilityPack) -> str:
     return f"codex-workspaces/{safe_name}-{pack.version}"
 
 
+def _artifact_specific_validation_hooks(
+    pack: CapabilityPack,
+    *,
+    sorted_artifacts: list,
+) -> list[CodexValidationHookRead]:
+    hooks: list[CodexValidationHookRead] = []
+    workspace_root = f"./{_workspace_root(pack)}"
+
+    artifact_specs = [
+        (
+            "playwright_flow",
+            "artifact.playwright_flow.validate",
+            "Validate exported Playwright flows through the existing pack validation lane.",
+        ),
+        (
+            "zap_job",
+            "artifact.zap_job.validate",
+            "Validate exported ZAP jobs through the existing pack validation lane.",
+        ),
+    ]
+
+    for artifact_type, hook_name, description in artifact_specs:
+        matching_artifacts = [artifact for artifact in sorted_artifacts if artifact.artifact_type == artifact_type]
+        if not matching_artifacts:
+            continue
+        hooks.append(
+            CodexValidationHookRead(
+                name=hook_name,
+                method="POST",
+                path=f"/api/v1/packs/{pack.id}/validate",
+                description=description,
+                artifact_types=[artifact_type],
+                expected_checks=validation_checks_for_artifact_type(artifact_type),
+                workspace_files=[
+                    f"{workspace_root}/artifacts/{artifact.logical_name}"
+                    for artifact in matching_artifacts
+                ]
+                + [f"{workspace_root}/validation-result.json"],
+            )
+        )
+
+    return hooks
+
+
 def build_codex_context(pack: CapabilityPack) -> CodexBuildContextRead:
     latest_validation = latest_validation_for_pack(pack)
     sorted_artifacts = sorted(pack.artifacts, key=lambda item: (item.artifact_type, item.logical_name))
+    artifact_specific_hooks = _artifact_specific_validation_hooks(pack, sorted_artifacts=sorted_artifacts)
 
     return CodexBuildContextRead(
         pack_id=pack.id,
@@ -99,7 +144,8 @@ def build_codex_context(pack: CapabilityPack) -> CodexBuildContextRead:
                 path=f"/api/v1/packs/{pack.id}/artifacts",
                 description="Retrieve the current artifact set for review or workspace export.",
             ),
-        ],
+        ]
+        + artifact_specific_hooks,
         operator_visibility=CodexOperatorVisibilityRead(
             required_badges=[
                 "Pack status",
@@ -140,6 +186,7 @@ def build_codex_context(pack: CapabilityPack) -> CodexBuildContextRead:
                 checksum_sha256=artifact.checksum_sha256,
                 methodology_tags=list(artifact.methodology_tags),
                 provenance_json=dict(artifact.provenance_json),
+                validation_checks=validation_checks_for_artifact_type(artifact.artifact_type),
                 has_content_text=artifact.content_text is not None,
                 has_content_json=artifact.content_json is not None,
             )

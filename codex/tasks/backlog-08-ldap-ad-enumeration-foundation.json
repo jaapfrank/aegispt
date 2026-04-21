@@ -1,0 +1,106 @@
+{
+  "id": "backlog-08-ldap-ad-enumeration-foundation",
+  "task_file": "codex/tasks/backlog-08-ldap-ad-enumeration-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Read-Only LDAP and AD Enumeration Foundation",
+  "goal": "Expand internal identity-aware coverage with a read-only LDAP and Active Directory enumeration runner that fits the existing evidence-first runner model.",
+  "scope": "Implement the first coverage-expansion slice as a read-only LDAP and AD enumeration runner that discovers directory users, groups, privileged memberships, password-policy signals, and roastability indicators, then normalizes the result into existing inventory and findings structures. Keep cloud discovery and LLM-application probing out of scope for this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 8,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/identity_model.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "identity_coverage_expansion",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/identity_model.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to read-only LDAP and AD enumeration. Defer BloodHound, CrackMapExec, cloud configuration discovery, and LLM application probes.",
+    "runtime_mutation": false,
+    "read_only_directory_access_only": true,
+    "notes": [
+      "Normalize new identity findings into the existing finding model instead of creating a second identity-finding schema.",
+      "Keep the runner limited to approved internal or directory scopes and do not wire it into public web profiles."
+    ]
+  },
+  "success_criteria": [
+    "A read-only LDAP or AD runner can collect users, groups, privileged memberships, SPN and AS-REP signals, and password-policy data.",
+    "The output is stored as evidence, normalized into inventory where appropriate, and surfaced as existing finding records where appropriate.",
+    "The slice remains safe and read-only, with no lateral-movement or exploitation behavior.",
+    "Runner and normalization tests cover zero-data, auth-failure, and partial-directory cases.",
+    "Documentation captures the read-only scope and explicitly defers cloud and LLM-application coverage."
+  ],
+  "likely_touched_files": [
+    "workers/runners",
+    "workers/orchestration/findings.py",
+    "api/app/services/inventory.py",
+    "api/app/services/runs.py",
+    "docs/identity_model.md",
+    "workers/tests"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "docs/continuous_mode.md",
+    "api/app/services/packs.py",
+    "ui/assets/modules/wizard.js"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests api/tests",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The runner never performs destructive, write, or privilege-escalation actions.",
+      "Identity-related inventory and findings remain visible through existing evidence and reporting flows.",
+      "The slice does not imply cloud discovery, IAM graphing, or LLM application testing support yet."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "No exploitation-oriented AD tooling is introduced in this slice."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the LDAP and AD enumeration slice and validation evidence.",
+      "Update CURRENT_STATE.md with the read-only identity coverage that now exists and the larger coverage gaps still pending.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "BloodHound integration",
+    "CrackMapExec integration",
+    "Cloud configuration discovery",
+    "LLM or prompt-injection probing"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}

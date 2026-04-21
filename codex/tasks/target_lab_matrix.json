@@ -1,0 +1,305 @@
+{
+  "catalog_only": true,
+  "matrix_id": "safe_target_catalog_v1",
+  "purpose": "Safe target inventory for AegisPT product validation. Only local, explicitly authorized, or deliberately vulnerable training targets are allowed.",
+  "targets": [
+    {
+      "id": "local-aegispt-smoke",
+      "label": "Local Acceptance Probe Target",
+      "classification": "local_dev",
+      "enabled": true,
+      "authorized": true,
+      "surface_kind": "web_app",
+      "owner": "Local Development",
+      "authorization_ref": "LOCAL-DEV",
+      "assessment_type": "Website / Web App",
+      "scope": {
+        "urls": []
+      },
+      "runtime_fixture": "local_http_probe",
+      "runtime_fixture_path": "/health/live",
+      "recommended_profile": "Light",
+      "recommended_run_profile": "passive-web-baseline",
+      "recommended_modules": [
+        "discovery",
+        "web_crawling",
+        "ssl_tls_analysis"
+      ],
+      "recommended_safety": {
+        "active_checks": "passive-only",
+        "adaptive_generation": false,
+        "max_validation_depth": "light"
+      },
+      "notes": "The acceptance harness spawns a temporary loopback HTTP probe for this scenario so local smoke validation does not target the control plane itself."
+    },
+    {
+      "id": "owasp-juice-shop-local",
+      "label": "OWASP Juice Shop",
+      "classification": "training_lab",
+      "enabled": true,
+      "authorized": true,
+      "surface_kind": "web_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-JUICE-SHOP",
+      "assessment_type": "Website / Web App",
+      "scope": {
+        "urls": [
+          "http://127.0.0.1:3000/#/"
+        ]
+      },
+      "recommended_profile": "Standard",
+      "recommended_run_profile": "passive-web-nuclei-audit",
+      "recommended_modules": [
+        "discovery",
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "ssl_tls_analysis"
+      ],
+      "notes": "Deliberately vulnerable SPA suitable for safe web validation and report generation."
+    },
+    {
+      "id": "owasp-webgoat-local",
+      "label": "OWASP WebGoat",
+      "classification": "training_lab",
+      "enabled": true,
+      "authorized": true,
+      "surface_kind": "web_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-WEBGOAT",
+      "assessment_type": "Authenticated App",
+      "scope": {
+        "urls": [
+          "http://127.0.0.1:8080/WebGoat"
+        ]
+      },
+      "runtime_fixture": "docker_webgoat",
+      "runtime_fixture_image": "webgoat/webgoat",
+      "runtime_fixture_container_port": 8080,
+      "runtime_fixture_aux_port": 9090,
+      "runtime_fixture_startup_timeout_seconds": 180,
+      "recommended_profile": "Authenticated Only",
+      "recommended_run_profile": "active-web-safe",
+      "recommended_modules": [
+        "web_crawling",
+        "auth_flows",
+        "content_discovery",
+        "business_logic_testing"
+      ],
+      "notes": "Training target for authenticated workflows and approval-gated active-safe validation. The acceptance harness rewrites this to an isolated loopback WebGoat fixture so the lab does not collide with the local ZAP daemon port."
+    },
+    {
+      "id": "owasp-crapi-local",
+      "label": "OWASP crAPI",
+      "classification": "training_lab",
+      "enabled": true,
+      "authorized": true,
+      "surface_kind": "api",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-CRAPI",
+      "assessment_type": "API",
+      "scope": {
+        "urls": [
+          "http://127.0.0.1:8888"
+        ],
+        "api_base_urls": [
+          "http://127.0.0.1:8888/identity/api"
+        ]
+      },
+      "recommended_profile": "Adaptive Customer-Specific Mode",
+      "recommended_run_profile": "active-web-safe",
+      "recommended_modules": [
+        "discovery",
+        "auth_flows",
+        "nuclei_checks",
+        "business_logic_testing",
+        "adaptive_ai_generated_tests"
+      ],
+      "notes": "API-heavy vulnerable lab that can exercise approval-gated active-safe and adaptive UI flows."
+    },
+    {
+      "id": "metasploitable3-template",
+      "label": "Metasploitable 3 Template",
+      "classification": "training_lab",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "internal_range",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-METASPLOITABLE3",
+      "assessment_type": "Internal Range / LAN",
+      "scope": {
+        "hosts": [
+          "192.168.56.10"
+        ]
+      },
+      "recommended_profile": "Standard",
+      "recommended_run_profile": "passive-network-discovery",
+      "recommended_modules": [
+        "discovery"
+      ],
+      "notes": "Enable only after the local Metasploitable 3 lab exists and the addressing is updated."
+    },
+    {
+      "id": "authorized-customer-template",
+      "label": "Authorized Customer Target Template",
+      "classification": "authorized_customer",
+      "enabled": false,
+      "authorized": false,
+      "surface_kind": "mixed",
+      "owner": "Fill In Customer",
+      "authorization_ref": "FILL-IN-ROE",
+      "assessment_type": "Mixed Assessment",
+      "scope": {
+        "domains": [],
+        "urls": [],
+        "hosts": [],
+        "cidrs": [],
+        "api_base_urls": []
+      },
+      "recommended_profile": "Adaptive Customer-Specific Mode",
+      "recommended_run_profile": "active-web-safe",
+      "recommended_modules": [
+        "discovery",
+        "web_crawling",
+        "auth_flows",
+        "content_discovery",
+        "nuclei_checks",
+        "ssl_tls_analysis",
+        "business_logic_testing",
+        "adaptive_ai_generated_tests"
+      ],
+      "notes": "Copy this entry, fill in only customer-owned authorized scope, set enabled=true, and record authorization before use."
+    }
+  ],
+  "real_run_scenarios": [
+    {
+      "id": "local-app-smoke",
+      "name": "Local Host Smoke Run",
+      "enabled": true,
+      "priority": 10,
+      "target_id": "local-aegispt-smoke",
+      "assessment_type": "Website / Web App",
+      "profile": "Light",
+      "run_profile": "passive-web-baseline",
+      "modules": [
+        "discovery",
+        "web_crawling",
+        "ssl_tls_analysis"
+      ],
+      "safety": {
+        "active_checks": "passive-only",
+        "adaptive_generation": false,
+        "max_validation_depth": "light",
+        "time_budget_minutes": 30
+      },
+      "expected_outputs": [
+        "inventory",
+        "task_evidence",
+        "reports",
+        "history_entry"
+      ],
+      "minimum_reports": 4,
+      "minimum_findings": 0,
+      "dispatch": true
+    },
+    {
+      "id": "juice-shop-baseline",
+      "name": "Juice Shop Baseline",
+      "enabled": true,
+      "priority": 20,
+      "target_id": "owasp-juice-shop-local",
+      "assessment_type": "Website / Web App",
+      "profile": "Standard",
+      "run_profile": "passive-web-nuclei-audit",
+      "modules": [
+        "discovery",
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "ssl_tls_analysis"
+      ],
+      "safety": {
+        "active_checks": "passive-only",
+        "adaptive_generation": false,
+        "max_validation_depth": "standard",
+        "time_budget_minutes": 45
+      },
+      "expected_outputs": [
+        "inventory",
+        "task_evidence",
+        "reports",
+        "findings_surface"
+      ],
+      "minimum_reports": 4,
+      "minimum_findings": 0,
+      "dispatch": true
+    },
+    {
+      "id": "webgoat-auth-safe",
+      "name": "WebGoat Authenticated Safe Validation",
+      "enabled": true,
+      "priority": 30,
+      "target_id": "owasp-webgoat-local",
+      "assessment_type": "Authenticated App",
+      "profile": "Authenticated Only",
+      "run_profile": "active-web-safe",
+      "modules": [
+        "web_crawling",
+        "auth_flows",
+        "content_discovery",
+        "business_logic_testing"
+      ],
+      "safety": {
+        "active_checks": "guarded",
+        "adaptive_generation": false,
+        "max_validation_depth": "standard",
+        "time_budget_minutes": 60
+      },
+      "approval_actors": [
+        "codex-acceptance-approver-1"
+      ],
+      "expected_outputs": [
+        "task_evidence",
+        "reports",
+        "history_entry"
+      ],
+      "minimum_reports": 4,
+      "minimum_findings": 0,
+      "dispatch": true
+    },
+    {
+      "id": "crapi-authenticated-safe",
+      "name": "crAPI Authenticated Safe Validation",
+      "enabled": true,
+      "priority": 40,
+      "target_id": "owasp-crapi-local",
+      "assessment_type": "API",
+      "profile": "Adaptive Customer-Specific Mode",
+      "run_profile": "active-web-safe",
+      "modules": [
+        "discovery",
+        "auth_flows",
+        "nuclei_checks",
+        "business_logic_testing",
+        "adaptive_ai_generated_tests"
+      ],
+      "safety": {
+        "active_checks": "guarded",
+        "adaptive_generation": true,
+        "max_validation_depth": "deep",
+        "time_budget_minutes": 75
+      },
+      "approval_actors": [
+        "codex-acceptance-approver-1"
+      ],
+      "expected_outputs": [
+        "task_evidence",
+        "reports",
+        "pack_state"
+      ],
+      "minimum_reports": 4,
+      "minimum_findings": 0,
+      "dispatch": true
+    }
+  ]
+}

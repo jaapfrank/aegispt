@@ -1,0 +1,108 @@
+{
+  "id": "backlog-02-remediation-status-and-single-finding-retest",
+  "task_file": "codex/tasks/backlog-02-remediation-status-and-single-finding-retest.json",
+  "task_type": "backlog_slice",
+  "title": "Remediation Tracking and Single-Finding Retest Foundation",
+  "goal": "Add a first-class remediation loop without redefining the existing finding schema by introducing additive remediation tracking, linked retest runs, and proof-of-resolution output.",
+  "scope": "Implement the first remediation slice by adding an additive remediation tracking model tied to findings, a single-finding retest launch path linked back to the original finding, and a proof-of-resolution report variant that reuses the existing evidence, reporting, and provenance structures.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 2,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/competitive_landscape_2026.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "remediation_closure",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/methodology_mapping.md",
+      "docs/ui_report_center.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to additive remediation tracking, one finding-scoped retest path, and proof-of-resolution output. Defer batch retest orchestration, ticketing integrations, and broader workflow automation.",
+    "runtime_mutation": false,
+    "preserve_existing_finding_status_field": true,
+    "notes": [
+      "Do not expand the existing FindingUpdate.status literal in this slice.",
+      "Use an additive remediation record or equivalent additive metadata layer instead of redefining finding schema fields."
+    ]
+  },
+  "success_criteria": [
+    "Operators can record remediation state and notes for a finding without changing the existing finding status contract.",
+    "A single-finding retest run can be launched and linked back to its source finding and source run.",
+    "Proof-of-resolution output shows the original finding, remediation notes, retest evidence, and verification timestamp in one report path.",
+    "Findings Theater and report surfaces expose the remediation and retest linkage truthfully.",
+    "API, report, and browser tests cover the additive remediation path."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/routers/findings.py",
+    "api/app/services/reports.py",
+    "api/app/services/finding_views.py",
+    "ui/assets/modules/findings.js",
+    "api/tests/test_reports.py",
+    "ui/tests/test_operator_console_e2e.py"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "api/app/services/packs.py",
+    "workers/orchestration/findings.py",
+    "workers/orchestration/tasks.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py api/tests/test_runs.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A finding can move through remediation tracking without breaking existing finding.status API compatibility.",
+      "A retest launched from a finding remains linked to the original evidence and run context.",
+      "The proof-of-resolution report is exportable and honest when remediation or retest data is missing."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "No remediation status expansion is attempted through api/app/schemas/findings.py in the same promotion."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the remediation slice, linked retest evidence, and validation results.",
+      "Update CURRENT_STATE.md with the additive remediation and proof-of-resolution behavior.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "Batch retest or retest-all orchestration",
+    "Jira, ServiceNow, Slack, or Teams integration",
+    "Automatic SLA enforcement",
+    "Changes to the existing FindingUpdate.status enum"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}

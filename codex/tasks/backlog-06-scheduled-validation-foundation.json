@@ -1,0 +1,107 @@
+{
+  "id": "backlog-06-scheduled-validation-foundation",
+  "task_file": "codex/tasks/backlog-06-scheduled-validation-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Scheduled Validation Foundation",
+  "goal": "Add the first recurring-validation lane by introducing a scheduled-run model, cadence API, and dispatcher reuse without widening into a full portfolio calendar or arbitrary cron UI.",
+  "scope": "Implement the first continuous-mode slice with an additive scheduled-run model, API support for enabled and paused schedules, and recurring dispatch through the existing run creation and dispatch path. Limit the first cadence set to daily and weekly presets generated internally.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 6,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/continuous_mode.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "continuous_mode",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/continuous_mode.md",
+      "docs/operator_console_stabilization_plan.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to schedule persistence, daily and weekly cadence handling, and dispatch reuse. Defer arbitrary cron entry, portfolio views, trend dashboards, and UI scheduling screens.",
+    "runtime_mutation": false,
+    "no_arbitrary_cron_ui": true,
+    "notes": [
+      "Represent cadence as daily and weekly presets in this slice, even if the model stores a generated cron expression internally.",
+      "Every scheduled launch must reuse the existing run creation, approval, and dispatch gates."
+    ]
+  },
+  "success_criteria": [
+    "An engagement can persist one or more enabled or paused scheduled-run records without changing the existing run model.",
+    "A scheduler path launches due runs through the existing run creation and dispatch flow.",
+    "Scheduled launches retain visible schedule lineage back to the source schedule record.",
+    "API coverage proves due-run launch, pause, resume, and no-op behavior for not-yet-due schedules.",
+    "The slice remains honest about unsupported calendar, dashboard, and arbitrary cron editing features."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/routers/engagements.py",
+    "api/app/services/runs.py",
+    "workers/orchestration/tasks.py",
+    "docs/continuous_mode.md",
+    "api/tests/test_runs.py"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "api/app/services/packs.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_task_dispatch.py",
+      "source .venv/bin/activate && python scripts/run_product_e2e_matrix.py --lane api",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A daily or weekly schedule launches exactly one due run when due and does not duplicate launches within the same due window.",
+      "Paused schedules do not dispatch runs.",
+      "Scheduled launches still respect existing approval and dispatch gates."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "No arbitrary cron input or new scheduling screen is added in this first slice."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the scheduled-run slice and validation evidence.",
+      "Update CURRENT_STATE.md with the supported cadence scope and any remaining scheduling limitations.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "Arbitrary cron editing",
+    "Calendar or portfolio scheduling dashboards",
+    "Trend and drift visualizations",
+    "UI schedule picker work"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+from pydantic import ValidationError
 
 from api.app.models import CapabilityPack
 from api.app.schemas.codex import (
@@ -16,6 +19,8 @@ from api.app.schemas.codex import (
     CodexTaskRunCreate,
 )
 from api.app.services.codex_lane import build_codex_context
+
+logger = logging.getLogger(__name__)
 
 
 def repo_root() -> Path:
@@ -58,6 +63,63 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _relative_repo_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(repo_root()))
+    except ValueError:
+        return str(path)
+
+
+def _load_task_from_path(path: Path) -> CodexTaskRead | None:
+    try:
+        payload = _load_json(path)
+    except json.JSONDecodeError:
+        logger.warning("Skipping malformed Codex task file at %s", path)
+        return None
+
+    if payload.get("catalog_only") is True or payload.get("visibility") == "catalog_only":
+        logger.debug("Skipping catalog-only Codex JSON file at %s", path)
+        return None
+
+    try:
+        return CodexTaskRead.model_validate(payload)
+    except ValidationError:
+        pass
+
+    stat = path.stat()
+    normalized_payload = {
+        "id": str(payload.get("id") or path.stem),
+        "task_type": str(payload.get("task_type") or "legacy_task"),
+        "scope": str(payload.get("scope") or "Legacy repository task recovered for Codex compatibility."),
+        "inputs": payload.get("inputs") if isinstance(payload.get("inputs"), dict) else {},
+        "constraints": payload.get("constraints") if isinstance(payload.get("constraints"), dict) else {},
+        "expected_output": payload.get("expected_output") if isinstance(payload.get("expected_output"), dict) else {},
+        "generated_by": str(payload.get("generated_by") or "codex"),
+        "requested_by": str(payload.get("requested_by") or "repository"),
+        "generation_reason": str(
+            payload.get("generation_reason")
+            or payload.get("scope")
+            or "Legacy repository task normalized for Codex build-lane compatibility."
+        ),
+        "source_context": payload.get("source_context") if isinstance(payload.get("source_context"), dict) else {},
+        "validation_status": str(payload.get("validation_status") or "not_run"),
+        "approval_status": str(payload.get("approval_status") or "not_requested"),
+        "status": str(payload.get("status") or "legacy"),
+        "created_at": payload.get("created_at") or datetime.fromtimestamp(stat.st_ctime, tz=UTC),
+        "updated_at": payload.get("updated_at") or datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+        "task_file": str(payload.get("task_file") or _relative_repo_path(path)),
+    }
+
+    try:
+        task = CodexTaskRead.model_validate(normalized_payload)
+    except ValidationError:
+        logger.warning("Skipping incompatible legacy Codex task file at %s", path)
+        return None
+
+    logger.info("Normalized legacy Codex task file at %s", path)
+    return task
+
+
 def create_codex_task(
     payload: CodexTaskCreate,
     *,
@@ -97,13 +159,15 @@ def load_codex_task(task_id: str) -> CodexTaskRead | None:
     path = _task_path(task_id)
     if not path.exists():
         return None
-    return CodexTaskRead.model_validate(_load_json(path))
+    return _load_task_from_path(path)
 
 
 def list_codex_tasks() -> list[CodexTaskRead]:
     items: list[CodexTaskRead] = []
     for path in sorted(tasks_dir().glob("*.json")):
-        items.append(CodexTaskRead.model_validate(_load_json(path)))
+        task = _load_task_from_path(path)
+        if task is not None:
+            items.append(task)
     return sorted(items, key=lambda item: (item.updated_at, item.created_at, item.id), reverse=True)
 
 
@@ -147,10 +211,11 @@ def run_codex_task(
         validation_hooks = context.validation_hooks
         base_url = run_request.base_url or "<base_url>"
         workspace_root = run_request.workspace_root or f"./{context.repo_conventions.workspace_root}"
+        validation_result_path = f"{workspace_root.rstrip('/')}/validation-result.json"
         commands.extend(
             [
                 f"bash scripts/export_codex_pack_workspace.sh {base_url} {pack.id} {workspace_root}",
-                f"bash scripts/validate_codex_pack.sh {base_url} {pack.id}",
+                f"bash scripts/validate_codex_pack.sh {base_url} {pack.id} {validation_result_path}",
             ]
         )
         output_files.extend(
@@ -159,9 +224,11 @@ def run_codex_task(
                 f"{workspace_root}/codex-context.json",
                 f"{workspace_root}/operator-notes.md",
                 f"{workspace_root}/codex-change-summary.md",
+                validation_result_path,
             ]
         )
         summary_parts.append(f"Task is linked to capability pack {pack.name} {pack.version}.")
+        summary_parts.append(f"Workspace export and validation handoff are staged under {workspace_root}.")
 
     commands.extend(
         [

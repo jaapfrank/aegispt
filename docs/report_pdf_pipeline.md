@@ -25,6 +25,13 @@ Why this path was chosen:
    - applies headers/footers
    - emits an A4 tagged PDF through Playwright Chromium
 
+The HTML template is also tuned for print readability so the PDF stays:
+
+- easy to scan section by section
+- readable in grayscale or low-color print workflows
+- explicit about run, customer, and profile context
+- less likely to break long evidence references or code-like values across the page
+
 ## Supported outputs
 
 - Executive Report

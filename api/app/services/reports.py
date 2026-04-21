@@ -4,6 +4,7 @@ import hashlib
 import json
 from collections import Counter
 from html import escape
+from types import SimpleNamespace
 from uuid import UUID
 
 from sqlalchemy import select
@@ -24,9 +25,12 @@ from api.app.methodology import (
     tool_wstg_areas,
     wstg_area_for_identifier,
 )
-from api.app.models import Approval, Engagement, EvidenceArtifact, Finding, Run, Scope, Task, ToolExecution
+from api.app.models import Approval, CapabilityPack, Engagement, EvidenceArtifact, Finding, Run, Scope, Task, ToolExecution
 from api.app.schemas.report_center import RunReportCatalogItemRead
+from api.app.services.codex_tasks import list_codex_tasks, load_codex_task_result
 from api.app.services.secrets import sanitize_run_configuration
+from api.app.services.inventory import aggregate_inventory_snapshots
+from api.app.services.packs import latest_validation_for_pack
 
 SEVERITY_ORDER = {
     "critical": 0,
@@ -66,8 +70,11 @@ def load_run_report(session: Session, run_id: UUID | str) -> Run | None:
         select(Run)
         .options(
             selectinload(Run.engagement).selectinload(Engagement.scopes),
+            selectinload(Run.engagement).selectinload(Engagement.inventory_snapshots),
             selectinload(Run.profile),
-            selectinload(Run.bound_pack),
+            selectinload(Run.bound_pack).selectinload(CapabilityPack.validation_results),
+            selectinload(Run.bound_pack).selectinload(CapabilityPack.approvals),
+            selectinload(Run.bound_pack).selectinload(CapabilityPack.deployments),
             selectinload(Run.bound_pack_deployment),
             selectinload(Run.approvals),
             selectinload(Run.findings),
@@ -137,6 +144,49 @@ def latest_scope_for_engagement(engagement: Engagement | None) -> Scope | None:
     return sorted(engagement.scopes, key=lambda scope: (scope.created_at, scope.id.hex), reverse=True)[0]
 
 
+def effective_inventory_snapshot_for_run(run: Run):
+    engagement = run.engagement
+    if engagement is None:
+        return None
+
+    snapshots = list(engagement.inventory_snapshots or [])
+    run_id = str(run.id)
+    derived = sorted(
+        (
+            snapshot
+            for snapshot in snapshots
+            if str(snapshot.raw_inputs_json.get("run_id") or "") == run_id
+        ),
+        key=lambda snapshot: (snapshot.created_at, snapshot.id.hex),
+        reverse=True,
+    )
+    if derived:
+        aggregated = aggregate_inventory_snapshots(derived)
+        if aggregated is not None:
+            representative = derived[0]
+            return SimpleNamespace(
+                id=representative.id,
+                engagement_id=representative.engagement_id,
+                requested_by=representative.requested_by,
+                status=representative.status,
+                raw_inputs_json={"run_id": run_id, "aggregated_snapshot_count": len(derived)},
+                normalized_inventory_json=aggregated["normalized_inventory_json"],
+                summary_json=aggregated["summary_json"],
+                source_tools_json=aggregated["source_tools_json"],
+                environment_notes_json=aggregated["environment_notes_json"],
+                assumptions_json=aggregated["assumptions_json"],
+                confidence_score=aggregated["confidence_score"],
+                created_at=representative.created_at,
+            )
+        return derived[0]
+
+    if run.source_inventory_snapshot_id is not None:
+        for snapshot in snapshots:
+            if snapshot.id == run.source_inventory_snapshot_id:
+                return snapshot
+    return None
+
+
 def format_json_block(payload: dict[str, object] | None) -> str:
     return json.dumps(payload or {}, indent=2, sort_keys=True)
 
@@ -171,6 +221,182 @@ def adaptive_pack_context(run: Run) -> dict[str, object]:
         "manifest": dict(run.bound_pack.manifest_json or {}),
         "deployment_target": deployment.deployment_target if deployment is not None else None,
         "deployment_status": deployment.status if deployment is not None else None,
+    }
+
+
+def _latest_pack_approval(run: Run):
+    if run.bound_pack is None or not run.bound_pack.approvals:
+        return None
+    return sorted(
+        run.bound_pack.approvals,
+        key=lambda approval: (approval.created_at, approval.id.hex),
+        reverse=True,
+    )[0]
+
+
+def _latest_pack_deployment(run: Run):
+    if run.bound_pack_deployment is not None:
+        return run.bound_pack_deployment
+    if run.bound_pack is None or not run.bound_pack.deployments:
+        return None
+    return sorted(
+        run.bound_pack.deployments,
+        key=lambda deployment: (deployment.created_at, deployment.id.hex),
+        reverse=True,
+    )[0]
+
+
+def _pack_related_codex_tasks(run: Run) -> list[object]:
+    if run.bound_pack is None:
+        return []
+
+    pack_id = str(run.bound_pack.id)
+    pack_version = str(run.bound_pack.version)
+    related = []
+    for task in list_codex_tasks():
+        source_context = task.source_context
+        if source_context.pack_id is None or str(source_context.pack_id) != pack_id:
+            continue
+        if source_context.pack_version and str(source_context.pack_version) != pack_version:
+            continue
+        related.append(task)
+
+    return sorted(related, key=lambda item: (item.updated_at, item.created_at, item.id), reverse=True)
+
+
+def _adaptive_findings_for_run(run: Run, findings: list[Finding]) -> list[Finding]:
+    if run.bound_pack is None:
+        return []
+
+    pack_id = str(run.bound_pack.id)
+    pack_version = str(run.bound_pack.version)
+    linked: list[Finding] = []
+    seen_ids: set[UUID] = set()
+    for finding in findings:
+        matches_pack = False
+        if finding.source_pack_id is not None and str(finding.source_pack_id) == pack_id:
+            matches_pack = True
+        elif finding.source_pack_version and str(finding.source_pack_version) == pack_version:
+            matches_pack = True
+        elif finding.finding_origin == "adaptive_pack":
+            matches_pack = True
+
+        if matches_pack and finding.id not in seen_ids:
+            linked.append(finding)
+            seen_ids.add(finding.id)
+
+    return linked
+
+
+def adaptive_change_summary_for_run(run: Run, findings: list[Finding]) -> dict[str, object]:
+    if run.bound_pack is None:
+        return {
+            "active": False,
+            "review_state": "standard-baseline",
+            "pack_label": "Standard baseline coverage only",
+            "summary_line": "No adaptive pack is bound to this run, so the report reflects the standard baseline coverage path only.",
+            "governance_line": "Codex build-lane review is not in scope for this run because no adaptive pack version is attached.",
+            "finding_line": "No findings are linked to a bound adaptive pack for this run.",
+            "change_highlights": [],
+            "related_task_count": 0,
+            "related_finding_count": 0,
+            "finding_origin_breakdown": {},
+            "methodology_tags": [],
+            "source_threat_intel_refs": [],
+            "latest_task": None,
+        }
+
+    pack = run.bound_pack
+    validation = latest_validation_for_pack(pack)
+    approval = _latest_pack_approval(run)
+    deployment = _latest_pack_deployment(run)
+    related_tasks = _pack_related_codex_tasks(run)
+    latest_task = related_tasks[0] if related_tasks else None
+    latest_result = load_codex_task_result(latest_task.id) if latest_task is not None else None
+    related_findings = _adaptive_findings_for_run(run, findings)
+    origin_breakdown = dict(Counter(finding.finding_origin for finding in related_findings))
+    origin_summary = ", ".join(
+        f"{count} {origin.replace('_', ' ')}"
+        for origin, count in sorted(origin_breakdown.items())
+    )
+    generation_reason = str(pack.manifest_json.get("generation_reason") or "No generation reason recorded.")
+    validation_status = validation.status if validation is not None else "not_run"
+    approval_status = approval.decision if approval is not None else "not_requested"
+    deployment_status = deployment.status if deployment is not None else "not_deployed"
+
+    if latest_result is not None:
+        review_state = "codex-prepared"
+        summary_line = (
+            f"Codex-reviewed adaptive coverage is bound through {pack.name} {pack.version}; "
+            f"task {latest_task.id} prepared a supervised review bundle before promotion."
+        )
+    elif latest_task is not None:
+        review_state = "codex-linked"
+        summary_line = (
+            f"Adaptive coverage is linked to Codex task {latest_task.id}, but no prepared review bundle "
+            f"is recorded for this pack version yet."
+        )
+    else:
+        review_state = "pack-only"
+        summary_line = (
+            f"Adaptive coverage is bound through {pack.name} {pack.version} in the supervised pack lane, "
+            "but no linked Codex task is recorded for this pack version yet."
+        )
+
+    governance_line = (
+        f"Pack status {pack.status}; validation {validation_status}; approval {approval_status}; "
+        f"deployment {deployment_status}."
+    )
+    if related_findings:
+        finding_line = (
+            f"{len(related_findings)} findings in this run currently inherit bound-pack provenance"
+            + (f" ({origin_summary})." if origin_summary else ".")
+        )
+    else:
+        finding_line = "No findings in this run currently carry provenance from the bound adaptive pack."
+
+    task_summary = None
+    if latest_task is not None:
+        task_summary = {
+            "id": latest_task.id,
+            "task_type": latest_task.task_type,
+            "status": latest_task.status,
+            "validation_status": latest_task.validation_status,
+            "approval_status": latest_task.approval_status,
+            "generation_reason": latest_task.generation_reason,
+            "updated_at": latest_task.updated_at.isoformat(),
+            "prepared_result_status": latest_result.status if latest_result is not None else None,
+            "prepared_command_count": len(latest_result.prepared_commands) if latest_result is not None else 0,
+            "prepared_output_count": len(latest_result.output_files) if latest_result is not None else 0,
+        }
+
+    change_highlights = [
+        governance_line,
+        (
+            f"Latest Codex task {latest_task.id} ({latest_task.task_type}) is {latest_task.status} / "
+            f"{latest_task.validation_status}; reason: {latest_task.generation_reason}."
+            if latest_task is not None
+            else f"Generation reason: {generation_reason}"
+        ),
+        finding_line,
+    ]
+
+    return {
+        "active": True,
+        "review_state": review_state,
+        "pack_label": f"{pack.name} {pack.version}",
+        "generation_mode": pack.generation_mode,
+        "generation_reason": generation_reason,
+        "summary_line": summary_line,
+        "governance_line": governance_line,
+        "finding_line": finding_line,
+        "change_highlights": change_highlights,
+        "related_task_count": len(related_tasks),
+        "related_finding_count": len(related_findings),
+        "finding_origin_breakdown": origin_breakdown,
+        "methodology_tags": list(pack.methodology_tags),
+        "source_threat_intel_refs": list(pack.source_threat_intel_refs_json),
+        "latest_task": task_summary,
     }
 
 
@@ -305,6 +531,8 @@ def report_context(run: Run) -> dict[str, object]:
     tasks = sort_tasks(list(run.tasks))
     approvals = sort_approvals(list(run.approvals))
     findings_by_severity, findings_by_status = findings_summary(findings)
+    inventory_snapshot = effective_inventory_snapshot_for_run(run)
+    inventory_summary = dict(inventory_snapshot.summary_json or {}) if inventory_snapshot is not None else {}
     return {
         "profile_name": run.profile.name if run.profile is not None else "unknown-profile",
         "engagement_name": run.engagement.name if run.engagement is not None else "unknown-engagement",
@@ -316,11 +544,198 @@ def report_context(run: Run) -> dict[str, object]:
         "findings_by_status": findings_by_status,
         "methodology": methodology_context_for_run(run),
         "adaptive_pack": adaptive_pack_context(run),
+        "adaptive_change": adaptive_change_summary_for_run(run, findings),
         "coverage": methodology_coverage_summary(findings, tasks),
         "latest_scope": latest_scope_for_engagement(run.engagement),
         "remediation_counts": remediation_priority_counts(findings),
         "configuration": run_configuration_context(run),
+        "inventory_snapshot": inventory_snapshot,
+        "inventory_summary": inventory_summary,
     }
+
+
+def _inventory_summary_lines(context: dict[str, object]) -> list[str]:
+    inventory_summary = context.get("inventory_summary", {})
+    if not isinstance(inventory_summary, dict) or not inventory_summary:
+        return ["- No discovery-confirmed inventory snapshot is linked to this run.", ""]
+
+    return [
+        f"- Hosts Observed: {inventory_summary.get('host_count', 0)}",
+        f"- Services Observed: {inventory_summary.get('service_count', 0)}",
+        f"- Endpoints Observed: {inventory_summary.get('endpoint_count', 0)}",
+        f"- Technologies Observed: {inventory_summary.get('technology_count', 0)}",
+        f"- Inventory Confidence: {inventory_summary.get('confidence_score', 0.0)}",
+        "",
+    ]
+
+
+def _retest_metadata_for_run(run: Run) -> dict[str, object] | None:
+    configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
+    retest = configuration.get("retest")
+    return dict(retest) if isinstance(retest, dict) and retest.get("mode") == "single_finding" else None
+
+
+def _retest_verification_timestamp(run: Run) -> str:
+    if run.status in {"completed", "completed_with_errors", "failed", "cancelled"}:
+        return run.updated_at.isoformat()
+    return "Pending retest execution completion"
+
+
+def _render_retest_evidence_markdown(tasks: list[Task]) -> list[str]:
+    if not tasks:
+        return ["- No retest tasks recorded yet.", ""]
+
+    lines: list[str] = []
+    for task in tasks:
+        lines.extend(
+            [
+                f"### Retest Task {task.id}",
+                "",
+                f"- Tool: {task.tool}",
+                f"- Target: {task_targets_display(task)}",
+                f"- Status: {task.status}",
+            ]
+        )
+        if task.executions:
+            for execution in task.executions:
+                lines.append(
+                    f"- Execution {execution.id}: exit_code={execution.exit_code}, tool_version={execution.tool_version}"
+                )
+                artifacts = sort_artifacts(list(execution.artifacts))
+                if artifacts:
+                    for artifact in artifacts:
+                        artifact_name = str(artifact.metadata_json.get("name", artifact.id))
+                        lines.append(
+                            f"  artifact: {artifact_name} ({artifact.uri}) download={artifact_download_path(artifact.id)}"
+                        )
+                else:
+                    lines.append("  artifact: no artifact recorded for this execution")
+        else:
+            lines.append("- No executions recorded for this retest task yet.")
+        lines.append("")
+    return lines
+
+
+def _render_proof_of_resolution_markdown(run: Run, context: dict[str, object]) -> list[str]:
+    retest = _retest_metadata_for_run(run)
+    if retest is None:
+        return [
+            "## Proof of Resolution",
+            "",
+            "- This run is not linked to a single-finding retest request yet.",
+            "",
+        ]
+
+    tasks = context["tasks"]
+    assert isinstance(tasks, list)
+    lines = [
+        "## Proof of Resolution",
+        "",
+        f"- Source Finding: {retest.get('source_finding_title') or 'Not recorded'}",
+        f"- Source Finding ID: {retest.get('source_finding_id') or 'Not recorded'}",
+        f"- Source Run ID: {retest.get('source_run_id') or 'Not recorded'}",
+        f"- Source Severity: {retest.get('source_finding_severity') or 'Not recorded'}",
+        f"- Source Status Before Retest: {retest.get('source_finding_status') or 'Not recorded'}",
+        f"- Source Target: {retest.get('source_finding_target') or 'Not recorded'}",
+        f"- Source Evidence Ref: {retest.get('source_evidence_ref') or 'Not recorded'}",
+        f"- Source Summary: {retest.get('source_finding_summary') or retest.get('source_summary') or 'Not recorded'}",
+        f"- Remediation State: {retest.get('remediation_state') or 'Not recorded'}",
+        f"- Remediation Notes: {retest.get('remediation_notes') or 'Not recorded'}",
+        f"- Retest Operator Notes: {retest.get('operator_notes') or 'Not recorded'}",
+        f"- Retest Run Status: {run.status}",
+        f"- Verification Timestamp: {_retest_verification_timestamp(run)}",
+        "",
+        "## Retest Evidence",
+        "",
+    ]
+    lines.extend(_render_retest_evidence_markdown(tasks))
+    return lines
+
+
+def _render_retest_evidence_html(tasks: list[Task]) -> str:
+    if not tasks:
+        return "<p>No retest tasks recorded yet.</p>"
+
+    task_cards: list[str] = []
+    for task in tasks:
+        execution_items: list[str] = []
+        for execution in task.executions:
+            artifact_items = "".join(
+                "<li>"
+                f"{escape(str(artifact.metadata_json.get('name', artifact.id)))} - "
+                f"<code>{escape(artifact.uri)}</code> - "
+                f"<a href=\"{escape(artifact_download_path(artifact.id))}\">download</a>"
+                "</li>"
+                for artifact in sort_artifacts(list(execution.artifacts))
+            )
+            execution_items.append(
+                "<li>"
+                f"Execution {escape(str(execution.id))}: "
+                f"exit_code={escape(str(execution.exit_code))}, "
+                f"tool_version={escape(execution.tool_version)}"
+                + (
+                    f"<ul>{artifact_items}</ul>"
+                    if artifact_items
+                    else "<ul><li>No artifact recorded for this execution.</li></ul>"
+                )
+                + "</li>"
+            )
+        if not execution_items:
+            execution_items.append("<li>No executions recorded for this retest task yet.</li>")
+
+        task_cards.append(
+            "<article class='task'>"
+            f"<h3>Retest Task {escape(str(task.id))}</h3>"
+            f"<p><strong>Tool:</strong> {escape(task.tool)} | "
+            f"<strong>Target:</strong> {escape(task_targets_display(task))} | "
+            f"<strong>Status:</strong> {escape(task.status)}</p>"
+            f"<ul>{''.join(execution_items)}</ul>"
+            "</article>"
+        )
+    return "".join(task_cards)
+
+
+def _render_proof_of_resolution_html(run: Run, context: dict[str, object]) -> str:
+    retest = _retest_metadata_for_run(run)
+    if retest is None:
+        return """
+        <section class="panel">
+          <h2>Proof of Resolution</h2>
+          <p>This run is not linked to a single-finding retest request yet.</p>
+        </section>
+        """
+
+    tasks = context["tasks"]
+    assert isinstance(tasks, list)
+    proof_rows = [
+        ("Source Finding", retest.get("source_finding_title") or "Not recorded"),
+        ("Source Finding ID", retest.get("source_finding_id") or "Not recorded"),
+        ("Source Run ID", retest.get("source_run_id") or "Not recorded"),
+        ("Source Severity", retest.get("source_finding_severity") or "Not recorded"),
+        ("Source Status Before Retest", retest.get("source_finding_status") or "Not recorded"),
+        ("Source Target", retest.get("source_finding_target") or "Not recorded"),
+        ("Source Evidence Ref", retest.get("source_evidence_ref") or "Not recorded"),
+        (
+            "Source Summary",
+            retest.get("source_finding_summary") or retest.get("source_summary") or "Not recorded",
+        ),
+        ("Remediation State", retest.get("remediation_state") or "Not recorded"),
+        ("Remediation Notes", retest.get("remediation_notes") or "Not recorded"),
+        ("Retest Operator Notes", retest.get("operator_notes") or "Not recorded"),
+        ("Retest Run Status", run.status),
+        ("Verification Timestamp", _retest_verification_timestamp(run)),
+    ]
+    rows_html = "".join(
+        f"<tr><th>{escape(label)}</th><td>{escape(str(value))}</td></tr>" for label, value in proof_rows
+    )
+    return f"""
+    <section class="panel">
+      <h2>Proof of Resolution</h2>
+      <table>{rows_html}</table>
+      <h3>Retest Evidence</h3>
+      {_render_retest_evidence_html(tasks)}
+    </section>
+    """
 
 
 def _render_configuration_markdown(context: dict[str, object]) -> list[str]:
@@ -359,11 +774,87 @@ def _render_configuration_html(context: dict[str, object]) -> str:
     )
 
 
+def _render_adaptive_change_markdown(context: dict[str, object]) -> list[str]:
+    adaptive_change = context["adaptive_change"]
+    assert isinstance(adaptive_change, dict)
+    if not adaptive_change.get("active"):
+        return [
+            "## Adaptive Change Summary",
+            "",
+            f"- {adaptive_change.get('summary_line')}",
+            "",
+        ]
+
+    latest_task = adaptive_change.get("latest_task") if isinstance(adaptive_change.get("latest_task"), dict) else None
+    lines = [
+        "## Adaptive Change Summary",
+        "",
+        f"- Summary: {adaptive_change.get('summary_line')}",
+        f"- Governance: {adaptive_change.get('governance_line')}",
+        f"- Findings Linked to This Pack: {adaptive_change.get('finding_line')}",
+        f"- Threat Intel References: {', '.join(adaptive_change.get('source_threat_intel_refs', [])) or 'None'}",
+        f"- Methodology Tags: {', '.join(adaptive_change.get('methodology_tags', [])) or 'None'}",
+    ]
+    if latest_task is not None:
+        lines.extend(
+            [
+                (
+                    f"- Latest Codex Task: {latest_task.get('id')} ({latest_task.get('task_type')}) "
+                    f"status={latest_task.get('status')} validation={latest_task.get('validation_status')}"
+                ),
+                f"- Task Reason: {latest_task.get('generation_reason') or 'Not recorded'}",
+            ]
+        )
+        if latest_task.get("prepared_result_status"):
+            lines.append(
+                "- Prepared Review Bundle: "
+                f"{latest_task.get('prepared_result_status')} with "
+                f"{latest_task.get('prepared_command_count', 0)} commands and "
+                f"{latest_task.get('prepared_output_count', 0)} output files"
+            )
+    lines.append("")
+    return lines
+
+
+def _render_adaptive_change_html(context: dict[str, object]) -> str:
+    adaptive_change = context["adaptive_change"]
+    assert isinstance(adaptive_change, dict)
+    latest_task = adaptive_change.get("latest_task") if isinstance(adaptive_change.get("latest_task"), dict) else None
+    items = [
+        f"<li><strong>Summary:</strong> {escape(str(adaptive_change.get('summary_line') or 'Not recorded'))}</li>",
+        f"<li><strong>Governance:</strong> {escape(str(adaptive_change.get('governance_line') or 'Not recorded'))}</li>",
+        f"<li><strong>Findings Linked to This Pack:</strong> {escape(str(adaptive_change.get('finding_line') or 'Not recorded'))}</li>",
+        f"<li><strong>Threat Intel References:</strong> {escape(', '.join(adaptive_change.get('source_threat_intel_refs', [])) or 'None')}</li>",
+        f"<li><strong>Methodology Tags:</strong> {escape(', '.join(adaptive_change.get('methodology_tags', [])) or 'None')}</li>",
+    ]
+    if latest_task is not None:
+        items.append(
+            "<li><strong>Latest Codex Task:</strong> "
+            f"{escape(str(latest_task.get('id')))} "
+            f"({escape(str(latest_task.get('task_type') or 'unknown'))}) "
+            f"status={escape(str(latest_task.get('status') or 'unknown'))} "
+            f"validation={escape(str(latest_task.get('validation_status') or 'unknown'))}</li>"
+        )
+        items.append(
+            f"<li><strong>Task Reason:</strong> {escape(str(latest_task.get('generation_reason') or 'Not recorded'))}</li>"
+        )
+        if latest_task.get("prepared_result_status"):
+            items.append(
+                "<li><strong>Prepared Review Bundle:</strong> "
+                f"{escape(str(latest_task.get('prepared_result_status')))} with "
+                f"{escape(str(latest_task.get('prepared_command_count', 0)))} commands and "
+                f"{escape(str(latest_task.get('prepared_output_count', 0)))} output files</li>"
+            )
+    return f"<ul>{''.join(items)}</ul>"
+
+
 def _render_executive_markdown(run: Run, context: dict[str, object]) -> str:
     findings = context["findings"]
     methodology = context["methodology"]
     adaptive_pack = context["adaptive_pack"]
+    adaptive_change = context["adaptive_change"]
     remediation_counts = context["remediation_counts"]
+    inventory_summary = context["inventory_summary"]
     return "\n".join(
         [
             f"# AegisPT Executive Report: {run.id}",
@@ -375,8 +866,10 @@ def _render_executive_markdown(run: Run, context: dict[str, object]) -> str:
             f"- Run Profile: {context['profile_name']}",
             f"- Run Status: {run.status}",
             f"- Adaptive Coverage: {adaptive_pack['label']}",
+            f"- Adaptive Change Review: {adaptive_change['summary_line']}",
             f"- Findings by Severity: {context['findings_by_severity'] or {}}",
             f"- Findings by Status: {context['findings_by_status'] or {}}",
+            f"- Discovery Summary: {inventory_summary or {}}",
             "",
             *_render_configuration_markdown(context),
             "## Methodology",
@@ -385,13 +878,14 @@ def _render_executive_markdown(run: Run, context: dict[str, object]) -> str:
             f"- NIST Mapping: {methodology['nist_phase_label']}",
             f"- OWASP WSTG Baseline: {WSTG_STABLE_VERSION}",
             "",
+            *_render_adaptive_change_markdown(context),
             "## Risk Highlights",
             "",
             f"- Remediation Priorities: {remediation_counts or {}}",
             *(
                 [f"- {finding.severity.upper()}: {finding.title}" for finding in findings[:5]]
                 if findings
-                else ["- No confirmed findings recorded."]
+                else ["- No confirmed findings recorded.", *(_inventory_summary_lines(context) if inventory_summary else [])]
             ),
             "",
             "## Recommended Next Steps",
@@ -411,6 +905,9 @@ def _render_evidence_markdown(run: Run, context: dict[str, object]) -> str:
         f"# AegisPT Evidence Appendix: {run.id}",
         "",
         *_render_configuration_markdown(context),
+        "## Discovery Results",
+        "",
+        *_inventory_summary_lines(context),
         "## Methodology References",
         "",
         *[f"- {reference}" for reference in report_methodology_references(run)],
@@ -473,7 +970,11 @@ def _render_retest_markdown(run: Run, context: dict[str, object]) -> str:
         f"- Resolved Findings: {sum(1 for finding in findings if finding.status == 'resolved')}",
         f"- Still Open: {sum(1 for finding in findings if finding.status in {'open', 'triaged', 'in_progress', 'reopened'})}",
         "",
+        *_render_proof_of_resolution_markdown(run, context),
         *_render_configuration_markdown(context),
+        "## Discovery Results",
+        "",
+        *_inventory_summary_lines(context),
         "## Findings Verification State",
         "",
     ]
@@ -530,17 +1031,30 @@ def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
                     "by_severity": context["findings_by_severity"],
                     "by_status": context["findings_by_status"],
                 },
+                included_inventory={
+                    "host_count": context["inventory_summary"].get("host_count", 0),
+                    "service_count": context["inventory_summary"].get("service_count", 0),
+                    "endpoint_count": context["inventory_summary"].get("endpoint_count", 0),
+                    "technology_count": context["inventory_summary"].get("technology_count", 0),
+                    "confidence_score": context["inventory_summary"].get("confidence_score", 0.0),
+                },
                 evidence_status={
                     "linked_findings": linked_evidence,
                     "total_findings": len(context["findings"]),
                     "completeness_ratio": (linked_evidence / len(context["findings"])) if context["findings"] else 0.0,
                 },
+                adaptive_change_summary=context["adaptive_change"],
                 version_label=f"{variant}-{run.created_at:%Y%m%dT%H%M%S}",
                 content_sha256=hashlib.sha256(markdown_content.encode("utf-8")).hexdigest(),
                 export_paths={
                     "markdown": f"/api/v1/runs/{run.id}/report?format=markdown&variant={variant}",
                     "html": f"/api/v1/runs/{run.id}/report?format=html&variant={variant}",
                     "pdf": f"/api/v1/runs/{run.id}/report?format=pdf&variant={variant}",
+                },
+                download_names={
+                    "markdown": f"aegispt-run-{run.id}-{variant}.md",
+                    "html": f"aegispt-run-{run.id}-{variant}.html",
+                    "pdf": f"aegispt-run-{run.id}-{variant}.pdf",
                 },
             )
         )
@@ -566,9 +1080,12 @@ def render_markdown_report(run: Run, *, variant: str = "technical") -> str:
     findings_by_status = context["findings_by_status"]
     methodology = context["methodology"]
     adaptive_pack = context["adaptive_pack"]
+    adaptive_change = context["adaptive_change"]
     coverage = context["coverage"]
     latest_scope = context["latest_scope"]
     remediation_counts = context["remediation_counts"]
+    inventory_summary = context["inventory_summary"]
+    inventory_summary = context["inventory_summary"]
 
     lines = [
         f"# AegisPT Run Report: {run.id}",
@@ -585,8 +1102,12 @@ def render_markdown_report(run: Run, *, variant: str = "technical") -> str:
         f"- PTES Mapping for This Run: {methodology['ptes_phase_label']}",
         f"- NIST Mapping for This Run: {methodology['nist_phase_label']}",
         f"- Adaptive Coverage: {adaptive_pack['label']}",
+        f"- Adaptive Change Review: {adaptive_change['summary_line']}",
         f"- Finding Count: {len(findings)}",
         "",
+        "## Discovery Summary",
+        "",
+        *_inventory_summary_lines(context),
         "## Scope",
         "",
     ]
@@ -664,6 +1185,7 @@ def render_markdown_report(run: Run, *, variant: str = "technical") -> str:
             f"- Threat Intel References: {', '.join(adaptive_pack['manifest'].get('threat_intel_refs', [])) or 'None'}",
             f"- Generation Reason: {adaptive_pack['manifest'].get('generation_reason') or 'Standard coverage only'}",
             "",
+            *_render_adaptive_change_markdown(context),
             "## Remediation Priorities",
             "",
             f"- Priority Counts: {remediation_counts or {}}",
@@ -758,9 +1280,11 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
     findings_by_status = context["findings_by_status"]
     methodology = context["methodology"]
     adaptive_pack = context["adaptive_pack"]
+    adaptive_change = context["adaptive_change"]
     coverage = context["coverage"]
     latest_scope = context["latest_scope"]
     remediation_counts = context["remediation_counts"]
+    inventory_summary = context["inventory_summary"]
 
     summary_rows = [
         ("Engagement", engagement_name),
@@ -773,7 +1297,11 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
         ("PTES Mapping", methodology["ptes_phase_label"]),
         ("NIST Mapping", methodology["nist_phase_label"]),
         ("Adaptive Coverage", str(adaptive_pack["label"])),
+        ("Adaptive Change Review", str(adaptive_change["summary_line"])),
         ("Finding Count", str(len(findings))),
+        ("Hosts Observed", str(inventory_summary.get("host_count", 0))),
+        ("Services Observed", str(inventory_summary.get("service_count", 0))),
+        ("Endpoints Observed", str(inventory_summary.get("endpoint_count", 0))),
     ]
     summary_html = "".join(
         f"<tr><th>{escape(label)}</th><td>{escape(value)}</td></tr>" for label, value in summary_rows
@@ -813,6 +1341,17 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
         f"<li><strong>Priority Counts:</strong> {escape(str(remediation_counts or {}))}</li>"
         "</ul>"
     )
+    inventory_html = (
+        "<ul>"
+        f"<li><strong>Hosts Observed:</strong> {escape(str(inventory_summary.get('host_count', 0)))}</li>"
+        f"<li><strong>Services Observed:</strong> {escape(str(inventory_summary.get('service_count', 0)))}</li>"
+        f"<li><strong>Endpoints Observed:</strong> {escape(str(inventory_summary.get('endpoint_count', 0)))}</li>"
+        f"<li><strong>Technologies Observed:</strong> {escape(str(inventory_summary.get('technology_count', 0)))}</li>"
+        f"<li><strong>Inventory Confidence:</strong> {escape(str(inventory_summary.get('confidence_score', 0.0)))}</li>"
+        "</ul>"
+        if inventory_summary
+        else "<p>No discovery-confirmed inventory snapshot is linked to this run.</p>"
+    )
 
     adaptive_pack_html = (
         "<ul>"
@@ -825,6 +1364,7 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
         f"<li><strong>Generation Reason:</strong> {escape(str(adaptive_pack['manifest'].get('generation_reason') or 'Standard coverage only'))}</li>"
         "</ul>"
     )
+    adaptive_change_html = _render_adaptive_change_html(context)
 
     findings_html = "".join(
         "<article class='finding'>"
@@ -887,6 +1427,17 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
     </section>
     """
 
+    report_context_html = "".join(
+        f"<span class='context-chip'><strong>{escape(label)}:</strong> {escape(value)}</span>"
+        for label, value in [
+            ("Engagement", engagement_name),
+            ("Client", client_name),
+            ("Profile", profile_name),
+            ("Status", run.status),
+            ("Run", str(run.id)),
+        ]
+    )
+
     if variant == "executive":
         findings_section = executive_panel
         evidence_section = ""
@@ -923,7 +1474,7 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
         </section>
         """
         evidence_section = ""
-        verification_section = f"""
+        verification_section = _render_proof_of_resolution_html(run, context) + f"""
         <section class="panel">
           <h2>Retest and Verification</h2>
           <p><strong>Verification Status Counts:</strong> {escape(str(findings_by_status or {}))}</p>
@@ -971,7 +1522,11 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
       }}
       body {{
         font-family: "Segoe UI", "Helvetica Neue", sans-serif;
-        margin: 2rem;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0 auto;
+        max-width: 1100px;
+        padding: 2rem 1.6rem 3rem;
         color: var(--ink);
         background: linear-gradient(180deg, #fffaf5 0%, #ffffff 10rem);
       }}
@@ -980,30 +1535,67 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
       }}
       h1 {{
         margin-bottom: 0.25rem;
+        font-size: 2rem;
+      }}
+      h2 {{
+        margin: 0 0 0.85rem;
+        padding-bottom: 0.45rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 1.12rem;
+      }}
+      h3 {{
+        margin-top: 0;
       }}
       .lede {{
         color: var(--muted);
-        margin-bottom: 2rem;
+        margin: 0.2rem 0 0;
+      }}
+      .report-cover {{
+        margin-bottom: 1.5rem;
+      }}
+      .report-context {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-top: 0.9rem;
+      }}
+      .context-chip {{
+        display: inline-flex;
+        gap: 0.3rem;
+        align-items: center;
+        padding: 0.38rem 0.65rem;
+        border-radius: 999px;
+        border: 1px solid #e5e7eb;
+        background: #fcfcfd;
+        color: #374151;
+        font-size: 0.82rem;
       }}
       table {{
         border-collapse: collapse;
         width: 100%;
         margin-bottom: 1.5rem;
         background: var(--panel);
+        table-layout: fixed;
       }}
       th, td {{
         border: 1px solid var(--line);
         padding: 0.65rem 0.75rem;
         text-align: left;
+        vertical-align: top;
       }}
       th {{
-        width: 16rem;
+        width: 14rem;
+        background: #fcfcfd;
+        color: #374151;
+        font-weight: 600;
+      }}
+      tr:nth-child(even) td {{
         background: #fcfcfd;
       }}
       .panel {{
         border: 1px solid var(--line);
         padding: 1rem 1.25rem;
-        margin-bottom: 1rem;
+        margin-bottom: 1.15rem;
         border-radius: 0.75rem;
         background: var(--panel);
         box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
@@ -1026,20 +1618,37 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
         justify-content: space-between;
         gap: 1rem;
       }}
+      .finding p,
+      .task p {{
+        margin: 0.38rem 0;
+      }}
       .priority {{
         color: var(--accent);
-        font-weight: 600;
+        font-weight: 700;
+        padding: 0.26rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid #fdba74;
+        background: #fff7ed;
+        font-size: 0.8rem;
       }}
       code, pre {{
         background: var(--panel-alt);
         border-radius: 0.5rem;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }}
       code {{
         padding: 0.1rem 0.3rem;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       }}
       pre {{
         padding: 0.85rem;
         overflow-x: auto;
+        white-space: pre-wrap;
+        line-height: 1.5;
+      }}
+      ul, ol {{
+        padding-left: 1.1rem;
       }}
       .meta-list li {{
         margin-bottom: 0.35rem;
@@ -1047,8 +1656,11 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
     </style>
   </head>
   <body>
-    <h1>{escape(title)}</h1>
-    <p class="lede">Evidence-first assessment output aligned to PTES, OWASP WSTG, and NIST SP 800-115 without changing the core execution model.</p>
+    <header class="report-cover pdf-cover">
+      <h1>{escape(title)}</h1>
+      <p class="lede">Evidence-first assessment output aligned to PTES, OWASP WSTG, and NIST SP 800-115 without changing the core execution model.</p>
+      <div class="report-context">{report_context_html}</div>
+    </header>
 
     <section class="panel">
       <h2>Summary</h2>
@@ -1084,8 +1696,18 @@ def render_html_report(run: Run, *, variant: str = "technical") -> str:
     </section>
 
     <section class="panel">
+      <h2>Discovery Results</h2>
+      {inventory_html}
+    </section>
+
+    <section class="panel">
       <h2>Adaptive Coverage</h2>
       {adaptive_pack_html}
+    </section>
+
+    <section class="panel">
+      <h2>Adaptive Change Summary</h2>
+      {adaptive_change_html}
     </section>
 
     {findings_section}

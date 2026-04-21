@@ -1,6 +1,17 @@
 import { api, apiOrNull } from "./api.js";
 import { dom, runtime, state } from "./runtime.js";
-import { emptyState, escapeHtml, slugify, splitComma, statusPill, stringValue, valueOrNull } from "./shared.js";
+import {
+  emptyState,
+  escapeHtml,
+  formatDateTime,
+  renderBadgeList,
+  renderDisclosure,
+  slugify,
+  splitComma,
+  statusPill,
+  stringValue,
+  valueOrNull,
+} from "./shared.js";
 
 function filteredCodexTasks() {
   const selectedPackIds = new Set(state.mission.packs.map((pack) => pack.id));
@@ -17,54 +28,239 @@ function assertSelectedPack() {
   if (!state.selectedPackId) throw new Error("Select or generate a pack first.");
 }
 
-async function withPackAction(actionLabel, handler) {
-  state.loading.packAction = actionLabel;
-  renderPackForge();
-  try {
-    await handler();
-  } finally {
-    state.loading.packAction = null;
-    renderPackForge();
+function latestItem(items) {
+  return Array.isArray(items) && items.length ? items[items.length - 1] : null;
+}
+
+function shortId(value) {
+  return value ? String(value).slice(0, 8) : "Not recorded";
+}
+
+function toneForStatus(status) {
+  const normalized = String(status || "pending").toLowerCase();
+  if (
+    [
+      "complete",
+      "completed",
+      "validated",
+      "approved",
+      "deployed",
+      "passed",
+      "prepared",
+      "ready_for_existing_pipeline",
+    ].includes(normalized)
+  ) {
+    return "complete";
   }
+  if (["running", "active", "preparing", "in_progress"].includes(normalized)) {
+    return "active";
+  }
+  if (
+    [
+      "failed",
+      "blocked",
+      "rejected",
+      "cancelled",
+      "validation_failed",
+      "not_allowed",
+      "pending_approval",
+    ].includes(normalized)
+  ) {
+    return "blocked";
+  }
+  return "pending";
+}
+
+function summarizeArtifactsByType(artifacts) {
+  return (artifacts || []).reduce((counts, artifact) => {
+    const key = artifact.artifact_type || "artifact";
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function renderLifecycleCard(title, status, summary) {
+  return `
+    <div class="status-count-card tone-${toneForStatus(status)}">
+      <strong>${escapeHtml(title)}</strong>
+      <small>${statusPill(status)}</small>
+      <small>${escapeHtml(summary)}</small>
+    </div>
+  `;
+}
+
+function nextLifecycleSuggestion(bundle, relatedCodexTasks) {
+  const latestTask = latestItem(relatedCodexTasks);
+  const latestValidation = latestItem(bundle.validations);
+  const latestApproval = latestItem(bundle.approvals);
+  const latestDeployment = latestItem(bundle.deployments);
+  const packStatus = String(bundle.pack.status || "").toLowerCase();
+
+  if (!relatedCodexTasks.length) {
+    return {
+      title: "Create a supervised Codex task if this pack needs operator-guided refinement.",
+      detail:
+        "The pack registry is already in place. A Codex task is only needed when the operator wants a controlled artifact review or refinement pass.",
+    };
+  }
+  if (!state.selectedCodexResult && latestTask && String(latestTask.status).toLowerCase() !== "prepared") {
+    return {
+      title: "Prepare the selected Codex task before editing or exporting workspace artifacts.",
+      detail:
+        "This generates the dry-run commands, workspace path, and validation hooks without changing the active runtime.",
+    };
+  }
+  if (!latestValidation || ["generated", "proposed"].includes(packStatus)) {
+    return {
+      title: "Validate the generated pack before approval.",
+      detail:
+        "Validation is the first gate. It syntax-checks and dry-runs the existing artifacts before any approval or deployment decision.",
+    };
+  }
+  if (String(latestValidation.status || "").toLowerCase() !== "validated") {
+    return {
+      title: "Resolve validation blockers before moving to approval.",
+      detail:
+        "The validation lane reported a non-ready status. Review the blocking issues and rerun validation instead of bypassing the pack lifecycle.",
+    };
+  }
+  if (!latestApproval || !["approved", "deployed"].includes(packStatus)) {
+    return {
+      title: "Approval is the next controlled step.",
+      detail:
+        "The pack has a passing validation result. Review the operator notes and approval trail, then approve if the pack is ready for deployment.",
+    };
+  }
+  if (!latestDeployment || packStatus !== "deployed") {
+    return {
+      title: "Deploy the approved pack so runs can bind to a fixed version.",
+      detail:
+        "Deployment makes the reviewed pack version available to engagement runtime binding without changing the runtime in place.",
+    };
+  }
+  return {
+    title: "The pack is deployed. Review provenance and prepared tasks for future refinement.",
+    detail:
+      "This pack is already bound through the normal deployment lane. Any further Codex work should remain a new supervised refinement cycle.",
+  };
+}
+
+function renderArtifactPreview(artifact) {
+  const provenanceSummary = Object.entries(artifact.provenance_json || {})
+    .filter(([, value]) => value !== null && value !== undefined && value !== "" && value !== false)
+    .slice(0, 4)
+    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`);
+
+  return renderDisclosure({
+    title: artifact.logical_name,
+    summary: `${artifact.artifact_type} · ${artifact.status}`,
+    body: `
+      <div class="info-pair-grid">
+        <div>
+          <p class="eyebrow">Checksum</p>
+          <p>${escapeHtml(artifact.checksum_sha256)}</p>
+        </div>
+        <div>
+          <p class="eyebrow">Content Shape</p>
+          <p>${escapeHtml(
+            [
+              artifact.has_content_text || artifact.content_text ? "text" : null,
+              artifact.has_content_json || artifact.content_json ? "json" : null,
+            ]
+              .filter(Boolean)
+              .join(" + ") || "metadata only"
+          )}</p>
+        </div>
+      </div>
+      ${renderBadgeList(artifact.methodology_tags, "split-top")}
+      ${
+        provenanceSummary.length
+          ? `<div class="split-top"><p class="eyebrow">Provenance</p><ul>${provenanceSummary
+              .map((entry) => `<li>${escapeHtml(entry)}</li>`)
+              .join("")}</ul></div>`
+          : `<p class="micro-copy split-top">No explicit provenance highlights recorded on this artifact.</p>`
+      }
+      ${
+        artifact.validation_checks?.length
+          ? `<div class="split-top"><p class="eyebrow">Validation Expectations</p><ul>${artifact.validation_checks
+              .map((entry) => `<li>${escapeHtml(entry)}</li>`)
+              .join("")}</ul></div>`
+          : ""
+      }
+    `,
+  });
 }
 
 export function createPacksModule() {
-  function renderPackForge() {
-    renderAdaptiveForm();
-    renderCodexTaskForm();
-
-    if (!state.selectedPackBundle) {
-      dom.validatePackBtn.disabled = true;
-      dom.approvePackBtn.disabled = true;
-      dom.deployPackBtn.disabled = true;
-      dom.packSummary.innerHTML = emptyState(
-        "Generate or select a capability pack to review promotion readiness."
-      );
-      dom.packForgeDetail.innerHTML = emptyState(
-        "Pack artifacts, validations, approvals, deployments, and Codex tasks appear here."
-      );
-      dom.codexContext.innerHTML = emptyState("Codex context is available once a pack is selected.");
-      dom.codexTaskResult.innerHTML = emptyState(
-        "Prepared task output appears here."
-      );
-      return;
+  async function withPackAction(actionLabel, handler) {
+    state.loading.packAction = actionLabel;
+    renderPackForge();
+    try {
+      await handler();
+    } finally {
+      state.loading.packAction = null;
+      renderPackForge();
     }
+  }
 
-    const bundle = state.selectedPackBundle;
-    const busyAction = state.loading.packAction;
-    const actionBusy = Boolean(busyAction);
-    dom.validatePackBtn.disabled =
-      actionBusy || ["validated", "approved", "deployed"].includes(bundle.pack.status);
-    dom.approvePackBtn.disabled =
-      actionBusy || !["validated", "approved", "deployed"].includes(bundle.pack.status);
-    dom.deployPackBtn.disabled =
-      actionBusy || !["approved", "deployed"].includes(bundle.pack.status);
+  function renderPackSummary(bundle, relatedCodexTasks, busyAction) {
+    const latestValidation = latestItem(bundle.validations);
+    const latestApproval = latestItem(bundle.approvals);
+    const latestDeployment = latestItem(bundle.deployments);
 
-    dom.packSummary.innerHTML = `
+    const lifecycleCards = [
+      renderLifecycleCard(
+        "Proposal",
+        relatedCodexTasks[0]?.status || bundle.pack.status,
+        relatedCodexTasks.length
+          ? `${relatedCodexTasks.length} linked Codex task${relatedCodexTasks.length === 1 ? "" : "s"}`
+          : "No linked Codex task yet"
+      ),
+      renderLifecycleCard(
+        "Validation",
+        latestValidation?.status || "not_run",
+        latestValidation?.summary || "Validation has not been executed yet."
+      ),
+      renderLifecycleCard(
+        "Approval",
+        latestApproval?.decision || "not_requested",
+        latestApproval ? `Last reviewer: ${latestApproval.approver_id}` : "Approval has not been requested."
+      ),
+      renderLifecycleCard(
+        "Deployment",
+        latestDeployment?.status || "not_deployed",
+        latestDeployment
+          ? `${latestDeployment.deployment_target}${latestDeployment.run_profile_name ? ` · ${latestDeployment.run_profile_name}` : ""}`
+          : "No deployment has been recorded."
+      ),
+    ].join("");
+
+    return `
       <h4>${escapeHtml(bundle.pack.name)} <span class="badge">${escapeHtml(bundle.pack.version)}</span></h4>
       <p>${statusPill(bundle.pack.status)} ${escapeHtml(bundle.pack.generation_mode)}</p>
       <p>${escapeHtml(bundle.pack.description || "No description recorded.")}</p>
-      <p class="micro-copy">${escapeHtml(`Methodology tags: ${(bundle.pack.methodology_tags || []).join(", ") || "None"}`)}</p>
+      <div class="info-pair-grid split-top" data-testid="codex-pack-overview">
+        <div>
+          <p class="eyebrow">Inventory Source</p>
+          <p>${escapeHtml(shortId(bundle.context.source_inventory_snapshot_id))}</p>
+        </div>
+        <div>
+          <p class="eyebrow">Relevance Decision</p>
+          <p>${escapeHtml(shortId(bundle.context.relevance_decision_id))}</p>
+        </div>
+        <div>
+          <p class="eyebrow">Threat Intel</p>
+          <p>${escapeHtml(String(bundle.context.source_threat_intel_refs.length || 0))} reference(s)</p>
+        </div>
+        <div>
+          <p class="eyebrow">Latest Validation</p>
+          <p>${statusPill(bundle.context.latest_validation_status || "not_run")}</p>
+        </div>
+      </div>
+      ${renderBadgeList(bundle.pack.methodology_tags, "split-top")}
+      <div class="status-grid split-top" data-testid="codex-lifecycle">
+        ${lifecycleCards}
+      </div>
       ${
         busyAction
           ? `
@@ -81,9 +277,10 @@ export function createPacksModule() {
         <button class="action ghost" type="button" data-nav-screen="report-center">Open Report Center</button>
       </div>
     `;
+  }
 
-    const relatedCodexTasks = filteredCodexTasks();
-    dom.packForgeDetail.innerHTML = `
+  function renderPackRegistry(bundle, relatedCodexTasks) {
+    return `
       <div class="stack-zone">
         <div class="list-card">
           <h4>Capability Packs</h4>
@@ -100,34 +297,41 @@ export function createPacksModule() {
               .join("")}
           </div>
         </div>
-        <div class="list-card">
-          <h4>Artifacts</h4>
-          ${
-            bundle.artifacts.length
-              ? bundle.artifacts
-                  .map(
-                    (artifact) => `
-                      <div class="artifact-card split-top">
-                        <h4>${escapeHtml(artifact.logical_name)}</h4>
-                        <p>${escapeHtml(`${artifact.artifact_type} · ${artifact.status}`)}</p>
-                        <p class="micro-copy">${escapeHtml(artifact.checksum_sha256)}</p>
-                      </div>
-                    `
-                  )
-                  .join("")
-              : "<p>No pack artifacts recorded.</p>"
-          }
-        </div>
+        ${renderDisclosure({
+          title: "Artifact Registry",
+          summary: `${bundle.artifacts.length} artifact${bundle.artifacts.length === 1 ? "" : "s"} across ${Object.keys(summarizeArtifactsByType(bundle.artifacts)).length || 0} types`,
+          open: true,
+          testId: "pack-registry-artifacts",
+          body: bundle.artifacts.length
+            ? bundle.artifacts
+                .map(
+                  (artifact) => `
+                    <div class="artifact-card split-top">
+                      <h4>${escapeHtml(artifact.logical_name)}</h4>
+                      <p>${escapeHtml(`${artifact.artifact_type} · ${artifact.status}`)}</p>
+                      ${renderBadgeList(artifact.methodology_tags)}
+                      <p class="micro-copy split-top">${escapeHtml(artifact.checksum_sha256)}</p>
+                    </div>
+                  `
+                )
+                .join("")
+            : "<p>No pack artifacts recorded.</p>",
+        })}
         <div class="wizard-panel-grid">
           <div class="detail-surface">
             <h4>Validation</h4>
             ${
               bundle.validations.length
                 ? bundle.validations
-                    .map(
-                      (validation) =>
-                        `<p>${statusPill(validation.status)} ${escapeHtml(validation.validator)} · ${escapeHtml(validation.summary || "No summary")}</p>`
-                    )
+                    .map((validation) => {
+                      const blockingIssues = validation.blocking_issues_json || [];
+                      return `
+                        <div class="split-top">
+                          <p>${statusPill(validation.status)} ${escapeHtml(validation.validator)} · ${escapeHtml(validation.summary || "No summary")}</p>
+                          <p class="micro-copy">${escapeHtml(`${blockingIssues.length} blocking issue${blockingIssues.length === 1 ? "" : "s"} · ${formatDateTime(validation.created_at)}`)}</p>
+                        </div>
+                      `;
+                    })
                     .join("")
                 : "<p>No validation results yet.</p>"
             }
@@ -138,8 +342,12 @@ export function createPacksModule() {
               bundle.approvals.length
                 ? bundle.approvals
                     .map(
-                      (approval) =>
-                        `<p>${statusPill(approval.decision)} ${escapeHtml(approval.approver_id)} · ${escapeHtml(approval.notes || "No notes")}</p>`
+                      (approval) => `
+                        <div class="split-top">
+                          <p>${statusPill(approval.decision)} ${escapeHtml(approval.approver_id)} · ${escapeHtml(approval.notes || "No notes")}</p>
+                          <p class="micro-copy">${escapeHtml(formatDateTime(approval.created_at))}</p>
+                        </div>
+                      `
                     )
                     .join("")
                 : "<p>No pack approvals recorded.</p>"
@@ -147,19 +355,279 @@ export function createPacksModule() {
           </div>
         </div>
         <div class="detail-surface">
-          <h4>Deployments & Codex Tasks</h4>
-          <p>${escapeHtml(`${bundle.deployments.length} deployments · ${relatedCodexTasks.length} Codex tasks`)}</p>
+          <h4>Deployments & Linked Codex Tasks</h4>
+          <p>${escapeHtml(`${bundle.deployments.length} deployment${bundle.deployments.length === 1 ? "" : "s"} · ${relatedCodexTasks.length} linked Codex task${relatedCodexTasks.length === 1 ? "" : "s"}`)}</p>
           ${
-            bundle.deployments
-              .map(
-                (deployment) =>
-                  `<p class="micro-copy">${escapeHtml(`${deployment.status} to ${deployment.deployment_target}`)}</p>`
-              )
-              .join("") || "<p class='micro-copy'>No deployment history yet.</p>"
+            bundle.deployments.length
+              ? bundle.deployments
+                  .map(
+                    (deployment) => `
+                      <p class="micro-copy split-top">${escapeHtml(
+                        `${deployment.status} to ${deployment.deployment_target}${
+                          deployment.run_profile_name ? ` · ${deployment.run_profile_name}` : ""
+                        }`
+                      )}</p>
+                    `
+                  )
+                  .join("")
+              : "<p class='micro-copy'>No deployment history yet.</p>"
           }
         </div>
       </div>
     `;
+  }
+
+  function renderCodexSuggestions(bundle, relatedCodexTasks) {
+    const latestTask = relatedCodexTasks.find((task) => task.id === state.selectedCodexTaskId) || relatedCodexTasks[0] || null;
+    const suggestion = nextLifecycleSuggestion(bundle, relatedCodexTasks);
+    const visibility = bundle.context.operator_visibility;
+
+    dom.codexSuggestions.innerHTML = `
+      <h4>Operator Suggestions</h4>
+      <p>${escapeHtml(suggestion.title)}</p>
+      <p class="micro-copy">${escapeHtml(suggestion.detail)}</p>
+      <div class="info-pair-grid split-top">
+        <div>
+          <p class="eyebrow">Linked Task</p>
+          <p>${latestTask ? escapeHtml(`${latestTask.task_type} · ${latestTask.id}`) : "No Codex task selected"}</p>
+        </div>
+        <div>
+          <p class="eyebrow">Task Status</p>
+          <p>${latestTask ? statusPill(latestTask.status) : statusPill("not_requested")}</p>
+        </div>
+        <div>
+          <p class="eyebrow">Approval Lane</p>
+          <p>${latestTask ? statusPill(latestTask.approval_status) : statusPill("not_requested")}</p>
+        </div>
+        <div>
+          <p class="eyebrow">Runtime Safety</p>
+          <p>${bundle.context.active_runtime_mutation_allowed ? "Runtime mutation allowed" : "Runtime mutation blocked"}</p>
+        </div>
+      </div>
+      ${
+        latestTask
+          ? `
+            <div class="split-top">
+              <p class="eyebrow">Generation Reason</p>
+              <p>${escapeHtml(latestTask.generation_reason || bundle.context.generation_reason || "No generation reason recorded.")}</p>
+            </div>
+          `
+          : `
+            <div class="split-top">
+              <p class="eyebrow">Generation Reason</p>
+              <p>${escapeHtml(bundle.context.generation_reason || "No Codex task is linked yet, so only pack-level generation context is available.")}</p>
+            </div>
+          `
+      }
+      ${renderDisclosure({
+        title: "Required Operator Visibility",
+        summary: `${visibility.required_badges.length} badges · ${visibility.required_fields.length} required fields`,
+        body: `
+          <p class="eyebrow">Required badges</p>
+          ${renderBadgeList(visibility.required_badges)}
+          <p class="eyebrow split-top">Required fields</p>
+          <ul>${visibility.required_fields.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        `,
+      })}
+      ${renderDisclosure({
+        title: "Review Sections",
+        summary: `${visibility.review_sections.length} controlled review sections`,
+        body: `
+          <ul>${visibility.review_sections.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <p class="eyebrow split-top">Finding provenance remains visible via</p>
+          <ul>${visibility.finding_provenance_fields.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        `,
+      })}
+    `;
+  }
+
+  function renderCodexPackPreview(bundle) {
+    const artifactCounts = summarizeArtifactsByType(bundle.context.artifacts);
+    const artifactBadges = Object.entries(artifactCounts).map(([artifactType, count]) => `${artifactType} (${count})`);
+
+    dom.codexPackPreview.innerHTML = `
+      <h4>Generated Pack Preview</h4>
+      <p>${escapeHtml(
+        `${bundle.context.artifacts.length} exportable artifact${bundle.context.artifacts.length === 1 ? "" : "s"} are tied to this pack review bundle.`
+      )}</p>
+      ${renderBadgeList(artifactBadges, "split-top")}
+      <div class="artifact-preview-list split-top">
+        ${
+          bundle.context.artifacts.length
+            ? bundle.context.artifacts.map((artifact) => renderArtifactPreview(artifact)).join("")
+            : emptyState("No exported artifacts were recorded for this pack.")
+        }
+      </div>
+      <p class="micro-copy split-top">The full artifact registry, validations, approvals, and deployment history remain visible in the registry panel to the left.</p>
+    `;
+  }
+
+  function renderCodexContext(bundle) {
+    dom.codexContext.innerHTML = `
+      <h4>Build Lane Guardrails</h4>
+      <p>${statusPill(bundle.context.pack_status)} ${escapeHtml(bundle.context.generation_mode)}</p>
+      <div class="info-pair-grid split-top">
+        <div>
+          <p class="eyebrow">Suggested Branch</p>
+          <p>${escapeHtml(bundle.context.repo_conventions.suggested_branch_name)}</p>
+        </div>
+        <div>
+          <p class="eyebrow">Workspace Root</p>
+          <p>${escapeHtml(bundle.context.repo_conventions.workspace_root)}</p>
+        </div>
+      </div>
+      ${renderDisclosure({
+        title: "Runtime Guardrails",
+        summary: `${bundle.context.runtime_guardrails.length} rules that keep Codex out of the live runtime`,
+        body: `<ul>${bundle.context.runtime_guardrails.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
+      })}
+      ${renderDisclosure({
+        title: "Validation Hooks",
+        summary: `${bundle.context.validation_hooks.length} existing pack lifecycle hooks`,
+        body: bundle.context.validation_hooks
+          .map(
+            (hook) => `
+              <div class="split-top">
+                <p>${statusPill(hook.blocking ? "blocked" : "review")} ${escapeHtml(`${hook.name} · ${hook.method} ${hook.path}`)}</p>
+                <p class="micro-copy">${escapeHtml(hook.description)}</p>
+                ${
+                  hook.artifact_types?.length
+                    ? `<p class="micro-copy">Artifact focus: ${escapeHtml(hook.artifact_types.join(", "))}</p>`
+                    : ""
+                }
+                ${
+                  hook.expected_checks?.length
+                    ? `<p class="micro-copy">Expected checks: ${escapeHtml(hook.expected_checks.join(" · "))}</p>`
+                    : ""
+                }
+                ${
+                  hook.workspace_files?.length
+                    ? `<p class="micro-copy">Workspace files: ${escapeHtml(hook.workspace_files.join(" · "))}</p>`
+                    : ""
+                }
+              </div>
+            `
+          )
+          .join(""),
+      })}
+      ${renderDisclosure({
+        title: "Repository Conventions",
+        summary: `${bundle.context.repo_conventions.notes_file}, ${bundle.context.repo_conventions.change_summary_file}, ${bundle.context.repo_conventions.review_bundle_file}`,
+        body: `
+          <p class="micro-copy">${escapeHtml(bundle.context.repo_conventions.export_command)}</p>
+          <p class="micro-copy split-top">${escapeHtml(bundle.context.repo_conventions.validation_command)}</p>
+          <ul class="split-top">${bundle.context.repo_conventions.rules.map((rule) => `<li>${escapeHtml(rule)}</li>`).join("")}</ul>
+        `,
+      })}
+    `;
+  }
+
+  function renderCodexTaskResult(bundle) {
+    dom.codexTaskResult.innerHTML = state.selectedCodexResult
+      ? `
+        <h4>Prepared Task Output</h4>
+        <p>${statusPill(state.selectedCodexResult.status)} dry run ${String(state.selectedCodexResult.dry_run)}</p>
+        <p>${escapeHtml(state.selectedCodexResult.summary)}</p>
+        ${renderDisclosure({
+          title: "Prepared Commands",
+          summary: `${state.selectedCodexResult.prepared_commands.length} commands`,
+          open: true,
+          body: `<ul>${state.selectedCodexResult.prepared_commands.map((command) => `<li>${escapeHtml(command)}</li>`).join("")}</ul>`,
+          testId: "codex-prepared-commands",
+        })}
+        ${renderDisclosure({
+          title: "Output Files",
+          summary: `${state.selectedCodexResult.output_files.length} repo-backed artifacts`,
+          body: `<ul>${state.selectedCodexResult.output_files.map((path) => `<li>${escapeHtml(path)}</li>`).join("")}</ul>`,
+        })}
+        ${renderDisclosure({
+          title: "Task Guardrails",
+          summary: `${state.selectedCodexResult.guardrails.length} execution guardrails`,
+          body: `<ul>${state.selectedCodexResult.guardrails.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
+        })}
+        ${renderDisclosure({
+          title: "Validation Handoff",
+          summary: `${state.selectedCodexResult.validation_hooks.length} existing validation hooks`,
+          body: state.selectedCodexResult.validation_hooks
+            .map(
+              (hook) => `
+                <div class="split-top">
+                  <p>${statusPill(hook.blocking ? "blocked" : "review")} ${escapeHtml(`${hook.name} · ${hook.method} ${hook.path}`)}</p>
+                  <p class="micro-copy">${escapeHtml(hook.description)}</p>
+                  ${
+                    hook.artifact_types?.length
+                      ? `<p class="micro-copy">Artifact focus: ${escapeHtml(hook.artifact_types.join(", "))}</p>`
+                      : ""
+                  }
+                  ${
+                    hook.expected_checks?.length
+                      ? `<p class="micro-copy">Expected checks: ${escapeHtml(hook.expected_checks.join(" · "))}</p>`
+                      : ""
+                  }
+                  ${
+                    hook.workspace_files?.length
+                      ? `<p class="micro-copy">Workspace files: ${escapeHtml(hook.workspace_files.join(" · "))}</p>`
+                      : ""
+                  }
+                </div>
+              `
+            )
+            .join(""),
+          testId: "codex-validation-handoff",
+        })}
+      `
+      : emptyState(
+          bundle
+            ? "Create or select a Codex task to view prepared commands, output files, and validation hooks."
+            : "Prepared task output appears here."
+        );
+  }
+
+  function renderPackForge() {
+    renderAdaptiveForm();
+    renderCodexTaskForm();
+
+    if (!state.selectedPackBundle) {
+      dom.validatePackBtn.disabled = true;
+      dom.approvePackBtn.disabled = true;
+      dom.deployPackBtn.disabled = true;
+      dom.packSummary.innerHTML = emptyState(
+        "Generate or select a capability pack to review promotion readiness."
+      );
+      dom.packForgeDetail.innerHTML = emptyState(
+        "Pack artifacts, validations, approvals, deployments, and Codex tasks appear here."
+      );
+      dom.codexSuggestions.innerHTML = emptyState(
+        "Operator suggestions appear once a pack and optional Codex task are linked."
+      );
+      dom.codexPackPreview.innerHTML = emptyState(
+        "Generated pack previews appear once a review bundle is available."
+      );
+      dom.codexContext.innerHTML = emptyState("Codex context is available once a pack is selected.");
+      dom.codexTaskResult.innerHTML = emptyState(
+        "Prepared task output appears here."
+      );
+      dom.prepareCodexTaskBtn.disabled = true;
+      return;
+    }
+
+    const bundle = state.selectedPackBundle;
+    const busyAction = state.loading.packAction;
+    const actionBusy = Boolean(busyAction);
+    const relatedCodexTasks = filteredCodexTasks();
+    if (relatedCodexTasks.length && !relatedCodexTasks.some((task) => task.id === state.selectedCodexTaskId)) {
+      state.selectedCodexTaskId = relatedCodexTasks[0].id;
+    }
+    dom.validatePackBtn.disabled =
+      actionBusy || ["validated", "approved", "deployed"].includes(bundle.pack.status);
+    dom.approvePackBtn.disabled =
+      actionBusy || !["validated", "approved", "deployed"].includes(bundle.pack.status);
+    dom.deployPackBtn.disabled =
+      actionBusy || !["approved", "deployed"].includes(bundle.pack.status);
+    dom.prepareCodexTaskBtn.disabled = actionBusy || !relatedCodexTasks.length;
+
+    dom.packSummary.innerHTML = renderPackSummary(bundle, relatedCodexTasks, busyAction);
+    dom.packForgeDetail.innerHTML = renderPackRegistry(bundle, relatedCodexTasks);
     dom.packForgeDetail.querySelectorAll("[data-pack-pick]").forEach((item) => {
       item.addEventListener("click", async () => {
         state.selectedPackId = item.dataset.packPick;
@@ -169,20 +637,10 @@ export function createPacksModule() {
       });
     });
 
-    dom.codexContext.innerHTML = `
-      <h4>${escapeHtml(bundle.context.pack_name)} <span class="badge">${escapeHtml(bundle.context.pack_version)}</span></h4>
-      <p>${statusPill(bundle.context.pack_status)} ${escapeHtml(bundle.context.generation_mode)}</p>
-      <p>${escapeHtml(bundle.context.runtime_guardrails.join(" | "))}</p>
-      <p class="micro-copy">${escapeHtml(`Validation hooks: ${bundle.context.validation_hooks.map((hook) => hook.name).join(", ")}`)}</p>
-    `;
-    dom.codexTaskResult.innerHTML = state.selectedCodexResult
-      ? `
-        <h4>Prepared Task</h4>
-        <p>${statusPill(state.selectedCodexResult.status)} dry run ${String(state.selectedCodexResult.dry_run)}</p>
-        <p>${escapeHtml(state.selectedCodexResult.summary)}</p>
-        <ul>${state.selectedCodexResult.prepared_commands.map((command) => `<li>${escapeHtml(command)}</li>`).join("")}</ul>
-      `
-      : emptyState("Create or select a Codex task to view prepared commands and validation hooks.");
+    renderCodexSuggestions(bundle, relatedCodexTasks);
+    renderCodexPackPreview(bundle);
+    renderCodexContext(bundle);
+    renderCodexTaskResult(bundle);
   }
 
   function renderAdaptiveForm() {
@@ -309,10 +767,11 @@ export function createPacksModule() {
         ${filteredCodexTasks()
           .map(
             (task) => `
-              <div class="list-card ${task.id === state.selectedCodexTaskId ? "selected" : ""}" data-codex-pick="${task.id}">
+              <div class="list-card ${task.id === state.selectedCodexTaskId ? "selected" : ""}" data-codex-pick="${task.id}" data-testid="codex-task-card">
                 <h4>${escapeHtml(task.task_type)}</h4>
                 <p>${statusPill(task.status)} ${escapeHtml(task.validation_status)}</p>
                 <p class="micro-copy">${escapeHtml(task.scope)}</p>
+                <p class="micro-copy split-top">${escapeHtml(task.generation_reason)}</p>
               </div>
             `
           )
@@ -336,6 +795,7 @@ export function createPacksModule() {
         },
       });
       state.selectedCodexTaskId = task.id;
+      state.selectedCodexResult = null;
       runtime.actions.pushStatus?.("Codex task created in the supervised build lane.", "success");
       state.codexTasks = await api("/api/v1/codex/tasks");
       renderPackForge();

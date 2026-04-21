@@ -100,6 +100,20 @@ def artifact_refs_for_tool(pack: CapabilityPack, tool: str) -> list[dict[str, An
     ]
 
 
+def validation_checks_for_artifact_type(artifact_type: str) -> list[str]:
+    if artifact_type == "nuclei_template":
+        return ["contains template id", "contains info block"]
+    if artifact_type == "semgrep_rule":
+        return ["contains rules block", "contains rule id"]
+    if artifact_type == "playwright_flow":
+        return ["has steps array"]
+    if artifact_type in {"scanner_profile", "zap_job"}:
+        return ["has tool", "has targets or note"]
+    if artifact_type in {"workflow", "metadata"}:
+        return ["has content json"]
+    return []
+
+
 def _next_pack_version(session: Session, *, engagement_id: UUID, name: str) -> str:
     existing = session.scalars(
         select(CapabilityPack)
@@ -376,25 +390,24 @@ def validate_pack(session: Session, *, pack: CapabilityPack, executed_by: str) -
     blocking_issues: list[str] = []
 
     for artifact in pack.artifacts:
-        checks: list[str] = []
+        checks = validation_checks_for_artifact_type(artifact.artifact_type)
         passed = True
 
         if artifact.artifact_type == "nuclei_template":
-            checks = ["contains template id", "contains info block"]
             passed = bool(artifact.content_text and "id:" in artifact.content_text and "info:" in artifact.content_text)
         elif artifact.artifact_type == "semgrep_rule":
-            checks = ["contains rules block", "contains rule id"]
             passed = bool(artifact.content_text and "rules:" in artifact.content_text and "id:" in artifact.content_text)
         elif artifact.artifact_type == "playwright_flow":
-            checks = ["has steps array"]
-            passed = isinstance(artifact.content_json, dict) and isinstance(artifact.content_json.get("steps"), list) and bool(artifact.content_json.get("steps"))
+            passed = (
+                isinstance(artifact.content_json, dict)
+                and isinstance(artifact.content_json.get("steps"), list)
+                and bool(artifact.content_json.get("steps"))
+            )
         elif artifact.artifact_type in {"scanner_profile", "zap_job"}:
-            checks = ["has tool", "has targets or note"]
             passed = isinstance(artifact.content_json, dict) and bool(artifact.content_json.get("tool")) and bool(
                 artifact.content_json.get("targets") or artifact.content_json.get("target") or artifact.content_json.get("notes")
             )
         elif artifact.artifact_type in {"workflow", "metadata"}:
-            checks = ["has content json"]
             passed = isinstance(artifact.content_json, dict) and bool(artifact.content_json)
 
         artifact.status = "validated" if passed else "validation_failed"

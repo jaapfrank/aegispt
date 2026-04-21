@@ -1,0 +1,107 @@
+{
+  "id": "backlog-05-attack-path-summary-foundation",
+  "task_file": "codex/tasks/backlog-05-attack-path-summary-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Attack-Path Summary Foundation",
+  "goal": "Turn existing inventory and findings into path-oriented operator guidance by building the first attack-graph service and choke-point summary without jumping straight to a heavy graph UI.",
+  "scope": "Implement the first attack-path slice by expanding the placeholder attack-path service into a real run-scoped graph builder, exposing candidate path and choke-point summaries through API contracts, and surfacing those summaries in an existing review surface. Keep advanced graph rendering and identity-aware path expansion out of this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 5,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/attack_path_engine.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "attack_path_intelligence",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/attack_path_engine.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to service-level path construction plus a summary UI. Defer D3/Cytoscape graph rendering, identity-edge expansion, and risk-scoring integration.",
+    "runtime_mutation": false,
+    "use_existing_run_inventory_only": true,
+    "notes": [
+      "Define a choke point as any node that appears in three or more candidate paths in this slice.",
+      "Use selected-run inventory, findings, and existing host relationship hints only."
+    ]
+  },
+  "success_criteria": [
+    "The placeholder attack-path service produces nodes, edges, candidate paths, and choke-point summaries for a selected run.",
+    "An API contract exposes those summaries without inventing a second data model.",
+    "Operators can review candidate paths and choke points from an existing analysis surface without a blank placeholder.",
+    "Zero-data and low-data runs return a truthful empty or low-confidence path summary.",
+    "Service and UI tests cover multi-host paths, zero-data fallbacks, and choke-point thresholds."
+  ],
+  "likely_touched_files": [
+    "api/app/services/attack_paths.py",
+    "api/app/routers/runs.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/app.js",
+    "docs/attack_path_engine.md",
+    "ui/tests/test_product_feature_matrix_e2e.py"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "docs/risk_scoring_model.md",
+    "workers/orchestration/tasks.py",
+    "ui/assets/styles.css"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A run with usable inventory and findings returns at least one candidate path or a truthful statement that no path could be derived.",
+      "Choke points are calculated from a documented threshold instead of a vague heuristic.",
+      "The UI summary does not imply identity-aware or cross-environment chaining before those layers exist."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "No graph-library dependency is introduced in this slice."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the attack-path foundation behavior and validation evidence.",
+      "Update CURRENT_STATE.md with the path-summary capability and its current limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "D3 or Cytoscape graph rendering",
+    "Identity-aware path inference",
+    "Cloud-to-on-prem attack chaining",
+    "Risk scoring or remediation-impact optimization"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}

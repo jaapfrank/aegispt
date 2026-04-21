@@ -35,6 +35,8 @@ De huidige baseline van AegisPT bestaat uit:
 - approval-gated ZAP active scan profiel
 - curated internal validation sessies met preflight checks en step approvals
 - pytest dekking en CI bootstrap
+- een reproduceerbare direct-host installer voor Kali via `scripts/install_aegispt_host.sh`
+- een herhaalbare systemd-service refresh via `scripts/install_host_service.sh`
 
 Deze status geldt als afgeronde eerste slice plus afgeronde fase 5, 6 en 7. De onderdelen onder "Wat nu bewust niet in scope zit" blijven bewust voor latere fases.
 
@@ -53,6 +55,7 @@ Deze keuzes uit de projectbrief blijven leidend:
 Na uitvoering van dit runbook moet de Kali-VM de volgende rol kunnen vervullen:
 
 - herbruikbare development en operator VM voor AegisPT
+- host voor een directe systemd-gebaseerde AegisPT operator-console installatie
 - host voor Docker Compose services van AegisPT
 - host met kern security tools voor de MVP pipeline
 - basisplatform voor latere uitbreiding naar policy-verdieping en aanvullende internal validation runbooks
@@ -216,6 +219,38 @@ nuclei -version
 zaproxy -version
 ```
 
+## Directe host-installatie voor lokaal testen
+
+Voor een snelle, reproduceerbare operator-node op Kali hoeft niet eerst de volledige Compose stack gestart te worden.
+
+Gebruik vanuit de repository root:
+
+```bash
+sudo bash scripts/install_aegispt_host.sh
+```
+
+Deze flow:
+
+- bootstrap de host packages en security tooling
+- maakt runtime directories aan
+- bouwt de repo-local virtuele omgeving
+- installeert Playwright Chromium voor PDF-export
+- maakt `/srv/aegispt/env/aegispt-host.env` aan als die nog niet bestaat
+- voert `alembic upgrade head` uit
+- installeert en start `aegispt.service`
+
+Daarna hoort dit te werken:
+
+```bash
+systemctl status aegispt.service --no-pager
+curl http://127.0.0.1:8000/health/live
+curl http://127.0.0.1:8000/app/
+```
+
+Voor details en een expliciete copy-paste install-flow:
+
+- zie `docs/host_service_install.md`
+
 ## Project bootstrap
 
 De codebase moet niet direct in runtime directories gebouwd worden. Houd source en data gescheiden.
@@ -246,6 +281,13 @@ docker-compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env
 ```
 
 De Compose-config gebruikt vaste hostpaden onder `/srv/aegispt`, zodat runtime data niet tussen de broncode terechtkomt.
+
+Voor het verversen van een bestaande directe host-installatie na code-updates:
+
+```bash
+cd /opt/aegispt/repo
+sudo bash scripts/install_host_service.sh
+```
 
 ### Eerste repository structuur
 
@@ -291,8 +333,12 @@ aegispt/
   migrations/
   scripts/
     bootstrap_kali_host.sh
+    generate_host_env.sh
+    install_aegispt_host.sh
+    install_host_service.sh
     install_security_tools.sh
     init_runtime_dirs.sh
+    run_host_api.sh
     verify_host.sh
     verify_stack.sh
   .github/
@@ -602,8 +648,16 @@ Om de VM later herbruikbaar te houden, moeten deze scripts in de repository kome
   Installeert algemene host packages.
 - `scripts/install_security_tools.sh`
   Installeert de core security tools via apt plus pinned officiële release-archieven, en zet Semgrep via pipx onder de operator-user.
+- `scripts/generate_host_env.sh`
+  Genereert het directe host env-bestand onder `/srv/aegispt/env/`.
+- `scripts/install_host_service.sh`
+  Ververst de repo-local Python runtime, installeert Playwright Chromium, voert migraties uit en installeert `aegispt.service`.
+- `scripts/install_aegispt_host.sh`
+  Wrapper voor een volledige directe host-installatie op Kali.
 - `scripts/init_runtime_dirs.sh`
   Maakt `/opt/aegispt`, `/srv/aegispt` en `/var/log/aegispt` aan.
+- `scripts/run_host_api.sh`
+  Start de directe host FastAPI service met de huidige repo-local virtuele omgeving.
 - `scripts/verify_host.sh`
   Controleert Docker, Python en tool versions, inclusief proxy-robuuste Semgrep-validatie.
 - `scripts/verify_stack.sh`

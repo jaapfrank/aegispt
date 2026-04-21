@@ -11,8 +11,8 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required" >&2
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required" >&2
   exit 1
 fi
 
@@ -32,4 +32,4 @@ if [[ -n "${OUTPUT_FILE}" ]]; then
   printf '%s\n' "${response}" > "${OUTPUT_FILE}"
 fi
 
-printf '%s\n' "${response}" | jq
+printf '%s\n' "${response}" | python3 -m json.tool

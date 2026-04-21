@@ -1,0 +1,875 @@
+{
+  "catalog_only": true,
+  "matrix_id": "ui_acceptance_matrix_v1",
+  "purpose": "Browser-level acceptance coverage for the operator console without using unauthorized external targets.",
+  "scenarios": [
+    {
+      "id": "wizard_conversational_completion_matrix",
+      "lane": "ui_browser",
+      "priority": 12,
+      "enabled": true,
+      "flows": [
+        {
+          "assessment_type": "Website / Web App",
+          "intent_answer": "Our website",
+          "goal_answer": "Standard assessment",
+          "scope_answer": "https://portal.example.com",
+          "safety_answer": "Balanced",
+          "boundary_answer": "No extra exclusions",
+          "expected_profile": "Standard",
+          "expected_lane": "passive-web-nuclei-audit",
+          "expected_scope_fragment": "https://portal.example.com"
+        },
+        {
+          "assessment_type": "Domain / Domains",
+          "intent_answer": "Our external domain",
+          "goal_answer": "Standard assessment",
+          "scope_answer": "example.com",
+          "safety_answer": "Balanced",
+          "boundary_answer": "No extra exclusions",
+          "expected_profile": "External Surface Only",
+          "expected_lane": "passive-web-baseline",
+          "expected_scope_fragment": "example.com"
+        },
+        {
+          "assessment_type": "External IP / WAN",
+          "intent_answer": "Our internet-facing IP range",
+          "goal_answer": "Standard assessment",
+          "scope_answer": "203.0.113.10",
+          "safety_answer": "Conservative",
+          "boundary_answer": "No extra exclusions",
+          "expected_profile": "External Surface Only",
+          "expected_lane": "passive-network-discovery",
+          "expected_scope_fragment": "203.0.113.10"
+        },
+        {
+          "assessment_type": "Internal Range / LAN",
+          "intent_answer": "My LAN network",
+          "goal_answer": "Inventory first, but I want clear information per found item",
+          "scope_answer": "10.0.20.0/24",
+          "safety_answer": "Conservative",
+          "boundary_answer": "Report adjacent internal ranges only",
+          "expected_profile": "Standard",
+          "expected_lane": "passive-network-discovery",
+          "expected_scope_fragment": "10.0.20.0/24"
+        },
+        {
+          "assessment_type": "API",
+          "intent_answer": "Our API",
+          "goal_answer": "Adaptive customer-specific testing",
+          "scope_answer": "https://api.example.com/v1",
+          "auth_answer": "I have API tokens or keys",
+          "auth_detail_answer": "role API Analyst api-key vault://api/key",
+          "safety_answer": "Balanced",
+          "boundary_answer": "No extra exclusions",
+          "expected_profile": "Adaptive Customer-Specific Mode",
+          "expected_lane": "active-web-safe",
+          "expected_scope_fragment": "https://api.example.com/v1"
+        },
+        {
+          "assessment_type": "SSL/TLS Only",
+          "intent_answer": "TLS posture for our public site",
+          "goal_answer": "Standard assessment",
+          "scope_answer": "portal.example.com",
+          "safety_answer": "Passive only",
+          "boundary_answer": "No extra exclusions",
+          "expected_profile": "SSL/TLS Only",
+          "expected_lane": "passive-web-baseline",
+          "expected_scope_fragment": "portal.example.com"
+        },
+        {
+          "assessment_type": "Authenticated App",
+          "intent_answer": "Our customer portal",
+          "goal_answer": "Authenticated review",
+          "scope_answer": "https://portal.example.com",
+          "auth_answer": "I have portal/app accounts",
+          "auth_detail_answer": "analyst@example.com role Security Analyst secret vault://portal/analyst",
+          "safety_answer": "Balanced",
+          "boundary_answer": "No extra exclusions",
+          "expected_profile": "Authenticated Only",
+          "expected_lane": "active-web-safe",
+          "expected_scope_fragment": "https://portal.example.com"
+        },
+        {
+          "assessment_type": "Mixed Assessment",
+          "intent_answer": "Our mixed web and API estate",
+          "goal_answer": "Adaptive customer-specific testing",
+          "scope_answer": "https://portal.example.com https://api.example.com/v1",
+          "auth_answer": "I have portal/app accounts",
+          "auth_detail_answer": "analyst@example.com role Security Analyst secret vault://mixed/analyst",
+          "safety_answer": "Balanced",
+          "boundary_answer": "No extra exclusions",
+          "expected_profile": "Adaptive Customer-Specific Mode",
+          "expected_lane": "active-web-safe",
+          "expected_scope_fragment": "https://api.example.com/v1"
+        }
+      ],
+      "expected_outputs": [
+        "full_conversational_completion",
+        "deterministic_run_creation",
+        "confirmation_alignment",
+        "run_dossier_parity"
+      ]
+    },
+    {
+      "id": "wizard_scope_guardrail_persistence",
+      "lane": "ui_browser",
+      "priority": 13,
+      "enabled": true,
+      "flow": {
+        "assessment_type": "Website / Web App",
+        "intent_answer": "Our website",
+        "goal_answer": "Standard assessment",
+        "scope_answer": "https://portal.example.com",
+        "exclusions": [
+          "https://portal.example.com/admin"
+        ],
+        "boundary_notes": "Avoid billing and admin flows."
+      },
+      "expected_outputs": [
+        "scope_guardrail_visibility",
+        "boundary_handling_sync",
+        "explorer_dossier_alignment"
+      ]
+    },
+    {
+      "id": "wizard_quick_reply_completion_matrix",
+      "lane": "ui_browser",
+      "priority": 13,
+      "enabled": true,
+      "flows": [
+        {
+          "id": "web_quick_reply",
+          "steps": [
+            {
+              "type": "chip",
+              "value": "Our web application"
+            },
+            {
+              "type": "chip",
+              "value": "Standard assessment"
+            },
+            {
+              "type": "text",
+              "value": "https://portal.example.com"
+            },
+            {
+              "type": "chip",
+              "value": "Balanced"
+            }
+          ],
+          "expected": {
+            "assessment_type": "Website / Web App",
+            "test_profile": "Standard",
+            "execution_profile": "passive-web-nuclei-audit",
+            "scope_fragment": "https://portal.example.com"
+          }
+        },
+        {
+          "id": "lan_quick_reply",
+          "steps": [
+            {
+              "type": "chip",
+              "value": "My LAN network"
+            },
+            {
+              "type": "chip",
+              "value": "Visibility with clear per-item detail"
+            },
+            {
+              "type": "text",
+              "value": "10.0.20.0/24"
+            },
+            {
+              "type": "chip",
+              "value": "Conservative"
+            },
+            {
+              "type": "chip",
+              "value": "Report adjacent internal ranges only"
+            }
+          ],
+          "expected": {
+            "assessment_type": "Internal Range / LAN",
+            "test_profile": "Standard",
+            "execution_profile": "passive-network-discovery",
+            "scope_fragment": "10.0.20.0/24"
+          }
+        },
+        {
+          "id": "api_quick_reply",
+          "steps": [
+            {
+              "type": "chip",
+              "value": "Our API"
+            },
+            {
+              "type": "chip",
+              "value": "Adaptive customer-specific testing"
+            },
+            {
+              "type": "text",
+              "value": "https://api.example.com/v1"
+            },
+            {
+              "type": "chip",
+              "value": "I have API tokens or keys"
+            },
+            {
+              "type": "text",
+              "value": "role API Analyst api-key vault://api/key-chip"
+            },
+            {
+              "type": "chip",
+              "value": "Balanced"
+            }
+          ],
+          "boundary_answer": "No extra exclusions",
+          "expected": {
+            "assessment_type": "API",
+            "test_profile": "Adaptive Customer-Specific Mode",
+            "execution_profile": "active-web-safe",
+            "scope_fragment": "https://api.example.com/v1"
+          }
+        }
+      ],
+      "expected_outputs": [
+        "suggested_answer_path_visibility",
+        "chip_driven_completion",
+        "deterministic_run_creation",
+        "run_dossier_parity"
+      ]
+    },
+    {
+      "id": "wizard_revision_alias_matrix",
+      "lane": "ui_browser",
+      "priority": 11,
+      "enabled": true,
+      "commands": [
+        "go back",
+        "undo",
+        "previous",
+        "change that",
+        "change goal",
+        "edit goal",
+        "revise goal",
+        "change depth",
+        "edit depth",
+        "revise depth",
+        "change profile",
+        "edit profile",
+        "revise profile",
+        "change output",
+        "edit output",
+        "revise output",
+        "change output style",
+        "edit output style",
+        "revise output style",
+        "change reporting style",
+        "edit reporting style",
+        "revise reporting style",
+        "change report style",
+        "edit report style",
+        "revise report style",
+        "change report",
+        "edit report",
+        "revise report",
+        "change format",
+        "edit format",
+        "revise format",
+        "change reporting",
+        "edit reporting",
+        "revise reporting",
+        "change scope",
+        "edit scope",
+        "revise scope",
+        "edit target",
+        "change target",
+        "revise target",
+        "edit targets",
+        "change targets",
+        "revise targets",
+        "change access",
+        "edit access",
+        "edit credential",
+        "edit credentials",
+        "change credentials",
+        "revise credential",
+        "revise credentials",
+        "edit token",
+        "edit tokens",
+        "change token",
+        "change tokens",
+        "revise token",
+        "revise tokens",
+        "change auth",
+        "edit auth",
+        "revise access",
+        "revise auth",
+        "change sessions",
+        "edit sessions",
+        "revise sessions",
+        "change safety",
+        "edit safety",
+        "change careful",
+        "edit careful",
+        "revise careful",
+        "change conservative",
+        "edit conservative",
+        "revise conservative",
+        "change aggressive",
+        "edit aggressive",
+        "revise aggressive",
+        "change thorough",
+        "edit thorough",
+        "revise thorough",
+        "revise safety",
+        "edit boundary",
+        "change boundary",
+        "revise boundary",
+        "change exclusions",
+        "edit exclusions",
+        "revise exclusions",
+        "change excludes",
+        "edit excludes",
+        "revise excludes",
+        "change exclusion",
+        "edit exclusion",
+        "revise exclusion",
+        "change lateral",
+        "edit lateral",
+        "revise lateral",
+        "change avoid",
+        "edit avoid",
+        "revise avoid",
+        "change exclude",
+        "edit exclude",
+        "revise exclude",
+        "edit boundaries",
+        "change boundaries",
+        "revise boundaries",
+        "change credential",
+        "change session",
+        "edit session",
+        "revise session"
+      ],
+      "expected_outputs": [
+        "editable_revision_draft_reopen",
+        "return_to_main_intake_path",
+        "output_style_revision_truth",
+        "output_style_phrase_alias_truth",
+        "output_style_normalization_truth",
+        "output_style_reporting_alias_truth",
+        "output_style_format_alias_truth",
+        "output_style_scope_preservation_truth",
+        "output_style_safety_lane_preservation_truth",
+        "output_style_confirmation_button_boundary_truth",
+        "output_style_mid_intake_button_truth",
+        "output_style_run_config_truth",
+        "output_style_mid_intake_run_config_truth",
+        "api_token_detail_truth",
+        "session_access_detail_truth",
+        "advanced_access_detail_revision_truth",
+        "shared_no_account_access_revision_truth",
+        "confirmation_button_access_revision_truth",
+        "shared_no_account_history_revision_truth",
+        "shared_no_account_stepper_revision_truth",
+        "previous_topic_access_revision_truth",
+        "back_command_normalization_truth",
+        "shared_no_account_last_answer_commands_truth",
+        "shared_no_account_edit_revise_alias_truth",
+        "shared_no_account_auth_alias_truth",
+        "shared_no_account_auth_phrase_parser_truth",
+        "polite_revision_command_wrapper_truth",
+        "case_whitespace_revision_command_normalization_truth",
+        "safety_boundary_revision_truth"
+      ]
+    },
+    {
+      "id": "wizard_assessment_matrix",
+      "lane": "ui_browser",
+      "priority": 10,
+      "enabled": true,
+      "assessment_matrix": [
+        {
+          "assessment_type": "Website / Web App",
+          "expected_scope_field": "wizard-target-urls",
+          "expected_profile": "Standard",
+          "expected_lane": "passive-web-nuclei-audit"
+        },
+        {
+          "assessment_type": "Domain / Domains",
+          "expected_scope_field": "wizard-target-domains",
+          "expected_profile": "External Surface Only",
+          "expected_lane": "passive-web-baseline"
+        },
+        {
+          "assessment_type": "External IP / WAN",
+          "expected_scope_field": "wizard-target-ip-addresses",
+          "expected_profile": "External Surface Only",
+          "expected_lane": "passive-network-discovery"
+        },
+        {
+          "assessment_type": "Internal Range / LAN",
+          "expected_scope_field": "wizard-target-cidrs",
+          "expected_profile": "Standard",
+          "expected_lane": "passive-network-discovery"
+        },
+        {
+          "assessment_type": "API",
+          "expected_scope_field": "wizard-target-api",
+          "expected_profile": "Standard",
+          "expected_lane": "passive-web-nuclei-audit"
+        },
+        {
+          "assessment_type": "SSL/TLS Only",
+          "expected_scope_field": "wizard-target-ip-addresses",
+          "expected_profile": "SSL/TLS Only",
+          "expected_lane": "passive-web-baseline"
+        },
+        {
+          "assessment_type": "Authenticated App",
+          "expected_scope_field": "wizard-target-urls",
+          "expected_profile": "Authenticated Only",
+          "expected_lane": "active-web-safe"
+        },
+        {
+          "assessment_type": "Mixed Assessment",
+          "expected_scope_field": "wizard-target-api",
+          "expected_profile": "Adaptive Customer-Specific Mode",
+          "expected_lane": "active-web-safe"
+        }
+      ],
+      "expected_outputs": [
+        "wizard_guidance",
+        "wizard_summary_disclosures",
+        "execution_lane_review"
+      ]
+    },
+    {
+      "id": "wizard_profile_matrix",
+      "lane": "ui_browser",
+      "priority": 15,
+      "enabled": true,
+      "profile_matrix": [
+        {
+          "assessment_type": "Website / Web App",
+          "profile": "Light",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "expected_lane": "passive-web-baseline",
+          "expected_check_mode": "Passive Only"
+        },
+        {
+          "assessment_type": "Website / Web App",
+          "profile": "Standard",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "expected_lane": "passive-web-nuclei-audit",
+          "expected_check_mode": "Guarded Active"
+        },
+        {
+          "assessment_type": "Website / Web App",
+          "profile": "Deep",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "expected_lane": "active-web-safe",
+          "expected_check_mode": "Guarded Active"
+        },
+        {
+          "assessment_type": "Domain / Domains",
+          "profile": "External Surface Only",
+          "scope_field": "wizard-target-domains",
+          "scope_value": "example.com",
+          "expected_lane": "passive-web-baseline",
+          "expected_check_mode": "Passive Only"
+        },
+        {
+          "assessment_type": "Authenticated App",
+          "profile": "Authenticated Only",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "auth_answer": "I have portal/app accounts",
+          "auth_detail_answer": "analyst@example.com role Security Analyst secret vault://portal/profile-matrix",
+          "expected_lane": "active-web-safe",
+          "expected_check_mode": "Guarded Active"
+        },
+        {
+          "assessment_type": "SSL/TLS Only",
+          "profile": "SSL/TLS Only",
+          "scope_field": "wizard-target-domains",
+          "scope_value": "portal.example.com",
+          "expected_lane": "passive-web-baseline",
+          "expected_check_mode": "Passive Only"
+        },
+        {
+          "assessment_type": "Internal Range / LAN",
+          "profile": "Internal Validation",
+          "scope_field": "wizard-target-cidrs",
+          "scope_value": "10.0.20.0/24",
+          "auth_answer": "Keep it unauthenticated",
+          "expected_lane": "passive-network-discovery",
+          "expected_check_mode": "Active Validation"
+        },
+        {
+          "assessment_type": "Mixed Assessment",
+          "profile": "Adaptive Customer-Specific Mode",
+          "scope_field": "wizard-target-api",
+          "scope_value": "https://api.example.com/v1",
+          "auth_answer": "I have portal/app accounts",
+          "auth_detail_answer": "analyst@example.com role Security Analyst secret vault://mixed/profile-matrix",
+          "expected_lane": "active-web-safe",
+          "expected_check_mode": "Guarded Active"
+        }
+      ],
+      "expected_outputs": [
+        "profile_reset",
+        "execution_lane_alignment",
+        "coverage_summary"
+      ]
+    },
+    {
+      "id": "operator_flow_navigation",
+      "lane": "ui_browser",
+      "priority": 20,
+      "enabled": true,
+      "screens": [
+        "wizard",
+        "mission-control",
+        "surface-map",
+        "findings-theater",
+        "evidence-replay",
+        "pack-forge",
+        "report-center",
+        "explorer",
+        "history"
+      ],
+      "expected_outputs": [
+        "quieter_navigation_groups",
+        "compact_live_feed",
+        "report_preview",
+        "history_summary"
+      ]
+    },
+    {
+      "id": "report_download_matrix",
+      "lane": "ui_browser",
+      "priority": 25,
+      "enabled": true,
+      "formats": [
+        "markdown",
+        "html",
+        "pdf"
+      ],
+      "expected_outputs": [
+        "browser_download",
+        "correct_filename",
+        "format_specific_content"
+      ]
+    },
+    {
+      "id": "module_toggle_matrix",
+      "lane": "ui_browser",
+      "priority": 27,
+      "enabled": true,
+      "module_keys": [
+        "discovery",
+        "web_crawling",
+        "auth_flows",
+        "content_discovery",
+        "nuclei_checks",
+        "zap_active_checks",
+        "ssl_tls_analysis",
+        "business_logic_testing",
+        "adaptive_ai_generated_tests",
+        "internal_validation_modules"
+      ],
+      "expected_outputs": [
+        "all_module_controls_render",
+        "toggle_state_changes",
+        "coverage_summary_sync"
+      ]
+    },
+    {
+      "id": "access_mode_matrix",
+      "lane": "ui_browser",
+      "priority": 28,
+      "enabled": true,
+      "access_modes": [
+        {
+          "id": "unauthenticated_web",
+          "assessment_type": "Website / Web App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "manual_auth_steps": "",
+          "cookie_notes": "",
+          "expected_summary": "No account context recorded",
+          "expected_manual_note": "Not provided"
+        },
+        {
+          "id": "credential_reference",
+          "assessment_type": "Authenticated App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "account": {
+            "label": "Analyst",
+            "username": "analyst@example.com",
+            "role": "Security Analyst",
+            "secret_ref": "vault://portal/analyst"
+          },
+          "manual_auth_steps": "Approve MFA after the first redirect.",
+          "cookie_notes": "",
+          "expected_summary": "Analyst (Security Analyst)",
+          "expected_manual_note": "Approve MFA after the first redirect."
+        },
+        {
+          "id": "api_key_reference",
+          "assessment_type": "API",
+          "scope_field": "wizard-target-api",
+          "scope_value": "https://api.example.com/v1",
+          "account": {
+            "label": "API Key User",
+            "role": "API Analyst",
+            "api_key_ref": "vault://api/key"
+          },
+          "manual_auth_steps": "",
+          "cookie_notes": "",
+          "expected_summary": "API Key User (API Analyst)",
+          "expected_manual_note": "Not provided"
+        },
+        {
+          "id": "bearer_token_reference",
+          "assessment_type": "API",
+          "scope_field": "wizard-target-api",
+          "scope_value": "https://api.example.com/v1",
+          "account": {
+            "label": "Bearer User",
+            "role": "API Analyst",
+            "bearer_token_ref": "vault://api/bearer"
+          },
+          "manual_auth_steps": "",
+          "cookie_notes": "",
+          "expected_summary": "Bearer User (API Analyst)",
+          "expected_manual_note": "Not provided"
+        },
+        {
+          "id": "session_reference",
+          "assessment_type": "Authenticated App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "account": {
+            "label": "Session User",
+            "role": "Web Analyst",
+            "session_ref": "session-bundle-A"
+          },
+          "manual_auth_steps": "",
+          "cookie_notes": "Session expires every 15 minutes.",
+          "expected_summary": "Session User (Web Analyst)",
+          "expected_manual_note": "Not provided"
+        },
+        {
+          "id": "manual_auth_only",
+          "assessment_type": "Authenticated App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "manual_auth_steps": "Operator must complete SSO handoff before replay.",
+          "cookie_notes": "Session bundle is supplied by the customer.",
+          "expected_summary": "Shared manual auth and session guidance recorded",
+          "expected_manual_note": "Operator must complete SSO handoff before replay."
+        }
+      ],
+      "expected_outputs": [
+        "access_summary_sync",
+        "manual_auth_note_visibility",
+        "no_parallel_access_model"
+      ]
+    },
+    {
+      "id": "safety_cluster_matrix",
+      "lane": "ui_browser",
+      "priority": 29,
+      "enabled": true,
+      "safety_clusters": [
+        {
+          "id": "passive_light",
+          "assessment_type": "Website / Web App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "profile": "Light",
+          "rate_limit_rps": 1,
+          "concurrency": 1,
+          "time_budget_minutes": 20,
+          "active_checks": "passive-only",
+          "adaptive_generation": false,
+          "max_validation_depth": "light",
+          "expected_lane": "passive-web-baseline",
+          "expected_check_mode": "Passive Only"
+        },
+        {
+          "id": "guarded_standard",
+          "assessment_type": "Website / Web App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "profile": "Standard",
+          "rate_limit_rps": 2,
+          "concurrency": 2,
+          "time_budget_minutes": 45,
+          "active_checks": "guarded",
+          "adaptive_generation": true,
+          "max_validation_depth": "standard",
+          "expected_lane": "passive-web-nuclei-audit",
+          "expected_check_mode": "Guarded Active"
+        },
+        {
+          "id": "deep_guarded",
+          "assessment_type": "Website / Web App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "profile": "Deep",
+          "rate_limit_rps": 3,
+          "concurrency": 3,
+          "time_budget_minutes": 90,
+          "active_checks": "guarded",
+          "adaptive_generation": true,
+          "max_validation_depth": "deep",
+          "expected_lane": "active-web-safe",
+          "expected_check_mode": "Guarded Active"
+        },
+        {
+          "id": "active_approved",
+          "assessment_type": "Authenticated App",
+          "scope_field": "wizard-target-urls",
+          "scope_value": "https://portal.example.com",
+          "profile": "Authenticated Only",
+          "rate_limit_rps": 4,
+          "concurrency": 4,
+          "time_budget_minutes": 120,
+          "active_checks": "active",
+          "adaptive_generation": false,
+          "max_validation_depth": "deep",
+          "expected_lane": "active-web-safe",
+          "expected_check_mode": "Active Validation"
+        }
+      ],
+      "expected_outputs": [
+        "guardrail_controls",
+        "coverage_summary_sync",
+        "execution_lane_alignment"
+      ]
+    },
+    {
+      "id": "multi_role_access_matrix",
+      "lane": "ui_browser",
+      "priority": 30,
+      "enabled": true,
+      "flows": [
+        {
+          "id": "authenticated_dual_role_webapp",
+          "assessment_type": "Authenticated App",
+          "expected_profile": "Authenticated Only",
+          "expected_context_count": 2,
+          "accounts": [
+            {
+              "label": "Analyst",
+              "username": "analyst@example.com",
+              "role": "Security Analyst",
+              "secret_ref": "vault://portal/analyst"
+            },
+            {
+              "label": "Admin",
+              "username": "admin@example.com",
+              "role": "Administrator",
+              "secret_ref": "vault://portal/admin"
+            }
+          ],
+          "expected_summary_fragments": [
+            "Analyst (Security Analyst)",
+            "Admin (Administrator)"
+          ],
+          "expected_protected_binding_count": 2
+        }
+      ],
+      "expected_outputs": [
+        "multi_role_summary_sync",
+        "mission_scope_context",
+        "protected_secret_binding_count"
+      ]
+    },
+    {
+      "id": "execution_outcome_matrix",
+      "lane": "ui_browser",
+      "priority": 31,
+      "enabled": true,
+      "states": [
+        {
+          "id": "pending_approval_blocked",
+          "outcome": "blocked",
+          "expected_status": "pending_approval",
+          "expected_activity_title": "Run launch is blocked pending approval",
+          "expected_signal": "Run launch is blocked pending approval.",
+          "expected_run_activity_signal": "Approval is still required before active checks can be queued"
+        },
+        {
+          "id": "completed_with_errors_failed_tasks",
+          "outcome": "failed",
+          "expected_status": "completed_with_errors",
+          "expected_activity_title": "Execution finished with failures",
+          "expected_signal": "At least one planned check failed."
+        }
+      ],
+      "expected_outputs": [
+        "mission_activity_truth",
+        "status_board_truth",
+        "run_activity_failed_counts"
+      ]
+    },
+    {
+      "id": "adaptive_pack_visibility_matrix",
+      "lane": "ui_browser",
+      "priority": 32,
+      "enabled": true,
+      "states": [
+        {
+          "id": "deployed_bound_adaptive_pack",
+          "expected_pack_name": "ui-adaptive-pack",
+          "expected_pack_status": "deployed",
+          "expected_runtime_fragment": "Runtime {pack_version}",
+          "expected_narrative_fragment": "Capability pack ui-adaptive-pack {pack_version} is deployed",
+          "expected_deployment_fragment": "deployed to engagement-runtime",
+          "expected_report_fragments": [
+            "Adaptive Coverage: ui-adaptive-pack {pack_version}",
+            "Runtime Pack: ui-adaptive-pack {pack_version}",
+            "Deployment Status: deployed"
+          ],
+          "expected_dossier_fragment": "{pack_version}",
+          "expected_history_fragment": "{pack_version}"
+        }
+      ],
+      "expected_outputs": [
+        "mission_pack_binding_visibility",
+        "pack_forge_registry_visibility",
+        "report_adaptive_context",
+        "dossier_and_history_pack_visibility"
+      ]
+    },
+    {
+      "id": "ui_state_and_output_matrix",
+      "lane": "ui_browser",
+      "priority": 33,
+      "enabled": true,
+      "states": [
+        "empty",
+        "loading",
+        "queued",
+        "completed",
+        "failed"
+      ],
+      "focus_areas": [
+        "status_feed",
+        "run_activity_disclosure",
+        "scope_context_disclosure",
+        "acceptance_support_panel"
+      ]
+    }
+  ]
+}

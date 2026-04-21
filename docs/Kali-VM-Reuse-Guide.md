@@ -19,6 +19,8 @@ Deze handleiding beschrijft hoe de Kali VM als herbruikbare AegisPT operator nod
 
 Op 15 april 2026 is de operator-baseline opnieuw gevalideerd met:
 
+- een reproduceerbare direct-host installer via `scripts/install_aegispt_host.sh`
+- een herhaalbare systemd refresh via `scripts/install_host_service.sh`
 - Docker en Docker Compose aanwezig
 - `python3-venv` en `python3-pip` aanwezig voor repo-local Python setup
 - ZAP, Nuclei, Semgrep, httpx-toolkit, ffuf, feroxbuster en testssl.sh aanwezig
@@ -32,7 +34,7 @@ Op 15 april 2026 is de operator-baseline opnieuw gevalideerd met:
 - een approval-gated actieve ZAP-variant is beschikbaar via `active-web-zap-active`
 - artifacten landen in MinIO wanneer `ARTIFACTS_STORAGE_MODE=s3` actief is
 - findings zijn per run opvraagbaar en kunnen via de API van status worden veranderd
-- runrapporten kunnen als Markdown en HTML geëxporteerd worden naar `/srv/aegispt/reports`
+- runrapporten kunnen als Markdown, HTML en PDF geëxporteerd worden naar `/srv/aegispt/reports`
 - tekstuele runner-output en artifacts worden vóór opslag geredigeerd wanneer gevoelige waarden voorkomen
 - Nuclei-evidence bevat curated template provenance via template id, source en digest
 - Semgrep-evidence bevat curated rule provenance via rule id, source en digest
@@ -41,10 +43,33 @@ Op 15 april 2026 is de operator-baseline opnieuw gevalideerd met:
 - runs kunnen via de API naar `cancelled` of `cancelling` gezet worden
 - `metasploit-framework` blijft op Ubuntu/WSL optioneel, maar is op de aparte Kali-VM expliciet bevestigd als aanwezig via de standaard Kali-repository
 
+## Snelle directe host-installatie
+
+Voor de snelste reproduceerbare operator-node op een Kali host:
+
+```bash
+cd /opt/aegispt/repo
+sudo bash scripts/install_aegispt_host.sh
+```
+
+Deze flow installeert de host-tools, bouwt de virtuele omgeving, zet Playwright Chromium klaar voor PDF-export, maakt een host env-bestand aan onder `/srv/aegispt/env/aegispt-host.env`, installeert `aegispt.service` en start de UI op `http://127.0.0.1:8000/app/`.
+
+Voor details en een volledige copy-paste flow:
+
+- zie `docs/host_service_install.md`
+
 ## Eerste controle na het openen van de VM
 
 ```bash
 cd /opt/aegispt/repo
+systemctl status aegispt.service --no-pager
+curl http://127.0.0.1:8000/health/live
+curl http://127.0.0.1:8000/app/
+```
+
+Voor een bredere host-baselinecontrole:
+
+```bash
 bash scripts/verify_host.sh
 bash scripts/setup_python_dev.sh
 source .venv/bin/activate
@@ -54,16 +79,46 @@ pytest
 ## Nieuwe code of updates uitrollen
 
 1. Werk de repository bij in `/opt/aegispt/repo`.
-2. Herstel of update de virtuele omgeving met `bash scripts/setup_python_dev.sh`.
-3. Draai `pytest`.
-4. Draai indien nodig `alembic upgrade head`.
+2. Herinstalleer of refresh de directe host-service met `sudo bash scripts/install_host_service.sh`.
+3. Draai `pytest` als je code of regressies mee wilt valideren.
+4. Gebruik Compose alleen wanneer je expliciet de multi-service stack nodig hebt.
 
 ```bash
 cd /opt/aegispt/repo
-bash scripts/setup_python_dev.sh
+sudo bash scripts/install_host_service.sh
 source .venv/bin/activate
 pytest
-alembic upgrade head
+```
+
+## Als `/app/` wel draait maar `aegispt.service` ontbreekt
+
+Dan draait er meestal nog een losse oude `uvicorn`-instantie op poort `8000` buiten de reproduceerbare service-lane. Dat is precies het soort situatie waarbij de UI nog zichtbaar is, maar `Start Validation` op oude `manual` dispatch kan blijven hangen.
+
+Gebruik dan eerst de repo-helper:
+
+```bash
+cd /opt/aegispt/repo
+bash scripts/restart_local_inline_host.sh
+```
+
+Die helper wacht nu ook expliciet op `/health/live` en toont direct de recente host-log als de nieuwe inline host niet gezond opkomt.
+
+Voor een duurzamere lokale recovery kun je in plaats daarvan de transient systemd-unit helper gebruiken:
+
+```bash
+cd /opt/aegispt/repo
+sudo bash scripts/restart_local_inline_host_systemd.sh
+```
+
+Die start `aegispt-inline-host.service`, wacht op `/health/live` en verwijst je bij fouten direct naar de juiste `journalctl`-uitvoer.
+
+Beide lokale restart-helpers zorgen nu ook dat Playwright Chromium in het ingestelde `PLAYWRIGHT_BROWSERS_PATH` aanwezig is. Dat voorkomt dat HTML-export werkt terwijl PDF-export op de live host nog een `503` geeft door een browser-pad dat niet echt gevuld was.
+
+En zet de host daarna weer terug op het duurzame pad:
+
+```bash
+cd /opt/aegispt/repo
+sudo bash scripts/install_host_service.sh
 ```
 
 Als deze VM al draaide voordat Alembic-state werd bijgehouden en `alembic upgrade head` klaagt over bestaande tabellen, controleer dan eerst of het schema al op de huidige code zit en stamp daarna eenmalig:
@@ -132,7 +187,10 @@ Voor een volledige voorbeeldflow:
 ## Belangrijke notities
 
 - Hostdata blijft onder `/srv/aegispt` en niet in de repo.
+- De direct-host service gebruikt standaard `/srv/aegispt/env/aegispt-host.env` en `aegispt.service`.
+- Als `aegispt.service` ontbreekt maar poort `8000` wel bezet is, draai je waarschijnlijk nog een losse oude `uvicorn`-host; gebruik dan eerst `bash scripts/restart_local_inline_host.sh` of ga direct terug naar `sudo bash scripts/install_host_service.sh`.
 - Secrets worden lokaal in `infra/compose/.env` gegenereerd; beheer gevoelige waarden later desgewenst vanuit `/srv/aegispt/env`.
+- Voor de directe host-flow wordt standaard geen nieuwe `LOCAL_SECRET_ENCRYPTION_KEY` afgedwongen; zet die expliciet vóór `bash scripts/generate_host_env.sh` op een verse host als je meteen een eigen sleutel wilt gebruiken.
 - De codebase mikt op Python 3.12+; de huidige Kali host draait Python 3.13.
 - `bash scripts/verify_host.sh` controleert nu expliciet `python3`, `pip` en `venv`-ondersteuning zodat een kapotte Python hosttoolchain eerder opvalt.
 - `bash scripts/install_security_tools.sh` gebruikt waar nodig pinned officiële release-archieven voor `nuclei`, `httpx-toolkit`, `feroxbuster` en ZAP, plus Java 17 voor ZAP runtime.

@@ -47,6 +47,8 @@ class TaskRead(BaseModel):
     target_id: str
     status: str
     params_json: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
 
 
 class FindingSummaryRead(BaseModel):
@@ -69,6 +71,7 @@ class RunRead(BaseModel):
     source_inventory_snapshot_id: UUID | None = None
     started_at: datetime | None
     created_at: datetime
+    updated_at: datetime
     profile: RunProfileRead
     required_approvals: int
     granted_approvals: int

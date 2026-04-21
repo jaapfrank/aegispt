@@ -165,6 +165,57 @@ def test_inline_dispatch_executes_nuclei_task(
     assert "template-validation" in findings_payload[0]["methodology_tags"]
 
 
+def test_nuclei_prefers_explicit_url_targets_over_derived_hosts_for_web_runs(
+    inline_client,
+    monkeypatch: pytest.MonkeyPatch,
+    fake_nuclei_binary: str,
+) -> None:
+    monkeypatch.setenv("NUCLEI_BINARY", fake_nuclei_binary)
+
+    engagement_response = inline_client.post(
+        "/api/v1/engagements",
+        headers={"X-Actor": "tester"},
+        json={
+            "name": "Inline Nuclei URL Preference",
+            "client": "Acme Corp",
+            "roe_ref": "ROE-2026-004B",
+        },
+    )
+    engagement_id = engagement_response.json()["id"]
+
+    inline_client.post(
+        f"/api/v1/engagements/{engagement_id}/scope",
+        headers={"X-Actor": "tester"},
+        json={
+            "allowlist_json": {
+                "urls": ["https://example.com/health"],
+                "ip_addresses": ["93.184.216.34"],
+            },
+            "denylist_json": {},
+        },
+    )
+
+    run_response = inline_client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "tester"},
+        json={"profile_name": "passive-web-nuclei-audit"},
+    )
+    run_payload = run_response.json()
+
+    assert [task["target_id"] for task in run_payload["tasks"]] == ["https://example.com/health"]
+    assert all(task["tool"] == "nuclei" for task in run_payload["tasks"])
+
+    dispatch_response = inline_client.post(
+        f"/api/v1/runs/{run_payload['id']}/dispatch",
+        headers={"X-Actor": "dispatcher"},
+    )
+
+    assert dispatch_response.status_code == 200
+    dispatch_payload = dispatch_response.json()
+    assert dispatch_payload["run"]["status"] == "completed"
+    assert [task["target_id"] for task in dispatch_payload["run"]["tasks"]] == ["https://example.com/health"]
+
+
 @pytest.fixture
 def fake_nuclei_binary_with_secret(tmp_path: Path) -> str:
     binary_path = tmp_path / "fake-nuclei-secret"

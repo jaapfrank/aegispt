@@ -491,3 +491,21 @@ class Finding(UUIDMixin, TimestampMixin, Base):
     source_relevance_decision: Mapped["RelevanceDecision | None"] = relationship(
         foreign_keys=[source_relevance_decision_id],
     )
+    remediation: Mapped["FindingRemediation | None"] = relationship(
+        back_populates="finding",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class FindingRemediation(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "finding_remediations"
+
+    finding_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("findings.id"), nullable=False, unique=True)
+    state: Mapped[str] = mapped_column(String(50), nullable=False, default="not_started")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="system")
+    updated_by: Mapped[str] = mapped_column(String(255), nullable=False, default="system")
+
+    finding: Mapped["Finding"] = relationship(back_populates="remediation")

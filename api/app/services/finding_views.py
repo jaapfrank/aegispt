@@ -15,7 +15,7 @@ from api.app.methodology import (
     ptes_phase_label,
     wstg_area_for_identifier,
 )
-from api.app.models import CapabilityPack, Finding, Run, Task, ToolExecution
+from api.app.models import CapabilityPack, Finding, FindingRemediation, Run, Task, ToolExecution
 from api.app.schemas.finding_views import (
     FindingEvidenceReplayRead,
     FindingRelatedArtifactRead,
@@ -122,6 +122,92 @@ def _next_steps(finding: Finding) -> list[str]:
     return steps
 
 
+def _format_datetime(value: Any) -> str | None:
+    return value.isoformat() if value is not None and hasattr(value, "isoformat") else None
+
+
+def _load_remediation(session: Session, finding: Finding) -> FindingRemediation | None:
+    return session.scalar(select(FindingRemediation).where(FindingRemediation.finding_id == finding.id))
+
+
+def _linked_retests(session: Session, finding: Finding) -> list[dict[str, Any]]:
+    if finding.run is None:
+        return []
+
+    runs = session.scalars(
+        select(Run)
+        .options(selectinload(Run.profile), selectinload(Run.tasks))
+        .where(Run.engagement_id == finding.run.engagement_id)
+        .order_by(Run.created_at.desc(), Run.id.desc())
+    ).all()
+
+    linked_runs: list[dict[str, Any]] = []
+    source_finding_id = str(finding.id)
+    for run in runs:
+        configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
+        retest = configuration.get("retest")
+        if not isinstance(retest, dict) or retest.get("source_finding_id") != source_finding_id:
+            continue
+
+        tasks = list(run.tasks or [])
+        linked_runs.append(
+            {
+                "run_id": str(run.id),
+                "source_run_id": retest.get("source_run_id"),
+                "status": run.status,
+                "profile_name": run.profile.name if run.profile is not None else configuration.get("execution_profile"),
+                "verification_state": retest.get("verification_state") or "requested",
+                "operator_notes": retest.get("operator_notes"),
+                "remediation_state": retest.get("remediation_state"),
+                "requested_at": _format_datetime(run.created_at),
+                "updated_at": _format_datetime(run.updated_at),
+                "verification_timestamp": (
+                    _format_datetime(run.updated_at)
+                    if run.status in {"completed", "completed_with_errors", "failed", "cancelled"}
+                    else None
+                ),
+                "queued_task_count": sum(1 for task in tasks if task.status == "queued"),
+                "completed_task_count": sum(1 for task in tasks if task.status == "completed"),
+                "failed_task_count": sum(1 for task in tasks if task.status == "failed"),
+            }
+        )
+
+    return linked_runs
+
+
+def _remediation_view(
+    *,
+    finding: Finding,
+    remediation: FindingRemediation | None,
+    linked_retests: list[dict[str, Any]],
+) -> dict[str, Any]:
+    latest_retest = linked_retests[0] if linked_retests else None
+    return {
+        "priority": remediation_priority_for_finding(finding),
+        "summary": default_remediation_summary(finding.control_family),
+        "detail": default_remediation_detail(finding.control_family),
+        "record": {
+            "id": str(remediation.id),
+            "state": remediation.state,
+            "notes": remediation.notes,
+            "owner": remediation.owner,
+            "created_by": remediation.created_by,
+            "updated_by": remediation.updated_by,
+            "created_at": _format_datetime(remediation.created_at),
+            "updated_at": _format_datetime(remediation.updated_at),
+        }
+        if remediation is not None
+        else None,
+        "linked_retests": linked_retests,
+        "linked_retest_count": len(linked_retests),
+        "latest_retest_status": latest_retest.get("status") if latest_retest is not None else None,
+        "proof_of_resolution_ready": any(
+            item.get("status") == "completed" and item.get("verification_state") in {"requested", "verified"}
+            for item in linked_retests
+        ),
+    }
+
+
 def _related_executions(finding: Finding) -> list[FindingRelatedExecutionRead]:
     run = finding.run
     if run is None:
@@ -169,6 +255,8 @@ def build_finding_theater(session: Session, finding_id: UUID | str) -> FindingTh
     finding = _load_finding(session, finding_id)
     if finding is None:
         return None
+    remediation = _load_remediation(session, finding)
+    linked_retests = _linked_retests(session, finding)
 
     return FindingTheaterRead(
         finding=FindingRead.model_validate(finding),
@@ -202,11 +290,11 @@ def build_finding_theater(session: Session, finding_id: UUID | str) -> FindingTh
             "control_family": control_family_label(finding.control_family),
             "methodology_tags": list(finding.methodology_tags or []),
         },
-        remediation={
-            "priority": remediation_priority_for_finding(finding),
-            "summary": default_remediation_summary(finding.control_family),
-            "detail": default_remediation_detail(finding.control_family),
-        },
+        remediation=_remediation_view(
+            finding=finding,
+            remediation=remediation,
+            linked_retests=linked_retests,
+        ),
         verification_status=_verification_status(finding),
         next_steps=_next_steps(finding),
         risk_snapshot=calculate_risk(finding),

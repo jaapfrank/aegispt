@@ -1,0 +1,106 @@
+{
+  "id": "backlog-10-runtime-store-foundation",
+  "task_file": "codex/tasks/backlog-10-runtime-store-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Runtime Store Foundation",
+  "goal": "Reduce frontend drift risk before larger UI surfaces land by introducing a thin runtime-store seam around shared state without starting a framework rewrite.",
+  "scope": "Implement the first frontend state-architecture slice by adding a minimal store or event-bus seam around shared runtime state, moving the most mutation-heavy wizard and Mission Control paths onto that seam, and documenting the exit criteria for any future broader migration. Keep React, Vue, Preact, or full-shell rewrites out of scope.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 10,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/midterm_review_scope_alignment.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "frontend_state_architecture_watch",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/midterm_review_scope_alignment.md",
+      "docs/ui_phase_architecture.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to a thin state seam and direct-mutation reduction. Defer framework migration, shell redesign, and unrelated feature work.",
+    "runtime_mutation": false,
+    "no_framework_migration": true,
+    "notes": [
+      "Preserve existing DOM ids, test ids, and supported UI behavior.",
+      "Introduce a small store API such as getState, patchState, and subscribe rather than adopting a full framework in this slice."
+    ]
+  },
+  "success_criteria": [
+    "A minimal runtime-store seam exists and becomes the supported path for shared wizard and Mission Control state updates.",
+    "Wizard and Mission Control stop mutating the shared runtime object directly in the most churn-prone paths covered by this slice.",
+    "Existing UI tests remain green with the new store seam in place.",
+    "Documentation captures the specific exit criteria that would justify a future broader reactive-layer migration.",
+    "No new product feature is bundled into this architecture slice."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/modules/runtime.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/tests/test_product_feature_matrix_e2e.py",
+    "docs/ui_phase_architecture.md"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "api/app/models/control.py",
+    "workers/orchestration/tasks.py",
+    "ui/index.html"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py ui/tests/test_product_feature_matrix_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The store seam reduces direct shared-state mutation in the targeted modules without changing supported behavior.",
+      "The slice does not add a framework dependency or product-surface redesign.",
+      "The repo gains explicit migration exit criteria instead of vague future-reactivity notes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "No framework migration or unrelated UI feature bundle is attached to the same promotion."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the runtime-store seam slice and validation evidence.",
+      "Update CURRENT_STATE.md with the new state-management baseline and any remaining drift risks.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "React migration",
+    "Vue or Preact migration",
+    "Full UI shell redesign",
+    "Attack-path or live-ops feature delivery"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}

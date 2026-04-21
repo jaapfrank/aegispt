@@ -23,6 +23,7 @@ class CodexBuildArtifactRead(BaseModel):
     checksum_sha256: str
     methodology_tags: list[str] = Field(default_factory=list)
     provenance_json: dict[str, Any] = Field(default_factory=dict)
+    validation_checks: list[str] = Field(default_factory=list)
     has_content_text: bool
     has_content_json: bool
 
@@ -33,6 +34,9 @@ class CodexValidationHookRead(BaseModel):
     path: str
     description: str
     blocking: bool = False
+    artifact_types: list[str] = Field(default_factory=list)
+    expected_checks: list[str] = Field(default_factory=list)
+    workspace_files: list[str] = Field(default_factory=list)
 
 
 class CodexRepoConventionRead(BaseModel):

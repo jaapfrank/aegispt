@@ -1,0 +1,108 @@
+{
+  "id": "backlog-03-live-ops-run-stream",
+  "task_file": "codex/tasks/backlog-03-live-ops-run-stream.json",
+  "task_type": "backlog_slice",
+  "title": "Live Operations Run-Stream Foundation",
+  "goal": "Make active runs feel live and truthful by introducing run-status SSE streaming and Mission Control delta updates without inventing fake telemetry.",
+  "scope": "Implement the first live-operations slice with a run-level SSE stream, inline-dispatch compatibility for supported hosts, and Mission Control activity updates derived from real task and run transitions. Keep stdout streaming and heavier animated scan-map work out of this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Anti-drift hardening for the repo-backed post-intake backlog.",
+  "source_context": {
+    "queue_index": 3,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/operator_console_stabilization_plan.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "live_operations",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/ui_mission_control.md",
+      "docs/operator_console_phase2_checklist.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not promote or implement this task until the current task in NEXT_TASK.md is completed and logged.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to run-level SSE and Mission Control truth. Defer task stdout streaming, animated target maps, and severity-flash choreography.",
+    "runtime_mutation": false,
+    "preserve_polling_fallback": true,
+    "notes": [
+      "Only stream real run and task deltas from persisted state.",
+      "Mission Control must retain a polling fallback when SSE is unavailable."
+    ]
+  },
+  "success_criteria": [
+    "A run-level SSE endpoint exposes real task and run status deltas for active runs.",
+    "Supported inline dispatch no longer blocks Mission Control from receiving live state updates.",
+    "Mission Control subscribes to the run stream for active runs and falls back to existing polling otherwise.",
+    "The activity feed and run snapshot update from real streamed deltas instead of synthetic client timers.",
+    "API and browser validation cover active, completed, and SSE-unavailable states."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/runs.py",
+    "workers/orchestration/tasks.py",
+    "ui/assets/app.js",
+    "ui/assets/modules/mission-control.js",
+    "api/tests/test_task_dispatch.py",
+    "ui/tests/test_product_feature_matrix_e2e.py",
+    "docs/ui_mission_control.md"
+  ],
+  "must_not_touch": [
+    "api/app/methodology.py",
+    "api/app/schemas/findings.py",
+    "workers/runners/nuclei/runner.py",
+    "workers/runners/zap/runner.py",
+    "api/app/services/reports.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py api/tests/test_ui_support.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "An active run updates Mission Control without waiting for the old coarse poll interval.",
+      "A host without working SSE support still gets a truthful Mission Control state through the existing fallback.",
+      "No live-only state appears unless it is backed by real run or task changes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The active conversational-intake task in NEXT_TASK.md is completed, logged, and removed from active status.",
+      "python3 scripts/validate_backlog_tasks.py passes with this package still queued.",
+      "The queue order stays unchanged unless TASK_QUEUE.md and the related task packages are explicitly edited together."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the run-stream slice and the live validation evidence.",
+      "Update CURRENT_STATE.md with the new Mission Control streaming truth and any remaining fallback limitations.",
+      "Promote exactly one next approved task package into NEXT_TASK.md and rerun python3 scripts/validate_backlog_tasks.py."
+    ]
+  },
+  "out_of_scope": [
+    "Per-task stdout streaming",
+    "Animated scan-beam or D3 target maps",
+    "Severity-bar flash choreography",
+    "Remediation or retest workflow changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "not_requested"
+}
