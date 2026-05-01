@@ -1171,6 +1171,11 @@ export function createSettingsModule() {
     dom.settingsContent.querySelector("[data-settings-threat-intel-suggest]")?.addEventListener("click", () => {
       suggestThreatIntelFromInventory().catch(runtime.actions.handleError || (() => {}));
     });
+    dom.settingsContent.querySelectorAll("[data-settings-focus-setting]").forEach((button) => {
+      button.addEventListener("click", () => {
+        focusSettingField(button.dataset.settingsFocusSetting);
+      });
+    });
     dom.settingsContent.querySelector("[data-threat-intel-watchlist-form]")?.addEventListener("submit", (event) => {
       event.preventDefault();
       addThreatIntelWatchlistEntry(event.currentTarget).catch(runtime.actions.handleError || (() => {}));
@@ -2164,10 +2169,40 @@ function renderThreatIntelSourceStatus(sources) {
           </div>
           ${sourceStatusExplanation(source) ? `<p class="settings-section-copy">${escapeHtml(sourceStatusExplanation(source))}</p>` : ""}
           ${source.error ? `<p class="settings-inline-warning">${escapeHtml(source.error)}</p>` : ""}
+          ${renderNvdRateLimitHint(source)}
         </article>
       `
     )
     .join("");
+}
+
+function renderNvdRateLimitHint(source) {
+  if (!isNvdRateLimited(source)) return "";
+  return `
+    <p class="settings-inline-warning" data-testid="nvd-rate-limit-api-key-hint">
+      ${escapeHtml("NVD rate-limits unauthenticated requests. Configure an NVD API key in Settings to increase your quota.")}
+      <button class="action ghost compact-action" type="button" data-settings-focus-setting="threat_intel.nvd_api_key" data-testid="nvd-rate-limit-api-key-focus">
+        Open NVD API key
+      </button>
+    </p>
+  `;
+}
+
+function isNvdRateLimited(source) {
+  const sourceName = String(source?.source || "").toLowerCase();
+  if (sourceName !== "nvd") return false;
+  const values = [
+    source?.status,
+    source?.error,
+    source?.metadata?.reason,
+    source?.metadata?.error,
+    source?.metadata?.status,
+    source?.metadata?.http_status,
+    source?.metadata?.status_code,
+  ]
+    .map((value) => String(value ?? "").toLowerCase())
+    .join(" ");
+  return values.includes("rate_limited") || values.includes("rate-limited") || /\b429\b/.test(values);
 }
 
 function sourceStatusExplanation(source) {
@@ -2189,6 +2224,20 @@ function sourceStatusExplanation(source) {
     return `${source.label || sourceLabel(source.source)} failed non-blocking; the existing local cache remains available.`;
   }
   return "";
+}
+
+function focusSettingField(key) {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey || !dom.settingsContent) return;
+  const input = dom.settingsContent.querySelector(`[data-setting-key="${cssEscape(normalizedKey)}"]`);
+  if (!input) return;
+  const panel = input.closest("details[data-settings-panel]");
+  if (panel && !panel.open) {
+    panel.open = true;
+    setSettingsPanelOpen(panel.dataset.settingsPanel, true);
+  }
+  input.scrollIntoView({ behavior: "smooth", block: "center" });
+  input.focus({ preventScroll: true });
 }
 
 function renderThreatIntelWatchlist(entries) {

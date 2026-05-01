@@ -623,6 +623,70 @@ def test_settings_scheduled_scans_panel_exposes_required_fields(loaded_page: Pag
     expect(loaded_page.get_by_test_id("settings-schedule-form")).to_contain_text("Frequency")
 
 
+def test_settings_threat_intel_nvd_rate_limit_hint_focuses_api_key_field(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-settings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const settingsModule = await import('/app/assets/modules/settings.js');
+          runtimeModule.patchState({
+            activeScreen: 'settings',
+            operatorSettings: {
+              tenant_id: 'default',
+              sections: [{
+                id: 'threat_intel',
+                title: 'Threat Intel',
+                description: 'Threat intel feed settings.',
+                settings: [{
+                  key: 'threat_intel.nvd_api_key',
+                  label: 'NVD API key',
+                  source: 'operator',
+                  input_type: 'text',
+                  value: '',
+                  sensitive: true,
+                  configured: false,
+                  read_only: false,
+                  description: 'Optional NVD API key.',
+                }],
+              }],
+            },
+            settingsUi: { openPanels: { threat_intel_controls: true, threat_intel: false } },
+            threatIntelStatus: {
+              sources: [
+                {
+                  source: 'nvd',
+                  label: 'NVD',
+                  status: 'failed',
+                  imported_count: 0,
+                  updated_count: 0,
+                  skipped_count: 0,
+                  error: 'Provider returned HTTP 429',
+                  metadata: { reason: 'rate_limited', http_status: 429 },
+                },
+              ],
+            },
+            threatIntelWatchlist: [],
+            threatIntelRecords: [],
+          }, 'ui.test.nvdRateLimitHint');
+          settingsModule.createSettingsModule().renderSettingsScreen();
+        }
+        """
+    )
+
+    source_card = loaded_page.get_by_test_id("threat-intel-source-nvd")
+    expect(source_card).to_contain_text("Provider returned HTTP 429")
+    expect(loaded_page.get_by_test_id("nvd-rate-limit-api-key-hint")).to_contain_text(
+        "NVD rate-limits unauthenticated requests"
+    )
+
+    loaded_page.get_by_test_id("nvd-rate-limit-api-key-focus").click(force=True)
+    expect(loaded_page.get_by_test_id("settings-threat-intel")).to_have_js_property("open", True)
+    expect(loaded_page.locator('[data-setting-key="threat_intel.nvd_api_key"]')).to_be_focused()
+
+
 def test_settings_jira_panel_exposes_configuration_fields(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-settings").click()
     loaded_page.evaluate(

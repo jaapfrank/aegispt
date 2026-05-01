@@ -1,5 +1,42 @@
 # Done Log
 
+- 2026-05-01: completed backlog-162 `Add NVD API key hint when NVD feed fails with HTTP 429 rate limit in Settings Threat Intel`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-162-nvd-rate-limit-api-key-hint-settings.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-162 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because the task affects the operator-facing Settings Threat Intel UI
+  - implementation:
+    - detect NVD source failures/status metadata containing HTTP 429, `rate_limited`, or `rate-limited`
+    - render the exact actionable NVD API key hint below the NVD error/status text in Settings Threat Intel
+    - added a compact action that opens/focuses the existing `threat_intel.nvd_api_key` setting field
+    - cache-busted `app.js` and `settings.js` imports so live browsers receive the updated Settings module
+    - kept the slice UI-only with no backend endpoint, schema, runner, pack, approval, deployment, or runtime-binding changes
+  - files:
+    - `ui/assets/modules/settings.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `codex/results/backlog-162-nvd-rate-limit-api-key-hint-settings-validation-20260501.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `node --input-type=module --check < ui/assets/modules/settings.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -s -q -k "nvd_rate_limit_hint"` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -s -q` passed
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - live Playwright acceptance against `http://127.0.0.1:8000/app/` passed for the injected NVD 429/rate_limited Settings state and focus action
+    - `git diff --check` passed before and after documentation/promotion updates
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion to backlog-163
+  - residual risk:
+    - the exact no-`-s` health command remains blocked by the local pytest capture issue
+    - this task improves NVD rate-limit operator guidance only; it does not provision an NVD key or change feed-sync retry behavior
+  - queue / governance:
+    - promoted `codex/tasks/backlog-163-surface-map-empty-after-discovery-run.json` into `NEXT_TASK.md` as the next single active task
+
 - 2026-05-01: completed backlog-161 `Fix Mission Control AI Signal showing Connect ChatGPT on initial load when ChatGPT is globally connected`:
   - governance / reading:
     - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-161-mission-control-ai-signal-wrong-initial-state.json`

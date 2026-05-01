@@ -2,27 +2,27 @@
 
 ## Title
 
-Add NVD API key hint when NVD feed fails with HTTP 429 rate limit in Settings Threat Intel
+Fix Surface Map showing empty canvas after completed discovery run; improve empty state messaging
 
 ## Promoted From
 
-`codex/tasks/backlog-162-nvd-rate-limit-api-key-hint-settings.json`
+`codex/tasks/backlog-163-surface-map-empty-after-discovery-run.json`
 
 ## Goal
 
-In the Settings Threat Intel section, when the NVD CVE feed status shows HTTP 429 or `reason=rate_limited`, display an actionable hint below the error text: `NVD rate-limits unauthenticated requests. Configure an NVD API key in Settings to increase your quota.` The hint must point to the existing `nvd_api_key` setting field. This task is UI-only and must not add backend endpoints.
+When an engagement has a completed discovery run with an inventory snapshot containing hosts and services, the Surface Map canvas should visualize those hosts as nodes. If visualization is not feasible in this slice, at minimum improve the empty state so it explains why the map is empty and which run type populates it, for example: `Run a Passive Network Discovery scan to map your assets here`. The Asset Browser tabs should reflect available inventory counts from the snapshot.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-162-nvd-rate-limit-api-key-hint-settings.json`.
+Implement the active backlog package `codex/tasks/backlog-163-surface-map-empty-after-discovery-run.json`.
 
 Expected slice:
 
-- detect NVD provider status/error metadata containing HTTP 429 or `rate_limited`
-- render the NVD API key hint directly below the NVD error/status text in Settings Threat Intel
-- link or scroll/focus to the existing `nvd_api_key` setting field
-- avoid backend changes, new endpoints, or broad Settings redesign
-- preserve existing Threat Intel refresh/sync behavior
+- inspect the Surface Map and inventory/mission data flow
+- show discovered inventory hosts/services as map nodes when snapshot data is available
+- make the no-inventory empty state context-aware and actionable
+- make Asset Browser counts reflect available inventory host/service data
+- avoid broad Surface Map redesign or unrelated Mission Control changes
 
 ## Constraints
 
@@ -43,7 +43,7 @@ Expected slice:
 
 ## Acceptance
 
-- When NVD feed status shows HTTP 429 or `rate_limited`, an actionable hint appears below the error.
-- The hint explains NVD rate limiting and points to the NVD API key setting field.
-- No new API endpoints or backend changes are added.
-- No regression in Threat Intel Settings tests.
+- If inventory snapshot has hosts/services: Surface Map canvas shows discovered hosts as nodes.
+- If no inventory exists: empty state explains what run type would populate the map.
+- Asset Browser reflects inventory host/service counts when data is available.
+- No regression in surface map E2E tests.

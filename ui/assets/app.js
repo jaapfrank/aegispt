@@ -8,7 +8,7 @@ import { createMissionModule } from "./modules/mission-control.js?v=20260501-ai-
 import { createPacksModule } from "./modules/packs.js";
 import { createProblemsModule } from "./modules/problems.js";
 import { createReportsModule } from "./modules/reports.js";
-import { createSettingsModule } from "./modules/settings.js?v=20260429-continuous-testing-1";
+import { createSettingsModule } from "./modules/settings.js?v=20260501-nvd-rate-limit-hint-1";
 import {
   buildEmptyOnboardingState,
   buildEmptyWizardState,
