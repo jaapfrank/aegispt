@@ -1,5 +1,30 @@
 # Done Log
 
+- 2026-05-01: GitHub CI Playwright browser fix and live mission health check:
+  - rationale:
+    - operator confirmed the GitHub CI fix after PR checks failed because the GitHub runner had no Playwright Chromium executable installed
+    - operator also reported the currently running live mission appeared stuck; checked runtime state read-only without killing or restarting the mission
+  - implementation:
+    - added `python -m playwright install --with-deps chromium` to `.github/workflows/ci.yml` before `pytest`
+  - live mission observation:
+    - `/health/live` on `http://127.0.0.1:8000` timed out after 5 seconds
+    - two `uvicorn` processes were present; the process bound to `127.0.0.1:8000` was consuming about one full CPU
+    - current run `d4a4d2c13f0c458c9d7c528a2187e2d9` for engagement `10.0.20.0/24 Deep Assessment` remained `running`
+    - the current run had 4 completed `smart-home` tasks, 4 running `smart-home` tasks without persisted `tool_executions` or stdout yet, and 273 queued tasks
+    - the active chain remained `active` at phase index 2 / step index 0 with auto-advance enabled
+    - AI live signal succeeded for one completed task, while multiple post-task analyses failed with `invalid literal for int() with base 10: 'high'`
+  - files:
+    - `.github/workflows/ci.yml`
+    - `codex/results/live-mission-and-github-ci-check-20260501.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with `187` queued task packages mapped one-to-one and exactly one active task
+    - `git diff --check` passed
+  - residual risk:
+    - CI must still complete on GitHub after push before it can be called green
+    - the live mission was not restarted or killed because it may still have in-flight runner state; the evidence points to the already queued runtime liveness/diagnostics gap rather than a safe quick product fix
+
 - 2026-05-01: enterprise-readiness audit and backlog curation:
   - rationale:
     - operator requested a full system/user-perspective review for enterprise readiness without duplicating existing queued work
