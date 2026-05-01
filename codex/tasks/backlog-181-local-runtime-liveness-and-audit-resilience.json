@@ -1,0 +1,111 @@
+{
+  "id": "backlog-181-local-runtime-liveness-and-audit-resilience",
+  "task_file": "codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json",
+  "task_type": "corrective_product_slice",
+  "title": "Local runtime liveness and audit harness resilience",
+  "goal": "Make the local control plane reliable enough for enterprise acceptance testing: health checks must not hang, restart helpers must fully replace draining processes, and audit tools must write partial evidence when the app is unhealthy.",
+  "scope": "Fix the observed condition where the inline host keeps listening on port 8000 while uvicorn is in shutdown/drain, `/health/live` times out, `/app/` navigation can hang under Playwright `networkidle`, and full-system audit scripts abort before writing useful defect evidence. Add a deterministic watchdog/restart contract for the local inline host, hard timeouts with actionable diagnostics, and audit-harness partial-output behavior for health/page-load failures.",
+  "status": "queued",
+  "generated_by": "enterprise-readiness-audit-2026-05-01",
+  "generation_reason": "During the enterprise readiness audit, `/health/live` returned 200 after restart but both `scripts/run_full_system_acceptance_audit.py` and `scripts/run_enterprise_ia_audit.py` later failed with timeouts. The host log showed `Shutting down` and `Waiting for connections to close` while port 8000 remained occupied. This blocks reliable product validation and mirrors operator reports of empty/hung screens.",
+  "source_context": {
+    "queue_index": 181,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-124-dashboard-and-mc-liveness.json",
+      "codex/tasks/backlog-149-full-system-acceptance-harness-and-defect-inventory.json",
+      "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runtime_liveness_and_validation_reliability",
+    "source_documents": [
+      "scripts/restart_local_inline_host.sh",
+      "scripts/restart_local_inline_host_systemd.sh",
+      "scripts/run_full_system_acceptance_audit.py",
+      "scripts/run_enterprise_ia_audit.py",
+      "api/app/main.py",
+      "api/app/routers/health.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Local runtime health, restart, and audit resilience only. Do not change assessment runner semantics, bypass safety gates, or add new live-target behavior.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Restart helpers detect and terminate a stuck draining inline host before declaring success.",
+    "`/health/live` responds or fails fast with actionable diagnostics under audit load.",
+    "Full-system and IA audit scripts write partial JSON/Markdown evidence when health or page navigation fails.",
+    "Playwright audit navigation does not rely on perpetual network idle when the app legitimately polls.",
+    "Settings/readiness surfaces can distinguish healthy, degraded, shutting-down, and unreachable local runtime states.",
+    "Tests cover healthy restart, stuck-port/draining process detection, audit partial-output behavior, and health timeout reporting."
+  ],
+  "likely_touched_files": [
+    "scripts/restart_local_inline_host.sh",
+    "scripts/restart_local_inline_host_systemd.sh",
+    "scripts/run_full_system_acceptance_audit.py",
+    "scripts/run_enterprise_ia_audit.py",
+    "api/app/routers/health.py",
+    "api/tests/test_health.py",
+    "docs/host_service_install.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "capability pack registry bypass",
+    "runtime binding bypass",
+    "assessment runner dispatch semantics",
+    "live target execution"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh",
+      "curl --max-time 5 -fsS http://127.0.0.1:8000/health/live",
+      "python3 scripts/run_full_system_acceptance_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-full-system-audit.json --output-md codex/results/backlog-181-full-system-audit.md --max-seconds 180",
+      "python3 scripts/run_enterprise_ia_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-ia-audit.json --output-md codex/results/backlog-181-ia-audit.md --screenshot-dir codex/results/backlog-181-ia-screenshots",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A stuck old host cannot make restart report success.",
+      "Audit scripts leave a durable defect artifact even when health or navigation fails.",
+      "The local app remains reachable at `/app/` and `/health/live` after audit execution."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Changing assessment chain behavior",
+    "Installing pentest tools",
+    "Running intrusive targets",
+    "Replacing the UI polling model with WebSockets"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

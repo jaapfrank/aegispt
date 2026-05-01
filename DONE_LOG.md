@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-01: enterprise-readiness audit and backlog curation:
+  - rationale:
+    - operator requested a full system/user-perspective review for enterprise readiness without duplicating existing queued work
+    - treated this as audit/backlog-curation, not broad implementation; active task remains backlog-157 from `NEXT_TASK.md`
+    - compared findings against the existing backlog and only added non-duplicate enterprise gaps
+  - audit observations:
+    - initial live audit attempt exposed a runtime reliability issue: the inline host stayed bound on `127.0.0.1:8000` while logs showed `Shutting down` and `Waiting for connections to close`, causing `/health/live` and Playwright navigation timeouts
+    - after `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`, `/health/live` returned healthy JSON
+    - `scripts/run_full_system_acceptance_audit.py` then completed and wrote `codex/results/full-system-enterprise-readiness-audit-20260501.json` plus `.md`, visiting `13/14` screens and recording `42` defects
+    - the 42 audit defects are mostly already covered by existing backlog-151, backlog-152, and backlog-153: unreachable Dashboard navigation, wizard/internal copy, field guidance gaps, disabled actions without unlock reasons, and `nan`/placeholder copy
+    - `scripts/run_enterprise_ia_audit.py` still failed with Playwright `networkidle` timeout, likely because the app keeps polling; this is now captured in backlog-181
+    - a post-audit `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` timed out again, so live liveness is explicitly not claimed reliable
+    - restarted the inline host again after the audit; final `/health/live` returned healthy JSON for operator use
+  - new queued tasks:
+    - `codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json`
+    - `codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json`
+    - `codex/tasks/backlog-183-backup-restore-upgrade-rollback-drill.json`
+    - `codex/tasks/backlog-184-observability-support-diagnostics-bundle.json`
+    - `codex/tasks/backlog-185-accessibility-keyboard-enterprise-ux-gate.json`
+    - `codex/tasks/backlog-186-enterprise-deployment-hardening.json`
+    - `codex/tasks/backlog-187-enterprise-release-readiness-gate.json`
+  - files:
+    - `TASK_QUEUE.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json`
+    - `codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json`
+    - `codex/tasks/backlog-183-backup-restore-upgrade-rollback-drill.json`
+    - `codex/tasks/backlog-184-observability-support-diagnostics-bundle.json`
+    - `codex/tasks/backlog-185-accessibility-keyboard-enterprise-ux-gate.json`
+    - `codex/tasks/backlog-186-enterprise-deployment-hardening.json`
+    - `codex/tasks/backlog-187-enterprise-release-readiness-gate.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with `187` queued task packages mapped one-to-one and exactly one active task
+    - `git diff --check` passed
+    - final host restart command returned healthy `/health/live`, while the earlier post-audit health timeout remains recorded as residual risk
+  - residual risk:
+    - this pass did not implement product fixes
+    - the full-system audit is heuristic and does not replace targeted regression tests
+    - the IA audit remains blocked by `networkidle` timeout until backlog-181 is implemented
+
 - 2026-05-01: queued backlog-180 `Launch authorization and phase auto-advance contract`:
   - rationale:
     - operator feedback showed that per-phase confirmation after a full mission launch authorization is confusing and inefficient

@@ -1,0 +1,103 @@
+{
+  "id": "backlog-183-backup-restore-upgrade-rollback-drill",
+  "task_file": "codex/tasks/backlog-183-backup-restore-upgrade-rollback-drill.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Backup, restore, and upgrade rollback drill",
+  "goal": "Prove that AegisPT can be safely operated through backup, restore, migration, and rollback without losing evidence or corrupting audit history.",
+  "scope": "Add a documented and tested backup/restore/upgrade drill for local and Compose installs. Include database backup, evidence/artifact storage backup, config/env backup, encrypted secret metadata handling, restore verification, Alembic migration preflight, rollback notes, and a post-restore integrity check. This complements GDPR export/delete and evidence integrity tasks; it is operational resilience, not data-subject export.",
+  "status": "queued",
+  "generated_by": "enterprise-readiness-audit-2026-05-01",
+  "generation_reason": "Enterprise readiness requires disaster recovery and upgrade rollback proof. Existing docs mention backup paths, but no repo-backed task proves a full backup/restore/rollback drill with evidence and migration validation.",
+  "source_context": {
+    "queue_index": 183,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-81-installation-package.json",
+      "codex/tasks/backlog-96-gdpr-avg-data-handling.json",
+      "codex/tasks/backlog-98-evidence-completeness-guarantor.json",
+      "codex/tasks/backlog-128-database-encryption.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "operational_resilience",
+    "source_documents": [
+      "docs/AegisPT-Implementation-Runbook.md",
+      "docs/host_service_install.md",
+      "infra/compose/",
+      "scripts/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Backup/restore/rollback drill only. Do not redesign storage, introduce managed cloud dependencies, or expose secrets in logs or exports.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "A documented backup command/path exists for database, artifacts, reports, env/config, and migration state.",
+    "A restore drill can recreate a small seeded engagement with runs, findings, evidence metadata, and audit events intact.",
+    "Post-restore verification checks health, schema head, evidence hash availability, and key UI/API read paths.",
+    "Upgrade preflight and rollback instructions are explicit and tested at least in local/Compose mode.",
+    "No plaintext secrets are included in backup logs or support artifacts.",
+    "Results are recorded under codex/results/ with exact commands and pass/fail evidence."
+  ],
+  "likely_touched_files": [
+    "scripts/backup_aegispt.py",
+    "scripts/restore_aegispt.py",
+    "scripts/verify_restore.py",
+    "docs/host_service_install.md",
+    "docs/AegisPT-Implementation-Runbook.md",
+    "api/tests/test_backup_restore.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "encrypted secret plaintext",
+    "finding schema fields unless explicitly justified by restore verification",
+    "live customer data"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_backup_restore.py -q",
+      "python3 scripts/verify_restore.py --fixture safe-local",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A safe fixture can be backed up and restored with evidence metadata intact.",
+      "Operators have one clear runbook for backup, restore, upgrade, and rollback."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Hosted managed backup service",
+    "Cloud-specific snapshot automation",
+    "Data-subject export/erasure features already covered by backlog-96"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

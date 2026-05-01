@@ -1,0 +1,101 @@
+{
+  "id": "backlog-184-observability-support-diagnostics-bundle",
+  "task_file": "codex/tasks/backlog-184-observability-support-diagnostics-bundle.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Observability and support diagnostics bundle",
+  "goal": "Give enterprise operators a safe, product-level way to understand failures without reading raw shell logs or guessing which subsystem is broken.",
+  "scope": "Add an observability/support diagnostics surface that summarizes app health, database migration head, worker/inline dispatch state, queue depth, active/stuck runs, tool readiness, AI provider state, feed-sync state, recent errors, and audit harness failures. Add a redacted support bundle export that includes config shape, health snapshots, recent logs, task/run IDs, and validation output without secrets or customer-sensitive evidence payloads.",
+  "status": "queued",
+  "generated_by": "enterprise-readiness-audit-2026-05-01",
+  "generation_reason": "The audit required shell inspection of `/tmp/aegispt-inline-host.log`, process state, `ss`, curl, and failed Python tracebacks to understand why the app was hanging. Enterprise users need these diagnostics in-product and exportable safely.",
+  "source_context": {
+    "queue_index": 184,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",
+      "codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "operator_diagnostics_and_supportability",
+    "source_documents": [
+      "api/app/routers/health.py",
+      "api/app/routers/settings.py",
+      "api/app/services/",
+      "ui/assets/modules/settings.js",
+      "docs/host_service_install.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Diagnostics and redacted support export only. Do not expose raw secrets, full evidence payloads, credential material, or customer-sensitive task stdout by default.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Settings or a Diagnostics screen shows app/DB/worker/tool/feed/AI readiness in one place.",
+    "A redacted support bundle can be generated from API or UI.",
+    "Support bundle tests prove secrets, tokens, passwords, hashes, and raw evidence payloads are excluded or redacted.",
+    "Recent failures include exact subsystem, timestamp, and safe next action.",
+    "Operators can distinguish app-down, worker-down, tool-missing, feed-rate-limited, AI-disconnected, and run-stuck states.",
+    "Docs explain when to attach a support bundle and how to inspect it locally."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/diagnostics.py",
+    "api/app/services/diagnostics.py",
+    "api/tests/test_diagnostics.py",
+    "ui/assets/modules/settings.js",
+    "docs/host_service_install.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "secret plaintext",
+    "live target execution",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_diagnostics.py api/tests/test_settings.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A redacted diagnostics bundle is created and contains no secret material.",
+      "A failing subsystem is visible with an actionable message."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "External SaaS telemetry by default",
+    "Uploading customer diagnostics automatically",
+    "Unredacted log export"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
