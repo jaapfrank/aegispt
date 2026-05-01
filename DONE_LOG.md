@@ -4,6 +4,7 @@
   - inspected GitHub Actions for PR `#1` with the GitHub CI-fix workflow and confirmed the failing `ci` job was running plain `pytest`
   - identified the current failure as broad CI scope drift: the workflow collected the slow/stale full UI regression monolith and failed with `129 failed, 740 passed in 2796.33s`
   - updated `.github/workflows/ci.yml` to run push CI only on `main`, add concurrency cancellation, add a 30-minute timeout, run backlog validation, run explicit API/worker/script tests, and run the existing fast UI smoke lane instead of plain `pytest`
+  - corrected the GitHub-only Playwright browser path mismatch by setting `PLAYWRIGHT_BROWSERS_PATH` at workflow job scope, so `python -m playwright install --with-deps chromium` and the fast UI smoke tests use the same Chromium location
   - fixed a real AI provider-status compatibility bug where older ChatGPT OAuth status objects without `reusable_session_available`, `reusable_account_id`, or `token_exposed` could crash AI insights
   - updated stale Nuclei/Semgrep S3 tests so they assert storage is used and verify redacted artifact content through the artifact endpoint instead of assuming exactly one S3 object
   - evidence recorded in `codex/results/github-ci-pr-gate-correction-20260501.md`
@@ -14,6 +15,7 @@
     - targeted AI/Nuclei/Semgrep regressions passed
     - `source .venv/bin/activate && python -m pytest -q -s api/tests workers/tests scripts/tests` passed
     - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest -q -s -m ui_fast ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py` passed
+    - GitHub run `25218967770` was inspected after the prior push and failed because Chromium was installed outside the path used by the test step; this entry's workflow path correction addresses that exact failure
   - residual risk:
     - this fixes the normal GitHub PR/push CI gate; it does not claim the stale full UI regression monolith is green
     - older full-regression UI failures remain product/test debt for their relevant backlog tasks
