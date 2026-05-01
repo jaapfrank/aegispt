@@ -98,6 +98,11 @@ function operatorSettingBoolean(key) {
   return ["true", "1", "yes", "on"].includes(String(value || "").trim().toLowerCase());
 }
 
+function hasConfiguredJiraBaseUrlHint() {
+  const value = findOperatorSettingValue("integrations.jira_base_url");
+  return Boolean(String(value || "").trim());
+}
+
 function isFindingAiProviderReady() {
   const provider = String(findOperatorSettingValue("ai.provider") || "disabled").trim().toLowerCase();
   if (!provider || ["disabled", "none", "off"].includes(provider)) return false;
@@ -124,6 +129,18 @@ function ensureJiraConfigurationLoaded() {
   if (!state.selectedEngagementId) return;
   if (state.jiraIntegrationLoading) return;
   if (state.jiraIntegrationLoadedEngagementId === state.selectedEngagementId) return;
+  if (state.operatorSettings && !hasConfiguredJiraBaseUrlHint()) {
+    patchState(
+      {
+        jiraIntegrationConfiguration: null,
+        jiraIntegrationLoadedEngagementId: state.selectedEngagementId,
+        jiraIntegrationLoading: false,
+        jiraIntegrationError: null,
+      },
+      "findings.jira.config.unconfigured"
+    );
+    return;
+  }
   state.jiraIntegrationLoading = true;
   apiOrNull(`/api/v1/engagements/${state.selectedEngagementId}/integrations/jira`)
     .then((configuration) => {

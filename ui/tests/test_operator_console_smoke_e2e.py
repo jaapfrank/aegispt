@@ -563,6 +563,202 @@ def test_settings_jira_panel_exposes_configuration_fields(loaded_page: Page) -> 
     expect(loaded_page.get_by_test_id("settings-jira-test")).to_be_enabled()
 
 
+def test_findings_jira_unconfigured_does_not_fetch_missing_integration(loaded_page: Page) -> None:
+    jira_requests = []
+
+    def handle_jira_config(route, request) -> None:
+        jira_requests.append(request.method)
+        route.fulfill(status=404, content_type="application/json", body='{"detail":"not configured"}')
+
+    loaded_page.route("**/api/v1/engagements/*/integrations/jira", handle_jira_config)
+    loaded_page.get_by_test_id("nav-findings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const findingsModule = await import('/app/assets/modules/findings.js');
+          const runId = '33333333-3333-4333-8333-333333333333';
+          const finding = {
+            id: '44444444-4444-4444-8444-444444444444',
+            title: 'SQL Injection',
+            severity: 'critical',
+            target_id: 'https://portal.example.test/graphql',
+            evidence_ref: 'artifact://nuclei/sql',
+            status: 'open',
+            summary: 'SQL injection evidence is stored.',
+            finding_origin: 'standard',
+            methodology_tags: ['OWASP-WSTG'],
+          };
+          runtimeModule.runtime.actions.loadSelectedFinding = async () => {};
+          runtimeModule.patchState({
+            activeScreen: 'findings-theater',
+            selectedEngagementId: '11111111-1111-4111-8111-111111111111',
+            operatorSettings: {
+              tenant_id: 'default',
+              sections: [{
+                id: 'integrations',
+                settings: [{ key: 'integrations.jira_base_url', value: '' }],
+              }],
+            },
+            jiraIntegrationLoadedEngagementId: null,
+            jiraIntegrationConfiguration: null,
+            selectedRunId: runId,
+            selectedRun: {
+              id: runId,
+              status: 'completed',
+              tasks: [],
+              configuration_json: {},
+              profile: { name: 'ui-test-run' },
+            },
+            mission: {
+              ...runtimeModule.state.mission,
+              runs: [{
+                id: runId,
+                status: 'completed',
+                tasks: [],
+                configuration_json: {},
+                profile: { name: 'ui-test-run' },
+              }],
+              findingsByRun: { [runId]: [finding] },
+            },
+            selectedFindingId: finding.id,
+            selectedFindingTheater: {
+              finding,
+              severity_rank: 0,
+              confidence_label: 'high',
+              exploitability: 'confirmed',
+              business_impact: 'Stored exploit evidence needs remediation tracking.',
+              technical_details: 'Stored evidence exists.',
+              evidence_summary: 'Evidence is linked.',
+              provenance: { origin: 'standard' },
+              methodology: {},
+              remediation: {
+                priority: 'Immediate',
+                summary: 'Fix the injection point.',
+                detail: 'Patch and retest.',
+                integrations: {},
+              },
+              verification_status: 'evidence-linked',
+              next_steps: ['Configure Jira when engineering handoff is needed.'],
+              risk_snapshot: {},
+            },
+            selectedFindingEvidence: { related_executions: [], artifacts: [] },
+          }, 'ui.test.findingJiraUnconfiguredNoFetch');
+          runtimeModule.runtime.actions.engagementFindings = () => [finding].map((item) => ({ ...item, _runId: runId }));
+          findingsModule.createFindingsModule().renderFindingsTheater();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("finding-jira-not-configured")).to_contain_text(
+        "Configure Jira in Settings"
+    )
+    assert jira_requests == []
+
+
+def test_findings_jira_configured_fetch_still_enables_handoff(loaded_page: Page) -> None:
+    jira_requests = []
+
+    def handle_jira_config(route, request) -> None:
+        jira_requests.append(request.method)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body="""{
+              "id": "66666666-6666-4666-8666-666666666666",
+              "integration_type": "jira",
+              "display_name": "Security Jira",
+              "base_url": "https://jira.example.test",
+              "project_key": "AEGIS",
+              "auth_ref": "secret://engagements/acme/jira-token",
+              "settings_json": {"issue_type": "Bug"}
+            }""",
+        )
+
+    loaded_page.route("**/api/v1/engagements/*/integrations/jira", handle_jira_config)
+    loaded_page.get_by_test_id("nav-findings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const findingsModule = await import('/app/assets/modules/findings.js');
+          const runId = '33333333-3333-4333-8333-333333333333';
+          const finding = {
+            id: '44444444-4444-4444-8444-444444444444',
+            title: 'SQL Injection',
+            severity: 'critical',
+            target_id: 'https://portal.example.test/graphql',
+            evidence_ref: 'artifact://nuclei/sql',
+            status: 'open',
+            summary: 'SQL injection evidence is stored.',
+            finding_origin: 'standard',
+            methodology_tags: ['OWASP-WSTG'],
+          };
+          runtimeModule.runtime.actions.loadSelectedFinding = async () => {};
+          runtimeModule.patchState({
+            activeScreen: 'findings-theater',
+            selectedEngagementId: '11111111-1111-4111-8111-111111111111',
+            operatorSettings: {
+              tenant_id: 'default',
+              sections: [{
+                id: 'integrations',
+                settings: [{ key: 'integrations.jira_base_url', value: 'https://jira.example.test' }],
+              }],
+            },
+            jiraIntegrationLoadedEngagementId: null,
+            jiraIntegrationConfiguration: null,
+            selectedRunId: runId,
+            selectedRun: {
+              id: runId,
+              status: 'completed',
+              tasks: [],
+              configuration_json: {},
+              profile: { name: 'ui-test-run' },
+            },
+            mission: {
+              ...runtimeModule.state.mission,
+              runs: [{
+                id: runId,
+                status: 'completed',
+                tasks: [],
+                configuration_json: {},
+                profile: { name: 'ui-test-run' },
+              }],
+              findingsByRun: { [runId]: [finding] },
+            },
+            selectedFindingId: finding.id,
+            selectedFindingTheater: {
+              finding,
+              severity_rank: 0,
+              confidence_label: 'high',
+              exploitability: 'confirmed',
+              business_impact: 'Stored exploit evidence needs remediation tracking.',
+              technical_details: 'Stored evidence exists.',
+              evidence_summary: 'Evidence is linked.',
+              provenance: { origin: 'standard' },
+              methodology: {},
+              remediation: {
+                priority: 'Immediate',
+                summary: 'Fix the injection point.',
+                detail: 'Patch and retest.',
+                integrations: {},
+              },
+              verification_status: 'evidence-linked',
+              next_steps: ['Push to Jira for engineering triage.'],
+              risk_snapshot: {},
+            },
+            selectedFindingEvidence: { related_executions: [], artifacts: [] },
+          }, 'ui.test.findingJiraConfiguredFetch');
+          runtimeModule.runtime.actions.engagementFindings = () => [finding].map((item) => ({ ...item, _runId: runId }));
+          findingsModule.createFindingsModule().renderFindingsTheater();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("finding-push-jira")).to_be_visible()
+    assert jira_requests == ["GET"]
+
+
 def test_topbar_role_badge_and_settings_users_panel_render(loaded_page: Page) -> None:
     expect(loaded_page.get_by_test_id("topbar-role-badge")).to_contain_text("admin")
     loaded_page.get_by_test_id("nav-settings").click()

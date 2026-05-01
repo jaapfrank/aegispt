@@ -8487,3 +8487,29 @@
   - remaining risks:
     - real ChatGPT enrichment still depends on valid engagement-scoped OAuth/provider availability
     - the new path queues advisory enrichment only and intentionally does not auto-apply or mutate finding facts outside the existing additive enrichment record
+
+- 2026-05-01: completed backlog-157 `Fix Jira 404 console error fired on every findings drawer open when Jira not configured`:
+  - rationale:
+    - the Findings drawer already used `apiOrNull`, but the browser still records the underlying 404 fetch as console/network noise when Jira is not configured
+    - the narrow fix is to use cached operator settings as the no-Jira truth and skip the known-missing engagement Jira lookup entirely
+  - implementation:
+    - Findings now checks cached `integrations.jira_base_url` before loading the engagement Jira configuration
+    - when the cached Jira base URL is empty, the drawer records Jira as unconfigured for the selected engagement and shows the existing `Configure Jira in Settings` guidance without an API roundtrip
+    - configured Jira base URL still allows the engagement-scoped Jira fetch, and the existing Push to Jira handoff flow is unchanged
+    - added focused Playwright coverage for both unconfigured/no-fetch and configured/fetch-enabled states
+  - files:
+    - `ui/assets/modules/findings.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-157-jira-404-console-noise-validation-20260501.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_findings_jira_unconfigured_does_not_fetch_missing_integration ui/tests/test_operator_console_smoke_e2e.py::test_findings_jira_configured_fetch_still_enables_handoff ui/tests/test_operator_console_smoke_e2e.py::test_findings_jira_handoff_button_creates_badge` (`3` passed)
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_integrations.py`
+    - `git diff --check`
+  - not claimed green:
+    - exact normal-capture health command `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known host-level pytest capture `FileNotFoundError`; the same health tests passed with `-s`
+    - GitHub Actions `ci` remains red from broad full-suite failures outside this Jira console-noise slice; `validation-matrix` is green
+  - remaining risks:
+    - this does not change Jira API 404 semantics or Settings behavior
+    - broader GitHub full-suite failures still need their own active task before they can be claimed fixed
