@@ -283,7 +283,7 @@ function bindRuntimeActions() {
     loadSelectedRun,
     loadSelectedTask,
     navigateToScreen,
-    openEngagementManager,
+    openEngagementCleanup,
     openEngagementDeletePreview,
     openRunDeletePreview,
     pushStatus,
@@ -385,7 +385,7 @@ function bindGlobalEvents() {
   });
 
   dom.refreshBtn?.addEventListener("click", () => refreshSelectedEngagement().catch(handleError));
-  dom.manageEngagementsBtn?.addEventListener("click", () => openEngagementManager());
+  dom.manageEngagementsBtn?.addEventListener("click", () => openEngagementCleanup());
   dom.cinemaModeBtn?.addEventListener("click", () => openCinemaMode());
 
   document.addEventListener("keydown", (event) => {
@@ -1771,15 +1771,15 @@ function closeDeleteModal() {
   renderDeletionUi();
 }
 
-function openEngagementManager() {
+function openEngagementCleanup() {
   patchState(
     {
       deleteUi: {
         ...state.deleteUi,
-        modal: { type: "engagement-manager" },
+        modal: { type: "engagement-cleanup" },
       },
     },
-    "delete.engagement.manager"
+    "delete.engagement.cleanup"
   );
   renderDeletionUi();
 }
@@ -1980,8 +1980,8 @@ function renderDeletionUi() {
     return;
   }
   dom.deleteModalRoot.classList.add("is-visible");
-  if (modal.type === "engagement-manager") {
-    renderEngagementManagerModal();
+  if (modal.type === "engagement-cleanup") {
+    renderEngagementCleanupModal();
     return;
   }
   if (modal.type === "run-delete") {
@@ -2010,7 +2010,7 @@ function renderDeleteModalShell({ title, subtitle, body }) {
   `;
 }
 
-function renderEngagementManagerModal() {
+function renderEngagementCleanupModal() {
   const selected = new Set(state.deleteUi.selectedEngagementIds || []);
   const allSelected = Boolean(state.engagements.length) && state.engagements.every((engagement) => selected.has(engagement.id));
   renderDeleteModalShell({

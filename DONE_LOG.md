@@ -8513,3 +8513,32 @@
   - remaining risks:
     - this does not change Jira API 404 semantics or Settings behavior
     - broader GitHub full-suite failures still need their own active task before they can be claimed fixed
+
+- 2026-05-01: completed backlog-158 `Fix Manage topbar button misleading label - it opens a delete modal not an engagement manager`:
+  - rationale:
+    - the topbar action opens the engagement cleanup/delete flow, so any remaining "manager" semantics were misleading for operators
+    - the safest slice was to preserve the existing delete modal and behavior while aligning visible and internal UI intent with cleanup
+  - implementation:
+    - kept the topbar button label as `Cleanup` with `Open engagement cleanup` accessible/title text
+    - renamed the internal click handler/modal state/render helper from engagement-manager language to engagement-cleanup language
+    - kept the existing `manage-engagements` test id and modal content so the bulk-delete behavior and tests remain stable
+    - added focused Playwright coverage proving the button is not labeled `Manage` and opens the existing Data Cleanup / Engagement Cleanup modal
+  - files:
+    - `ui/assets/app.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `codex/results/backlog-158-engagement-cleanup-label-validation-20260501.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_topbar_engagement_cleanup_label_matches_delete_modal ui/tests/test_operator_console_e2e.py::test_bulk_delete_run_and_cleanup_engagement_controls` (`2` passed)
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_live_system_audit_2026_05_01.py::test_topbar_cleanup_not_manage` (`1` passed)
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `git diff --check`
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` after local inline host restart
+  - not claimed green:
+    - exact normal-capture health command `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known host-level pytest capture `FileNotFoundError`; the same health tests passed with `-s`
+    - the first live health probe timed out because no local host was listening on `127.0.0.1:8000`; it was restarted with the existing local inline host script before live validation
+  - remaining risks:
+    - this task does not add engagement create, rename, archive, or full CRUD management
+    - the existing cleanup/delete modal behavior is intentionally unchanged

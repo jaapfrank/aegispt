@@ -2,26 +2,28 @@
 
 ## Title
 
-Fix Manage topbar button misleading label - it opens a delete modal not an engagement manager
+Fix AutoFix Suggested Fix section absent from findings drawer when ai.autofix_enabled=false
 
 ## Promoted From
 
-`codex/tasks/backlog-158-manage-button-misleading-label.json`
+`codex/tasks/backlog-159-autofix-section-missing-findings-drawer.json`
 
 ## Goal
 
-Rename the "Manage" button in the topbar engagement area to "Delete Stale..." or "Cleanup..." so the label accurately describes the action (bulk-delete stale engagements with dry-run preview). The delete modal content and behavior remains unchanged. No new engagement edit form is required in this task - just fix the label to match the action.
+Add an AutoFix section to the findings drawer that: (a) when ai.autofix_enabled=false shows a compact "AutoFix is disabled - enable in Settings > AI Provider" with a direct Settings link; (b) when ai.autofix_enabled=true and ai_fix_suggestion exists renders the suggestion with the advisory review/testing disclaimer from backlog-131; (c) when ai.autofix_enabled=true but no suggestion shows "No suggestion available - re-run with AutoFix enabled". Never auto-apply code. Use existing FindingRemediation.ai_fix_suggestion field - no new API endpoints needed.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-158-manage-button-misleading-label.json`.
+Implement the active backlog package `codex/tasks/backlog-159-autofix-section-missing-findings-drawer.json`.
 
 Expected slice:
 
-- replace the misleading topbar "Manage" label with a cleanup/delete-oriented label
-- keep the existing delete modal content and behavior unchanged
-- do not add a new engagement CRUD manager
-- do not redesign the topbar beyond the label/intent mismatch
+- make the AutoFix section visible in the finding drawer at all times
+- when disabled, show an enable-in-Settings hint with a direct Settings action
+- when enabled with an existing suggestion, render that suggestion with the advisory review/testing disclaimer
+- when enabled without a suggestion, show a truthful no-suggestion-yet message
+- do not add new API endpoints
+- do not auto-apply code or mutate repositories
 
 ## Constraints
 
@@ -39,10 +41,11 @@ Expected slice:
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- No regression in bulk-delete E2E tests.
 
 ## Acceptance
 
-- Button is labeled "Delete Stale..." or similar - not "Manage".
-- Delete modal content and behavior unchanged.
-- No regression in bulk-delete E2E tests.
+- AutoFix section is visible in the finding drawer at all times.
+- When disabled: shows "AutoFix disabled - enable in Settings" with a link.
+- When enabled with `ai_fix_suggestion`: shows the suggestion with advisory disclaimer.
+- When enabled but no suggestion: shows "No suggestion yet" message.
+- No new API endpoints are added; the drawer uses existing `FindingRemediation.ai_fix_suggestion`.

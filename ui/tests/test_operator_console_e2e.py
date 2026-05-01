@@ -2915,7 +2915,7 @@ def test_inventory_only_run_explains_empty_findings_and_history_actions(loaded_p
     expect(loaded_page.get_by_test_id("screen-surface-map")).to_be_visible()
 
 
-def test_bulk_delete_run_and_manage_engagement_controls(page: Page, operator_console_base_url: str) -> None:
+def test_bulk_delete_run_and_cleanup_engagement_controls(page: Page, operator_console_base_url: str) -> None:
     seeded = _seed_bulk_delete_ui_engagement(operator_console_base_url)
     page.goto("/app/", wait_until="domcontentloaded")
     expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT")

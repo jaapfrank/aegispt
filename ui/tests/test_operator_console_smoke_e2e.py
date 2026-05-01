@@ -50,6 +50,20 @@ def test_operator_console_fast_navigation_smoke(loaded_page: Page) -> None:
         expect(loaded_page.get_by_test_id(screen_test_id)).to_be_visible()
 
 
+def test_topbar_engagement_cleanup_label_matches_delete_modal(loaded_page: Page) -> None:
+    cleanup_button = loaded_page.get_by_test_id("manage-engagements")
+    expect(cleanup_button).to_have_text("Cleanup")
+    expect(cleanup_button).not_to_have_text("Manage")
+    assert cleanup_button.get_attribute("aria-label") == "Open engagement cleanup"
+    assert cleanup_button.get_attribute("title") == "Open engagement cleanup"
+
+    cleanup_button.click()
+    modal = loaded_page.get_by_test_id("delete-modal-root")
+    expect(modal).to_contain_text("Data Cleanup")
+    expect(modal).to_contain_text("Engagement Cleanup")
+    expect(loaded_page.get_by_test_id("manage-engagements-list")).to_be_visible()
+
+
 def test_mission_control_ai_signal_provider_badge_and_live_text(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
     loaded_page.evaluate(
