@@ -2,26 +2,27 @@
 
 ## Title
 
-Fix non-functional notifications bell placeholder in topbar
+Fix Mission Control AI Signal showing Connect ChatGPT on initial load when ChatGPT is globally connected
 
 ## Promoted From
 
-`codex/tasks/backlog-160-notifications-bell-non-functional-placeholder.json`
+`codex/tasks/backlog-161-mission-control-ai-signal-wrong-initial-state.json`
 
 ## Goal
 
-Remove the notifications bell from the topbar entirely. This is the safest fix - a broken bell is worse than no bell. If a notification panel is desired instead, it must: open on click, close on Escape or second click, show last 5 audit events from the existing dashboard API response, and require no new backend endpoints. Removing is strongly preferred for this task.
+When ChatGPT OAuth is globally connected (settings `ai.provider=chatgpt_oauth` and `GET /api/v1/auth/chatgpt/status` returns connected status), the AI Signal panel initial state must show `Select a run to see AI Signal insights` instead of `Connect ChatGPT in Settings`. Check the global ChatGPT connection status in the boot sequence, store the result in state, and use it in the AI panel render when no run is selected.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-160-notifications-bell-non-functional-placeholder.json`.
+Implement the active backlog package `codex/tasks/backlog-161-mission-control-ai-signal-wrong-initial-state.json`.
 
 Expected slice:
 
-- remove the non-functional notifications bell from the topbar, or implement a minimal real panel
-- if removed, keep adjacent topbar layout and settings controls intact
-- if implemented, use only existing dashboard/audit data and no new backend endpoints
-- do not add a fake placeholder panel
+- use the existing ChatGPT/OAuth status data already fetched by the app
+- when no run is selected and ChatGPT is globally connected, render a select-run AI Signal message
+- preserve current connected run-specific AI Signal behavior
+- preserve the Connect ChatGPT guidance when the provider is truly disconnected
+- do not add new AI provider endpoints or broad redesign
 
 ## Constraints
 
@@ -42,7 +43,7 @@ Expected slice:
 
 ## Acceptance
 
-- Notifications bell is either removed or opens a real panel with content.
-- If removed: no other topbar element is broken and layout remains intact.
-- If implemented: panel shows recent audit events from existing dashboard API data.
-- No regression in topbar-related tests.
+- When ChatGPT is globally connected and no run is selected, the AI Signal panel shows `Select a run to view AI Signal`.
+- When ChatGPT is connected and a run is selected, the existing run-specific AI Signal behavior remains.
+- When ChatGPT is truly disconnected, the panel still shows `Connect ChatGPT in Settings`.
+- No regression in AI Signal E2E tests.

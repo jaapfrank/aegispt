@@ -64,6 +64,20 @@ def test_topbar_engagement_cleanup_label_matches_delete_modal(loaded_page: Page)
     expect(loaded_page.get_by_test_id("manage-engagements-list")).to_be_visible()
 
 
+def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
+    loaded_page: Page,
+) -> None:
+    expect(loaded_page.get_by_test_id("topbar-notifications")).to_have_count(0)
+    expect(loaded_page.locator("[aria-label='Notifications']")).to_have_count(0)
+
+    settings_button = loaded_page.get_by_test_id("topbar-settings")
+    expect(settings_button).to_be_visible()
+    assert settings_button.get_attribute("data-nav-screen") == "settings"
+
+    settings_button.click()
+    expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
+
+
 def test_mission_control_ai_signal_provider_badge_and_live_text(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
     loaded_page.evaluate(

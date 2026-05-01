@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-05-01: completed backlog-160 `Fix non-functional notifications bell placeholder in topbar`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-160-notifications-bell-non-functional-placeholder.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-160 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because the task affects the operator topbar and adjacent Settings navigation
+  - implementation:
+    - confirmed the product topbar already had the broken notification bell removed
+    - added focused Playwright smoke coverage proving `topbar-notifications` and `aria-label="Notifications"` remain absent
+    - verified the adjacent `topbar-settings` action still routes to the Settings screen
+    - did not add a fake notification panel, new endpoint, schema, runtime behavior, pack flow, or approval bypass
+  - files:
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-160-topbar-notifications-placeholder-validation-20260501.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -s -q -k "topbar"` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -s -q` passed
+    - `git diff --check` passed before and after documentation/promotion updates
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - live Playwright acceptance against `http://127.0.0.1:8000/app/` passed: the notification placeholder was absent and Settings opened
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion to backlog-161
+  - residual risk:
+    - the exact no-`-s` health command remains blocked by the local pytest capture issue
+    - this task intentionally keeps notifications removed; a real notification/audit panel remains future work only if a later active task asks for it
+  - queue / governance:
+    - promoted `codex/tasks/backlog-161-mission-control-ai-signal-wrong-initial-state.json` into `NEXT_TASK.md` as the next single active task
+
 - 2026-05-01: completed backlog-159 `Fix AutoFix Suggested Fix section absent from findings drawer when ai.autofix_enabled=false`:
   - governance / reading:
     - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-159-autofix-section-missing-findings-drawer.json`
