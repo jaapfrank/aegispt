@@ -1,0 +1,93 @@
+{
+  "id": "backlog-125-nfir-compliant-report",
+  "task_file": "codex/tasks/backlog-125-nfir-compliant-report.json",
+  "task_type": "backlog_slice",
+  "title": "NFIR-Compliant Report Variant and 7-Phase Visibility",
+  "goal": "Add an NFIR report mode that explicitly maps to the 7 mandatory Dutch pentest phases, includes CVSS scores per finding, references the authorization document, and includes a re-audit tracking section.",
+  "scope": "Add nfir as a framework option in the Compliance Annex report (alongside nis2/soc2/iso27001/pci_dss/dora). The NFIR report contains: (1) 7-PHASE MAPPING: map each finding and task to one of 7 NFIR phases based on tool/profile: httpx/easm/nmap=intelligence-gathering, nuclei/zap=vulnerability-analysis, metasploit/impacket=exploitation, bloodhound/ldap=post-exploitation, all=reporting. Show which phases were executed, which were skipped, and why (out of scope / no findings to escalate). (2) AUTHORIZATION SECTION: show engagement.roe_ref and engagement.authorization_confirmed_at at the top of the report. If missing, show warning: 'Authorization reference not recorded. NFIR requires written authorization before testing begins.' (3) CVSS SCORES: show cvss_score next to each finding (requires backlog-119 to be complete for auto-population; show N/A if not available). (4) RE-AUDIT SECTION: list all open findings with status, age, and retest status. Label verified-resolved findings separately. (5) METHODOLOGY REFERENCES: include PTES, OWASP WSTG, NIST SP 800-115 in the methodology section as NFIR standards. In Mission Control phase diagram, add NFIR phase label tooltip to each phase badge.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "NFIR defines the Dutch pentest standard. Clients increasingly require NFIR-aligned reports. Current reports do not map to NFIR 7 phases or include authorization references.",
+  "queue_index": 125,
+  "source_context": {
+    "queue_index": 125,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "compliance",
+    "source_documents": [
+      "api/app/services/reports.py",
+      "api/app/schemas/report_center.py",
+      "ui/assets/modules/reports.js",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "NFIR report variant only. Do not certify NFIR compliance \u2014 only map evidence to phases. Always include disclaimer.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "?framework=nfir produces NFIR-formatted Compliance Annex.",
+    "All 7 NFIR phases shown with executed/skipped status.",
+    "Authorization section shows roe_ref or warning if missing.",
+    "CVSS shown per finding (N/A if not available).",
+    "Re-audit section shows open vs resolved findings.",
+    "Disclaimer: not a certification.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "api/app/schemas/report_center.py",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/mission-control.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Finding schema severity fields",
+    "pack registry"
+  ],
+  "out_of_scope": [
+    "NFIR certification of AegisPT itself",
+    "Acting as CREST/TIBER provider"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "NFIR report renders with 7 phases, authorization section, CVSS, and re-audit section."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -28,3 +28,4 @@ reports/
 ui/test-results/
 codex/results/*
 !codex/results/README.md
+!codex/results/validation-matrix-latest.json

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Final
 
 WSTG_STABLE_VERSION: Final[str] = "v4.2"
@@ -110,6 +111,13 @@ DEFAULT_CONTROL_FAMILY_BY_TOOL: Final[dict[str, str]] = {
     "semgrep": "secure_code_review",
 }
 
+
+NON_ALNUM_PATTERN: Final[re.Pattern[str]] = re.compile(r"[^a-z0-9]+")
+
+
+def _normalize_match_text(value: str) -> str:
+    return NON_ALNUM_PATTERN.sub(" ", value.strip().lower()).strip()
+
 METHODOLOGY_RULES: Final[tuple[dict[str, str | tuple[str, ...]], ...]] = (
     {
         "terms": (
@@ -182,17 +190,30 @@ METHODOLOGY_RULES: Final[tuple[dict[str, str | tuple[str, ...]], ...]] = (
         "wstg_id": "WSTG-SESS-02",
     },
     {
-        "terms": ("dom-based cross site scripting", "dom xss"),
+        "terms": (
+            "dom-based cross site scripting",
+            "cross site scripting dom based",
+            "dom xss",
+        ),
         "control_family": "client_security",
         "wstg_id": "WSTG-CLNT-01",
     },
     {
-        "terms": ("stored cross site scripting", "stored xss"),
+        "terms": (
+            "stored cross site scripting",
+            "cross site scripting stored",
+            "stored xss",
+        ),
         "control_family": "input_validation",
         "wstg_id": "WSTG-INPV-02",
     },
     {
-        "terms": ("reflected cross site scripting", "reflected xss", "xss"),
+        "terms": (
+            "reflected cross site scripting",
+            "cross site scripting reflected",
+            "reflected xss",
+            "xss",
+        ),
         "control_family": "input_validation",
         "wstg_id": "WSTG-INPV-01",
     },
@@ -392,7 +413,9 @@ def derive_finding_methodology(
     run_class: str | None,
 ) -> dict[str, object]:
     normalized_tool = (tool or "").strip().lower()
-    text = " ".join(part.strip().lower() for part in (title, summary or "") if part and part.strip())
+    text = _normalize_match_text(
+        " ".join(part.strip() for part in (title, summary or "") if part and part.strip())
+    )
 
     control_family = DEFAULT_CONTROL_FAMILY_BY_TOOL.get(normalized_tool)
     wstg_id: str | None = None
@@ -402,7 +425,7 @@ def derive_finding_methodology(
         terms = rule["terms"]
         if not isinstance(terms, tuple):
             continue
-        if any(term in text for term in terms):
+        if any(_normalize_match_text(term) in text for term in terms):
             rule_control_family = rule.get("control_family")
             rule_wstg_id = rule.get("wstg_id")
             rule_asvs_reference = rule.get("asvs_reference")

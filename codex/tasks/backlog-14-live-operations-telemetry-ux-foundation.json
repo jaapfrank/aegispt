@@ -1,0 +1,107 @@
+{
+  "id": "backlog-14-live-operations-telemetry-ux-foundation",
+  "task_file": "codex/tasks/backlog-14-live-operations-telemetry-ux-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Live Operations Telemetry UX Foundation",
+  "goal": "Deepen active-run visibility with task-level swimlanes and truthful telemetry cues grounded in existing run/task state.",
+  "scope": "Build on the existing run-level SSE and polling fallback by rendering task pipeline swimlanes, live severity counters, and activity deltas from persisted run/task/finding state. Keep per-task stdout streaming and new worker protocols out of this first UX slice unless already available through existing task data.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 14,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/ui_mission_control.md",
+      "docs/operator_console_stabilization_plan.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "live_operations",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/ui_mission_control.md",
+      "docs/operator_console_stabilization_plan.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Stay inside real persisted run/task/finding state. Do not invent fake streaming telemetry or a second worker protocol.",
+    "runtime_mutation": false,
+    "no_second_runtime_lane": true,
+    "notes": [
+      "Use existing run and task snapshots first.",
+      "Any live animation must reflect actual state transitions."
+    ]
+  },
+  "success_criteria": [
+    "Mission Control shows task-level progress grouped by tool or execution lane.",
+    "Live counters update from actual run/finding state instead of decorative fake events.",
+    "Queued, running, completed, failed, blocked, and thin-output states remain distinguishable.",
+    "Browser tests cover active, completed, failed, and SSE-unavailable behavior.",
+    "No new worker execution lane is introduced."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/runtime.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/ui_mission_control.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "api/app/schemas/findings.py",
+    "pack registry and runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Telemetry UI is derived from persisted run/task/finding state.",
+      "SSE unavailable fallback remains truthful.",
+      "No synthetic success or fake live state is added."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The existing run-stream foundation remains intact."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with telemetry UX changes and validation evidence.",
+      "Update CURRENT_STATE.md with live-operations UX baseline and remaining telemetry gaps.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Per-task stdout streaming protocol",
+    "New worker runner lifecycle",
+    "Fake animated scan maps",
+    "Runtime self-modification",
+    "Bypassing approval or dispatch gates"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

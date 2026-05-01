@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import os
-from ipaddress import ip_address, ip_network
-from urllib.parse import urlparse
+import shlex
+import uuid
 from uuid import UUID
 
 import dramatiq
@@ -11,41 +12,191 @@ from dramatiq.brokers.redis import RedisBroker
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+from api.app.config import get_settings
+from api.app.models import SecretRef
 from api.app.services.artifact_storage import (
-    artifact_storage_config_from_env,
+    artifact_storage_config_from_settings,
     store_artifact_bytes_with_fallback,
 )
 from api.app.services.audit import write_audit_event
-from api.app.services.inventory import (
-    create_inventory_snapshot_record,
-    httpx_observation_from_jsonl,
-    nmap_observation_from_xml,
+from api.app.services.ai_agent import run_post_task_analysis_for_task
+from api.app.services.assessment_chain import (
+    advance_assessment_chain_for_completed_run,
+    dispatch_assessment_chain_current_run,
 )
+from api.app.services.exposure_score import record_exposure_score
+from api.app.services.evidence_integrity import apply_artifact_integrity_metadata
+from api.app.services.finding_validator import (
+    dispatch_validation_runs,
+    finalize_validation_for_task,
+    is_validation_task,
+    mark_validation_running,
+    queue_automatic_validations,
+)
+from api.app.services.inventory import (
+    api_assessment_observation_from_json,
+    aws_inventory_observation_from_json,
+    bloodhound_observation_from_json,
+    camera_test_observation_from_json,
+    cicd_security_observation_from_json,
+    cloud_native_observation_from_json,
+    desktop_client_observation_from_json,
+    create_inventory_snapshot_record,
+    easm_observation_from_json,
+    external_infrastructure_observation_from_json,
+    httpx_observation_from_jsonl,
+    ipv6_discovery_observation_from_json,
+    ldap_enum_observation_from_json,
+    mdns_ssdp_observation_from_json,
+    mobile_android_observation_from_json,
+    nmap_observation_from_xml,
+    smart_home_observation_from_json,
+    snmp_enum_observation_from_json,
+)
+from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_task
+from api.app.services.cve_sync import suggest_watchlist_from_inventory_snapshot
+from api.app.services.run_drift import compute_run_drift
 from api.app.policy.engine import execution_kill_switch_enabled
 from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
 from api.app.models import InventorySnapshot
 from api.app.models import Run, Scope, Task, ToolExecution
 from api.app.services.redaction import redact_artifact_bytes, redact_text
-from api.app.services.runs import derive_targets, latest_scope_query
+from api.app.services.runs import latest_scope_query, target_is_allowed
+from api.app.services.secrets import (
+    direct_secret_storage_backend,
+    encrypt_secret_value,
+    load_secret_value,
+    public_secret_binding,
+)
+from api.app.services.settings import effective_runtime_settings_for_task
+from api.app.services.siem_push import (
+    deliver_critical_findings_to_configured_siems,
+    deliver_run_completion_to_configured_siems,
+)
+from api.app.services.soft_delete import purge_expired_soft_deleted_runs
+from api.app.services.task_dispatch import dispatch_task_batch
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
+from workers.runners.aws_inventory.runner import execute_aws_inventory
+from workers.runners.api_assessment.runner import (
+    API_ASSESSMENT_INVENTORY_ARTIFACT_NAME,
+    execute_api_assessment,
+)
+from workers.runners.bloodhound.runner import execute_bloodhound_collect
+from workers.runners.burp.runner import execute_burp_scan
+from workers.runners.camera_test.runner import (
+    CAMERA_TEST_RESULTS_ARTIFACT_NAME,
+    execute_camera_test,
+)
+from workers.runners.cloud_native.runner import (
+    CLOUD_NATIVE_INVENTORY_ARTIFACT_NAME,
+    execute_cloud_native_assessment,
+)
+from workers.runners.cicd_security.runner import (
+    CICD_SECURITY_INVENTORY_ARTIFACT_NAME,
+    execute_cicd_security_assessment,
+)
+from workers.runners.desktop_client.runner import (
+    DESKTOP_CLIENT_INVENTORY_ARTIFACT_NAME,
+    execute_desktop_client_assessment,
+)
+from workers.runners.credential_attacks.runner import execute_credential_attacks
+from workers.runners.biz_logic.runner import execute_biz_logic_probe
+from workers.runners.easm.runner import execute_easm_discovery
+from workers.runners.external_infra.runner import execute_external_infra_assessment
 from workers.runners.httpx.runner import execute_httpx_probe
+from workers.runners.impacket.runner import execute_impacket_lateral
+from workers.runners.iot_default_creds.runner import execute_iot_default_credential_audit
+from workers.runners.ipv6_discovery.runner import (
+    IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME,
+    execute_ipv6_discovery,
+)
+from workers.runners.ldap_enum.runner import execute_ldap_enum
+from workers.runners.llm_probe import execute_llm_probe
+from workers.runners.metasploit.runner import execute_metasploit_exploit
+from workers.runners.mobile_android.runner import (
+    MOBILE_ANDROID_INVENTORY_ARTIFACT_NAME,
+    execute_mobile_android_static,
+)
+from workers.runners.mdns_ssdp.runner import (
+    MDNS_SSDP_ARTIFACT_NAME,
+    execute_mdns_ssdp_discovery,
+)
+from workers.runners.network_segmentation.runner import execute_network_segmentation_assessment
 from workers.runners.nmap.runner import execute_nmap_scan
+from workers.runners.netexec.runner import execute_netexec_smb
 from workers.runners.nuclei.runner import execute_nuclei_scan
+from workers.runners.playwright_web.runner import execute_playwright_web_validation
+from workers.runners.responder.runner import execute_responder_capture
 from workers.runners.semgrep.runner import execute_semgrep_scan
+from workers.runners.smart_home.runner import (
+    SMART_HOME_RESULTS_ARTIFACT_NAME,
+    execute_smart_home_audit,
+)
+from workers.runners.snmp_enum.runner import (
+    SNMP_ENUM_RESULTS_ARTIFACT_NAME,
+    execute_snmp_enumeration,
+)
 from workers.runners.zap.runner import execute_zap_scan
+from workers.runners.base.stdout_stream import (
+    append_task_stdout,
+    mark_task_stdout_completed,
+    mark_task_stdout_unavailable,
+    reset_task_stdout_stream,
+)
 from workers.orchestration.findings import store_findings
 from workers.orchestration.runtime import session_scope
 
 redis_broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 dramatiq.set_broker(redis_broker)
 
-SUPPORTED_TOOLS = {"httpx", "nmap", "nuclei", "semgrep", "zap"}
+SUPPORTED_TOOLS = {
+    "api-assessment",
+    "aws-inventory",
+    "bloodhound-collect",
+    "biz-logic-probe",
+    "burp",
+    "camera-test",
+    "cicd-security",
+    "cloud-native",
+    "desktop-client",
+    "credential-attacks",
+    "easm-discover",
+    "external-infra",
+    "httpx",
+    "impacket-lateral",
+    "iot-default-creds",
+    "ipv6-discovery",
+    "ldap-enum",
+    "llm-probe",
+    "metasploit",
+    "mdns-ssdp",
+    "mobile-android",
+    "network-segmentation",
+    "nmap",
+    "netexec",
+    "nuclei",
+    "playwright-web",
+    "responder",
+    "semgrep",
+    "smart-home",
+    "snmp-enum",
+    "zap",
+}
+
+
+@dataclass(slots=True)
+class StoredExecutionResult:
+    created_finding_ids: list[UUID]
 
 
 def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
     rate_limit = int(request.params.get("limits", {}).get("max_rps", 2))
     timeout_seconds = float(request.params.get("timeout_seconds", 10.0))
-    limits = request.params.get("limits", {}) if isinstance(request.params.get("limits", {}), dict) else {}
+    limits = (
+        request.params.get("limits", {})
+        if isinstance(request.params.get("limits", {}), dict)
+        else {}
+    )
 
     if request.tool == "httpx":
         return execute_httpx_probe(
@@ -53,16 +204,534 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             rate_limit=rate_limit,
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "aws-inventory":
+        regions = request.params.get("regions", limits.get("regions"))
+        return execute_aws_inventory(
+            targets=request.targets,
+            regions=(
+                [
+                    str(region).strip()
+                    for region in regions
+                    if isinstance(region, str) and str(region).strip()
+                ]
+                if isinstance(regions, list)
+                else None
+            ),
+            access_key_id_env=(
+                request.params.get("access_key_id_env")
+                if isinstance(request.params.get("access_key_id_env"), str)
+                else None
+            ),
+            secret_access_key_env=(
+                request.params.get("secret_access_key_env")
+                if isinstance(request.params.get("secret_access_key_env"), str)
+                else None
+            ),
+            session_token_env=(
+                request.params.get("session_token_env")
+                if isinstance(request.params.get("session_token_env"), str)
+                else None
+            ),
+        )
+    if request.tool == "api-assessment":
+        return execute_api_assessment(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            auth_contexts=request.params.get("auth_contexts", []),
+            openapi_spec=request.params.get("openapi_spec"),
+            postman_collection=request.params.get("postman_collection"),
+            graphql_introspection=request.params.get("graphql_introspection"),
+            graphql_endpoint_url=(
+                request.params.get("graphql_endpoint_url")
+                if isinstance(request.params.get("graphql_endpoint_url"), str)
+                else None
+            ),
+            requires_auth_context=bool(request.params.get("requires_auth_context", False)),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "mobile-android":
+        return execute_mobile_android_static(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            apk_path=(
+                request.params.get("apk_path")
+                if isinstance(request.params.get("apk_path"), str)
+                else None
+            ),
+            proxy_metadata=request.params.get("proxy_metadata"),
+            dynamic_prerequisites=request.params.get("dynamic_prerequisites"),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "cloud-native":
+        return execute_cloud_native_assessment(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            manifest_paths=(
+                request.params.get("manifest_paths")
+                if isinstance(request.params.get("manifest_paths"), list)
+                else None
+            ),
+            manifests=request.params.get("manifests"),
+            image_metadata=request.params.get("image_metadata"),
+            cluster_posture=request.params.get("cluster_posture"),
+            provider=(
+                request.params.get("provider")
+                if isinstance(request.params.get("provider"), str)
+                else "kubernetes"
+            ),
+            cluster_id=(
+                request.params.get("cluster_id")
+                if isinstance(request.params.get("cluster_id"), str)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "cicd-security":
+        return execute_cicd_security_assessment(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            pipeline_paths=(
+                request.params.get("pipeline_paths")
+                if isinstance(request.params.get("pipeline_paths"), list)
+                else None
+            ),
+            pipeline_configs=request.params.get("pipeline_configs"),
+            repository_metadata=request.params.get("repository_metadata"),
+            pipeline_type=(
+                request.params.get("pipeline_type")
+                if isinstance(request.params.get("pipeline_type"), str)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "desktop-client":
+        return execute_desktop_client_assessment(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            artifact_paths=(
+                request.params.get("artifact_paths")
+                if isinstance(request.params.get("artifact_paths"), list)
+                else None
+            ),
+            helper_urls=(
+                request.params.get("helper_urls")
+                if isinstance(request.params.get("helper_urls"), list)
+                else None
+            ),
+            desktop_metadata=(
+                request.params.get("desktop_metadata")
+                if isinstance(request.params.get("desktop_metadata"), dict)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "biz-logic-probe":
+        return execute_biz_logic_probe(
+            targets=request.targets,
+            auth_contexts=request.params.get("auth_contexts", []),
+            scope_allowlist=request.scope_allowlist,
+            test_types=request.params.get("test_types"),
+            protected_paths=request.params.get("protected_paths"),
+            admin_paths=request.params.get("admin_paths"),
+            idor_paths=request.params.get("idor_paths"),
+            cross_tenant_paths=request.params.get("cross_tenant_paths"),
+            candidate_object_ids=request.params.get("candidate_object_ids"),
+            max_object_ids=(
+                request.params.get("max_object_ids")
+                if isinstance(request.params.get("max_object_ids"), int)
+                else 25
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "bloodhound-collect":
+        return execute_bloodhound_collect(
+            targets=request.targets,
+            auth_contexts=request.params.get("auth_contexts", []),
+            scope_allowlist=request.scope_allowlist,
+            binary=os.getenv("BLOODHOUND_PYTHON_BINARY", "bloodhound-python"),
+            domain=(
+                request.params.get("domain")
+                if isinstance(request.params.get("domain"), str)
+                else None
+            ),
+            domain_controller=(
+                request.params.get("domain_controller")
+                if isinstance(request.params.get("domain_controller"), str)
+                else None
+            ),
+            nameserver=(
+                request.params.get("nameserver")
+                if isinstance(request.params.get("nameserver"), str)
+                else None
+            ),
+            collection_methods=(
+                request.params.get("collection_methods")
+                if isinstance(request.params.get("collection_methods"), list)
+                else None
+            ),
+            dns_tcp=bool(request.params.get("dns_tcp", False)),
+            use_ldaps=bool(request.params.get("use_ldaps", False)),
+            timeout_seconds=timeout_seconds,
+            kill_switch_check=execution_kill_switch_enabled,
+        )
+    if request.tool == "burp":
+        settings = get_settings()
+        return execute_burp_scan(
+            targets=request.targets,
+            base_url=settings.burp_api_url or "",
+            api_key=settings.burp_api_key,
+            rate_limit=rate_limit,
+            timeout_seconds=timeout_seconds,
+            named_scan_configurations=(
+                request.params.get("named_scan_configurations")
+                if isinstance(request.params.get("named_scan_configurations"), list)
+                else None
+            ),
+            scan_definition=(
+                request.params.get("scan_definition")
+                if isinstance(request.params.get("scan_definition"), dict)
+                else None
+            ),
+            scope_allowlist=request.scope_allowlist,
+        )
+    if request.tool == "credential-attacks":
+        return execute_credential_attacks(
+            targets=request.targets,
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else "kerberoast"
+            ),
+            auth_contexts=request.params.get("auth_contexts", []),
+            candidate_accounts=request.params.get("candidate_accounts", []),
+            hash_inputs=request.params.get("hash_sources", []),
+            password_candidates=request.params.get("password_candidates", []),
+            configured_domain=(
+                request.params.get("domain")
+                if isinstance(request.params.get("domain"), str)
+                else None
+            ),
+            domain_controller=(
+                request.params.get("domain_controller")
+                if isinstance(request.params.get("domain_controller"), str)
+                else None
+            ),
+            wordlist_path=(
+                request.params.get("wordlist_path")
+                if isinstance(request.params.get("wordlist_path"), str)
+                else None
+            ),
+            attempts_per_window=(
+                request.params.get("attempts_per_window")
+                if isinstance(request.params.get("attempts_per_window"), int)
+                else 1
+            ),
+            window_minutes=(
+                request.params.get("window_minutes")
+                if isinstance(request.params.get("window_minutes"), int)
+                else 30
+            ),
+            lockout_threshold=(
+                request.params.get("lockout_threshold")
+                if isinstance(request.params.get("lockout_threshold"), int)
+                else None
+            ),
+            getuserspns_binary=os.getenv("IMPACKET_GETUSERSPNS_BINARY", "GetUserSPNs.py"),
+            getnpusers_binary=os.getenv("IMPACKET_GETNPUSERS_BINARY", "GetNPUsers.py"),
+            hashcat_binary=os.getenv("HASHCAT_BINARY", "hashcat"),
+            spray_binary=os.getenv("KERBRUTE_BINARY", "kerbrute"),
+            timeout_seconds=timeout_seconds,
+            kill_switch_check=execution_kill_switch_enabled,
+        )
+    if request.tool == "easm-discover":
+        return execute_easm_discovery(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            subfinder_binary=os.getenv("SUBFINDER_BINARY", "subfinder"),
+            crtsh_base_url=os.getenv("EASM_CRTSH_BASE_URL", "https://crt.sh/"),
+            dns_wordlist_path=os.getenv("EASM_DNS_WORDLIST_PATH") or None,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "external-infra":
+        return execute_external_infra_assessment(
+            targets=request.targets,
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else "passive"
+            ),
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+            rate_limit=rate_limit,
+            nmap_binary=os.getenv("NMAP_BINARY", "nmap"),
+            nuclei_binary=os.getenv("NUCLEI_BINARY", "nuclei"),
+            netexec_binary=os.getenv("NETEXEC_BINARY", "nxc"),
+            ssh_audit_binary=os.getenv("SSH_AUDIT_BINARY", "ssh-audit"),
+            include_passive_smb=bool(request.params.get("include_passive_smb", True)),
+        )
+    if request.tool == "mdns-ssdp":
+        return execute_mdns_ssdp_discovery(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            service_types=(
+                request.params.get("service_types")
+                if isinstance(request.params.get("service_types"), list)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+            mdns_enabled=bool(request.params.get("mdns_enabled", True)),
+            ssdp_enabled=bool(request.params.get("ssdp_enabled", True)),
+        )
+    if request.tool == "iot-default-creds":
+        return execute_iot_default_credential_audit(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+            max_attempts_per_host=(
+                request.params.get("max_attempts_per_host")
+                if isinstance(request.params.get("max_attempts_per_host"), int)
+                else 3
+            ),
+            rate_limit_per_second=(
+                float(request.params.get("rate_limit_per_second"))
+                if isinstance(request.params.get("rate_limit_per_second"), (int, float))
+                else 1.0
+            ),
+        )
+    if request.tool == "network-segmentation":
+        return execute_network_segmentation_assessment(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else "passive"
+            ),
+            timeout_seconds=timeout_seconds,
+            reachability_ports=(
+                [
+                    int(port)
+                    for port in request.params.get("reachability_ports", [])
+                    if isinstance(port, int)
+                ]
+                if isinstance(request.params.get("reachability_ports"), list)
+                else None
+            ),
+            vlan_probe_count=(
+                int(request.params.get("vlan_probe_count"))
+                if isinstance(request.params.get("vlan_probe_count"), int)
+                else 10
+            ),
+            native_vlan=(
+                int(request.params.get("native_vlan"))
+                if isinstance(request.params.get("native_vlan"), int)
+                else 1
+            ),
+            target_vlan=(
+                int(request.params.get("target_vlan"))
+                if isinstance(request.params.get("target_vlan"), int)
+                else 2
+            ),
+            vlan_interface=(
+                request.params.get("vlan_interface")
+                if isinstance(request.params.get("vlan_interface"), str)
+                else None
+            ),
+            vlan_target_ip=(
+                request.params.get("vlan_target_ip")
+                if isinstance(request.params.get("vlan_target_ip"), str)
+                else None
+            ),
+        )
+    if request.tool == "snmp-enum":
+        return execute_snmp_enumeration(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            communities=(
+                request.params.get("community_strings")
+                if isinstance(request.params.get("community_strings"), list)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+            max_target_hosts=(
+                int(request.params.get("max_target_hosts"))
+                if isinstance(request.params.get("max_target_hosts"), int)
+                else 256
+            ),
+        )
+    if request.tool == "smart-home":
+        return execute_smart_home_audit(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+            mqtt_listen_seconds=(
+                float(request.params.get("mqtt_listen_seconds"))
+                if isinstance(request.params.get("mqtt_listen_seconds"), (int, float))
+                else 30.0
+            ),
+            max_target_hosts=(
+                int(request.params.get("max_target_hosts"))
+                if isinstance(request.params.get("max_target_hosts"), int)
+                else 128
+            ),
+        )
+    if request.tool == "camera-test":
+        return execute_camera_test(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+            max_target_hosts=(
+                int(request.params.get("max_target_hosts"))
+                if isinstance(request.params.get("max_target_hosts"), int)
+                else 128
+            ),
+            max_default_credential_attempts=(
+                int(request.params.get("max_default_credential_attempts"))
+                if isinstance(request.params.get("max_default_credential_attempts"), int)
+                else 10
+            ),
+        )
+    if request.tool == "ipv6-discovery":
+        return execute_ipv6_discovery(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            interface=(
+                request.params.get("interface")
+                if isinstance(request.params.get("interface"), str)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+            max_discovered_hosts=(
+                int(request.params.get("max_discovered_hosts"))
+                if isinstance(request.params.get("max_discovered_hosts"), int)
+                else 128
+            ),
+            run_nmap=bool(request.params.get("run_nmap", True)),
+            ports=(
+                request.params.get("ports")
+                if isinstance(request.params.get("ports"), (list, str, tuple))
+                else None
+            ),
+            ip_binary=os.getenv("IP_BINARY", "ip"),
+            ping_binary=os.getenv("PING_BINARY", "ping"),
+            nmap_binary=os.getenv("NMAP_BINARY", "nmap"),
+        )
     if request.tool == "nmap":
         return execute_nmap_scan(
             targets=request.targets,
             binary=os.getenv("NMAP_BINARY", "nmap"),
-            discovery_only=bool(request.params.get("discovery_only", limits.get("discovery_only", True))),
-            service_detection=bool(request.params.get("service_detection", limits.get("service_detection", False))),
-            skip_discovery=bool(request.params.get("skip_discovery", limits.get("skip_discovery", False))),
-            top_ports=request.params.get("top_ports", limits.get("top_ports"))
-            if isinstance(request.params.get("top_ports", limits.get("top_ports")), int)
-            else None,
+            discovery_only=bool(
+                request.params.get("discovery_only", limits.get("discovery_only", True))
+            ),
+            service_detection=bool(
+                request.params.get("service_detection", limits.get("service_detection", False))
+            ),
+            skip_discovery=bool(
+                request.params.get("skip_discovery", limits.get("skip_discovery", False))
+            ),
+            top_ports=(
+                request.params.get("top_ports")
+                if isinstance(request.params.get("top_ports"), int)
+                else limits.get("top_ports")
+                if "ports" not in request.params
+                and isinstance(limits.get("top_ports"), int)
+                and request.params.get("top_ports") is None
+                else None
+            ),
+            ports=(
+                request.params.get("ports")
+                if isinstance(request.params.get("ports"), (list, str, tuple))
+                else limits.get("ports")
+                if request.params.get("top_ports") is None
+                and not bool(request.params.get("full_port_scan", False))
+                and isinstance(limits.get("ports"), (list, str, tuple))
+                else None
+            ),
+            scripts=(
+                request.params.get("scripts")
+                if isinstance(request.params.get("scripts"), list)
+                else limits.get("scripts")
+                if isinstance(limits.get("scripts"), list)
+                else None
+            ),
+            script_args=(
+                request.params.get("script_args")
+                if isinstance(request.params.get("script_args"), dict)
+                else limits.get("script_args")
+                if isinstance(limits.get("script_args"), dict)
+                else None
+            ),
+            version_intensity=(
+                request.params.get("version_intensity", limits.get("version_intensity"))
+                if isinstance(request.params.get("version_intensity", limits.get("version_intensity")), int)
+                else None
+            ),
+            timing_template=(
+                request.params.get("timing_template", limits.get("timing_template"))
+                if isinstance(request.params.get("timing_template", limits.get("timing_template")), str)
+                else None
+            ),
+            max_retries=(
+                request.params.get("max_retries", limits.get("max_retries"))
+                if isinstance(request.params.get("max_retries", limits.get("max_retries")), int)
+                else None
+            ),
+            host_timeout_seconds=(
+                request.params.get("host_timeout_seconds", limits.get("host_timeout_seconds"))
+                if isinstance(request.params.get("host_timeout_seconds", limits.get("host_timeout_seconds")), (int, float))
+                else None
+            ),
+            ipv6=bool(request.params.get("ipv6", limits.get("ipv6", False))),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "netexec":
+        return execute_netexec_smb(
+            targets=request.targets,
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else "passive"
+            ),
+            auth_contexts=request.params.get("auth_contexts", []),
+            binary=os.getenv("NETEXEC_BINARY", "nxc"),
+            sensitive_patterns=(
+                request.params.get("sensitive_patterns")
+                if isinstance(request.params.get("sensitive_patterns"), list)
+                else None
+            ),
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+            kill_switch_check=execution_kill_switch_enabled,
         )
     if request.tool == "nuclei":
         return execute_nuclei_scan(
@@ -70,6 +739,175 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             rate_limit=rate_limit,
             timeout_seconds=timeout_seconds,
             binary=os.getenv("NUCLEI_BINARY", "nuclei"),
+            template_body=(
+                request.params.get("template_body")
+                if isinstance(request.params.get("template_body"), str)
+                else None
+            ) or None,
+            template_id=(
+                request.params.get("template_id")
+                if isinstance(request.params.get("template_id"), str)
+                else None
+            ) or None,
+            template_source=(
+                request.params.get("template_source")
+                if isinstance(request.params.get("template_source"), str)
+                else None
+            ) or None,
+            template_filename=(
+                request.params.get("template_filename")
+                if isinstance(request.params.get("template_filename"), str)
+                else None
+            ) or None,
+        )
+    if request.tool == "playwright-web":
+        return execute_playwright_web_validation(
+            targets=request.targets,
+            auth_contexts=request.params.get("auth_contexts", []),
+            scope_allowlist=request.scope_allowlist,
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else "passive"
+            ),
+            requires_auth_context=bool(request.params.get("requires_auth_context", False)),
+            proof_marker=(
+                request.params.get("proof_marker")
+                if isinstance(request.params.get("proof_marker"), str)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "responder":
+        return execute_responder_capture(
+            targets=request.targets,
+            interface=(
+                request.params.get("interface")
+                if isinstance(request.params.get("interface"), str)
+                else ""
+            ),
+            duration_minutes=request.params.get("duration_minutes"),
+            binary=os.getenv("RESPONDER_BINARY", "responder"),
+            scope_allowlist=request.scope_allowlist,
+        )
+    if request.tool == "ldap-enum":
+        page_size = request.params.get("page_size", limits.get("page_size", 500))
+        return execute_ldap_enum(
+            targets=request.targets,
+            base_dn=(
+                request.params.get("base_dn")
+                if isinstance(request.params.get("base_dn"), str)
+                else None
+            ),
+            bind_dn=(
+                request.params.get("bind_dn")
+                if isinstance(request.params.get("bind_dn"), str)
+                else None
+            ),
+            password_env=(
+                request.params.get("password_env")
+                if isinstance(request.params.get("password_env"), str)
+                else None
+            ),
+            use_ssl=bool(request.params.get("use_ssl", limits.get("use_ssl", False))),
+            timeout_seconds=timeout_seconds,
+            page_size=page_size if isinstance(page_size, int) else 500,
+        )
+    if request.tool == "llm-probe":
+        max_tokens = request.params.get("max_tokens", limits.get("max_tokens", 96))
+        max_probes = request.params.get("max_probes", limits.get("max_probes"))
+        return execute_llm_probe(
+            targets=request.targets,
+            provider_mode=(
+                request.params.get("provider_mode")
+                if isinstance(request.params.get("provider_mode"), str)
+                else "http"
+            ),
+            deterministic_profile=(
+                request.params.get("deterministic_profile")
+                if isinstance(request.params.get("deterministic_profile"), str)
+                else "safe"
+            ),
+            api_key_env=(
+                request.params.get("api_key_env")
+                if isinstance(request.params.get("api_key_env"), str)
+                else None
+            ),
+            bearer_token_env=(
+                request.params.get("bearer_token_env")
+                if isinstance(request.params.get("bearer_token_env"), str)
+                else None
+            ),
+            model=(
+                request.params.get("model")
+                if isinstance(request.params.get("model"), str)
+                else None
+            ),
+            rate_limit=rate_limit,
+            timeout_seconds=timeout_seconds,
+            max_tokens=max_tokens if isinstance(max_tokens, int) else 96,
+            max_probes=max_probes if isinstance(max_probes, int) else None,
+        )
+    if request.tool == "impacket-lateral":
+        return execute_impacket_lateral(
+            targets=request.targets,
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else "remote_exec"
+            ),
+            auth_contexts=request.params.get("auth_contexts", []),
+            remote_exec_method=(
+                request.params.get("remote_exec_method")
+                if isinstance(request.params.get("remote_exec_method"), str)
+                else "psexec"
+            ),
+            scope_allowlist=request.scope_allowlist,
+            secretsdump_binary=os.getenv("IMPACKET_SECRETSDUMP_BINARY", "secretsdump.py"),
+            psexec_binary=os.getenv("IMPACKET_PSEXEC_BINARY", "psexec.py"),
+            wmiexec_binary=os.getenv("IMPACKET_WMIEXEC_BINARY", "wmiexec.py"),
+            timeout_seconds=timeout_seconds,
+            kill_switch_check=execution_kill_switch_enabled,
+        )
+    if request.tool == "metasploit":
+        settings = get_settings()
+        return execute_metasploit_exploit(
+            targets=request.targets,
+            source_finding=(
+                request.params.get("source_finding")
+                if isinstance(request.params.get("source_finding"), dict)
+                else {}
+            ),
+            module_name=(
+                request.params.get("module_name")
+                if isinstance(request.params.get("module_name"), str)
+                else None
+            ),
+            auth_contexts=request.params.get("auth_contexts", []),
+            lhost=(
+                request.params.get("lhost")
+                if isinstance(request.params.get("lhost"), str)
+                else "127.0.0.1"
+            ),
+            lport=(
+                request.params.get("lport")
+                if isinstance(request.params.get("lport"), int)
+                else 4444
+            ),
+            rport=(
+                request.params.get("rport")
+                if isinstance(request.params.get("rport"), int)
+                else None
+            ),
+            rpc_url=settings.metasploit_rpc_url,
+            rpc_username=settings.metasploit_rpc_user,
+            rpc_password=settings.metasploit_rpc_password,
+            rpc_verify_ssl=settings.metasploit_rpc_verify_ssl,
+            msfrpcd_binary=settings.metasploit_rpc_start_binary,
+            scope_allowlist=request.scope_allowlist,
+            kill_switch_check=execution_kill_switch_enabled,
+            start_rpc_daemon=settings.metasploit_rpc_auto_start,
+            rpc_start_timeout_seconds=settings.metasploit_rpc_start_timeout_seconds,
         )
     if request.tool == "semgrep":
         return execute_semgrep_scan(
@@ -106,53 +944,667 @@ def _scope_for_run(session, run: Run | None) -> Scope | None:
     return session.scalar(latest_scope_query(run.engagement_id))
 
 
-def _target_is_allowed(scope: Scope, target_id: str) -> bool:
-    allowed_targets = derive_targets(scope)
-    allowed_values = {target["value"] for target in allowed_targets}
-    if target_id in allowed_values:
-        return True
-
-    cidr_ranges = []
-    domain_like_targets: set[str] = set()
-    for target in allowed_targets:
-        if target["kind"] == "cidr":
-            try:
-                cidr_ranges.append(ip_network(target["value"], strict=False))
-            except ValueError:
-                continue
-        elif target["kind"] in {"host", "domain", "url", "target"}:
-            domain_like_targets.add(target["value"])
-            parsed_target = urlparse(target["value"])
-            if parsed_target.hostname:
-                domain_like_targets.add(parsed_target.hostname)
-
-    parsed = urlparse(target_id if "://" in target_id else f"//{target_id}")
-    host_candidate = parsed.hostname or target_id.split(":", 1)[0]
-    try:
-        ip_candidate = ip_address(host_candidate)
-    except ValueError:
-        ip_candidate = None
-
-    if ip_candidate is not None:
-        return any(ip_candidate in network for network in cidr_ranges)
-
-    normalized_host = str(host_candidate or "").strip().lower()
-    normalized_allowed = {value.strip().lower() for value in domain_like_targets if isinstance(value, str)}
-    return any(
-        normalized_host == allowed or normalized_host.endswith(f".{allowed}")
-        for allowed in normalized_allowed
-        if allowed
-    )
-
-
 def _task_targets(task: Task) -> list[str]:
     configured_targets = task.params_json.get("targets")
     if isinstance(configured_targets, list):
-        normalized_targets = [target.strip() for target in configured_targets if isinstance(target, str) and target.strip()]
+        normalized_targets = [
+            target.strip()
+            for target in configured_targets
+            if isinstance(target, str) and target.strip()
+        ]
         if normalized_targets:
             return normalized_targets
 
     return [task.target_id]
+
+
+def _resolve_secret_binding_value(session, binding: dict[str, object]) -> str | None:
+    secret_ref_id = binding.get("secret_ref_id")
+    if not isinstance(secret_ref_id, str) or not secret_ref_id.strip():
+        return None
+    try:
+        secret_uuid = UUID(secret_ref_id)
+    except ValueError:
+        return None
+    secret_ref = session.scalar(select(SecretRef).where(SecretRef.id == secret_uuid))
+    if secret_ref is None:
+        return None
+    return _load_secret_ref_value(session, secret_ref)
+
+
+def _load_secret_ref_value(
+    session,
+    secret_ref: SecretRef,
+    *,
+    visited: set[UUID] | None = None,
+) -> str | None:
+    if visited is None:
+        visited = set()
+    if secret_ref.id in visited:
+        return None
+    visited.add(secret_ref.id)
+
+    value = load_secret_value(secret_ref, get_settings())
+    if value is not None:
+        return value
+
+    pointer = str(secret_ref.vault_pointer or "").strip()
+    if not pointer.startswith("aegispt://secret-ref/"):
+        return None
+    raw_secret_ref_id = pointer.removeprefix("aegispt://secret-ref/").strip()
+    try:
+        nested_secret_id = UUID(raw_secret_ref_id)
+    except ValueError:
+        return None
+    nested_secret_ref = session.scalar(select(SecretRef).where(SecretRef.id == nested_secret_id))
+    if nested_secret_ref is None:
+        return None
+    return _load_secret_ref_value(session, nested_secret_ref, visited=visited)
+
+
+def _materialize_biz_logic_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    api_key_header = (
+        str(task.params_json.get("api_key_header") or "X-API-Key").strip() or "X-API-Key"
+    )
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        headers: dict[str, str] = {}
+        basic_auth = None
+        bearer_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("bearer_token") or {})
+        )
+        if bearer_value:
+            headers["Authorization"] = (
+                bearer_value
+                if bearer_value.lower().startswith("bearer ")
+                else f"Bearer {bearer_value}"
+            )
+        session_value = _resolve_secret_binding_value(session, dict(bindings.get("session") or {}))
+        if session_value:
+            headers["Cookie"] = session_value
+        api_key_value = _resolve_secret_binding_value(session, dict(bindings.get("api_key") or {}))
+        if api_key_value:
+            headers[api_key_header] = api_key_value
+
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        username = str(raw_context.get("username") or "").strip()
+        if password_value and username:
+            basic_auth = {"username": username, "password": password_value}
+
+        if not headers and basic_auth is None:
+            continue
+
+        materialized_contexts.append(
+            {
+                "label": str(
+                    raw_context.get("label") or username or "Authenticated Account"
+                ).strip()
+                or "Authenticated Account",
+                "username": username,
+                "role": str(raw_context.get("role") or "User").strip() or "User",
+                "tenant": str(raw_context.get("tenant") or "").strip() or None,
+                "marker_tokens": [
+                    token
+                    for token in list(raw_context.get("marker_tokens") or [])
+                    if isinstance(token, str) and token.strip()
+                ],
+                "owned_object_ids": [
+                    str(item).strip()
+                    for item in list(raw_context.get("owned_object_ids") or [])
+                    if str(item).strip()
+                ],
+                "headers": headers,
+                **({"basic_auth": basic_auth} if basic_auth is not None else {}),
+            }
+        )
+    return materialized_contexts
+
+
+def _materialize_api_assessment_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    api_key_header = (
+        str(task.params_json.get("api_key_header") or "X-API-Key").strip() or "X-API-Key"
+    )
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        headers: dict[str, str] = {}
+        basic_auth = None
+        bearer_value = _resolve_secret_binding_value(
+            session,
+            dict(bindings.get("bearer_token") or {}),
+        )
+        if bearer_value:
+            headers["Authorization"] = (
+                bearer_value
+                if bearer_value.lower().startswith("bearer ")
+                else f"Bearer {bearer_value}"
+            )
+        session_value = _resolve_secret_binding_value(session, dict(bindings.get("session") or {}))
+        if session_value:
+            headers["Cookie"] = session_value
+        api_key_value = _resolve_secret_binding_value(session, dict(bindings.get("api_key") or {}))
+        if api_key_value:
+            headers[api_key_header] = api_key_value
+
+        password_value = _resolve_secret_binding_value(
+            session,
+            dict(bindings.get("password") or {}),
+        )
+        username = str(raw_context.get("username") or "").strip()
+        if password_value and username:
+            basic_auth = {"username": username, "password": password_value}
+
+        if not headers and basic_auth is None:
+            continue
+
+        materialized_contexts.append(
+            {
+                "label": str(raw_context.get("label") or username or "API Access Context").strip()
+                or "API Access Context",
+                "username": username,
+                "role": str(raw_context.get("role") or "User").strip() or "User",
+                "tenant": str(raw_context.get("tenant") or "").strip() or None,
+                "marker_tokens": [
+                    token
+                    for token in list(raw_context.get("marker_tokens") or [])
+                    if isinstance(token, str) and token.strip()
+                ],
+                "owned_object_ids": [
+                    str(item).strip()
+                    for item in list(raw_context.get("owned_object_ids") or [])
+                    if str(item).strip()
+                ],
+                "headers": headers,
+                **({"basic_auth": basic_auth} if basic_auth is not None else {}),
+            }
+        )
+    return materialized_contexts
+
+
+def _materialize_playwright_web_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    api_key_header = (
+        str(task.params_json.get("api_key_header") or "X-API-Key").strip() or "X-API-Key"
+    )
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        headers: dict[str, str] = {}
+        bearer_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("bearer_token") or {})
+        )
+        if bearer_value:
+            headers["Authorization"] = (
+                bearer_value
+                if bearer_value.lower().startswith("bearer ")
+                else f"Bearer {bearer_value}"
+            )
+        session_value = _resolve_secret_binding_value(session, dict(bindings.get("session") or {}))
+        if session_value:
+            headers["Cookie"] = session_value
+        api_key_value = _resolve_secret_binding_value(session, dict(bindings.get("api_key") or {}))
+        if api_key_value:
+            headers[api_key_header] = api_key_value
+
+        if not headers:
+            continue
+
+        materialized_contexts.append(
+            {
+                "label": str(raw_context.get("label") or "Browser Session").strip()
+                or "Browser Session",
+                "role": str(raw_context.get("role") or "User").strip() or "User",
+                "headers": headers,
+            }
+        )
+    return materialized_contexts
+
+
+def _materialize_bloodhound_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        username = str(raw_context.get("username") or "").strip()
+        if not username or not password_value:
+            continue
+        materialized_contexts.append(
+            {
+                "label": str(raw_context.get("label") or username).strip() or username,
+                "username": username,
+                "password": password_value,
+                "domain": str(raw_context.get("domain") or "").strip() or None,
+            }
+        )
+    return materialized_contexts
+
+
+def _materialize_netexec_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        username = str(raw_context.get("username") or "").strip()
+        if not username:
+            continue
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        ntlm_hash_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("ntlm_hash") or {})
+        )
+        if not password_value and not ntlm_hash_value:
+            continue
+
+        materialized_context = {
+            "label": str(raw_context.get("label") or username).strip() or username,
+            "username": username,
+            "domain": str(raw_context.get("domain") or "").strip() or None,
+            "local_auth": bool(raw_context.get("local_auth", False)),
+        }
+        if password_value:
+            materialized_context["password"] = password_value
+        if ntlm_hash_value:
+            materialized_context["ntlm_hash"] = ntlm_hash_value
+        materialized_contexts.append(materialized_context)
+
+    return materialized_contexts
+
+
+def _materialize_metasploit_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        username = str(raw_context.get("username") or "").strip()
+        if not username:
+            continue
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        ntlm_hash_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("ntlm_hash") or {})
+        )
+        if not password_value and not ntlm_hash_value:
+            continue
+
+        materialized_context = {
+            "label": str(raw_context.get("label") or username).strip() or username,
+            "username": username,
+            "domain": str(raw_context.get("domain") or "").strip() or None,
+            "local_auth": bool(raw_context.get("local_auth", False)),
+        }
+        if password_value:
+            materialized_context["password"] = password_value
+        if ntlm_hash_value:
+            materialized_context["ntlm_hash"] = ntlm_hash_value
+        materialized_contexts.append(materialized_context)
+    return materialized_contexts
+
+
+def _materialize_impacket_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        username = str(raw_context.get("username") or "").strip()
+        if not username:
+            continue
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        ntlm_hash_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("ntlm_hash") or {})
+        )
+        if not password_value and not ntlm_hash_value:
+            continue
+
+        materialized_context = {
+            "label": str(raw_context.get("label") or username).strip() or username,
+            "username": username,
+            "domain": str(raw_context.get("domain") or "").strip() or None,
+            "local_auth": bool(raw_context.get("local_auth", False)),
+        }
+        if password_value:
+            materialized_context["password"] = password_value
+        if ntlm_hash_value:
+            materialized_context["ntlm_hash"] = ntlm_hash_value
+        materialized_contexts.append(materialized_context)
+    return materialized_contexts
+
+
+def _materialize_credential_attack_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        username = str(raw_context.get("username") or "").strip()
+        if not username or not password_value:
+            continue
+        materialized_contexts.append(
+            {
+                "label": str(raw_context.get("label") or username).strip() or username,
+                "username": username,
+                "password": password_value,
+                "domain": str(raw_context.get("domain") or "").strip() or None,
+            }
+        )
+    return materialized_contexts
+
+
+def _materialize_credential_attack_hash_sources(
+    session,
+    task: Task,
+) -> list[dict[str, object]]:
+    raw_sources = task.params_json.get("hash_sources")
+    if not isinstance(raw_sources, list):
+        return []
+
+    materialized_sources: list[dict[str, object]] = []
+    for raw_source in raw_sources:
+        if not isinstance(raw_source, dict):
+            continue
+        secret_value = _resolve_secret_binding_value(
+            session,
+            {
+                "secret_ref_id": raw_source.get("secret_ref_id"),
+            },
+        )
+        if not secret_value:
+            continue
+        materialized_sources.append(
+            {
+                "label": str(raw_source.get("label") or "Hash source").strip() or "Hash source",
+                "secret_kind": str(raw_source.get("secret_kind") or "").strip(),
+                "value": secret_value,
+            }
+        )
+    return materialized_sources
+
+
+def _materialize_credential_attack_password_candidates(
+    session,
+    task: Task,
+) -> list[dict[str, object]]:
+    raw_candidates = task.params_json.get("password_candidates")
+    if not isinstance(raw_candidates, list):
+        return []
+
+    materialized_candidates: list[dict[str, object]] = []
+    for raw_candidate in raw_candidates:
+        if not isinstance(raw_candidate, dict):
+            continue
+        secret_value = _resolve_secret_binding_value(
+            session,
+            {
+                "secret_ref_id": raw_candidate.get("secret_ref_id"),
+            },
+        )
+        if not secret_value:
+            continue
+        materialized_candidates.append(
+            {
+                "label": str(raw_candidate.get("label") or "Password candidate").strip()
+                or "Password candidate",
+                "value": secret_value,
+            }
+        )
+    return materialized_candidates
+
+
+def _runner_params_for_task(session, task: Task) -> dict[str, object]:
+    params = dict(task.params_json or {})
+    if task.tool == "api-assessment":
+        params["auth_contexts"] = _materialize_api_assessment_auth_contexts(session, task)
+    if task.tool == "biz-logic-probe":
+        params["auth_contexts"] = _materialize_biz_logic_auth_contexts(session, task)
+    if task.tool == "bloodhound-collect":
+        params["auth_contexts"] = _materialize_bloodhound_auth_contexts(session, task)
+    if task.tool == "credential-attacks":
+        params["auth_contexts"] = _materialize_credential_attack_auth_contexts(session, task)
+        params["hash_sources"] = _materialize_credential_attack_hash_sources(session, task)
+        params["password_candidates"] = _materialize_credential_attack_password_candidates(
+            session,
+            task,
+        )
+    if task.tool == "impacket-lateral":
+        params["auth_contexts"] = _materialize_impacket_auth_contexts(session, task)
+    if task.tool == "metasploit":
+        params["auth_contexts"] = _materialize_metasploit_auth_contexts(session, task)
+    if task.tool == "netexec":
+        params["auth_contexts"] = _materialize_netexec_auth_contexts(session, task)
+    if task.tool == "playwright-web":
+        params["auth_contexts"] = _materialize_playwright_web_auth_contexts(session, task)
+    return params
+
+
+def _effective_command_preview_params(params: dict[str, object]) -> dict[str, object]:
+    limits = params.get("limits")
+    if not isinstance(limits, dict):
+        return dict(params)
+    return {**limits, **params}
+
+
+def _runner_command_preview(tool: str, targets: list[str], params: dict[str, object]) -> str:
+    normalized_targets = [str(target).strip() for target in targets if str(target).strip()]
+    effective_params = _effective_command_preview_params(params)
+    if tool == "nmap":
+        command = [os.getenv("NMAP_BINARY", "nmap"), "-n", "-oX", "<evidence>/nmap-results.xml"]
+        if bool(effective_params.get("ipv6", False)):
+            command.insert(2, "-6")
+        discovery_only = bool(effective_params.get("discovery_only", True))
+        if discovery_only:
+            command.append("-sn")
+        else:
+            if bool(effective_params.get("skip_discovery", False)):
+                command.append("-Pn")
+            if bool(effective_params.get("service_detection", False)):
+                command.append("-sV")
+                if isinstance(effective_params.get("version_intensity"), int):
+                    command.extend(
+                        ["--version-intensity", str(effective_params["version_intensity"])]
+                    )
+            if bool(effective_params.get("full_port_scan", False)):
+                command.append("-p-")
+            elif effective_params.get("ports"):
+                ports_value = effective_params["ports"]
+                if isinstance(ports_value, list):
+                    command.extend(["-p", ",".join(str(port) for port in ports_value)])
+                else:
+                    command.extend(["-p", str(ports_value)])
+            elif (
+                isinstance(effective_params.get("top_ports"), int)
+                and effective_params.get("top_ports")
+            ):
+                command.extend(["--top-ports", str(effective_params["top_ports"])])
+            scripts_value = effective_params.get("scripts")
+            if isinstance(scripts_value, list) and scripts_value:
+                command.extend(["--script", ",".join(str(script) for script in scripts_value)])
+                script_args = effective_params.get("script_args")
+                if isinstance(script_args, dict) and script_args:
+                    command.extend(
+                        [
+                            "--script-args",
+                            ",".join(
+                                f"{key}={value}"
+                                for key, value in sorted(script_args.items())
+                                if str(key).strip() and str(value).strip()
+                            ),
+                        ]
+                    )
+            timing_template = str(effective_params.get("timing_template") or "").strip().upper()
+            if timing_template in {f"T{value}" for value in range(0, 6)}:
+                command.append(f"-{timing_template}")
+            if isinstance(effective_params.get("max_retries"), int):
+                command.extend(["--max-retries", str(effective_params["max_retries"])])
+            if isinstance(effective_params.get("host_timeout_seconds"), (int, float)):
+                command.extend(
+                    ["--host-timeout", f"{int(effective_params['host_timeout_seconds'])}s"]
+                )
+        command.extend(normalized_targets)
+        return "$ " + " ".join(shlex.quote(part) for part in command)
+    target_label = ", ".join(normalized_targets[:5]) or "approved scope"
+    extra = f" (+{len(normalized_targets) - 5} more)" if len(normalized_targets) > 5 else ""
+    if tool == "playwright-web":
+        mode = str(effective_params.get("mode") or "passive").strip() or "passive"
+        marker = " --proof-marker" if effective_params.get("proof_marker") else ""
+        return f"$ playwright chromium --{mode} --approved-scope {target_label}{extra}{marker}"
+    if tool == "api-assessment":
+        sources = []
+        if effective_params.get("openapi_spec"):
+            sources.append("openapi")
+        if effective_params.get("postman_collection"):
+            sources.append("postman")
+        if effective_params.get("graphql_introspection"):
+            sources.append("graphql")
+        source_label = ",".join(sources) if sources else "no-contract"
+        return f"$ api-assessment --sources {source_label} --approved-scope {target_label}{extra}"
+    if tool == "mobile-android":
+        apk_label = str(effective_params.get("apk_path") or target_label).strip() or target_label
+        return f"$ mobile-android-static --apk {shlex.quote(apk_label)} --static-only"
+    if tool == "cloud-native":
+        sources = []
+        if effective_params.get("manifest_paths") or effective_params.get("manifests"):
+            sources.append("manifests")
+        if effective_params.get("image_metadata"):
+            sources.append("images")
+        if effective_params.get("cluster_posture"):
+            sources.append("cluster-posture")
+        source_label = ",".join(sources) if sources else "approved-input"
+        return f"$ cloud-native-assessment --sources {source_label} --static-only --approved-scope {target_label}{extra}"
+    if tool == "cicd-security":
+        sources = []
+        if effective_params.get("pipeline_paths") or effective_params.get("pipeline_configs"):
+            sources.append("pipeline-configs")
+        if effective_params.get("repository_metadata"):
+            sources.append("repository-metadata")
+        source_label = ",".join(sources) if sources else "approved-input"
+        return f"$ cicd-security-assessment --sources {source_label} --static-only --approved-scope {target_label}{extra}"
+    if tool == "desktop-client":
+        sources = []
+        if effective_params.get("artifact_paths"):
+            sources.append("artifacts")
+        if effective_params.get("helper_urls"):
+            sources.append("local-helper-metadata")
+        source_label = ",".join(sources) if sources else "approved-input"
+        return f"$ desktop-client-assessment --sources {source_label} --static-only --approved-scope {target_label}{extra}"
+    if tool == "mdns-ssdp":
+        return f"$ mdns-ssdp-discovery --mdns --ssdp --approved-scope {target_label}{extra}"
+    if tool == "iot-default-creds":
+        return (
+            "$ iot-default-creds-audit --http-management --max-attempts 3 "
+            f"--redact-credentials --approved-scope {target_label}{extra}"
+        )
+    if tool == "network-segmentation":
+        mode = str(effective_params.get("mode") or "passive").strip().lower() or "passive"
+        if mode == "active":
+            return (
+                "$ network-segmentation --active-vlan-double-tag --max-probes 10 "
+                f"--approved-scope {target_label}{extra}"
+            )
+        return f"$ network-segmentation --subnet-discovery --reachability --approved-scope {target_label}{extra}"
+    if tool == "snmp-enum":
+        communities = effective_params.get("community_strings")
+        community_count = len(communities) if isinstance(communities, list) else 8
+        return (
+            f"$ snmp-enum --read-only --default-communities {community_count} "
+            f"--oids system,interfaces,arp,routes --approved-scope {target_label}{extra}"
+        )
+    if tool == "smart-home":
+        listen_seconds = effective_params.get("mqtt_listen_seconds")
+        listen_label = int(listen_seconds) if isinstance(listen_seconds, (int, float)) else 30
+        return (
+            "$ smart-home-audit --mqtt-anonymous-readonly --mqtt-subscribe '#' "
+            f"--listen-seconds {listen_label} --home-assistant-get-only "
+            f"--redact-values --approved-scope {target_label}{extra}"
+        )
+    if tool == "camera-test":
+        return (
+            "$ camera-test --onvif-ws-discovery --rtsp-options-describe-only "
+            "--snapshot-get-no-store --bounded-default-creds --no-ptz --no-config-change "
+            f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "ipv6-discovery":
+        interface = str(effective_params.get("interface") or "").strip()
+        interface_flag = f" --interface {shlex.quote(interface)}" if interface else " --no-multicast"
+        return (
+            "$ ipv6-discovery --neighbor-solicit ff02::1 --router-solicit ff02::2"
+            f"{interface_flag} --nmap -6 --approved-scope {target_label}{extra}"
+        )
+    return f"$ {tool} --approved-scope {target_label}{extra}"
 
 
 def _update_run_status(session, run: Run) -> None:
@@ -184,7 +1636,7 @@ def _update_run_status(session, run: Run) -> None:
         run.status = "queued"
 
 
-def _store_execution(session, task: Task, execution: RunnerExecution) -> None:
+def _store_execution(session, task: Task, execution: RunnerExecution) -> StoredExecutionResult:
     redacted_stdout = redact_text(execution.stdout)
     redacted_stderr = redact_text(execution.stderr)
     execution_record = ToolExecution(
@@ -198,11 +1650,49 @@ def _store_execution(session, task: Task, execution: RunnerExecution) -> None:
     session.add(execution_record)
     session.flush()
 
-    storage_config = artifact_storage_config_from_env()
+    settings = effective_runtime_settings_for_task(session, task=task, settings=get_settings())
+    storage_config = artifact_storage_config_from_settings(settings)
     run_id = str(task.run_id) if task.run_id is not None else "unassigned-run"
     task_id = str(task.id)
     execution_id = str(execution_record.id)
     stored_artifact_pairs: list[tuple[EvidenceArtifact, EvidenceArtifactRecord]] = []
+    protected_bindings_by_artifact: dict[str, dict[str, object]] = {}
+
+    if execution.protected_outputs:
+        settings = get_settings()
+        for protected_output in execution.protected_outputs:
+            storage_backend, fallback_to_local = direct_secret_storage_backend(settings)
+            secret_ref_id = uuid.uuid4()
+            secret_ref = SecretRef(
+                id=secret_ref_id,
+                engagement_id=task.run.engagement_id,
+                vault_pointer=f"aegispt://secret-ref/{secret_ref_id}",
+                purpose=protected_output.purpose,
+                secret_kind=protected_output.secret_kind,
+                storage_backend=storage_backend,
+                display_label=protected_output.display_label,
+                encrypted_value=encrypt_secret_value(
+                    protected_output.value,
+                    settings,
+                    storage_backend=storage_backend,
+                ),
+                metadata_json={
+                    "artifact_name": protected_output.artifact_name,
+                    "content_type": protected_output.content_type,
+                    "digest": protected_output.digest,
+                    "raw_secret_material_exposed": False,
+                    "run_id": str(task.run_id) if task.run_id else None,
+                    "task_id": str(task.id),
+                    "fallback_to_local_secret_key": (
+                        fallback_to_local if storage_backend == "encrypted_local" else False
+                    ),
+                    **dict(protected_output.metadata or {}),
+                },
+            )
+            session.add(secret_ref)
+            protected_bindings_by_artifact[protected_output.artifact_name] = public_secret_binding(
+                secret_ref
+            )
 
     for artifact in execution.artifacts:
         redacted_artifact = redact_artifact_bytes(
@@ -251,18 +1741,226 @@ def _store_execution(session, task: Task, execution: RunnerExecution) -> None:
                     }
                 },
                 **stored_artifact.metadata,
+                **(
+                    {
+                        "protected_secret_binding": protected_bindings_by_artifact[artifact.name],
+                        "raw_secret_material_exposed": False,
+                    }
+                    if artifact.name in protected_bindings_by_artifact
+                    else {}
+                ),
             },
+        )
+        apply_artifact_integrity_metadata(
+            settings=settings,
+            storage_config=storage_config,
+            artifact_record=artifact_record,
+            artifact_name=artifact.name,
+            data=redacted_artifact.data,
+            run_id=run_id,
+            task_id=task_id,
+            execution_id=execution_id,
         )
         execution_record.artifacts.append(artifact_record)
         stored_artifact_pairs.append((redacted_contract_artifact, artifact_record))
 
-    store_findings(session=session, task=task, artifact_pairs=stored_artifact_pairs)
-    _store_inventory_snapshot_from_execution(
+    if is_validation_task(task):
+        finalize_validation_for_task(
+            session=session,
+            task=task,
+            execution_record=execution_record,
+            artifact_pairs=stored_artifact_pairs,
+        )
+        return StoredExecutionResult(created_finding_ids=[])
+
+    created_findings = store_findings(
+        session=session, task=task, artifact_pairs=stored_artifact_pairs
+    )
+    if created_findings:
+        session.flush()
+    snapshot = _store_inventory_snapshot_from_execution(
         session=session,
         task=task,
         execution=execution,
         artifact_pairs=stored_artifact_pairs,
     )
+    if snapshot is not None:
+        maybe_refresh_after_discovery_task(session, task=task, settings=get_settings())
+    return StoredExecutionResult(created_finding_ids=[finding.id for finding in created_findings])
+
+
+def _credential_attack_context_from_artifact(
+    *,
+    tool: str,
+    artifact_bytes: bytes,
+) -> dict[str, object] | None:
+    try:
+        payload = json.loads(artifact_bytes.decode("utf-8", errors="replace"))
+    except (ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    domains: list[str] = []
+    kerberoastable_accounts: list[dict[str, object]] = []
+    asrep_roastable_accounts: list[dict[str, object]] = []
+    privileged_names: set[str] = set()
+    password_policy: dict[str, object] = {}
+
+    raw_targets = payload.get("targets")
+    if not isinstance(raw_targets, list):
+        return None
+
+    for result in raw_targets:
+        if not isinstance(result, dict) or result.get("status") not in {"ok", "partial"}:
+            continue
+
+        if tool == "ldap-enum":
+            base_dn = str(result.get("base_dn") or "").strip()
+            if base_dn:
+                domain_parts = [
+                    item.split("=", 1)[1].strip()
+                    for item in base_dn.split(",")
+                    if item.strip().lower().startswith("dc=")
+                ]
+                if domain_parts:
+                    domain_name = ".".join(part for part in domain_parts if part).lower()
+                    if domain_name and domain_name not in domains:
+                        domains.append(domain_name)
+            for membership in (
+                result.get("privileged_memberships", [])
+                if isinstance(result.get("privileged_memberships"), list)
+                else []
+            ):
+                if not isinstance(membership, dict):
+                    continue
+                for field_name in ("account_name", "member_dn"):
+                    value = str(membership.get(field_name) or "").strip().lower()
+                    if value:
+                        privileged_names.add(value)
+            for item in (
+                result.get("spn_accounts", [])
+                if isinstance(result.get("spn_accounts"), list)
+                else []
+            ):
+                if not isinstance(item, dict):
+                    continue
+                account_name = str(item.get("account_name") or "").strip()
+                principal = str(item.get("user_principal_name") or "").strip()
+                if not account_name and not principal:
+                    continue
+                kerberoastable_accounts.append(
+                    {
+                        "account_name": account_name or principal,
+                        "user_principal_name": principal or None,
+                        "service_principal_names": [
+                            str(value).strip()
+                            for value in list(item.get("service_principal_names") or [])
+                            if str(value).strip()
+                        ],
+                    }
+                )
+            for item in (
+                result.get("asrep_roastable_accounts", [])
+                if isinstance(result.get("asrep_roastable_accounts"), list)
+                else []
+            ):
+                if not isinstance(item, dict):
+                    continue
+                account_name = str(item.get("account_name") or "").strip()
+                principal = str(item.get("user_principal_name") or "").strip()
+                if not account_name and not principal:
+                    continue
+                asrep_roastable_accounts.append(
+                    {
+                        "account_name": account_name or principal,
+                        "user_principal_name": principal or None,
+                    }
+                )
+            if isinstance(result.get("password_policy"), dict) and not password_policy:
+                password_policy = dict(result.get("password_policy") or {})
+        elif tool == "bloodhound-collect":
+            domain = str(result.get("domain") or "").strip().lower()
+            if domain and domain not in domains:
+                domains.append(domain)
+            for membership in (
+                result.get("privileged_memberships", [])
+                if isinstance(result.get("privileged_memberships"), list)
+                else []
+            ):
+                if not isinstance(membership, dict):
+                    continue
+                value = (
+                    str(membership.get("member") or membership.get("account_name") or "")
+                    .strip()
+                    .lower()
+                )
+                if value:
+                    privileged_names.add(value)
+            for item in (
+                result.get("kerberoastable_accounts", [])
+                if isinstance(result.get("kerberoastable_accounts"), list)
+                else []
+            ):
+                if not isinstance(item, dict):
+                    continue
+                account_name = str(item.get("account_name") or "").strip()
+                principal = str(item.get("user_principal_name") or "").strip()
+                if not account_name and not principal:
+                    continue
+                kerberoastable_accounts.append(
+                    {
+                        "account_name": account_name or principal,
+                        "user_principal_name": principal or None,
+                        "service_principal_names": [
+                            str(value).strip()
+                            for value in list(item.get("service_principal_names") or [])
+                            if str(value).strip()
+                        ],
+                    }
+                )
+            for item in (
+                result.get("asrep_roastable_accounts", [])
+                if isinstance(result.get("asrep_roastable_accounts"), list)
+                else []
+            ):
+                if not isinstance(item, dict):
+                    continue
+                account_name = str(item.get("account_name") or "").strip()
+                principal = str(item.get("user_principal_name") or "").strip()
+                if not account_name and not principal:
+                    continue
+                asrep_roastable_accounts.append(
+                    {
+                        "account_name": account_name or principal,
+                        "user_principal_name": principal or None,
+                    }
+                )
+
+    def _apply_privilege_level(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+        enriched: list[dict[str, object]] = []
+        for row in rows:
+            account_name = str(row.get("account_name") or "").strip().lower()
+            principal = str(row.get("user_principal_name") or "").strip().lower()
+            privileged = bool(account_name and account_name in privileged_names) or bool(
+                principal and principal in privileged_names
+            )
+            service_principal_names = row.get("service_principal_names")
+            privilege_level = (
+                "privileged"
+                if privileged
+                else ("service" if service_principal_names else "standard")
+            )
+            enriched.append({**row, "privilege_level": privilege_level})
+        return enriched
+
+    return {
+        "domains": domains,
+        "kerberoastable_accounts": _apply_privilege_level(kerberoastable_accounts),
+        "asrep_roastable_accounts": _apply_privilege_level(asrep_roastable_accounts),
+        "password_policy": password_policy,
+        "privileged_names": sorted(privileged_names),
+    }
 
 
 def _store_inventory_snapshot_from_execution(
@@ -277,7 +1975,11 @@ def _store_inventory_snapshot_from_execution(
 
     if task.tool == "nmap":
         artifact_pair = next(
-            ((artifact, artifact_record) for artifact, artifact_record in artifact_pairs if artifact.name == "nmap-results.xml"),
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == "nmap-results.xml"
+            ),
             None,
         )
         if artifact_pair is None:
@@ -288,7 +1990,9 @@ def _store_inventory_snapshot_from_execution(
             return None
 
         try:
-            observation = nmap_observation_from_xml(xml_bytes=artifact.data, target_id=task.target_id)
+            observation = nmap_observation_from_xml(
+                xml_bytes=artifact.data, target_id=task.target_id
+            )
         except Exception:
             return None
 
@@ -302,7 +2006,11 @@ def _store_inventory_snapshot_from_execution(
         ]
     elif task.tool == "httpx":
         artifact_pair = next(
-            ((artifact, artifact_record) for artifact, artifact_record in artifact_pairs if artifact.name == "httpx-results.jsonl"),
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == "httpx-results.jsonl"
+            ),
             None,
         )
         if artifact_pair is None:
@@ -313,7 +2021,9 @@ def _store_inventory_snapshot_from_execution(
             return None
 
         try:
-            observation = httpx_observation_from_jsonl(jsonl_bytes=artifact.data, target_id=task.target_id)
+            observation = httpx_observation_from_jsonl(
+                jsonl_bytes=artifact.data, target_id=task.target_id
+            )
         except (ValueError, json.JSONDecodeError):
             return None
 
@@ -324,6 +2034,482 @@ def _store_inventory_snapshot_from_execution(
         assumptions = [
             "Only HTTP endpoints and fingerprints emitted by the httpx execution are reflected in this snapshot.",
             "HTTP endpoint visibility depends on the exact target list generated for the profiling run.",
+        ]
+    elif task.tool == "ldap-enum":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == "ldap-enum-results.json"
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = ldap_enum_observation_from_json(
+                json_bytes=artifact.data, target_id=task.target_id
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"LDAP and AD read-only enumeration imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only directory users, groups, memberships, and policy signals emitted by the LDAP enumeration execution are reflected in this snapshot.",
+            "LDAP enumeration is read-only and does not perform password spraying, Kerberoasting, AS-REP requests, lateral movement, or privilege escalation.",
+        ]
+    elif task.tool == "bloodhound-collect":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == "bloodhound-results.json"
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = bloodhound_observation_from_json(
+                json_bytes=artifact.data, target_id=task.target_id
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"BloodHound read-only AD graph collection imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only sanitized BloodHound graph relationships and derived path context emitted by the read-only collector are reflected in this snapshot.",
+            "The raw BloodHound collection ZIP remains encrypted through SecretRef storage; no exploitation, ticket requests, cracking, lateral movement, or AD modification was performed.",
+        ]
+    elif task.tool == "aws-inventory":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == "aws-inventory-results.json"
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = aws_inventory_observation_from_json(
+                json_bytes=artifact.data, target_id=task.target_id
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"AWS read-only inventory imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only AWS account, region, VPC, subnet, security group, and EC2 metadata emitted by the AWS inventory execution are reflected in this snapshot.",
+            "AWS inventory is read-only and does not mutate cloud resources, harvest credentials, infer IAM attack paths, test Kubernetes, or chain into active attack paths.",
+        ]
+    elif task.tool == "easm-discover":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == "easm-results.json"
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = easm_observation_from_json(
+                json_bytes=artifact.data, target_id=task.target_id
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"External attack-surface discovery imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only passive EASM-discovered assets, DNS resolutions, and lightweight HTTP fingerprints emitted by the runner are reflected in this snapshot.",
+            "Discovered assets are review-only until an operator explicitly adds them into approved scope through the normal scope snapshot flow.",
+        ]
+    elif task.tool == "external-infra":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == "external-infra-results.json"
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = external_infrastructure_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"External infrastructure assessment imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only hosts, services, and endpoints emitted by the bounded external infrastructure runner are reflected in this snapshot.",
+            "Discovered IP expansion originated from approved root domains and remained inside the external infrastructure task lane.",
+        ]
+    elif task.tool == "mdns-ssdp":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == MDNS_SSDP_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = mdns_ssdp_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"mDNS/SSDP IoT discovery imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only passively advertised mDNS and SSDP/UPnP device metadata emitted by the runner is reflected in this snapshot.",
+            "The mDNS/SSDP runner performs local discovery queries only and does not authenticate, modify devices, or exploit advertised services.",
+        ]
+    elif task.tool == "snmp-enum":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == SNMP_ENUM_RESULTS_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = snmp_enum_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Read-only SNMP enumeration imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only SNMP data emitted by approved read-only walks is reflected in this snapshot.",
+            "Community string testing was limited to the bounded default list from the active task package; no SNMP writes, SNMPv3 cracking, or broad community brute force was performed.",
+        ]
+    elif task.tool == "smart-home":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == SMART_HOME_RESULTS_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = smart_home_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Read-only smart-home audit imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only MQTT broker, Home Assistant, and smart-home hub signals emitted by the read-only audit are reflected in this snapshot.",
+            "MQTT checks subscribed read-only and never published; Home Assistant and hub checks used safe GET requests only and did not trigger automations or device-control actions.",
+        ]
+    elif task.tool == "camera-test":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == CAMERA_TEST_RESULTS_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = camera_test_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Read-only camera audit imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only ONVIF discovery, RTSP OPTIONS/DESCRIBE, snapshot GET metadata, and bounded default-credential outcomes emitted by the camera audit are reflected in this snapshot.",
+            "The camera audit did not perform RTSP SETUP/PLAY, media capture, PTZ control, configuration changes, firmware exploitation, or frame storage.",
+        ]
+    elif task.tool == "ipv6-discovery":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = ipv6_discovery_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"IPv6 neighbor discovery imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only IPv6 neighbors, prefixes, and bounded nmap -6 targets emitted by the runner are reflected in this snapshot.",
+            "No rogue Router Advertisement, DHCPv6 attack, exploitation, or live multicast was performed unless an interface was explicitly configured for local-segment probing.",
+        ]
+    elif task.tool == "api-assessment":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == API_ASSESSMENT_INVENTORY_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = api_assessment_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"API-first inventory imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only endpoints and API types emitted by authorized OpenAPI, Postman, or GraphQL inputs are reflected in this snapshot.",
+            "The API-first runner performs bounded contract-aware checks and does not fuzz, load-test, create accounts, or abuse business processes.",
+        ]
+    elif task.tool == "mobile-android":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == MOBILE_ANDROID_INVENTORY_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = mobile_android_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Android mobile inventory imported from task {task.id}.",
+            f"Run {task.run_id} APK artifact {task.target_id}.",
+        ]
+        assumptions = [
+            "Only static APK metadata emitted by the Android-first runner is reflected in this snapshot.",
+            "The mobile runner does not perform iOS testing, emulator orchestration, rooting, malware triage, or destructive exploitation.",
+        ]
+    elif task.tool == "cloud-native":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == CLOUD_NATIVE_INVENTORY_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = cloud_native_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Cloud-native inventory imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only static/read-only Kubernetes manifest, image metadata, and supplied cluster posture inputs are reflected in this snapshot.",
+            "The cloud-native runner does not mutate clusters, execute containers, perform privilege escalation, or perform lateral movement.",
+        ]
+    elif task.tool == "cicd-security":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == CICD_SECURITY_INVENTORY_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = cicd_security_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"CI/CD security inventory imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only static/read-only pipeline configuration and supplied repository metadata are reflected in this snapshot.",
+            "The CI/CD security runner does not execute pipelines, mutate repositories or CI settings, rotate credentials, disclose raw secrets, or chain exploitation.",
+        ]
+    elif task.tool == "desktop-client":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == DESKTOP_CLIENT_INVENTORY_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = desktop_client_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Desktop/thick-client inventory imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only static desktop artifact metadata and scoped local-helper metadata emitted by the desktop runner are reflected in this snapshot.",
+            "The desktop runner does not perform kernel driver analysis, process injection, malware triage, memory-corruption exploit development, or live helper probing.",
         ]
     else:
         return None
@@ -341,13 +2527,30 @@ def _store_inventory_snapshot_from_execution(
             "target_id": task.target_id,
             "artifact_uri": artifact_record.uri,
             "runner_digest": execution.metadata.get("runner_digest"),
+            "observations": [observation],
+            **(
+                {
+                    "credential_attack_context": _credential_attack_context_from_artifact(
+                        tool=task.tool,
+                        artifact_bytes=artifact.data,
+                    )
+                }
+                if task.tool in {"ldap-enum", "bloodhound-collect"}
+                else {}
+            ),
         },
     )
     session.add(snapshot)
     session.flush()
+    suggested_watchlist_entries = suggest_watchlist_from_inventory_snapshot(
+        session,
+        inventory_snapshot_id=snapshot.id,
+        tenant_id=None,
+        actor=f"runner:{task.tool}",
+    )
     write_audit_event(
         session=session,
-        actor="runner:nmap",
+        actor=f"runner:{task.tool}",
         action="inventory.snapshot.created",
         object_type="inventory_snapshot",
         object_id=str(snapshot.id),
@@ -357,9 +2560,33 @@ def _store_inventory_snapshot_from_execution(
             "task_id": str(task.id),
             "source_tools": [task.tool],
             "derived_from_execution": True,
+            "cve_watchlist_suggestion_count": len(suggested_watchlist_entries),
         },
     )
     return snapshot
+
+
+def _cancel_autonomous_tasks_by_id(task_ids: list[UUID]) -> None:
+    if not task_ids:
+        return
+    with session_scope() as session:
+        tasks = list(session.scalars(select(Task).where(Task.id.in_(task_ids))))
+        for task in tasks:
+            if task.status == "queued":
+                task.status = "cancelled"
+        session.commit()
+
+
+def _maybe_run_post_task_ai_analysis(session, task: Task):
+    if task.id is None or task.status != "completed":
+        return None
+    if is_validation_task(task):
+        return None
+    try:
+        return run_post_task_analysis_for_task(session=session, task_id=task.id)
+    except Exception:
+        session.rollback()
+        return None
 
 
 def process_task_by_id(task_id: str) -> dict[str, object]:
@@ -375,11 +2602,19 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             return {"task_id": task_id, "status": task.status}
         if task.run.status in {"cancelled", "cancelling"}:
             task.status = "cancelled"
+            mark_task_stdout_unavailable(
+                task.id,
+                "Task was cancelled before stdout could be captured.",
+            )
             session.commit()
             return {"task_id": task_id, "status": task.status}
         if execution_kill_switch_enabled():
             task.status = "cancelled"
             task.run.status = "cancelled"
+            mark_task_stdout_unavailable(
+                task.id,
+                "Execution kill switch cancelled the task before stdout capture.",
+            )
             session.commit()
             return {"task_id": task_id, "status": task.status, "reason": "kill_switch"}
 
@@ -388,22 +2623,35 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
         if scope is None:
             raise ValueError(f"scope missing for run {task.run_id}")
         for task_target in task_targets:
-            if not _target_is_allowed(scope, task_target):
+            if not target_is_allowed(scope, task_target):
                 raise ValueError(f"target outside scope: {task_target}")
 
         task.status = "running"
         task.run.status = "running"
+        mark_validation_running(session=session, task=task)
+        reset_task_stdout_stream(
+            task.id,
+            reason="Runner started; stdout appears when the existing runner safely captures output.",
+        )
         session.commit()
 
         try:
+            runner_params = _runner_params_for_task(session, task)
+            runner_params.setdefault(
+                "timeout_seconds",
+                float(os.getenv("RUNNER_TIMEOUT_SECONDS", "10.0")),
+            )
+            append_task_stdout(
+                task.id,
+                _runner_command_preview(task.tool, task_targets, runner_params),
+                stream="command",
+            )
+            session.commit()
             execution = dispatch_runner(
                 RunnerRequest(
                     tool=task.tool,
                     targets=task_targets,
-                    params={
-                        **task.params_json,
-                        "timeout_seconds": float(os.getenv("RUNNER_TIMEOUT_SECONDS", "10.0")),
-                    },
+                    params=runner_params,
                     scope_allowlist=scope.allowlist_json,
                     initiated_by=task.run.requested_by,
                 )
@@ -426,10 +2674,94 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
         if task is None or task.run is None:
             raise ValueError(f"task disappeared during execution: {task_id}")
 
-        _store_execution(session, task, execution)
-        task.status = "completed" if execution.exit_code == 0 else "failed"
-        _update_run_status(session, task.run)
+        stored_result = _store_execution(session, task, execution)
+        append_task_stdout(task.id, execution.stdout)
+        terminated_by_kill_switch = bool(execution.metadata.get("terminated_by_kill_switch"))
+        mark_task_stdout_completed(
+            task.id,
+            reason=(
+                "Execution kill switch terminated the task during runner execution."
+                if terminated_by_kill_switch
+                else "Runner completed without stdout in the bounded task stream."
+            ),
+        )
+        previous_run_status = task.run.status
+        if terminated_by_kill_switch:
+            task.status = "cancelled"
+            task.run.status = "cancelled"
+        else:
+            task.status = "completed" if execution.exit_code == 0 else "failed"
+            _update_run_status(session, task.run)
+        run_completion_reached = previous_run_status not in {
+            "completed",
+            "completed_with_errors",
+        } and task.run.status in {"completed", "completed_with_errors"}
+        if run_completion_reached:
+            record_exposure_score(
+                session=session,
+                engagement_id=task.run.engagement_id,
+                run_id=task.run_id,
+            )
+            if task.run_id is not None:
+                compute_run_drift(
+                    session=session,
+                    run_id=task.run_id,
+                    actor=f"runner:{task.tool}",
+                )
         session.commit()
+        active_settings = get_settings()
+        if stored_result.created_finding_ids:
+            deliver_critical_findings_to_configured_siems(
+                session=session,
+                finding_ids=stored_result.created_finding_ids,
+                actor=f"runner:{task.tool}",
+                settings=active_settings,
+            )
+            session.commit()
+        if stored_result.created_finding_ids:
+            validation_run_ids = queue_automatic_validations(
+                session=session,
+                finding_ids=stored_result.created_finding_ids,
+                settings=active_settings,
+            )
+            session.commit()
+            dispatch_validation_runs(
+                session=session,
+                run_ids=validation_run_ids,
+                settings=active_settings,
+            )
+        if run_completion_reached and task.run_id is not None:
+            deliver_run_completion_to_configured_siems(
+                session=session,
+                run_id=task.run_id,
+                actor=f"runner:{task.tool}",
+                settings=active_settings,
+            )
+            session.commit()
+        ai_outcome = _maybe_run_post_task_ai_analysis(session, task)
+        session.commit()
+        if ai_outcome and ai_outcome.autonomous_task_ids:
+            dispatch_settings = get_settings()
+            if execution_kill_switch_enabled(dispatch_settings):
+                _cancel_autonomous_tasks_by_id(ai_outcome.autonomous_task_ids)
+            else:
+                dispatch_task_batch(ai_outcome.autonomous_task_ids, dispatch_settings)
+        if run_completion_reached and task.run_id is not None:
+            advanced_chain = advance_assessment_chain_for_completed_run(
+                session,
+                run_id=task.run_id,
+                actor=f"runner:{task.tool}",
+                settings=active_settings,
+            )
+            session.commit()
+            if advanced_chain is not None and advanced_chain.current_run_id is not None:
+                dispatch_assessment_chain_current_run(
+                    session,
+                    chain_id=advanced_chain.id,
+                    actor=f"runner:{task.tool}",
+                    settings=active_settings,
+                )
+                session.commit()
 
         return {
             "task_id": task_id,
@@ -442,6 +2774,14 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
 @dramatiq.actor(queue_name="aegispt")
 def record_heartbeat(tool: str = "scheduler") -> dict[str, str]:
     return {"status": "ok", "tool": tool}
+
+
+@dramatiq.actor(queue_name="aegispt")
+def purge_expired_soft_deletes(actor: str = "system:retention") -> dict[str, object]:
+    with session_scope() as session:
+        result = purge_expired_soft_deleted_runs(session=session, actor=actor)
+        session.commit()
+        return result
 
 
 @dramatiq.actor(queue_name="aegispt")

@@ -1,0 +1,115 @@
+{
+  "id": "backlog-118-adaptive-report-consolidation",
+  "task_file": "codex/tasks/backlog-118-adaptive-report-consolidation.json",
+  "task_type": "backlog_slice",
+  "title": "Adaptive Report Consolidation — 3 Audience-Driven Reports That Reflect What Was Actually Tested",
+  "goal": "Replace the current 11-variant flat report catalog with 3 adaptive reports that only show sections relevant to what was actually tested in the run. A LAN scan shows LAN findings. A web scan shows web findings. Compliance annexes are optional add-ons, not separate reports.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "The current 11 report variants all use the same report_context() and produce near-identical output regardless of what was tested. A LAN-only scan generates the same sections as a full web+cloud+API scan. The operator specifically requested consolidation to 1-3 reports that adapt to the actual test scope.",
+  "scope": "Three deliverables:\n\n(1) CONSOLIDATE REPORT VARIANTS to exactly 3 primary reports:\n  - 'summary': Management Summary — 1-2 pages. Risk level, top findings, what was tested, what was not, top-3 remediation actions. No technical detail. For CISO/directeur.\n  - 'technical': Technical Report — adaptive. Only sections relevant to what was tested. See filtering rules below.\n  - 'compliance': Compliance Annex — optional, on-demand. Maps findings to compliance framework. Operator selects which framework (nis2/dora/soc2/iso27001/pci_dss). Always includes disclaimer.\n\nRetain 'retest' as a fourth variant because it is structurally different (tracks remediation verification over time). Keep 'evidence' as an internal reference. Remove 'assurance' and 'attack_narrative' as primary reports — fold their content into 'technical' as optional subsections.\n\n(2) ADAPTIVE SECTION FILTERING in the Technical Report:\nBuild a function `report_sections_for_run(run) -> list[str]` that returns which sections to include based on the run profile and findings. Rules:\n  - Profile contains 'lan' or 'network' or 'ldap' or 'smb' or 'responder' or 'kerberoast' or 'bloodhound' → include: network_discovery, host_inventory, credential_findings, lateral_movement, ad_findings\n  - Profile contains 'web' or 'nuclei' or 'zap' or 'burp' or 'httpx' → include: web_endpoints, injection_findings, auth_findings, header_findings\n  - Profile contains 'api' or 'biz-logic' → include: api_endpoints, business_logic_findings\n  - Profile contains 'cloud' or 'aws' → include: cloud_inventory, iam_findings, exposure_findings\n  - Profile contains 'ldap' or 'identity' or 'bloodhound' → include: ad_findings, identity_findings\n  - Profile contains 'intrusive' or 'metasploit' or 'impacket' → include: exploitation_evidence, post_exploitation\n  - Always include: scope_summary, findings_summary, remediation_priorities, methodology_used, tools_used\n  - NEVER include sections for test types not in the profile (no web_endpoints section in a LAN-only scan)\n\n(3) WHAT WAS TESTED vs WHAT WAS NOT:\nIn the Technical Report header section, add a 'Test Coverage' block:\n  - 'Tested surfaces': derived from tools actually used in the run (tasks list)\n  - 'Not in scope for this run': derived from all possible surfaces MINUS what was tested\n  - This replaces the current compliance 'not_tested' lists which appear in every compliance variant\n  - Example for a LAN scan: 'Tested: Internal network 10.0.20.0/24, 28 hosts, SMB/LDAP/Kerberos services. Not in scope for this run: Web applications, APIs, cloud infrastructure, mobile apps.'\n\nThe Management Summary always shows 'Test Coverage' prominently: 'What we tested: ...' and 'What was NOT tested in this engagement: ...'",
+  "implementation_notes": {
+    "report_catalog": "In build_report_catalog() (reports.py:4570), return exactly 4 items: summary, technical, compliance (with sub-selector for framework), retest. Remove: soc2, iso27001, pci_dss, nis2, dora, assurance, attack_narrative as top-level catalog items.",
+    "compliance_variant": "The 'compliance' report accepts a query parameter ?framework=nis2 (or soc2/iso27001/pci_dss/dora). Default is nis2 for Dutch market. The existing compliance mapping logic (lines 461-899 in reports.py) is preserved but moved behind this single compliance variant.",
+    "adaptive_filtering": "Add report_sections_for_run(run) to reports.py. Call it from the technical report builder to decide which sections to render. Use run.profile.name and the tools list from run.tasks to determine coverage.",
+    "test_coverage_block": "Add build_test_coverage_block(run, tasks) function that returns dict with 'tested_surfaces' and 'not_tested_surfaces'. Called from both summary and technical reports. Derive from actual tasks in the run, not from the profile description.",
+    "ui_changes": "In ui/assets/modules/reports.js, update the report card catalog to show 3 cards: Management Summary, Technical Report, Compliance Annex. The Compliance Annex card has a dropdown for framework selection. Remove the current 9-card grid.",
+    "backwards_compatibility": "The API endpoint GET /api/v1/runs/{run_id}/reports still accepts all old variant names for backwards compatibility — map old names to new: executive→summary, soc2/iso27001/pci_dss/nis2/dora→compliance, assurance→technical, attack_narrative→technical."
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "report_quality",
+    "source_documents": [
+      "api/app/services/reports.py",
+      "ui/assets/modules/reports.js",
+      "api/app/schemas/report_center.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Report restructuring and adaptive filtering only. Do not add new finding fields, new API endpoints beyond compliance framework selector, or change the underlying data model.",
+    "runtime_mutation": false,
+    "preserve_existing_data": "All existing generated reports and catalog items remain accessible. Only the presentation layer changes."
+  },
+  "success_criteria": [
+    "Report catalog shows exactly 3-4 cards: Management Summary, Technical Report, Compliance Annex, Retest Report.",
+    "A LAN-only run (passive-network-discovery or intrusive-lan-credential-capture profile) generates a Technical Report with ONLY network/host/AD sections — no web, API, or cloud sections.",
+    "A web-only run (passive-web-baseline or active-web-safe profile) generates a Technical Report with ONLY web/endpoint sections — no network, LAN, or cloud sections.",
+    "Both reports start with a 'Test Coverage' block showing exactly what was tested and what was not in scope.",
+    "Management Summary fits on 2 pages and is free of technical jargon.",
+    "Compliance Annex accepts ?framework=nis2|dora|soc2|iso27001|pci_dss query parameter.",
+    "Old variant names (executive, soc2, nis2, etc.) still work via API for backwards compatibility.",
+    "report_sections_for_run(run) function exists and returns correct section list for LAN vs web vs cloud profiles.",
+    "python -m pytest api/tests/test_reports.py passes.",
+    "python3 scripts/validate_backlog_tasks.py passes."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "ui/assets/modules/reports.js",
+    "api/app/schemas/report_center.py",
+    "api/tests/test_reports.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Finding schema fields",
+    "EvidenceArtifact model",
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations",
+    "Existing generated artifact files"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "3-4 report cards in UI (not 9+).",
+      "LAN run Technical Report has no web sections.",
+      "Web run Technical Report has no network/LAN sections.",
+      "Test Coverage block visible in both summary and technical reports.",
+      "Compliance Annex works with framework selector.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Operator confirms report card count and adaptive section behavior."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with report consolidation.",
+      "Update CURRENT_STATE.md noting 3-report model with adaptive sections.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New compliance frameworks",
+    "PDF design changes",
+    "AI-generated narrative changes",
+    "Finding schema changes"
+  ],
+  "queue_index": 118,
+  "source_context": {
+    "queue_index": 118,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": ["api/app/services/reports.py"],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

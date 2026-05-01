@@ -171,9 +171,19 @@ Each combination must have:
 This rule must stay aligned with:
 
 - `docs/product_test_matrix.md`
+- `docs/operator_product_operational_assurance.md`
 - `codex/tasks/product_acceptance_matrix.json`
 - `codex/tasks/ui_acceptance_matrix.json`
 - `codex/tasks/target_lab_matrix.json`
+
+The canonical status labels for product-combination truth are:
+
+- `supported-and-tested`
+- `supported-with-gap`
+- `blocked`
+- `intentionally-unsupported`
+
+These labels are defined and applied in `docs/operator_product_operational_assurance.md`.
 
 ## Required signoff packet
 
@@ -202,6 +212,36 @@ Forbidden:
 - "fully tested" when only a subset was tested
 - "enterprise-ready" without signoff artifacts
 - "hack-proof" or "guaranteed secure"
+
+## Assurance package wording rule
+
+Evidence-backed assurance and compliance packages may summarize a selected run, but they must remain scoped to
+recorded evidence and must not become certification, attestation, registrar-audit, QSA-assessment, Report-on-Compliance, or Attestation-of-Compliance copy.
+
+Required:
+
+- state the tested scope and time window
+- state the evidence basis, methodology basis, finding state, remediation state, and retest state
+- show unresolved, unverified, and accepted-risk findings
+- show out-of-scope limits
+- say the package is not a certification, attestation, or guarantee of security
+- for ISO 27001 and PCI DSS packages, show unmapped findings and controls or requirements without mapped run findings
+
+Forbidden:
+
+- "hack-proof"
+- "guaranteed secure"
+- "fully secure"
+- "certified compliant"
+- "SOC 2 attested"
+- "ISO 27001 certified"
+- "PCI certified"
+- "QSA validated"
+- "Report on Compliance issued"
+- "Attestation of Compliance issued"
+- "all risk removed"
+- "all vulnerabilities found"
+- "all findings fixed" unless every referenced finding is resolved and backed by verification evidence
 
 ## Recommended testing stack direction
 

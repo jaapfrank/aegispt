@@ -1,21 +1,26 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
+import shutil
+import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import pytest
 from cryptography.fernet import Fernet
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, Playwright, expect, sync_playwright
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -50,16 +55,34 @@ def _wait_for_http(url: str, *, timeout_seconds: int = 30) -> None:
     raise RuntimeError(f"Timed out waiting for {url}: {last_error}") from last_error
 
 
+def _patch_operator_settings(base_url: str, payload: dict[str, object]) -> None:
+    request = Request(
+        f"{base_url}/api/v1/settings",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "X-Actor": "ui-test"},
+        method="PATCH",
+    )
+    with urlopen(request, timeout=10) as response:
+        if response.status >= 400:
+            raise RuntimeError(f"Failed to patch operator settings via {request.full_url}: {response.status}")
+
+
 def _start_operator_console(
     tmp_path_factory: pytest.TempPathFactory,
     *,
     dispatch_mode: str,
 ) -> Iterator[str]:
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    temp_root = tmp_path_factory.mktemp(f"ui-browser-{dispatch_mode}")
+    temp_root = Path(
+        tempfile.mkdtemp(
+            prefix=f"aegispt-ui-browser-{dispatch_mode}-",
+            dir=os.environ.get("AEGISPT_UI_TEST_TMPDIR", "/tmp"),
+        )
+    )
     database_path = temp_root / f"aegispt-ui-{dispatch_mode}.db"
     fake_nmap_binary = _build_fake_nmap_binary(temp_root)
     fake_nuclei_binary = _build_fake_nuclei_binary(temp_root)
+    server_log_path = temp_root / "uvicorn.log"
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
     env = os.environ.copy()
@@ -76,34 +99,44 @@ def _start_operator_console(
         }
     )
 
-    process = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "api.app.main:create_app",
-            "--factory",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        cwd=REPO_ROOT,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
     try:
-        _wait_for_http(f"{base_url}/health/live")
-        yield base_url
+        with server_log_path.open("w", encoding="utf-8") as server_log:
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "uvicorn",
+                    "api.app.main:create_app",
+                    "--factory",
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    str(port),
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                stdout=server_log,
+                stderr=subprocess.STDOUT,
+                text=True,
+                start_new_session=True,
+            )
+            try:
+                _wait_for_http(f"{base_url}/health/live")
+                yield base_url
+            except RuntimeError as exc:
+                log_tail = server_log_path.read_text(encoding="utf-8", errors="replace")[-4000:]
+                raise RuntimeError(f"{exc}\nUvicorn log tail:\n{log_tail}") from exc
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    if process.poll() is None:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=5)
     finally:
-        process.terminate()
-        try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
+        shutil.rmtree(temp_root, ignore_errors=True)
 
 
 def _build_fake_nmap_binary(temp_root: Path) -> Path:
@@ -254,6 +287,10 @@ def playwright_instance() -> Iterator[Playwright]:
 def page(
     playwright_instance: Playwright, request: pytest.FixtureRequest, operator_console_base_url: str
 ) -> Iterator[Page]:
+    _patch_operator_settings(
+        operator_console_base_url,
+        {"settings": {"instance.onboarding_completed": True}},
+    )
     browser = playwright_instance.chromium.launch()
     context = browser.new_context(base_url=operator_console_base_url, viewport={"width": 1600, "height": 1200})
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
@@ -282,16 +319,56 @@ def page(
 
 @pytest.fixture
 def loaded_page(page: Page) -> Page:
-    page.goto("/app/")
-    expect(page.get_by_role("heading", name="Operator Console")).to_be_visible()
-    expect(page.get_by_test_id("conversation-question")).to_be_visible()
+    _load_operator_app(page)
     return page
+
+
+@pytest.fixture
+def first_run_page(
+    playwright_instance: Playwright, request: pytest.FixtureRequest, operator_console_base_url: str
+) -> Iterator[Page]:
+    browser = playwright_instance.chromium.launch()
+    context = browser.new_context(base_url=operator_console_base_url, viewport={"width": 1600, "height": 1200})
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    page = context.new_page()
+    page.set_default_timeout(15000)
+    page.set_default_navigation_timeout(15000)
+    page_errors: list[str] = []
+    page.on("pageerror", lambda error: page_errors.append(str(error)))
+    yield page
+
+    failed = bool(getattr(request.node, "rep_call", None) and request.node.rep_call.failed)
+    unexpected_page_errors = bool(page_errors)
+    if failed or unexpected_page_errors:
+        screenshot_path, trace_path = _artifact_paths(request.node.nodeid)
+        page.screenshot(path=str(screenshot_path), full_page=True)
+        context.tracing.stop(path=str(trace_path))
+    else:
+        context.tracing.stop()
+    context.close()
+    browser.close()
+    if not failed and unexpected_page_errors:
+        raise AssertionError(
+            "Unexpected browser page errors occurred:\n" + "\n".join(page_errors)
+        )
+
+
+@pytest.fixture
+def first_run_loaded_page(first_run_page: Page) -> Page:
+    _goto_operator_app(first_run_page)
+    expect(first_run_page.get_by_test_id("topbar")).to_contain_text("AegisPT", timeout=15000)
+    expect(first_run_page.get_by_test_id("onboarding-overlay")).to_be_visible(timeout=15000)
+    return first_run_page
 
 
 @pytest.fixture
 def manual_page(
     playwright_instance: Playwright, request: pytest.FixtureRequest, manual_operator_console_base_url: str
 ) -> Iterator[Page]:
+    _patch_operator_settings(
+        manual_operator_console_base_url,
+        {"settings": {"instance.onboarding_completed": True}},
+    )
     browser = playwright_instance.chromium.launch()
     context = browser.new_context(base_url=manual_operator_console_base_url, viewport={"width": 1600, "height": 1200})
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
@@ -320,7 +397,34 @@ def manual_page(
 
 @pytest.fixture
 def manual_loaded_page(manual_page: Page) -> Page:
-    manual_page.goto("/app/")
-    expect(manual_page.get_by_role("heading", name="Operator Console")).to_be_visible()
-    expect(manual_page.get_by_test_id("conversation-question")).to_be_visible()
+    _load_operator_app(manual_page)
     return manual_page
+
+
+def _load_operator_app(page: Page) -> None:
+    last_error: AssertionError | None = None
+    for _ in range(3):
+        _goto_operator_app(page)
+        try:
+            expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT", timeout=15000)
+            expect(page.get_by_test_id("conversation-question")).to_be_visible(timeout=15000)
+            return
+        except AssertionError as exc:
+            last_error = exc
+    if last_error is not None:
+        raise last_error
+
+
+def _goto_operator_app(page: Page) -> None:
+    last_error: PlaywrightError | None = None
+    for _ in range(3):
+        try:
+            page.goto("/app/", wait_until="domcontentloaded")
+            return
+        except PlaywrightError as exc:
+            if "ERR_NETWORK_CHANGED" not in str(exc):
+                raise
+            last_error = exc
+            page.wait_for_timeout(250)
+    if last_error is not None:
+        raise last_error

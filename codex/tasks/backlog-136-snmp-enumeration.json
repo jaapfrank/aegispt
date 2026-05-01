@@ -1,0 +1,91 @@
+{
+  "id": "backlog-136-snmp-enumeration",
+  "task_file": "codex/tasks/backlog-136-snmp-enumeration.json",
+  "task_type": "backlog_slice",
+  "title": "SNMP Enumeration Runner \u2014 Network Device Configuration and Asset Discovery",
+  "goal": "Query network devices via SNMP to enumerate system information, network interfaces, routing tables, connected devices, and identify devices using default community strings.",
+  "scope": "Create workers/runners/snmp_enum/runner.py. For each host with port 161 open (UDP): (1) TEST COMMUNITY STRINGS: try community strings 'public', 'private', 'community', 'manager', 'admin', 'snmpd', 'cisco', 'ubiquiti'. If any succeeds, create MEDIUM finding 'SNMP community string accepted' \u2014 default strings are a security risk. (2) SYSTEM ENUMERATION: if authenticated, walk OID 1.3.6.1.2.1.1 (sysDescr, sysName, sysContact, sysLocation, sysUpTime). This identifies: Unifi switches/APs (sysDescr contains 'UniFi'), routers (sysDescr contains model name), NAS devices, managed switches. (3) INTERFACE ENUMERATION: walk OID 1.3.6.1.2.1.2.2 (ifTable) to get all network interfaces, IP addresses, and MAC addresses. This reveals connected subnets, VLAN interfaces, and bridge interfaces. (4) ARP TABLE: walk OID 1.3.6.1.2.1.4.22 (ipNetToMediaTable) to get the full ARP cache \u2014 this reveals all hosts the device has seen, including IoT devices not directly reachable. (5) ROUTING TABLE: walk OID 1.3.6.1.2.1.4.21 to get routes and discover connected/known subnets. Use pysnmp library. Add profile passive-lan-snmp-enum: passive, targets all hosts in scope on UDP/161.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Unifi APs, switches, routers, NAS devices, and many IoT gateways respond to SNMP. The ARP table from a gateway router reveals ALL devices on the network including those that don't respond to pings. Current AegisPT has no SNMP capability despite settings referencing it.",
+  "queue_index": 136,
+  "source_context": {
+    "queue_index": 136,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "workers/runners/nmap/runner.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only SNMP walks only. No SNMP write operations. Community string list limited to 9 known defaults. No SNMP bruteforce.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "SNMP community string testing works for 9 default strings.",
+    "Finding created for each default community string accepted.",
+    "System info (sysDescr, sysName) extracted and added to inventory.",
+    "Interface table reveals VLAN/subnet interfaces.",
+    "ARP table reveals additional hosts not in original scope.",
+    "Routing table reveals connected subnets.",
+    "Profile passive-lan-snmp-enum added.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/runners/snmp_enum/runner.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "SNMP write operations",
+    "SNMPv3 authentication cracking",
+    "Full MIB database walk"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "SNMP queries work. Community string findings created. ARP table reveals additional hosts."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

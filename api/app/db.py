@@ -1,17 +1,61 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from importlib import import_module
+from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from api.app.config import Settings
 from api.app.models import Base
 
 
-def build_engine(database_url: str) -> Engine:
+def _sqlcipher_driver() -> Any:
+    try:
+        return import_module("sqlcipher3.dbapi2")
+    except ImportError as exc:
+        raise RuntimeError(
+            "AEGISPT_DB_KEY is set, but the sqlcipher3 Python package is not installed. "
+            "Install requirements/base.txt or add sqlcipher3 before enabling database encryption."
+        ) from exc
+
+
+def _sqlite_database_path(database_url: str) -> str:
+    url = make_url(database_url)
+    if url.get_backend_name() != "sqlite":
+        raise ValueError("SQLCipher encryption is only supported for SQLite database URLs.")
+
+    database = url.database or ":memory:"
+    if database == ":memory:":
+        return database
+    return str(Path(database).expanduser())
+
+
+def _sqlcipher_key_literal(db_key: str) -> str:
+    return "'" + db_key.replace("'", "''") + "'"
+
+
+def _connect_sqlcipher_sqlite(database_url: str, db_key: str):
+    driver = _sqlcipher_driver()
+    connection = driver.connect(_sqlite_database_path(database_url))
+    connection.execute(f"PRAGMA key = {_sqlcipher_key_literal(db_key)}")
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+
+def build_engine(database_url: str, db_key: str | None = None) -> Engine:
+    if db_key:
+        return create_engine(
+            "sqlite://",
+            pool_pre_ping=True,
+            future=True,
+            creator=lambda: _connect_sqlcipher_sqlite(database_url, db_key),
+        )
+
     connect_args: dict[str, bool] = {}
     if database_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
@@ -20,7 +64,7 @@ def build_engine(database_url: str) -> Engine:
 
 
 def configure_database(app: FastAPI, settings: Settings) -> None:
-    engine = build_engine(settings.database_url)
+    engine = build_engine(settings.database_url, db_key=settings.aegispt_db_key)
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
     app.state.engine = engine

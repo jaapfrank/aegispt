@@ -1,0 +1,112 @@
+{
+  "id": "backlog-65-business-logic-testing-runner",
+  "task_file": "codex/tasks/backlog-65-business-logic-testing-runner.json",
+  "task_type": "backlog_slice",
+  "title": "Business Logic Testing Runner Foundation",
+  "goal": "Add a targeted business-logic runner that tests for IDOR, privilege escalation, broken access control, and cross-tenant data exposure \u2014 the vulnerability classes that automated scanners miss and that NodeZero, Cobalt, and HackerOne testers find manually.",
+  "scope": "Implement a new runner type 'biz-logic-probe' in workers/runners/biz_logic/. The runner takes: target_url, auth_contexts (list of role/credential pairs from the run's access context), test_types (idor/privilege_escalation/broken_access/cross_tenant). It executes controlled HTTP probes using httpx: (1) IDOR probing: enumerates object IDs (numeric, UUID) in discovered API endpoints using the authenticated session, checks whether a low-privilege user can access objects belonging to another user; (2) Privilege escalation: attempts to access admin-tier endpoints with standard-user credentials; (3) Broken access control: tests whether unauthenticated requests succeed on authenticated endpoints; (4) Cross-tenant: if multiple auth contexts are provided, checks whether tenant A credentials can access tenant B resources. All probes are bounded to the approved scope allowlist. Results are normalized findings through the existing finding path. This is an active-tier runner requiring at least one auth context \u2014 it is never run without credentials. A new 'active-business-logic' run profile is added.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "IDOR, broken access control, and cross-tenant leakage are consistently in the OWASP Top 10 and are the findings that NodeZero, Cobalt pentesters, and HackerOne hackers find that automated scanners miss. AegisPT currently has no business logic testing capability. This is the most common finding class in real-world assessments and the most commercially impactful gap.",
+  "source_context": {
+    "queue_index": 65,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/methodology_mapping.md",
+      "docs/inventory_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runner_expansion",
+    "source_documents": [
+      "workers/runners/base/contracts.py",
+      "workers/orchestration/tasks.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Controlled HTTP probes only within approved scope. Never attempt exploitation beyond confirming unauthorized access. Never brute-force or enumerate beyond a bounded range (max 100 IDs). Requires auth context \u2014 never runs unauthenticated. Active-tier classification requires approval gate.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "scope_enforcement_absolute": true
+  },
+  "success_criteria": [
+    "biz-logic-probe runner exists and follows the RunnerContract.",
+    "IDOR probe enumerates a bounded ID range and detects unauthorized access.",
+    "Privilege escalation probe tests admin endpoints with standard-user credentials.",
+    "Cross-tenant probe detects cross-tenant resource access when multiple auth contexts provided.",
+    "All probes are bounded to the approved scope allowlist.",
+    "Runner requires auth context \u2014 rejects runs without credentials.",
+    "active-business-logic run profile exists and requires approval gate.",
+    "Findings are normalized through existing finding path with WSTG-ATHZ methodology tags.",
+    "Tests cover IDOR detection, scope enforcement, no-auth rejection, and finding normalization.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "workers/runners/biz_logic/__init__.py",
+    "workers/runners/biz_logic/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/config.py",
+    "workers/tests/test_biz_logic_runner.py",
+    "api/tests/test_runs.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Exploitation beyond confirming unauthorized access",
+    "Brute-force beyond bounded range",
+    "Running without auth context",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema severity or status fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_biz_logic_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Runner follows RunnerContract and produces normalized findings.",
+      "Scope enforcement rejects out-of-scope probes.",
+      "Auth context required.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Finding validation layer (backlog-64) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with business logic runner implementation and scope enforcement evidence.",
+      "Update CURRENT_STATE.md with biz-logic-probe as active runner.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Exploitation beyond confirming unauthorized access",
+    "Authentication brute-force",
+    "Mass enumeration",
+    "Mobile app testing"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

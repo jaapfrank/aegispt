@@ -1,0 +1,108 @@
+{
+  "id": "backlog-19-read-only-mcp-operator-interface-foundation",
+  "task_file": "codex/tasks/backlog-19-read-only-mcp-operator-interface-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Read-Only MCP Operator Interface Foundation",
+  "goal": "Expose safe read-only AegisPT context through an MCP-style operator interface without introducing write actions or runtime mutation.",
+  "scope": "Define and implement the first read-only MCP surface for run, finding, report, pack, and evidence metadata where appropriate. Keep all write/action tools, scan launches, pack deployment, and secret access out of scope.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 19,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/competitive_landscape_2026.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mcp_operator_interface",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/competitive_landscape_2026.md",
+      "DECISIONS.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only context only. Do not add MCP write tools, scan launch tools, approval tools, deployment tools, or secret access.",
+    "runtime_mutation": false,
+    "read_only_only": true,
+    "notes": [
+      "The interface must not bypass API authorization, pack approval, or runtime binding.",
+      "Prefer explicit allowlists of exposed fields."
+    ]
+  },
+  "success_criteria": [
+    "A read-only operator context interface is defined and bounded.",
+    "Only approved non-secret run, finding, report, evidence, and pack metadata is exposed.",
+    "No write/action tools exist in this first slice.",
+    "Tests prove sensitive fields and protected secret material are not exposed.",
+    "Docs explain the future path for carefully scoped action tools without activating them."
+  ],
+  "likely_touched_files": [
+    "api/app/main.py",
+    "api/app/routers",
+    "api/app/schemas",
+    "docs/integrations.md",
+    "docs/competitive_landscape_2026.md",
+    "api/tests",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "pack validation, approval, deployment, or runtime binding flows",
+    "protected secret materialization",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The interface is read-only by construction.",
+      "Secret material and unsafe action paths are not exposed.",
+      "No runtime behavior changes from MCP access."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The exposed read-only resource list is explicitly documented before implementation starts."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with MCP interface changes and validation evidence.",
+      "Update CURRENT_STATE.md with the read-only MCP baseline and remaining action-tool limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "MCP write tools",
+    "Scan launch actions",
+    "Pack approval or deployment actions",
+    "Secret access",
+    "Runtime self-modification"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

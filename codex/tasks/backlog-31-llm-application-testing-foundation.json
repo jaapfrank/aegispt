@@ -1,0 +1,105 @@
+{
+  "id": "backlog-31-llm-application-testing-foundation",
+  "task_file": "codex/tasks/backlog-31-llm-application-testing-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "LLM Application Testing Foundation",
+  "goal": "Add a safely scoped first slice for AI/LLM application testing against authorized targets.",
+  "scope": "Design and implement a controlled LLM-application probe runner for approved LLM API endpoints, covering prompt-injection, data-leakage, unsafe-tool-use, and excessive-refusal baseline checks where safely testable. Keep target scope explicit and operator-approved.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found AI/LLM target testing was documented but not queued as an executable package.",
+  "source_context": {
+    "queue_index": 31,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_attack_surface_testing",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Test only explicitly authorized LLM endpoints with bounded prompts. Do not harvest secrets, bypass customer controls, or mutate external systems.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Provider keys and target tokens must use protected secret handling.",
+      "Probe content must be safe, bounded, and documented."
+    ]
+  },
+  "success_criteria": [
+    "A first LLM application test profile or runner path exists for explicitly authorized endpoints.",
+    "Prompt-injection and leakage probes produce evidence-backed, bounded findings or safe no-finding output.",
+    "Operator scope, rate limits, and safety constraints are visible.",
+    "Tests cover deterministic fake-provider behavior and unsafe/missing-target fallbacks.",
+    "No uncontrolled external tool use or runtime self-modification is introduced."
+  ],
+  "likely_touched_files": [
+    "workers/runners/llm_probe.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/findings.py",
+    "api/tests/test_llm_probe.py",
+    "docs/product_recommendations_scope_alignment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "live runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_llm_probe.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "LLM tests require explicit authorized target configuration.",
+      "Probe output is bounded, safe, and evidence-backed.",
+      "No uncontrolled plugin/tool execution is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Safe prompt set, target authorization, and provider-secret handling are defined."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with LLM testing changes and validation evidence.",
+      "Update CURRENT_STATE.md with the LLM testing baseline and remaining AI attack-surface limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Shadow AI discovery across customer networks",
+    "Uncontrolled tool execution",
+    "Secret extraction",
+    "Autonomous exploit chaining",
+    "Changing finding schema fields"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,126 @@
+{
+  "id": "backlog-117-full-product-operator-acceptance-audit",
+  "task_file": "codex/tasks/backlog-117-full-product-operator-acceptance-audit.json",
+  "task_type": "backlog_slice",
+  "title": "Full Product Operator Acceptance Audit and Settings Clarity",
+  "goal": "Run a complete operator-facing product audit across the live app, verify all reachable screens, workflows, fields, settings, and safe runtime controls, then fix tightly scoped clarity or configuration gaps that block a usable evidence-first product.",
+  "scope": "Perform a repo-backed acceptance pass over the current AegisPT product instead of another isolated hotfix. Exercise all reachable UI routes, intake choices, wizard fields, settings fields, live-operations surfaces, reports, history, findings, packs, and safe local runtime flows. Record expected inputs, accepted values, observed outcomes, unclear behavior, broken actions, and remaining risks. Add or tighten product controls where the gap is narrow and safe, with special focus on Settings clarity and making execution parallelism/concurrency configurable by an operator.",
+  "status": "queued",
+  "generated_by": "operator-request-2026-04-29",
+  "generation_reason": "The operator requested a complete check of all possibilities, fields, settings, unclear states, broken behaviors, and configurable parallel execution because several UI and runtime flows still felt unclear or unreliable after the prior backlog was exhausted.",
+  "source_context": {
+    "queue_index": 117,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AGENTS.md",
+      "CURRENT_STATE.md",
+      "DECISIONS.md",
+      "TASK_QUEUE.md",
+      "codex/results/"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "operator_acceptance_quality",
+    "source_documents": [
+      "ui/index.html",
+      "ui/assets/modules/",
+      "ui/assets/styles.css",
+      "api/app/routers/",
+      "api/app/services/settings.py",
+      "api/app/services/task_dispatch.py",
+      "api/app/services/assessment_chain.py",
+      "docs/acceptance_runbook.md",
+      "docs/operator_product_operational_assurance.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Audit broadly but fix narrowly. Do not rewrite the full product, bypass safety gates, invent unsupported scan claims, or run unsafe live target actions. Convert large findings into documented follow-up work rather than hiding them.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "A complete operator acceptance matrix is written to codex/results with every reachable screen, primary action, visible form field, expected input examples, expected outcomes, actual outcomes, and pass/fail/blocker status.",
+    "The live app is exercised through safe/local browser validation for intake, Mission Control, Live Agents, Findings, Reports, History, Packs, Settings, Dashboard, Problems, Custom CVE Library, Evidence Replay, Explorer, and Cinema Mode where those routes are reachable.",
+    "Settings fields clearly explain accepted values, defaults, validation limits, and operational impact instead of leaving operators guessing.",
+    "Execution parallelism/concurrency that currently limits simultaneous ping or runner work is configurable through Settings, stored through the existing settings model, and used by the existing dispatch/runtime path without bypassing safety controls.",
+    "Safe input examples are documented for common targets, credentials/prerequisites, AI provider settings, integrations, notifications, CVE sync, and runtime concurrency.",
+    "Broken or misleading actions found during the audit are fixed when the fix is narrow, deterministic, and inside this task scope.",
+    "Any remaining large or unsafe issues are recorded as explicit product risks with reproduction notes and suggested follow-up task text.",
+    "Validation includes repo governance checks, targeted backend tests, UI/browser checks where available, git diff whitespace checks, and live health or acceptance checks where relevant."
+  ],
+  "likely_touched_files": [
+    "api/app/services/settings.py",
+    "api/app/schemas/settings.py",
+    "api/app/routers/settings.py",
+    "api/app/services/task_dispatch.py",
+    "api/app/config.py",
+    "ui/assets/modules/settings.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/shared.js",
+    "ui/assets/styles.css",
+    "api/tests/test_settings.py",
+    "api/tests/test_task_dispatch.py",
+    "ui/tests/test_operator_console_smoke_e2e.py",
+    "codex/results/backlog-117-full-product-operator-acceptance-audit-20260429.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "NEXT_TASK.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 and Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding bypasses",
+    "finding schema fields unless a future task explicitly allows it",
+    "runtime self-modification safeguards",
+    "unsafe public or live target execution outside local/safe/explicitly authorized validation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The audit artifact is concrete enough for the operator to see which screens and fields were checked and what remains unclear.",
+      "The concurrency setting is visible to the operator, validated, persisted, and read by runtime dispatch configuration.",
+      "No unsafe runtime gates are bypassed while improving operator clarity.",
+      "Live/browser evidence is collected when the local app is available; otherwise the exact blocker and safe next step are recorded."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Only promote this task when the queue is exhausted or the operator explicitly asks for a full product acceptance audit.",
+      "Confirm the current NEXT_TASK.md state and backlog validator output before adding or promoting this package."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the audit scope, fixes, validation, and evidence.",
+      "Update CURRENT_STATE.md with the new product truth, settings/concurrency behavior, and remaining operator risks.",
+      "Promote exactly one next task into NEXT_TASK.md, or set an explicit holding state if no next task remains."
+    ]
+  },
+  "out_of_scope": [
+    "A full UI redesign beyond narrow acceptance fixes.",
+    "Installing uncontrolled plugins or changing runtime capability installation policy.",
+    "Running intrusive public target tests without explicit authorization.",
+    "Claiming full pentest tool coverage based only on mocks or skipped tests.",
+    "Changing protected methodology prompts or core finding schema semantics."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "operator_acceptance_audit_and_narrow_fixes",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

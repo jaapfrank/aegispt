@@ -12,6 +12,9 @@ export async function apiOrNull(path) {
 export async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set("X-Actor", state.actor);
+  if (state.tenantId) {
+    headers.set("X-Tenant-ID", state.tenantId);
+  }
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -23,7 +26,12 @@ export async function api(path, options = {}) {
   });
 
   const contentType = response.headers.get("content-type") || "";
-  const payload = contentType.includes("application/json") ? await response.json() : await response.text();
+  const payload =
+    response.status === 204
+      ? null
+      : contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
   if (!response.ok) {
     const message = typeof payload === "string" ? payload : payload.detail || payload.message || "Request failed";
     const error = new Error(message);

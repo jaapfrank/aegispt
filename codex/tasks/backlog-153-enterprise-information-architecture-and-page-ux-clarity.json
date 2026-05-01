@@ -1,0 +1,110 @@
+{
+  "id": "backlog-153-enterprise-information-architecture-and-page-ux-clarity",
+  "task_file": "codex/tasks/backlog-153-enterprise-information-architecture-and-page-ux-clarity.json",
+  "task_type": "backlog_slice",
+  "title": "Enterprise Information Architecture and Page UX Clarity",
+  "goal": "Make every AegisPT page understandable, consistent, useful, and enterprise-ready for consultants, SMB operators, and enterprise security teams.",
+  "scope": "Review and correct Dashboard, Intake, Mission Control, Live Agents, Surface/Attack Map, Problems, Custom CVE Library, Findings, Reports, History, Pack Forge, and Settings so each screen has a clear job, accurate counts, consistent design language, useful empty states, accessible navigation, and no mockup/test/developer language in product-facing UI.",
+  "status": "queued",
+  "generated_by": "operator-system-audit-2026-04-30",
+  "generation_reason": "The operator reports that multiple pages are old, unclear, inconsistent, or not useful. Existing mockup parity tasks improved parts of the shell but did not close all page-level UX, copy, data-truth, accessibility, and enterprise workflow gaps.",
+  "queue_index": 153,
+  "source_context": {
+    "queue_index": 153,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "wizard_mockup.html",
+      "ui_mockup.html",
+      "codex/results/full-system-audit-and-task-plan-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_product_ux",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/styles.css",
+      "ui/assets/modules/",
+      "wizard_mockup.html",
+      "ui_mockup.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "UX/page clarity only. Do not change runtime safety, approval, pack validation, deployment, or finding schema semantics unless required to correct displayed product truth.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Every page has a documented purpose, primary workflow, empty state, error state, and next action.",
+    "Dashboard counts are derived from real scoped data and never show placeholder or nonsense metrics.",
+    "History becomes useful for run history, comparison, audit context, and backlog/build-lane visibility where appropriate.",
+    "Settings field labels, examples, constraints, and validation copy are clear enough for a new operator.",
+    "Navigation does not expose duplicate hidden targets or inaccessible controls to browser/accessibility tests.",
+    "All pages use the same typography, spacing, chips, cards, buttons, terminal blocks, and state language."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/styles.css",
+    "ui/assets/modules/dashboard.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/explorer-history.js",
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/problems.js",
+    "ui/assets/modules/settings.js",
+    "ui/assets/modules/packs.js",
+    "ui/tests/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval gate bypass",
+    "runtime self-modification"
+  ],
+  "out_of_scope": [
+    "Adding new pentest runner families",
+    "Changing canonical finding schema fields",
+    "Running live scans",
+    "Marketing landing pages"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "Full page screenshot audit at desktop and narrow viewports",
+      "Accessibility/navigation crawl proving no hidden duplicate primary controls and no unlabeled primary actions"
+    ],
+    "acceptance_criteria": [
+      "A page-by-page UX scorecard under codex/results shows purpose, data truth, broken-control status, clarity improvements, screenshots, and remaining risks."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-152 has completed or been explicitly deferred by the operator.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

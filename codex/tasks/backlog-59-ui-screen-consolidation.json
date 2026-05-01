@@ -1,0 +1,122 @@
+{
+  "id": "backlog-59-ui-screen-consolidation",
+  "task_file": "codex/tasks/backlog-59-ui-screen-consolidation.json",
+  "task_type": "backlog_slice",
+  "title": "UI Screen Consolidation",
+  "goal": "Reduce the operator console from 9 screens to 6 by merging Evidence Replay into Findings Theater, merging Explorer into Report Center as a dossier tab, and promoting Settings to a permanent topbar fixture \u2014 creating a coherent information architecture rather than a collection of accumulated screens.",
+  "scope": "Implement the screen consolidation defined in PRODUCT_RECOMMENDATIONS.md section 3.2: (1) Merge Evidence Replay into Findings Theater \u2014 evidence for the selected finding renders as an expandable panel within the finding detail view rather than a separate screen. The Evidence Replay screen entry remains as a compatibility route but shows a consolidation notice pointing to Findings + Evidence. (2) Merge Explorer into Report Center \u2014 the Run Dossier content (engagement dossier, run lineage, access context, inventory summary) becomes a Dossier tab within Report Center. The Explorer screen entry remains as a compatibility route pointing to Reports + Dossier. (3) The Customer Index and Engagement Dossier views in Explorer are consolidated into the engagement dropdown context in the topbar. (4) The resulting 6-screen structure: Intake (wizard), Mission Control, Surface / Attack Map, Findings + Evidence (with embedded evidence), Reports + Dossier (with dossier tab), History / Comparison. Settings is a topbar fixture, not a numbered screen. (5) Update left-rail navigation to reflect the consolidated screen list. (6) Update Playwright coverage to reflect the new structure while preserving all data-testid selectors on retained components.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "PRODUCT_RECOMMENDATIONS.md section 3.2 identifies 8-to-5 screen consolidation as a high-priority change. The current 9-screen structure (including Settings added in backlog-57) requires too many context switches for a first-time operator. Consolidation reduces cognitive load and makes the product feel coherent rather than accumulated.",
+  "source_context": {
+    "queue_index": 59,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/ui_phase_architecture.md",
+      "docs/ui_report_center.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_navigation",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "ui/assets/app.js",
+      "ui/assets/modules/findings.js",
+      "ui/assets/modules/reports.js",
+      "ui/assets/modules/explorer-history.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Screen consolidation and navigation restructure only. Do not add new data, new API endpoints, new finding fields, or new backend behavior. Compatibility routes for removed screens must redirect gracefully. Do not remove any data from the UI \u2014 consolidate where it is displayed.",
+    "runtime_mutation": false,
+    "operator_control_required": false
+  },
+  "success_criteria": [
+    "The left-rail navigation shows exactly 6 primary screens: Intake, Mission Control, Surface / Attack Map, Findings + Evidence, Reports + Dossier, History / Comparison.",
+    "Settings is accessible from the topbar gear icon and is not a numbered rail item.",
+    "Evidence for a selected finding renders as an expandable panel within Findings Theater \u2014 no separate screen navigation required.",
+    "Report Center has a Dossier tab showing run lineage, engagement context, inventory summary, and access context.",
+    "The Evidence Replay screen redirects to Findings + Evidence with a consolidation notice.",
+    "The Explorer screen redirects to Reports + Dossier with a consolidation notice.",
+    "No data that was previously visible is lost \u2014 it is displayed in the consolidated location.",
+    "All existing Playwright data-testid selectors on retained components continue to pass.",
+    "Full Playwright suite remains green.",
+    "No API contracts, backend code, or finding schema fields are changed."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/explorer-history.js",
+    "ui/index.html",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/ui_phase_architecture.md",
+    "docs/ui_report_center.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "finding schema fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Left-rail shows exactly 6 screens.",
+      "Evidence panel renders within Findings Theater without screen navigation.",
+      "Report Center has a functional Dossier tab.",
+      "Removed screens redirect gracefully.",
+      "No data loss \u2014 all previously visible data remains accessible.",
+      "Full Playwright suite is green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Free navigation foundation (backlog-58) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Consolidated screen structure is documented in docs/ui_phase_architecture.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with screen consolidation changes and Playwright validation evidence.",
+      "Update CURRENT_STATE.md with 6-screen consolidated navigation as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "New screens or features",
+    "Backend changes",
+    "Animation changes",
+    "New finding fields",
+    "Data removal \u2014 only relocation"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

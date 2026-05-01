@@ -106,6 +106,18 @@ class InventorySummaryRead(BaseModel):
     endpoint_count: int
     technology_count: int
     auth_mechanism_count: int
+    identity_subject_count: int = 0
+    identity_group_count: int = 0
+    privileged_membership_count: int = 0
+    cloud_account_count: int = 0
+    cloud_region_count: int = 0
+    cloud_resource_count: int = 0
+    cloud_security_group_count: int = 0
+    cloud_iam_principal_count: int = 0
+    cloud_iam_policy_count: int = 0
+    cloud_collection_error_count: int = 0
+    kubernetes_cluster_count: int = 0
+    kubernetes_workload_count: int = 0
     api_type_count: int
     tls_issue_count: int
     detected_products: list[str]
@@ -128,4 +140,3 @@ class InventorySnapshotRead(BaseModel):
     assumptions_json: list[str]
     confidence_score: float
     created_at: datetime
-

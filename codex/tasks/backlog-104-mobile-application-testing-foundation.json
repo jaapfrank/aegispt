@@ -1,0 +1,110 @@
+{
+  "id": "backlog-104-mobile-application-testing-foundation",
+  "task_file": "codex/tasks/backlog-104-mobile-application-testing-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Mobile Application Testing Foundation",
+  "goal": "Add an Android-first, evidence-backed mobile application testing slice aligned to OWASP MASVS and MASTG so AegisPT can honestly expand beyond web/API-only coverage.",
+  "scope": "Implement the first mobile slice as Android-first. Support authorized APK artifact intake, static package analysis, manifest/permission review, insecure storage and transport configuration review, embedded secret/config discovery, certificate/network security config review, and optional proxy-aware dynamic preparation metadata where available. Normalize findings with MASVS/MASTG references where the mapping is clear. Keep device rooting, reverse-engineering-heavy exploit work, emulator orchestration, iOS coverage, and malware analysis out of scope for this first slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The audit found no first-class mobile assessment path in the repo, while OWASP MAS/MASTG clearly treats mobile testing as its own security testing discipline. Without a mobile slice, AegisPT cannot honestly claim broad pentest product coverage.",
+  "source_context": {
+    "queue_index": 108,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/testing_coverage_matrix.md",
+      "codex/results/project-gap-and-ai-roadmap-20260424.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mobile_security_expansion",
+    "source_documents": [
+      "docs/testing_coverage_matrix.md",
+      "docs/methodology_mapping.md",
+      "api/app/services/inventory.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Android-first, evidence-backed mobile testing only. No iOS support, no emulator farms, no rooting, and no destructive mobile exploit behavior in this slice.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Keep mobile artifacts tenant-scoped and evidence-backed.",
+      "Do not imply complete mobile reverse engineering coverage from the first slice.",
+      "Canonical finding schema fields must remain unchanged."
+    ]
+  },
+  "success_criteria": [
+    "An Android-first mobile assessment path exists for authorized APK artifacts.",
+    "Static findings cover manifest, permissions, storage, network, embedded-config, and selected secret exposure classes.",
+    "Findings can include clear MASVS/MASTG references where the mapping is explicit.",
+    "Unsupported or missing dynamic-analysis prerequisites are surfaced honestly.",
+    "Tests cover APK intake, unsupported artifact types, missing artifacts, and evidence-backed finding extraction.",
+    "No iOS, emulator, or destructive mobile claims are implied by the implementation."
+  ],
+  "likely_touched_files": [
+    "workers/runners/mobile_android/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/services/runs.py",
+    "api/app/services/inventory.py",
+    "workers/tests/test_mobile_android_runner.py",
+    "api/tests/test_runs.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_mobile_android_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k mobile_android",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Android artifact path exists and is evidence-backed.",
+      "Unsupported mobile states are surfaced honestly.",
+      "No out-of-scope mobile overclaim is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Mobile artifact handling and unsupported-state language are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with mobile testing implementation and validation evidence.",
+      "Update CURRENT_STATE.md with the mobile assessment baseline and remaining mobile limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "iOS testing",
+    "Rooting/jailbreaking flows",
+    "Emulator orchestration",
+    "Malware triage",
+    "Canonical finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

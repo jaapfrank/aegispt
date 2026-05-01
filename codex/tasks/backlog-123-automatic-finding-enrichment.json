@@ -1,0 +1,94 @@
+{
+  "id": "backlog-123-automatic-finding-enrichment",
+  "task_file": "codex/tasks/backlog-123-automatic-finding-enrichment.json",
+  "task_type": "backlog_slice",
+  "title": "Automatic Finding Enrichment \u2014 AI Fills Business Impact and Remediation on Creation",
+  "goal": "When a finding is created and ChatGPT is configured, automatically trigger AI enrichment to fill business_impact, remediation_narrative, and MITRE ATT&CK mapping without any operator action.",
+  "scope": "In workers/orchestration/findings.py in the store_findings() function, after saving each finding call enrich_finding_async(finding_id, session, settings) if ai_finding_enrichment_enabled=True in settings. Run enrichment in a background thread so it does not block task completion. The enrichment calls the existing ChatGPTOAuthFindingEnrichmentProvider with the finding title, severity, evidence context, and detected technology stack from the run inventory snapshot. Store result in FindingAiEnrichment table (already exists). Push a finding.enriched run SSE event when complete so Mission Control and Findings screen can refresh. In the Findings drawer, add an enrichment status badge: Enriching (spinner), Enriched (checkmark with provider label), or Enrichment unavailable (when no provider). Show the enriched business_impact and remediation_narrative in the drawer when available. Default ai_finding_enrichment_enabled to True in config when ai_provider is set.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Finding enrichment exists in the codebase but must be manually triggered. Automatic enrichment on creation is the expected behaviour that makes findings immediately actionable.",
+  "queue_index": 123,
+  "source_context": {
+    "queue_index": 123,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_value",
+    "source_documents": [
+      "api/app/services/ai_enrichment.py",
+      "workers/orchestration/findings.py",
+      "api/app/models/control.py",
+      "ui/assets/modules/findings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Auto-enrichment only. Enrichment must never change finding severity or evidence_ref. Advisory output only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "New findings automatically trigger enrichment when ChatGPT configured.",
+    "Enrichment runs in background, does not delay task completion.",
+    "FindingAiEnrichment record created with business_impact and remediation_narrative.",
+    "Findings drawer shows Enriching / Enriched / Unavailable badge.",
+    "finding.enriched SSE event emitted so UI can refresh.",
+    "Enrichment does not change finding severity or evidence.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/findings.py",
+    "api/app/services/ai_enrichment.py",
+    "api/app/config.py",
+    "ui/assets/modules/findings.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Finding severity fields",
+    "evidence_ref field",
+    "pack registry"
+  ],
+  "out_of_scope": [
+    "Enrichment changing finding severity",
+    "Auto-creating new findings from enrichment"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Findings auto-enriched after creation. Badge visible in drawer. Background thread does not block task."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

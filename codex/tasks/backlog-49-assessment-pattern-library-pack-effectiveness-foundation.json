@@ -1,0 +1,106 @@
+{
+  "id": "backlog-49-assessment-pattern-library-pack-effectiveness-foundation",
+  "task_file": "codex/tasks/backlog-49-assessment-pattern-library-pack-effectiveness-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Assessment Pattern Library and Pack Effectiveness Foundation",
+  "goal": "Create a local learning layer from prior assessments without training on or exporting customer data.",
+  "scope": "Add a local assessment-pattern and pack-effectiveness analysis layer that summarizes recurring findings, proposal outcomes, remediation persistence, and pack-quality signals from stored AegisPT records. Output must remain advisory, tenant-safe, and local, with no external model training or automatic pack promotion.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md describes an intelligence flywheel for assessment patterns, customer risk posture, and pack effectiveness feedback.",
+  "source_context": {
+    "queue_index": 49,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "assessment_intelligence_flywheel",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Local advisory analytics only. Do not train external models, share customer data, auto-promote packs, or weaken tenant isolation.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "tenant_isolation_required": true
+  },
+  "success_criteria": [
+    "Assessment patterns are derived from local stored records and scoped by engagement or tenant boundaries.",
+    "Pack effectiveness output is advisory and does not promote, deploy, or mutate packs automatically.",
+    "Customer risk posture signals distinguish persistent, remediated, recurring, and new patterns without overclaiming risk reduction.",
+    "No customer assessment data is sent to third-party training or analytics systems.",
+    "Tests cover tenant boundaries, advisory output, sparse data, and no automatic pack promotion."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "api/app/services/packs.py",
+    "api/app/services/finding_views.py",
+    "api/app/routers/packs.py",
+    "api/tests/test_product_feature_matrix.py",
+    "api/tests/test_codex_lane.py",
+    "docs/product_recommendations_scope_alignment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack approval, deployment, or runtime binding bypasses",
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "external model training paths"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py api/tests/test_codex_lane.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Pattern outputs are local, tenant-safe, and advisory.",
+      "Pack effectiveness does not bypass validation or approval gates.",
+      "No customer data is exported for training."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "AI-augmented attack path and lateral analysis foundation is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Local pattern boundaries and tenant isolation requirements are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with assessment pattern library changes and validation evidence.",
+      "Update CURRENT_STATE.md with intelligence-flywheel baseline and customer-data limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "External model training",
+    "Automatic pack promotion or deployment",
+    "Cross-tenant pattern leakage",
+    "Guaranteed risk-reduction claims",
+    "Finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

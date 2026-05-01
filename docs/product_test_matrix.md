@@ -32,6 +32,7 @@ The matrix is split into three additive lanes:
 | Error and empty states | setup, loading, failed fetch, no findings, no reports | implemented |
 | Reporting | markdown, HTML, PDF preview/export behavior | implemented |
 | Secret handling | protected secret bindings instead of raw run echo | implemented |
+| Desktop / thick-client static assessment | authorized Windows/Electron-style artifact intake, extracted config and secret-signal review without raw secret echo, updater/code-signing posture signals, local storage/log exposure, IPC/local-helper metadata exposure, embedded URL/API endpoint inventory, and explicit unsupported boundaries for kernel drivers, process injection, malware triage, memory-corruption exploit development, and live helper probing | implemented / bounded |
 | Acceptance harness | safe target selection, run creation, evidence/report/result capture | implemented |
 | Nmap discovery regression | inline discovery dispatch, inventory ordering, and follow-up service enumeration remain covered in the composite API lane | implemented |
 | Lab scenarios | local smoke plus documented training-lab scenarios, including active-safe WebGoat/crAPI prerequisite checks | implemented |

@@ -1,0 +1,99 @@
+{
+  "id": "backlog-97-nis2-dora-tiber-compliance",
+  "task_file": "codex/tasks/backlog-97-nis2-dora-tiber-compliance.json",
+  "task_type": "backlog_slice",
+  "title": "NIS2, DORA, and TIBER-EU Evidence Package Foundation",
+  "goal": "Add report variants and evidence packages for NIS2 (EU directive, mandatory for Dutch operators), DORA (EU financial sector), and TIBER-EU (ECB red team framework) so operators in regulated sectors can use AegisPT output as part of their regulatory compliance evidence.",
+  "scope": "Three new report variants and guidance documents: (1) NIS2 EVIDENCE PACKAGE: NIS2 (Directive 2022/2555) requires technical security measures for operators of essential services and digital service providers. A new 'nis2' report variant maps AegisPT findings to the relevant NIS2 Article 21 measures: vulnerability handling (21.2.e), network security (21.2.d), access control (21.2.i), and security testing (21.2.m). Shows which measures were exercised by the assessment, which were not in scope, and the mandatory statement: 'This evidence package documents technical security testing activities. NIS2 compliance requires a comprehensive risk management programme beyond technical testing.' Includes NCSC NL advisory references where applicable. (2) DORA EVIDENCE PACKAGE: DORA (Regulation 2022/2554, Jan 2025) requires ICT risk management and TLPT (Threat-Led Penetration Testing) for financial entities. A new 'dora' report variant maps to DORA ICT risk management articles and the TIBER-EU framework phases. Explicitly states which DORA requirements are partially addressed by technical testing and which require full TLPT with an independent testing team. (3) AUTHORIZATION DOCUMENT TEMPLATE: docs/pentest_authorization_template.md \u2014 a legally usable template for written authorisation before an assessment. Includes: scope definition, authorised systems, test period, emergency contact, liability clause reference, GDPR data processing basis (legitimate interest / contractual necessity), and signature blocks. Available in Dutch and English. (4) TIBER-EU ALIGNMENT GUIDE: docs/tiber_eu_alignment.md explaining how AegisPT can support the Intelligence-Led phase and Controlled Red Team Testing phase of a TIBER-EU assessment when combined with a CREST/TIBER-certified provider.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "NIS2 affects thousands of Dutch and EU organisations from October 2024. DORA affects EU financial institutions from January 2025. Without NIS2/DORA evidence packages, AegisPT cannot be used as part of the compliance evidence trail that these regulations require. The authorization template addresses the legal authorization requirement for penetration testing that is currently missing from the product.",
+  "source_context": {
+    "queue_index": 101,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/ui_report_center.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "compliance",
+    "source_documents": [
+      "api/app/services/reports.py",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Evidence packages and documentation only. No compliance certification claims. NIS2/DORA packages include explicit boundaries about what technical testing covers and what requires organisational measures and certified auditors.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "NIS2 report variant maps findings to Article 21 measures with coverage statement.",
+    "DORA report variant maps to ICT risk management articles with TLPT boundary statement.",
+    "Authorization document template exists in Dutch and English.",
+    "TIBER-EU alignment guide explains AegisPT's role in TIBER assessments.",
+    "Every compliance variant includes a boundary statement about what requires human auditors.",
+    "Tests verify new report variants render without errors.",
+    "Full test suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "api/app/routers/runs.py",
+    "docs/pentest_authorization_template.md",
+    "docs/tiber_eu_alignment.md",
+    "api/tests/test_reports.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Making NIS2/DORA certification claims",
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations",
+    "Finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "NIS2 and DORA variants render.",
+      "Authorization template exists in both languages.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "GDPR/AVG data handling (backlog-96) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with NIS2/DORA/TIBER compliance packages.",
+      "Update CURRENT_STATE.md with NIS2, DORA, TIBER-EU as active report variants.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "TIBER-EU certification of AegisPT itself",
+    "Acting as a CREST/TIBER-certified provider",
+    "Full NIS2 risk management programme"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_prompted"
+}

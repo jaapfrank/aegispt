@@ -1,0 +1,96 @@
+{
+  "id": "backlog-156-ai-enrichment-wrong-unavailable-message",
+  "task_file": "codex/tasks/backlog-156-ai-enrichment-wrong-unavailable-message.json",
+  "task_type": "corrective_product_slice",
+  "title": "Fix AI enrichment Unavailable message when ChatGPT IS connected; add Enrich Now button",
+  "goal": "In findings drawer: when finding enrichment_state=unavailable but AI IS globally connected and finding_enrichment_enabled=true, show 'This finding has not been enriched yet' with an Enrich Now button that calls POST /api/v1/findings/{id}/ai-enrich. Add this endpoint to findings router, delegating to the existing ai_finding_enrichment service. The existing 'Connect or enable an AI provider' message must only show when AI is truly disconnected or finding_enrichment_enabled=false.",
+  "scope": "Walkthrough 2026-04-30: Finding drawer shows 'Enrichment unavailable - Connect or enable an AI provider' even though ChatGPT OAuth IS connected (google-oauth2, gpt-5.4, finding_enrichment_enabled=true). Root cause: enrichment_state=unavailable was set at finding creation when AI was disabled at that time. Now AI is connected but no on-demand trigger exists. The message incorrectly implies AI is disconnected and confuses the operator.",
+  "status": "queued",
+  "generated_by": "ui-walkthrough-2026-04-30",
+  "generation_reason": "Walkthrough 2026-04-30: Finding drawer shows 'Enrichment unavailable - Connect or enable an AI provider' even though ChatGPT OAuth IS connected (google-oauth2, gpt-5.4, finding_enrichment_enabled=true",
+  "source_context": {
+    "queue_index": 156,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/ui-walkthrough-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_bug_fixes_walkthrough_2026-04-30",
+    "source_documents": [
+      "ui/assets/modules/findings.js",
+      "api/app/routers/findings.py",
+      "api/app/services/ai_finding_enrichment.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Fix only the specific bug described. Do not use this task for broad redesign.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When AI connected and finding_enrichment_enabled=true but finding not yet enriched: shows 'Not yet enriched' and Enrich Now button.",
+    "Enrich Now triggers enrichment for that finding only and shows Enriching state.",
+    "When AI truly disconnected or disabled: shows 'Connect or enable an AI provider' as before.",
+    "No regression in existing enrichment tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/findings.js",
+    "api/app/routers/findings.py",
+    "api/app/services/ai_finding_enrichment.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval or scope gate bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "When AI connected and finding_enrichment_enabled=true but finding not yet enriched: shows 'Not yet enriched' and Enrich Now button.",
+      "Enrich Now triggers enrichment for that finding only and shows Enriching state.",
+      "When AI truly disconnected or disabled: shows 'Connect or enable an AI provider' as before.",
+      "No regression in existing enrichment tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad product redesign",
+    "Installing new tools",
+    "Running live customer or intrusive targets",
+    "Changing unrelated schemas or prompts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

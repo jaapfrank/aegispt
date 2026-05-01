@@ -1,0 +1,106 @@
+{
+  "id": "backlog-30-cloud-iam-kubernetes-analysis-foundation",
+  "task_file": "codex/tasks/backlog-30-cloud-iam-kubernetes-analysis-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Cloud IAM Kubernetes Analysis Foundation",
+  "goal": "Move from cloud inventory toward safe read-only cloud/IAM/Kubernetes risk analysis without mutating customer resources.",
+  "scope": "After cloud inventory discovery exists, add first-pass read-only analysis for IAM policy risks, public exposure, security-group issues, and Kubernetes configuration signals where supported. Keep exploitation and resource mutation out of scope.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found cloud IAM and Kubernetes analysis was not explicit beyond inventory discovery.",
+  "source_context": {
+    "queue_index": 30,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/identity_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "cloud_identity_expansion",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/identity_model.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only analysis only. Do not mutate cloud resources, execute exploit chains, or request broader permissions than needed.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Cloud credentials must use protected secret binding patterns.",
+      "Provider-specific unsupported states must be explicit."
+    ]
+  },
+  "success_criteria": [
+    "Supported cloud inventory can be analyzed for selected IAM, exposure, and configuration risk signals.",
+    "Kubernetes signals are included only where safe read-only inputs are available.",
+    "Findings or analysis output are evidence-backed and provider-scoped.",
+    "Tests cover supported provider data, missing permission, and unsupported-provider fallbacks.",
+    "No cloud resource mutation or exploitation is introduced."
+  ],
+  "likely_touched_files": [
+    "workers/runners/cloud_inventory.py",
+    "api/app/services/findings.py",
+    "api/app/services/inventory.py",
+    "api/tests/test_cloud_inventory.py",
+    "docs/identity_model.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cloud_inventory.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Analysis is read-only and evidence-backed.",
+      "Missing permissions are explicit and non-fatal.",
+      "No cloud mutation or exploitation path is added."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The cloud inventory foundation exists or the task is narrowed to documentation-only readiness."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with cloud/IAM/Kubernetes analysis changes and validation evidence.",
+      "Update CURRENT_STATE.md with the cloud analysis baseline and remaining cloud limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Cloud exploitation",
+    "Resource mutation",
+    "Privilege escalation execution",
+    "Cross-cloud attack chaining",
+    "Changing finding schema fields"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

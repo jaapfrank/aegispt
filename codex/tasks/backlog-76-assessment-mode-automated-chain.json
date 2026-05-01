@@ -1,0 +1,126 @@
+{
+  "id": "backlog-76-assessment-mode-automated-chain",
+  "task_file": "codex/tasks/backlog-76-assessment-mode-automated-chain.json",
+  "task_type": "backlog_slice",
+  "title": "Assessment Mode \u2014 Automated Phase Chain for LAN and Web Assessments",
+  "goal": "Allow an operator to select an assessment type (e.g. 'Full Internal LAN', 'Full External Web', 'Full AD Assessment'), approve once per phase tier, and have AegisPT automatically chain all relevant runners in the correct order without requiring per-task button presses.",
+  "scope": "Implement an Assessment Mode concept with three built-in assessment chains: (1) FULL-INTERNAL-LAN: Phase 1 passive (auto) \u2192 nmap discovery, LDAP enum, EASM if domain provided. Phase 2 active (single approval) \u2192 nmap service scan, nuclei CVE scan, httpx fingerprint, BloodHound collection, NetExec passive SMB. Phase 3 intrusive-credential (single approval) \u2192 Responder poisoning, Kerberoast, AS-REP roast, hash cracking, NetExec authenticated, password spray if lockout policy allows. Phase 4 intrusive-exploitation (single approval) \u2192 Metasploit against confirmed findings, Impacket lateral movement, DCSync if DA credentials obtained. (2) FULL-EXTERNAL-WEB: Phase 1 passive (auto) \u2192 EASM subdomain discovery, httpx fingerprint. Phase 2 active (single approval) \u2192 nuclei full scan, ZAP/Burp active scan, biz-logic-probe. Phase 3 intrusive (single approval) \u2192 LLM probe if AI endpoints found, confirmation exploits via Metasploit allowlist. (3) FULL-AD-ASSESSMENT: BloodHound \u2192 Kerberoast \u2192 credential attacks \u2192 lateral movement chain. Implementation: an AssessmentChain model stores: assessment_type, current_phase, phase_approvals (per-phase approval state), auto_advance_on_phase_complete (bool), phases (list of phase definitions with runner lists). The operator approves each phase tier once \u2014 all tasks within that phase run automatically in dependency order. Moving to the next phase requires re-approval only if the phase has a higher intrusive tier than the current one. Phase transition happens automatically if auto_advance is enabled and the previous phase completed without errors. The Mission Control UI shows a phase progress bar with the current phase highlighted. An operator can halt at any phase boundary. This is the 'no button per task' experience the user described.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The user explicitly requested that when a test type is selected, the system should run everything automatically without requiring a button press for each step. Assessment Mode implements this: approve once per phase tier, the system handles the rest. This is how NodeZero and XBOW operate \u2014 the operator sets the scope and approves the level, the system executes the full chain. This is the single feature that transforms AegisPT from a manual orchestration tool into an autonomous assessment platform.",
+  "source_context": {
+    "queue_index": 76,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/methodology_mapping.md",
+      "docs/multi_agent_red_team_program.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "assessment_orchestration",
+    "source_documents": [
+      "api/app/services/runs.py",
+      "api/app/services/run_profiles.py",
+      "api/app/services/ai_agent.py",
+      "workers/orchestration/tasks.py",
+      "api/app/models/control.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Phase approvals replace per-task approvals \u2014 not eliminate approval entirely. Each higher intrusive tier still requires explicit operator approval before phase starts. Kill switch halts the entire chain immediately. Scope enforcement is absolute across all phases. Phase 4 (exploitation) never auto-starts without explicit intrusive-exploitation approval even if auto_advance is enabled for lower tiers.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_required": true,
+    "phase_approval_required_per_tier": true,
+    "exploitation_phase_never_auto_advances": true,
+    "scope_enforcement_absolute": true
+  },
+  "success_criteria": [
+    "Three built-in assessment chains exist: FULL-INTERNAL-LAN, FULL-EXTERNAL-WEB, FULL-AD-ASSESSMENT.",
+    "Operator selects assessment type in intake, approves each phase tier once.",
+    "All tasks within an approved phase run automatically in dependency order.",
+    "Phase transition to a higher intrusive tier requires explicit approval.",
+    "Exploitation phase (Phase 4) NEVER auto-advances \u2014 always requires explicit approval.",
+    "Kill switch halts the entire chain immediately.",
+    "Mission Control shows phase progress bar with current phase and completed phases.",
+    "Operator can halt at any phase boundary.",
+    "AI agent (backlog-60) provides real-time analysis between phases to guide phase approval.",
+    "Tests cover chain execution, phase approval gates, auto-advance, exploitation-gate enforcement, kill-switch.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/assessment_chain.py",
+    "api/app/routers/runs.py",
+    "api/app/schemas/runs.py",
+    "api/app/services/run_profiles.py",
+    "migrations/versions/20260423_0021_assessment_chains.py",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "api/tests/test_assessment_chain.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Exploitation phase auto-advance",
+    "Scope enforcement bypass",
+    "Kill switch bypass",
+    "Running phases without their required approval tier",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Three assessment chains available in intake.",
+      "Phase approval model works \u2014 one approval per tier.",
+      "Exploitation phase requires explicit approval even with auto_advance enabled.",
+      "Kill switch halts chain.",
+      "Phase progress visible in Mission Control.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Impacket lateral movement runner (backlog-75) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Assessment Mode implementation and phase-gate enforcement evidence.",
+      "Update CURRENT_STATE.md with Assessment Mode as active orchestration capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Removing approval gates entirely",
+    "Custom user-defined assessment chains (future slice)",
+    "Multi-agent parallel chain execution (backlog-50 covered prep)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,109 @@
+{
+  "id": "backlog-66-burp-suite-runner-integration",
+  "task_file": "codex/tasks/backlog-66-burp-suite-runner-integration.json",
+  "task_type": "backlog_slice",
+  "title": "Burp Suite Runner Integration",
+  "goal": "Add Burp Suite Professional as an alternative web scanner runner alongside ZAP, giving operators the choice of the industry-standard tool for web application testing.",
+  "scope": "Implement a 'burp' runner in workers/runners/burp/ that interfaces with the Burp Suite REST API (available in Burp Suite Professional via the REST API extension or Burp Suite Enterprise). The runner: (1) Starts a Burp scan against the target URL using the configured Burp REST API endpoint (BURP_API_URL, BURP_API_KEY in settings); (2) Polls the scan status until completion; (3) Retrieves findings from the Burp scan results endpoint; (4) Normalizes Burp findings into AegisPT's finding model with WSTG methodology tags; (5) Stores raw Burp output as an artifact. The runner is optional \u2014 if BURP_API_URL is not configured, the burp runner is unavailable and ZAP remains the default web scanner. A new 'passive-web-burp' run profile is added as an alternative to 'passive-web-baseline'. Burp Pro at $475/year means this unlocks the full PortSwigger scanner engine including active scanning, Burp AI, and the 500+ BApp extensions without AegisPT needing to re-implement them.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Burp Suite Pro is the industry standard for web application pentesting \u2014 pre-installed in Kali, used by virtually every professional pentester, and now includes Burp AI. Adding it as an optional runner gives AegisPT access to the world's most comprehensive web scanner without reimplementing its capabilities. Operators who already have Burp licenses can use it directly from AegisPT.",
+  "source_context": {
+    "queue_index": 66,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/methodology_mapping.md",
+      "docs/codex_task_interface.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runner_expansion",
+    "source_documents": [
+      "workers/runners/base/contracts.py",
+      "workers/runners/zap/",
+      "workers/orchestration/tasks.py",
+      "api/app/config.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Burp REST API integration only. Do not bundle or redistribute Burp Suite binaries. Runner is unavailable when BURP_API_URL is not configured. Burp scans respect the same scope allowlist as all other runners.",
+    "runtime_mutation": false,
+    "operator_control_required": true
+  },
+  "success_criteria": [
+    "burp runner exists and follows RunnerContract.",
+    "Runner connects to Burp REST API, starts a scan, polls status, retrieves findings.",
+    "Burp findings are normalized to AegisPT finding model with WSTG tags.",
+    "Raw Burp output is stored as an artifact.",
+    "Runner is unavailable when BURP_API_URL is not configured \u2014 graceful unavailable state.",
+    "passive-web-burp run profile exists.",
+    "Scope allowlist is respected.",
+    "Tests cover API connection, finding normalization, unavailable state, and scope enforcement.",
+    "Full existing test suite remains green."
+  ],
+  "likely_touched_files": [
+    "workers/runners/burp/__init__.py",
+    "workers/runners/burp/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/config.py",
+    "infra/host/aegispt-host.env.example",
+    "workers/tests/test_burp_runner.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Bundling or redistributing Burp Suite binaries",
+    "ZAP runner behavior",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_burp_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Runner follows RunnerContract with mock Burp API.",
+      "Unavailable state when BURP_API_URL not set.",
+      "Finding normalization produces valid findings.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Business logic testing runner (backlog-65) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Burp runner implementation.",
+      "Update CURRENT_STATE.md with Burp Suite as optional runner.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Bundling Burp Suite",
+    "Burp Collaborator integration",
+    "Burp Extensions (BApp) management",
+    "Replacing ZAP as default"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

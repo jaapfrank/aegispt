@@ -21,14 +21,14 @@
           "expected_scope_fragment": "https://portal.example.com"
         },
         {
-          "assessment_type": "Domain / Domains",
+          "assessment_type": "Website / Web App",
           "intent_answer": "Our external domain",
           "goal_answer": "Standard assessment",
           "scope_answer": "example.com",
           "safety_answer": "Balanced",
           "boundary_answer": "No extra exclusions",
-          "expected_profile": "External Surface Only",
-          "expected_lane": "passive-web-baseline",
+          "expected_profile": "Standard",
+          "expected_lane": "passive-web-nuclei-audit",
           "expected_scope_fragment": "example.com"
         },
         {
@@ -39,7 +39,7 @@
           "safety_answer": "Conservative",
           "boundary_answer": "No extra exclusions",
           "expected_profile": "External Surface Only",
-          "expected_lane": "passive-network-discovery",
+          "expected_lane": "passive-external-infrastructure",
           "expected_scope_fragment": "203.0.113.10"
         },
         {
@@ -51,6 +51,7 @@
           "boundary_answer": "Report adjacent internal ranges only",
           "expected_profile": "Standard",
           "expected_lane": "passive-network-discovery",
+          "expected_summary_lane": "passive-network-service-enumeration",
           "expected_scope_fragment": "10.0.20.0/24"
         },
         {
@@ -78,7 +79,7 @@
           "expected_scope_fragment": "portal.example.com"
         },
         {
-          "assessment_type": "Authenticated App",
+          "assessment_type": "Website / Web App",
           "intent_answer": "Our customer portal",
           "goal_answer": "Authenticated review",
           "scope_answer": "https://portal.example.com",
@@ -193,6 +194,7 @@
             "assessment_type": "Internal Range / LAN",
             "test_profile": "Standard",
             "execution_profile": "passive-network-discovery",
+            "summary_execution_profile": "passive-network-service-enumeration",
             "scope_fragment": "10.0.20.0/24"
           }
         },

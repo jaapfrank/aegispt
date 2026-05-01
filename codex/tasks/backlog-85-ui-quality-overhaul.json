@@ -1,0 +1,122 @@
+{
+  "id": "backlog-85-ui-quality-overhaul",
+  "task_file": "codex/tasks/backlog-85-ui-quality-overhaul.json",
+  "task_type": "backlog_slice",
+  "title": "UI Quality Overhaul \u2014 Topbar Simplification, Empty States, and Data-Forward Panels",
+  "goal": "Fix the five most damaging UX problems that make the interface feel messy, text-heavy, and not like a professional product \u2014 without changing any backend behavior.",
+  "scope": "Six specific fixes: (0) AI FEATURE TOGGLES IN SETTINGS: The Settings screen has a provider selector (disabled/chatgpt_oauth/http) but no per-feature on/off switches. Add a sub-section 'AI Features' inside Settings > AI Provider with toggle controls for: finding enrichment (on/off), post-task analysis / AI Signal (on/off), intake intelligence (on/off), AutoFix patches (on/off), report drafting (on/off). Each toggle must: persist via the existing PATCH /api/v1/settings endpoint, be respected by the individual feature services that check their enabled flag, and show a clear description of what the feature does. The provider must be set to chatgpt_oauth before features can be enabled \u2014 show a warning if toggles are turned on while provider is disabled. This is the missing link that makes AI actually usable from the UI without touching environment variables. (1) TOPBAR SIMPLIFICATION: The topbar currently shows 15+ elements. Reduce to exactly 5: [AegisPT logo] [engagement selector] [active run status pill \u2014 only when a run is active] [settings gear icon] [actor name]. Remove all navigation items from the topbar \u2014 they belong in the sidebar only. Remove the 'Refresh' button from the topbar \u2014 auto-refresh handles this. Remove the 'ACTOR' label \u2014 the actor name speaks for itself. (2) SIDEBAR CLEANUP: Remove the large engagement/run context block from the bottom of the sidebar. Replace with a single compact 'active run' indicator (one line: dot + run name + phase) that only shows when a run is active. Sidebar should be navigation only. (3) EMPTY STATE REWRITE: Every panel that currently shows a paragraph explaining what will appear there should be replaced with: maximum one short sentence + one action button (e.g. 'No findings yet. [Start a scan \u2192]'). Specifically fix: Mission Control empty panels, Findings empty states, Surface Map empty state, AI Signal empty state. Remove all developer-facing notes from the UI (text like 'This panel only reflects stored run snapshots... It does not invent stream events'). (4) MISSION CONTROL DATA-FIRST REDESIGN: The Current Activity, Run Activity, and AI Signal panels currently show paragraphs. Replace with: Current Activity = one large status badge + run name + phase indicator + 3 key metrics as large numbers (tasks queued, tasks running, tasks done). Run Activity = task swimlane list with status dots and shimmer, not prose. AI Signal = entries only when there are entries, no 'Signals loaded' heading prose. (5) FINDINGS FILTER COLLAPSE: Hide the 6 filter dropdowns behind a single 'Filter \u25be' button by default. Only show when clicked. The SLA & Retest Planning Queue section should be collapsed by default with a single expand chevron \u2014 it should not occupy 25% of the screen on every findings page load.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Visual inspection of all screens shows the implementation is technically correct but UX-poor. The topbar has 15+ items in 48px. Every panel has explanatory paragraphs where numbers and status dots should be. Empty states are verbose developer notes. The Active Target Scan Map shows 'map is currently static instead of showing success' \u2014 a debug note in production UI. These are not missing features; they are quality problems with existing implementations that make the product look unfinished.",
+  "source_context": {
+    "queue_index": 80,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "UI_REDESIGN_SPEC.md",
+      "LIVING_SYSTEM_EXPERIENCE.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_quality",
+    "source_documents": [
+      "ui/assets/styles.css",
+      "ui/assets/app.js",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/findings.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "UI text, layout, and empty state changes only. No backend changes. No new features. No new API calls. No data model changes. This is a polish and quality pass on existing implemented screens.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Settings > AI Provider shows toggle controls for finding enrichment, post-task analysis, intake intelligence, AutoFix, and report drafting.",
+    "Each toggle persists via PATCH /api/v1/settings and is respected by the feature services.",
+    "Enabling a feature while provider is disabled shows a clear warning.",
+    "Toggling finding enrichment on causes the next finding creation to attempt enrichment when a run completes.",
+    "Topbar shows exactly 5 elements: logo, engagement selector, run status pill (conditional), settings gear, actor name.",
+    "No navigation items in the topbar.",
+    "No 'Refresh' button in the topbar.",
+    "Sidebar bottom block is removed and replaced with a single compact run indicator when active.",
+    "No developer-facing notes visible anywhere in the UI (e.g. 'this panel does not invent stream events').",
+    "Every empty state panel shows maximum one sentence plus one action button.",
+    "Active Target Scan Map empty state shows a clean visual placeholder, not a debug note.",
+    "Mission Control Current Activity shows a status badge and large numbers, not paragraphs.",
+    "Findings filter bar is collapsed by default behind a single Filter button.",
+    "SLA & Retest Planning Queue is collapsed by default.",
+    "Full Playwright suite remains green after copy and layout updates.",
+    "No backend, schema, or API changes."
+  ],
+  "likely_touched_files": [
+    "api/app/services/settings.py",
+    "api/app/services/ai_enrichment.py",
+    "api/app/services/ai_agent.py",
+    "api/app/services/intake_intelligence.py",
+    "ui/assets/modules/settings.js",
+    "ui/assets/styles.css",
+    "ui/assets/app.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/findings.js",
+    "ui/index.html",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Any data-testid selectors used in tests without updating the tests",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Topbar has exactly 5 elements.",
+      "No developer notes visible in any screen.",
+      "All empty states are one sentence plus one action.",
+      "Mission Control shows numbers not paragraphs.",
+      "Findings filters collapsed by default.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "External infrastructure assessment (backlog-79) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with UI quality overhaul changes.",
+      "Update CURRENT_STATE.md with cleaned UI as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "New features",
+    "New animations",
+    "Backend changes",
+    "New screens"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

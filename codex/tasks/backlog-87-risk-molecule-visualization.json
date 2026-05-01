@@ -1,0 +1,100 @@
+{
+  "id": "backlog-87-risk-molecule-visualization",
+  "task_file": "codex/tasks/backlog-87-risk-molecule-visualization.json",
+  "task_type": "backlog_slice",
+  "title": "Risk Molecule \u2014 Interactive Finding Relationship Visualization",
+  "goal": "Show all findings from a run as an interactive force-directed molecule where node size and color represent severity, chain connections are visible as glowing lines, and clicking a node reveals full detail \u2014 making the relationships between findings immediately visible.",
+  "scope": "Add a 'Molecule View' toggle to the Findings + Evidence screen (alongside the existing list view). In molecule view: (1) Each finding is an SVG circle node \u2014 size proportional to severity (critical=22px radius, high=17px, medium=13px), color matches severity (red/amber/yellow). (2) Findings that are part of a detected vulnerability chain (from backlog-43) are connected by animated dashed cyan lines. (3) Critical nodes have a pulsing sonar-ring animation. (4) Hover a node \u2192 tooltip shows title + target. (5) Click a node \u2192 the existing finding detail drawer slides in from the right (reusing backlog-59 drawer). (6) Nodes are positioned using a simple force-simulation (repulsion + chain attraction) without D3 dependency \u2014 pure JS requestAnimationFrame loop. (7) A legend shows node size/color meaning. (8) All data comes from the existing findings API \u2014 no new endpoints. The cinema_mockup.html Risk Molecule tab is the visual reference.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The cinema_mockup.html Risk Molecule concept shows findings as an interactive molecule that reveals chain relationships at a glance. No competitor shows finding relationships visually. This makes chain detections (from backlog-43) tangible and immediately understandable, and gives operators a completely different way to explore findings beyond the filter list.",
+  "source_context": {
+    "queue_index": 91,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "cinema_mockup.html",
+      "LIVING_SYSTEM_EXPERIENCE.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "living_system_experience",
+    "source_documents": [
+      "cinema_mockup.html",
+      "ui/assets/modules/findings.js",
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "SVG visualization of existing findings data only. No D3 or external dependencies. No new backend endpoints. Molecule view is an optional toggle \u2014 list view remains the default.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Molecule View toggle visible in Findings + Evidence.",
+    "All findings rendered as sized and colored SVG nodes.",
+    "Chain connections rendered as animated cyan lines.",
+    "Critical nodes have pulsing sonar ring.",
+    "Hover shows tooltip, click opens detail drawer.",
+    "Pure JS force simulation without D3.",
+    "No new backend endpoints.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/findings.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "pack registry"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Molecule renders with nodes and connections.",
+      "Interaction works.",
+      "No backend changes.",
+      "Playwright green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Cinema Mode (backlog-86) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Risk Molecule implementation.",
+      "Update CURRENT_STATE.md with Molecule View as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "3D visualization",
+    "D3 dependency",
+    "New finding data model"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_prompted"
+}

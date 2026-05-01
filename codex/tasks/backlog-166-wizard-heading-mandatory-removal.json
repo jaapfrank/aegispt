@@ -1,0 +1,95 @@
+{
+  "id": "backlog-166-wizard-heading-mandatory-removal",
+  "task_file": "codex/tasks/backlog-166-wizard-heading-mandatory-removal.json",
+  "task_type": "corrective_product_slice",
+  "title": "Remove 'Mandatory' from wizard heading: wizard is no longer a mandatory gate since backlog-58",
+  "goal": "The wizard screen heading still reads 'Mandatory Assessment Wizard'. Since backlog-58 (free navigation foundation) was implemented, the wizard is the recommended start for new engagements — not a forced gate. Update the heading in ui/index.html from 'Mandatory Assessment Wizard' to 'Assessment Wizard' or 'Mission Intake'. Also check the sidebar nav label ('Mandatory Wizard' if present) and any other strings that include the word 'Mandatory' applied to the wizard flow specifically. The word 'mandatory' should only appear in ROE/authorization gate contexts.",
+  "scope": "System review 2026-05-01: wizard screen heading says 'Mandatory Assessment Wizard'. The wizard has been reachable via free navigation since backlog-58. Calling it mandatory contradicts the product intent and confuses operators who navigate directly to Mission Control.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: 'Mandatory Assessment Wizard' heading contradicts free navigation — wizard is recommended, not forced.",
+  "source_context": {
+    "queue_index": 166,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-58-free-navigation-foundation.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_copy_accuracy",
+    "source_documents": [
+      "ui/index.html",
+      "ui/assets/modules/wizard.js",
+      "ui/assets/app.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only update string copy. Do not redesign wizard flow or navigation.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Wizard screen heading does not include the word 'Mandatory' in reference to the wizard itself.",
+    "Sidebar nav label for the wizard screen does not say 'Mandatory Wizard'.",
+    "Any rendered text from wizard.js that calls the intake 'mandatory' is updated or removed.",
+    "ROE and authorization gate text that legitimately uses 'mandatory' remains untouched.",
+    "No regression in wizard E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/app.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Wizard step logic or validation",
+    "Navigation gating logic",
+    "Backend API",
+    "ROE authorization gate strings"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "grep -i 'mandatory wizard\\|mandatory assessment wizard' ui/index.html returns no matches.",
+      "Wizard screen heading is clear and enterprise-appropriate.",
+      "No regression in E2E tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Redesigning the wizard flow",
+    "Changing step logic",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

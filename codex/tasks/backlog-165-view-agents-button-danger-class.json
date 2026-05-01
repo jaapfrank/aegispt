@@ -1,0 +1,87 @@
+{
+  "id": "backlog-165-view-agents-button-danger-class",
+  "task_file": "codex/tasks/backlog-165-view-agents-button-danger-class.json",
+  "task_type": "corrective_product_slice",
+  "title": "Fix 'View Agents' button in Mission Control: change action danger to action secondary",
+  "goal": "In ui/index.html, the 'View Agents ↗' button at line 143 in the Mission Control screen header uses CSS class 'action danger', which renders it red and implies a destructive action. Change the class to 'action secondary' or 'action ghost' so the button reads as a navigation action, not a destructive one. Verify no other navigation buttons in screen headers use 'action danger' incorrectly.",
+  "scope": "System review 2026-05-01: The 'View Agents ↗' button in the Mission Control screen actions (data-testid='mission-view-agents') is styled with 'action danger'. This is a navigation-only action that opens the Live Agents screen. Using danger styling misleads operators into thinking clicking it will cancel, delete, or otherwise harm the run.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: View Agents button uses action danger class (red/destructive styling) but is a navigation action.",
+  "source_context": {
+    "queue_index": 165,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_button_intent_clarity",
+    "source_documents": [
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Fix only the button class. Do not redesign Mission Control layout.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "The 'View Agents' button in Mission Control header uses 'action secondary' or 'action ghost' class, not 'action danger'.",
+    "Button still navigates to the agents screen when clicked.",
+    "No other navigation buttons in screen-head action rows use 'action danger' incorrectly.",
+    "No regression in Mission Control E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Approval or scope gate logic",
+    "Run cancellation buttons (Kill Run is correctly styled danger)",
+    "Any backend API"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "View Agents button renders with secondary/ghost styling, not red/danger.",
+      "Kill Run button retains danger styling (it IS destructive).",
+      "No regression in E2E tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad Mission Control redesign",
+    "Adding new buttons",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

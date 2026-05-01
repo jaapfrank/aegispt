@@ -1,0 +1,98 @@
+{
+  "id": "backlog-127-rbac",
+  "task_file": "codex/tasks/backlog-127-rbac.json",
+  "task_type": "backlog_slice",
+  "title": "Role-Based Access Control \u2014 Operator, Reviewer, and Admin Roles",
+  "goal": "Add a three-tier role model so organizations can give consultants scan access, clients read-only review access, and administrators full system control, without everyone having the same permissions.",
+  "scope": "Builds on backlog-120 (API key authentication must be complete first). Add role enforcement to the api_keys table from backlog-120. Three roles: admin (full access including settings and user management), operator (can create runs, approve, view findings, generate reports \u2014 cannot change global settings or delete engagements), reviewer (read-only: can view findings, reports, download reports \u2014 cannot create runs, approve, or change any data). Enforce roles on sensitive endpoints: POST /runs requires operator or admin, POST /runs/{id}/dispatch requires operator or admin, DELETE /runs requires admin, PATCH /settings requires admin, POST /findings/{id}/evidence/verify available to all. In Settings, add a Users section showing API keys with their roles, last used date, and revoke button. Add Create API Key form with name and role selector. In the topbar actor pill, show a role badge next to the actor name. Role is stored in the api_keys table from backlog-120.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "All actors currently have identical permissions. Enterprise clients need to share reports with stakeholders without giving them scan access. Consultants need scan access without admin rights.",
+  "queue_index": 127,
+  "source_context": {
+    "queue_index": 127,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "security_foundation",
+    "source_documents": [
+      "api/app/auth/__init__.py",
+      "api/app/routers/runs.py",
+      "api/app/routers/settings.py",
+      "ui/assets/modules/settings.js",
+      "ui/assets/app.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Three roles only (admin/operator/reviewer). No per-engagement roles in this slice. Requires backlog-120 to be complete.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Three roles defined: admin, operator, reviewer.",
+    "Reviewer cannot call POST /runs (403).",
+    "Operator cannot call DELETE /runs or PATCH /settings (403).",
+    "Settings shows Users section with API key management.",
+    "Role badge shown in topbar.",
+    "Tests cover role enforcement on key endpoints.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/auth/__init__.py",
+    "api/app/routers/runs.py",
+    "api/app/routers/settings.py",
+    "ui/assets/modules/settings.js",
+    "ui/assets/app.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Tenant isolation logic",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Per-engagement roles",
+    "OAuth provider SSO",
+    "Team/organization model"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Role enforcement works on sensitive endpoints. User management in Settings."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-120 (authentication) must be completed.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

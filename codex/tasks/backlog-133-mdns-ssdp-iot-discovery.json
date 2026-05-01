@@ -1,0 +1,91 @@
+{
+  "id": "backlog-133-mdns-ssdp-iot-discovery",
+  "task_file": "codex/tasks/backlog-133-mdns-ssdp-iot-discovery.json",
+  "task_type": "backlog_slice",
+  "title": "mDNS/SSDP/UPnP IoT Discovery Runner",
+  "goal": "Discover IoT and smart home devices on the LAN by listening for and querying mDNS (.local) announcements and UPnP/SSDP broadcasts, then enumerate their services and management interfaces.",
+  "scope": "Create workers/runners/mdns_ssdp/runner.py with two discovery phases: (1) MDNS ENUMERATION: use Python zeroconf library or dns-sd to query the local network for all .local service types (_http._tcp, _https._tcp, _hue._tcp, _homekit._tcp, _hap._tcp, _mqtt._tcp, _rtsp._tcp, _daap._tcp, _googlecast._tcp, _airplay._tcp, _sonos._tcp, _unifi._tcp, _onvif._tcp, etc.). For each discovered service record: device name, IP, port, service type, txt record metadata. Identify device type from service type: Philips Hue bridge (_hue), Home Assistant (_home-assistant or HTTP on 8123), Unifi cameras (_onvif), RTSP cameras, printers, smart speakers, etc. (2) SSDP/UPNP ENUMERATION: send M-SEARCH * HTTP/1.1 UDP broadcast to 239.255.255.250:1900. Parse LOCATION headers from responses. Fetch the device description XML from each LOCATION URL. Extract: deviceType, friendlyName, manufacturer, modelName, presentationURL. Identify device categories. Create findings for: devices with no authentication on management interface, devices using HTTP (not HTTPS), devices with default manufacturer names (suggesting unconfigured), devices on unexpected subnets. Add profile passive-lan-iot-discovery: passive, uses mdns-ssdp tool. Add to Internal LAN and Full Internal assessment chains.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Smart home and IoT devices (Philips Hue, Home Assistant, Unifi cameras, Denon receiver, smart appliances) are completely invisible to the current nmap-based scan. They announce themselves via mDNS and SSDP but AegisPT never listens for these protocols.",
+  "queue_index": 133,
+  "source_context": {
+    "queue_index": 133,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "workers/runners/nmap/runner.py",
+      "api/app/services/run_profiles.py",
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Passive discovery only. No credential testing. No active exploitation of found interfaces. Listen and query only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "mDNS enumeration discovers .local services including Hue, HomeKit, RTSP, Unifi.",
+    "SSDP/UPnP enumeration discovers UPnP devices and fetches device descriptions.",
+    "Device type identified from service records (camera, hub, speaker, etc.).",
+    "Findings created for: unauthenticated HTTP management interfaces.",
+    "Inventory populated with discovered IoT devices including manufacturer and model.",
+    "Profile passive-lan-iot-discovery added and works.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/runners/mdns_ssdp/runner.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Zigbee/Z-Wave RF enumeration",
+    "Bluetooth discovery",
+    "Exploitation of found services"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "mDNS and SSDP runners discover IoT devices. Inventory populated. Findings for insecure interfaces."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

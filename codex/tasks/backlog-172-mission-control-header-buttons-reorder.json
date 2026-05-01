@@ -1,0 +1,92 @@
+{
+  "id": "backlog-172-mission-control-header-buttons-reorder",
+  "task_file": "codex/tasks/backlog-172-mission-control-header-buttons-reorder.json",
+  "task_type": "corrective_product_slice",
+  "title": "Mission Control header: fix button order, intents, and styling for operational clarity",
+  "goal": "The Mission Control screen header has four action buttons with confusing order and styling: (1) 'View Agents ↗' — action danger (WRONG: this is navigation, not destructive), (2) 'Start Queued Checks' — action primary hidden (correct, contextual), (3) 'Kill Run' — action secondary (WRONG: this is destructive, should be action danger), (4) 'View Findings →' — action primary (correct), (5) 'Cinema Mode' — action secondary. Correct the CSS classes and reorder for operator clarity. Recommended order: [Kill Run (danger)] [Start Queued Checks (primary, contextual)] [View Findings (primary)] [View Agents (ghost/secondary)] [Cinema Mode (ghost)]. Destructive action (Kill Run) should be leftmost to prevent accidental clicks when scanning left to right.",
+  "scope": "System review 2026-05-01: Mission Control header buttons have swapped danger/secondary classes (View Agents = danger but is navigation; Kill Run = secondary but is destructive). Button order puts the destructive action between two primary actions. This is confusing and increases accidental kill-run risk.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: Mission Control button intent mismatch — View Agents is danger (wrong), Kill Run is secondary (wrong). Also wrong visual order.",
+  "source_context": {
+    "queue_index": 172,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-165-view-agents-button-danger-class.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_button_intent_clarity",
+    "source_documents": [
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only update button CSS classes and DOM order in index.html. Do not change button functionality, handlers, or Mission Control layout.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Kill Run uses 'action danger' styling.",
+    "View Agents uses 'action ghost' or 'action secondary' styling (not danger).",
+    "Button order from left to right: Kill Run → Start Queued Checks → View Findings → View Agents → Cinema Mode.",
+    "No button functionality changed.",
+    "No regression in Mission Control E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Button event handlers",
+    "Run cancellation logic",
+    "Mission Control JS modules",
+    "Backend API"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Kill Run renders red (danger).",
+      "View Agents renders as secondary/ghost.",
+      "Button visual order matches specification.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Mission Control layout redesign",
+    "Adding new buttons",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

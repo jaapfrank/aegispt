@@ -1,0 +1,114 @@
+{
+  "id": "backlog-71-bloodhound-sharphound-integration",
+  "task_file": "codex/tasks/backlog-71-bloodhound-sharphound-integration.json",
+  "task_type": "backlog_slice",
+  "title": "BloodHound CE / SharpHound AD Attack Path Integration",
+  "goal": "Add SharpHound collection and BloodHound CE graph analysis to map Active Directory attack paths \u2014 showing exactly which privilege escalation routes exist in the domain and which accounts/computers are the choke points.",
+  "scope": "Implement: (1) A 'bloodhound-collect' runner in workers/runners/bloodhound/ that runs the BloodHound Community Edition Python collector (bloodhound-python, available via pip) against the domain using authenticated LDAP. Collects: users, groups, computers, sessions, ACLs, GPOs, trusts, containers. Stores the JSON zip artifact. Requires auth context with domain credentials. (2) A BloodHound analysis service api/app/services/bloodhound_analysis.py that parses the JSON collection and produces: (a) attack path findings for each high-value target (Domain Admins, Enterprise Admins, Domain Controllers) reachable from a standard-user account; (b) choke point findings for accounts/ACEs that appear in 3+ paths; (c) Kerberoastable account findings (SPNs on user accounts); (d) AS-REP roastable account findings. (3) Findings are normalized through the existing finding path with PTES/WSTG/NIST/ATT&CK tags. (4) Attack paths from BloodHound are imported into the existing attack_paths.py graph, rendered as confirmed edges in Surface Map. (5) Run profile: 'active-ad-bloodhound'. Requires domain read credentials \u2014 no exploitation, no modification of AD objects.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "NodeZero solved GOAD (a complex AD lab) in 14 minutes using BloodHound-style analysis. XM Cyber's entire product philosophy is built on AD attack paths. Without BloodHound integration, AegisPT cannot provide meaningful AD assessment results. BloodHound CE is open source, runs on Kali, and is the industry standard for AD attack path visualization.",
+  "source_context": {
+    "queue_index": 71,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/identity_model.md",
+      "docs/attack_path_engine.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_pentest_expansion",
+    "source_documents": [
+      "workers/runners/base/contracts.py",
+      "workers/runners/ldap_enum/",
+      "api/app/services/attack_paths.py",
+      "api/app/services/inventory.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only AD collection only. No modification of AD objects, no exploitation of found paths, no credential cracking. Requires explicit domain auth context. Active-tier classification.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "no_ad_modification": true
+  },
+  "success_criteria": [
+    "bloodhound-collect runner collects AD data using bloodhound-python.",
+    "Collection artifact stored as encrypted JSON zip.",
+    "Analysis service produces attack path findings for paths to DA/EA/DC.",
+    "Kerberoastable and AS-REP roastable accounts produce findings.",
+    "BloodHound attack paths imported into existing attack_paths.py graph.",
+    "Surface Map shows BloodHound-derived confirmed edges.",
+    "No AD objects are modified.",
+    "active-ad-bloodhound run profile exists.",
+    "Tests cover collection, path analysis, finding normalization, and no-modification enforcement.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "workers/runners/bloodhound/__init__.py",
+    "workers/runners/bloodhound/runner.py",
+    "api/app/services/bloodhound_analysis.py",
+    "api/app/services/attack_paths.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "workers/tests/test_bloodhound_runner.py",
+    "api/tests/test_attack_paths.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Active Directory object modifications",
+    "Exploitation of found attack paths",
+    "Running without domain auth context",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_bloodhound_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_attack_paths.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Runner produces AD collection and attack path findings.",
+      "Paths imported into attack graph.",
+      "No AD modifications.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Responder LLMNR poisoning runner (backlog-70) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with BloodHound integration and attack path import evidence.",
+      "Update CURRENT_STATE.md with BloodHound CE as active AD runner.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Exploitation of BloodHound-identified paths",
+    "Kerberoast hash cracking (covered in backlog-73)",
+    "BloodHound Enterprise (commercial) integration",
+    "Graph UI beyond existing Surface Map"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

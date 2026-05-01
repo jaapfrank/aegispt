@@ -1,0 +1,110 @@
+{
+  "id": "backlog-105-cloud-native-container-kubernetes-assessment-foundation",
+  "task_file": "codex/tasks/backlog-105-cloud-native-container-kubernetes-assessment-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Cloud-Native Container Kubernetes Assessment Foundation",
+  "goal": "Extend AegisPT from read-only cloud context toward a real cloud-native assessment slice covering container images, Kubernetes manifests, workload posture, exposed components, and secret handling without mutating customer environments.",
+  "scope": "Implement a bounded cloud-native assessment path that can analyze authorized container images, Kubernetes manifests, and read-only cluster posture inputs. The first slice covers: image CVE and base-image posture review, container and workload securityContext issues, risky hostPath/privilege/capability use, exposed dashboards or control-plane components when already in approved scope, RBAC and network policy posture where inputs exist, and secret exposure in manifests or workload configuration. Findings should map cleanly to the OWASP Kubernetes Top Ten or current cloud-native risk taxonomy where applicable. Reuse existing evidence, inventory, and finding flows. Keep cluster mutation, workload execution, privilege escalation, and lateral movement out of scope.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The audit found that backlog-30 only covers read-only cloud IAM/Kubernetes risk analysis after inventory, while official cloud-native guidance focuses on workload configuration, authorization, exposed components, segmentation, and secret handling. AegisPT needs a dedicated cloud-native assessment slice rather than stopping at inventory.",
+  "source_context": {
+    "queue_index": 109,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-30-cloud-iam-kubernetes-analysis-foundation.json",
+      "docs/identity_model.md",
+      "codex/results/project-gap-and-ai-roadmap-20260424.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "cloud_native_security_expansion",
+    "source_documents": [
+      "codex/tasks/backlog-30-cloud-iam-kubernetes-analysis-foundation.json",
+      "api/app/services/inventory.py",
+      "api/app/services/cloud_analysis.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only cloud-native assessment only. No cluster mutation, no container execution, no privilege escalation, and no broader credential requests than already approved inputs.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "This task extends but does not replace backlog-30.",
+      "Protected secret materialization must reuse existing patterns.",
+      "Canonical finding schema fields must remain unchanged."
+    ]
+  },
+  "success_criteria": [
+    "A cloud-native assessment path exists for authorized images, manifests, or read-only cluster inputs.",
+    "Findings cover selected container, workload, RBAC, network-policy, exposed-component, and secret-exposure classes.",
+    "Mappings to Kubernetes/cloud-native risk categories are explicit where applicable.",
+    "Tests cover missing artifact/input cases, unsupported provider states, and evidence-backed finding extraction.",
+    "No mutation, execution, or privilege escalation path is introduced."
+  ],
+  "likely_touched_files": [
+    "workers/runners/cloud_native/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/services/runs.py",
+    "api/app/services/inventory.py",
+    "workers/tests/test_cloud_native_runner.py",
+    "api/tests/test_runs.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_cloud_native_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k cloud_native",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Cloud-native assessment stays read-only and evidence-backed.",
+      "Container and Kubernetes posture findings are explicit and bounded.",
+      "Unsupported inputs/providers fail truthfully."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The extension relationship to backlog-30 is documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with cloud-native assessment implementation and validation evidence.",
+      "Update CURRENT_STATE.md with the cloud-native baseline and remaining cloud limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Cluster mutation",
+    "Container execution on customer workloads",
+    "Privilege escalation",
+    "Cross-cloud attack chaining",
+    "Canonical finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

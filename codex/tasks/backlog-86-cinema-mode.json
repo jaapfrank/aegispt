@@ -1,0 +1,104 @@
+{
+  "id": "backlog-86-cinema-mode",
+  "task_file": "codex/tasks/backlog-86-cinema-mode.json",
+  "task_type": "backlog_slice",
+  "title": "Cinema Mode \u2014 Full-Screen Live Scan Visualization",
+  "goal": "Add an opt-in full-screen cinema mode to Mission Control that shows the active scan as a live cinematic visualization \u2014 animated scan threads, pulsing host nodes, real-time finding impacts, AI narration, and large live counters \u2014 making the system visibly alive in a way no competitor offers.",
+  "scope": "Add a 'Cinema Mode' button to Mission Control that expands the scan map to full-screen overlay. In cinema mode: (1) The SVG scan map (from backlog-54) fills the entire viewport with a dark background. (2) Tool-to-host animated threads play at full size with the pulse-travel animation. (3) Finding discoveries trigger a ripple + badge-pop animation on the affected host node. (4) Critical findings trigger a full-screen red flash (rgba 239,68,68,0.06 overlay, 1.2s fade). (5) A bottom AI narration bar types the current AI Signal entry character-by-character in monospace font. (6) Five large live counters at the very bottom: Exposure Score, Critical, High, Hosts Scanned, AI Proposals. Counters animate with scale + color glow on increment. (7) A minimal topbar shows only: logo + active phase + elapsed time + one-click exit button. (8) All data derives from existing run SSE stream and polling state \u2014 no new backend endpoints. (9) Keyboard shortcut: F (or Escape to exit). (10) The cinema_mockup.html in the repo root is the visual reference for this feature.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The cinema_mockup.html demonstrates a full-screen cinematic scan experience that makes the system visibly alive. No competitor offers this. It directly addresses the user feedback that 'the system does not feel alive'. All animations are keyframed in CSS (from backlog-53/54), all data comes from existing state \u2014 this is purely a new display mode for existing data.",
+  "source_context": {
+    "queue_index": 90,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/living_system_experience_scope_alignment.md",
+      "cinema_mockup.html"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "living_system_experience",
+    "source_documents": [
+      "cinema_mockup.html",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Display mode only. No new backend endpoints, no new API calls, no new data models. All data from existing SSE and polling state. Cinema mode is an overlay \u2014 underlying Mission Control is unchanged.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Cinema Mode button visible in Mission Control.",
+    "Full-screen overlay shows scan map at viewport size.",
+    "Animated threads, host nodes, and finding impacts render correctly.",
+    "Critical finding triggers full-screen flash.",
+    "AI narration types current AI Signal entry in bottom bar.",
+    "Five live counters animate on value change.",
+    "Escape key exits cinema mode.",
+    "No new backend endpoints.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Cinema mode renders full-screen.",
+      "Animations work.",
+      "Exit with Escape.",
+      "No backend changes.",
+      "Playwright green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "UI quality overhaul (backlog-85) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Cinema Mode implementation.",
+      "Update CURRENT_STATE.md with Cinema Mode as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Sound design (separate opt-in feature)",
+    "Recording/exporting cinema mode as video",
+    "Mobile layout"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

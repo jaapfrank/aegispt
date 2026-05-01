@@ -50,6 +50,7 @@ def execute_httpx_probe(
     with httpx_client.Client(
         follow_redirects=True,
         timeout=timeout_seconds,
+        verify=False,
         headers={"User-Agent": "AegisPT/0.1"},
     ) as client:
         for target in targets:
@@ -103,6 +104,7 @@ def execute_httpx_probe(
             "normalized_targets": normalized_targets,
             "rate_limit": rate_limit,
             "timeout_seconds": timeout_seconds,
+            "verify_tls": False,
             "tool_version": f"python-httpx/{httpx_client.__version__}",
             "runner_digest": "workers.httpx.runner:v1",
             "result_count": len(results),

@@ -1,0 +1,107 @@
+{
+  "id": "backlog-13-finding-evidence-brief-ux-foundation",
+  "task_file": "codex/tasks/backlog-13-finding-evidence-brief-ux-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Finding Evidence Brief UX Foundation",
+  "goal": "Make the existing Finding Theater evidence and methodology data feel like an operator-grade intelligence brief without changing finding schema fields.",
+  "scope": "Improve the presentation of existing finding risk, methodology, exploitability, verification, methodology lineage, and related execution excerpts using additive UI components such as brief-style cards and terminal-style evidence blocks. Reuse existing Finding Theater data and evidence replay structures. Do not add new canonical finding fields.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 13,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/midterm_review_scope_alignment.md",
+      "docs/ui_report_center.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "analysis_ux",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/ui_information_hierarchy.md",
+      "docs/ui_report_center.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep this slice to presentation of existing finding/evidence data. Do not change finding schema, scoring semantics, or report generation.",
+    "runtime_mutation": false,
+    "preserve_finding_schema": true,
+    "notes": [
+      "Render existing data more clearly before adding new data.",
+      "Evidence excerpts must stay grounded in stored artifacts and task output."
+    ]
+  },
+  "success_criteria": [
+    "Finding Theater shows risk, methodology, exploitability, and evidence-readiness in clearer structured UI.",
+    "Related execution excerpts are easier to inspect in a terminal-style evidence display without leaving the evidence-first model.",
+    "Existing findings without enriched or optional fields still render truthfully.",
+    "Browser coverage proves the new presentation for populated and sparse findings.",
+    "No canonical finding schema fields are added, removed, or redefined."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/findings.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/ui_report_center.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "api/app/models/control.py",
+    "workers/orchestration/findings.py",
+    "api/app/methodology.py",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The UI improvement is backed by existing Finding Theater data.",
+      "Sparse findings degrade gracefully without fake state.",
+      "No finding schema or methodology contract changes are introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "No report or finding-schema rewrite is bundled into this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with UI changes and validation evidence.",
+      "Update CURRENT_STATE.md with the new analysis UX baseline and limitations.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Changing finding schema fields",
+    "Changing severity scoring semantics",
+    "AI report drafting",
+    "New report variants",
+    "Evidence fabrication or synthetic terminal output"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

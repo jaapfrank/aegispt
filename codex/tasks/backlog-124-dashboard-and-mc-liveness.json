@@ -1,0 +1,94 @@
+{
+  "id": "backlog-124-dashboard-and-mc-liveness",
+  "task_file": "codex/tasks/backlog-124-dashboard-and-mc-liveness.json",
+  "task_type": "backlog_slice",
+  "title": "Dashboard and Mission Control Liveness \u2014 Activity Feed and Live Tool Output",
+  "goal": "Make the Dashboard show real recent activity instead of empty tiles, and make Mission Control show live tool stdout during a running scan instead of showing output only after the task finishes.",
+  "scope": "Two changes: (1) DASHBOARD ACTIVITY FEED: add a Recent Activity section to the Dashboard that shows the last 10 audit events from the audit_events table for the selected engagement. Display: event timestamp, action label (human-readable: run started, finding created, scan completed, report generated), and engagement name. Pull from GET /api/v1/dashboard which already returns data. Add activity_feed array to DashboardRead schema with last 10 events formatted as {timestamp, label, icon}. Render in Dashboard module below the stats tiles. (2) MISSION CONTROL LIVE STDOUT: currently task stdout only appears after the task status changes to completed. Change Mission Control to poll GET /api/v1/tasks/{task_id} every 3 seconds while a task is running (status=running), compare stdout_lines count, and append new lines to the terminal panel incrementally without clearing the panel. Add a Live indicator (pulsing dot) next to the terminal heading while the task is running. This gives operators visibility into what a scan is doing right now.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Dashboard shows 0 in all tiles for empty engagements and has no activity feed. Mission Control terminal is empty during active scans and only fills after completion. Both make the system feel static.",
+  "queue_index": 124,
+  "source_context": {
+    "queue_index": 124,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ux_liveness",
+    "source_documents": [
+      "api/app/routers/dashboard.py",
+      "api/app/schemas/runs.py",
+      "ui/assets/modules/dashboard.js",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Activity feed and live stdout polling only. No websocket upgrade in this slice.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Dashboard shows Recent Activity feed with last 10 events for selected engagement.",
+    "Activity feed shows human-readable labels (not raw action strings).",
+    "Mission Control terminal updates incrementally every 3s while task is running.",
+    "Live indicator (pulsing dot) shown next to terminal heading during active task.",
+    "No regression in terminal display after task completes.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/dashboard.py",
+    "api/app/schemas/runs.py",
+    "ui/assets/modules/dashboard.js",
+    "ui/assets/modules/mission-control.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations",
+    "SSE event format"
+  ],
+  "out_of_scope": [
+    "WebSocket upgrade",
+    "Push notifications",
+    "Email activity digests"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Dashboard activity feed shows events. Mission Control terminal updates live during scan."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

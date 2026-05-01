@@ -17,7 +17,10 @@ NUCLEI_VERSION="${NUCLEI_VERSION:-3.7.1}"
 HTTPX_VERSION="${HTTPX_VERSION:-1.9.0}"
 FEROXBUSTER_VERSION="${FEROXBUSTER_VERSION:-2.13.1}"
 ZAP_VERSION="${ZAP_VERSION:-2.17.0}"
+KERBRUTE_VERSION="${KERBRUTE_VERSION:-1.0.3}"
+SUBFINDER_VERSION="${SUBFINDER_VERSION:-2.13.0}"
 AEGISPT_INSTALL_METASPLOIT="${AEGISPT_INSTALL_METASPLOIT:-auto}"
+METASPLOIT_INSTALL_URL="${METASPLOIT_INSTALL_URL:-https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb}"
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "${WORKDIR}"' EXIT
@@ -33,6 +36,51 @@ run_as_owner() {
   else
     bash -lc "${command}"
   fi
+}
+
+install_apt_if_available() {
+  local package_name="$1"
+  if apt-cache show "${package_name}" >/dev/null 2>&1; then
+    $SUDO apt install -y "${package_name}"
+  else
+    echo "Skipping ${package_name}: package not available in current apt sources."
+  fi
+}
+
+link_owner_bin() {
+  local binary_name="$1"
+  if [[ -x "${OWNER_HOME}/.local/bin/${binary_name}" ]]; then
+    $SUDO ln -sf "${OWNER_HOME}/.local/bin/${binary_name}" "/usr/local/bin/${binary_name}"
+  fi
+}
+
+install_pipx_if_missing() {
+  local command_name="$1"
+  local package_spec="$2"
+  if command -v "${command_name}" >/dev/null 2>&1 || [[ -x "${OWNER_HOME}/.local/bin/${command_name}" ]]; then
+    link_owner_bin "${command_name}"
+    return
+  fi
+  run_as_owner "TMPDIR=/tmp env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy python3 -m pipx install ${package_spec}"
+  link_owner_bin "${command_name}"
+}
+
+install_responder_if_missing() {
+  if command -v responder >/dev/null 2>&1; then
+    return
+  fi
+  if apt-cache show responder >/dev/null 2>&1; then
+    $SUDO apt install -y responder
+    return
+  fi
+  proxy_clean_env git clone --depth 1 https://github.com/lgandx/Responder.git "${WORKDIR}/Responder"
+  $SUDO rm -rf /opt/Responder
+  $SUDO mv "${WORKDIR}/Responder" /opt/Responder
+  cat <<'EOF' | $SUDO tee /usr/local/bin/responder >/dev/null
+#!/usr/bin/env bash
+exec python3 /opt/Responder/Responder.py "$@"
+EOF
+  $SUDO chmod 0755 /usr/local/bin/responder
 }
 
 download_to() {
@@ -58,11 +106,15 @@ case "${ARCH}" in
     NUCLEI_ARCH="amd64"
     HTTPX_ARCH="amd64"
     FEROXBUSTER_ARCHIVE="x86_64-linux-feroxbuster.tar.gz"
+    KERBRUTE_ARCH="amd64"
+    SUBFINDER_ARCH="amd64"
     ;;
   aarch64|arm64)
     NUCLEI_ARCH="arm64"
     HTTPX_ARCH="arm64"
     FEROXBUSTER_ARCHIVE="aarch64-linux-feroxbuster.zip"
+    KERBRUTE_ARCH="arm64"
+    SUBFINDER_ARCH="arm64"
     ;;
   *)
     echo "Unsupported architecture for pinned security tooling: ${ARCH}" >&2
@@ -72,9 +124,17 @@ esac
 
 $SUDO apt update
 $SUDO apt install -y \
-  curl unzip tar ca-certificates pipx \
+  curl unzip tar ca-certificates pipx git python3-venv python3-aioquic \
   openjdk-17-jre-headless \
-  nmap ffuf testssl.sh
+  nmap ffuf testssl.sh hashcat ssh-audit ldap-utils
+
+install_apt_if_available "impacket-scripts"
+install_apt_if_available "netexec"
+install_apt_if_available "bloodhound.py"
+
+if command -v testssl >/dev/null 2>&1 && ! command -v testssl.sh >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v testssl)" /usr/local/bin/testssl.sh
+fi
 
 install_zip_binary \
   "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_${NUCLEI_ARCH}.zip" \
@@ -121,11 +181,54 @@ if [[ ! -x "${OWNER_HOME}/.local/bin/semgrep" ]]; then
   run_as_owner "env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy python3 -m pipx ensurepath"
   run_as_owner "env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy python3 -m pipx install semgrep"
 fi
+link_owner_bin "semgrep"
+
+install_pipx_if_missing "bloodhound-python" "bloodhound"
+install_pipx_if_missing "aws" "awscli"
+install_pipx_if_missing "psexec.py" "impacket"
+link_owner_bin "wmiexec.py"
+link_owner_bin "secretsdump.py"
+link_owner_bin "GetUserSPNs.py"
+link_owner_bin "GetNPUsers.py"
+
+if ! command -v nxc >/dev/null 2>&1 && [[ ! -x "${OWNER_HOME}/.local/bin/nxc" ]]; then
+  run_as_owner "TMPDIR=/tmp env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy python3 -m pipx install git+https://github.com/Pennyw0rth/NetExec.git"
+fi
+link_owner_bin "nxc"
+link_owner_bin "netexec"
+link_owner_bin "NetExec"
+link_owner_bin "nxcdb"
+
+install_responder_if_missing
+
+if ! command -v kerbrute >/dev/null 2>&1; then
+  download_to \
+    "https://github.com/ropnop/kerbrute/releases/download/v${KERBRUTE_VERSION}/kerbrute_linux_${KERBRUTE_ARCH}" \
+    "${WORKDIR}/kerbrute"
+  $SUDO install -m 0755 "${WORKDIR}/kerbrute" /usr/local/bin/kerbrute
+fi
+
+if ! command -v subfinder >/dev/null 2>&1; then
+  install_zip_binary \
+    "https://github.com/projectdiscovery/subfinder/releases/download/v${SUBFINDER_VERSION}/subfinder_${SUBFINDER_VERSION}_linux_${SUBFINDER_ARCH}.zip" \
+    "subfinder" \
+    "subfinder"
+fi
 
 if [[ "${AEGISPT_INSTALL_METASPLOIT}" == "always" ]]; then
-  $SUDO apt install -y metasploit-framework
+  if apt-cache show metasploit-framework >/dev/null 2>&1; then
+    $SUDO apt install -y metasploit-framework
+  else
+    download_to "${METASPLOIT_INSTALL_URL}" "${WORKDIR}/msfinstall"
+    chmod 0755 "${WORKDIR}/msfinstall"
+    $SUDO "${WORKDIR}/msfinstall"
+  fi
 elif [[ "${AEGISPT_INSTALL_METASPLOIT}" == "auto" ]] && apt-cache show metasploit-framework >/dev/null 2>&1; then
   $SUDO apt install -y metasploit-framework
+elif [[ "${AEGISPT_INSTALL_METASPLOIT}" == "auto" ]]; then
+  download_to "${METASPLOIT_INSTALL_URL}" "${WORKDIR}/msfinstall"
+  chmod 0755 "${WORKDIR}/msfinstall"
+  $SUDO "${WORKDIR}/msfinstall"
 else
   echo "Skipping metasploit-framework: package not available in current apt sources."
 fi

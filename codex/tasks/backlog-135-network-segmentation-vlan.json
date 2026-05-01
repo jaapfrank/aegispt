@@ -1,0 +1,89 @@
+{
+  "id": "backlog-135-network-segmentation-vlan",
+  "task_file": "codex/tasks/backlog-135-network-segmentation-vlan.json",
+  "task_type": "backlog_slice",
+  "title": "Network Segmentation Testing \u2014 VLAN Hopping, Subnet Discovery, and Lateral Reach",
+  "goal": "Test whether network segments are properly isolated by attempting VLAN hopping, discovering connected subnets via routing table and ARP, and checking lateral reachability between network zones.",
+  "scope": "Three sub-tests in workers/runners/network_segmentation/runner.py: (1) SUBNET DISCOVERY: from each discovered host, attempt to read its routing table via SNMP (if port 161 open with community string 'public') or via HTTP management interface. Alternatively, look at the nmap ARP table for /32 routes that indicate connected subnets. Query the gateway router for its routing table. Enumerate all subnets the network knows about beyond the assessed CIDR. Create an informational finding for each additional subnet found: 'Additional network segment discovered: 192.168.10.0/24'. (2) VLAN DOUBLE-TAGGING TEST: using Python's scapy library, craft and send a double-tagged 802.1Q frame targeting the native VLAN from the assessed subnet. Listen for responses on a second VLAN ID for 10 seconds. If a response is received, create a CRITICAL finding: 'VLAN hopping via 802.1Q double-tagging is possible. Traffic can cross VLAN boundaries.' This test requires root/CAP_NET_RAW. (3) LATERAL REACHABILITY: for each discovered subnet, attempt a ping to the subnet gateway and first 5 hosts. If hosts on other subnets respond, create a MEDIUM finding: 'Cross-segment access detected: host X is reachable from Y without router'. Also check: from the test host, can port 22/80/443/8080/8123 be reached on the IoT VLAN or management VLAN? Add profile passive-lan-segmentation-check (for subnet discovery + reachability only) and active-lan-segmentation-test (for VLAN double-tag test, requires active auth).",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "User has IoT devices, cameras, home automation, and entertainment systems on the same or nearby network segments. VLAN hopping and subnet discovery are standard enterprise pentest tests that are completely absent from AegisPT. A network that allows VLAN hopping means a compromised IoT device can reach the corporate LAN.",
+  "queue_index": 135,
+  "source_context": {
+    "queue_index": 135,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "workers/runners/nmap/runner.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Passive subnet discovery and single VLAN hop test only. No full routing table manipulation. VLAN test sends max 10 probe frames. No active exploitation of cross-segment access.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Subnet discovery finds additional subnets via SNMP and ARP analysis.",
+    "VLAN double-tag frame sent and response monitored.",
+    "VLAN hopping finding created if response received on second VLAN.",
+    "Cross-segment reachability findings created.",
+    "Both passive-lan-segmentation-check and active-lan-segmentation-test profiles added.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/runners/network_segmentation/runner.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Full routing table manipulation",
+    "Active VLAN persistence",
+    "Cross-VLAN exploitation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Subnets discovered. VLAN test runs. Segmentation findings created with correct severity."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_prompted"
+}

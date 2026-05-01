@@ -1,0 +1,115 @@
+{
+  "id": "backlog-110-ui-visual-polish-round-2",
+  "task_file": "codex/tasks/backlog-110-ui-visual-polish-round-2.json",
+  "task_type": "backlog_slice",
+  "title": "UI Visual Polish Round 2 \u2014 wizard_mockup standard pass across Mission Control, Surface Map, Intake, Reports, and History",
+  "goal": "Apply the cleaner, more professional wizard_mockup.html design language as the default UI standard across every screen touched in this slice, not as a Mission-Control-only tweak, so the roughest remaining UI edges move toward one consistent product language.",
+  "scope": "Use wizard_mockup.html as the default visual standard for every surface touched in this polish pass so the cards, spacing, empty states, chips, and general calmness move in one consistent direction across the full UI rather than as isolated per-screen fixes. Seven targeted fixes: (0) MISSION CONTROL LAYOUT OVERHAUL: The current Mission Control renders 10+ separate DOM sections causing an overwhelming, unfocused layout. Specific problems: (a) The 7-column 'Mission Phases' lifecycle timeline (SCOPING / INTEL GATHERING / INITIAL ACCESS etc.) shows tiny cards with massive horizontal whitespace between them. Replace with a compact horizontal stepper \u2014 a single row with phase names, a progress dot/check per phase, and no card boxes. (b) The Exposure Score gauge appears TWICE: once in the Operational Snapshot panel (right column) and again in the Supporting Context section at the bottom. Remove the duplicate \u2014 keep it only in Operational Snapshot. (c) The 'Supporting Context' section at the bottom (Exposure Score + Active Runs + Active Scope & Profile across full width) is sparse and redundant \u2014 consolidate into the existing panels or remove. Mission Control should have three clear columns (Current Activity | Run Activity | AI Signal) with supporting information in the AI Signal column, not a fourth full-width row below. (1) SURFACE MAP FUTURE TAB RENAME: Rename 'Future Attack Paths' \u2192 'Attack Paths', 'Future Identity Graph' \u2192 'Identity Graph', 'Future Risk Overlay' \u2192 'Risk Overlay'. These features are partially implemented \u2014 the naming incorrectly implies they are unbuilt. Update the three label constants in mission-control.js lines 4561-4563. (2) SURFACE MAP DARK BLOCK: (1) SURFACE MAP DARK BLOCK: When no inventory exists, replace the ~50%-viewport dark canvas with a clean empty state panel (white/light background, icon, one sentence, one action button 'Start a discovery scan \u2192'). The dark canvas should only show when there IS inventory data to display. Remove or reduce the dark block height from 50% to auto. Fix contrast: any text inside the dark canvas area must meet WCAG AA contrast (4.5:1 minimum). The 'Hotspots & Boundaries / No candidate paths yet' dark-on-dark text must be changed to readable contrast. (2) SURFACE MAP FUTURE TABS: Remove 'Future Attack Paths', 'Future Identity Graph', 'Future Risk Overlay' placeholder tabs. These imply broken features. Replace with a single 'Coming Soon' note in the description text if needed, or simply remove. Keep only functional tabs. (3) INTAKE CLEANUP: Remove the 'WRITE YOUR OWN ANSWER' text input that appears below the assessment tiles \u2014 this is a remnant of the old conversational system that conflicts with the tile interface. Remove the 'MISSION PROGRESS: Still to confirm...' text block that appears below the tiles \u2014 it belongs in the summary panel, not as a floating paragraph. Ensure all 8 tiles are visible without scrolling on a 1440px viewport \u2014 use a 4-column or 3-column grid that fits without needing to scroll to see all options. (4) REPORTS RAW HASH: In Report Details, replace the raw SHA256 hash (35280bb8bfdcfb51...) with 'Evidence hash: verified' label and a small copy icon. Only show the full hash on click/expand. Report metadata should show human-readable values, not database identifiers. (5) HISTORY EMPTY PANEL: The left 'Run Comparison' panel shows only 'Choose a baseline run to compare changes over time.' on an otherwise empty panel. Add a visual hint: a small illustrative icon and two example comparison actions (arrows showing before/after), not just instructional text.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Full visual audit of all 9 screens identified these as the most jarring remaining problems after backlog-85. The Surface Map dark block is the user's specific complaint ('nauwelijks te lezen'). The intake tiles require scrolling to see all options. The 'Future...' tabs create confusion about broken features. These are all small CSS/JS changes with high visual impact.",
+  "source_context": {
+    "queue_index": 82,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "UI_REDESIGN_SPEC.md",
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "wizard_mockup.html"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_quality",
+    "source_documents": [
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/wizard.js",
+      "ui/assets/modules/reports.js",
+      "ui/assets/modules/explorer-history.js",
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Visual polish only. No new features, no backend changes, no new API calls. Remove placeholder tabs and remnant elements. Fix contrast and empty states.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Mission Phases timeline replaced with a compact horizontal stepper \u2014 no 7-column card grid with whitespace.",
+    "Exposure Score appears exactly once in Mission Control \u2014 duplicate in Supporting Context removed.",
+    "Supporting Context full-width bottom section removed or consolidated into existing columns.",
+    "'Future Attack Paths', 'Future Identity Graph', 'Future Risk Overlay' renamed to 'Attack Paths', 'Identity Graph', 'Risk Overlay'.",
+    "Surface Map shows a light empty state panel when no inventory exists \u2014 dark canvas only appears with actual data.",
+    "Text inside the dark canvas area meets WCAG AA contrast (4.5:1).",
+    "'Future Attack Paths', 'Future Identity Graph', 'Future Risk Overlay' tabs removed.",
+    "'Write your own answer' input removed from below tiles in Intake.",
+    "'MISSION PROGRESS' floating text block removed from below tiles.",
+    "All 8 assessment tiles visible without scrolling on 1440px viewport.",
+    "Raw SHA256 hash in Reports replaced with human-readable 'Evidence hash: verified' label.",
+    "History comparison left panel has visual guidance beyond plain instruction text.",
+    "The calmer wizard_mockup standard is carried consistently across all touched UI surfaces in this slice, not treated as a Mission-Control-only exception.",
+    "Full Playwright suite remains green.",
+    "No backend or schema changes."
+  ],
+  "likely_touched_files": [
+    "ui/assets/styles.css",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/explorer-history.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Dark canvas only shows with data \u2014 clean empty state otherwise.",
+      "Future tabs removed.",
+      "All 8 tiles visible without scroll on 1440px.",
+      "Raw hash replaced.",
+      "Playwright green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "First-run onboarding experience (backlog-80) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with visual polish round 2 changes.",
+      "Update CURRENT_STATE.md with improved Surface Map and Intake polish.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Light/dark theme for Surface Map canvas (keep dark when data present)",
+    "New features",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,92 @@
+{
+  "id": "backlog-173-topbar-subtitle-too-verbose",
+  "task_file": "codex/tasks/backlog-173-topbar-subtitle-too-verbose.json",
+  "task_type": "corrective_product_slice",
+  "title": "Shorten or remove topbar/hero subtitle: 'Guided, evidence-first assessment...' is too verbose for enterprise use",
+  "goal": "The application shell (topbar or hero area depending on active screen) shows a long subtitle: 'Guided, evidence-first assessment operations across wizard-driven setup, live mission control, adaptive pack governance, evidence replay, and report delivery.' This is a marketing description that takes significant vertical space and repeats on every screen. For enterprise operators who use the tool daily, this is noise. Options in priority order: (1) Remove the subtitle entirely — the screen headings already describe each screen, (2) Keep a very short tagline (max 8 words, e.g. 'Penetration testing operations platform') only on the Dashboard/home screen, (3) Move to an About section in Settings. Do not add any new subtitle text that is as long as the current one.",
+  "scope": "System review 2026-05-01: The hero subtitle 'Guided, evidence-first assessment operations across wizard-driven setup, live mission control, adaptive pack governance, evidence replay, and report delivery.' appears in the topbar or hero area across all screens. It is 18 words of marketing copy that reduces usable screen real estate on every page view.",
+  "status": "queued",
+  "generated_by": "system-review-2026-05-01",
+  "generation_reason": "System review 2026-05-01: 18-word topbar subtitle wastes vertical space on every screen — remove or shorten to enterprise-appropriate tagline.",
+  "source_context": {
+    "queue_index": 173,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-52-ui-structural-foundation.json",
+      "codex/tasks/backlog-85-ui-quality-overhaul.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_snapshot_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "topbar_enterprise_density",
+    "source_documents": [
+      "ui/index.html",
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only change the subtitle/tagline text and possibly remove the element. Do not redesign the topbar layout or hero area.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "The long subtitle ('Guided, evidence-first assessment operations...') is not visible in the application shell on any screen.",
+    "If a short tagline replaces it, it is 8 words or fewer.",
+    "Screen-level headings and descriptions provide context for each specific screen.",
+    "No regression in E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "ui/assets/styles.css",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Screen-level headings and eyebrows",
+    "Navigation structure",
+    "Backend API"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The long subtitle string is absent from all rendered screens.",
+      "Shell topbar fits within 48-56px height without subtitle.",
+      "No regression in E2E tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full topbar redesign",
+    "Brand/logo changes",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

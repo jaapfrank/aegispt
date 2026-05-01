@@ -18,6 +18,12 @@ from uuid import uuid4
 import httpx
 
 SAFE_TARGET_CLASSIFICATIONS = {"local_dev", "authorized_customer", "training_lab"}
+TARGET_RUNNABILITY_STATES = {
+    "runnable",
+    "fixture_backed",
+    "documentation_only",
+    "disabled_template",
+}
 DEFAULT_MODULE_STATE = {
     "discovery": False,
     "web_crawling": False,
@@ -29,6 +35,14 @@ DEFAULT_MODULE_STATE = {
     "business_logic_testing": False,
     "adaptive_ai_generated_tests": False,
     "internal_validation_modules": False,
+    "api_security_testing": False,
+    "mobile_static_review": False,
+    "cloud_native_static_review": False,
+    "cicd_security_review": False,
+    "secrets_hygiene_review": False,
+    "llm_application_probing": False,
+    "ad_lab_validation": False,
+    "benchmark_fixture_review": False,
 }
 DEFAULT_SAFETY = {
     "rate_limit_rps": 2,
@@ -43,8 +57,13 @@ RUN_PROFILE_TOOL_HINTS = {
     "passive-web-baseline": ["httpx"],
     "passive-web-nuclei-audit": ["nuclei"],
     "passive-code-semgrep-audit": ["semgrep"],
+    "passive-cicd-security-assessment": ["cicd-security"],
+    "passive-cloud-native-assessment": ["cloud-native"],
+    "passive-mobile-android-static": ["mobile-android"],
     "active-web-safe": ["zap"],
     "active-web-zap-active": ["zap"],
+    "active-api-assessment": ["api-assessment"],
+    "active-llm-application-probe": ["llm-probe"],
     "intrusive-validation": ["zap", "nuclei"],
 }
 TERMINAL_RUN_STATUSES = {
@@ -125,6 +144,87 @@ def load_ui_matrix(path: str | Path | None = None) -> dict[str, Any]:
 
 def load_target_catalog(path: str | Path | None = None) -> dict[str, Any]:
     return load_json(path or default_target_catalog_path())
+
+
+def _target_runnability(target: dict[str, Any]) -> str:
+    raw_value = (
+        target.get("runnability")
+        or target.get("runnable_state")
+        or target.get("execution_state")
+        or "runnable"
+    )
+    return str(raw_value).strip().lower()
+
+
+def validate_target_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
+    targets = catalog.get("targets")
+    scenarios = catalog.get("real_run_scenarios")
+    if not isinstance(targets, list):
+        raise ValueError("target catalog must contain a targets list")
+    if scenarios is not None and not isinstance(scenarios, list):
+        raise ValueError("target catalog real_run_scenarios must be a list when present")
+
+    seen_targets: set[str] = set()
+    runnable_counts = {state: 0 for state in TARGET_RUNNABILITY_STATES}
+    surface_kinds: set[str] = set()
+    for target in targets:
+        if not isinstance(target, dict):
+            raise ValueError("target catalog entries must be objects")
+        target_id = str(target.get("id") or "").strip()
+        if not target_id:
+            raise ValueError("target catalog entry missing id")
+        if target_id in seen_targets:
+            raise ValueError(f"duplicate target id: {target_id}")
+        seen_targets.add(target_id)
+
+        classification = target.get("classification")
+        if classification not in SAFE_TARGET_CLASSIFICATIONS:
+            raise ValueError(f"Target {target_id} is not in an approved safe classification.")
+        if target.get("unauthorized_public") is True:
+            raise ValueError(f"Target {target_id} is marked as unauthorized public scope.")
+
+        runnability = _target_runnability(target)
+        if runnability not in TARGET_RUNNABILITY_STATES:
+            raise ValueError(f"Target {target_id} has unsupported runnability: {runnability}")
+        runnable_counts[runnability] += 1
+        if target.get("enabled", True) is True and runnability == "documentation_only":
+            raise ValueError(f"Documentation-only target {target_id} must not be enabled for execution.")
+        if target.get("surface_kind"):
+            surface_kinds.add(str(target["surface_kind"]))
+
+        benchmark_metadata = target.get("benchmark_metadata")
+        if benchmark_metadata is not None:
+            if not isinstance(benchmark_metadata, dict):
+                raise ValueError(f"Target {target_id} benchmark_metadata must be an object")
+            vulnerable_families = benchmark_metadata.get("vulnerable_families")
+            prerequisites = benchmark_metadata.get("prerequisites")
+            if not isinstance(vulnerable_families, list):
+                raise ValueError(f"Target {target_id} benchmark_metadata.vulnerable_families must be a list")
+            if prerequisites is not None and not isinstance(prerequisites, list):
+                raise ValueError(f"Target {target_id} benchmark_metadata.prerequisites must be a list")
+
+    seen_scenarios: set[str] = set()
+    scenario_count = 0
+    for scenario in scenarios or []:
+        if not isinstance(scenario, dict):
+            raise ValueError("real-run scenarios must be objects")
+        scenario_id = str(scenario.get("id") or "").strip()
+        if not scenario_id:
+            raise ValueError("real-run scenario missing id")
+        if scenario_id in seen_scenarios:
+            raise ValueError(f"duplicate real-run scenario id: {scenario_id}")
+        seen_scenarios.add(scenario_id)
+        scenario_count += 1
+        target_id = str(scenario.get("target_id") or "").strip()
+        if target_id not in seen_targets:
+            raise ValueError(f"real-run scenario {scenario_id} references unknown target {target_id}")
+
+    return {
+        "target_count": len(targets),
+        "scenario_count": scenario_count,
+        "runnability_counts": runnable_counts,
+        "surface_kinds": sorted(surface_kinds),
+    }
 
 
 def list_enabled_scenarios(matrix: dict[str, Any], *, lane: str | None = None) -> list[dict[str, Any]]:
@@ -448,20 +548,33 @@ def build_target_inputs(target: dict[str, Any]) -> dict[str, list[str]]:
     return {
         "domains": list(scope.get("domains", [])),
         "subdomains": list(scope.get("subdomains", [])),
+        "directory_domains": list(scope.get("directory_domains", [])),
         "urls": list(scope.get("urls", [])),
         "ip_addresses": list(scope.get("hosts", [])),
         "cidr_ranges": list(scope.get("cidrs", [])),
         "api_base_urls": list(scope.get("api_base_urls", [])),
+        "pipeline_config_paths": list(scope.get("pipeline_config_paths", [])),
+        "repositories": list(scope.get("repositories", [])),
+        "llm_endpoints": list(scope.get("llm_endpoints", [])),
+        "apk_paths": list(scope.get("apk_paths", [])),
+        "container_images": list(scope.get("container_images", [])),
+        "kubernetes_manifest_paths": list(scope.get("kubernetes_manifest_paths", [])),
     }
 
 
 def build_allowlist_from_target(target: dict[str, Any]) -> dict[str, list[str]]:
     inputs = build_target_inputs(target)
     return {
-        "domains": [*inputs["domains"], *inputs["subdomains"]],
+        "domains": [*inputs["domains"], *inputs["subdomains"], *inputs["directory_domains"]],
         "urls": [*inputs["urls"], *inputs["api_base_urls"]],
         "hosts": list(inputs["ip_addresses"]),
         "cidrs": list(inputs["cidr_ranges"]),
+        "pipeline_config_paths": list(inputs["pipeline_config_paths"]),
+        "repositories": list(inputs["repositories"]),
+        "llm_endpoints": list(inputs["llm_endpoints"]),
+        "apk_paths": list(inputs["apk_paths"]),
+        "container_images": list(inputs["container_images"]),
+        "kubernetes_manifest_paths": list(inputs["kubernetes_manifest_paths"]),
     }
 
 

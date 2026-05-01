@@ -1,0 +1,111 @@
+{
+  "id": "backlog-152-ai-value-and-operator-signal-workbench",
+  "task_file": "codex/tasks/backlog-152-ai-value-and-operator-signal-workbench.json",
+  "task_type": "backlog_slice",
+  "title": "AI Value and Operator Signal Workbench",
+  "goal": "Turn AI from a mostly passive/degraded panel into a clear operator workbench for signals, explanations, repair proposals, report help, and safe build-lane handoff.",
+  "scope": "Unify AI provider status, ChatGPT OAuth session health, AI Signal Inbox, repair proposals, finding enrichment, report draft, and build-lane fix creation into a discoverable operator workbench. AI must explain runner failures and skipped states, propose safe actions, create build-lane tasks where code/config fixes are needed, and never mutate active runtime directly.",
+  "status": "queued",
+  "generated_by": "operator-system-audit-2026-04-30",
+  "generation_reason": "The operator reports that AI still has little practical value: ChatGPT OAuth appears disconnected or repeatedly requires login, repair proposals do not continue runs, and signals are hard to inspect or address. This task extends backlog-132 rather than duplicating it by making AI operationally useful across all AI entry points.",
+  "queue_index": 152,
+  "source_context": {
+    "queue_index": 152,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_operator_value",
+    "source_documents": [
+      "api/app/services/chatgpt_oauth.py",
+      "api/app/services/ai_repair_lane.py",
+      "api/app/services/ai_signal_stream.py",
+      "api/app/services/ai_enrichment.py",
+      "api/app/services/autofix.py",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/reports.js",
+      "ui/assets/modules/findings.js",
+      "ui/assets/modules/settings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "AI may propose, explain, and create build-lane tasks. AI must not directly edit active runtime, dispatch scans, install tools, approve gates, or modify customer targets.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Operators can open one AI workbench/inbox and see all AI signals for the selected run and engagement.",
+    "ChatGPT OAuth status is stable, understandable, and includes a clear reconnect/refresh path.",
+    "AI repair output distinguishes retry, continue, accept-gap, and build-lane-fix actions with explicit eligibility.",
+    "AI can create a repo-backed task package for code/config/tool fixes without touching active runtime.",
+    "Disabled/provider-failure states are compact, high-contrast, and do not expose raw backend errors unless expanded.",
+    "Report draft, AutoFix, finding enrichment, and repair signals share a consistent status model."
+  ],
+  "likely_touched_files": [
+    "api/app/services/chatgpt_oauth.py",
+    "api/app/services/ai_repair_lane.py",
+    "api/app/services/ai_signal_stream.py",
+    "api/app/routers/settings.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/settings.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/findings.js",
+    "api/tests/",
+    "ui/tests/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime self-modification",
+    "approval gate bypass",
+    "pack registry bypass"
+  ],
+  "out_of_scope": [
+    "Autonomous live exploit execution",
+    "Applying code patches automatically",
+    "Training on customer data",
+    "Changing finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "Focused API tests for AI signal/action contracts and ChatGPT OAuth reuse/degraded states",
+      "Focused browser tests for AI workbench, disabled provider, repair proposal, and build-lane task creation"
+    ],
+    "acceptance_criteria": [
+      "A failed safe fixture runner can produce an AI triage signal, show a concrete eligible action, and create a build-lane task without mutating active runtime."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-151 has completed or been explicitly deferred by the operator.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

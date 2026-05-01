@@ -1,0 +1,117 @@
+{
+  "id": "backlog-63-cicd-event-driven-triggers",
+  "task_file": "codex/tasks/backlog-63-cicd-event-driven-triggers.json",
+  "task_type": "backlog_slice",
+  "title": "CI/CD Event-Driven Trigger Foundation",
+  "goal": "Allow AegisPT to automatically launch a scoped pentest when code is deployed \u2014 matching Aikido Infinite's core capability of testing every release without operator intervention.",
+  "scope": "Implement: (1) A webhook receiver endpoint POST /api/v1/triggers/cicd that accepts a signed payload from GitHub Actions, GitLab CI, or a generic HTTP push event. Payload carries: trigger_source, ref (branch/tag), commit_sha, optional target_url override. (2) A cicd_triggers table storing: engagement_id, trigger_source (github/gitlab/generic), webhook_secret (encrypted), enabled_profiles (list of run profiles to launch on trigger), scope_override_allowed (bool), last_triggered_at, last_run_id. (3) A trigger evaluation service that: validates the HMAC signature, checks the branch filter (e.g. only trigger on main/release branches), looks up the engagement's configured run profiles, creates and dispatches a run through the existing approval-gated dispatch path. (4) A trigger history view in Settings showing last 10 trigger events with status and linked run. (5) GitHub Actions workflow template (docs/cicd/aegispt-github-action.yml) operators can copy into their repo. Triggers respect all existing approval gates \u2014 if a profile requires approval, the triggered run is queued, not auto-approved.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Aikido Infinite triggers on every deployment. AegisPT has scheduled runs but no event-driven triggering. CI/CD integration is the primary reason DevSecOps teams choose Aikido over traditional platforms \u2014 it makes security testing part of the deployment pipeline rather than a separate scheduled activity.",
+  "source_context": {
+    "queue_index": 63,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/integrations.md",
+      "docs/secret_handling_baseline.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "cicd_integration",
+    "source_documents": [
+      "api/app/services/runs.py",
+      "api/app/services/scheduled_runs.py",
+      "api/app/services/secrets.py",
+      "api/app/models/control.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Webhook receiver and trigger evaluation only. All existing approval gates remain. Triggered runs follow the same dispatch path as manual runs. Webhook secrets stored encrypted. No automatic approval of runs that require operator sign-off.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "webhook_secrets_encrypted": true
+  },
+  "success_criteria": [
+    "POST /api/v1/triggers/cicd accepts and validates signed GitHub/GitLab/generic payloads.",
+    "HMAC signature validation rejects unsigned or incorrectly signed payloads.",
+    "Branch filter prevents triggers on non-configured branches.",
+    "A valid trigger creates and dispatches a run through the existing approval-gated path.",
+    "Runs that require approval are queued, not auto-approved.",
+    "Trigger history shows last 10 events in Settings.",
+    "GitHub Actions workflow template is documented.",
+    "Webhook secrets are encrypted at rest and never returned in API responses.",
+    "Tests cover valid trigger, invalid signature, branch filter, approval gate preservation.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/routers/triggers.py",
+    "api/app/services/cicd_triggers.py",
+    "api/app/services/secrets.py",
+    "api/app/main.py",
+    "api/app/config.py",
+    "migrations/versions/20260423_0018_cicd_triggers.py",
+    "docs/cicd/aegispt-github-action.yml",
+    "ui/assets/modules/settings.js",
+    "api/tests/test_cicd_triggers.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Automatic approval of approval-gated runs",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cicd_triggers.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Signed webhook triggers a run through existing dispatch path.",
+      "Unsigned webhooks are rejected with 401.",
+      "Approval gates are preserved.",
+      "Secrets encrypted.",
+      "API tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Repository integration foundation (backlog-62) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with CI/CD trigger implementation and approval-gate preservation evidence.",
+      "Update CURRENT_STATE.md with CI/CD event-driven triggers as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Auto-approval of triggered runs",
+    "Container image scanning",
+    "SAST/dependency scanning (Semgrep covers basic SAST)",
+    "Full CI/CD pipeline integration beyond trigger reception"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,6 +1,3037 @@
 # Done Log
 
+- 2026-04-30: completed backlog-153 `Enterprise Information Architecture and Page UX Clarity`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-153-enterprise-information-architecture-and-page-ux-clarity.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-153 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because the task changes product UI, page clarity, and browser-visible operator workflows
+  - implementation:
+    - clarified topbar actions by changing ambiguous engagement `Manage` copy to `Cleanup` and wiring the bell icon to Settings as a real notification-settings shortcut
+    - clarified Mission Control dispatch copy from `Start Validation` to `Start Queued Checks`
+    - removed stale compatibility/legacy product wording from Evidence Replay, Explorer, and finding evidence consolidation copy
+    - changed Pack Forge visible language from raw Codex/developer phrasing to supervised build-lane terminology and prevented old task package prose from flooding task cards
+    - added explicit accessible labels to Settings API key, scheduler, watchlist, and persisted setting controls, and added run-specific accessible labels to History delete actions
+    - added `scripts/run_enterprise_ia_audit.py`, a desktop+narrow Playwright screenshot crawler and page UX scorecard generator for all primary screens
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile scripts/run_enterprise_ia_audit.py` passed
+    - ES module syntax checks passed for changed UI modules using `node --input-type=module --check`
+    - `bash scripts/restart_local_inline_host.sh` restarted localhost on the current branch and `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - `python3 scripts/run_enterprise_ia_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-153-enterprise-ia-scorecard-20260430.json --output-md codex/results/backlog-153-enterprise-ia-scorecard-20260430.md --screenshot-dir codex/results/backlog-153-enterprise-ia-screenshots-20260430 --settle-ms 700` passed with average `9.91`, minimum `8.75`, and 28 screenshot-backed page checks
+    - `python3 scripts/run_full_system_acceptance_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-153-full-system-acceptance-audit-20260430.json --output-md codex/results/backlog-153-full-system-acceptance-audit-20260430.md --max-seconds 180` passed, visited `14/14` screens, and recorded `51` broader residual defects mapped to existing backlog areas
+    - `python3 -m pytest -s -q ui/tests/test_full_system_acceptance_audit.py` passed
+    - `git diff --check` passed
+  - blocked / residual validation truth:
+    - the first pytest smoke run without `-s` hit the known host-level `_pytest/capture.py` `FileNotFoundError`; the same tests passed with capture disabled and the no-`-s` command is not claimed green
+    - Pack Forge can still show historical task-record content containing words like `mockup` inside selected build-lane data; the product shell and controls no longer use those labels
+    - the older full-system acceptance harness still records broader Settings/readiness, Jira/AI/network, and field-guidance issues, which remain queued follow-up work rather than hidden as green
+  - evidence:
+    - `codex/results/backlog-153-enterprise-ia-scorecard-20260430.json`
+    - `codex/results/backlog-153-enterprise-ia-scorecard-20260430.md`
+    - `codex/results/backlog-153-enterprise-ia-screenshots-20260430/`
+    - `codex/results/backlog-153-full-system-acceptance-audit-20260430.json`
+    - `codex/results/backlog-153-full-system-acceptance-audit-20260430.md`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-152 `AI Value and Operator Signal Workbench`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-152-ai-value-and-operator-signal-workbench.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-152 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because the task changes Mission Control, AI operator state, and safe browser-visible product behavior
+  - implementation:
+    - extended `api/app/services/ai_repair_lane.py` so the `create_build_lane_fix` repair action creates a real repo-backed Codex task package through the existing Codex task service, while explicitly preserving no active runtime mutation, no dispatch, no approval bypass, no tool install, and no customer-target action
+    - extended `api/app/services/ai_agent.py` and `api/app/schemas/runs.py` with an `operator_workbench` payload that unifies provider state, reusable ChatGPT OAuth session status, AI signal rows, pending repair counts, feature readiness, and build-lane handoff summaries
+    - updated Mission Control to render an AI Operator Workbench above the AI Signal Inbox, including provider status, safe-boundary language, latest build-lane task, recent signals, and compact feature readiness chips
+    - updated focused API and Playwright smoke coverage for the new build-lane handoff and workbench contract
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m pytest -s -q api/tests/test_ai_repair_lane.py api/tests/test_chatgpt_oauth.py::test_authorize_reuses_existing_encrypted_session_for_new_engagement_without_new_login api/tests/test_chatgpt_oauth.py::test_provider_calls_auto_reuse_existing_encrypted_session_for_new_engagement` passed
+    - `python3 -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_signal_provider_badge_and_live_text` passed
+    - `python3 -m compileall -q api/app/services/ai_repair_lane.py api/app/services/ai_agent.py api/app/schemas/runs.py` passed
+    - `bash scripts/restart_local_inline_host.sh` restarted the localhost app on current code, `curl -sS http://127.0.0.1:8000/health/live` returned healthy JSON, and served asset cache keys for `styles.css` plus `mission-control.js` were verified
+    - safe live Playwright validation passed against `http://127.0.0.1:8000/app/` with synthetic selected-run AI workbench state and saved a screenshot
+  - blocked / residual validation truth:
+    - the first focused pytest attempt without `-s` failed in pytest capture teardown with the known host-level `_pytest/capture.py` `FileNotFoundError`; the same focused selections passed with capture disabled and the no-`-s` command is not claimed green
+    - real ChatGPT OAuth/provider value still depends on a configured reusable encrypted OAuth session and external provider availability
+    - no live customer run was created or mutated; live browser proof used safe synthetic UI state
+  - evidence:
+    - `codex/results/backlog-152-ai-value-operator-workbench-20260430.md`
+    - `codex/results/backlog-152-ai-operator-workbench-live.png`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-153-enterprise-information-architecture-and-page-ux-clarity.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-149 `Full System Acceptance Harness and Defect Inventory`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-149-full-system-acceptance-harness-and-defect-inventory.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-149 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because the active task requires a safe localhost UI/API crawl; no live customer, LAN, AD, IoT, cloud, or intrusive target action was launched
+  - implementation:
+    - added `scripts/run_full_system_acceptance_audit.py`, a bounded Playwright/HTTP audit harness that visits all primary app screens, records visible controls/fields/console/network/API state, performs safe wizard and Settings field exercises, and writes JSON plus Markdown defect inventory artifacts
+    - added `ui/tests/test_full_system_acceptance_audit.py`, a fast seeded-fixture smoke test proving the detector catches broken accessible names, placeholder actions, ambiguous operator actions, required fields without guidance, and maps known areas to existing backlog targets
+    - kept the task to harness/inventory only; no discovered product defects were repaired in this slice
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile scripts/run_full_system_acceptance_audit.py ui/tests/test_full_system_acceptance_audit.py` passed
+    - `.venv/bin/python -m pytest ui/tests/test_full_system_acceptance_audit.py --tb=short -q -s` passed with `2` tests
+    - `.venv/bin/python scripts/run_full_system_acceptance_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-149-full-system-acceptance-defect-inventory-20260430.json --output-md codex/results/backlog-149-full-system-acceptance-defect-inventory-20260430.md --max-seconds 120` passed, visited `14/14` screens in `9.71s`, filled representative safe values, and recorded `72` prioritized defects
+  - evidence:
+    - `codex/results/backlog-149-full-system-acceptance-defect-inventory-20260430.json`
+    - `codex/results/backlog-149-full-system-acceptance-defect-inventory-20260430.md`
+  - findings / residual risk:
+    - the audit groups defects primarily under existing backlog-150 through backlog-155 instead of creating duplicate work: lifecycle/Mission Control/Live Agents, wizard matrix, AI/operator workbench, enterprise page clarity, Settings readiness, and findings/report/history consistency
+    - the harness is heuristic by design; it records reproducible evidence and safe-fill attempts but does not prove every possible business path or replace targeted regression tests
+  - queue / governance:
+    - promoted `codex/tasks/backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-143 `Fix assessment chain test regression from Phase 1 gaining passive-lan-iot-discovery step (backlog-133)`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-143-assessment-chain-phase1-iot-discovery-step.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-143 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was not relevant for this API test-regression slice; no live target or runtime assessment action was needed
+  - implementation:
+    - updated `api/tests/test_assessment_chain.py::test_assessment_chain_skips_zero_target_follow_up_steps_without_failing` to model both Phase 1 steps in `FULL-INTERNAL-LAN`
+    - after `passive-network-discovery` completes, the test now asserts the chain stays `active`, remains in Phase 1, and starts `passive-lan-iot-discovery`
+    - after completing the IoT discovery run, the test now asserts the chain moves to `pending_phase_approval` for Phase 2 with no skipped Phase 1 steps
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/tests/test_assessment_chain.py` passed
+    - targeted regression test passed with capture disabled
+    - full assessment-chain suite passed with capture disabled: `19 passed in 16.71s`
+    - `git diff --check` passed
+  - blocked / residual validation truth:
+    - the exact required pytest command without `-s` still fails in pytest capture teardown with `FileNotFoundError`; this is the same host-level capture issue observed in backlog-142 and is not claimed green
+  - evidence:
+    - `codex/results/backlog-143-assessment-chain-phase1-iot-discovery-step-20260430.md`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-144-attack-path-test-scope-mismatch.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-142 `Fix ROE authorization checkbox not handled in _launch_guided_mission_from_preview test helper`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-142-roe-authorization-checkbox-test-helper.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-142 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was not directly relevant for this test-helper slice; validation used automated UI tests and safe static syntax checks instead
+  - implementation:
+    - updated `_launch_guided_mission_from_preview` in both named E2E files to check `wizard-roe-authorization-checkbox` when Create Mission is disabled
+    - added shared operator-test helper behavior for direct Create Mission launch paths that bypassed `_launch_guided_mission_from_preview`
+    - found a narrow product contradiction in the package: checking the ROE box enabled the button, but `submitWizard()` still rejected submit because it ignored `authorization_confirmed`; fixed that submit condition without weakening the ROE requirement
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - Python syntax validation passed for both touched E2E files
+    - ES module syntax validation passed for `ui/assets/modules/wizard.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py::test_wizard_requires_written_authorization_checkbox_when_roe_is_missing` passed
+    - `ui/tests/test_product_feature_matrix_e2e.py::test_profile_matrix_presets_create_truthful_run_dossiers` passed with `8 passed`
+    - `git diff --check` passed
+  - blocked / residual validation truth:
+    - the required two-file pytest command fails immediately in normal capture teardown with `FileNotFoundError`, even for `--collect-only`; `--collect-only -s` succeeds and reports `188` operator tests plus `46` feature-matrix tests
+    - representative operator launch validation now reaches Mission Control, then fails on stale non-ROE expectations (`passive-network-discovery` expected while current truth is `passive-lan-iot-discovery`; old AI provider-disabled copy expected while current AI Signal shows deterministic disabled guidance)
+  - evidence:
+    - `codex/results/backlog-142-roe-authorization-checkbox-test-helper-20260430.md`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-143-assessment-chain-phase1-iot-discovery-step.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-140 `IP Camera Testing - ONVIF Discovery, RTSP Stream Access, and Unauthenticated View`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-140-camera-onvif-rtsp-testing.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-140 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health/API validation only; the existing process returned 404 for `/health` and `/api/v1/health`, so no live-current-code health proof was claimed
+  - implementation:
+    - added `workers/runners/camera_test/runner.py` with ONVIF WS-Discovery parsing, read-only device metadata handling, RTSP `OPTIONS`/`DESCRIBE` checks only, web snapshot metadata checks, and bounded default credential probes
+    - added `camera-test` dispatch, command preview, inventory import, and finding extraction through the existing worker/orchestration/finding paths
+    - added approval-gated profile `active-lan-camera-audit`
+    - wired run creation to pass source inventory, read-only safety metadata, bounded credential attempt count, timeout, and target-host caps into the runner
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - syntax validation passed across the new runner, orchestration, findings, inventory, profiles, run services, and focused tests
+    - focused camera runner/profile/command-preview tests passed
+    - existing LAN/IoT regression tests passed across smart-home, mDNS/SSDP, and IoT default credential runner tests
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-140-camera-onvif-rtsp-testing-20260430.md`
+  - remaining risks:
+    - no real camera/RTSP/ONVIF live probe was run without explicit safe target authorization
+    - real camera execution depends on LAN reachability, device ONVIF support, HTTP auth scheme behavior, and RTSP authentication behavior
+    - the default credential list is intentionally bounded, not exhaustive
+  - queue / governance:
+    - promoted `codex/tasks/backlog-141-full-lan-iot-assessment-chain.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-139 `MQTT Broker and Home Assistant API Testing`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-139-mqtt-homeassistant-testing.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-139 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health/API validation only; no MQTT publish, Home Assistant automation, smart-home device-control, or live LAN probing was performed from the build lane
+  - implementation:
+    - added `workers/runners/smart_home/runner.py` with bounded anonymous MQTT connect/subscribe-only checks, topic-name capture, value redaction, and safe Home Assistant/hub GET probes
+    - added `smart-home` dispatch, command preview, inventory import, and finding extraction through the existing worker/orchestration/finding paths
+    - added passive read-only profile `passive-lan-smart-home-audit`
+    - wired run creation to pass source inventory, read-only safety metadata, bounded MQTT listen time, and target-host caps into the runner
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - syntax validation passed across the new runner, orchestration, findings, inventory, profiles, run services, and focused tests
+    - focused smart-home/profile/command-preview tests passed
+    - existing LAN/IoT regression set passed across mDNS/SSDP, IoT default credentials, SNMP, and IPv6 runner tests
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `git diff --check` passed for the active-task changed files
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 with `status=ok`
+  - evidence:
+    - `codex/results/backlog-139-mqtt-homeassistant-testing-20260430.md`
+  - remaining risks:
+    - no real MQTT/Home Assistant/OpenHAB/Domoticz/Node-RED live probe was run without explicit safe target authorization
+    - WebSocket MQTT on `9001` is checked as a safe HTTP `/mqtt` reachability surface in this slice, not a full WebSocket MQTT protocol exchange
+    - real runtime behavior still depends on broker/API reachability and approved target scope
+  - queue / governance:
+    - promoted `codex/tasks/backlog-140-camera-onvif-rtsp-testing.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-138 `IPv6 Neighbor Discovery and Link-Local Scanning`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-138-ipv6-discovery.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-138 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health/API validation only; no IPv6 multicast probes or LAN scans were run from the build lane
+  - implementation:
+    - added `workers/runners/ipv6_discovery/runner.py` with IPv6 neighbor/route parsing, explicit-interface local multicast probing, bounded discovered-address `nmap -6`, and JSON evidence output
+    - extended the existing nmap runner with an `ipv6=True` path that adds `-6` without changing IPv4 defaults
+    - added normalized inventory support for `ipv6_addresses` and `ipv6_prefixes`
+    - added IPv6 artifact import and conservative IPv6 reachability/policy-gap finding extraction
+    - added passive profile `passive-lan-ipv6-discovery` and wired `ipv6-discovery` through target derivation, task params, dispatch, and command preview
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - syntax validation passed across the new runner, nmap runner, orchestration, inventory, profiles, run services, and focused tests
+    - focused runner/profile/orchestration validation passed: `32 passed` across IPv6 runner tests, nmap command contract tests, SNMP regression tests, and run-profile queueing tests
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `git diff --check` passed
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 with `status=ok`
+  - evidence:
+    - `codex/results/backlog-138-ipv6-discovery-20260430.md`
+  - remaining risks:
+    - no live IPv6 multicast or LAN scan was executed without explicit safe interface/target authorization
+    - full `/64` sweeping was intentionally avoided; bounded `nmap -6` runs only against discovered IPv6 addresses
+    - real execution depends on host IPv6 stack, interface selection, neighbor cache behavior, and installed `nmap`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-139-mqtt-homeassistant-testing.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-137 `Nmap NSE Scripts for LAN - Enable Vulnerability and Service Detection Scripts`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-137-nmap-nse-lan-scripts.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-137 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health acceptance only; no NSE scans were run against LAN targets from the build lane
+  - implementation:
+    - extended `workers/runners/nmap/runner.py` with allowlisted NSE `scripts`, explicit `ports`, and validated `script_args` support
+    - kept passive scripts read-only and rejected non-allowlisted NSE scripts at command construction time
+    - expanded LAN service enumeration to an explicit IoT/common-port baseline including `8123`, `1883`, `554`, `1900`, `8554`, and `49152-49157`
+    - added read-only NSE scripts to `passive-network-service-enumeration` for banners, HTTP titles/server headers, SSL certificates, SNMP info/sysdescr, SMB security mode, FTP anonymous checks, IKE version, NetBIOS, and MSRPC enumeration
+    - added `passive-lan-nse-full` with read-only IoT fingerprinting, bounded RTSP common-path checks, UPnP info, and zero required approvals
+    - extended `active-lan-default-creds-audit` with an approval-gated nmap task for bounded default-account NSE checks, with brute-style scripts constrained through script args
+    - extended nmap inventory import and aggregation so HTTP titles, server headers, technologies, and NSE script outputs are preserved as normalized evidence
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/nmap/runner.py workers/orchestration/tasks.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/inventory.py api/tests/test_runs.py api/tests/test_nmap_dispatch.py workers/tests/test_runner_contract.py` passed
+    - focused runner/profile/orchestration validation passed: `12 passed` across selected nmap runner, command-preview, run-profile, approval-gated profile, and inline dispatch/import tests
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 with `status=ok`
+  - evidence:
+    - `codex/results/backlog-137-nmap-nse-lan-scripts-20260430.md`
+  - remaining risks:
+    - live NSE scanning was intentionally not executed without explicit safe target authorization
+    - runtime behavior depends on the installed `nmap` binary and its NSE script database
+    - active default-credential NSE checks remain approval-gated and bounded; no uncontrolled brute-force or exploit/DoS NSE scripts were enabled
+  - queue / governance:
+    - promoted `codex/tasks/backlog-138-ipv6-discovery.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-136 `SNMP Enumeration Runner - Network Device Configuration and Asset Discovery`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-136-snmp-enumeration.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-136 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health acceptance only; no SNMP walks were run against LAN targets from the build lane
+  - implementation:
+    - added `workers/runners/snmp_enum/runner.py` with read-only SNMP system/interface/ARP/route walks and injected-client tests
+    - limited community testing to the explicit package list: `public`, `private`, `community`, `manager`, `admin`, `snmpd`, `cisco`, and `ubiquiti`
+    - created MEDIUM normalized findings for accepted default SNMP communities
+    - added normalized SNMP inventory import for hosts, UDP/161 services, fingerprints, network interfaces, ARP neighbors, and routes
+    - added passive profile `passive-lan-snmp-enum` and wired `snmp-enum` through run target derivation, task parameterization, supported dispatch, command preview, inventory import, and finding extraction
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/snmp_enum/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/inventory.py api/app/services/runs.py api/app/services/run_profiles.py api/tests/test_runs.py workers/tests/test_snmp_enum_runner.py` passed
+    - focused runner/profile/orchestration validation passed: `workers/tests/test_snmp_enum_runner.py`, `api/tests/test_runs.py::test_list_run_profiles`, and `api/tests/test_runs.py::test_snmp_enum_profile_queues_read_only_bounded_default_community_task`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 with `status=ok`
+  - evidence:
+    - `codex/results/backlog-136-snmp-enumeration-20260430.md`
+  - remaining risks:
+    - live SNMP enumeration was intentionally not executed without explicit safe target authorization
+    - runtime SNMP execution requires `pysnmp`; this build-lane slice did not install uncontrolled new libraries
+    - the task package success criteria says 9 default strings but the concrete scope lists 8; the implementation follows the explicit listed 8 as the narrow safe repo-truth resolution
+  - queue / governance:
+    - promoted `codex/tasks/backlog-137-nmap-nse-lan-scripts.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-30: completed backlog-135 `Network Segmentation Testing - VLAN Hopping, Subnet Discovery, and Lateral Reach`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-135-network-segmentation-vlan.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-135 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health acceptance only; no VLAN frames or cross-segment probes were run against live networks
+  - implementation:
+    - added `workers/runners/network_segmentation/runner.py` with passive subnet discovery from inventory routes, ARP/neighbor hints, optional bounded SNMP public route reads, and bounded lateral reachability checks
+    - added a separate active VLAN double-tagging path that uses Scapy only when explicitly run in active mode, limits probes to 10 frames, and reports raw-packet/Scapy capability failures clearly
+    - added `passive-lan-segmentation-check` and `active-lan-segmentation-test` profiles, with active VLAN testing gated behind approval
+    - wired `network-segmentation` through supported orchestration dispatch, command preview, run task parameterization, source inventory snapshot handoff, and finding extraction
+    - added focused runner and profile tests for subnet discovery, SNMP route discovery, lateral reachability findings, VLAN response findings, raw-packet capability failure, inventory handoff, and active authorization behavior
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/network_segmentation/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/run_profiles.py api/app/services/runs.py workers/tests/test_network_segmentation_runner.py api/tests/test_runs.py` passed
+    - focused runner/profile/orchestration validation passed: `workers/tests/test_network_segmentation_runner.py`, `api/tests/test_runs.py::test_list_run_profiles`, and `api/tests/test_runs.py::test_network_segmentation_profiles_pass_inventory_and_authorization_boundaries`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 with `status=ok`
+  - evidence:
+    - `codex/results/backlog-135-network-segmentation-vlan-20260430.md`
+  - remaining risks:
+    - live VLAN double-tag probing was intentionally not executed without explicit safe interface/target authorization
+    - active VLAN probing requires Scapy plus root/CAP_NET_RAW on the host running the worker
+    - default SNMP route discovery depends on local `snmpwalk` availability and devices exposing read-only SNMP with community `public`
+    - this slice reports reachability and segmentation gaps only; it does not manipulate routes, persist across VLANs, or exploit cross-segment access
+  - queue / governance:
+    - promoted `codex/tasks/backlog-136-snmp-enumeration.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-134 `IoT Default Credential Scanner - Test Default Passwords on Discovered Devices`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-134-iot-default-credentials.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-134 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health acceptance only; no default credential attempts were run against live LAN targets
+  - implementation:
+    - added `workers/runners/iot_default_creds/runner.py` with inventory-driven HTTP/HTTPS management-interface detection, vendor/model matching, HTTP Basic Auth checks, bounded form-login checks, no-auth management-interface detection, and injected timing hooks for deterministic tests
+    - added `workers/runners/iot_default_creds/default-creds.json` with 56 curated vendor/model entries covering routers, NAS devices, cameras, printers, smart-home hubs, media devices, VoIP devices, firewalls, and generic embedded devices
+    - added approval-gated profile `active-lan-default-creds-audit` with `iot-default-creds`, max 3 attempts per host, 1 attempt/second, inventory-context requirement, and credential redaction metadata
+    - wired `iot-default-creds` through supported orchestration dispatch, command preview, run task parameterization, source inventory snapshot handoff, and finding extraction
+    - added focused runner and profile tests for default credential matching, no-auth HIGH findings, CRITICAL default-credential findings, redaction, rate limiting, max-attempt enforcement, inventory handoff, and active authorization behavior
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - focused runner/profile/orchestration validation passed: `workers/tests/test_iot_default_creds_runner.py`, `api/tests/test_runs.py::test_list_run_profiles`, and `api/tests/test_runs.py::test_iot_default_creds_profile_requires_approval_and_passes_inventory`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 with `status=ok`
+  - evidence:
+    - `codex/results/backlog-134-iot-default-credentials-20260429.md`
+  - remaining risks:
+    - real credential attempts were intentionally not executed live without a separate explicit safe target
+    - form-login detection is deliberately bounded and simple; complex CSRF/javascript login flows remain future work
+    - the bundled default credential database is a curated baseline, not an exhaustive vendor catalog
+    - SSH/default-shell credential testing, persistence, and brute-force wordlists remain out of scope
+  - queue / governance:
+    - promoted `codex/tasks/backlog-135-network-segmentation-vlan.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-133 `mDNS/SSDP/UPnP IoT Discovery Runner`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-133-mdns-ssdp-iot-discovery.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-133 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant for safe health acceptance, but no intrusive live target discovery was run
+  - implementation:
+    - added `workers/runners/mdns_ssdp/runner.py` with optional `zeroconf` mDNS browsing, bounded SSDP `M-SEARCH`, UPnP description XML parsing, device categorization, inventory output, and passive insecure-management findings
+    - added `passive-lan-iot-discovery` to default run profiles with tool `mdns-ssdp`
+    - wired `mdns-ssdp` through supported orchestration dispatch, command preview, inventory snapshot import, and normalized finding extraction
+    - added the passive IoT discovery profile to the Full Internal LAN passive-discovery chain after host discovery and before active-enrichment approval
+    - added focused runner/profile/chain regression tests
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - focused runner/profile/chain tests passed: `8 passed`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` passed with `3 passed`
+    - `git diff --check` passed
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 with `status=ok`
+  - evidence:
+    - `codex/results/backlog-133-mdns-ssdp-iot-discovery-20260429.md`
+  - remaining risks:
+    - real mDNS enumeration depends on optional `zeroconf` availability and LAN multicast behavior
+    - SSDP device-description coverage depends on device responses and bounded local fetches
+    - this slice is passive discovery only; default credential checks, ONVIF/RTSP/MQTT active tests, SNMP, IPv6, Zigbee/Z-Wave, Bluetooth, and exploitation remain future backlog work
+  - queue / governance:
+    - promoted `codex/tasks/backlog-134-iot-default-credentials.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-131 `AutoFix with ChatGPT - Language-Specific Code Patches`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-131-autofix-chatgpt.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-131 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because the Findings drawer changed
+  - implementation:
+    - extended `api/app/services/autofix.py` with a ChatGPT OAuth streaming JSON AutoFix provider that sends finding title/summary, CWE/CVSS, detected stack, inventory context, and a bounded evidence excerpt
+    - kept AutoFix advisory-only and added deterministic fallback when ChatGPT OAuth is disconnected, disabled by configuration, or fails during generation
+    - added `FindingRemediation.ai_fix_suggestion` plus Alembic revision `20260429_0032_remediation_ai_fix_suggestion`
+    - exposed AI suggestion, disclaimer, metadata, and fallback state through Finding Theater schemas and views
+    - updated the Findings drawer to render AI output as `Suggested Fix` with the required review/testing disclaimer
+    - added focused API and UI tests for ChatGPT success, stored suggestion, stack-specific payloads, deterministic fallback, and drawer disclaimer
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before completion
+    - `python3 -m py_compile api/app/services/autofix.py api/app/services/finding_views.py api/app/models/control.py api/app/schemas/remediation.py api/app/schemas/finding_views.py api/tests/test_autofix.py` passed
+    - `node --input-type=module --check < ui/assets/modules/findings.js` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_autofix.py -q` passed with 6 focused tests
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed with 3 tests
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_autofix.py api/tests/test_health.py -q` passed with 9 tests
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py -q -k "ai_autofix_disclaimer"` passed
+    - `git diff --check` passed
+  - live proof:
+    - restarted current-code localhost with `bash scripts/restart_local_inline_host.sh`
+    - Alembic upgraded the local SQLite database from `20260429_0031` to `20260429_0032`
+    - `curl http://127.0.0.1:8000/health/live` returned HTTP 200 and `status=ok`
+    - `curl http://127.0.0.1:8000/health/ready` returned HTTP 200 and verified database connectivity
+    - `curl http://127.0.0.1:8000/app/assets/modules/findings.js` returned HTTP 200 and contained the new AI AutoFix drawer strings
+  - evidence:
+    - `codex/results/backlog-131-autofix-chatgpt-20260429.md`
+  - remaining risks:
+    - real ChatGPT suggestions require a valid engagement-bound ChatGPT OAuth session and backend availability
+    - AI output remains advisory only; no generated snippet is executed, applied, pushed, or used to bypass runtime/scope gates
+    - live validation proved the served UI asset and health after restart; provider-backed live generation was covered by mocked provider tests rather than a real OAuth call
+  - queue / governance:
+    - promoted `codex/tasks/backlog-133-mdns-ssdp-iot-discovery.json` into `NEXT_TASK.md` as the next single active task because backlog-132 was already documented complete in the existing state log
+
+- 2026-04-29: completed backlog-130 `Fix Setup Checklist and Add Proper First-Run Onboarding`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-130-setup-checklist-fix.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-130 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because Dashboard onboarding and checklist behavior changed
+  - implementation:
+    - added Dashboard schema fields for `setup_checklist_dismissed` and `first_run_onboarding`
+    - added hidden operator setting `instance.setup_checklist_dismissed`, defaulting to `false`
+    - changed zero-engagement Dashboard behavior to show a first-run onboarding banner instead of the normal setup checklist
+    - removed the legacy zero-engagement wizard checklist after the first-run overlay is skipped, so new installs do not still see an impossible checklist on Intake
+    - kept the ChatGPT OAuth onboarding card honest by not marking provider selection as a completed OAuth connection
+    - changed the existing setup checklist to show only after an engagement exists and the checklist has not been dismissed
+    - changed `Review first finding` completion to use any finding in any completed, non-deleted run for the selected engagement scope
+    - added a Dashboard Dismiss button that persists through `PATCH /api/v1/settings` and hides the checklist after reload
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `node --input-type=module --check < ui/assets/modules/dashboard.js` passed
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_dashboard.py -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py -k "dashboard_zero_engagement or dashboard_setup_checklist_dismiss or dashboard_activity_feed" -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_dashboard_is_default_landing_when_engagements_exist -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_first_run_onboarding_can_be_rerun_from_settings ui/tests/test_operator_console_e2e.py::test_first_run_checklist_moves_from_intake_home_to_mission_control -q` passed
+    - initial live browser validation exposed a stale backend on `http://127.0.0.1:8000`; after `bash scripts/restart_local_inline_host.sh`, live browser validation passed for first-run banner rendering and persisted checklist dismissal
+    - final live browser validation after the last code restart verified that skipping the first-run overlay no longer renders the old wizard checklist and that Dashboard first-run onboarding renders on the current code
+  - evidence:
+    - `codex/results/backlog-130-setup-checklist-first-run-20260429.md`
+    - `codex/results/backlog-130-live-browser-20260429/first-run-banner.png`
+    - `codex/results/backlog-130-live-browser-20260429/first-run-banner-final.png`
+    - `codex/results/backlog-130-live-browser-20260429/checklist-dismissed-after-reload.png`
+  - remaining risks:
+    - this slice intentionally did not add a full tutorial system, video walkthrough, or broad dashboard redesign
+    - ChatGPT OAuth connection truth is still engagement-token-bound; zero-engagement onboarding can point to Settings but cannot prove an engagement-specific OAuth token until an engagement exists
+  - queue / governance:
+    - promoted `codex/tasks/backlog-131-autofix-chatgpt.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-127 `Role-Based Access Control - Operator, Reviewer, and Admin Roles`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-127-rbac.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-127 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because Settings and topbar operator surfaces changed
+  - implementation:
+    - added `CurrentActor`, `/api/v1/auth/me`, and `require_roles(...)` over the existing API-key auth foundation
+    - validated and stored exactly three roles on API keys: `admin`, `operator`, and `reviewer`
+    - added admin-only API key list/create/revoke surfaces and last-used tracking through bearer auth
+    - enforced operator/admin on run creation, dispatch, approval-style runtime actions, AI repair/proposal actions, pack binding, cancellation, CVE test queueing, and finding mutation/retest/remediation/fix-PR actions
+    - enforced admin on destructive run/engagement operations and `PATCH /api/v1/settings`
+    - kept `POST /findings/{id}/evidence/verify` available to all authenticated roles
+    - added Settings `Users & API Keys` UI with role selector, last-used visibility, revoke, and one-time token display
+    - added a role badge next to the topbar actor name
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/auth/__init__.py api/app/routers/auth.py api/app/routers/runs.py api/app/routers/settings.py api/app/routers/engagements.py api/app/routers/findings.py api/tests/test_auth_and_roe_gate.py` passed
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `node --input-type=module --check < ui/assets/modules/settings.js` passed
+    - `python3 -m pytest --capture=no api/tests/test_auth_and_roe_gate.py` (`6 passed`)
+    - `python3 -m pytest --capture=no api/tests/test_settings.py` (`8 passed`)
+    - `python3 -m pytest --capture=no api/tests/test_evidence_integrity.py` (`6 passed`)
+    - `python3 -m pytest --capture=no api/tests/test_health.py` (`3 passed`)
+    - `python3 -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py::test_settings_scheduled_scans_panel_exposes_required_fields ui/tests/test_operator_console_smoke_e2e.py::test_topbar_role_badge_and_settings_users_panel_render` (`2 passed`)
+    - installed the missing local Playwright Chromium runtime with `python3 -m playwright install chromium` after the first browser test was blocked by a missing browser binary
+    - current-code localhost restarted with `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - live API/browser validation proved `/api/v1/auth/me`, the `ADMIN` topbar badge, Settings `Users & API Keys`, and create/revoke behavior for a reviewer key
+  - evidence:
+    - `codex/results/backlog-127-rbac-20260429.md`
+    - `codex/results/backlog-127-rbac-live-20260429/topbar-role-badge.png`
+    - `codex/results/backlog-127-rbac-live-20260429/settings-users-api-keys.png`
+  - remaining risks:
+    - this is API-key RBAC only; SSO, MFA, team/org membership, and per-engagement roles remain out of scope
+    - deprecated local `X-Actor` fallback still maps to admin for compatibility and should be removed or tightened in a future hardening slice
+  - queue / governance:
+    - promoted `codex/tasks/backlog-128-database-encryption.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-126 `Continuous Testing and Drift Detection - Scheduled Scans with Change Highlighting`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-126-continuous-testing.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-126 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because Settings, Dashboard, and Mission Control operator surfaces changed
+  - implementation:
+    - added `RunDrift` persistence and migration `20260429_0031_run_drift.py`
+    - added drift computation after eligible run completion, comparing open finding fingerprints and exposure score against the previous completed run for the same engagement/profile
+    - exposed `drift_summary` on run API responses and rendered a Mission Control Drift Summary banner, including completed runs with no visible task rows
+    - added a startup APScheduler job that launches due enabled, unpaused scheduled scans through the existing scheduled-run creation and dispatch path
+    - enforced passive-only scheduled scans at API creation and scheduler launch time
+    - added a Settings Scheduled Scans section with engagement, passive profile, target, frequency, time of day, and enabled fields
+    - kept Dashboard Upcoming Scans on stored scheduled-run truth and verified the dashboard tile remains visible
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python -m py_compile` passed for touched backend modules
+    - `node --input-type=module --check` passed for touched UI modules
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`3 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k "scheduled_run or run_drift"` (`8 passed, 70 deselected`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_dashboard.py` (`4 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py -k "scheduled_scans or drift_summary"` (`2 passed, 8 deselected`)
+    - current-code localhost restarted with `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - live browser validation proved Settings Scheduled Scans, Dashboard Upcoming Scans, and Mission Control Drift Summary on `http://127.0.0.1:8000/app/`
+  - evidence:
+    - `codex/results/backlog-126-continuous-testing-20260429.md`
+    - `codex/results/backlog-126-live-browser-20260429/settings-scheduled-scans.png`
+    - `codex/results/backlog-126-live-browser-20260429/dashboard-upcoming-scans.png`
+    - `codex/results/backlog-126-live-browser-20260429/mission-control-drift-summary.png`
+  - remaining risks:
+    - scheduled scans are passive-only by design; scheduled intrusive scans remain blocked
+    - drift is informational only and does not mutate finding lifecycle or severity
+    - real scheduled execution still depends on configured worker/inline dispatch mode and available tools
+  - queue / governance:
+    - promoted `codex/tasks/backlog-127-rbac.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-125 `NFIR-Compliant Report Variant and 7-Phase Visibility`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-125-nfir-compliant-report.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-125 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because report UI/export and Mission Control phase visibility changed
+  - implementation:
+    - added `nfir` to Compliance Annex framework selection and report export route validation
+    - added an NFIR report renderer with 7-phase executed/skipped visibility, authorization evidence, missing-authorization warning, CVSS `N/A` fallback, re-audit tracking, PTES/OWASP WSTG/NIST references, and an explicit not-certification disclaimer
+    - preserved legacy/direct `variant=nfir` aliasing to the Compliance Annex without adding a fifth primary report card
+    - added Mission Control NFIR phase mapping attributes/tooltips on assessment-chain phase badges
+  - validation:
+    - `python3 -m py_compile api/app/services/reports.py api/app/routers/runs.py api/app/schemas/report_center.py api/tests/test_reports.py`
+    - `node --input-type=module --check < ui/assets/modules/reports.js && node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py api/tests/test_reports.py::test_nfir_compliance_annex_maps_seven_phases_authorization_cvss_and_reaudit api/tests/test_reports.py::test_nfir_compliance_annex_warns_when_authorization_evidence_is_missing ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_phase_badges_expose_nfir_tooltips` (`6 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`16 passed`)
+    - current-code localhost restarted with `bash scripts/restart_local_inline_host.sh`
+    - live safe API validation proved NFIR markdown export on a non-dispatched run
+    - live browser validation proved Mission Control NFIR phase badge attributes/tooltips
+  - evidence:
+    - `codex/results/backlog-125-nfir-compliant-report-20260429.md`
+    - `codex/results/backlog-125-nfir-live-browser-20260429.png`
+  - remaining risks:
+    - NFIR output is evidence mapping only and does not certify NFIR compliance
+    - phase mapping depends on stored tool/profile/task/finding metadata, so sparse historical runs may show skipped/insufficient-evidence phases
+  - queue / governance:
+    - promoted `codex/tasks/backlog-126-continuous-testing.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-124 `Dashboard and Mission Control Liveness - Activity Feed and Live Tool Output`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-124-dashboard-and-mc-liveness.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-124 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because Dashboard and Mission Control operator liveness behavior changed
+  - implementation:
+    - added a Dashboard `activity_feed` read model populated from the last 10 tenant-scoped audit events for the selected engagement context
+    - mapped raw audit actions to human-readable labels and icons while keeping the existing `recent_activity` compatibility payload
+    - exposed bounded stdout snapshots on `GET /api/v1/tasks/{task_id}` so Mission Control can poll selected running tasks
+    - added Mission Control polling every 3 seconds for the selected running task, merging new stdout lines without clearing existing terminal output
+    - added a live indicator next to the selected-task stdout terminal heading while the selected task is running
+    - did not change SSE event format, add WebSockets, bypass runtime gates, mutate Prompt 1 / Prompt 2, or change pack registry/deployment/runtime binding behavior
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/services/dashboard.py api/app/schemas/dashboard.py api/app/routers/tasks.py api/app/schemas/tasks.py` passed
+    - `node --input-type=module --check < ui/assets/app.js && node --input-type=module --check < ui/assets/modules/dashboard.js && node --input-type=module --check < ui/assets/modules/mission-control.js` passed
+    - focused API tests for Dashboard activity feed, task detail stdout snapshot, and completed stdout display passed
+    - focused browser smoke tests for Dashboard activity feed and Mission Control running-task live indicator passed
+    - `pytest api/tests/test_dashboard.py -q` and `pytest api/tests/test_task_dispatch.py -q` passed
+    - current-code localhost was restarted with `bash scripts/restart_local_inline_host.sh`
+    - live Dashboard API returned 10 activity feed items with human-readable labels
+    - live browser validation verified Dashboard Recent Activity and Mission Control live stdout indicator
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-124-dashboard-mc-liveness-20260429.md`
+    - `codex/results/backlog-124-dashboard-mc-liveness-20260429/dashboard-activity-feed.png`
+    - `codex/results/backlog-124-dashboard-mc-liveness-20260429/mission-control-live-stdout.png`
+  - remaining risks:
+    - live stdout remains dependent on captured runner stdout; the UI does not synthesize output when a runner emits none
+    - this slice intentionally did not add WebSocket streaming, push notifications, email digests, or SSE event format changes
+  - queue / governance:
+    - promoted `codex/tasks/backlog-125-nfir-compliant-report.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-123 `Automatic Finding Enrichment - AI Fills Business Impact and Remediation on Creation`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-123-automatic-finding-enrichment.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-123 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because Findings drawer enrichment state and run SSE refresh behavior changed
+  - implementation:
+    - added `enrich_finding_async(...)` over the existing finding-enrichment provider path so worker finding storage queues AI enrichment without waiting for provider completion
+    - stored immediate `enriching` / `unavailable` state in the existing `FindingAiEnrichment` table and preserved the existing `succeeded` provider output path
+    - defaulted finding enrichment to enabled when an effective AI provider is configured, while respecting an explicit operator disable setting
+    - added `finding.enriched` run SSE events for terminal enrichment outcomes so the UI can refresh selected run/finding context
+    - updated the Findings drawer to show `Enriching`, `Enriched`, or `Enrichment unavailable` and to display enriched business impact and remediation narrative when present
+    - did not change finding severity, `evidence_ref`, pack registry, approval/deployment/runtime binding, Prompt 1, or Prompt 2
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/services/ai_enrichment.py api/app/services/settings.py api/app/routers/runs.py workers/orchestration/findings.py` passed
+    - `node --input-type=module --check < ui/assets/app.js && node --input-type=module --check < ui/assets/modules/findings.js` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py::test_findings_drawer_ai_enrichment_status_badge -q` passed
+    - current-code localhost was restarted with `bash scripts/restart_local_inline_host.sh`
+    - live health returned healthy at `http://127.0.0.1:8000/health/live`
+    - live browser validation verified the Findings drawer enrichment badge and enriched text on `http://127.0.0.1:8000/app/`
+  - evidence:
+    - `codex/results/backlog-123-automatic-finding-enrichment-20260429.md`
+    - `codex/results/backlog-123-live-findings-ai-enrichment-20260429.png`
+  - remaining risks:
+    - enrichment is advisory only and does not create new findings or mutate severity/evidence
+    - provider-disabled or provider-failure states intentionally surface as unavailable/failed instead of blocking findings
+    - this slice does not batch-backfill older findings outside the worker finding-storage path
+  - queue / governance:
+    - promoted `codex/tasks/backlog-124-dashboard-and-mc-liveness.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-122 `Live AI Signal in Mission Control - Real ChatGPT Streaming`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-122-live-ai-signal.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-122 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because Mission Control AI Signal behavior changed
+  - implementation:
+    - added `GET /api/v1/runs/{run_id}/ai-signal/stream` as a tenant-guarded SSE route
+    - added a ChatGPT OAuth streaming helper that reuses the existing backend token flow and streams text deltas
+    - added a run/task AI Signal service that selects a completed task, builds grounded context from task, findings, and inventory summary, streams a concise analysis, and stores the completed text as `AgentReasoning`
+    - kept deterministic fallback guidance when ChatGPT OAuth is unavailable or disabled
+    - added Mission Control EventSource wiring, provider status badge, live streamed entry rendering, and replay of already stored live-signal reasoning
+    - fixed AI Signal entry ordering so newest/live analysis is visible instead of hidden behind older collapsed entries
+    - did not dispatch tools, create tasks, mutate findings/severity/evidence, change autonomous mode, bypass gates, or touch Prompt 1 / Prompt 2
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/services/ai_signal_stream.py api/app/services/chatgpt_oauth.py api/app/routers/runs.py` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_live_ai_signal_stream.py` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_signal_provider_badge_and_live_text -q` passed
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js` passed
+    - current-code localhost was restarted with `bash scripts/restart_local_inline_host.sh`
+    - live SSE against `http://127.0.0.1:8000` streamed a real ChatGPT OAuth response and stored `AgentReasoning` id `bedfac78-0e3e-4061-b5ef-494f5ad59c51`
+    - live browser validation verified the provider badge and visible streamed ChatGPT analysis in Mission Control
+  - evidence:
+    - `codex/results/backlog-122-live-ai-signal-20260429.md`
+    - `codex/results/backlog-122-live-ai-signal-browser-20260429.png`
+  - remaining risks:
+    - this slice makes AI Signal useful and live, but does not allow AI to execute tools, repair runs, or auto-continue blocked workflows
+    - provider outage, expired OAuth, or disabled AI settings intentionally fall back to deterministic guidance
+  - queue / governance:
+    - promoted `codex/tasks/backlog-123-automatic-finding-enrichment.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-121 `SLA Tracking and False Positive Formalization`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-121-sla-and-false-positive.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-121 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because Dashboard and Findings drawer behavior changed
+  - implementation:
+    - added additive finding fields for `remediation_due_date`, `sla_breached`, `false_positive_reason`, and `false_positive_confirmed_by`
+    - added Alembic migration `20260429_0030_finding_sla_false_positive.py`
+    - added configurable remediation SLA settings under Settings with defaults critical `1`, high `7`, medium `30`, low `90` days
+    - added lazy SLA computation on finding list/detail/theater reads and Dashboard build, plus SLA initialization for newly stored runner findings
+    - extended Dashboard API/UI with overdue critical/high counts and an overdue badge
+    - changed false-positive status updates to require a documented reason with HTTP `422` when missing, and stored the current actor as confirmer
+    - added Findings drawer UI for required false-positive rationale and stored decision display
+    - did not add email escalation, webhooks, SLA reports, or bypass pack/runtime gates
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m compileall api/app/services/finding_sla.py api/app/routers/findings.py api/app/services/dashboard.py workers/orchestration/findings.py` passed
+    - focused SLA / false-positive / Dashboard API tests passed: `pytest -s api/tests/test_findings.py::test_finding_status_change_and_false_positive_are_audited api/tests/test_findings.py::test_false_positive_requires_documented_reason api/tests/test_findings.py::test_finding_sla_is_lazy_computed_and_dashboard_counts_overdue api/tests/test_dashboard.py::test_dashboard_empty_state_is_read_only_and_actionable api/tests/test_dashboard.py::test_dashboard_aggregates_tenant_scoped_live_work_without_writes -q`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q` passed
+    - `node --input-type=module --check < ui/assets/modules/dashboard.js && node --input-type=module --check < ui/assets/modules/findings.js` passed
+    - current-code localhost was restarted and migrated to Alembic `20260429_0030`
+    - live OpenAPI showed the new finding SLA/false-positive fields and Dashboard overdue fields
+    - live Dashboard API returned overdue count keys, and browser validation found the Dashboard overdue badge
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-121-sla-and-false-positive-20260429.md`
+  - remaining risks:
+    - SLA breach computation is lazy-on-read in this slice, not scheduler escalation
+    - browser validation covered the Dashboard overdue badge; the false-positive drawer UI path is backed by API tests and JS syntax, but no seeded live drawer browser path was exercised
+  - queue / governance:
+    - promoted `codex/tasks/backlog-122-live-ai-signal.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-120 `Real Authentication and Mandatory ROE Gate`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-120-authentication-and-roe-gate.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-120 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because authentication, run creation, and wizard launch behavior changed
+  - implementation:
+    - added the `api_keys` persistence model and Alembic migration with hashed API keys, actor, role, timestamp, last-used, and revoked metadata
+    - added Bearer API key authentication in `get_current_actor`, with `last_used_at` updates and backwards-compatible `X-Actor` fallback plus deprecation headers
+    - added `POST /api/v1/auth/keys` and `GET /api/v1/auth/keys`, returning the raw key only at creation time
+    - added engagement authorization confirmation fields and `PATCH /api/v1/engagements/{id}/confirm-authorization`
+    - made run creation return HTTP 400 when an engagement has no `roe_ref` and no stored authorization confirmation
+    - added the wizard step-4 written-authorization checkbox when `roe_ref` is missing, keeping Create Mission disabled until the operator confirms
+    - did not broaden the task into OAuth SSO, LDAP/AD auth, MFA, RBAC, pack gates, deployment, runtime binding, Prompt 1, or Prompt 2
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m py_compile api/app/auth/__init__.py api/app/routers/auth.py api/app/routers/engagements.py api/app/routers/runs.py api/app/schemas/engagements.py api/app/models/control.py api/tests/test_auth_and_roe_gate.py migrations/versions/20260429_0029_api_keys_and_roe_gate.py` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_auth_and_roe_gate.py api/tests/test_health.py api/tests/test_chatgpt_oauth.py -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -q` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py::test_wizard_requires_written_authorization_checkbox_when_roe_is_missing -q` passed
+    - `node --input-type=module --check < ui/assets/modules/wizard.js && node --input-type=module --check < ui/assets/modules/runtime.js` passed
+    - `source .venv/bin/activate && alembic heads && source .venv/bin/activate && alembic current` showed `20260429_0029 (head)`
+    - live host was restarted on the current branch; `GET /health/live` returned healthy
+    - live API proof created an API key, authenticated with Bearer, blocked run creation before ROE confirmation, confirmed authorization, then created the run successfully
+  - evidence:
+    - `codex/results/backlog-120-authentication-and-roe-gate-20260429.md`
+    - `codex/results/backlog-120-roe-wizard-live-20260429.png`
+  - remaining risks:
+    - this slice is API-key authentication only; OAuth SSO, LDAP/AD auth, MFA, and RBAC are future tasks
+    - `X-Actor` intentionally remains as a deprecated compatibility fallback
+  - queue / governance:
+    - promoted `codex/tasks/backlog-121-sla-and-false-positive.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-116 `AI Isolated Repair Lane`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-116-ai-isolated-repair-lane.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-116 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` is relevant for Mission Control acceptance, while the primary safety proof is API/service regression testing
+  - implementation:
+    - added `api/app/services/ai_repair_lane.py`, a governed repair service for failed, blocked, and skipped tasks
+    - added `POST /api/v1/runs/{run_id}/tasks/{task_id}/ai-repair`, returning a review-only repair proposal with provenance, evidence references, confidence, validation commands, and an isolated draft path
+    - stored repair output in the existing `AgentReasoning` / `AgentProposal` ledger with `proposal_kind: ai_repair`
+    - extended AI proposal review so repair proposals can be approved or rejected only when their metadata proves `dispatches_work: false`, `creates_tasks: false`, `active_runtime_mutated: false`, and `isolated_draft_only: true`
+    - added Mission Control UI affordances for failed/blocked/skipped selected tasks and clearer AI Signal rendering for repair proposals
+    - did not mutate active runs, active packs, Prompt 1, Prompt 2, live target execution, pack validation, approval, deployment, or runtime binding
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_repair_lane.py` (`3 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py` (`16 passed`)
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after implementation
+    - `git diff --check` passed
+    - `GET http://127.0.0.1:8000/health/live` returned `200 OK`
+  - evidence:
+    - `codex/results/backlog-116-ai-isolated-repair-lane-20260429.md`
+  - remaining risks:
+    - this slice creates deterministic repair proposals and operator review affordances; it does not yet call a live LLM provider to draft richer repairs
+    - live health was checked, but the localhost server was not restarted onto these code changes for browser acceptance in this pass
+  - queue / governance:
+    - `TASK_QUEUE.md` currently ends at backlog-116, so there is no next official backlog package to promote
+    - `NEXT_TASK.md` is set to an explicit queue-exhausted holding state instead of inventing product work outside the approved queue
+
+- 2026-04-29: completed backlog-115 `Full Mockup Product Parity and Navigation Binding`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-115-full-mockup-product-parity-and-navigation-binding.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-115 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because this task changes the running operator UI and route binding
+  - implementation:
+    - restored the full grouped product sidebar after the narrow backlog-114 mockup slice: Dashboard, Intake, Mission Control, Attack Map, Problems, Custom CVE Library, Findings, Reports, History, Packs, Evidence Replay, Explorer, and Settings
+    - preserved the bottom switcher, including Agents, and verified it opens the live Agents screen
+    - restored the wizard multi-select selected-count element expected by the mockup tile flow
+    - raised sidebar stacking above the Findings drawer so drawer state no longer blocks navigation
+    - changed optional UI scope hydration to `scope?optional=true`, with the API returning `204 No Content` only for explicit optional no-scope reads while preserving normal `404 scope not found` behavior
+    - did not add offensive runtime behavior, bypass pack registry/validation/approval/deployment/runtime binding, change finding schema fields, or modify Prompt 1/Prompt 2
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `bash scripts/restart_local_inline_host.sh` restarted the current-code local host
+    - browser acceptance passed against `http://127.0.0.1:8000/app/`: 13 sidebar routes, New Mission, bottom Agents route, all primary desktop routes, tested mobile routes, no horizontal overflow, no console errors, no page errors, and no network errors
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`3 passed in 3.33s`)
+    - `bash scripts/run_ui_fast_tests.sh` (`6 passed in 18.23s`)
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-115-full-mockup-product-parity-20260429.md`
+    - `codex/results/backlog-115-full-mockup-product-parity-20260429/browser-acceptance.json`
+    - screenshots under `codex/results/backlog-115-full-mockup-product-parity-20260429/`
+  - remaining risks:
+    - this proves route coverage, live binding, optional-scope fallback, and desktop/mobile overflow safety for the primary surfaces; it is not a pixel-perfect audit of every nested component state
+  - queue / governance:
+    - promoted `codex/tasks/backlog-116-ai-isolated-repair-lane.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-114 `Exact Mockup Port — Wizard Tiles, Sidebar, and Cinema Mode`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-114-exact-mockup-port.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-114 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because this task changes the running operator UI
+  - implementation:
+    - aligned the wizard assessment tile surface with the exact mockup structure: selected chip bar before the grid, three-column tile grid, combo hint, sticky step bar, selected number, and secondary green `.t2` selection state
+    - replaced sidebar rendering with the flat five-item mockup navigation: Intake, Mission Control, Findings, Reports, and Settings, with no group labels
+    - kept the existing safe Mission Control Cinema Mode binding and made the overlay close control match the task package label
+    - did not touch backend/API routes, pack registry, finding schema fields, approval/deployment/runtime binding, Prompt 1, or Prompt 2
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `bash scripts/restart_local_inline_host.sh` restarted the current-code local host
+    - browser acceptance passed against `http://127.0.0.1:8000/app/` for sidebar, wizard tiles, selection chips, combo hint, and Cinema Mode open/Escape close
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `node --input-type=module --check < ui/assets/modules/cinema.js` passed
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`3 passed in 3.29s`)
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-114-exact-mockup-port-20260429.md`
+    - `codex/results/backlog-114-exact-mockup-port-20260429/browser-acceptance.json`
+    - screenshots under `codex/results/backlog-114-exact-mockup-port-20260429/`
+  - remaining risks:
+    - backlog-114 was intentionally narrow; full product-wide mockup parity, missing menu items, and route binding remain for backlog-115
+  - queue / governance:
+    - promoted `codex/tasks/backlog-115-full-mockup-product-parity-and-navigation-binding.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-109 `Desktop Thick Client Testing Foundation`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-109-desktop-thick-client-testing-foundation.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-109 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was not the primary validation gate because this is a backend/worker/profile runner slice, not a UI route
+  - implementation:
+    - added `workers/runners/desktop_client/runner.py` and `workers/runners/desktop_client/__init__.py`
+    - added the `desktop-client` runner with `desktop-client-results.json` and `desktop-client-inventory.json`
+    - added bounded static review for authorized desktop artifacts and explicitly scoped local-helper metadata
+    - added findings for embedded secret-like material without raw secret echo, cleartext HTTP endpoints, IPC/named-pipe/local-helper exposure signals, updater/code-signing review signals, local storage/log signals, and supplied unverified code-signing metadata
+    - wired the runner into task dispatch, command preview, normalized finding extraction, inventory import, target derivation, run validation, and run task planning
+    - added the bounded `passive-desktop-client-static` run profile
+    - added `workers/tests/test_desktop_client_runner.py` and focused `api/tests/test_runs.py` coverage for desktop run planning and scope rejection
+    - documented the bounded desktop slice in `docs/product_test_matrix.md`
+  - validation:
+    - `source .venv/bin/activate && python -m py_compile workers/runners/desktop_client/runner.py workers/tests/test_desktop_client_runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/inventory.py api/app/services/run_profiles.py api/tests/test_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_desktop_client_runner.py` (`4 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k desktop_client` (`3 passed, 73 deselected`)
+    - extra guard: `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k "desktop_client or list_run_profiles"` (`4 passed, 72 deselected`)
+    - `python3 scripts/validate_backlog_tasks.py` passed before admin promotion
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-114 into `NEXT_TASK.md`
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-109-desktop-thick-client-testing-foundation-20260429.md`
+  - remaining risks:
+    - this is static/read-only desktop coverage only
+    - it does not inspect live processes, call helper services, verify real Authenticode signatures, reverse engineer binaries deeply, analyze kernel drivers, perform malware triage, inject into processes, or run exploit development
+  - queue / governance:
+    - promoted `codex/tasks/backlog-114-exact-mockup-port.json` into `NEXT_TASK.md` as the next single active task
+
+- 2026-04-29: completed backlog-108 `AI Benchmark Oracle And Eval Foundation`:
+  - rationale:
+    - AI is most useful here as a reference-guided evaluator that explains benchmark expected-vs-actual gaps, not as a scanner, finding creator, or release gate
+    - the expanded benchmark catalog from backlog-107 needed a review-only evaluation layer that can distinguish exact expected misses from broader uncertain benchmark-family coverage
+  - implementation:
+    - added `api/app/services/benchmark_ai_eval.py` with a pure advisory benchmark report builder
+    - benchmark reports consume benchmark metadata, expected-finding catalog rules, actual finding payloads, and optional artifact references
+    - reports distinguish found, missed, uncertain, and unexpected signals with coverage counts, grounding metadata, and explicit advisory-only boundaries
+    - provider-disabled and provider-failure states fall back truthfully to deterministic reference-guided output
+    - added `ChatGPTOAuthBenchmarkEvalProvider` over the existing ChatGPT OAuth streaming JSON backend without automatic enablement or authority over deterministic buckets
+    - documented the benchmark AI evaluation contract in `docs/ai_pentesting_agent_scope_alignment.md`
+    - added focused coverage in `api/tests/test_benchmark_ai_eval.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` before work confirmed exactly one active task
+    - `python3 -m py_compile api/app/services/benchmark_ai_eval.py api/tests/test_benchmark_ai_eval.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_benchmark_ai_eval.py` (`5 passed`)
+    - `git diff --check` (`passed`)
+  - evidence:
+    - `codex/results/backlog-108-ai-benchmark-oracle-and-eval-foundation-20260429.md`
+  - remaining risks:
+    - this slice is backend service/test plumbing only; no UI route or operator screen exposes the benchmark oracle yet
+    - provider-backed explanations require an already connected ChatGPT OAuth session and remain optional
+    - AI output is non-authoritative and does not replace backlog-99 deterministic validation scoring
+  - next active task:
+    - promoted backlog-109 `Desktop Thick Client Testing Foundation`
+
+- 2026-04-29: completed backlog-107 `Benchmark Lab Expansion Foundation`:
+  - rationale:
+    - AegisPT's safe validation catalog needed to represent more than a narrow local-smoke/web/API set without pretending hosted or documentation-only benchmarks are executable
+    - benchmark truth needed explicit runnable, fixture-backed, documentation-only, and disabled-template states so future validation and AI evaluation can reason from grounded catalog metadata
+  - implementation:
+    - expanded `codex/tasks/target_lab_matrix.json` to `safe_target_catalog_v2` with explicit runnability schema and benchmark metadata
+    - enriched local-smoke, Juice Shop, WebGoat, crAPI, Metasploitable3, and authorized-customer catalog entries with vulnerable-family, prerequisite, fixture, and coverage-expectation metadata
+    - added safe disabled/documentation entries for OWASP Benchmark, OWASP WrongSecrets, PromptMe-style LLM application validation, GOAD-style AD validation, Google Gruyere, and PortSwigger Web Security Academy
+    - added disabled, non-dispatching scenario stubs for OWASP Benchmark, WrongSecrets, PromptMe, and GOAD-style AD validation
+    - added target-catalog validation to the acceptance harness, including duplicate detection, runnability checks, documentation-only enabled-target rejection, unauthorized-public rejection, benchmark-metadata validation, and scenario target-reference validation
+    - extended acceptance run configuration/allowlist support for non-web inputs such as pipeline configs, repositories, LLM endpoints, APK paths, container images, Kubernetes manifests, and directory domains
+    - updated the acceptance runbook and operator operational-assurance documentation with the expanded benchmark truth model
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` before work confirmed exactly one active task
+    - `python3 -m json.tool codex/tasks/target_lab_matrix.json >/tmp/target_lab_matrix.validated.json`
+    - `python3 scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --list-scenarios >/tmp/aegispt-acceptance-list.json`
+    - `python3 -m py_compile scripts/acceptance_harness.py scripts/run_acceptance_matrix.py api/tests/test_acceptance_harness.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_acceptance_harness.py` (`10 passed in 2.92s`)
+    - `git diff --check` (`passed`)
+  - evidence:
+    - `codex/results/backlog-107-benchmark-lab-expansion-foundation-20260429.md`
+  - remaining risks:
+    - the newly represented OWASP Benchmark, WrongSecrets, PromptMe, GOAD-style AD, Gruyere, and PortSwigger Academy references are intentionally not silently runnable
+    - documentation-only and disabled-template targets remain disabled/non-dispatching until a future task adds safe local fixtures or explicit authorization paths
+    - this slice expands benchmark truth and harness validation only; it does not replace backlog-99 deterministic validation scoring
+  - next active task:
+    - promoted backlog-108 `AI Benchmark Oracle And Eval Foundation`
+
+- 2026-04-29: completed backlog-106 `CI CD And Secrets Security Foundation`:
+  - rationale:
+    - CI/CD and secrets-security needed a first-class bounded assessment lane instead of being implied by repository integration or CI/CD trigger support
+    - the first slice needed to stay static/read-only and honest: no pipeline execution, no repository or CI setting mutation, no credential rotation, no exploit chaining, and no raw secret disclosure
+  - implementation:
+    - added `workers/runners/cicd_security/runner.py` as a dedicated `cicd-security` runner for authorized GitHub Actions, GitLab CI, Jenkinsfile, generic YAML, inline pipeline configs, and supplied repository metadata
+    - added `passive-cicd-security-assessment` with explicit read-only, no-mutation, no-execution, no-credential-rotation, and no-raw-secret-disclosure metadata
+    - wired `cicd-security` through supported tools, dispatch, command preview, CI/CD scope keys, run-profile validation, task planning, finding extraction, and inventory snapshot import
+    - added static review for over-privileged GitHub Actions permissions, `pull_request_target` poisoned-pipeline preconditions, unpinned actions/includes, unsafe remote shell bootstrap patterns, inline secret-like material without echoing values, self-hosted runner exposure, broad artifact/cache exposure, weak branch protection, and disabled secret scanning in supplied repository metadata
+    - added truthful skipped/unsupported states for missing CI/CD input, missing config artifacts, unsupported pipeline types, missing repository metadata, and all out-of-scope live pipeline mutation/execution behaviors
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` before work confirmed exactly one active task
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_cicd_security_runner.py` (`5 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k cicd_security` (`3 passed, 70 deselected`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py::test_list_run_profiles` (`1 passed`)
+    - `python3 -m py_compile workers/runners/cicd_security/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/inventory.py api/tests/test_runs.py workers/tests/test_cicd_security_runner.py`
+    - `git diff --check` (`passed`)
+  - evidence:
+    - `codex/results/backlog-106-cicd-and-secrets-security-foundation-20260429.md`
+  - remaining risks:
+    - this slice is static/read-only; it does not query live CI providers, execute pipelines, mutate repository settings, rotate credentials, inspect historical artifacts/caches, or perform exploit chaining
+    - repository metadata findings depend on supplied metadata truth
+    - Jenkins coverage is intentionally lightweight until a future task adds deeper Jenkins/pipeline parsing
+  - next active task:
+    - promoted backlog-107 `Benchmark Lab Expansion Foundation`
+
+- 2026-04-29: completed backlog-105 `Cloud-Native Container Kubernetes Assessment Foundation`:
+  - rationale:
+    - cloud-native security needed its own bounded lane instead of being implied by AWS inventory or generic infrastructure scanning
+    - the first slice needed to stay static/read-only and honest: no cluster mutation, no customer container execution, no privilege escalation, no lateral movement, and no live cluster API calls
+  - implementation:
+    - added `workers/runners/cloud_native/runner.py` as a dedicated `cloud-native` runner for authorized Kubernetes manifests, supplied image metadata, and read-only cluster posture input
+    - added `passive-cloud-native-assessment` with explicit read-only, no-mutation, and no-container-execution metadata
+    - wired `cloud-native` through supported tools, dispatch, command preview, cloud-native scope keys, run-profile validation, task planning, finding extraction, and inventory snapshot import
+    - added static review for workload securityContext posture, privileged containers, host namespace use, hostPath, added capabilities, service-account-token automount, inline secret-like env values, Kubernetes Secret manifests, RBAC wildcard/sensitive binding, NetworkPolicy absence in supplied bundles, exposed services, image/base-image posture, CVE metadata, and supplied cluster posture
+    - added truthful skipped states for missing cloud-native input, missing manifest artifacts, and unsupported providers
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` before work confirmed exactly one active task
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_cloud_native_runner.py` (`5 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k cloud_native` (`3 passed, 67 deselected`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py::test_list_run_profiles` (`1 passed`)
+    - `python3 -m py_compile workers/runners/cloud_native/runner.py workers/tests/test_cloud_native_runner.py api/app/services/runs.py api/tests/test_runs.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/inventory.py`
+  - evidence:
+    - `codex/results/backlog-105-cloud-native-container-kubernetes-assessment-foundation-20260429.md`
+  - remaining risks:
+    - this slice is static/read-only; it does not pull images, call live Kubernetes APIs, inspect live pods, run container scanners, or execute customer workloads
+    - image CVE/base-image review depends on supplied metadata
+    - NetworkPolicy posture is limited to supplied manifests or posture input
+  - next active task:
+    - promoted backlog-106 `CI CD And Secrets Security Foundation`
+
+- 2026-04-29: completed backlog-104 `Mobile Application Testing Foundation`:
+  - rationale:
+    - mobile security should not be implied by web/API coverage; authorized Android APK artifacts need their own bounded evidence lane aligned to MASVS/MASTG
+    - the first slice needed to stay static, Android-first, and honest: no iOS support, no emulator orchestration, no rooting/jailbreak flow, no malware triage, and no destructive exploit behavior
+  - implementation:
+    - added `workers/runners/mobile_android/runner.py` as a dedicated `mobile-android` runner for authorized APK artifacts
+    - added `passive-mobile-android-static` with explicit static-only Android safety metadata
+    - wired `mobile-android` through supported tools, dispatch, command preview, run-profile validation, mobile artifact scope keys, task planning, finding extraction, and inventory snapshot import
+    - added static review for manifest metadata, permissions, exported components, insecure storage signals, transport settings, network security config, embedded config, and selected secret indicators without echoing secret values
+    - added truthful skipped states for missing artifacts, unsupported non-APK inputs, invalid APK archives, unreadable manifests, and dynamic prerequisites that are recorded but not executed
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` before work confirmed exactly one active task
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_mobile_android_runner.py` (`5 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k mobile_android` (`3 passed, 64 deselected`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k "list_run_profiles or mobile_android"` (`4 passed, 63 deselected`)
+    - `source .venv/bin/activate && python -m py_compile workers/runners/mobile_android/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/inventory.py api/app/services/run_profiles.py`
+    - final post-promotion `python3 scripts/validate_backlog_tasks.py` (`passed`)
+    - `git diff --check` (`passed`)
+  - evidence:
+    - `codex/results/backlog-104-mobile-application-testing-foundation-20260429.md`
+  - remaining risks:
+    - binary Android AXML manifest parsing is surfaced as unsupported unless a future task adds an approved decoder/toolchain path
+    - this slice is static Android APK coverage only; dynamic mobile testing, iOS, emulator/device orchestration, rooting, malware triage, and full reverse engineering remain out of scope
+  - next active task:
+    - promoted backlog-105 `Cloud-Native Container Kubernetes Assessment Foundation`
+
+- 2026-04-29: completed backlog-103 `API-First Assessment Workflow Foundation`:
+  - rationale:
+    - API validation should not be treated as generic web scanning; API contracts, auth context, object identifiers, and GraphQL schema exposure need their own bounded evidence path
+    - the first slice needed to stay deterministic, approval-aware, and safe: no load testing, no uncontrolled fuzzing, no account-creation abuse, and no business-process abuse automation
+  - implementation:
+    - added `workers/runners/api_assessment/runner.py` as a dedicated `api-assessment` runner for authorized OpenAPI, Postman collection, and GraphQL introspection inputs
+    - added `active-api-assessment` with approval step `active-api-assessment`
+    - wired `api-assessment` through supported tools, dispatch, command preview, protected bearer/API-key/session/password SecretRef materialization, run task planning, run-profile validation, and endpoint scope checks
+    - added `api-assessment-results.json` finding extraction and `api-assessment-inventory.json` inventory snapshot import
+    - added bounded OWASP API Top 10 aligned checks for object-level auth, function-level auth, object-property exposure, unsafe method exposure, unauthenticated sensitive routes, and GraphQL schema exposure
+    - updated crAPI in `codex/tasks/target_lab_matrix.json` so the safe API benchmark path points at `active-api-assessment`
+    - updated methodology and testing coverage documentation so API validation is now `Implemented / Bounded`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_api_assessment_runner.py` (`6 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k api_assessment` (`2 passed, 62 deselected`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'api_assessment or list_run_profiles'` (`3 passed, 61 deselected`)
+    - `python3 -m py_compile` over touched Python modules
+    - `git diff --check`
+  - evidence:
+    - `codex/results/backlog-103-api-first-assessment-workflow-20260429.md`
+  - remaining risks:
+    - this slice is contract-aware and bounded; it is not a dynamic API fuzzer or load-testing engine
+    - GraphQL support is limited to introspection/schema exposure and inventory seeding
+    - the crAPI catalog route now points at the API-first lane, but a full executable crAPI benchmark run remains future validation work
+  - next active task:
+    - promoted backlog-104 `Mobile Application Testing Foundation`
+
+- 2026-04-29: completed backlog-102 `Browser-Assisted Web Workflow Validation Foundation`:
+  - rationale:
+    - passive HTTP and generic scanner lanes do not prove browser-only state, client-side storage, rendered DOM behavior, or workflow-sensitive controls
+    - the new lane needed to stay bounded, approval-aware, and evidence-first instead of becoming browser fuzzing or autonomous exploitation
+  - implementation:
+    - added `workers/runners/playwright_web/runner.py` as a first-class Playwright-backed `playwright-web` runner for approved web targets
+    - added browser evidence artifacts for results, network log, console log, DOM snapshot, and screenshot
+    - added finding extraction for harmless reflected proof markers, token-like browser storage exposure, and visible state-changing forms without anti-CSRF/request-origin signals
+    - added `passive-browser-recon` and approval-gated `active-browser-validation` run profiles
+    - wired `playwright-web` through supported tools, dispatch, command preview, protected session/API/bearer secret materialization, run task planning, and run-profile validation
+    - updated coverage documentation so browser-assisted validation is now `Implemented / Bounded`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_playwright_web_runner.py` (`4 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k playwright_web` (`3 passed, 59 deselected`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'list_run_profiles or playwright_web'` (`4 passed, 58 deselected`)
+    - `python -m py_compile` over touched Python modules
+    - `git diff --check`
+    - restarted localhost with `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - live `GET http://127.0.0.1:8000/health/live` returned HTTP `200`
+    - live `GET http://127.0.0.1:8000/api/v1/run-profiles` exposed both `active-browser-validation` and `passive-browser-recon` with tool `playwright-web`
+  - evidence:
+    - `codex/results/backlog-102-browser-assisted-web-workflow-validation-20260429.md`
+  - remaining risks:
+    - this first slice is Chromium/Playwright-backed and bounded; it does not yet provide a multi-step operator-authored browser journey builder or cross-browser parity
+    - realistic benchmark-lab proof for browser-only vulnerabilities remains future validation work
+  - next active task:
+    - promoted backlog-103 `API-First Assessment Workflow Foundation`
+
+- 2026-04-28: completed backlog-101 `User Documentation - Operator Manual, Getting Started, and API Reference`:
+  - rationale:
+    - a new operator needs a product-facing path from install to first scan/report without reading internal engineering or task-governance documents
+    - the API reference needed a stable `/api/docs` URL so integrators can discover the current OpenAPI schema while the server is running
+  - implementation:
+    - added `docs/manual/getting-started.md` with install, launch, first mission, Mission Control, Findings, Reports, and common first-run troubleshooting
+    - added `docs/manual/operator-manual.md` covering the main screens, first-scan workflow, findings review, remediation, report types, Settings, ChatGPT/AI behavior, authorization boundaries, and troubleshooting
+    - refreshed `README.md` around current product truth, install links, operator console/API docs URLs, capabilities, safety limits, and first-scan flow
+    - added `GET /api/docs` in `api/app/main.py` using FastAPI's Swagger UI helper while preserving `/openapi.json`
+    - added `api/tests/test_health.py` coverage for `/api/docs`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` before work confirmed exactly one active task
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`3 passed`)
+    - `python3 -m py_compile api/app/main.py`
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - live `GET http://127.0.0.1:8000/api/docs` returned HTTP `200` and contained `AegisPT API Reference`, `swagger-ui`, and `/openapi.json`
+    - checked the new user-facing docs for internal backlog/Codex/governance language
+  - evidence:
+    - `codex/results/backlog-101-user-documentation-20260428.md`
+  - remaining risks:
+    - OpenAPI is now accessible at `/api/docs`, but endpoint-level examples/descriptions remain mostly generated from current FastAPI/Pydantic route metadata rather than a hand-authored per-endpoint reference
+  - next active task:
+    - promoted backlog-102 `Browser-Assisted Web Workflow Validation Foundation`
+
+- 2026-04-28: completed backlog-100 `AegisPT Security Self-Test - Does AegisPT Itself Have Vulnerabilities?`:
+  - rationale:
+    - AegisPT handles hostile scan output and operator-controlled target data, so the platform itself needs a local, repeatable security self-test rather than only product-feature tests
+    - target overrides in run configuration needed an explicit scope check so SSRF-style targets cannot bypass the approved engagement allowlist
+  - implementation:
+    - `api/app/services/runs.py`, `api/app/routers/runs.py`, and `api/app/routers/engagements.py` now validate configured run and scheduled-run targets against the latest scope before queueing work
+    - `api/app/schemas/engagements.py` rejects oversized engagement identity fields and null bytes
+    - `api/app/main.py` adds baseline response security headers
+    - `api/tests/test_input_validation_security.py` covers oversized payloads, null bytes, SQLi-style names as stored data, SSRF/out-of-scope targets, command-injection-style targets, scheduled-run SSRF rejection, tenant IDOR denial, path traversal in inline artifact loading, and security headers
+    - `scripts/run_dependency_audit.py` writes a local dependency audit report without installing dependencies or hiding missing tools
+    - `docs/security_self_assessment.md` records the local self-test scope, fixes, scan results, evidence, and residual risks
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_input_validation_security.py` (`10 passed in 8.29s`)
+    - `python3 scripts/run_dependency_audit.py --output codex/results/dependency-audit-latest.json`
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - focused nuclei scan against `http://127.0.0.1:8000` (`10` informational findings, `0` medium/high/critical)
+    - ZAP quick scan against `http://127.0.0.1:8000` (`0` alerts)
+    - live `/health/live` returned `200` and exposed the new baseline security headers
+  - evidence:
+    - `docs/security_self_assessment.md`
+    - `codex/results/backlog-100-security-self-test-20260428.md`
+    - `codex/results/aegispt-selftest-nuclei-focused-20260428.jsonl`
+    - `codex/results/aegispt-selftest-zap-20260428.xml`
+    - `codex/results/dependency-audit-latest.json`
+  - remaining risks:
+    - `/docs` and `/openapi.json` remain visible on the local development host and are tracked as informational exposure hardening for production gating
+    - HSTS is not set on local HTTP; production TLS termination should own that control
+    - dependency CVE truth still requires `pip-audit` or `safety` to be installed in the validation environment
+  - next active task:
+    - promoted backlog-101 `User Documentation - Operator Manual, Getting Started, and API Reference`
+
+- 2026-04-28: completed backlog-98 `Evidence Completeness Guarantor - SHA256 Enforcement, RFC 3161 Timestamps, Replay Recipes, and Integrity Verification`:
+  - rationale:
+    - the evidence-first product claim needed to be made executable rather than aspirational: every finding must be traceable to hash-verifiable artifact bytes, a replay recipe, and an operator-visible integrity check
+    - inline artifact storage previously returned references that could not be read back for verification outside S3, so Verify Evidence could not be reliable in the default local path
+  - implementation:
+    - `api/app/services/artifact_storage.py` now writes inline artifact bytes under a deterministic local artifact directory and can load `inline://runs/...` artifact URIs back for verification
+    - `api/app/services/evidence_integrity.py` and `api/app/schemas/evidence_integrity.py` add SHA-256 comparison, optional RFC 3161 timestamp-response verification, single-finding verification, run-level bulk verification, and audit-event creation
+    - `api/app/config.py` and `api/app/services/settings.py` add configurable Evidence Integrity settings for artifact inline storage and RFC 3161 timestamping, defaulting timestamp requests off for safe local/air-gapped operation
+    - `api/app/models/control.py`, `api/app/schemas/findings.py`, and migration `migrations/versions/20260428_0027_evidence_integrity.py` add `findings.replay_recipe_json` while preserving non-null artifact SHA-256 enforcement and legacy null-hash flagging
+    - `workers/orchestration/tasks.py` attaches integrity/timestamp metadata after artifact writes
+    - `workers/orchestration/findings.py` stores replay recipes with tool, tool version, target, params, scope allowlist, expected match pattern, and artifact identity/hash when findings are created or merged
+    - `api/app/services/finding_views.py` now exposes integrity truth, requires hash plus replay recipe before showing `evidence-linked and ready for replay`, and returns matched execution excerpts up to 4000 characters
+    - `api/app/routers/findings.py` adds `POST /api/v1/findings/{finding_id}/evidence/verify` and `POST /api/v1/runs/{run_id}/evidence/verify`
+    - `ui/assets/modules/findings.js` adds per-finding `Verify Evidence`, run-level `Verify All Evidence`, and artifact hash/timestamp readiness details in Finding Theater
+    - `api/tests/test_product_feature_matrix.py` was updated so the product matrix expects the already-completed backlog-97 `nis2` and `dora` report variants
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_evidence_integrity.py` (`5 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_findings_contract.py api/tests/test_findings.py` (`11 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py api/tests/test_reports.py -q`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py::test_adaptive_pack_pipeline_binds_to_run_and_exports_reports_end_to_end` (`1 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`369 passed in 299.98s`)
+    - `git diff --check`
+  - live/safe acceptance:
+    - detected that the existing `http://127.0.0.1:8000` process was stale for this slice because `/api/v1/settings` did not expose `evidence_integrity`
+    - started a temporary current-code host on `http://127.0.0.1:8019`, inserted a local linked artifact/finding, verified the settings section, verified one finding, and bulk-verified the run (`1/1 verified`), then stopped the temporary host
+  - evidence:
+    - `codex/results/backlog-98-evidence-completeness-20260428.md`
+  - remaining risks:
+    - RFC 3161 timestamping is present but disabled by default; production use must enable/configure the TSA URL in Settings
+    - legacy unreadable inline artifact references cannot be verified unless their bytes are available in the readable inline store or S3
+    - replay recipes are stored for operator reproduction only and intentionally do not auto-execute
+  - next active task:
+    - promoted backlog-99 `Known-Vulnerability Validation Matrix`
+
+- 2026-04-28: completed backlog-97 `NIS2, DORA, and TIBER-EU Evidence Package Foundation`:
+  - rationale:
+    - regulated-sector operators need report evidence packages that translate AegisPT technical findings into NIS2, DORA, and TIBER-EU supporting evidence without implying certification
+    - report output must clearly separate technical testing evidence from broader risk management, TLPT governance, certified provider work, and human auditor/legal responsibilities
+  - implementation:
+    - added `nis2` and `dora` report variants to the report catalog, export router, and report draft schema pattern
+    - NIS2 reports now map findings to Article 21 technical cybersecurity measures covering vulnerability handling, network/system security, access-control/asset-management security, and security testing evidence
+    - NIS2 reports include NCSC NL Cyberbeveiligingswet / NIS2 zorgplicht guidance references where applicable
+    - DORA reports now map findings to ICT risk management, protection/prevention, detection/response/recovery, and DORA Art. 24-26 / TIBER-EU resilience-testing boundaries
+    - report packages include explicit boundary and human-auditor/provider requirements and avoid certification/compliance claims
+    - added `docs/pentest_authorization_template.md` with Dutch and English authorization text
+    - added `docs/tiber_eu_alignment.md` explaining where AegisPT supports a TIBER-EU-style programme and where formal governance/provider work remains outside AegisPT
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`14 passed`)
+    - `source .venv/bin/activate && python -m py_compile api/app/services/reports.py api/app/routers/runs.py api/app/schemas/report_center.py api/tests/test_reports.py`
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - live API acceptance against `http://127.0.0.1:8000` confirmed NIS2/DORA catalog entries and markdown exports
+    - `git diff --check`
+  - evidence:
+    - `codex/results/backlog-97-nis2-dora-tiber-compliance-20260428.md`
+  - remaining risks:
+    - NIS2, DORA, and TIBER-EU outputs are supporting technical evidence packages only, not certifications, supervisory submissions, or full TLPT engagements
+    - legal interpretation, auditor/provider selection, formal governance, organisational controls, and customer-specific authority expectations remain outside AegisPT technical testing
+  - next active task:
+    - promoted backlog-98 `Evidence Completeness Guarantor - SHA256 Enforcement, RFC 3161 Timestamps, Replay Recipes, and Integrity Verification`
+
+- 2026-04-28: completed backlog-96 `GDPR/AVG Data Handling - Retention, Export, Deletion, and Processor Agreement`:
+  - rationale:
+    - AegisPT processes assessment data that can contain personal and sensitive security data, including IP addresses, usernames, vulnerability details, service banners, and secret-reference metadata
+    - EU/NL operators need practical AVG controls for retention, access export, erasure, processor documentation, and accountable purge behavior
+  - implementation:
+    - added per-engagement `retention_days` with default `90`
+    - added retention status, policy update, manual cleanup, data export, and hard purge endpoints under `/api/v1/engagements/{id}/...`
+    - added a GDPR retention scheduler hook through the existing FastAPI lifecycle, with safe degradation when APScheduler is unavailable
+    - data export includes engagement, scopes, runs, tasks, findings, artifact metadata, inventory snapshots, secret-reference metadata, and audit events while excluding credential material
+    - raw task stdout/stderr are redacted in exports because runner output can contain secrets
+    - hard purge requires typed confirmation `PURGE <engagement name>`, blocks active runs, deletes assessment data, and retains the engagement shell/audit trail for accountability
+    - Settings now includes Data Retention controls for policy, cleanup, export, and irreversible purge
+    - added `docs/data_processing_inventory.md` and `docs/verwerkersovereenkomst_template.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_gdpr_data_handling.py` (`4 passed in 4.29s`)
+    - `source .venv/bin/activate && python -m py_compile api/app/services/gdpr_data.py api/app/routers/engagements.py api/app/schemas/engagements.py api/app/main.py api/tests/test_gdpr_data_handling.py`
+    - `node --input-type=module --check < ui/assets/modules/settings.js`
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` after fixing the SQLite-safe retention migration
+    - live API acceptance against `http://127.0.0.1:8000` created a 3-day retention engagement, read retention status, exported data with `credential_material_included: false`, and purged with `credential_material_exported: false`
+    - live browser acceptance opened Settings and verified `settings-data-retention-panel` and `data-retention-policy-form`
+    - `git diff --check`
+  - evidence:
+    - `codex/results/backlog-96-gdpr-data-handling-20260428.md`
+  - remaining risks:
+    - this is an operational GDPR/AVG support slice, not a legal certification of controller compliance
+    - legal basis, data-subject notice wording, customer-specific retention requirements, and optional third-party processor documentation remain deployment/customer responsibilities
+  - next active task:
+    - promoted backlog-97 `NIS2, DORA, and TIBER-EU Evidence Package Foundation`
+
+- 2026-04-28: completed backlog-95 `Compliance Gap Advisor - What Is Covered and What Still Needs Human Certification`:
+  - rationale:
+    - compliance report variants needed to clearly separate technical evidence coverage from organisational controls and formal certification/auditor responsibilities
+    - operators must be able to answer compliance questions honestly without implying that a pentest report equals SOC 2, ISO 27001, PCI DSS, or NIS2 certification
+  - implementation:
+    - added reusable compliance gap advisor context for SOC 2, ISO 27001, and PCI DSS report variants
+    - markdown and HTML compliance reports now include `Compliance Gap Advisor` with covered controls, not-tested items, human-auditor requirements, technical coverage percentage, and framework-specific next steps
+    - the permanent auditor block lists SOC2 Type II CPA opinion, ISO27001 accredited certification body, PCI DSS QSA ROC/AOC validation, and NIS2 broader risk-management programme boundaries
+    - report catalog metadata now exposes the same advisor under `compliance_summary.gap_advisor`
+    - test coverage verifies advisor sections, percentages, human-auditor requirements, organisational-review wording, and no-overclaim boundaries
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`13 passed in 20.73s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - evidence:
+    - `codex/results/backlog-95-compliance-gap-advisor-20260428.md`
+  - remaining risks:
+    - coverage percentages are intentionally limited to AegisPT's existing testable report-time control mapping, not full legal/certification framework coverage
+    - confirmed-clean coverage is not expanded because this task was not allowed to add finding schema fields or invent new evidence types
+  - next active task:
+    - promoted backlog-96 `GDPR/AVG Data Handling - Retention, Export, Deletion, and Processor Agreement`
+
+- 2026-04-28: completed backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`:
+  - rationale:
+    - report output is the customer-facing deliverable and previously exposed raw Python dict representations, repeated duplicate findings, and weak executive structure
+    - the operator also requested an AI repair-lane idea to be captured as a future task before continuing the official backlog
+  - fixes applied:
+    - every markdown report variant is wrapped with a professional header and required non-certification disclaimer
+    - HTML/PDF exports now include the same professional report header and footer disclaimer
+    - target inputs, safety settings, ETA data, severity/status counts, remediation counts, and verification counts render as readable lists/tables instead of Python repr strings
+    - executive content now includes deterministic narrative prose, exposure score, visual risk bar, and a remediation priority table
+    - duplicate finding titles are grouped with instance count, affected targets, evidence refs, and representative remediation detail
+    - `TASK_QUEUE.md` now includes queued backlog-116 `AI Isolated Repair Lane`, with a repo-backed package at `codex/tasks/backlog-116-ai-isolated-repair-lane.json`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`13 passed in 18.96s`)
+    - `python3 -m py_compile api/app/services/reports.py`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - evidence:
+    - `codex/results/backlog-94-report-quality-overhaul-20260428.md`
+  - remaining risks:
+    - PDF layout is still generated from the existing HTML renderer rather than a dedicated print-design overhaul
+    - AI-generated report prose remains optional; deterministic fallback is the validated baseline
+  - next active task:
+    - promoted backlog-95 `Compliance Gap Advisor - What Is Covered and What Still Needs Human Certification`
+
+- 2026-04-28: completed a corrective wizard full-authorization / AI Signal action hotfix while backlog-94 remains active:
+  - rationale:
+    - operator evidence showed `Full - all 4 phases` looked selectable but did not reliably switch the guided depth from `Phases 1-2` to full authorization
+    - AI Signal showed ChatGPT OAuth as disconnected but exposed a weak/disabled-looking `Open Settings` action instead of a clear next step
+  - implementation:
+    - clicking `Full - all 4 phases` now updates the guided depth choice to `full`, not just the authorization level
+    - full authorization cards now expose `aria-pressed` selected state
+    - selecting full authorization preselects the intrusive LAN and exploit confirmation prerequisite unlockers so the UI matches the operator intent
+    - exact typed target confirmation is still required before launch
+    - AI Signal now shows a primary `Connect ChatGPT in Settings` action wired to the Settings screen
+    - cache-busted UI assets with `20260428-full-auth-ai-signal-1`
+  - validation:
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `.venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_mission_preview_requires_typed_scope_for_full_authorization ui/tests/test_operator_console_e2e.py::test_ai_signal_provider_disabled_state_is_static_and_readable -q` (`2 passed`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - restarted local inline host and verified `/health/live`
+    - live `/app/` serves `20260428-full-auth-ai-signal-1`
+  - evidence:
+    - `codex/results/wizard-full-auth-ai-signal-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective UI/runtime clarity hotfix prompted by operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective assessment-chain recoverable failure auto-triage hotfix while backlog-94 remains active:
+  - rationale:
+    - operator evidence showed Full LAN/Web chains blocking auto-advance when later runners such as `passive-web-baseline` or `intrusive-lan-credential-capture` did not complete cleanly
+    - these blocks were not missing authorization; they were recoverable runner outcomes that should be recorded as gaps and explained instead of freezing the whole chain
+    - AI should help explain and propose safe next actions, but runtime self-modification or bypassing approvals/scope is not allowed
+  - implementation:
+    - added deterministic recoverable-failure triage for assessment-chain runs after the discovery baseline
+    - `passive-network-discovery` remains hard-blocking because the chain cannot continue safely without baseline inventory
+    - recoverable failed steps are marked `skipped` with `reviewed_by: system:auto-triage`, `review_decision: auto_continue_after_recoverable_failure`, failed run id, and failure-triage metadata
+    - stored an `AgentReasoning` record with `reasoning_type: chain_runtime_failure_triage` and provider `deterministic-runtime-triage`, so AI Signal has a readable explanation of what failed and why the chain continued
+    - added a repair helper for already-blocked recoverable assessment chains
+  - live proof:
+    - restarted `http://127.0.0.1:8000` on current code and verified `/health/live`
+    - inspected 10 blocked local assessment chains
+    - repaired 8 recoverable Phase 2 blocks and advanced them to their next planned step
+    - left 2 Phase 1 `passive-network-discovery` failures blocked by design
+    - confirmed 8 `chain_runtime_failure_triage` records exist
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/assessment_chain.py api/tests/test_assessment_chain.py`
+    - `.venv/bin/python -m pytest --capture=no api/tests/test_assessment_chain.py -q` (`16 passed`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - `curl -sS http://127.0.0.1:8000/health/live`
+  - evidence:
+    - `codex/results/assessment-chain-recoverable-failure-auto-triage-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective runtime-chain hotfix prompted by live operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective wizard prerequisite / queued-start hotfix while backlog-94 remains active:
+  - rationale:
+    - operator feedback showed the wizard did not ask up front which credentials, AD context, hash material, or intrusive/exploit authorization were available for deep LAN work
+    - Mission Control also showed `Start Validation` while a selected run already had running tasks, which made active chain continuation look like a missing manual step
+  - implementation:
+    - added an `Access & unlockers` gate to the wizard preview with explicit prerequisite declarations for unauthenticated lane, AD/domain context, credential refs, hash/password material, intrusive LAN authorization, and exploit confirmation authorization
+    - selected prerequisites are persisted into `configuration_json.access.prerequisites` and included in the natural mission confirmation summary
+    - renamed the manual queued-start action to `Start Queued Checks`
+    - restricted the queued-start action to selected runs whose run status is still `queued` or `requested`; active/running runs no longer show the button just because later chain tasks are queued
+    - cache-busted UI assets with `20260428-wizard-prereq-queued-1`
+    - added a focused Playwright regression for the wizard prerequisite gate
+  - validation:
+    - ES module syntax checks for `ui/assets/modules/wizard.js` and `ui/assets/modules/mission-control.js`
+    - `.venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_wizard_assessment_tiles_drive_short_target_first_flow ui/tests/test_operator_console_e2e.py::test_wizard_preview_requires_access_prerequisite_declaration -q`
+    - live/browser probe against `http://127.0.0.1:8000/app/` verified the wizard unlocker gate, credential-ref toggle, and no `Start Validation` / `Start Queued Checks` action on the active Mission Control run
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - evidence:
+    - `codex/results/wizard-prerequisite-start-queued-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective intake/Mission Control hotfix prompted by live operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective ChatGPT OAuth session reuse hotfix while backlog-94 remains active:
+  - rationale:
+    - operator feedback showed ChatGPT OAuth repeatedly requiring login and not feeling reliably connected
+    - root cause was that token sets were engagement-scoped only, so a new engagement looked disconnected even when an encrypted ChatGPT OAuth session already existed elsewhere
+    - the UI also opened the OAuth popup after an async API call, which can be blocked by browsers while still showing optimistic copy
+  - implementation:
+    - ChatGPT OAuth status now reports reusable encrypted sessions from other engagements
+    - `GET /api/v1/auth/chatgpt/authorize` reuses an existing encrypted token set for the selected engagement before starting a new OpenAI login
+    - reuse writes a separate encrypted `SecretRef` for the target engagement and never exposes raw tokens
+    - Settings and wizard ChatGPT cards show `Use Existing ChatGPT Session` when reuse is available
+    - real login now opens an `about:blank` popup synchronously and navigates it after authorization to avoid popup blockers
+    - pending authorization status now polls after login is opened
+    - cache-busted UI assets with `20260428-chatgpt-oauth-reuse-1`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_chatgpt_oauth.py -q`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/chatgpt_oauth.py api/app/routers/auth.py api/tests/test_chatgpt_oauth.py ui/tests/test_operator_console_e2e.py`
+    - JS syntax checks for `ui/assets/modules/settings.js` and `ui/assets/modules/wizard.js`
+    - targeted browser tests for popup-safe login and no-login session reuse
+    - `python3 scripts/validate_backlog_tasks.py`
+    - live host restart on current code; `/health/live` returned ok and `/app/` served `20260428-chatgpt-oauth-reuse-1`
+    - live reuse proof: new engagement `31e3806f-8b22-4da4-b821-822f277ad43a` reused the existing encrypted ChatGPT account `google-oauth2|...162254` without returning an authorization URL
+    - `git diff --check`
+  - evidence:
+    - `codex/results/chatgpt-oauth-session-reuse-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective provider-session hotfix prompted by operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective Threat Intel Cache status hotfix while backlog-94 remains active:
+  - rationale:
+    - operator evidence showed Settings > Threat Intel Cache with `NVD failed` and `OpenCVE skipped` without enough explanation
+    - the original NVD failure was an application parser bug: NVD CVE 2.0 can return `references` as a list, while the parser assumed a dict and raised `'list' object has no attribute 'get'`
+    - OpenCVE was skipped by design because no optional OpenCVE token is configured
+  - implementation:
+    - made NVD reference parsing tolerate both dict and list payload shapes
+    - records non-blocking feed failure metadata such as `rate_limited`, `credential_rejected`, and `feed_error`
+    - Settings now explains NVD rate limiting, credential problems, generic non-blocking feed failures, empty watchlists, and missing optional OpenCVE tokens
+    - cache-busted Settings assets with `20260428-threat-intel-status-1`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cve_sync.py -q`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/cve_sync.py api/tests/test_cve_sync.py`
+    - JS syntax check for `ui/assets/modules/settings.js`
+    - live host restart on current code
+    - live `POST /api/v1/threat-intel/feed-sync/run` completed CISA KEV and NCSC NL, showed NVD as non-blocking `HTTP 429` rate-limited, and showed OpenCVE skipped due to missing optional token
+    - `git diff --check`
+  - evidence:
+    - `codex/results/threat-intel-cache-status-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective settings/status hotfix prompted by operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective Cinema Mode elapsed-time hotfix while backlog-94 remains active:
+  - rationale:
+    - operator evidence showed Cinema Mode displaying `Elapsed 2h 2m` for a run that had only been running for minutes
+    - root cause was timezone-less backend timestamps such as `2026-04-28T11:32:53` being interpreted by the browser as local Amsterdam time instead of UTC
+  - implementation:
+    - added `parseBackendTimestamp` to `ui/assets/modules/shared.js`
+    - updated `minutesSince` / `formatElapsedMinutes` to treat timezone-less ISO backend timestamps as UTC
+    - cache-busted Cinema/shared/app assets with `20260428-cinema-elapsed-1`
+  - validation:
+    - ES module syntax checks for `ui/assets/modules/cinema.js` and `ui/assets/modules/shared.js`
+    - functional Node check confirmed `2026-04-28T11:32:53` parses exactly as `2026-04-28T11:32:53Z`
+    - live `/app/` entry now serves `20260428-cinema-elapsed-1`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - evidence:
+    - `codex/results/cinema-mode-elapsed-time-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective UI hotfix prompted by live operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective assessment-chain blocked/unblock hotfix while backlog-94 remains active:
+  - rationale:
+    - operator evidence showed `Full Internal LAN` blocked in Phase 2 even though full mission authorization had already been confirmed during intake
+    - live database inspection proved the block was not missing approval; `passive-web-baseline` failed on `10.0.20.96` because the Python HTTP probe treated an untrusted internal HTTPS certificate as a fatal failure
+    - Mission Control did not show the failed runner clearly and only exposed `Halt At Boundary`, leaving no obvious recovery path
+  - implementation:
+    - changed the Python HTTP probe to use `verify=False` and record `verify_tls: false`, so internal/self-signed TLS becomes evidence instead of a hard runner failure
+    - added `continue_assessment_chain_after_blocked_step` and `POST /api/v1/assessment-chains/{chain_id}/continue`
+    - the continue endpoint records an operator-reviewed skip for the failed runner, audits the decision, advances to the next chain step, and dispatches the next queued run immediately
+    - Mission Control now explains that blocked means a runner failure rather than missing authorization, opens Phase Runners automatically, shows the failed runner/run id, and exposes `Review Failure & Continue`
+    - bumped app/style assets to `20260428-chain-blocked-ux-1`
+  - live proof:
+    - restarted localhost on current code with `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - live chain `419a65c7-393e-456e-a63a-752c2b2103b2` was unblocked through the new endpoint
+    - `passive-web-baseline` is now recorded as reviewed/skipped, `passive-web-nuclei-audit` was dispatched and completed, `passive-lan-smb-enum` completed, and the chain is no longer blocked
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py -q`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_runner_contract.py -q`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/assessment_chain.py api/app/routers/runs.py workers/runners/httpx/runner.py api/tests/test_assessment_chain.py workers/tests/test_runner_contract.py`
+    - ES module syntax checks for `ui/assets/app.js` and `ui/assets/modules/mission-control.js`
+    - `git diff --check`
+  - evidence:
+    - `codex/results/assessment-chain-blocked-unblock-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective live-runtime/UI hotfix prompted by operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective Cinema Mode stable-polling hotfix while backlog-94 remains active:
+  - rationale:
+    - operator feedback showed Cinema Mode blinking during live polling
+    - root cause was `ui/assets/modules/cinema.js` replacing the full overlay DOM and SVG on each refresh, which restarted animations and narrator typing even when the snapshot was unchanged
+  - implementation:
+    - changed Cinema Mode rendering to build the overlay shell once and update topbar, counters, narrator, and classes in place
+    - added a graph signature so the SVG is replaced only when graph structure changes: tools, targets, finding counts, or task-to-tool mappings; pure task status churn no longer forces a full SVG rebuild
+    - bumped the served app/style asset version to `20260428-cinema-stable-2` and imported `cinema.js` with that query to break stale browser module cache
+    - removed the one-shot thread draw animation from Cinema paths so line drawing is not replayed as a visible blink
+    - kept narrator typing animation stable and restarted it only when the narration text changes
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=/opt/aegispt/ms-playwright python -m pytest --capture=no ui/tests/test_mockup_port_e2e.py -q -k cinema`
+    - live browser proof on `http://127.0.0.1:8000/app/`: opened Mission Control Cinema Mode, waited across polling, confirmed the served entry script was `./assets/app.js?v=20260428-cinema-stable-2`, and confirmed the same SVG node, thread node, and narrator node remained mounted
+  - evidence:
+    - `codex/results/cinema-mode-stable-polling-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective UI hotfix prompted by live operator evidence, not a queue promotion
+
+- 2026-04-28: completed a corrective live-chain service-enumeration targeting hotfix while backlog-94 remains active:
+  - rationale:
+    - live operator evidence showed a `passive-network-service-enumeration` follow-up run executing a discovery-style preview (`-sn`) against the original `10.0.20.0/24` CIDR
+    - that proved the chain handoff from discovery inventory to Phase 2 service enumeration was not actually correct, despite earlier narrower tests
+  - implementation:
+    - updated `api/app/services/assessment_chain.py` so chain follow-up profiles materialize targets from the latest inventory snapshot: service-enumeration and SMB use discovered hosts; web baseline/Nuclei use discovered URLs first and discovered hosts as fallback
+    - updated `workers/orchestration/tasks.py` so command previews merge nested profile `limits` before rendering, preventing service-enumeration previews from defaulting to `-sn`
+    - increased default/local `RUNNER_TIMEOUT_SECONDS` from `10.0` to `60.0` in config, env examples, and local restart scripts so bounded service detection is not cut off before its own `--host-timeout 30s`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py -q` (`9 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_runner_contract.py -q` (`14 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -q -k "service_enumeration or source_inventory or nmap or configuration_targets"` (`2 passed`)
+    - combined focused rerun (`25 passed`)
+  - live proof:
+    - restarted the current-code host with `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - created a controlled internal LAN assessment chain, attached a discovery inventory snapshot containing `10.0.20.1`, approved Phase 2, and observed the live inline host dispatch `passive-network-service-enumeration`
+    - the generated task targeted `10.0.20.1`, completed with exit code `0`, and previewed `$ nmap -n -oX '<evidence>/nmap-results.xml' -Pn -sV --version-intensity 2 --top-ports 50 -T3 --max-retries 2 --host-timeout 30s 10.0.20.1`
+  - evidence:
+    - `codex/results/live-chain-service-enumeration-targeting-hotfix-20260428.md`
+  - queue / governance:
+    - `NEXT_TASK.md` remains backlog-94 `Report Quality Overhaul - Professional Formatting, Prose Narrative, and Deduplication`; this was a corrective runtime hotfix prompted by live evidence, not a queue promotion
+
+- 2026-04-28: completed backlog-93 `On-Demand CVE Intelligence During Assessment - Discover, Match, Test, Fix` and promoted the next approved report-quality slice:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-93-on-demand-cve-intelligence.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-93 was the single active task before implementation
+    - treated `http://127.0.0.1:8000` as relevant because this slice adds selected-run API data and a Mission Control panel
+  - implementation:
+    - added `api/app/services/on_demand_cve_intel.py` to extract discovery-derived product/version fingerprints, match local high-risk threat-intel records, perform bounded optional NVD lookups, detect local Nuclei templates, create product/version fix guidance, and persist selected-run CVE intelligence without blocking assessment execution
+    - added run CVE-intelligence endpoints in `api/app/routers/runs.py` plus typed schemas in `api/app/schemas/runs.py`
+    - wired completed discovery tasks through `workers/orchestration/tasks.py` so the pipeline refreshes after discovery without starting tests
+    - extended Nmap/Nuclei dispatch contracts so service enumeration can use bounded version-detection settings and targeted Nuclei tasks can carry the approved local template body
+    - updated the internal LAN service-enumeration profile with `version_intensity: 2`, `timing_template: T3`, `max_retries: 2`, and `host_timeout_seconds: 30`
+    - added Mission Control UI state/loading and the `Discovered Vulnerabilities` panel with CVE rows, local-template status, operator-gated `Run Test`, generated-template handoff, and fix guidance
+    - added `api/tests/test_on_demand_cve_intel.py` for extraction, matching, no-auto-execution, targeted queueing, and bounded NVD behavior
+  - real local LAN proof:
+    - identified `10.0.20.0/24` as the local LAN instead of relying on loopback-only validation
+    - `nmap -n -sn 10.0.20.0/24` found 27 hosts and wrote `codex/results/runtime-validation/local-lan-discovery-20260428.xml` plus `codex/results/runtime-validation/local-lan-discovered-hosts-20260428.txt`
+    - bounded service detection over those hosts wrote `codex/results/runtime-validation/local-lan-service-enum-20260428.xml` and produced product evidence including OpenSSH, nginx, lighttpd, OpenPegasus WBEM, Dropbear, and dnsmasq
+  - live localhost acceptance:
+    - restarted current-code localhost with `NUCLEI_TEMPLATES_DIR="$PWD/codex/results/runtime-validation/nuclei-templates"` and `AEGISPT_LOCAL_ENSURE_ZAP=0`
+    - verified `/health/live` and `/api/v1/dashboard` after restart; the stale dashboard 404 condition was not present
+    - live API acceptance created a controlled nginx `1.25` run, matched `CVE-2026-9999` to a local template, and queued a targeted Nuclei task only after explicit operator action; evidence is in `codex/results/backlog-93-live-cve-intelligence-20260428.json`
+    - live browser acceptance confirmed Mission Control shows `Discovered Vulnerabilities`, `CVE-2026-9999`, `nginx 1.25`, `Run Test`, and product/version fix guidance with no page/console errors; screenshot is `codex/results/backlog-93-live-cve-intelligence-mission-control.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`115` queued task packages mapped one-to-one; exactly one active task)
+    - `source .venv/bin/activate && python -m py_compile api/app/services/on_demand_cve_intel.py api/app/routers/runs.py api/app/schemas/runs.py workers/orchestration/tasks.py workers/runners/nmap/runner.py workers/runners/nuclei/runner.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_on_demand_cve_intel.py` (`3 passed in 3.28s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_nmap_dispatch.py api/tests/test_nuclei_dispatch.py workers/tests/test_runner_contract.py` (`19 passed in 7.61s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`273 passed in 226.42s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`186 passed in 876.39s`) after correcting one stale exact-host-count assertion exposed by the first full run
+    - `git diff --check`
+  - evidence:
+    - `codex/results/backlog-93-on-demand-cve-intelligence-20260428.md`
+    - `codex/results/backlog-93-live-cve-intelligence-20260428.json`
+    - `codex/results/backlog-93-live-cve-intelligence-mission-control.png`
+    - `codex/results/runtime-validation/local-lan-discovery-20260428.xml`
+    - `codex/results/runtime-validation/local-lan-service-enum-20260428.xml`
+  - remaining risks:
+    - live NVD success still depends on network availability and NVD rate limits, though the path is bounded and tested with an injected fetcher
+    - NVD-only rows without a local record/template are intentionally marked `informational` because the existing template-generation flow requires a stored local threat-intel record
+    - real targeted Nuclei execution against live third-party targets was not run; this slice proves operator-gated queueing and local-template binding, not broad exploitation
+    - AD/cloud/intrusive tool execution remains outside backlog-93
+  - queue / governance:
+    - promoted `codex/tasks/backlog-94-report-quality-overhaul.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-26: completed an operator-escalated toolchain, installer, runtime, and Live Agents verification pass while backlog-93 remains active:
+  - rationale:
+    - the user asked whether a new installer can safely target Kali Linux and then required real host tool installation plus proof that the app flow loads/dispatches tools and that Live Agents shows useful running work
+    - this was a corrective readiness pass, not backlog-93 completion; `NEXT_TASK.md` remains unchanged
+  - installer/toolchain work:
+    - expanded `scripts/install_security_tools.sh` toward a Kali-first full-toolchain installer with Ubuntu/WSL fallbacks for pipx, GitHub release binaries, Responder, NetExec, Impacket, Metasploit, kerbrute, subfinder, AWS CLI, and testssl naming
+    - expanded `scripts/verify_host.sh` to verify Docker, Python, nuclei, ZAP, nmap, httpx, ffuf, feroxbuster, testssl, semgrep, ssh-audit, AWS CLI, Responder, NetExec, hashcat, Metasploit, ldapsearch, Impacket scripts, BloodHound Python, kerbrute, and subfinder
+    - configured global Git identity as `AegisPT Operator <operator@aegispt.local>`
+  - runtime fixes:
+    - stripped blank proxy env vars for Semgrep runner calls so WSL blank proxy state no longer crashes Semgrep
+    - added bounded inline task-batch parallelism and an explicit `INLINE_DISPATCH_BACKGROUND` live-host setting so multi-task local runs can start in parallel without breaking deterministic inline tests
+    - passed `RUNNER_TIMEOUT_SECONDS` through local host restart scripts
+    - added a real subprocess timeout to the nmap runner so stuck service-detection scans end as controlled timeout exit `124` instead of leaving Live Agents permanently `running`
+  - live proof:
+    - restarted the current-code host on `http://127.0.0.1:8000/app/`
+    - proved a safe local `passive-network-discovery` run against `127.0.0.1`, `127.0.0.2`, and `127.0.0.3` dispatches as `inline-background-parallel`, observes running tasks, and completes all three nmap tasks
+    - proved a safe local `passive-network-service-enumeration` run dispatches all three nmap tasks in parallel and then fails through controlled timeout instead of hanging
+  - evidence:
+    - `codex/results/toolchain-runtime-readiness-20260426.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `bash scripts/verify_host.sh`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/` (`71 passed in 8.27s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`270 passed in 306.71s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" bash scripts/run_ui_fast_tests.sh` (`6 passed in 17.73s`)
+    - targeted Live Agents/intake Playwright checks (`2 passed in 6.75s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/` (`240 passed in 1048.03s`)
+  - remaining risk:
+    - no intrusive AD/cloud/lateral tools were executed against a real authorized lab in this pass
+    - Burp Suite Pro remains external/licensed through `BURP_API_URL`
+    - Metasploit loads but reports the package is older than two weeks
+    - backlog-93 remains the single active task
+
+- 2026-04-26: completed a focused intake dispatch / Live Agents regression hotfix while backlog-93 remains active:
+  - user-reported breakages were reproduced and addressed: intake-created runs could remain visually queued/manual, active LAN did not feel like one continuous run, `Create Mission & Open Mission Control` could block on the local inline host, and Live Agents did not prioritize or show the actually running task
+  - added `dispatch_after_create` support that uses the existing dispatch boundary but defers inline execution through FastAPI background tasks during run creation, so local inline-host mission creation can return to Mission Control immediately while the bounded runner starts in the background
+  - changed assessment-chain creation so automatic dispatch happens only when the client explicitly requests `dispatch_after_create`; the normal API default remains queued/manual-compatible
+  - hardened assessment-chain phase JSON persistence with explicit `flag_modified` calls so current phase summaries match the scalar chain state after auto-advance
+  - corrected guided wizard preview/launch behavior so selected surface/depth drives copy, profile, chain mode, and auto-dispatch; passive simple runs dispatch after create, and active/full internal LAN uses the existing assessment-chain auto-advance path
+  - made Live Agents live-first: stdout streaming now remains active on the Agents screen, running tasks sort and select ahead of queued/completed tasks, queued/running/completed counts are distinct, a running-task focus terminal is shown, and queued/completed cards are moved into a collapsed history section when a task is running
+  - added safe runner command preview lines to task stdout at task start, so the operator can immediately see the bounded command being executed before captured runner output arrives
+  - bumped the UI asset cache key in `ui/index.html` to `20260426-live-agents-hotfix-1` so the live browser loads the hotfix JS/CSS bundle
+  - evidence:
+    - `codex/results/backlog-93-intake-dispatch-live-agents-hotfix-20260426.md`
+  - validation:
+    - `python3 -m py_compile api/app/services/task_dispatch.py api/app/services/runs.py api/app/services/assessment_chain.py api/app/routers/runs.py`
+    - `python3 -m py_compile api/app/schemas/runs.py api/app/routers/runs.py workers/orchestration/tasks.py ui/tests/test_operator_console_e2e.py`
+    - JS syntax checks for `ui/assets/modules/wizard.js`, `ui/assets/app.js`, and `ui/assets/modules/mission-control.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py` (`8 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py api/tests/test_runs.py -k "assessment_chain or dispatch_queued or dispatch_run or passive_network_service_enumeration"` (`8 passed, 59 deselected`)
+    - focused operator-console regressions for web launch copy, passive LAN dispatch, active LAN chain staging, and Live Agents running-task stream (`4 passed, 182 deselected`)
+    - targeted Live Agents archive regression (`1 passed, 185 deselected`)
+    - live current-code host restart on `http://127.0.0.1:8000/app/`
+    - live active Internal LAN acceptance against `127.0.0.1/32`: Mission Control opened within 15 seconds, phase 1 completed, phase 2 became active, the selected run/task was running, and Live Agents showed the live nmap command preview
+    - live passive Internal LAN acceptance against `127.0.0.1/32`: mission created, dispatched, and completed without remaining queued
+    - live asset/archive acceptance: `index.html` served `20260426-live-agents-hotfix-1`, the Agents primary grid showed only the running task, and queued/completed cards were kept in collapsed history
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - this was a regression hotfix, not completion of backlog-93
+    - the full API suite and full operator-console Playwright suite were not rerun in this pass
+    - `NEXT_TASK.md` was intentionally left unchanged; backlog-93 remains the single active task
+
+- 2026-04-26: completed and closed backlog-92 `Custom CVE and Vulnerability Signature Library`:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-92-custom-cve-library.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` reports exactly one active task
+  - added tenant-scoped custom vulnerability persistence, per-engagement enablement settings, migration `20260426_0025_custom_vulnerabilities`, CRUD/import/export/soft-delete/audit APIs, and the Analyze > `Custom CVE Library` operator screen
+  - kept linked Nuclei/template readiness inside existing pack lifecycle truth: no pack registry, validation, approval, deployment, or runtime-binding bypass was added
+  - added NVD-style JSON, CSAF, plain-text, and AegisPT export import paths; ChatGPT OAuth structuring has an unavailable/degraded state when no connected token is available
+  - restored the Mission Control `Start Validation` top action for queued post-approval runs because the full UI gate exposed that the mockup action strip had hidden the dispatch control
+  - evidence:
+    - `codex/results/backlog-92-custom-cve-library-20260426.md`
+    - `codex/results/backlog-92-custom-cve-library-20260426/live-acceptance-final-rerun.json`
+    - `codex/results/backlog-92-custom-cve-library-20260426/custom-vuln-library-live-final-rerun.png`
+  - validation passed:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - Python compile checks for the custom vulnerability service/router/schema/migration and SQLite repair helper
+    - JS syntax checks for `custom-vulnerabilities.js`, `app.js`, and `mission-control.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_custom_vulnerabilities.py` (`3 passed in 2.96s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`268 passed in 238.25s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`183 passed in 750.42s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py` (`2 passed in 7.00s`)
+    - approval-focused UI regression after the dispatch-button repair (`2 passed in 7.09s`)
+    - live current-code host restart and live API/browser acceptance on `http://127.0.0.1:8000/app/` with no page/API errors: Custom CVE Library rendered, UI create/export worked, API list returned the created definition, linked-template coverage was clear, and ChatGPT OAuth structuring degraded to `unavailable` without a connected engagement/token
+    - `git diff --check`
+  - important truth notes:
+    - live success with a real connected ChatGPT OAuth token was not executed; the no-token unavailable path is live-validated and provider-success paths are covered in automated tests
+    - the full operator-console suite is still slow, but the required gate is green again and the harness now retries transient Chromium `ERR_NETWORK_CHANGED` navigation/mission-create flakes
+  - replaced `NEXT_TASK.md` with the single promoted `On-Demand CVE Intelligence During Assessment - Discover, Match, Test, Fix` task from `codex/tasks/backlog-93-on-demand-cve-intelligence.json`
+
+- 2026-04-26: completed and closed backlog-91 `AI-Driven Nuclei Template Generation from CVEs`:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-91-ai-nuclei-template-generation.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` reports exactly one active task
+  - added `POST /api/v1/threat-intel/{record_id}/generate-template` for local CVE records, with an engagement-scoped request body because ChatGPT OAuth tokens and generated pack staging are engagement-scoped
+  - implemented `api/app/services/cve_template_generator.py` to call ChatGPT OAuth for structured detection-only Nuclei YAML, parse the streamed JSON response, validate YAML with `PyYAML`, produce a review diff, and reject malformed, destructive, active-payload, non-HTTP, raw/body/payload, out-of-scope URL, or blocked-protocol templates before storage
+  - staged accepted generated templates through the existing capability pack lane as generated/pending artifacts with review metadata, provenance, prompt digest, validation summary, and no auto-deploy path
+  - linked approved/deployed generated-template packs back into the threat-intel record metadata so deployed generated templates can surface as `Tested via generated template` on finding threat-intel badges without changing finding schema fields
+  - added the Settings > Threat Intel `CVE Test Templates` UI action, generated YAML review/diff state, graceful ChatGPT OAuth unavailable state, and `Review in Pack Forge` link
+  - evidence:
+    - `codex/results/backlog-91-ai-nuclei-template-generation-20260426.md`
+    - `codex/results/screenshots/backlog-91-threat-intel-template-ui-unavailable.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m py_compile api/app/services/cve_template_generator.py api/app/services/packs.py api/app/routers/threat_intel.py api/app/schemas/threat_intel.py api/app/services/threat_intel.py`
+    - `node --input-type=module --check < ui/assets/modules/settings.js`
+    - `node --input-type=module --check < ui/assets/modules/findings.js`
+    - `node --input-type=module --check < ui/assets/modules/runtime.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cve_template_generator.py` (`3 passed in 2.84s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cve_template_generator.py api/tests/test_threat_intel.py api/tests/test_cve_sync.py api/tests/test_settings.py api/tests/test_codex_tasks.py` (`21 passed in 16.49s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`265 passed in 220.35s`)
+    - `bash scripts/run_ui_fast_tests.sh` (`5 passed in 15.11s`)
+    - live host restart on `http://127.0.0.1:8000`; `/health/live` and `/api/v1/threat-intel/search` returned `200`
+    - live browser acceptance for Settings > Threat Intel confirmed the eligible CVE action and graceful unavailable state without console/network failures
+    - `git diff --check`
+  - important truth notes:
+    - live success against a real ChatGPT OAuth token was not executed because the live acceptance engagement had no connected token; the provider success, pack staging, dangerous-template rejection, deployment link, and badge behavior are covered by automated tests using a fake provider response
+    - no auto-deploy, pack gate bypass, Prompt 1/Prompt 2 change, finding schema field change, runtime self-modification, uncontrolled plugin installation, or live target action was introduced
+  - replaced `NEXT_TASK.md` with the single promoted `Custom CVE and Vulnerability Signature Library` task from `codex/tasks/backlog-92-custom-cve-library.json`
+
+- 2026-04-26: completed and closed backlog-90 `CVE Feed Auto-Sync - CISA KEV, NVD, NCSC NL, and OpenCVE`:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-90-cve-feed-auto-sync.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` reports exactly one active task
+  - implemented relevance-first local CVE feed sync without creating a full CVE mirror and without adding external calls during finding analysis
+  - added `cve_product_watchlist_entries` and `cve_feed_sync_logs` plus migration `20260426_0024_cve_feed_sync`
+  - added full CISA KEV and NCSC NL feed sync, NVD watchlist-only sync with CVSS `< 6.0` filtering, and OpenCVE watchlist-only sync that skips gracefully when the optional token is absent
+  - added Settings > Threat Intel controls for per-source status, product watchlist add/remove, inventory-derived suggestions requiring operator approval, and manual `Sync Now`
+  - wired inventory-snapshot creation to the same approval-gated product suggestion flow, both for API-created inventory runs and runner-derived inventory snapshots, so newly observed products are suggested automatically after scans without becoming approved watchlist inputs
+  - added optional APScheduler daily sync at `03:00`; missing dependency is represented as scheduler status instead of breaking application startup, and `apscheduler>=3.10,<4.0` is now in `requirements/base.txt`
+  - fixed the shared frontend `api()` helper so `204 No Content` responses no longer block UI refresh after delete actions
+  - evidence:
+    - `codex/results/backlog-90-cve-feed-auto-sync-20260426.md`
+    - `codex/results/screenshots/backlog-90-settings-threat-intel-acceptance.png`
+  - validation:
+    - `python3 -m py_compile api/app/services/cve_sync.py api/app/services/cve_sync_scheduler.py api/app/routers/threat_intel.py api/app/schemas/threat_intel.py api/app/models/control.py api/app/main.py api/app/config.py`
+    - `python3 -m py_compile api/app/routers/inventory.py workers/orchestration/tasks.py api/app/services/cve_sync.py api/app/routers/threat_intel.py api/app/schemas/threat_intel.py api/app/models/control.py`
+    - `source .venv/bin/activate && python -m pip install 'apscheduler>=3.10,<4.0'`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cve_sync.py` (`2 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py api/tests/test_cve_sync.py` (`9 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`262 passed in 221.45s` after the automatic inventory-suggestion hook)
+    - `node --input-type=module --check < ui/assets/modules/api.js`
+    - `node --input-type=module --check < ui/assets/modules/settings.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - live host restart on `http://127.0.0.1:8000` after detecting old-code `404` on `/api/v1/threat-intel/feed-sync/status`
+    - final current-code live host restart after the inventory-suggestion hook; `/health/live` and `/api/v1/threat-intel/feed-sync/status` both returned `200`
+    - live browser acceptance for Settings > Threat Intel: panel visible, Sync Now visible and exercised with mocked safe response, product watchlist add/remove worked against the local API
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` (`115` queued task packages mapped one-to-one; exactly one active task)
+    - `git diff --check`
+  - important truth notes:
+    - no pack registry, validation, approval, deployment, runtime binding, Prompt 1, Prompt 2, finding schema fields, runtime self-modification, uncontrolled plugin installation, or live target actions changed
+    - OpenCVE intentionally skips without a token; production NVD/OpenCVE credential/rate-limit behavior remains operator-configured
+  - replaced `NEXT_TASK.md` with the single promoted `AI-Driven Nuclei Template Generation from CVEs` task from `codex/tasks/backlog-91-ai-nuclei-template-generation.json`
+
+- 2026-04-26: completed and closed backlog-89 `LAN Wizard Profile Fix - Route Internal Network to Correct Discovery Profile`:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-89-lan-wizard-profile-fix.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` reports exactly one active task
+  - kept the implementation inside the existing wizard/run creation path: no new runner, no new profile, and no backend endpoint was added
+  - made the guided wizard preview expose the actual execution lane and tools so Internal LAN/private-CIDR work shows `passive-network-discovery · nmap` before launch
+  - added private LAN target detection for `10.x`, `192.168.x`, and `172.16-31.x` CIDRs/IPs, plus a visible warning when a private CIDR is paired with a non-LAN-discovery lane
+  - added a one-click `Switch to Internal Network profile` correction that resets the mission to the safe internal discovery path with `passive-network-discovery` as the execution lane
+  - verified Mission Control's existing inventory follow-up path still surfaces `Identify services on discovered hosts` and uses the existing `passive-network-service-enumeration` follow-up action after discovery-confirmed inventory
+  - evidence:
+    - `codex/results/backlog-89-lan-wizard-profile-fix-20260426.md`
+    - `codex/results/backlog-89-lan-wizard-profile-fix-20260426/live-lan-preview-discovery-lane.png`
+    - `codex/results/backlog-89-lan-wizard-profile-fix-20260426/live-private-cidr-web-warning.png`
+    - `codex/results/backlog-89-lan-wizard-profile-fix-20260426/live-private-cidr-corrected-lan-discovery.png`
+    - `codex/results/backlog-89-lan-wizard-profile-fix-20260426/live-mission-control-lan-follow-up.png`
+    - `codex/results/backlog-89-lan-wizard-profile-fix-20260426/live-advanced-override-warning-still-explicit.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - focused fast UI validation for the LAN/private-CIDR wizard path (`2 passed in 6.13s` after the final CSS correction)
+    - `bash scripts/run_ui_fast_tests.sh` (`5 passed in 14.80s` after the final CSS correction)
+    - live browser acceptance on `http://127.0.0.1:8000/app/`: live host served the `20260426-ui89-lan-profile-2` bundle, Internal LAN preview showed `passive-network-discovery` and `nmap`, private-CIDR/web mismatch showed the warning and correction button, correction returned to `passive-network-discovery`, Advanced Configuration remained visible/usable for explicit profile override, and controlled discovery-inventory state showed the Mission Control service-identification follow-up
+    - `git diff --check`
+  - important truth notes:
+    - no backend API, migrations, workers, data models, finding schema fields, pack registry, validation, approval, deployment, runtime binding, Prompt 1, Prompt 2, runtime self-modification, uncontrolled plugin installation, AI calls, external dependencies, or offensive runtime behavior changed
+    - the slow `ui/tests/test_operator_console_e2e.py` regression monolith was intentionally not run for this focused UI slice
+  - replaced `NEXT_TASK.md` with the single promoted `CVE Feed Auto-Sync - CISA KEV, NVD, NCSC NL, and OpenCVE` task from `codex/tasks/backlog-90-cve-feed-auto-sync.json`
+
+- 2026-04-26: completed and closed backlog-88 `Fix Forecast - Interactive Remediation Impact Calculator`:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-88-fix-forecast.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` reports exactly one active task
+  - added a `Fix Forecast` planning panel to Problems Center using the `cinema_mockup.html` split current/projected concept while keeping the implementation inside the existing product shell
+  - derived the score client-side from existing Problems Center items, with selected-run findings as a fallback, using the same deterministic exposure-score weight shape: critical `10`, high `5`, medium `2`, low `0.5`, normalized over `40` to a `0-100` score
+  - kept forecast checkbox state session-only: selected fixes strike through in the current panel, appear in the projected-resolved panel, update severity bars, and produce diff notes for score drop, count resolved, remaining count, and threshold crossing without changing stored finding status
+  - wired `Create Retest Plan` to the existing Problems Center bulk retest path (`PATCH /api/v1/problems/bulk`, `action: schedule_retest`) and did not add any new backend endpoint
+  - fixed the existing Problems Center post-bulk refresh helper to call the runtime module actions instead of relying on module-local functions outside the helper's scope
+  - evidence:
+    - `codex/results/backlog-88-fix-forecast-20260426.md`
+    - `codex/results/backlog-88-fix-forecast-20260426/browser-acceptance.json`
+    - `codex/results/backlog-88-fix-forecast-20260426/browser-acceptance-final.json`
+    - `codex/results/backlog-88-fix-forecast-20260426/fix-forecast-live-desktop.png`
+    - `codex/results/backlog-88-fix-forecast-20260426/fix-forecast-controlled-selected.png`
+    - `codex/results/backlog-88-fix-forecast-20260426/fix-forecast-mobile.png`
+    - `codex/results/backlog-88-fix-forecast-20260426/fix-forecast-final-desktop.png`
+    - `codex/results/backlog-88-fix-forecast-20260426/fix-forecast-final-mobile.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/findings.js`
+    - `node --input-type=module --check < ui/assets/modules/problems.js`
+    - `bash scripts/run_ui_fast_tests.sh` (`3 passed in 8.97s`)
+    - `AEGISPT_UI_FAST_INCLUDE_PROBLEMS=1 bash scripts/run_ui_fast_tests.sh` (`5 passed in 16.90s`)
+    - live browser acceptance on `http://127.0.0.1:8000/app/`: live host served the `20260426-ui88-forecast-1` bundle, live no-item forecast empty state was truthful, controlled browser-state proof rendered score `42.5 -> 17.5 -> 5`, forecast checkbox interactions made zero `PATCH` requests, the retest action used only `/api/v1/problems/bulk`, desktop/mobile overflow was `0`, and console/page/network errors were empty
+    - `git diff --check`
+  - important truth notes:
+    - no backend API, migrations, workers, data models, finding schema fields, pack registry, validation, approval, deployment, runtime binding, Prompt 1, Prompt 2, runtime self-modification, uncontrolled plugin installation, AI calls, external dependencies, or offensive runtime behavior changed
+    - the slow `ui/tests/test_operator_console_e2e.py` regression monolith was intentionally not run for this focused UI slice
+  - replaced `NEXT_TASK.md` with the single promoted `LAN Wizard Profile Fix - Route Internal Network to Correct Discovery Profile` task from `codex/tasks/backlog-89-lan-wizard-profile-fix.json`
+
+- 2026-04-26: completed and closed backlog-87 `Risk Molecule - Interactive Finding Relationship Visualization`:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-87-risk-molecule-visualization.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` reports exactly one active task
+  - added an optional `Molecule View` toggle to Findings while keeping the list view as the default
+  - rendered existing selected-run/browser finding state as an SVG relationship map with severity-sized and severity-colored nodes, critical pulse treatment, hover tooltip, keyboard activation, and click-through to the existing finding detail drawer
+  - rendered dashed cyan chain links only when explicit stored chain references are available in current browser finding state or already-loaded selected finding theater chain context; no sample chain data or inferred title/target matches are invented
+  - kept no-finding and no-chain states truthful; the live localhost selected run currently has no visible findings, so live acceptance shows a truthful empty Molecule state rather than fake nodes
+  - fixed the existing finding-selection helper so it uses the runtime render path instead of referencing module-local render functions that were outside its scope; this prevents empty drawer regressions after selecting a finding
+  - evidence:
+    - `codex/results/backlog-87-risk-molecule-20260426.md`
+    - `codex/results/backlog-87-risk-molecule-20260426/browser-acceptance.json`
+    - `codex/results/backlog-87-risk-molecule-20260426/fixture-node-acceptance.json`
+    - `codex/results/backlog-87-risk-molecule-20260426/findings-list-default-desktop.png`
+    - `codex/results/backlog-87-risk-molecule-20260426/risk-molecule-desktop.png`
+    - `codex/results/backlog-87-risk-molecule-20260426/risk-molecule-mobile.png`
+    - `codex/results/backlog-87-risk-molecule-20260426/risk-molecule-fixture-nodes-drawer.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/findings.js`
+    - `node --input-type=module --check < ui/assets/modules/runtime.js`
+    - `bash scripts/run_ui_fast_tests.sh` (`3 passed in 9.38s` after promotion)
+    - live browser acceptance on `http://127.0.0.1:8000/app/`: current bundle served, list view default, Molecule empty state truthful for the live no-finding run, controlled browser-state proof rendered `3` nodes and `1` chain link, hover tooltip worked, node click opened the existing drawer, desktop/mobile overflow was `0`, and console/page/network errors were empty
+    - `git diff --check`
+  - important truth notes:
+    - no backend API, migrations, worker behavior, data models, finding schema fields, pack registry, validation, approval, deployment, runtime binding, Prompt 1, Prompt 2, runtime self-modification, uncontrolled plugin installation, AI calls, or offensive runtime behavior changed
+    - the slow `ui/tests/test_operator_console_e2e.py` regression monolith was intentionally not run for this focused UI slice
+  - replaced `NEXT_TASK.md` with the single promoted `Fix Forecast - Interactive Remediation Impact Calculator` task from `codex/tasks/backlog-88-fix-forecast.json`
+
 ## 2026-04-20
+
+- 2026-04-26: completed and closed backlog-86 `Cinema Mode - Full-Screen Live Scan Visualization`:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-86-cinema-mode.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` reports exactly one active task
+  - replaced the earlier fixed-sample Cinema overlay with a state-grounded display mode derived from the selected run, tasks, findings, inventory snapshot, exposure score, AI insights, and existing run stream / polling state
+  - preserved the Mission Control `Cinema Mode` button, added `F` as a Mission Control shortcut, kept `Escape` and close-button exit, and locked body scroll while Cinema Mode is open
+  - rendered real tool-to-target SVG threads, host nodes, finding badges/ripples, critical flash support, AI narration, and the five required counters: Exposure Score, Critical, High, Hosts Scanned, and AI Proposals
+  - made empty/static states truthful: no selected run shows a no-run Cinema state, unavailable exposure scores show `n/a`, and AI provider failures are summarized without exposing raw backend diagnostics
+  - updated the fast UI test lane to cover the `F` shortcut, no-run fallback, no hard-coded sample IP data, and Cinema close behavior
+  - evidence:
+    - `codex/results/backlog-86-cinema-mode-20260426.md`
+    - `codex/results/backlog-86-cinema-mode-20260426/browser-acceptance.json`
+    - `codex/results/backlog-86-cinema-mode-20260426/cinema-desktop.png`
+    - `codex/results/backlog-86-cinema-mode-20260426/cinema-mobile.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/cinema.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `bash scripts/run_ui_fast_tests.sh` (`2 passed in 6.64s`)
+    - live browser acceptance on `http://127.0.0.1:8000/app/`: selected live run had `28` tasks, `28` discovered hosts, exposure score `0`, `0` critical findings, `0` high findings, and `0` pending AI proposals; Cinema counters matched, SVG rendered nonblank, overlay filled desktop/mobile viewports, body scroll was locked, `Escape`/close exited, and console/network errors were empty
+    - `git diff --check`
+  - important truth notes:
+    - no backend API, migrations, worker behavior, data models, pack registry, validation, approval, deployment, runtime binding, Prompt 1, Prompt 2, runtime self-modification, uncontrolled plugin installation, or offensive runtime behavior changed
+    - the slow `ui/tests/test_operator_console_e2e.py` regression monolith was intentionally not run for this focused UI slice
+  - replaced `NEXT_TASK.md` with the single promoted `Risk Molecule - Interactive Finding Relationship Visualization` task from `codex/tasks/backlog-87-risk-molecule-visualization.json`
+
+- 2026-04-26: clarified continuation truth after operator asked where the project should resume:
+  - confirmed `NEXT_TASK.md` and `python3 scripts/validate_backlog_tasks.py` both identify backlog-115 `Full Mockup Product Parity and Navigation Binding` as the single active task
+  - documented that the last normal product task before the operator-escalated mockup/UI repair lane was backlog-84 `Problems Center`, while backlog-82, backlog-83, backlog-84, and backlog-114 are already complete
+  - updated `CURRENT_STATE.md` and `NEXT_TASK.md` with the explicit continuation handoff: continue backlog-115, do not resume AI backlog work, and do not promote backlog-86 until backlog-115 is honestly closed/accepted
+  - wrote a reusable next prompt to `codex/results/continuation-handoff-20260426.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+
+- 2026-04-26: corrected dashboard truth, product typography, and product naming inside the still-active backlog-115 UI parity task:
+  - fixed dashboard data scoping so the live UI requests `/api/v1/dashboard?engagement_id=<selected>` and no longer displays portfolio-wide historical numbers beside the selected engagement context
+  - added a read-only dashboard API `engagement_id` filter that reuses the existing tenant/deleted-engagement guard; no runtime mutation, pack lifecycle, finding schema, or offensive execution behavior changed
+  - changed dashboard command cards to truthful selected-engagement values: selected engagement, active task count, selected risk posture, selected open problems, and selected-run report catalog
+  - routed the Dashboard `Open Problems` quick action to the Problems Center instead of the older Findings surface
+  - tightened dashboard/screen-copy typography to the compact product scale and removed product-facing `mockup` names from `ui/assets` and `ui/index.html`
+  - renamed product classes/data names to product terms such as `mission-wizard-flow`, `wizard-flow-step`, `screen-actions`, `report-product-shell`, and `run-card-active`
+  - clarified Live Agents copy so it describes task cards/stdout/proposals rather than implying hidden autonomous agent processes
+  - restarted the live host on current code and verified selected-engagement dashboard truth in the browser with no console errors, no network errors, and `contains_mockup_dom_name: false`
+  - evidence:
+    - `codex/results/backlog-115-dashboard-truth-css-naming-20260426.md`
+    - `codex/results/backlog-115-dashboard-truth-css-naming-20260426/dashboard-desktop-final.png`
+    - `codex/results/backlog-115-dashboard-truth-css-naming-20260426/browser-dashboard-truth-final.json`
+  - validation:
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/modules/dashboard.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_dashboard.py api/tests/test_health.py` (`6 passed in 4.53s`)
+    - `bash scripts/run_ui_fast_tests.sh` (`2 passed in 7.14s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - live browser acceptance on `http://127.0.0.1:8000/app/`
+    - `git diff --check`
+  - important truth note: backlog-115 remains active; this is a targeted correction, not a full product-wide closure or promotion
+
+- 2026-04-26: implemented a focused operator-feedback correction pass for the still-active backlog-115 `Full Mockup Product Parity and Navigation Binding` task, but deliberately did not close or promote it because the product-wide score is still below the requested `9.0+/10` bar:
+  - reread repo governance and confirmed `python3 scripts/validate_backlog_tasks.py` still reports exactly one active task, backlog-115
+  - fixed the wizard regression where selecting an assessment tile could still fall back into the old conversational intake panels:
+    - the middle `External IPs` tile is selectable
+    - selected chips render cleanly without emoji-font text spacing
+    - there is one visible `Target & Depth` action in the selected bar
+    - step 2 now renders the mockup target-plus-depth cards
+    - step 3 now renders mission preview plus authorization
+    - step 4 now renders the launched state
+  - reworked Mission Control for human first-viewport use:
+    - bounded the scan map to 10 visible mapped targets with `Open full map`
+    - kept task list, selected task focus, and captured stdout readable above the desktop fold
+    - deduplicated repeated AI provider failure cards and collapsed older entries
+    - hid zero-finding severity clutter from the task column
+    - fixed the responsive override so mobile Mission Control stacks instead of showing clipped columns
+  - rebalanced the Agents screen so completed task cards no longer become a dominant green wall
+  - consolidated the CSS after operator feedback that the prior pass had accumulated override debt:
+    - moved Mission Control sizing and compactness values into the canonical `.mission-grid`, `.mission-task-*`, active scan-map, stdout terminal, and AI Signal component sections
+    - removed the standalone `.mission-grid-mockup` selector and the matching markup class
+    - moved duplicate `.stage`, `.sidebar-new-mission`, `.demo-tab.active`, and `.action.danger` values back to their original component sections
+    - recorded the remaining stylesheet-size risk in `codex/results/backlog-115-css-consolidation-20260426.md`
+  - reran a full live route/wizard audit after the operator asked for stronger certainty:
+    - restored visible sidebar navigation for `Evidence Replay` and `Explorer` as compact Build utility routes
+    - bounded Pack Forge form panels so the long build-lane form no longer runs underneath the fixed bottom switcher
+    - final live audit summary had no bad screens, no console errors, no 4xx/5xx network errors, no mobile overflow, and no wizard old-panel regressions; evidence is in `codex/results/backlog-115-live-recheck-20260426.md`
+  - captured broad audit screenshots for Dashboard, Intake, Mission Control, Agents, Attack Map, Problems, Findings, Reports, History, Packs, Settings, plus mobile Intake/Mission Control under `codex/results/backlog-115-wizard-mission-fix-20260426/`
+  - captured CSS-consolidation Mission Control desktop/mobile screenshots under `codex/results/backlog-115-css-consolidation-20260426/`
+  - captured the second live route/wizard audit screenshots under `codex/results/backlog-115-live-recheck-20260426/audit-after/`
+  - wrote evidence and the updated UI score to `codex/results/backlog-115-wizard-mission-correction-evidence-20260426.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`2 passed in 1.82s`)
+    - `bash scripts/run_ui_fast_tests.sh` (`2 passed in 6.83s`)
+    - CSS-consolidation recheck: `bash scripts/run_ui_fast_tests.sh` (`2 passed in 7.13s`)
+    - final route/wizard recheck: `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`2 passed in 1.68s`) and `bash scripts/run_ui_fast_tests.sh` (`2 passed in 6.89s`)
+    - CSS-consolidation live browser metrics on `http://127.0.0.1:8000/app/`: desktop and mobile Mission Control both had `overflowX: 0`, no remaining `mission-grid-mockup` class, bounded task list `112px`, bounded map shell (`390px` desktop / `280px` mobile), and bounded AI panel `430px`
+    - live browser acceptance on `http://127.0.0.1:8000/app/` verified sidebar routes, bottom product switcher from Mission Control, wizard steps 1-4, absence of the old `Confirmed intake context` panel in the mockup path, Mission Control scan map/task/stdout/AI Signal visibility, and desktop/mobile no-horizontal-overflow state
+    - `git diff --check`
+  - important truth notes:
+    - no Prompt 1 / Prompt 2 foundations, finding schema fields, backend mutation semantics, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, uncontrolled plugin installation, or new offensive runtime behavior changed
+    - the slow `ui/tests/test_operator_console_e2e.py` regression monolith was intentionally not run
+    - product-wide UI score is now `8.8/10`, improved but still not accepted as exact parity; `NEXT_TASK.md` remains on backlog-115
+
+- 2026-04-25: implemented a broad active-task pass for backlog-115 `Full Mockup Product Parity and Navigation Binding`, but deliberately did not close or promote it because exact root-mockup parity is still below the operator's requested bar:
+  - read `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-115-full-mockup-product-parity-and-navigation-binding.json`, then confirmed `python3 scripts/validate_backlog_tasks.py` passed with exactly one active task
+  - restored full product sidebar navigation: `Dashboard`, `Intake`, `Mission Control`, `Attack Map`, `Problems`, `Findings`, `Reports`, `History`, `Packs`, and `Settings`
+  - restored `+ New Mission`, active-run sidebar context, and the mockup-style bottom product switcher with `Intake`, `Mission Control`, `Agents`, `Findings`, `Reports`, and `Settings`
+  - added a real Live / Autonomous Agents screen using selected-run tasks, task stdout tails, finding counts, and AI proposal ledger data instead of a decorative placeholder
+  - bound Mission Control's mockup controls to real safe behavior/routes: `View Agents`, `Kill Run` through the existing run-cancel endpoint when cancellable, `View Findings`, and Cinema Mode
+  - fixed route-change scroll carry-over so navigating between screens resets the content viewport instead of leaving new screens visually blank after prior scrolling
+  - changed the wizard assessment chooser to the requested multiselect behavior from `wizard_mockup.html`, including removable selected chips, ordered tile selections, the Internal LAN + Active Directory combo, and the wizard bottom stepper
+  - strengthened the Dashboard from a sparse screen into a mockup-consistent command center with active run, agents, risk, open problems, reports, schedule, recent activity, and setup/readiness state
+  - updated the fast UI tests so the restored sidebar, bottom switcher, multiselect wizard behavior, Agents route, Mission Control controls, and Cinema route are covered without rerunning the slow monolith
+  - wrote evidence, screenshot references, validation proof, UI score, and remaining parity risk to `codex/results/backlog-115-full-mockup-product-parity-evidence-20260425.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/modules/dashboard.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`2 passed`)
+    - `bash scripts/run_ui_fast_tests.sh` (`2 passed`)
+    - live host restarted on current code with `scripts/restart_local_inline_host.sh`
+    - live `/health/live`, `/api/v1/dashboard`, and `/app/` returned `200`
+    - browser acceptance verified primary sidebar routes, bottom-nav routes, wizard multiselect, Agents route, Mission Control controls, and mobile no-horizontal-overflow state
+    - `git diff --check`
+  - important truth notes:
+    - no Prompt 1 / Prompt 2 foundations, finding schema fields, backend mutation semantics, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, uncontrolled plugin installation, or new offensive runtime behavior were changed
+    - the slow `ui/tests/test_operator_console_e2e.py` regression monolith was intentionally not run for this pass per operator instruction
+    - current UI score is `8.4/10`, not the requested exact parity; wizard Target & Depth still needs the one-viewport mockup treatment, Preview/Authorise/Launch are style-aligned but not pixel-identical, and secondary screens are harmonized rather than fully redesigned screen-by-screen
+    - `NEXT_TASK.md` remains on backlog-115 for the final exact-parity pass; no next task was promoted
+
+- 2026-04-25: completed and closed the active backlog-114 `Exact Mockup Port - Wizard Tiles, Sidebar, and Cinema Mode` task:
+  - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-114-exact-mockup-port.json` before working from repo truth
+  - confirmed `python3 scripts/validate_backlog_tasks.py` passed with exactly one active task and confirmed the live `http://127.0.0.1:8000/app/` UI was relevant for validation
+  - ported the exact wizard assessment tile data from the mockup: emoji icons, `Popular` / `New` / `AD` / `Complete` badges, badge classes, and phase tags
+  - ported the wizard tile HTML/CSS language: `.tile-grid`, `.tile`, selected number badge, `.tile-top`, `.tile-icon`, `.tile-badge`, `.tile-tags`, `.selection-bar`, `.combo-hint`, and `.wizard-step-bar`
+  - replaced sidebar rendering with the flat five-item mockup navigation: `⬡ Intake`, `◈ Mission Control`, `⚠ Findings`, `☰ Reports`, `⚙ Settings`
+  - replaced the wizard stepper with mockup dot/line classes while preserving existing edit-question/test behavior
+  - added `ui/assets/modules/cinema.js`, wired Mission Control's Cinema Mode button, and implemented the fullscreen dark overlay with animated SVG scan graph, live-stat topbar, bottom counters, ESC exit, and close-button exit
+  - installed the missing `fonts-noto-color-emoji` system font because Chromium otherwise rendered several exact mockup emoji icons as square fallback glyphs; added an explicit emoji font stack to the touched icon surfaces
+  - added and used the fast UI lane for this task:
+    - `ui/tests/test_mockup_port_e2e.py` verifies sidebar, tile icon/badge/tag structure, selected-chip bar, combo hint, step bar, Cinema open, ESC close, and close-button exit
+    - `scripts/run_ui_fast_tests.sh` now runs smoke plus mockup-port checks by default and keeps Problems Center coverage optional through `AEGISPT_UI_FAST_INCLUDE_PROBLEMS=1`
+    - the slow `ui/tests/test_operator_console_e2e.py` regression monolith was intentionally not rerun in this task per operator instruction
+  - restarted the live inline host on current code and verified `GET /health/live`, `GET /api/v1/dashboard`, and `GET /api/v1/problems` all returned `200`
+  - captured evidence in `codex/results/backlog-114-exact-mockup-port-evidence-20260425.md` with screenshots:
+    - `codex/results/backlog-114-live-wizard-tiles-viewport-20260425.png`
+    - `codex/results/backlog-114-live-wizard-selected-viewport-20260425.png`
+    - `codex/results/backlog-114-live-cinema-viewport-20260425.png`
+    - `codex/results/backlog-114-live-wizard-mobile-20260425.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/cinema.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`2 passed in 1.85s`)
+    - `bash scripts/run_ui_fast_tests.sh` (`2 passed in 6.18s`)
+    - live browser acceptance confirmed the five sidebar items, emoji tile icons, Noto Color Emoji font stack, selected tile/combo behavior, Cinema Mode open/ESC/close behavior, and mobile `scrollWidth == viewportWidth`
+  - important truth notes:
+    - no backend API code, migrations, workers, pack registry, validation, approval, deployment, runtime binding, Prompt 1, Prompt 2, runtime self-modification, or uncontrolled plugin installation changed
+    - backlog-86 remains queued but now overlaps with the basic Cinema overlay added here; it should focus on richer live-data animation, critical flash, narration, and counter behavior rather than re-adding the shell
+  - replaced `NEXT_TASK.md` with the single promoted `Cinema Mode - Full-Screen Live Scan Visualization` task from `codex/tasks/backlog-86-cinema-mode.json`
+
+- 2026-04-25: completed and closed the active backlog-84 `Problems Center - Cross-Engagement Open and Resolved Issues Tracker` task:
+  - read `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-84-problems-center.json` before changing implementation files
+  - confirmed `python3 scripts/validate_backlog_tasks.py` passed before work with exactly one active task, and confirmed the live `http://127.0.0.1:8000` environment was relevant for API/browser validation
+  - added `GET /api/v1/problems` with tenant-isolated cross-engagement aggregation, default critical/high open filters, cursor pagination, stats, filter options, and a recently resolved section
+  - added `PATCH /api/v1/problems/bulk` for assign, status/resolve, and retest scheduling while reusing existing finding remediation and single-finding retest flows
+  - added Problems Center UI under Analyze with stats, compact filters, problem rows, lifecycle pills, expanded row context, recently resolved progress, and bulk assign/resolve/retest affordances
+  - documented the delete-action exception: finding-level delete is guarded because the task forbids new finding schema fields and no finding soft-delete marker exists; the API returns `409` instead of inventing unsafe deletion semantics
+  - restarted the stale live `:8000` host after verifying `/api/v1/dashboard` and `/api/v1/problems` both returned `404`; after restart both endpoints returned `200` and browser screenshots were captured
+  - repaired `scripts/repair_local_sqlite_schema.py` so the local SQLite drift repair recognizes soft-delete Alembic head `20260425_0023`, which was required for the documented inline host restart path
+  - added a fast UI test lane so future UI slices do not need the monolithic 35-minute browser file as their day-to-day validation:
+    - `pyproject.toml` now defines `ui_fast`, `smoke`, `feature`, and `regression` markers
+    - `ui/tests/test_operator_console_e2e.py` is marked as slow `regression`
+    - `ui/tests/test_operator_console_smoke_e2e.py` and `ui/tests/test_problems_center_e2e.py` provide fast Playwright coverage
+    - `scripts/run_ui_fast_tests.sh` runs the fast lane
+  - wrote implementation, UI token/component notes, live restart proof, screenshots, validation proof, fast-lane proof, and remaining risks to `codex/results/backlog-84-problems-center-evidence-20260425.md`
+  - validation:
+    - `python -m py_compile api/app/services/problems.py api/app/routers/problems.py api/app/schemas/problems.py api/app/services/finding_retests.py api/app/routers/findings.py api/app/main.py scripts/repair_local_sqlite_schema.py`
+    - `node --input-type=module --check < ui/assets/modules/problems.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_problems.py` (`3 passed in 3.02s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`259 passed in 206.75s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`302 passed in 2080.69s (0:34:40)`, run once before the fast-lane split)
+    - `bash scripts/run_ui_fast_tests.sh` (`2 passed in 5.83s`)
+    - live `GET /health/live`, `GET /api/v1/dashboard`, and `GET /api/v1/problems` all returned `200` after restart
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - the 404 screenshot state was caused by a stale live backend and is fixed after restart
+    - the dashboard/mobile screenshots still show broader UI density and layout weakness that belongs in the next mockup-quality task rather than in backlog-84
+    - the full operator-console regression file remains valuable but too slow for active iteration; use the new fast lane for focused UI work and reserve the regression file for explicit full gates
+  - replaced `NEXT_TASK.md` with the operator-escalated `Exact Mockup Port - Wizard Tiles, Sidebar, and Cinema Mode` task from `codex/tasks/backlog-114-exact-mockup-port.json`
+
+- 2026-04-25: completed and closed the active backlog-83 `Dashboard Home Screen - Tile-Based Command Center` task:
+  - read `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-83-dashboard-home-screen.json` before changing implementation files
+  - confirmed `python3 scripts/validate_backlog_tasks.py` passed before work with 113 queued task packages and exactly one active task, and confirmed the live `http://127.0.0.1:8000` environment was relevant but stale for the new dashboard endpoint
+  - added a read-only `GET /api/v1/dashboard` aggregate endpoint with tenant isolation, soft-deleted engagement/run hiding, active-run summary, computed risk posture, exposure-score history, open-problem counts, upcoming scheduled scans, recent activity, quick actions, setup checklist, and engagement summaries
+  - added the Dashboard home screen as the first screen when engagements exist, while preserving the wizard/onboarding default when no engagements exist
+  - added dashboard tiles/widgets for active run, exposure score/sparkline, open problems, upcoming scans, recent activity, quick actions, setup checklist, and engagement summary
+  - kept the implementation inside existing engagement/run/finding/scheduled-run/settings flows; no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, uncontrolled plugin installation, or live target behavior were changed
+  - installed Node.js on the host after the required JS syntax-check dependency was missing, then ran module-mode syntax checks for the touched UI modules
+  - wrote dashboard evidence, UI token/component notes, screenshots, validation proof, and remaining risks to `codex/results/backlog-83-dashboard-evidence-20260425.md`
+  - live/browser proof:
+    - `http://127.0.0.1:8000/api/v1/dashboard` returned `404`, proving the already-running live host is stale for this branch
+    - started a temporary current-code server on `http://127.0.0.1:8017` and captured desktop/mobile dashboard screenshots:
+      - `codex/results/backlog-83-dashboard-desktop-20260425.png`
+      - `codex/results/backlog-83-dashboard-mobile-20260425.png`
+      - `codex/results/backlog-83-dashboard-api-20260425.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_dashboard.py` (`3 passed in 2.67s`)
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `node --input-type=module --check < ui/assets/modules/dashboard.js`
+    - first full UI run found one dashboard-default test expectation, then the targeted fix passed
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`301 passed in 2061.08s (0:34:21)`)
+    - `git diff --check`
+  - important truth notes:
+    - the old `:8000` host needs a restart before the new dashboard endpoint can be live there
+    - the Dashboard is intentionally a read-only command center; deeper cross-engagement problem workflow remains the next slice
+  - replaced `NEXT_TASK.md` with the single promoted `Problems Center - Cross-Engagement Open and Resolved Issues Tracker` task from `codex/tasks/backlog-84-problems-center.json`
+
+- 2026-04-25: completed and closed the active backlog-82 `Bulk Delete - Runs and Engagements` task:
+  - read `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-82-bulk-delete-runs-engagements.json` before changing implementation files
+  - confirmed `python3 scripts/validate_backlog_tasks.py` passed before work with 113 queued task packages and exactly one active task, and confirmed the live `http://127.0.0.1:8000` environment was relevant for safe API/browser validation
+  - added `deleted_at` soft-delete markers to `engagements` and `runs` plus migration `migrations/versions/20260425_0023_soft_delete_runs_engagements.py`
+  - added deletion request/impact schemas, `api/app/services/soft_delete.py`, and API delete endpoints for single-run, bulk-run, and engagement deletion with dry-run impact previews
+  - blocked running run deletion with `409` and `Stop the run before deleting`, required exact engagement-name confirmation for engagement delete, and wrote `run.deleted`, `engagement.deleted`, and retention purge audit events
+  - updated tenant/run/finding/report/relevance/integration/MCP/scheduling/exposure/remediation/SIEM paths so soft-deleted runs and engagements are excluded immediately from normal API responses and derived views
+  - added UI run-card checkboxes, individual run delete menu actions, bulk delete bars, and a Manage Engagements delete modal flow with preview and confirmation
+  - added `purge_expired_soft_deletes` as a Dramatiq background actor for hard-purging expired soft-deleted runs and their run-owned records after the 30-day retention window
+  - documented the retention exception: expired engagement rows remain soft-deleted when hard-purging would risk deleting retained capability packs or pack deployment records; this preserves the task constraint not to delete capability packs or pack artifacts
+  - wrote implementation and validation evidence to `codex/results/backlog-82-bulk-delete-evidence-20260425.md`, with live smoke proof in `codex/results/backlog-82-live-smoke-20260425.json`
+  - validation:
+    - Playwright bundled Node syntax checks for `ui/assets/app.js`, `ui/assets/modules/explorer-history.js`, `ui/assets/modules/mission-control.js`, and `ui/assets/modules/runtime.js`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/soft_delete.py workers/orchestration/tasks.py api/tests/test_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py::test_soft_deleted_run_retention_purge_hard_deletes_expired_run` (`1 passed in 1.64s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_engagements.py` (`61 passed in 39.07s`)
+    - safe live localhost smoke on `http://127.0.0.1:8000` after restarting the inline host and applying Alembic head
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`300 passed in 2093.03s (0:34:53)`, executed with `TMPDIR=/tmp TMP=/tmp TEMP=/tmp` and a detached `setsid` wrapper)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - no Prompt 1 / Prompt 2 foundations, finding schema fields, pack registry, pack validation, approval, deployment, runtime binding, runtime self-modification, uncontrolled plugin installation, or live target behavior outside safe/local validation were changed
+    - the retention actor hard-purges runs only; pack-safe hard purging of engagement tombstones is a remaining future data-retention/design problem
+  - replaced `NEXT_TASK.md` with the single promoted `Dashboard Home Screen - Tile-Based Command Center` task from `codex/tasks/backlog-83-dashboard-home-screen.json`
+
+- 2026-04-25: completed and closed the active backlog-113 `Post-Mockup UI Closure - Mission Control First Viewport, Readability, and Final Parity` task:
+  - read `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, `codex/tasks/backlog-113-post-mockup-ui-closure.json`, `wizard_mockup.html`, `ui_mockup.html`, `UI_REDESIGN_SPEC.md`, and the required parity gate before changing UI code
+  - confirmed `python3 scripts/validate_backlog_tasks.py` passed before work with 113 queued task packages and exactly one active task, and confirmed the live `http://127.0.0.1:8000/app/` UI was relevant for validation
+  - captured root mockup screenshots and live before screenshots for intake, Mission Control, Findings, Reports, and Surface Map under `codex/results/20260425-backlog-113-mockup-parity-screenshots/before/`
+  - moved the Mission Control setup checklist below the operational grid and kept it compact so it no longer dominates the first viewport
+  - moved selected-task focus and captured stdout above the task list in Mission Control, tightened task-row density, and made the task stdout terminal readable without leaving Mission Control
+  - changed AI Signal failure rendering so raw provider/backend errors are summarized as compact operator copy and raw diagnostics are hidden behind a closed technical-detail disclosure
+  - fixed Findings zero-state behavior so filters are collapsed by default and zero-finding runs do not force a large empty right drawer; the drawer still opens for real selected findings
+  - strengthened Surface Map canvas height so real inventory/map truth is readable instead of collapsing into a decorative strip, while leaving Reports' card-grid/run-strip baseline intact
+  - wrote the parity checklist, screenshots, validation proof, and final UI score to `codex/results/20260425-backlog-113-mockup-token-component-parity.md`
+  - final UI design-language score: `9.0/10` overall against `wizard_mockup.html` and `ui_mockup.html`
+  - validation:
+    - JS syntax checks passed through Playwright's bundled Node runtime for `ui/assets/app.js`, `ui/assets/modules/mission-control.js`, and `ui/assets/modules/findings.js`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`299 passed in 2072.24s (0:34:32)`, executed with `TMPDIR=/tmp TMP=/tmp TEMP=/tmp` and `setsid` after interactive long-running sessions were killed before normal pytest summary output)
+    - `git diff --check`
+  - important truth notes:
+    - no backend endpoints, migrations, worker behavior, finding schema fields, pack registry, validation, approval, deployment, runtime binding, Prompt 1 / Prompt 2 foundations, runtime self-modification, or uncontrolled plugin installation were changed
+    - `api/tests/test_product_feature_matrix.py` was not rerun for this UI-only task, so the earlier feature-matrix timeout remains unclaimed
+    - the full UI E2E lane is materially too slow as a day-to-day gate and should be split into smoke/parity/regression lanes in a future engineering task
+  - replaced `NEXT_TASK.md` with the single promoted `Bulk Delete — Runs and Engagements` task from `codex/tasks/backlog-82-bulk-delete-runs-engagements.json`
+
+- 2026-04-25: accepted the product-order change and hardened the mockup design-language parity gate without changing product code:
+  - moved `codex/tasks/backlog-113-post-mockup-ui-closure.json` in `TASK_QUEUE.md` so it now sits directly after the active installation package at queue position 86
+  - mechanically realigned `source_context.queue_index` across the affected backlog task packages so queue metadata matches the authoritative markdown queue again
+  - added `codex/results/mockup-design-language-parity-gate-20260425.md` as the explicit acceptance method for exact root-mockup design-language parity
+  - updated backlog-113 so it now requires token/component parity checklists, before/after screenshots, documented product-truth deviations, and a final visual-language score of at least `9.0/10` unless the user explicitly accepts a lower score
+  - updated `DECISIONS.md` to record that exact mockup parity cannot be closed on functional tests alone and that the approved order after backlog-81 is UI closure before bulk delete, dashboard, Problems Center, and later expansion tasks
+
+- 2026-04-25: rechecked whether backlog-112 or backlog-81 is the real active task by comparing repo governance, backlog packages, install artifacts, and the live localhost UI:
+  - `NEXT_TASK.md` currently promotes `codex/tasks/backlog-81-installation-package.json`
+  - `TASK_QUEUE.md` places backlog-112 at queue position 84 and backlog-81 at queue position 85, matching the logged promotion sequence after backlog-112 completion
+  - `python3 scripts/validate_backlog_tasks.py` passes and confirms exactly one active task
+  - backlog-81's expected artifacts are still absent (`docker-compose.yml`, `docker-compose.override.yml.example`, `.env.example`, `docs/install/README.md`, and `docs/install/windows-wsl.md`), so the installation package is not complete and its active status is plausible
+  - the live app is serving the mockup-alignment stylesheet (`styles.css?v=20260425-full-ui-mockup-alignment-1`), which confirms the backlog-112 UI work is present in the localhost environment
+  - live comparison against backlog-112 success criteria shows partial rather than full human/mockup parity: Mission Control still opens with the setup checklist dominating the first viewport, selected-task output is not prominent enough above the fold, AI Signal can show raw low-contrast ChatGPT backend errors, Findings shows an empty right drawer and expanded filters on zero-finding runs, and Surface Map's visual canvas is a clipped shallow strip
+  - conclusion: backlog-81 is the current active task by governance, but backlog-112's logged completion should be understood as test-green/mockup-alignment work with remaining UI quality gaps now captured by `codex/tasks/backlog-113-post-mockup-ui-closure.json`
+
+- 2026-04-25: completed a planning-only full-system review and UI mockup gap assessment without changing product code:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `DONE_LOG.md`, `TASK_QUEUE.md`, `docs/codex_task_interface.md`, `UI_REDESIGN_SPEC.md`, `wizard_mockup.html`, and `ui_mockup.html`
+  - reviewed the completed-task record across the core evidence-first platform, adaptive testing, Codex build lane, operator console, runtime lanes, AI-assisted features, validation harnesses, and the recent backlog-80 / backlog-110 / backlog-111 / backlog-112 UI sequence
+  - captured mockup and live UI screenshots under `codex/results/system-review-20260425/`
+  - wrote the review and plan to `codex/results/system-review-and-ui-plan-20260425.md`
+  - scored the current UI at `6.7/10` against `wizard_mockup.html` and `ui_mockup.html`, with the main gaps in Mission Control first-viewport priority, readable selected-task output, AI Signal degraded-state contrast, Findings empty/drawer behavior, and Surface Map visual truth
+  - added a non-promoted follow-up task package, `codex/tasks/backlog-113-post-mockup-ui-closure.json`, and appended it to `TASK_QUEUE.md` for later explicit promotion; `NEXT_TASK.md` remains unchanged on backlog-81 `Installation Package`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
+- 2026-04-23: completed and closed the active `UI Structural Foundation - Full Layout Overhaul` task, then promoted exactly one next backlog package:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, `UI_REDESIGN_SPEC.md`, `ui_mockup.html`, and `codex/tasks/backlog-52-ui-structural-foundation.json` before changing implementation files
+  - replaced the old hero/phase/context shell with the `UI_REDESIGN_SPEC.md` structural baseline: fixed 48px topbar, 180px dark sidebar, flat navigation groups, topbar engagement selector/run status/settings/actor controls, and light content workspace
+  - removed the visible `.hero`, `.flow-overview`, `.context-strip`, `.bg-orbit`, `.scan-grid`, and `data-phase-nav` shell path, so screens are reachable through free sidebar navigation instead of phase-locked controls
+  - made the intake wizard full-width and replaced the always-present right summary panel with an inline confirmed-context strip that remains hidden until at least one intake answer is confirmed
+  - reduced the radius variables to the enterprise baseline (`10px`, `8px`, `6px`, `4px`) and changed the body background to flat `#070e1a`
+  - updated Playwright expectations for the new topbar/sidebar shell, free navigation, hidden initial inline context, mobile confirmation visibility, and more robust isolated-host app loading
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`62 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`289 passed in 1315.43s`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Ambient Animation and Micro-Interaction Foundation` task from `codex/tasks/backlog-53-ambient-animation-foundation.json`
+  - important truth notes:
+    - no backend code, worker code, migrations, API contracts, finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, or uncontrolled plugin installation were changed for this slice
+    - no animation, SVG scan map, AI Signal panel, sound design, ChatGPT/Anthropic provider wiring, or mission-launch ceremony work was started during the structural slice
+
+- 2026-04-23: completed and closed the active `Living System Experience Source Alignment` task, then promoted exactly one next backlog package:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `TASK_QUEUE.md`, `UI_REDESIGN_SPEC.md`, `LIVING_SYSTEM_EXPERIENCE.md`, `docs/product_recommendations_scope_alignment.md`, and `codex/tasks/backlog-51-living-system-experience-source-alignment.json` before changing files
+  - confirmed `python3 scripts/validate_backlog_tasks.py` passes with 62 queued task packages mapped one-to-one and exactly one active task
+  - added `docs/living_system_experience_scope_alignment.md` to govern the animation philosophy, spider metaphor design language, scan-map SVG concept, AI Signal panel pattern, micro-interaction inventory, sound-design opt-in boundary, implementation priority order, and `UI_REDESIGN_SPEC.md` authority
+  - updated `docs/product_recommendations_scope_alignment.md` so the broader product alignment references the living-system alignment and records that backlog items 51-62 remain controlled slices, not opportunistic permission to build from chat memory
+  - replaced `NEXT_TASK.md` with the single promoted `UI Structural Foundation - Full Layout Overhaul` task from `codex/tasks/backlog-52-ui-structural-foundation.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - no CSS, JavaScript, HTML, Python, migration, backend, worker, finding schema, Prompt 1 / Prompt 2 foundation, pack registry, validation, approval, deployment, runtime-binding, runtime self-modification, or uncontrolled plugin behavior was changed for this slice
+    - `UI_REDESIGN_SPEC.md` is now treated as the authoritative UI design reference for the upcoming UI backlog items where it conflicts with older visual notes
+
+- 2026-04-23: reviewed the current repository state and integrated `LIVING_SYSTEM_EXPERIENCE.md` into repo truth without starting unapproved implementation work:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, `docs/codex_task_interface.md`, `docs/repo_map.md`, and the existing holding-state task context before editing any repo files
+  - confirmed the active task remains the explicit `Await Next Approved Task Package` holding state because there is no newly promoted repo-backed package to start from
+  - verified `LIVING_SYSTEM_EXPERIENCE.md` is present as an additive concept document and kept it as design direction rather than treating it as permission to start UI/runtime work from chat memory
+  - updated `CURRENT_STATE.md` so repo truth now records the document as a future-facing operator-experience reference and explicitly states that its spider/web live-map, AI Signal, and choreography ideas are not implemented behavior while the holding state remains active
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check -- CURRENT_STATE.md DONE_LOG.md`
+  - important truth notes:
+    - no runtime behavior, UI behavior, task promotion, queue order, finding schema fields, Prompt 1 / Prompt 2 foundations, pack gates, approval flow, deployment flow, runtime binding, or worker execution semantics were changed
+    - no new task package was inferred or created from chat memory
+
+- 2026-04-23: completed and closed the active `Controlled Multi-Agent Orchestration Preparation Foundation` task, then set an explicit holding state because the approved queue is exhausted:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-50-controlled-multi-agent-orchestration-prep-foundation.json`, existing run serialization, run schemas, Codex task service, product-matrix tests, `docs/multi_agent_red_team_program.md`, `docs/ai_pentesting_agent_scope_alignment.md`, and `TASK_QUEUE.md` before changing code or promotion state
+  - added `api/app/services/multi_agent_orchestration.py` with inactive role primitives for Mission Lead, Inventory and Surface, Threat and Relevance, Capability Forge, Execution Planner, Evidence and QA, Reporting and Assurance, and Safety and Policy
+  - added inactive handoff primitives, blocking-default policy checks, stricter activation requirements, and a provenance metadata shape for future role outputs
+  - extended `RunRead` and run serialization so every run response exposes `multi_agent_orchestration` as visible preparation metadata only
+  - added forbidden activation request detection so run configurations that include `multi_agent_orchestration` activation hints are labelled blocked and non-executable rather than accepted as runtime behavior
+  - documented the inactive preparation baseline in `docs/multi_agent_red_team_program.md` and `docs/ai_pentesting_agent_scope_alignment.md`
+  - extended `api/tests/test_product_feature_matrix.py` to cover inactive defaults, forbidden activation, role/handoff/policy primitives, provenance metadata shape, and non-mutating runtime boundaries
+  - replaced `NEXT_TASK.md` with an explicit `Await Next Approved Task Package` holding state because `TASK_QUEUE.md` ends at backlog-50 and there is no next approved package to promote
+  - validation:
+    - `python3 -m py_compile api/app/services/multi_agent_orchestration.py api/app/schemas/runs.py api/app/routers/runs.py api/tests/test_product_feature_matrix.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py` (`3 passed in 3.88s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - this is preparation only; no active multi-agent runtime, hidden workflow, autonomous tool execution, distributed offensive behavior, or uncontrolled worker coordination was introduced
+    - no tasks are created, no runs are dispatched, no approvals are granted, no pack validation/approval/deployment/runtime-binding flow is bypassed, and no worker runtime semantics were touched
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, runtime self-modification, or uncontrolled plugin installation were changed
+    - `TASK_QUEUE.md` order was not changed
+
+- 2026-04-23: completed and closed the active `Assessment Pattern Library and Pack Effectiveness Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-49-assessment-pattern-library-pack-effectiveness-foundation.json`, existing control-plane models, pack/run/tenancy routes, remediation and Codex lane tests, and AI/product alignment docs before changing code or promotion state
+  - added `api/app/services/assessment_patterns.py` as a read-only local advisory analysis layer over engagement-scoped stored runs, findings, remediation records, agent proposals, capability packs, pack validation results, approvals, deployments, and runtime-bound run records
+  - added `GET /api/v1/engagements/{engagement_id}/assessment-patterns` through the existing API router, reusing `load_engagement_for_tenant` so `X-Tenant-ID` continues to block cross-tenant access with `404`
+  - exposed persistent, remediated, recurring, and new pattern signals with sparse-data limitations and explicit no-risk-reduction-overclaim wording
+  - exposed pack-effectiveness summaries for validation outcomes, approval outcomes, deployment outcomes, proposal outcomes, generated-finding counts, and quality signals while keeping the result advisory-only
+  - added boundary flags showing no customer-data export, no third-party analytics, no external model training, no automatic pack promotion, no automatic approval, no deployment, no pack mutation, and no runtime-binding change
+  - documented the local advisory output contract in `docs/product_recommendations_scope_alignment.md` and `docs/ai_pentesting_agent_scope_alignment.md`
+  - extended `api/tests/test_product_feature_matrix.py` and `api/tests/test_codex_lane.py` to cover tenant boundaries, advisory output, sparse data, pack-effectiveness output, and no automatic pack promotion/deployment/mutation
+  - replaced `NEXT_TASK.md` with the single promoted `Controlled Multi-Agent Orchestration Preparation Foundation` task from `codex/tasks/backlog-50-controlled-multi-agent-orchestration-prep-foundation.json`
+  - validation:
+    - `python3 -m py_compile api/app/services/assessment_patterns.py api/app/routers/packs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py api/tests/test_codex_lane.py` (`7 passed in 6.29s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - the endpoint is local advisory analytics only; it does not train a model, export customer assessment data, call third-party analytics, or claim guaranteed risk reduction
+    - pack-effectiveness output does not validate, approve, promote, deploy, mutate, roll back, or runtime-bind packs and does not bypass existing pack gates
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, worker runtime execution semantics, runtime self-modification, or uncontrolled plugin installation were changed
+    - `TASK_QUEUE.md` order was not changed
+
+- 2026-04-22: completed and closed the active `AI-Augmented Attack Path and Lateral Analysis Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-48-ai-augmented-attack-path-lateral-analysis-foundation.json`, `TASK_QUEUE.md`, `codex/tasks/backlog-49-assessment-pattern-library-pack-effectiveness-foundation.json`, the attack-path service/tests, Surface / Attack Map rendering, operator-console browser tests, and attack-path/identity documentation before changing code or promotion state
+  - extended `GET /api/v1/runs/{run_id}/attack-paths` so selected-run inventory can add optional `classification = inferred` edges for stored identity membership, IAM policy attachment, cloud resource/security-group association, host-to-cloud-resource context, and Kubernetes cluster/workload context
+  - kept confirmed candidate paths deterministic and separate from inferred context: inferred edges carry confidence, rationale, evidence refs, operator-review metadata, and explicit no-pivot/no-credential-test/no-lateral-movement/no-scope-expansion/no-auto-dispatch flags
+  - added lateral-analysis notes and a review-only boundary block without changing finding schema fields, Prompt 1 / Prompt 2 foundations, pack gates, approvals, deployments, runtime binding, worker execution semantics, or runtime scope
+  - updated Surface / Attack Map so confirmed relationship chains and review-only inferred lateral-analysis context render separately, with visually distinct inferred cards and explicit runtime-boundary badges
+  - documented the inferred-edge API contract, UI boundary, identity/cloud/Kubernetes review-only limits, and non-execution guarantees in `docs/attack_path_engine.md` and `docs/identity_model.md`
+  - extended `api/tests/test_attack_paths.py` and `ui/tests/test_operator_console_e2e.py` to cover inferred edges, confirmed-only output, sparse/zero data, no-scope-expansion behavior, UI separation, and review-only runtime boundaries
+  - replaced `NEXT_TASK.md` with the single promoted `Assessment Pattern Library and Pack Effectiveness Foundation` task from `codex/tasks/backlog-49-assessment-pattern-library-pack-effectiveness-foundation.json`
+  - validation:
+    - `python3 -m py_compile api/app/services/attack_paths.py api/tests/test_attack_paths.py ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_attack_paths.py` (`6 passed in 3.80s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "surface_map_distinguishes_review_only_inferred_attack_path_context"` (`1 passed, 288 deselected in 2.99s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`289 passed in 1175.98s (0:19:35)`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 50 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+  - important truth notes:
+    - inferred attack-path context is advisory and review-only; it does not create candidate paths, dispatch tasks, test credentials, pivot laterally, mutate resources, or expand scope
+    - no active lateral movement, cloud-to-on-prem exploitation, worker runtime semantic change, finding schema field change, Prompt 1 / Prompt 2 foundation change, pack registry/validation/approval/deployment/runtime-binding bypass, runtime self-modification, or uncontrolled plugin installation was introduced
+
+- 2026-04-22: completed and closed the active `LLM-Driven Intake Intelligence Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-47-llm-driven-intake-intelligence-foundation.json`, `TASK_QUEUE.md`, `codex/tasks/backlog-48-ai-augmented-attack-path-lateral-analysis-foundation.json`, existing run routes/schemas, conversational intake docs, Mission Control rendering, wizard submission behavior, and API/browser tests before changing code or promotion state
+  - added disabled-by-default intake intelligence settings: `AI_INTAKE_INTERPRETATION_ENABLED=false`, `AI_INTAKE_INTERPRETATION_PROVIDER=disabled`, and `AI_INTAKE_INTERPRETATION_MODEL=aegispt-intake-interpretation`
+  - added `api/app/services/intake_intelligence.py` with a provider boundary, deterministic/test providers, failure fallback, advisory-only output normalization, blocked-suggestion recording, explicit operator-confirmation requirements, and schema guards against scope expansion, unconfirmed access assumptions, and pack approval/deployment/binding language
+  - added `POST /api/v1/intake/interpretation` so the operator console can request optional intake interpretation without creating a generic chat UI, second config model, run dispatch path, or pack deployment path
+  - attached interpretation metadata under `configuration_json.intake.llm_interpretation` during run creation only when explicitly enabled, preserving deterministic intake and leaving `targets`, `access`, approvals, tasks, pack binding, and runtime dispatch unchanged
+  - updated Mission Control to surface stored intake-intelligence context as an advisory operator-confirmation card with no-scope-expansion and deterministic-fallback copy
+  - documented the allowed LLM intake output shape and blocked behavior in `docs/ai_question_strategy.md` and `docs/conversational_intake_mapping.md`
+  - extended `api/tests/test_runs.py` and `ui/tests/test_operator_console_e2e.py` to cover disabled provider behavior, ambiguous scope language, unsafe provider output, provider failure, run-create metadata storage, no-scope-expansion, and browser-visible advisory boundaries
+  - replaced `NEXT_TASK.md` with the single promoted `AI-Augmented Attack Path and Lateral Analysis Foundation` task from `codex/tasks/backlog-48-ai-augmented-attack-path-lateral-analysis-foundation.json`
+  - validation:
+    - `python3 -m py_compile api/app/services/intake_intelligence.py api/app/config.py api/app/schemas/runs.py api/app/routers/runs.py api/tests/test_runs.py ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k "intake_interpretation or intake_provider_failure"` (`5 passed, 33 deselected in 3.01s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "intake_intelligence"` (`1 passed, 287 deselected in 2.78s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py` (`38 passed in 18.29s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`288 passed in 1166.65s (0:19:26)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - intake intelligence is optional, advisory, operator-reviewed metadata; it does not mutate deterministic run fields or create authorization
+    - provider-disabled and provider-failure paths preserve the normal deterministic intake path
+    - no generic chat UI, autonomous scope creation, credential assumption, pack approval/deployment/runtime-binding bypass, finding schema field change, Prompt 1 / Prompt 2 foundation change, worker runtime semantic change, runtime self-modification, or uncontrolled plugin installation was introduced
+
+- 2026-04-22: completed and closed the active `Run Attack Narrative Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-46-run-attack-narrative-foundation.json`, `TASK_QUEUE.md`, `codex/tasks/backlog-47-llm-driven-intake-intelligence-foundation.json`, existing report services/schemas/routes, attack-path and finding-chain services, Report Center UI, report documentation, and API/browser tests before changing code or promotion state
+  - added the optional `attack_narrative` report variant to the existing run-report catalog, markdown, HTML, and PDF export pipeline without requiring an AI provider
+  - grounded narrative context in stored run status/configuration, findings, methodology metadata, evidence refs, inventory snapshots, deterministic attack-path summaries, and stored vulnerability-chain records
+  - added explicit review-only/advisory boundaries, source categories, limitations, candidate-path summaries, chain summaries, high-priority finding summaries, and remediation priority counts while keeping canonical reports and finding records unchanged
+  - made sparse or incomplete data truthful: incomplete runs expose unavailable narrative status, completed runs with limited evidence expose limited narrative status, and richer completed runs expose ready narrative status
+  - surfaced the selected `attack_narrative` variant in Report Center with operator-review and canonical-report-unchanged copy
+  - documented the narrative output contract and review boundary in `docs/ui_report_center.md` and `docs/ai_pentesting_agent_scope_alignment.md`
+  - extended `api/tests/test_reports.py`, `api/tests/test_product_feature_matrix.py`, and `ui/tests/test_operator_console_e2e.py` to cover grounded narrative generation, sparse/unavailable fallback, provider-free exports, Report Center rendering, product-matrix variant truth, and no canonical data mutation
+  - replaced `NEXT_TASK.md` with the single promoted `LLM-Driven Intake Intelligence Foundation` task from `codex/tasks/backlog-47-llm-driven-intake-intelligence-foundation.json`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py -k 'run_attack_narrative or run_report_exports_markdown_and_html'` (`3 passed, 9 deselected in 4.33s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`12 passed in 13.54s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py` (`1 passed in 2.29s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'authenticated_webapp_flow_supports_reports_and_secret_binding or report_center_generates_ai_assisted_draft_for_operator_review'` (`2 passed, 285 deselected in 11.52s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`287 passed in 1162.83s (0:19:22)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - attack narrative output is optional, advisory, and operator-reviewed; it does not replace canonical reports or mutate findings
+    - no LLM provider, worker runtime semantic change, finding schema field change, Prompt 1 / Prompt 2 foundation change, pack registry/validation/approval/deployment/runtime-binding bypass, runtime self-modification, or uncontrolled plugin installation was introduced
+
+- 2026-04-22: completed and closed the active `Contextual Remediation and Exploitability Intelligence Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-45-contextual-remediation-exploitability-intelligence-foundation.json`, `AI_PENTESTING_AGENT.md`, existing AI enrichment service/model behavior, Finding Theater service/schema, browser rendering, API tests, and UI fixtures before changing code
+  - extended `api/app/services/ai_enrichment.py` so successful finding enrichment stores an optional `contextual_intelligence` metadata object on the existing `FindingAiEnrichment.metadata_json` field instead of adding canonical finding fields or a new migration
+  - grounded contextual intelligence in stored finding evidence, methodology/control metadata, linked inventory snapshots, and local threat-intel badges where available
+  - added review-only prerequisites, exploitability label/confidence/rationale, immediate remediation guidance, verification steps, rollback cautions, prioritization notes, and explicit no-exploit/no-destructive/no-credential-abuse/no-finding-mutation boundaries
+  - preserved provider-disabled and provider-failure behavior: disabled Theater output remains `{"status": "disabled", "available": False}`, failed enrichment does not expose contextual guidance, and normal finding fallback copy stays available
+  - added a forbidden-guidance guard that rejects provider output containing automated exploit-tool instructions, destructive command patterns, shell-delivery guidance, or credential-abuse instructions by recording failed enrichment rather than rendering the unsafe text
+  - surfaced successful contextual intelligence in Finding Theater through `ui/assets/modules/findings.js` with operator-review wording, prerequisites, confidence, remediation, verification, rollback, prioritization, and no-exploit-execution copy
+  - documented the allowed contextual output shape and forbidden guidance classes in `docs/ai_pentesting_agent_scope_alignment.md`
+  - extended `api/tests/test_ai_finding_enrichment.py` with grounded inventory/threat-intel output, sparse-evidence uncertainty, provider-failure preservation, forbidden exploit-guidance rejection, and canonical finding-field preservation coverage
+  - extended `ui/tests/test_operator_console_e2e.py` so Finding Theater renders the contextual intelligence card and no-exploit boundary text
+  - replaced `NEXT_TASK.md` with the single promoted `Run Attack Narrative Foundation` task from `codex/tasks/backlog-46-run-attack-narrative-foundation.json`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py` (`15 passed in 7.23s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k findings_theater_surfaces_remediation_and_retest_truth` (`1 passed, 286 deselected in 3.15s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`287 passed in 1148.39s (0:19:08)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - contextual intelligence is optional review-only enrichment metadata; it does not mutate finding severity/status/evidence/methodology fields
+    - unsupported or sparse exploitability is labelled as uncertain instead of inflated
+    - no automated exploitation, destructive validation, credential-abuse guidance, worker runtime semantic change, Prompt 1 / Prompt 2 foundation change, pack registry/validation/approval/deployment/runtime-binding bypass, runtime self-modification, or uncontrolled plugin installation was introduced
+
+- 2026-04-22: completed and closed the active `Threat Intel Feed Cache and Finding Badges Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-44-threat-intel-feed-cache-badges-foundation.json`, existing threat-intel models/routes/schemas, Finding Theater service/schema, browser rendering, and threat-intel documentation before changing code
+  - extended the existing local `threat_intel_records` store through `api/app/services/threat_intel.py` with approved feed-cache import normalization for `cisa_kev`, `mitre_attack`, and `cve_cvss`
+  - added `POST /api/v1/threat-intel/feed-cache/import` in `api/app/routers/threat_intel.py`, backed by strict request schemas in `api/app/schemas/threat_intel.py`, so approved feed payloads can be imported locally without accepting a remote `source_url` fetch shape
+  - added local-only Finding Theater badge matching for KEV, ATT&CK, and CVSS-style records, including matched terms, references, confidence, fresh/stale/unknown cache labels, and explicit no-external-lookup/no-exploit-download/no-actor-attribution/no-severity-change boundaries
+  - surfaced `threat_intel_badges` through `api/app/schemas/finding_views.py`, `api/app/services/finding_views.py`, and `ui/assets/modules/findings.js` without changing canonical finding schema fields
+  - documented the approved feed list, local-only import model, badge behavior, and stale-cache semantics in `docs/threat_intel_model.md`
+  - added `api/tests/test_threat_intel.py` coverage for feed import, local matching, stale labels, no-match fallback, and rejection of external URL fetch shape
+  - extended `ui/tests/test_operator_console_e2e.py` so Finding Theater renders local threat-intel badges, stale cache status, and no-external-lookup truth
+  - replaced `NEXT_TASK.md` with the single promoted `Contextual Remediation and Exploitability Intelligence Foundation` task from `codex/tasks/backlog-45-contextual-remediation-exploitability-intelligence-foundation.json`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_threat_intel.py` (`4 passed in 2.80s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k findings_theater_surfaces_remediation_and_retest_truth` (`1 passed, 286 deselected in 2.88s`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 50 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check` (passed with no whitespace errors)
+  - important truth notes:
+    - feed-cache matching uses stored local records at finding-analysis time; it does not fetch external feeds, download exploits, claim actor attribution, mutate findings, or change severity
+    - no finding schema field, Prompt 1 / Prompt 2 foundation, worker runtime semantic, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, or uncontrolled plugin-installation change was introduced
+
+- 2026-04-22: completed and closed the active `Vulnerability Chain Detection Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-43-vulnerability-chain-detection-foundation.json`, existing finding models, Finding Theater service/schema, browser rendering, migration style, and API/UI test fixtures before changing code
+  - added additive `FindingChain` persistence through `api/app/models/control.py`, `api/app/models/__init__.py`, and `migrations/versions/20260422_0014_finding_chains.py`
+  - added `api/app/services/finding_chains.py` with deterministic run-scoped detection for initial known patterns, component finding links, evidence refs, confidence scoring, combined-impact narrative, idempotent upsert behavior, and explicit no-mutation/no-severity-escalation/no-exploit-execution metadata
+  - surfaced `vulnerability_chains` in Finding Theater through `api/app/schemas/finding_views.py` and `api/app/services/finding_views.py` without changing canonical finding schema fields
+  - extended Finding Theater UI in `ui/assets/modules/findings.js` so operators see detected, no-chain, and boundary context grounded in returned chain records
+  - documented the initial pattern list and unsupported-chain behavior in `docs/attack_path_engine.md`
+  - added `api/tests/test_ai_chain_detection.py` coverage for detected chains, no-chain fallback, duplicate/idempotent refresh, low-confidence sparse matches, and canonical finding-field preservation
+  - extended `ui/tests/test_operator_console_e2e.py` coverage so Finding Theater renders chain context, component findings, evidence refs, and explicit unchanged/no-exploitation boundaries
+  - replaced `NEXT_TASK.md` with the single promoted `Threat Intel Feed Cache and Finding Badges Foundation` task from `codex/tasks/backlog-44-threat-intel-feed-cache-badges-foundation.json`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_chain_detection.py` (`4 passed in 3.00s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`287 passed in 1151.06s (0:19:11)`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 50 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check` (passed with no whitespace errors)
+  - important truth notes:
+    - chain records are additive analysis records only; component findings are not rewritten and severity is not auto-escalated
+    - no chained exploitation, runtime execution change, scan-time external lookup, finding schema field change, Prompt 1 / Prompt 2 foundation change, pack-gate bypass, runtime-binding bypass, runtime self-modification, or uncontrolled plugin installation was introduced
+
+- 2026-04-22: completed and closed the active `AI Proposal Review and Insights UI Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-42-ai-proposal-review-insights-ui-foundation.json`, existing run routes/schemas, the AI reasoning/proposal ledger, the post-task proposal service, Mission Control rendering, and browser/API test fixtures before changing code
+  - added selected-run AI insights read support through `GET /api/v1/runs/{run_id}/ai-insights`, returning reasoning records, proposal records, provider-disabled truth, and an explicit review-only boundary
+  - added proposal review support through `POST /api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review`, accepting only `approved` or `rejected` decisions for pending proposals and recording actor, timestamp, note, non-execution metadata, and an `agent_proposal.reviewed` audit event
+  - blocked approval for forbidden action classes such as unsupported tools and out-of-scope or denied targets, while still allowing rejection so unsafe suggestions can be closed honestly
+  - extended Mission Control's `AI Signal` surface with an AI proposal insights panel that lists reasoning/proposal provenance, labels proposals as suggestions rather than executed tasks, and records approve/reject decisions without creating or dispatching tasks
+  - documented proposal review statuses, audit truth, and forbidden action classes in `docs/ui_mission_control.md` and `docs/ai_pentesting_agent_scope_alignment.md`
+  - replaced `NEXT_TASK.md` with the single promoted `Vulnerability Chain Detection Foundation` task from `codex/tasks/backlog-43-vulnerability-chain-detection-foundation.json`
+  - validation:
+    - `python3 -m py_compile api/app/services/ai_agent.py api/app/routers/runs.py api/app/schemas/runs.py api/tests/test_ai_agent_reasoning.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py` (`11 passed in 5.64s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "ai_proposals_as_non_executing_suggestions"` (`1 passed, 286 deselected in 5.03s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_refresh_scopes_findings_to_selected_run_and_updates_stale_cache` (`1 passed in 2.57s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`287 passed in 1119.57s (0:18:39)`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 50 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+  - important truth notes:
+    - approving a proposal records review status only; it does not create tasks, dispatch tools, grant approval, mutate findings, expand scope, validate/deploy packs, bind runtime packs, or change worker runtime behavior
+    - no generic AI chat, automatic run dispatch, approval bypass, finding schema field change, Prompt 1 / Prompt 2 foundation change, runtime self-modification, or uncontrolled plugin installation was introduced
+
+- 2026-04-22: completed and closed the active `Post-Task AI Analysis Proposal Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-41-post-task-ai-analysis-proposal-foundation.json`, config, worker task completion, AI reasoning helpers, models, schemas, and test fixtures before changing code
+  - added disabled-by-default post-task AI analysis settings: `AI_AGENT_POST_TASK_ANALYSIS_ENABLED=false`, `AI_AGENT_POST_TASK_ANALYSIS_PROVIDER=disabled`, and `AI_AGENT_POST_TASK_ANALYSIS_MODEL=aegispt-post-task-analysis`
+  - added `api/app/services/ai_agent.py` with a provider abstraction, deterministic test provider, post-task context builder, proposal filtering, scope/denylist checks, failure recording, and pending-review proposal storage through the existing AI reasoning ledger
+  - wired `workers/orchestration/tasks.py` so the callback runs only after a task reaches `completed`, only when the opt-in setting enables it, and never for failed/non-completed tasks
+  - documented accepted proposal shape and blocked action classes in `docs/ai_pentesting_agent_scope_alignment.md`
+  - extended `api/tests/test_ai_agent_reasoning.py` and added `workers/tests/test_task_ai_callbacks.py` to cover disabled default, provider failure, unsupported-tool blocking, out-of-scope target blocking, pending-review proposal storage, and worker callback gating
+  - replaced `NEXT_TASK.md` with the single promoted `AI Proposal Review and Insights UI Foundation` task from `codex/tasks/backlog-42-ai-proposal-review-insights-ui-foundation.json`
+  - validation:
+    - `python3 -m py_compile api/app/config.py api/app/services/ai_agent.py api/app/services/ai_enrichment.py workers/orchestration/tasks.py api/tests/test_ai_agent_reasoning.py workers/tests/test_task_ai_callbacks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py workers/tests/test_task_ai_callbacks.py` (`9 passed in 4.58s`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 50 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+  - important truth notes:
+    - no proposal approval UI was added in this slice
+    - proposals remain pending-review records and do not queue tasks, dispatch tools, approve work, mutate findings, expand scope, bypass pack gates, or change runtime binding
+    - provider failure records failed AI reasoning while preserving completed task and finding state
+    - no Prompt 1 / Prompt 2 foundations, finding schema fields, runtime self-modification, or uncontrolled plugin installation were changed
+
+- 2026-04-22: completed and closed the active `AI Agent Reasoning Ledger Foundation` task, then promoted exactly one next backlog package:
+  - inspected `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `codex/tasks/backlog-40-ai-agent-reasoning-ledger-foundation.json`, existing SQLAlchemy models, migration style, run schemas, AI enrichment helpers, and API test fixtures before changing code
+  - added additive `AgentReasoning` and `AgentProposal` models with run/task/proposal relationships for auditable context snapshots, observations, hypotheses, proposal summaries, provider/model/token metadata, confidence, review status, approval fields, failure reasons, and metadata
+  - added Alembic migration `migrations/versions/20260422_0013_ai_agent_reasoning_ledger.py`
+  - exported the new models through `api/app/models/__init__.py`
+  - added `AgentReasoningRead` and `AgentProposalRead` schemas in `api/app/schemas/runs.py`
+  - added service helpers in `api/app/services/ai_enrichment.py` for storing and listing reasoning/proposal records, including same-run task validation, JSON-shape validation, risk/status validation, and no-dispatch semantics
+  - added `api/tests/test_ai_agent_reasoning.py` coverage for additive reasoning/proposal storage, schema serialization, unchanged task/execution records, provider-disabled failure state, same-run enforcement, and invalid proposal risk/status rejection
+  - updated `docs/ai_pentesting_agent_scope_alignment.md` to record the inactive reasoning-ledger baseline
+  - replaced `NEXT_TASK.md` with the single promoted `Post-Task AI Analysis Proposal Foundation` task from `codex/tasks/backlog-41-post-task-ai-analysis-proposal-foundation.json`
+  - validation:
+    - `python3 -m py_compile api/app/models/control.py api/app/models/__init__.py api/app/schemas/runs.py api/app/services/ai_enrichment.py api/tests/test_ai_agent_reasoning.py migrations/versions/20260422_0013_ai_agent_reasoning_ledger.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py` (`3 passed in 1.99s`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 50 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice does not call an LLM provider, add post-task callbacks, dispatch proposals, auto-approve actions, create tasks, change worker runtime behavior, change finding schema fields, alter Prompt 1 / Prompt 2 foundations, bypass pack gates, bypass runtime binding, self-modify runtime, or install plugins
+
+- 2026-04-22: completed and closed the active `AI Pentesting Agent Source Alignment` task, then promoted exactly one next backlog package:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `AI_PENTESTING_AGENT.md`, `TASK_QUEUE.md`, and the backlog validator before changing files
+  - treated the user's `AI_PENTESTING_AGENT.md` integration request as approval to move out of the queue-exhausted holding state through a repo-backed governance task, not as permission to activate runtime AI behavior
+  - added `docs/ai_pentesting_agent_scope_alignment.md` to capture what the source document adds, what AegisPT already covers, which parts were adapted for existing guardrails, and which runtime/autonomy behaviors remain blocked
+  - updated `docs/product_recommendations_scope_alignment.md` so the AI-agent source addendum is now part of project scope instead of a standalone memo
+  - extended `TASK_QUEUE.md` and added `codex/tasks/backlog-39-*.json` through `codex/tasks/backlog-50-*.json` for the remaining relevant AI-agent work: reasoning/proposal ledgers, post-task analysis, proposal review UI, vulnerability chains, local threat-intel badges, contextual remediation and exploitability intelligence, run attack narratives, LLM-assisted intake, AI-augmented attack paths, local pattern learning, and controlled multi-agent preparation
+  - replaced the holding-state `NEXT_TASK.md` with the single promoted `AI Agent Reasoning Ledger Foundation` task from `codex/tasks/backlog-40-ai-agent-reasoning-ledger-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records the AI-agent source alignment, the extended queue, the new active task, and the unchanged runtime/Prompt/finding-schema/pack-gate boundaries
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 50 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+  - important truth notes:
+    - no runtime code, AI provider wiring, worker callback, proposal execution, autonomous planning, finding schema field, Prompt 1 / Prompt 2 foundation, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, or uncontrolled plugin-installation change was made
+    - `AI_PENTESTING_AGENT.md` is now a governed planning source, not a live runtime authority
+
+- 2026-04-22: validated the current `Await Next Approved Task Package` holding state without starting new work:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, and `TASK_QUEUE.md`
+  - confirmed `NEXT_TASK.md` no longer references an active implementation task package and intentionally holds the build lane after `codex/tasks/backlog-38-integration-portfolio-expansion-foundation.json`
+  - confirmed `TASK_QUEUE.md` still ends at backlog item 38, so there is no approved next package to promote
+  - updated `CURRENT_STATE.md` to record that this run performed holding-state validation only
+  - important truth notes:
+    - no product code, tests, docs beyond state/log truth, task queue order, or task package files were changed
+    - no implementation work was started from memory, product ambition, or future backlog ideas
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker runtime behavior, runtime self-modification, or uncontrolled plugin installation were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Integration Portfolio Expansion Foundation` task, then set an explicit holding state because the approved queue is exhausted:
+  - inspected the active task package, current state/decision guardrails, existing Jira integration, controlled webhook handoff, generic integration configuration model, finding integration-link records, protected secret handling, Finding Theater API/UI display, and integration tests before changing code
+  - added `api/app/services/integrations.py` as a narrow named-provider handoff interface for `slack`, `teams`, and `servicenow` that prepares or blocks finding-level handoff records without posting externally, retrying, closing tickets, launching background work, or changing worker runtime behavior
+  - extended `api/app/routers/integrations.py` and `api/app/schemas/integrations.py` with engagement-scoped named-provider configuration plus explicit operator-triggered handoff endpoints that reuse existing `integration_configurations` and `finding_integration_links`
+  - required named-provider `auth_ref` values to be protected references such as `vault://`, `env://`, `ref://`, `secret://`, or `aegispt://`; raw named-provider tokens are rejected instead of being stored
+  - surfaced configured/prepared, missing-credential/blocked, unsupported-provider, and failed named-provider handoff states through API responses, audit events, and Finding Theater remediation integration data
+  - updated `ui/assets/modules/findings.js` so Finding Theater still renders Jira separately and now also renders webhook, Slack, Teams, and ServiceNow workflow handoff references, including prepared/blocked/failed copy
+  - updated `docs/integrations.md` to document the named-provider interface, required routing settings, protected-secret boundary, and explicit non-goals around direct Slack/Teams/ServiceNow delivery, background sync, retries, and standalone integration administration
+  - validation:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/integrations.py api/app/schemas/integrations.py api/app/routers/integrations.py api/app/services/finding_views.py api/tests/test_integrations.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py` (`18 passed in 10.20s`)
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'findings_theater_surfaces_remediation_and_retest_truth'` (`1 passed, 285 deselected in 2.74s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`286 passed in 1342.02s (0:22:22)`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 38 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with an explicit `Await Next Approved Task Package` holding state because `TASK_QUEUE.md` has no approved backlog package after `codex/tasks/backlog-38-integration-portfolio-expansion-foundation.json`
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this slice did not add direct Slack/Teams/ServiceNow delivery, GitHub issue creation, SIEM payloads, bidirectional sync, retry queues, background workers, standalone integration administration, automatic ticket closure, worker runtime changes, finding schema changes, Prompt 1 / Prompt 2 foundation changes, pack-gate bypasses, runtime binding bypasses, runtime self-modification, or uncontrolled plugin installation
+
+- 2026-04-22: completed and closed the active `Remediation Portfolio SLA Foundation` task, then promoted exactly one next backlog package:
+  - inspected the active task package, current state/decision guardrails, existing finding/remediation/retest routes, Finding Theater API/UI surfaces, tenant guards, remediation tests, and product/assurance docs before changing code
+  - added `api/app/services/remediation.py` as a read-only portfolio service that derives remediation state, owner, configurable SLA planning labels, verification state, linked retest state, and retest eligibility from existing findings, remediation records, runs, profiles, and linked single-finding retest metadata
+  - added engagement-level remediation portfolio and planning-only retest endpoints under the existing findings router:
+    - `GET /api/v1/engagements/{engagement_id}/remediation/portfolio`
+    - `POST /api/v1/engagements/{engagement_id}/remediation/retest-plan`
+  - kept batch retest planning explicitly non-executing: the plan groups eligible findings by source run/profile and shows required approval counts, but creates no runs, queues no tasks, grants no approvals, deploys no packs, and binds no runtime packs
+  - extended Finding Theater with a compact remediation portfolio panel showing SLA policy, overdue/due-soon/blocked/verified/eligible counts, portfolio queue items, and planning-only retest groups without replacing the existing single-finding remediation/retest flow
+  - added `api/tests/test_findings.py` coverage for owner/SLA filters, overdue/due-soon/blocked/verified states, planning-only retest grouping, no-run-created behavior, and tenant-boundary denial
+  - extended browser coverage so the operator console renders the remediation portfolio and approval-aware planning-only retest groups, and updated an existing mocked refresh test to treat the new optional portfolio endpoint as an expected read path
+  - updated `docs/product_recommendations_scope_alignment.md` and `docs/operator_product_operational_assurance.md` so remediation portfolio/SLA planning is recorded as implemented with explicit automation limits
+  - validation:
+    - `python3 -m py_compile api/app/services/remediation.py api/app/schemas/finding_views.py api/app/routers/findings.py api/tests/test_findings.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_findings.py` (`3 passed in 2.03s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_findings.py api/tests/test_finding_remediation.py` (`7 passed in 3.75s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "refresh_scopes_findings_to_selected_run_and_updates_stale_cache or remediation_portfolio_plan"` (`2 passed, 284 deselected in 3.98s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`286 passed in 1296.51s (0:21:36)`)
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 38 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+  - validation note:
+    - `node --check ui/assets/modules/findings.js && node --check ui/assets/app.js && node --check ui/assets/modules/runtime.js` could not run because `node` is not installed in this environment; the full Playwright suite loaded the touched browser modules successfully
+  - replaced `NEXT_TASK.md` with the single promoted `Integration Portfolio Expansion Foundation` task from `codex/tasks/backlog-38-integration-portfolio-expansion-foundation.json`
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this slice is not automatic batch retest dispatch, ticketing background automation, contractual SLA enforcement, automatic ticket closure, approval bypass, pack gate bypass, runtime binding bypass, finding schema mutation, Prompt 1 / Prompt 2 change, runtime self-modification, or uncontrolled plugin installation
+
+- 2026-04-22: completed and closed the active `MSSP Multi-Tenant Readiness Foundation` task, then promoted exactly one next backlog package:
+  - inspected the active task package, current state/decision guardrails, engagement/customer/run/finding/report/inventory/task/artifact models and routers, API auth/header behavior, database migration pattern, operator UI API wrapper, operational assurance matrix, and product-recommendation alignment docs before changing code
+  - added optional `engagements.tenant_id` support with Alembic migration `20260421_0012_engagement_tenant_id.py` and additive `tenant_id` fields on engagement create/read schemas
+  - added `api/app/services/tenancy.py` as the narrow tenant isolation helper for `X-Tenant-ID` normalization, create-time header/payload conflict handling, engagement filtering, and cross-tenant denial helpers
+  - wired optional `X-Tenant-ID` guards into engagement list/detail/create/scope/schedule, run list/create/read/events/report/catalog/draft/approval/dispatch/cancel/pack-binding read/write, finding read/theater/evidence/remediation/retest/update, inventory list/create/read/summary/cloud-analysis, task detail/stdout, and evidence-artifact content routes
+  - preserved the current local single-operator workflow when `X-Tenant-ID` is absent, while returning `404` for mismatched tenant access, `400` for invalid tenant ids, and `409` for create-time tenant header/payload mismatches
+  - added optional operator-console header forwarding from `state.tenantId` without adding a tenant switcher, MSSP portal, hosted SaaS, billing, SSO, tenant membership, or broad RBAC
+  - added `docs/mssp_multitenant_readiness.md` to map tenant boundaries across engagements, runs, findings, reports, inventory, secrets, evidence artifacts, packs, Codex results, MCP, and audit, with hosted/SaaS gaps explicitly called out
+  - updated `docs/product_recommendations_scope_alignment.md` and `docs/operator_product_operational_assurance.md` so MSSP/multi-tenant status is recorded as a narrow `supported-with-gap` foundation, not hosted-SaaS readiness
+  - validation:
+    - `python3 -m py_compile api/app/services/tenancy.py api/app/models/control.py api/app/schemas/engagements.py api/app/routers/engagements.py api/app/routers/runs.py api/app/routers/inventory.py api/app/routers/findings.py api/app/routers/tasks.py api/app/routers/artifacts.py api/tests/test_multitenancy.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_multitenancy.py` (`2 passed in 1.54s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_engagements.py api/tests/test_runs.py -k "create_engagement_and_scope or list_runs_for_new_engagement or due_scheduled_run"` (`4 passed, 30 deselected in 2.92s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py -k "run_report_exports or report_catalog or report_draft"` (`3 passed, 7 deselected in 3.58s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py -k "stdout or detail or dispatch"` (`9 passed in 25.63s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_artifact_storage.py` (`1 passed in 1.60s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`285 passed in 1333.75s (0:22:13)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - validation note:
+    - `node --check ui/assets/modules/api.js && node --check ui/assets/modules/runtime.js` could not run because `node` is not installed in this environment; the full Playwright suite loaded the touched browser modules successfully
+  - replaced `NEXT_TASK.md` with the single promoted `Remediation Portfolio SLA Foundation` task from `codex/tasks/backlog-37-remediation-portfolio-sla-foundation.json`
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this is not hosted-SaaS readiness, billing, full RBAC, SSO, tenant membership, cross-tenant reporting, tenant switching UI, or a complete tenant partitioning layer
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker runtime behavior, runtime self-modification, or uncontrolled plugin installation were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Controlled MCP Action Tools Foundation` task, then promoted exactly one next backlog package:
+  - inspected the active task package, current state/decision guardrails, existing read-only MCP interface, finding/remediation/retest routes, integration handoff patterns, authorization behavior, MCP schemas, and existing MCP tests before changing code
+  - added a controlled MCP action-tool manifest at `GET /api/v1/mcp/tools` with explicit `X-Actor` authorization, enabled-tool listing, disabled/forbidden action listing, safety notes, write-method disclosure, and raw-secret/protected-gate boundaries
+  - added the first enabled tool, `finding.retest.proposal`, which produces an operator-reviewable proposal for the existing single-finding retest endpoint without creating a run, queuing tasks, dispatching work, changing finding state, approving anything, deploying packs, binding runtime packs, or exposing secrets
+  - added an invocation route at `POST /api/v1/mcp/tools/{tool_name}/invoke` that blocks forbidden runtime/pack/secret actions, requires explicit confirmation before any state-changing action, and records an audit event for proposal generation
+  - advertised `finding.webhook.handoff.request` as disabled and confirmation-gated only, proving the state-changing boundary without delivering external handoffs in this slice
+  - kept the existing read-only MCP context endpoints safe and available, and adjusted read-only MCP regression coverage so only the read-only context routes are expected to have no write methods
+  - documented the permitted and forbidden MCP action-tool boundary in `docs/product_recommendations_scope_alignment.md`
+  - validation:
+    - `python3 -m py_compile api/app/routers/mcp.py api/app/schemas/mcp.py api/app/services/mcp_tools.py api/tests/test_mcp_tools.py api/tests/test_mcp_operator_interface.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_mcp_tools.py` (`5 passed in 2.49s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_mcp_operator_interface.py` (`3 passed in 1.74s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `MSSP Multi-Tenant Readiness Foundation` task from `codex/tasks/backlog-36-mssp-multitenant-readiness-foundation.json`
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this first MCP action-tool slice is proposal-only for enabled execution; no autonomous scan dispatch, approval bypass, pack deployment bypass, runtime binding bypass, secret access, runtime self-modification, uncontrolled plugin installation, Prompt 1 / Prompt 2 foundation change, or finding schema field change was added
+
+- 2026-04-22: completed and closed the active `Detection Engineering Assistant Foundation` task, then promoted exactly one next backlog package:
+  - inspected the active task package, current state/decision guardrails, existing Finding Theater API/view schema, AI enrichment and threat-context seams, Finding Theater browser module, existing enrichment/API/browser tests, and product-recommendation alignment docs before changing code
+  - added deterministic `AegisPT curated detection-engineering mapping` support in `api/app/services/ai_enrichment.py`, deriving advisory detection ideas only from stored finding title/summary/evidence refs, methodology tags, WSTG/ASVS/control metadata, source tool context, and mapped scenario context
+  - exposed an additive `detection_engineering` block through the existing Finding Theater view without changing `api/app/schemas/findings.py`, canonical finding severity/status/evidence/methodology fields, worker dispatch, pack gates, approval, deployment, or runtime binding
+  - rendered Detection Engineering Assistant guidance in Finding Theater with evidence refs, source/tool/scenario context, telemetry support status, unsupported telemetry callouts, and visible non-production/operator-review boundary copy
+  - implemented truthful fallbacks for sparse findings and findings without a curated detection mapping instead of fabricating SIEM/EDR rule logic
+  - documented the first-slice detection-engineering boundary in `docs/product_recommendations_scope_alignment.md`
+  - completed the active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/ai_enrichment.py api/app/services/finding_views.py api/app/schemas/finding_views.py api/tests/test_ai_finding_enrichment.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py` (`12 passed in 4.95s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`285 passed in 1300.32s (0:21:40)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Controlled MCP Action Tools Foundation` task from `codex/tasks/backlog-35-controlled-mcp-action-tools-foundation.json`
+  - selected the next task's MCP action-tool boundary explicitly before implementation starts: gated proposal/low-risk operator-reviewed actions only, no autonomous dispatch, no approval bypass, no pack deployment bypass, no secret access, and no runtime self-modification
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - detection guidance is static, deterministic, and advisory; no SIEM rules were deployed and no EDR or customer system was modified
+    - detection guidance is not production-ready, does not claim detection effectiveness, does not mutate canonical findings, does not change Prompt 1 / Prompt 2 foundations, and does not bypass pack registry, validation, approval, deployment, or runtime binding
+
+- 2026-04-22: completed and closed the active `Threat Actor Mapping Foundation` task, then promoted exactly one next backlog package:
+  - inspected the active task package, existing AI enrichment service, Finding Theater API schema/service, Finding Theater browser module, existing enrichment/API/browser tests, and competitive/product recommendation docs before changing code
+  - added deterministic `AegisPT curated threat-context mapping` support in `api/app/services/ai_enrichment.py`, using existing finding title/summary/evidence refs, methodology tags, WSTG/ASVS/control metadata, and detected CWE/CVE tokens as the evidence basis
+  - exposed an additive `threat_context` block through the existing Finding Theater view without changing `api/app/schemas/findings.py`, `api/app/models/control.py`, finding severity/status, worker dispatch, pack gates, approval, deployment, or runtime binding
+  - distinguished mapped, unmapped, and low-confidence contexts, with an explicit attribution boundary stating that actor attribution, breach likelihood, and severity changes are not claimed
+  - rendered the threat context in Finding Theater with the same non-attribution copy and truthful sparse-finding fallback
+  - documented the selected static mapping source and non-attribution boundary in `docs/competitive_landscape_2026.md` and `docs/product_recommendations_scope_alignment.md`
+  - completed the active-task validation contract:
+    - `python3 -m py_compile api/app/services/ai_enrichment.py api/app/services/finding_views.py api/app/schemas/finding_views.py api/tests/test_ai_finding_enrichment.py ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py` (`9 passed in 3.65s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`284 passed in 1251.78s (0:20:51)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `AI Assisted Report Drafting Foundation` task from `codex/tasks/backlog-33-ai-assisted-report-drafting-foundation.json`
+  - selected the next task's report-drafting boundary explicitly before implementation starts: operator-reviewed draft narrative only, no canonical evidence mutation, no finding schema changes, no provider-mandatory reporting, and no compliance attestation claims
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - threat context is static, deterministic, and curated; no live threat-intelligence feed ingestion was added
+    - threat context is advisory technique relevance only, not named actor attribution, breach-likelihood certainty, autonomous prioritization, severity mutation, status mutation, Prompt 1 / Prompt 2 changes, pack gate bypass, runtime self-modification, or uncontrolled plugin installation
+
+- 2026-04-22: completed and closed the active `LLM Application Testing Foundation` task, then promoted exactly one next backlog package:
+  - inspected the active task package, existing run profile/approval/queue/dispatch code, worker runner patterns, artifact-to-finding normalization, protected secret parameter patterns, and LLM/product-boundary docs before changing code
+  - added `workers/runners/llm_probe.py` as a bounded read-only `llm-probe` runner for explicitly authorized HTTP(S) LLM API endpoints
+  - added safe baseline probes for prompt-injection refusal, data-leakage refusal, unsafe-tool-use refusal, and excessive-refusal handling with bounded prompt hashes and response excerpts in `llm-probe-results.json`
+  - added deterministic fake-provider behavior for safe, unsafe, and excessive-refusal cases, plus explicit missing-target and unsafe-target fallbacks
+  - wired `llm-probe` into the existing worker dispatch and artifact normalization path so findings are stored through existing `NormalizedFinding` fields without changing `api/app/schemas/findings.py`
+  - added the approval-gated `active-llm-application-probe` run profile and target planning for explicit `llm_endpoints` / `llm_api_endpoints` / `ai_endpoints` scope entries only
+  - kept provider secrets as environment-variable names in task params; raw API keys or bearer tokens are not stored in run output or artifacts
+  - documented the first LLM application testing baseline and remaining non-goals in `docs/product_recommendations_scope_alignment.md`, `docs/operator_product_operational_assurance.md`, and `docs/identity_model.md`
+  - completed the active-task validation contract:
+    - `python3 -m py_compile workers/runners/llm_probe.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/tests/test_llm_probe.py api/tests/test_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_llm_probe.py` (`3 passed in 1.48s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k "list_run_profiles or active_run_requires_approval_before_queueing or aws_inventory_profile_queues_cloud_account_targets_without_url_targets"` (`3 passed, 30 deselected in 1.65s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Threat Actor Mapping Foundation` task from `codex/tasks/backlog-32-threat-actor-mapping-foundation.json`
+  - selected the next task's threat-mapping boundary explicitly before implementation starts: contextual mapping only, no actor-attribution claims, no severity mutation, no feed ingestion, and no finding schema changes
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - LLM testing is limited to explicit authorized LLM API endpoints and bounded safe probes
+    - shadow AI discovery, uncontrolled tool execution, secret extraction, arbitrary customer-data probing, autonomous exploit chaining, Prompt 1 / Prompt 2 changes, approval/dispatch bypass, pack gate bypass, runtime binding bypass, plugin installation, runtime self-modification, and finding schema field changes remain out of scope
+
+- 2026-04-22: completed and closed the active `Cloud IAM Kubernetes Analysis Foundation` task, then promoted exactly one next backlog package:
+  - inspected the active task package, existing AWS inventory runner, inventory normalization/storage, inventory API routes and schemas, identity/inventory docs, and existing AWS runner tests before changing code
+  - added optional normalized inventory fields for read-only cloud IAM principals, policies, attachments, cloud collection errors, Kubernetes clusters, and Kubernetes workloads without changing finding schema fields
+  - added `GET /api/v1/inventory/{inventory_id}/cloud-analysis`, which reads an existing inventory snapshot and returns provider-scoped `analysis_findings`, explicit `limitations`, evidence basis, and summary counts without creating database `Finding` records
+  - added first-pass AWS read-only analysis for EC2 public exposure, public security-group ingress, broad wildcard IAM policies, wildcard IAM trust policies, missing-permission fallbacks, and unsupported-provider states
+  - added Kubernetes configuration/workload signals only for safe read-only inputs already present in the snapshot, covering public control-plane endpoint, RBAC disabled, anonymous auth, secrets encryption disabled, privileged workloads, host networking, and root execution
+  - preserved security-group ingress and egress rule details already returned by AWS `describe_security_groups` so exposure analysis can cite stored evidence instead of only aggregate rule counts
+  - documented the cloud/IAM/Kubernetes analysis boundary in `docs/identity_model.md` and `docs/inventory_model.md`
+  - completed the active-task validation contract:
+    - `python3 -m py_compile api/app/services/inventory.py api/app/services/cloud_analysis.py api/app/routers/inventory.py api/app/schemas/inventory.py api/tests/test_cloud_inventory.py workers/runners/aws_inventory/runner.py workers/tests/test_aws_inventory_runner.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cloud_inventory.py` (`3 passed in 1.63s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_aws_inventory_runner.py` (`4 passed in 0.25s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `LLM Application Testing Foundation` task from `codex/tasks/backlog-31-llm-application-testing-foundation.json`
+  - selected the next task's LLM-testing boundary explicitly before implementation starts: explicit authorized LLM endpoints only, bounded safe probes, protected secret handling, no uncontrolled tool execution, no secret extraction, and no finding schema changes
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - cloud analysis is snapshot review output, not exploitation, proof of reachability, full IAM graph analysis, certification, or cloud-to-on-prem attack chaining
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, approval/dispatch paths, pack registry, validation, deployment, runtime binding, plugin installation, or runtime self-modification control was changed or bypassed
+
+- 2026-04-22: completed and closed the active `Compliance Framework Expansion Foundation` task, then promoted exactly one next backlog package:
+  - inspected the existing SOC 2 package, assurance package, report catalog, markdown/HTML/PDF report paths, Report Center UI metadata, methodology mapping docs, and compliance wording guardrails before changing code
+  - added `iso27001` and `pci_dss` report variants through the existing report catalog and `/api/v1/runs/{run_id}/report` export path
+  - added conservative report-time mapping tables for ISO/IEC 27001:2022 Annex A and PCI DSS v4.0 using only existing finding metadata such as `control_family`, `methodology_tags`, `wstg_id`, and `asvs_reference`
+  - grouped ISO 27001 output by controls and PCI DSS output by requirements, including evidence refs, mapping reasons, methodology lines, unmapped findings, and controls/requirements without mapped run findings
+  - surfaced compliance package boundary metadata in Report Center without adding a second report workflow or changing report schema fields beyond existing `compliance_summary`
+  - documented the ISO/PCI report-time mapping boundary in `docs/methodology_mapping.md` and tightened compliance-package wording rules in `docs/operational_truth_signoff.md`
+  - completed the active-task validation contract:
+    - `python3 -m py_compile api/app/services/reports.py api/app/routers/runs.py api/tests/test_reports.py ui/tests/test_operator_console_e2e.py`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py -k "iso27001 or soc2 or assurance or run_report_exports"` (`5 passed, 3 deselected in 7.08s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "authenticated_webapp_flow_supports_reports_and_secret_binding"` (`1 passed, 283 deselected in 10.13s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`8 passed in 9.48s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`284 passed in 1377.30s (0:22:57)`)
+  - replaced `NEXT_TASK.md` with the single promoted `Cloud IAM Kubernetes Analysis Foundation` task from `codex/tasks/backlog-30-cloud-iam-kubernetes-analysis-foundation.json`
+  - selected the next task's cloud/IAM/Kubernetes boundary explicitly before implementation starts: read-only analysis only, evidence-backed provider-scoped output, no cloud mutation, no exploitation chains, and no finding schema changes
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - ISO 27001 output is not an ISO certification, registrar audit result, or statement of conformity
+    - PCI DSS output is not a QSA assessment, Report on Compliance, Attestation of Compliance, or complete PCI DSS validation
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, methodology source definitions, approval/dispatch paths, pack registry, validation, deployment, runtime binding, plugin installation, or runtime self-modification control was changed or bypassed
+
+- 2026-04-22: completed and closed the active `Continuous Trend Delta Foundation` task, then promoted exactly one next backlog package:
+  - inspected existing scheduled-run lineage, run history comparison, finding comparison, inventory snapshot comparison, Report Center comparison, and continuous-mode documentation before changing code
+  - extended the existing History / Comparison run comparison with schedule-lineage-aware trend output using only stored `configuration_json.schedule.scheduled_run_id`, run history, selected-run findings, and inventory snapshots
+  - distinguished new, resolved, persistent, changed, and worsened finding signals without changing finding schema fields
+  - added strict comparability gates: both runs must be scheduled-validation runs from the same stored schedule id, otherwise the UI shows an explicit `Trend unavailable` fallback
+  - reused Report Center's existing selected current/baseline comparison so report posture can show whether a comparable scheduled-validation trend exists
+  - documented the trend/delta baseline and limits in `docs/continuous_mode.md`, including that trend output is stored-data-only and not an absolute risk-reduction claim
+  - completed the active-task validation contract:
+    - `python3 -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `node --check ui/assets/modules/explorer-history.js` and `node --check ui/assets/modules/reports.js` could not run because `node` is not installed in this environment; the touched browser modules were validated through Playwright instead
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k continuous_trend_delta_uses_schedule_lineage_and_truthful_fallback` (`1 passed, 283 deselected in 4.04s`)
+    - `.venv/bin/python -m pytest --capture=no api/tests/test_reports.py` (`7 passed in 7.83s`)
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`284 passed in 1309.51s (0:21:49)`)
+  - replaced `NEXT_TASK.md` with the single promoted `Compliance Framework Expansion Foundation` task from `codex/tasks/backlog-29-compliance-framework-expansion-foundation.json`
+  - selected the next task's compliance boundary explicitly before implementation starts: ISO 27001 and PCI DSS report-package expansion must stay evidence-backed and must not imply certification, CPA attestation, full control coverage, or finding schema changes
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - no scheduler, arbitrary cron editor, background recurring worker, runtime lane, billing/MSSP feature, absolute risk-reduction claim, approval/dispatch path, pack gate, finding schema, Prompt 1 / Prompt 2 foundation, plugin installation, or runtime self-modification control was added or changed
+
+- 2026-04-22: completed and closed the active `Active Target Scan Map Foundation` task, then promoted exactly one next backlog package:
+  - inspected the existing Mission Control telemetry, run-stream truth, selected-run task snapshots, finding severity counters, Surface Map placement, and browser telemetry test helpers before changing UI behavior
+  - added an active target scan-map panel inside the existing Mission Control live telemetry block, grouping selected-run tasks by recorded `target_id`
+  - rendered tool chips from existing task status and timestamps only, with explicit live, static/no-live-event, completed, blocked, failed, queued, and running states
+  - derived target severity styling only from findings already loaded for the selected run, using stored finding targets and severities without adding or changing finding schema fields
+  - limited motion to the real `running` task state while the selected run stream is connected or connecting; no fake scan paths, fake findings, attack-path inference, risk scoring, worker execution changes, or runtime behavior were added
+  - documented the scan-map boundary and remaining visualization limits in `docs/ui_mission_control.md` and `docs/product_recommendations_scope_alignment.md`
+  - completed the active-task validation contract:
+    - `python3 -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `node --check ui/assets/modules/mission-control.js` could not run because `node` is not installed in this environment; the touched browser module was validated through Playwright instead
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k mission_control_live_telemetry_uses_persisted_task_and_finding_state` (`1 passed, 282 deselected in 2.53s`)
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k test_revising_an_earlier_topic_shows_return_to_main_intake_flow` (`1 passed, 282 deselected in 7.02s`) after one earlier full-suite setup flake on the same fixture
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" .venv/bin/python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`283 passed in 1431.38s (0:23:51)`)
+  - replaced `NEXT_TASK.md` with the single promoted `Continuous Trend Delta Foundation` task from `codex/tasks/backlog-28-continuous-trend-delta-foundation.json`
+  - selected the next task's trend/delta boundary explicitly before implementation starts: compare only comparable stored scheduled-validation history and do not add a second scheduler, arbitrary cron editor, background recurring worker, or absolute risk-reduction claims
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - `ui/assets/modules/surface-map.js` does not exist in this repo; the active target scan-map work was correctly placed in the existing Mission Control module
+    - no backend worker, attack-path service, finding schema, Prompt 1 / Prompt 2 foundation, pack registry, validation, approval, deployment, runtime binding, plugin installation, or runtime self-modification control was changed or bypassed
+
+- 2026-04-22: completed and closed the active `Task Stdout Streaming Foundation` task, then promoted exactly one next backlog package:
+  - added a bounded in-process task stdout stream buffer in `workers/runners/base/stdout_stream.py` with line-count and line-length caps plus existing redaction before stream exposure
+  - wired the existing task lifecycle to mark task stdout as streaming when a runner starts, append real captured runner stdout when the existing runner returns, and mark no-stdout/cancelled/kill-switch cases as unavailable without streaming stderr or synthetic terminal lines
+  - added `GET /api/v1/tasks/{task_id}/stdout/events` as a narrow SSE endpoint that returns selected-task stdout snapshots/updates, missing-task errors, no-stream fallback state, and stored-execution stdout fallback after completion
+  - added a Mission Control selected-check stdout terminal panel that renders only real captured stdout lines and separately labels streaming, completed, missing-task, fallback, and unavailable-output states
+  - documented the remaining capture boundary in `docs/ui_mission_control.md` and `docs/product_recommendations_scope_alignment.md`: separate worker processes may only expose stored execution stdout unless a shared stream store is added later, and stderr remains in existing execution detail
+  - completed the active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile workers/runners/base/stdout_stream.py workers/orchestration/tasks.py api/app/routers/tasks.py api/tests/test_task_dispatch.py`
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py` (`9 passed in 25.47s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'task_stdout_terminal_states'` (`1 passed, 282 deselected in 2.66s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'mission_control_uses_live_run_stream_for_selected_active_run or mission_control_uses_polling_fallback_when_live_run_stream_is_unavailable or ready_to_start_and_thin_output_states_keep_one_dispatch_action_and_truthful_completion'` (`3 passed, 280 deselected in 14.50s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`283 passed in 1297.31s (0:21:37)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Active Target Scan Map Foundation` task from `codex/tasks/backlog-27-active-target-scan-map-foundation.json`
+  - selected the next task's active-scan-map boundary explicitly before implementation starts: visualize real run/task/finding state only, with no fake scan paths, no attack-path inference, no per-task stdout work, and no runtime behavior changes
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this stdout slice exposes captured stdout only; it does not provide true subprocess line-by-line streaming for every runner in separate worker deployments
+    - no stderr terminal, finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker protocol, plugin installation, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `UI Fetch Performance Foundation` task, then promoted exactly one next backlog package:
+  - inspected the operator-console refresh path and confirmed that selected engagement refresh fetched scope, inventory, relevance, packs, runs, internal validations, Codex tasks, and then every run's findings before loading selected-run reports, attack-path summary, finding theater, and evidence context
+  - replaced the blind all-run findings reload in `ui/assets/app.js` with selected-run scoped finding refresh that preserves cached non-selected run findings and refreshes the selected run's detailed findings every engagement/run refresh
+  - added lazy comparison-baseline finding refresh for History and Report Center so comparison context stays truthful without returning to all-run finding refetches
+  - kept Mission Control, selected run, selected finding, selected evidence, report catalog, attack-path summary, pack context, and run-stream behavior on the existing client/runtime paths without changing backend contracts
+  - added browser coverage proving a two-run refresh loads only the selected run's findings and replaces stale selected-run cached findings on refresh
+  - documented the measured before/after refresh path and remaining lazy-cache state ceiling in `docs/product_recommendations_scope_alignment.md`
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'refresh_scopes_findings_to_selected_run_and_updates_stale_cache or history_comparison_includes_inventory_delta_and_search'` (`2 passed, 280 deselected in 8.62s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`282 passed in 1276.45s (0:21:16)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Task Stdout Streaming Foundation` task from `codex/tasks/backlog-26-task-stdout-streaming-foundation.json`
+  - selected the next task's stdout-streaming boundary explicitly before implementation starts: stream only real bounded task output through the existing task lifecycle, with no synthetic terminal output, no second worker runtime, and no approval/dispatch/runtime-binding bypass
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - non-selected run detailed finding lists are now cache/lazy data; run-level counts and severity summaries still come from the refreshed run list
+    - no backend API contract, finding schema field, Prompt 1 / Prompt 2 foundation, pack registry, validation, approval, deployment, runtime binding, worker orchestration control, plugin installation, or runtime self-modification control was changed or bypassed
+
+- 2026-04-22: completed and closed the active `Mission Launch Visual Polish Foundation` task, then promoted exactly one next backlog package:
+  - added a state-grounded Mission Launch sequence to Mission Control using only the selected run, run id, selected profile, queued task count, approval state, and dispatch state already present in the browser runtime
+  - added an explicit no-run launch fallback that says no queued work, runner motion, or execution status is shown before Intake creates a real run dossier
+  - kept Start Validation as the explicit operator-controlled runtime boundary for queued runs and avoided fake telemetry, fake progress, fake findings, backend event changes, report variants, or framework changes
+  - calmed the global orbit and scan-grid treatment in `ui/assets/styles.css`, and added reduced-motion handling for the new launch animation plus existing screen/phase pulse animations
+  - documented the launch-polish baseline and remaining limits in `docs/operator_console_stabilization_plan.md`
+  - added browser coverage for:
+    - the no-run Mission Control launch fallback
+    - the post-confirmation mission-created launch sequence for a queued internal inventory run
+  - completed the full active-task validation contract:
+    - `python3 -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "operator_console_empty_states_render or internal_inventory_conversation_creates_a_real_run"` (`2 passed, 279 deselected in 8.46s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`281 passed in 1292.30s (0:21:32)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `UI Fetch Performance Foundation` task from `codex/tasks/backlog-25-ui-fetch-performance-foundation.json`
+  - selected the next task's fetch-performance boundary explicitly before implementation starts: inspect and document the current engagement/run refresh path first, then optimize selected-run scoped UI refresh discipline without a framework rewrite or speculative backend redesign
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this was visual polish only for intake-to-run transition and ambient styling
+    - the launch sequence is presentation-only and reflects persisted/selected UI state; it does not create or imply runtime progress
+    - no backend event streams, report variants, finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker orchestration controls, plugin installation, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `UI Navigation Consolidation Foundation` task, then promoted exactly one next backlog package:
+  - embedded selected-finding Evidence Replay context inside Finding Theater using the existing finding evidence payload, including execution count, artifact count, validation history count, artifact summaries, and pack/inventory/relevance lineage
+  - added a compact run dossier context to Report Center using existing selected-run and report-catalog metadata, including scope, access summary, protected binding count, inventory totals, finding count, task/evidence totals, report readiness, and mission handoff
+  - kept Evidence Replay and Explorer available for compatibility and deeper inspection while adding copy that points operators toward the consolidated Finding Theater and Report Center decision surfaces
+  - adjusted the Analysis shell labels and next actions toward `Findings + Evidence` and `Reports + Dossier` so the normal review flow starts from fewer high-friction choices
+  - updated `docs/ui_report_center.md` with the navigation-consolidation baseline and explicit non-goals
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "findings_theater_surfaces_remediation_and_retest_truth or authenticated_webapp_flow_supports_reports_and_secret_binding or explorer_dossier_summary_makes_follow_up_review_actionable"` (`3 passed, 278 deselected in 17.36s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`281 passed in 1304.14s (0:21:44)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - validation note:
+    - `node --check ui/assets/modules/findings.js`, `node --check ui/assets/modules/reports.js`, and `node --check ui/assets/app.js` could not run because `node` is not installed in this environment; the targeted and full Playwright Chromium suites loaded the touched browser modules successfully
+  - replaced `NEXT_TASK.md` with the single promoted `Mission Launch Visual Polish Foundation` task from `codex/tasks/backlog-24-mission-launch-visual-polish-foundation.json`
+  - selected the next task's visual-polish boundary explicitly before implementation starts: polish only the intake-to-run transition and ambient styling from real run/task/profile state, with no fake telemetry, fake findings, backend event changes, or framework rewrite
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this was presentation and navigation consolidation only, not an information-architecture rewrite
+    - existing Evidence Replay, Explorer, report exports, evidence provenance, and auditability remain available
+    - no backend evidence model, finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker orchestration controls, plugin installation, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Vault-Backed Secret Materialization Foundation` task, then promoted exactly one next backlog package:
+  - selected deployment-key-backed Fernet encryption as the first bounded secret-materialization slice, instead of introducing a full enterprise vault UI or a second secret runtime lane
+  - added `SECRET_MATERIALIZATION_MODE`, `DEPLOYMENT_SECRET_ENCRYPTION_KEY`, and `REQUIRE_DEPLOYMENT_SECRET_ENCRYPTION_KEY` settings for controlled direct-secret storage behavior
+  - materialized direct wizard-entered passwords, API keys, bearer tokens, and session material into `SecretRef` rows using either `deployment_key_encrypted` or documented `encrypted_local` fallback storage
+  - kept external references such as `vault://...` as `external_pointer` bindings and made missing deployment-key configuration apply only when direct secret material must be encrypted
+  - changed direct secret display labels so they identify protected binding kind and backend without leaking suffixes from raw direct secret material
+  - added safe 409 handling on run, scheduled-run, and single-finding retest creation when required deployment-key configuration is missing
+  - documented the hardening baseline in `docs/secret_handling_baseline.md`, `docs/host_service_install.md`, and `docs/Kali-VM-Reuse-Guide.md`
+  - updated host env generation so fresh host env files can opt into deployment-key-backed materialization and required-key enforcement
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile api/app/config.py api/app/services/secrets.py api/app/routers/runs.py api/app/routers/engagements.py api/app/routers/findings.py api/tests/test_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k "secret_materialization or secret_references or deployment_key or external_references"` (`5 passed, 28 deselected in 2.82s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py` (`33 passed in 13.99s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`281 passed in 1257.83s (0:20:57)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `UI Navigation Consolidation Foundation` task from `codex/tasks/backlog-23-ui-navigation-consolidation-foundation.json`
+  - selected the next task's navigation-consolidation boundary explicitly before implementation starts: consolidate existing evidence/dossier review into current decision surfaces without changing backend evidence models, finding schema fields, runtime behavior, or pack gates
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this is not a full enterprise vault, KMS/HSM, rotation, lease, or secret administration product
+    - external vault pointers remain references and direct secrets remain hidden from normal run API payloads, UI surfaces, reports, MCP context, and supported test artifacts
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker orchestration controls, plugin installation, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Controlled Artifact Reimport Foundation` task, then promoted exactly one next backlog package:
+  - added `POST /api/v1/packs/{pack_id}/codex-reimport` as a controlled pack-artifact staging path for validated Codex workspace output
+  - implemented reimport as a generated child capability pack with `generation_mode = codex-reimport`, preserving parent pack, source artifact, Codex task, validation-result, change-summary, and operator-note provenance
+  - kept the source pack unchanged in place and copied no validation, approval, deployment, or runtime-binding state into the child pack
+  - rejected missing, failed, mismatched, blocking, duplicate, unknown-artifact, dual-content, contentless, and checksum-mismatched reimport payloads clearly through the API
+  - exposed the reimport stage in Codex build-lane context, prepared-task guardrails, and Pack Forge as a staged child-pack action after a prepared Codex task and passing validation result
+  - documented the supported controlled reimport flow in `docs/codex_task_interface.md`
+  - minimally realigned the product-matrix API test baseline so the previously completed `assurance` report variant remains part of the expected report catalog
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile api/app/schemas/packs.py api/app/services/packs.py api/app/services/codex_lane.py api/app/services/codex_tasks.py api/app/routers/packs.py api/tests/test_codex_lane.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_codex_lane.py api/tests/test_codex_tasks.py` (`9 passed in 5.83s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k pack_forge_stages_validated_codex_reimport_as_child_pack` (`1 passed, 280 deselected in 5.34s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests` (`107 passed in 76.16s (0:01:16)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`281 passed in 1270.68s (0:21:10)`)
+  - replaced `NEXT_TASK.md` with the single promoted `Vault-Backed Secret Materialization Foundation` task from `codex/tasks/backlog-22-vault-backed-secret-materialization-foundation.json`
+  - selected the next task's secret-handling boundary explicitly before implementation starts: raw secret material must remain unavailable to UI, reports, logs, MCP output, and test artifacts while protected access metadata stays useful
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - reimport does not deploy automatically and does not mutate runtime-bound packs in place
+    - the child pack must still be validated, approved, deployed, and bound through the existing lifecycle before any assessment can use it
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, approval, deployment, runtime binding, plugin installation, worker orchestration controls, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Evidence-Backed Assurance Package Foundation` task, then promoted exactly one next backlog package:
+  - added a first-class `assurance` report variant to the existing report catalog and run report export path
+  - rendered the assurance package as Markdown, HTML, and PDF through the existing report service and Playwright-backed PDF renderer
+  - grounded the package in existing engagement/scope, run profile, methodology references, task/evidence artifacts, finding status, remediation state, retest state, adaptive pack context, inventory counts, and report provenance
+  - made unresolved, in-progress, triaged, reopened, and accepted-risk findings visible as residual-risk items instead of implying closure
+  - added an assurance catalog summary and Report Center UI boundary note showing evidence-linked findings, evidence artifacts, and residual-risk counts
+  - documented the assurance boundary in `docs/ui_report_center.md` and `docs/operational_truth_signoff.md`
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile api/app/routers/runs.py api/app/services/reports.py api/app/schemas/report_center.py api/tests/test_reports.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`7 passed in 7.78s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k authenticated_webapp_flow_supports_reports_and_secret_binding` (`1 passed, 279 deselected in 8.10s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`280 passed in 1258.61s (0:20:58)`)
+  - replaced `NEXT_TASK.md` with the single promoted `Controlled Artifact Reimport Foundation` task from `codex/tasks/backlog-21-controlled-artifact-reimport-foundation.json`
+  - selected the next task's reimport boundary explicitly before implementation starts: validated Codex workspace artifacts may only be staged/imported through reviewed pack artifact paths while preserving validation, approval, deployment, and runtime binding gates
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - the assurance package is not a SOC 2 CPA attestation, ISO 27001 certification, compliance certification, or guarantee of security
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, evidence model, worker orchestration controls, plugin installation, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Read-Only MCP Operator Interface Foundation` task, then promoted exactly one next backlog package:
+  - added a bounded MCP-style read-only resource manifest at `GET /api/v1/mcp/resources`
+  - added a selected engagement/run context endpoint at `GET /api/v1/mcp/engagements/{engagement_id}/context`
+  - exposed only allowlisted operator context: engagement/scope metadata, selected run metadata, sanitized configuration, approvals summary, task summaries, pack binding, AI mission guidance, finding summaries, report catalog metadata, evidence artifact metadata, and pack validation/deployment/provenance summaries
+  - exposed no MCP tools and no write methods; scan launch, run dispatch, approval decisions, pack approval/deployment/rollback, secret access, artifact content reads, runtime mutation, and plugin installation are explicitly disabled
+  - added defensive serializers so the MCP context does not leak protected secret values, pack artifact content, raw artifact content, tool stdout/stderr, or unsafe action paths
+  - updated `docs/integrations.md` and `docs/competitive_landscape_2026.md` with the read-only MCP boundary and the future action-tool path without activating action tools
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile api/app/schemas/mcp.py api/app/services/mcp_context.py api/app/routers/mcp.py api/app/main.py api/tests/test_mcp_operator_interface.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_mcp_operator_interface.py` (`3 passed in 1.71s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests` (`104 passed in 75.49s (0:01:15)`)
+  - replaced `NEXT_TASK.md` with the single promoted `Evidence-Backed Assurance Package Foundation` task from `codex/tasks/backlog-20-evidence-backed-assurance-package-foundation.json`
+  - selected the next task's assurance wording boundary explicitly before implementation starts: evidence-backed/scoped/residual-risk wording is allowed, while hack-proof, guaranteed-secure, certification, attestation, all-risk-removed, and all-findings-fixed claims are forbidden
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - the MCP baseline is context-only and does not create a second runtime lane
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, protected secret materialization, plugin installation, worker orchestration controls, or runtime self-modification controls were changed or bypassed
+    - MCP action tools remain future work under their own queued task package
+
+- 2026-04-22: completed and closed the active `AI Mission Guidance Foundation` task, then promoted exactly one next backlog package:
+  - added deterministic selected-run mission guidance to the existing run API through an additive `ai_mission_guidance` payload on `RunRead`
+  - grounded guidance in persisted run profile, sanitized run configuration, task state, finding summaries, linked or derived inventory summaries, relevance decisions when available, and pack provenance when bound
+  - rendered the guidance inside the existing Mission Control `AI Signal` supporting-context surface as a read-only card with profile explanation, safety explanation, deterministic input badges, no-scope-expansion boundary copy, and operator-controlled recommendations
+  - kept provider-backed AI optional and fallback-safe: no provider is configured by default, provider failures are annotated, and deterministic guidance remains the rendered contract
+  - preserved existing deterministic AI Signal pack/relevance narratives under the guidance card so adaptive-pack visibility does not regress
+  - documented the Mission Control AI guidance boundary in `docs/ui_mission_control.md`, including no chat, no AI-generated scan scope, no autonomous execution, no secret access, and no pack-gate bypass
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/ai_enrichment.py api/app/schemas/runs.py api/app/routers/runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py` (`6 passed in 2.36s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "grounded_ai_guidance"` (`1 passed, 279 deselected in 2.17s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`280 passed in 1279.17s (0:21:19)`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py` (`29 passed in 12.22s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Read-Only MCP Operator Interface Foundation` task from `codex/tasks/backlog-19-read-only-mcp-operator-interface-foundation.json`
+  - selected the next task's read-only MCP-style resource list explicitly before implementation starts
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - guidance is advisory and ignorable; it does not launch work, add targets, grant approval, raise safety limits, alter run class, or mutate runtime state
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, protected secret materialization, plugin installation, or worker orchestration controls were changed or bypassed
+    - generic chat, AI-generated scan scope, AI report drafting, MCP tools, action tools, and autonomous execution remain future/out-of-scope work
+
+- 2026-04-22: completed and closed the active `Cloud Inventory Discovery Foundation` task, then promoted exactly one next backlog package:
+  - implemented the selected AWS read-only account/resource inventory slice through a new `aws-inventory` runner and `passive-cloud-aws-inventory` run profile
+  - routed AWS collection through the existing run, task, dispatch, tool execution, evidence artifact, audit, and inventory snapshot flow instead of adding a shadow runtime lane
+  - collected only read-only metadata for approved AWS account targets: caller account identity, regions, VPCs, subnets, security groups, and EC2 instance descriptors
+  - used environment-variable credential binding names such as `access_key_id_env`, `secret_access_key_env`, and optional `session_token_env` without storing raw AWS key material in run configuration, artifacts, inventory, logs, or reports
+  - added additive normalized inventory fields for `cloud_accounts`, `cloud_regions`, `cloud_resources`, and `cloud_security_groups`, while also surfacing EC2 instance metadata through existing host inventory where possible
+  - added deterministic fixture coverage for read-only AWS output and missing credential behavior, plus API coverage for task planning and inline inventory snapshot creation
+  - updated `docs/inventory_model.md` and `docs/identity_model.md` so the read-only AWS inventory baseline, additive cloud fields, and remaining IAM/Kubernetes/cloud-mutation non-goals are durable
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile workers/runners/aws_inventory/runner.py workers/orchestration/tasks.py api/app/services/run_profiles.py api/app/services/runs.py api/app/services/inventory.py`
+    - `source .venv/bin/activate && python -m py_compile workers/runners/aws_inventory/runner.py workers/tests/test_aws_inventory_runner.py api/app/services/inventory.py api/app/services/runs.py workers/orchestration/tasks.py api/tests/test_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_aws_inventory_runner.py api/tests/test_runs.py -k 'aws_inventory or cloud_aws'` (`6 passed, 27 deselected in 1.63s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py workers/tests` (`54 passed in 12.13s`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `AI Mission Guidance Foundation` task from `codex/tasks/backlog-18-ai-mission-guidance-foundation.json`
+  - selected the next task's guidance surface explicitly before implementation starts: Mission Control selected-run guidance card
+  - updated `CURRENT_STATE.md` so repo truth records cloud inventory closure as closed and AI mission guidance as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - AWS inventory remains read-only and scoped to approved account ids
+    - IAM attack-path inference, Kubernetes testing, cloud exploitation, cloud resource mutation, credential harvesting, multi-cloud expansion, and cloud-to-on-prem attack chaining remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, plugin installation, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Workflow Handoff Expansion Foundation` task, then promoted exactly one next backlog package:
+  - selected and implemented the controlled outbound webhook handoff as the single allowed integration expansion slice
+  - added engagement-level webhook configuration through the existing `integration_configurations` model using `integration_type = webhook`, endpoint `base_url`, optional `auth_ref`, and non-secret settings
+  - added an explicit operator-triggered finding handoff endpoint that creates or updates one additive `finding_integration_links` record, sends evidence-backed finding context to the configured webhook endpoint, and stores delivered/failed state without changing canonical finding fields
+  - added `api/app/services/webhooks.py` for controlled outbound POST delivery with env-token auth support, no redirect following, no response-body persistence, and failure-state marking on the existing link record
+  - exposed the webhook link through the existing Finding Theater integration payload so operators can see handoff status and failure state without adding a standalone integration administration surface
+  - updated `docs/integrations.md` so the webhook boundary, stored state, auth-ref behavior, and remaining future integrations are durable
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile api/app/schemas/integrations.py api/app/routers/integrations.py api/app/services/webhooks.py api/app/services/finding_views.py api/tests/test_integrations.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py` (`13 passed in 7.69s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Cloud Inventory Discovery Foundation` task from `codex/tasks/backlog-17-cloud-inventory-discovery-foundation.json`
+  - selected the next task's provider and read-only boundary explicitly before implementation starts: AWS read-only account/resource inventory metadata only
+  - updated `CURRENT_STATE.md` so repo truth records workflow handoff closure as closed and cloud inventory discovery as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - this slice added only controlled outbound webhook handoff; Slack, Teams, ServiceNow, GitHub issue creation, SIEM-specific payloads, bidirectional sync, retry queues, and background workers remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker orchestration, plugin installation, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Attack-Path Graph Visualization Foundation` task, then promoted exactly one next backlog package:
+  - added a dependency-free relationship view to the existing Surface / Attack Map attack-path summary
+  - rendered candidate path chains from existing attack-path API payload fields: labels, `node_ids`, confidence, evidence refs, node/edge counts, and choke-point labels
+  - highlighted choke-point segments inside each relationship chain without adding new inference, scoring, backend models, identity-aware expansion, cloud chaining, or graph-library dependencies
+  - preserved truthful zero-data behavior by showing an explicit no-relationship-chain state when the API returns zero candidate paths
+  - updated `docs/attack_path_engine.md` and `docs/ui_phase_architecture.md` so the relationship-view source data and non-goals are durable
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_product_feature_matrix_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k attack_path_summary` (`2 passed, 44 deselected in 7.65s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py` (`46 passed in 166.57s (0:02:46)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Workflow Handoff Expansion Foundation` task from `codex/tasks/backlog-16-workflow-handoff-expansion-foundation.json`
+  - selected the next task's handoff target explicitly before implementation starts: controlled outbound webhook handoff
+  - updated `CURRENT_STATE.md` so repo truth records attack-path graph visualization closure as closed and workflow handoff expansion as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - the new relationship view is presentation-only over existing attack-path API output
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker orchestration, graph persistence, identity inference, cloud chaining, risk scoring, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-22: completed and closed the active `Live Operations Telemetry UX Foundation` task, then promoted exactly one next backlog package:
+  - added a Mission Control live-telemetry panel grounded only in selected-run persisted state: run stream truth, output signal, severity counters, task swimlanes, and recent task/finding activity deltas
+  - grouped task swimlanes by recorded execution lane when available and by tool otherwise, while keeping queued, running, completed, failed, blocked, cancelled, unknown, and thin-output states distinguishable
+  - kept the existing run-level SSE plus polling fallback as the only live-update path; no per-task stdout protocol, fake scan animation, second worker protocol, or new execution lane was introduced
+  - added browser coverage for active, completed, failed/blocked, thin-output, live-SSE, and SSE-unavailable fallback telemetry states
+  - updated `docs/ui_mission_control.md` so the telemetry data sources, stream truth, swimlane behavior, and no-fake-stdout boundary are durable
+  - completed the full active-task validation contract:
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "live_telemetry or ready_to_start_and_thin_output or uses_live_run_stream or polling_fallback"` (`4 passed, 275 deselected in 18.96s`)
+    - first full UI suite run surfaced one intake/setup timing failure outside the telemetry slice (`277 passed, 1 failed, 1 error in 1271.45s`); both exact failing/error tests passed immediately on targeted rerun (`2 passed, 277 deselected in 10.31s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`279 passed in 1299.50s (0:21:39)`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Attack-Path Graph Visualization Foundation` task from `codex/tasks/backlog-15-attack-path-graph-visualization-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records live telemetry UX closure as closed and attack-path graph visualization as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - `node --check ui/assets/modules/mission-control.js` was attempted as an optional syntax check but could not run because `node` is not installed on this host; browser validation covered the changed module
+    - this slice remains presentation-only over existing run/task/finding snapshots
+    - per-task stdout streaming, active scan maps, new worker lifecycle, attack-path graph work, and future live-ops slices remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker orchestration, or runtime self-modification controls were changed or bypassed
+
+- 2026-04-21: completed and closed the active `Read-Only LDAP and AD Enumeration Foundation` task, then promoted exactly one next backlog package:
+  - added a read-only `ldap-enum` worker runner that uses LDAP search operations through `ldap3` for live directory collection and supports test-injected clients for deterministic local validation
+  - normalized directory users, groups, direct privileged memberships, enabled SPN accounts, AS-REP roastable indicators, and password-policy signals into `ldap-enum-results.json` evidence without requesting Kerberos tickets, spraying passwords, moving laterally, or writing to directory state
+  - routed `ldap-enum` through the existing worker dispatch, artifact persistence, finding extraction, and inventory snapshot paths instead of introducing a second identity workflow or schema
+  - added additive inventory fields for identity subjects, identity groups, and privileged memberships while preserving the existing inventory snapshot model and summary structure
+  - added existing-model finding extraction for privileged membership visibility, Kerberoastable indicators, AS-REP roastable indicators, and weak password-policy signals without touching `api/app/schemas/findings.py` or `api/app/methodology.py`
+  - added the `passive-identity-ldap-enum` run profile and target planning that only queues host/domain/target-style directory scope, not public URL targets or public web profiles
+  - documented the read-only LDAP / AD boundary in `docs/identity_model.md` and the additive identity inventory fields in `docs/inventory_model.md`
+  - completed targeted and broad validation for this slice:
+    - `source .venv/bin/activate && python -m py_compile workers/runners/ldap_enum/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/inventory.py api/app/services/runs.py api/app/services/run_profiles.py workers/tests/test_ldap_enum_runner.py api/tests/test_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_ldap_enum_runner.py api/tests/test_runs.py -k 'ldap or list_run_profiles'` (`9 passed, 24 deselected in 1.77s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests api/tests/test_runs.py api/tests/test_task_dispatch.py api/tests/test_nmap_dispatch.py` (`55 passed in 36.35s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests` (`89 passed in 68.30s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 scripts/validate_backlog_tasks.py` after promoting the next task
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests api/tests` (`109 passed in 66.71s`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `AI Finding Enrichment Foundation` task from `codex/tasks/backlog-09-ai-finding-enrichment-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records LDAP / AD enumeration closure as closed and AI finding enrichment as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - the full API suite generated transient prepared pack-refinement task files, which were removed because they were outside this active LDAP / AD slice
+    - BloodHound, CrackMapExec, cloud configuration discovery, LLM probing, Kerberoasting execution, AS-REP requests, password spraying, lateral movement, and directory writes remain out of scope
+    - LDAP / AD enumeration remains read-only and is not wired into public web profiles
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, or runtime self-modification controls were bypassed
+
+- 2026-04-21: completed and closed the active `Scheduled Validation Foundation` task, then promoted exactly one next backlog package:
+  - completed the scheduled-run foundation across additive schedule persistence, daily and weekly preset cadence, create/list/get/pause/resume API support, explicit due-schedule launch, duplicate-window prevention, schedule lineage in launched run configuration, approval-gated launch behavior, and existing dispatch helper reuse
+  - kept recurring validation API-triggered for this slice; no background scheduler daemon, arbitrary cron UI, portfolio calendar, trend dashboard, runtime self-modification, or second workflow lane was introduced
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m py_compile api/app/models/control.py api/app/models/__init__.py api/app/schemas/engagements.py api/app/routers/engagements.py api/app/services/runs.py api/app/services/scheduled_runs.py api/app/routers/runs.py api/tests/test_runs.py migrations/versions/20260421_0010_scheduled_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k scheduled_run` (`6 passed, 19 deselected in 3.53s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_task_dispatch.py` (`30 passed in 33.46s`)
+    - `source .venv/bin/activate && python scripts/run_product_e2e_matrix.py --lane api` (exit code `0`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `SOC 2 Report Package Foundation` task from `codex/tasks/backlog-07-soc2-report-package.json`
+  - updated `CURRENT_STATE.md` so repo truth records scheduled validation closure as closed and SOC 2 report packaging as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - the product API matrix generated a transient prepared pack-refinement task file, which was removed because it was outside this active scheduled-validation slice
+    - scheduled validation remains limited to daily and weekly presets plus explicit due-launch API support
+    - ISO 27001, PCI DSS, arbitrary cron editing, calendar dashboards, trend dashboards, and background recurring workers remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, or worker execution safety gates were bypassed
+
+- 2026-04-21: completed the due-launch substep inside the active `Scheduled Validation Foundation` task:
+  - added `api/app/services/scheduled_runs.py` to prepare due scheduled launches by creating normal `Run` records, adding schedule lineage into `configuration_json.schedule`, advancing `next_run_at` beyond the due window, and stamping `last_run_at` / `last_launched_run_id`
+  - moved queued-task dispatch into a reusable `dispatch_queued_run_tasks` helper so normal manual dispatch and scheduled due-launch dispatch share the same kill-switch, status, tool-support, audit, and dispatch-mode gates
+  - added `POST /api/v1/engagements/{engagement_id}/schedules/launch-due` as an explicit trigger for due schedules instead of introducing a background scheduler daemon
+  - kept approval-gated profiles safe: scheduled launches for profiles requiring approval create `pending_approval` runs and do not queue or dispatch tasks before approvals exist
+  - kept paused and not-yet-due schedules as no-ops, and prevented duplicate launches within the same due window by advancing the next due time before a repeat launch can match
+  - expanded API coverage in `api/tests/test_runs.py` for inline due-run dispatch, duplicate-window prevention, paused/not-yet-due no-ops, and approval-gated scheduled launches
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/runs.py api/app/services/scheduled_runs.py api/app/routers/runs.py api/app/routers/engagements.py api/app/schemas/engagements.py api/tests/test_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k scheduled_run` (`6 passed, 19 deselected in 3.53s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_task_dispatch.py` (`30 passed in 33.46s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - `NEXT_TASK.md` remains active and unchanged until the complete active-task validation contract passes
+    - this substep adds an explicit API-triggered due-launch path only; it does not add a background scheduler daemon, arbitrary cron UI, portfolio calendar, trend dashboard, runtime self-modification, or second workflow lane
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, or runtime binding flows were bypassed
+
+- 2026-04-21: completed the first persistence/API substep inside the active `Scheduled Validation Foundation` task:
+  - added an additive `ScheduledRun` model and Alembic migration for engagement-scoped recurring validation intent without changing the existing `Run` model
+  - added daily and weekly cadence presets that generate internal cron expressions while rejecting arbitrary cadence values
+  - added engagement schedule API support for create, list, get, pause, and resume under the existing engagement resource
+  - reused existing run-profile lookup, engagement scope checks, inventory lineage checks, engagement-context alignment, protected secret materialization, and audit-event recording instead of inventing a second runtime lane
+  - updated `docs/continuous_mode.md` so the current persistence scope and non-goals are explicit
+  - added API coverage in `api/tests/test_runs.py` for daily schedule persistence/list/get, weekly pause/resume lineage, and arbitrary cadence rejection
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/models/control.py api/app/models/__init__.py api/app/schemas/engagements.py api/app/routers/engagements.py api/tests/test_runs.py migrations/versions/20260421_0010_scheduled_runs.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k scheduled_run` (`3 passed, 19 deselected in 1.70s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py api/tests/test_task_dispatch.py` (`27 passed in 32.34s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - `NEXT_TASK.md` remains active and unchanged because the scheduled validation task is not complete yet
+    - due-run launch, duplicate-window prevention, and dispatcher reuse remain open within the active task
+    - no arbitrary cron UI, portfolio calendar, trend dashboard, runtime self-modification, pack-registry bypass, finding schema change, Prompt 1 / Prompt 2 foundation change, or background recurring worker was introduced
+
+- 2026-04-21: completed and closed the active `Attack-Path Summary Foundation` task, then promoted exactly one next backlog package:
+  - surfaced the selected-run attack-path API result inside the existing `Surface / Attack Map` review surface instead of adding a new workflow or heavy graph UI
+  - added browser state support for `selectedAttackPathSummary` and loaded it alongside the selected run and report catalog
+  - rendered candidate-path counts, graph node/edge counts, the three-path choke threshold, choke-point cards, and up to four candidate path cards so multi-host evidence stays visible in the first summary slice
+  - preserved truthful empty-state behavior for runs with no inventory or findings, showing the API reason instead of a blank placeholder
+  - updated `docs/attack_path_engine.md` so the implemented operator surface and remaining non-goals are documented
+  - extended `ui/tests/test_product_feature_matrix_e2e.py` with browser coverage for a multi-host attack-path summary, choke-point threshold rendering, candidate path rendering, and the zero-data fallback
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_product_feature_matrix_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py -k attack_path_summary` (`2 passed, 43 deselected in 7.30s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests` (`79 passed in 60.90s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py` (`45 passed in 166.78s`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Scheduled Validation Foundation` task from `codex/tasks/backlog-06-scheduled-validation-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records attack-path summary closure as closed and scheduled validation as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - the full UI matrix generated a transient prepared pack-refinement task file, which was removed because it was outside this active attack-path slice
+    - the attack-path slice remains limited to service-level graph primitives, API summary, and existing Surface / Attack Map rendering
+    - D3/Cytoscape graph rendering, identity-aware inference, cloud-to-on-prem chaining, risk scoring, and remediation-impact optimization remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, arbitrary public-target scope, or worker orchestration flows were changed
+
+- 2026-04-21: completed the first backend/API substep inside the active `Attack-Path Summary Foundation` task:
+  - replaced the placeholder `api/app/services/attack_paths.py` behavior with a run-scoped evidence-backed builder that derives host, service, endpoint, and finding nodes from selected-run inventory and findings
+  - added candidate path construction that prefers selected-run inventory relationships and falls back to low-confidence finding-only paths when findings cannot yet be matched to inventory
+  - added choke-point summaries using the active-task threshold of three or more candidate paths, excluding finding nodes from choke-point reporting so the summary stays actionable
+  - exposed `GET /api/v1/runs/{run_id}/attack-paths` through the existing run API instead of creating a second model, workflow, or runtime lane
+  - updated `docs/attack_path_engine.md` so the implemented API contract, low-data behavior, choke-point rule, and non-goals are documented
+  - added `api/tests/test_attack_paths.py` covering multi-host candidate paths, choke-point threshold behavior, zero-data fallback, low-confidence finding-only fallback, and missing-run errors
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/attack_paths.py api/app/routers/runs.py api/tests/test_attack_paths.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_attack_paths.py` (`4 passed in 2.07s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_attack_paths.py api/tests/test_runs.py` (`23 passed in 9.30s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests` (`79 passed in 61.36s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - `NEXT_TASK.md` remains active and unchanged because the attack-path task is not complete yet
+    - existing analysis-surface UI exposure and UI regression coverage remain open for the next substep
+    - the full API suite generated a transient prepared pack-refinement task file, which was removed because it was outside this active attack-path slice
+    - no D3/Cytoscape dependency, graph persistence, identity-aware inference, cloud-to-on-prem chaining, risk scoring integration, finding schema changes, pack-registry bypass, runtime self-modification, or Prompt 1 / Prompt 2 foundation changes were introduced
+
+- 2026-04-21: completed and closed the active `Jira Integration Foundation` task, then promoted exactly one next backlog package:
+  - exposed linked Jira issue truth in Finding Theater by adding `remediation.integrations.jira` to the existing finding-theater API view
+  - rendered the linked Jira issue in the existing Findings Theater remediation card, including issue key, URL, status, sync state, sync timestamp or sync failure, and last-updating operator
+  - extended `api/tests/test_integrations.py` so the on-demand sync path also proves Finding Theater returns the synced Jira issue state
+  - extended `ui/tests/test_operator_console_e2e.py::test_findings_theater_surfaces_remediation_and_retest_truth` so browser coverage proves Jira issue key, status, sync state, and link rendering without adding a standalone integration screen
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/finding_views.py api/tests/test_integrations.py ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py` (`9 passed in 4.87s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'findings_theater_surfaces_remediation_and_retest_truth'` (`1 passed, 276 deselected in 2.51s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests` (`75 passed in 59.37s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`277 passed in 1296.68s (0:21:36)`)
+    - `git diff --check`
+    - `grep -n '[[:blank:]]$' api/app/services/finding_views.py ui/assets/modules/findings.js api/tests/test_integrations.py ui/tests/test_operator_console_e2e.py || true`
+  - replaced `NEXT_TASK.md` with the single promoted `Attack-Path Summary Foundation` task from `codex/tasks/backlog-05-attack-path-summary-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records Jira integration closure as closed and attack-path summary as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - no attack-path implementation was started during this closure step
+    - Jira remains limited to configuration, one Jira link per finding/configuration, operator-triggered on-demand sync, and Finding Theater exposure
+    - Slack, Teams, ServiceNow, generic webhooks, automatic background sync workers, and standalone integration screens remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, or worker orchestration flows were changed
+
+- 2026-04-21: completed the on-demand Jira status sync substep inside the active `Jira Integration Foundation` task:
+  - added `api/app/services/jira.py` to read a linked Jira issue through the Jira issue API and update only the additive finding integration link state
+  - added `POST /api/v1/engagements/{engagement_id}/integrations/jira/findings/{finding_id}/sync` so an operator can trigger sync explicitly through the existing API path
+  - updated sync state fields on success (`issue_status`, `last_sync_state`, `last_synced_at`, and non-secret `last_sync_payload_json`) and on failure (`last_sync_state = failed`, `last_sync_error`, and failure payload)
+  - allowed `env://VARIABLE_NAME` auth references to be resolved at runtime for an authorization header without persisting raw credential material in the integration configuration record
+  - kept the sync path operator-triggered and request-scoped; it does not add automatic background sync workers, notifications, standalone screens, or runtime self-modification
+  - extended `api/tests/test_integrations.py` with a local Jira-like HTTP server to prove successful sync, failure-state persistence, and audit events without using internet access or a live Jira account
+  - updated `docs/integrations.md` so the implemented sync endpoint and remaining finding-surface non-goal are documented
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/jira.py api/app/routers/integrations.py api/tests/test_integrations.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py` (`9 passed in 4.88s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - `grep -n '[[:blank:]]$' api/app/services/jira.py api/app/routers/integrations.py api/tests/test_integrations.py docs/integrations.md || true`
+  - important truth notes:
+    - `NEXT_TASK.md` remains active and unchanged because the Jira task is not complete yet
+    - Findings Theater or adjacent finding-surface/browser exposure remains open
+    - Slack, Teams, ServiceNow, generic webhooks, background sync workers, and standalone integration screens remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, or worker orchestration flows were changed
+
+- 2026-04-21: completed the Jira finding-link substep inside the active `Jira Integration Foundation` task:
+  - added an additive `FindingIntegrationLink` model and Alembic migration so a finding can retain one Jira issue key, issue URL, optional issue status, and AegisPT-owned sync state without changing existing finding schema fields
+  - added Jira-only finding-link API routes under `/api/v1/engagements/{engagement_id}/integrations/jira/findings/{finding_id}` for reading and upserting the link
+  - guarded linking so the engagement must already have a Jira integration configuration and the finding must belong to that same engagement through its source run
+  - kept the initial sync state as `not_synced`; no Jira network calls, background workers, automatic sync, or UI surface exposure were added in this substep
+  - extended `api/tests/test_integrations.py` to prove create/read/update link behavior, audit events, missing-config rejection, cross-engagement rejection, and issue URL validation
+  - updated `docs/integrations.md` so the implemented Jira endpoints and remaining non-goals are documented
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/models/control.py api/app/models/__init__.py api/app/schemas/integrations.py api/app/routers/integrations.py api/tests/test_integrations.py migrations/versions/20260421_0009_jira_finding_integration_links.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py` (`7 passed in 2.96s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - `grep -n '[[:blank:]]$' api/app/routers/integrations.py api/app/schemas/integrations.py api/tests/test_integrations.py migrations/versions/20260421_0009_jira_finding_integration_links.py || true`
+  - important truth notes:
+    - `NEXT_TASK.md` remains active and unchanged because the Jira task is not complete yet
+    - on-demand Jira status sync and finding-surface/browser exposure remain open
+    - Slack, Teams, ServiceNow, generic webhooks, background sync workers, and standalone integration screens remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, or worker orchestration flows were changed
+
+- 2026-04-21: completed the first Jira configuration substep inside the active `Jira Integration Foundation` task:
+  - added a generic `IntegrationConfiguration` persistence model and Alembic migration for engagement-scoped integration records while keeping this slice constrained to `integration_type = jira`
+  - added Jira-only API routes under `/api/v1/engagements/{engagement_id}/integrations` to list integrations, read the Jira configuration, and upsert the Jira configuration
+  - added request/response schemas that reject non-Jira payload types and normalize Jira base URLs without storing raw credential material
+  - added API coverage in `api/tests/test_integrations.py` proving create/read/list/update behavior, audit events, non-Jira rejection, and missing-engagement errors
+  - updated `docs/integrations.md` so the integration boundary now documents the implemented Jira configuration slice and the explicit non-goals
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/models/control.py api/app/models/__init__.py api/app/schemas/integrations.py api/app/routers/integrations.py api/app/main.py api/tests/test_integrations.py migrations/versions/20260421_0008_jira_integration_configuration.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py` (`3 passed in 1.54s`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - `grep -n '[[:blank:]]$' api/app/routers/integrations.py api/app/schemas/integrations.py api/tests/test_integrations.py migrations/versions/20260421_0008_jira_integration_configuration.py || true`
+  - important truth notes:
+    - `NEXT_TASK.md` remains active and unchanged because the Jira task is not complete yet
+    - finding-to-Jira issue linkage, on-demand Jira status sync, and finding-surface/browser exposure remain open
+    - Slack, Teams, ServiceNow, generic webhooks, background sync workers, and standalone integration screens remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, or worker orchestration flows were changed
+
+- 2026-04-21: completed and closed the active `Live Operations Run-Stream Foundation` task, then promoted exactly one next backlog package:
+  - added Mission Control browser subscription to the run-level SSE stream for selected queued/running runs through `ui/assets/app.js`
+  - merged streamed persisted run/task snapshots into the selected run state so Run Activity can update from real backend deltas instead of client-side synthetic timers
+  - preserved the existing auto-refresh polling loop as fallback and added explicit Mission Control copy for connected, connecting, and fallback stream states
+  - added browser coverage in `ui/tests/test_operator_console_e2e.py` proving:
+    - a selected queued run connects to the live run stream
+    - the selected run remains connected to its EventSource while dispatch can complete
+    - Mission Control falls back to polling when `EventSource` is unavailable
+  - updated `docs/ui_mission_control.md` so it now records both the backend stream and the Mission Control subscription/fallback behavior
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py api/tests/test_ui_support.py` (`7 passed in 24.07s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'mission_control_uses_live_run_stream_for_selected_active_run or mission_control_uses_polling_fallback_when_live_run_stream_is_unavailable'` (`2 passed, 275 deselected in 9.83s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py ui/tests/test_operator_console_e2e.py` (`320 passed in 1408.34s (0:23:28)`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Jira Integration Foundation` task from `codex/tasks/backlog-04-jira-integration-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records live-ops closure as closed and Jira integration as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - no Jira implementation was started during this closure step
+    - live-ops remains limited to run-level SSE, Mission Control state updates, and polling fallback; per-task stdout streaming, animated maps, and severity choreography remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, or runtime binding flows were changed
+
+- 2026-04-21: completed the first backend run-stream substep inside the active `Live Operations Run-Stream Foundation` task:
+  - added `GET /api/v1/runs/{run_id}/events`, a run-level SSE endpoint that emits real persisted run/task snapshots and status deltas from the database
+  - kept the stream bounded to run/task status truth only; it does not add per-task stdout streaming, synthetic telemetry, animated maps, remediation changes, or a second runtime lane
+  - added API coverage in `api/tests/test_task_dispatch.py` for:
+    - queued run snapshots with real queued task counts
+    - completed inline-dispatch snapshots with real completed task counts
+    - missing-run `404` behavior
+  - documented the backend stream in `docs/ui_mission_control.md` while explicitly leaving Mission Control UI subscription and polling fallback wiring for a later substep under the same active task
+  - revalidated this slice with:
+    - `source .venv/bin/activate && python -m py_compile api/app/routers/runs.py api/tests/test_task_dispatch.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py` (`5 passed in 23.30s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py api/tests/test_ui_support.py` (`7 passed in 23.89s`)
+    - `git diff --check -- api/app/routers/runs.py api/tests/test_task_dispatch.py docs/ui_mission_control.md`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - important truth notes:
+    - `NEXT_TASK.md` remains active and unchanged because the live-ops task is not fully complete
+    - no Mission Control browser subscription was implemented in this substep
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, or runtime binding flows were changed
+
+- 2026-04-21: closed the active `Remediation Tracking and Single-Finding Retest Foundation` task and promoted exactly one next backlog package:
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py api/tests/test_runs.py` (`23 passed in 11.62s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`275 passed in 1296.75s (0:21:36)`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Live Operations Run-Stream Foundation` task from `codex/tasks/backlog-03-live-ops-run-stream.json`
+  - updated `CURRENT_STATE.md` so repo truth records remediation closure as closed and live operations as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - no live-operations implementation was started during this closure step
+    - remediation remains limited to additive tracking, single-finding retest linkage, and proof-of-resolution output; batch retest, ticketing, and SLA automation remain out of scope
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, or runtime binding flows were changed
 
 - 2026-04-21: repaired repository ignore hygiene after the local workspace became noisy with generated artifacts:
   - updated `.gitignore` so local caches, Codex marker state, Playwright browser downloads, `.vscode`, UI test results, and generated `codex/results` proof artifacts no longer appear as untracked work while preserving `codex/results/README.md`
@@ -2539,3 +5570,2820 @@
     - `TASK_QUEUE.md` order was not silently changed
     - no remediation implementation was started during this closure step
     - the new active task must preserve existing finding schema fields and use additive remediation tracking
+- 2026-04-21: closed the active `SOC 2 Report Package Foundation` task and promoted exactly one next backlog package:
+  - added the `soc2` report variant to the existing report catalog/export path alongside executive, technical, evidence, and retest variants
+  - added a separate SOC 2 Security report-time mapping table in `api/app/services/reports.py` that groups existing evidence-backed findings under CC6.1, CC6.6, CC7.1, and CC8.1 where existing methodology metadata supports the mapping
+  - added a Manual SOC 2 Review Queue for evidence-backed findings that do not match the current mapping table, instead of forcing ambiguous compliance mappings
+  - added a truthful zero-finding SOC 2 path that states no evidence-backed findings were available to map without claiming SOC 2 control effectiveness
+  - kept Prompt 1 methodology definitions, existing finding schema fields, pack registry, validation, approval, deployment, and runtime binding foundations unchanged
+  - updated Report Center documentation and methodology mapping docs for the SOC 2-only package boundary
+  - updated report tests and product matrix assertions for the fifth report variant and SOC 2 markdown/HTML/PDF export alignment
+  - removed the transient `codex/tasks/task-20260421175525-pack-refinement-fd1cd907.json` generated by report tests because it was an untracked test artifact outside the active SOC 2 slice
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `.venv/bin/python -m py_compile api/app/services/reports.py api/app/routers/runs.py api/app/schemas/report_center.py api/tests/test_reports.py api/tests/test_product_feature_matrix.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py -k soc2`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Read-Only LDAP and AD Enumeration Foundation` task from `codex/tasks/backlog-08-ldap-ad-enumeration-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records the SOC 2 task as closed and LDAP / AD enumeration as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not silently changed
+    - no LDAP, AD, BloodHound, CrackMapExec, cloud discovery, or LLM probing implementation was started during this closure step
+    - the new active task must remain read-only and must normalize identity output into existing inventory/findings structures without changing finding schema fields
+- 2026-04-21: closed the active `AI Finding Enrichment Foundation` task and promoted exactly one next backlog package:
+  - added disabled-by-default AI finding enrichment configuration in `api/app/config.py`
+  - added the additive `FindingAiEnrichment` model plus Alembic migration `20260421_0011_finding_ai_enrichment.py` so enriched business impact, technical context, remediation narrative, provider, status, failure reason, and metadata live outside canonical finding fields
+  - added `api/app/services/ai_enrichment.py` with a deterministic test provider, production-style HTTP adapter, provider factory, non-blocking storage helper, and Finding Theater view serialization
+  - wired `workers/orchestration/findings.py` to attempt enrichment after finding creation or merge only through the opt-in helper, with broad failure protection so finding creation remains authoritative
+  - updated Finding Theater API/UI rendering so enriched business impact and technical context are preferred only when a successful enrichment exists, while disabled or failed enrichment falls back to existing deterministic copy
+  - added API, worker, and browser coverage for disabled default behavior, successful enrichment, timeout/failure recording, fallback behavior, additive canonical-field preservation, and UI rendering
+  - removed the transient `codex/tasks/task-20260421184320-pack-refinement-65f9bc72.json` generated by full-suite report tests because it was an untracked test artifact outside the active AI enrichment slice
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m py_compile api/app/config.py api/app/models/control.py api/app/models/__init__.py api/app/services/ai_enrichment.py api/app/services/finding_views.py api/app/schemas/finding_views.py workers/orchestration/findings.py workers/tests/test_findings_contract.py api/tests/test_ai_finding_enrichment.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_findings_contract.py api/tests/test_ai_finding_enrichment.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_findings_theater_surfaces_remediation_and_retest_truth`
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests api/tests`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py`
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Runtime Store Foundation` task from `codex/tasks/backlog-10-runtime-store-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records the AI enrichment task as closed and runtime-store foundation as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not silently changed
+    - no runtime-store implementation was started during this closure step
+    - no MCP, AI mission planning, AI report drafting, threat-actor mapping, generic chat, canonical finding-field mutation, Prompt 1 / Prompt 2 foundation change, pack bypass, runtime self-modification, or uncontrolled plugin installation was introduced
+- 2026-04-21: closed the active `Runtime Store Foundation` task without promoting invented work:
+  - added a thin shared-state seam in `ui/assets/modules/runtime.js` through `getState`, `patchState`, and `subscribe`, while preserving the existing exported `state` object for legacy paths
+  - moved the targeted wizard mission-creation handoff, submission-state/error transitions, advanced account controls, and shell advanced-intake/back-error updates onto `patchState`
+  - moved the targeted Mission Control task selection, Surface Map overlay/filter/search/asset selection, follow-up run selection, dispatch loading, manual-dispatch hint, and discovery-to-surface navigation updates onto `patchState`
+  - documented the runtime-store seam and broader reactive-layer exit criteria in `docs/ui_phase_architecture.md`
+  - added product-matrix static guard coverage proving the store API exists and the targeted wizard/Mission Control paths use the seam
+  - completed the full active-task validation contract:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py::test_runtime_store_foundation_exports_and_targeted_ui_paths_use_store_seam`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py ui/tests/test_product_feature_matrix_e2e.py` (`323 passed in 1432.32s`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with an explicit `Await Next Approved Task Package` holding state because `TASK_QUEUE.md` has no approved backlog package after `codex/tasks/backlog-10-runtime-store-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records the runtime-store foundation as closed and the current task state as anti-drift hold instead of implementation authorization
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not silently changed
+    - no React, Vue, Preact, full-shell rewrite, attack-path delivery, live-ops feature delivery, framework dependency, finding-schema change, Prompt 1 / Prompt 2 foundation change, pack bypass, runtime self-modification, or uncontrolled plugin installation was introduced
+    - no exact next task was promoted because none exists after backlog item 10; future implementation needs a new decision-complete repo-backed task package first
+
+- 2026-04-21: resolved the post-backlog anti-drift holding state with an explicit backlog-governance refresh instead of leaving the project in a validation loop:
+  - added 12 new decision-complete repo-backed task packages under `codex/tasks/`:
+    - `backlog-11-operational-assurance-matrix-foundation.json`
+    - `backlog-12-kali-reproducibility-signoff-foundation.json`
+    - `backlog-13-finding-evidence-brief-ux-foundation.json`
+    - `backlog-14-live-operations-telemetry-ux-foundation.json`
+    - `backlog-15-attack-path-graph-visualization-foundation.json`
+    - `backlog-16-workflow-handoff-expansion-foundation.json`
+    - `backlog-17-cloud-inventory-discovery-foundation.json`
+    - `backlog-18-ai-mission-guidance-foundation.json`
+    - `backlog-19-read-only-mcp-operator-interface-foundation.json`
+    - `backlog-20-evidence-backed-assurance-package-foundation.json`
+    - `backlog-21-controlled-artifact-reimport-foundation.json`
+    - `backlog-22-vault-backed-secret-materialization-foundation.json`
+  - extended `TASK_QUEUE.md` with backlog items 11-22 so the project has a concrete ordered workstream again
+  - promoted exactly one next active task into `NEXT_TASK.md`: `Operational Assurance Matrix Foundation`
+  - updated `CURRENT_STATE.md` so repo truth records that the holding state is resolved and that the refreshed queue now covers the next assurance, reproducibility, UX, live-ops, attack-path, integration, cloud, AI, MCP, assurance-output, Codex reimport, and secret-hardening slices
+  - important truth notes:
+    - this was backlog/governance work only, not product implementation
+    - no backend schemas, finding fields, worker runtime behavior, UI feature behavior, pack validation/approval/deployment/runtime binding flows, Prompt 1 / Prompt 2 foundations, runtime self-modification, or uncontrolled plugin installation were changed
+    - the project is not complete; it now has a larger decision-complete task queue and one clear active next task
+
+- 2026-04-21: completed a follow-up `PRODUCT_RECOMMENDATIONS.md` coverage audit and closed the backlog mapping gap:
+  - confirmed the previous refresh captured the main workstreams but not every concrete recommendation as a named queued package
+  - extended `TASK_QUEUE.md` from backlog items 22 to 38 without reordering existing items
+  - added 16 decision-complete repo-backed task packages under `codex/tasks/` for the remaining explicit recommendations:
+    - `backlog-23-ui-navigation-consolidation-foundation.json`
+    - `backlog-24-mission-launch-visual-polish-foundation.json`
+    - `backlog-25-ui-fetch-performance-foundation.json`
+    - `backlog-26-task-stdout-streaming-foundation.json`
+    - `backlog-27-active-target-scan-map-foundation.json`
+    - `backlog-28-continuous-trend-delta-foundation.json`
+    - `backlog-29-compliance-framework-expansion-foundation.json`
+    - `backlog-30-cloud-iam-kubernetes-analysis-foundation.json`
+    - `backlog-31-llm-application-testing-foundation.json`
+    - `backlog-32-threat-actor-mapping-foundation.json`
+    - `backlog-33-ai-assisted-report-drafting-foundation.json`
+    - `backlog-34-detection-engineering-assistant-foundation.json`
+    - `backlog-35-controlled-mcp-action-tools-foundation.json`
+    - `backlog-36-mssp-multitenant-readiness-foundation.json`
+    - `backlog-37-remediation-portfolio-sla-foundation.json`
+    - `backlog-38-integration-portfolio-expansion-foundation.json`
+  - tightened `codex/tasks/backlog-13-finding-evidence-brief-ux-foundation.json` so terminal-style evidence display is explicit instead of only implied
+  - updated `docs/product_recommendations_scope_alignment.md` and `CURRENT_STATE.md` so repo truth records the fuller coverage
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m json.tool codex/tasks/backlog-23-ui-navigation-consolidation-foundation.json`
+    - `python3 -m json.tool codex/tasks/backlog-38-integration-portfolio-expansion-foundation.json`
+    - `git diff --check`
+  - important truth notes:
+    - this was backlog/governance work only, not product implementation
+    - `NEXT_TASK.md` remains unchanged and still contains exactly one active task: `Operational Assurance Matrix Foundation`
+    - no existing queue items were silently reprioritized
+    - no backend schemas, finding fields, worker runtime behavior, UI feature behavior, pack gates, Prompt 1 / Prompt 2 foundations, runtime self-modification, or uncontrolled plugin installation were changed
+
+- 2026-04-21: closed the active `Operational Assurance Matrix Foundation` task and promoted exactly one next backlog package:
+  - added `docs/operator_product_operational_assurance.md` as the first repo-owned supported-combination matrix
+  - classified supported assessment types, profiles/module clusters, access modes, safety modes, analysis surfaces, export paths, safe real-run targets, browser/host environments, blocked paths, and intentionally unsupported paths using the required status labels:
+    - `supported-and-tested`
+    - `supported-with-gap`
+    - `blocked`
+    - `intentionally-unsupported`
+  - mapped each row to existing evidence sources such as `codex/tasks/product_acceptance_matrix.json`, `codex/tasks/ui_acceptance_matrix.json`, `codex/tasks/target_lab_matrix.json`, `docs/product_test_matrix.md`, `docs/ui_browser_validation.md`, `docs/acceptance_runbook.md`, and `docs/operator_console_phase7_checklist.md`
+  - listed open signoff gaps as future task candidates instead of hiding them in prose
+  - updated `docs/operational_truth_signoff.md` so the combination coverage rule points at the new matrix and its status labels
+  - updated `docs/acceptance_runbook.md` so disabled, unauthorized, or prerequisite-missing safe scenarios are treated as blocked rather than silently broadened
+  - replaced `NEXT_TASK.md` with the single promoted `Kali Reproducibility Signoff Foundation` task from `codex/tasks/backlog-12-kali-reproducibility-signoff-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records the assurance matrix as closed and Kali/local-host reproducibility as the only active next task
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - status-label/evidence-source grep across `docs/operator_product_operational_assurance.md`, `docs/operational_truth_signoff.md`, and `docs/acceptance_runbook.md`
+    - ASCII check across the touched docs
+  - important truth notes:
+    - this was truth mapping and signoff discipline only, not product implementation
+    - no backend schemas, finding fields, worker runtime behavior, UI feature behavior, pack validation/approval/deployment/runtime binding flows, Prompt 1 / Prompt 2 foundations, runtime self-modification, or uncontrolled plugin installation were changed
+    - the project is not complete; the new matrix explicitly records supported gaps, blocked scenarios, and intentionally unsupported future domains
+    - the next task must stay limited to reproducible Kali/local-host signoff and safe smoke validation
+
+- 2026-04-22: closed the active `Kali Reproducibility Signoff Foundation` task and promoted exactly one next backlog package:
+  - documented the supported Kali/local-host signoff packet in `docs/host_service_install.md`, including install/update, health, static app-shell freshness, browser-visible app loading, report export, safe smoke validation, and known stale-service/stale-asset failure modes
+  - updated `docs/Kali-VM-Reuse-Guide.md` so the reusable VM flow points operators at the same signoff packet instead of ad hoc checks
+  - updated `docs/acceptance_runbook.md` so `local-app-smoke` is the explicit minimal host-signoff smoke command and the 2026-04-22 result file is part of the practical baseline
+  - corrected the active validation command in `NEXT_TASK.md` and `codex/tasks/backlog-12-kali-reproducibility-signoff-foundation.json` from the non-existent `--scenario` flag to the existing `--base-url ... --scenario-id local-app-smoke` harness syntax
+  - found and repaired the stale-host failure mode the task was meant to expose: port `8000` was occupied by an ad hoc Uvicorn process while `aegispt.service` and `aegispt-inline-host.service` were absent, and the first smoke dispatch failed with HTTP 500
+  - hardened the non-systemd local restart fallback by allowing `scripts/ensure_playwright_chromium.sh` to avoid `sudo` when `PLAYWRIGHT_BROWSERS_PATH` is user-writable, and by making `scripts/restart_local_inline_host.sh` detach the background host with `setsid` when available
+  - validated the repaired local host with:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - `curl --fail --silent http://127.0.0.1:8000/health/live`
+    - `curl --fail --silent http://127.0.0.1:8000/app/ | grep -E 'Operator Console|assets/styles.css|type="module"|assets/app.js'`
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/ms-playwright" bash scripts/restart_local_inline_host.sh`
+    - `python3 scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke` (`passed`; result file `codex/results/acceptance-local-app-smoke-20260422-015712.json`; run `5ea0af7f-a414-4f24-9ff3-39b391f5dbdf`; 5 reports)
+    - direct HTML report download from the smoke run (`10441` bytes)
+    - direct PDF report download from the smoke run (`PDF document, version 1.4, 5 page(s)`, `405347` bytes)
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/ms-playwright" .venv/bin/python - <<'PY' ...` browser-load proof for `http://127.0.0.1:8000/app/`
+  - replaced `NEXT_TASK.md` with the single promoted `Finding Evidence Brief UX Foundation` task from `codex/tasks/backlog-13-finding-evidence-brief-ux-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records Kali/local-host reproducibility closure and the next analysis-UX task as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - the concrete signoff run was executed on the current Ubuntu 24.04 local host, not on a separate Kali VM
+    - a separate Kali VM should rerun the same signoff packet when available, but no Kali-only behavior was claimed as newly validated here
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, hosted deployment, multi-tenancy, runtime self-modification, or uncontrolled plugin installation were changed or bypassed
+
+- 2026-04-22: closed the active `Finding Evidence Brief UX Foundation` task and promoted exactly one next backlog package:
+  - reworked Finding Theater selected-finding presentation in `ui/assets/modules/findings.js` into an operator evidence brief built only from existing Finding Theater and Evidence Replay data
+  - added brief cards for risk posture, evidence readiness, methodology lineage, and provenance without adding, removing, or redefining canonical finding schema fields
+  - added a terminal-style evidence block that displays stored related execution stdout/stderr excerpts only when they exist, and otherwise states honestly that no matched execution excerpt is available
+  - preserved remediation tracking, Jira linkage, linked retests, AI enrichment display, status-update actions, and Evidence Replay navigation inside the existing Finding Theater workflow
+  - added sparse-finding behavior so missing evidence and unassigned methodology render as explicit review states instead of fabricated terminal output or fake methodology coverage
+  - added scoped styling in `ui/assets/styles.css` for the brief layout, severity posture meter, evidence-readiness cues, and terminal evidence block
+  - updated `docs/ui_report_center.md` to record the Finding Theater evidence-brief baseline and the explicit non-goals around schema, severity, methodology, report variants, and report generation
+  - extended `ui/tests/test_operator_console_e2e.py` with browser coverage proving:
+    - populated findings render risk posture, evidence readiness, methodology lineage, provenance, and real stored terminal evidence excerpts
+    - sparse findings degrade truthfully without fake evidence or assigned methodology
+  - validation:
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'findings_theater_surfaces_remediation_and_retest_truth or findings_theater_brief_degrades_sparse_findings_truthfully'` (`2 passed, 276 deselected in 4.25s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`278 passed in 1241.72s`)
+  - validation note:
+    - `node --check ui/assets/modules/findings.js` could not be executed because `node` is not installed in this environment; the full Playwright suite loaded the touched browser module successfully
+  - replaced `NEXT_TASK.md` with the single promoted `Live Operations Telemetry UX Foundation` task from `codex/tasks/backlog-14-live-operations-telemetry-ux-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records Finding Theater evidence-brief closure and the next live-operations telemetry UX task as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - no future live-telemetry work was started during this analysis-UX task
+    - no finding schema fields, severity scoring semantics, methodology contracts, report variants, report generation paths, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, or uncontrolled plugin installation were changed or bypassed
+
+- 2026-04-22: closed the active `AI Assisted Report Drafting Foundation` task and promoted exactly one next backlog package:
+  - added disabled-by-default AI report drafting settings through `AI_REPORT_DRAFTING_ENABLED` and `AI_REPORT_DRAFTING_PROVIDER`
+  - added `POST /api/v1/runs/{run_id}/report-draft` as a separate review-only draft path that returns `disabled`, `failed`, or `draft_ready` states without mutating the run, findings, evidence, methodology mappings, or canonical report exports
+  - extended report catalog metadata with `ai_draft_summary` so Report Center can explain the draft boundary before operators request draft text
+  - generated deterministic draft sections for `executive_summary`, `risk_highlights`, and `remediation_overview`, grounded in stored client/run context, findings, inventory summaries, methodology context, task state, and linked finding evidence refs
+  - added Report Center UI controls and a draft panel that marks generated text as AI-assisted, review-only, source-traceable, and separate from normal markdown/HTML/PDF downloads
+  - updated `docs/ui_report_center.md` with review responsibility, supported sections, source categories/evidence refs, and disabled/failure behavior
+  - extended API and browser coverage for:
+    - successful deterministic draft generation
+    - disabled and provider-failure fallback states
+    - no canonical report/finding mutation
+    - visible Report Center operator-review language and evidence refs
+  - validation:
+    - `source .venv/bin/activate && python -m py_compile api/app/config.py api/app/schemas/report_center.py api/app/services/reports.py api/app/routers/runs.py api/tests/test_reports.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`10 passed in 10.56s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_report_center_generates_ai_assisted_draft_for_operator_review -q` (`1 passed`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`285 passed in 1305.70s`)
+  - validation note:
+    - `node --check ui/assets/modules/reports.js` and `node --check ui/assets/modules/runtime.js` could not be executed because `node` is not installed in this environment; the targeted and full Playwright suites loaded the touched browser modules successfully
+  - replaced `NEXT_TASK.md` with the single promoted `Detection Engineering Assistant Foundation` task from `codex/tasks/backlog-34-detection-engineering-assistant-foundation.json`
+  - updated `CURRENT_STATE.md` so repo truth records AI-assisted report drafting closure and the next defensive-value task as the only active task
+  - important truth notes:
+    - `TASK_QUEUE.md` order was not changed
+    - normal report previews/downloads remain provider-independent and unchanged by draft generation
+    - no finding schema fields, methodology definitions, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, runtime self-modification, or uncontrolled plugin installation were changed or bypassed
+
+- 2026-04-23: closed the active `Ambient Animation and Micro-Interaction Foundation` task and promoted exactly one next backlog package:
+  - added the baseline animation layer in `ui/assets/styles.css`, including `shimmer-slide`, `badge-pop`, `count-bump`, `counter-flip`, `critical-pulse`, `empty-breathe`, button press compression, finding-card hover movement, spring-like severity bar transitions, and a broad `prefers-reduced-motion` override
+  - derived live animation state in `ui/assets/modules/mission-control.js` from existing selected-run task/finding state only, including running task-card/status-chip shimmer, live finding total bumping, severity-card increment animations, critical pulse, severity bar fill width, and task finding badges for completed tasks with matching findings
+  - updated shared empty-state rendering in `ui/assets/modules/shared.js` so empty states have a breathing icon without changing their text contracts
+  - tightened the intake first-screen visual density in `ui/assets/modules/wizard.js` and `ui/assets/styles.css` after live review showed too much duplicated progress/copy: the intro greeting is visually hidden on the first screen, the active question is more prominent, progress is compact, focus styling is clearer, and mobile confirmation keeps the create action visible without pushing the review summary out of view
+  - corrected live visual issues found during human/Playwright review: Surface Map dark nodes now use readable light text and larger hit targets, Evidence Replay terminal excerpts are bounded with high-contrast terminal text, and non-selected evidence executions render as compact review tiles instead of a long repetitive wall of text
+  - cache-busted the app shell asset query in `ui/index.html` so the live `/app/` route refreshes onto the current CSS/JS bundle instead of reusing stale structural assets
+  - extended Playwright coverage in `ui/tests/test_operator_console_e2e.py` beyond selector/contract checks to assert visual conformance for:
+    - intake first-screen density and hidden intro duplication
+    - running task shimmer and reduced-motion disablement
+    - task finding badge pop, finding count bump, counter flip, critical pulse, and severity bar transition timing
+    - finding-card hover transform
+    - empty-state icon breathing
+    - Surface Map canvas size, map-node size, and map-node text contrast
+    - Evidence Replay execution-panel height, terminal height, and terminal text contrast
+    - mobile confirmation summary and create-action visibility
+  - performed explicit live visual review against `http://127.0.0.1:8000/app/` with screenshots under `ui/test-results/live-visual-review/`, including `01-intake-after-density-fix.png`, `02-surface-map.png`, and `03-evidence-after-density-fix.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 62 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "operator_console_empty_states_render or dispatch_and_status_history_work_after_conversational_intake or mission_control_live_telemetry_uses_persisted_task_and_finding_state"` (`3 passed, 286 deselected in 12.61s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "mobile_conversational_wizard_keeps_core_controls_visible or mobile_confirmation_state_keeps_summary_readable_and_confirm_visible"` (`2 passed, 287 deselected in 8.28s`)
+    - first full Playwright run exposed one real mobile confirmation regression (`288 passed, 1 failed`), which was fixed before closure
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`289 passed in 1222.25s`)
+    - `git diff --check -- ui/index.html ui/assets/styles.css ui/assets/modules/wizard.js ui/assets/modules/shared.js ui/assets/modules/mission-control.js ui/tests/test_operator_console_e2e.py CURRENT_STATE.md DONE_LOG.md NEXT_TASK.md`
+  - replaced `NEXT_TASK.md` with the single promoted `Scan Map SVG and Mission Launch Ceremony Foundation` task from `codex/tasks/backlog-54-scan-map-svg-and-launch-ceremony.json`
+  - updated `CURRENT_STATE.md` so repo truth records ambient animation closure, visual-conformance testing, and the next scan-map/launch-ceremony task as the only active task
+  - important truth notes:
+    - this task did not add SVG scan maps, AI Signal typing, sound design, ChatGPT/Anthropic provider wiring, backend endpoints, worker behavior, migrations, API contracts, finding schema fields, Prompt 1 / Prompt 2 foundation changes, pack-gate bypasses, runtime self-modification, or uncontrolled plugin installation
+    - current queued-task dispatch is still serial in the runtime path; true parallel execution requires a future approval/scope/rate-limit aware dispatch foundation
+    - current enterprise LAN coverage remains discovery/service-enumeration first with a separate read-only LDAP/AD profile; exploitation frameworks, poisoning, credential attacks, and BloodHound-style graph collection remain future explicit approval-gated work, not silently active behavior
+
+- 2026-04-23: closed the active `Scan Map SVG and Mission Launch Ceremony Foundation` task and promoted exactly one next backlog package:
+  - replaced the active-target summary lead-in with a native SVG scan map in `ui/assets/modules/mission-control.js`, while keeping the existing persisted target cards as secondary drilldown
+  - derived SVG tool nodes, target nodes, connecting paths, thread states, node states, severity styling, and finding badges only from selected-run task/finding state already held by the Mission Control runtime store
+  - added visual states for queued dashed threads, scanning thread-draw and pulse-travel motion, completed severity-colored paths, blocked paths, scanning sonar rings, clean/finding/critical target nodes, and critical ripples without introducing D3, Cytoscape, fake scan events, backend endpoints, API contracts, worker changes, migrations, or finding schema changes
+  - added a wizard submit mission-created overlay in `ui/assets/modules/wizard.js` that appears after the run is created and fades before Mission Control navigation
+  - added `missionLaunch` runtime state so the newly-created run card can materialize and the Start Validation button can pulse twice after mission creation without implying automatic dispatch
+  - kept the Start Validation pulse click-stable by using box-shadow-only animation after the first full-suite run exposed that transform-based button scaling made Playwright clicks unstable
+  - cache-busted the app shell asset query in `ui/index.html` so live `/app/` viewers receive the scan-map/launch CSS and JS
+  - extended `ui/tests/test_operator_console_e2e.py` with Playwright coverage proving:
+    - mission launch overlay visibility and animation
+    - run-card materialize animation
+    - Start Validation pulse animation
+    - SVG thread count, scanning thread animation, pulse-travel animation, scanning node sonar ring, critical node ripple, finding badges, and reduced-motion disablement
+  - performed explicit live visual review against `http://127.0.0.1:8000/app/` with screenshots under `ui/test-results/live-visual-review/`, including:
+    - `04-mission-control-svg-scan-map.png`
+    - `05-mission-control-svg-scan-map-scaled.png`
+    - `07-svg-only-position-fixed.png`
+    - `09-svg-only-clean-labels.png`
+    - `10-mission-control-svg-final-visual.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 62 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `git diff --check`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "internal_inventory_conversation_creates_a_real_run or mission_control_live_telemetry_uses_persisted_task_and_finding_state"` (`2 passed, 287 deselected in 8.35s`)
+    - first full Playwright run exposed a real click-stability regression from transform-based Start Validation pulsing (`11 failed, 278 passed`), which was fixed before closure
+    - targeted rerun of the first failing dispatch cluster (`5 passed, 284 deselected in 36.41s`)
+    - targeted rerun of the remaining failing dispatch/discovery cluster (`6 passed, 283 deselected in 38.56s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`289 passed in 1467.23s`)
+  - validation note:
+    - `node --check ui/assets/modules/mission-control.js` and `node --check ui/assets/modules/wizard.js` could not be executed because `node` is not installed in this environment; targeted and full Playwright runs loaded the touched browser modules successfully
+  - replaced `NEXT_TASK.md` with the single promoted `AI Signal Panel and Typing Effect Foundation` task from `codex/tasks/backlog-55-ai-signal-panel-typing-effect.json`
+  - updated `CURRENT_STATE.md` so repo truth records SVG scan-map and launch-ceremony closure, visual review, and the next AI Signal panel task as the only active task
+  - important truth notes:
+    - this task did not add AI Signal panel typing, sound design, ChatGPT/Anthropic provider wiring, backend endpoints, worker behavior, migrations, API contracts, finding schema fields, Prompt 1 / Prompt 2 foundation changes, pack-gate bypasses, runtime self-modification, or uncontrolled plugin installation
+    - current queued-task dispatch remains serial; true parallel execution still requires a future approval/scope/rate-limit aware backend/worker dispatch foundation
+    - current enterprise LAN coverage remains nmap discovery/service-enumeration plus a separate read-only LDAP/AD profile; Metasploit, Responder, BloodHound/SharpHound graph collection, NetExec/CrackMapExec SMB/Kerberos coverage, poisoning, credential attacks, exploitation, and lateral movement remain future explicit approval-gated work
+
+- 2026-04-23: held the active `AI Signal Panel and Typing Effect Foundation` task after the required full Playwright validation failed:
+  - implemented the Mission Control AI Signal panel in the working tree using existing `/api/v1/runs/{run_id}/ai-insights` data and the existing proposal review endpoint only
+  - rendered AI tool-completion, observation, alert/critical, chain-detection, and proposal entries with the requested typing-rate differences, no-execution proposal copy, inline Approve/Skip controls, thinking indicator, and reduced-motion behavior
+  - moved the AI Signal experience into a sticky right-column Mission Control panel so the stream is visible without being buried below the existing run context, and added the pending-proposal pulse badge to the left rail
+  - updated `docs/ui_mission_control.md` with the AI Signal behavior contract and added `docs/enterprise_lan_pentest_scope_alignment.md` to record the future enterprise LAN direction without activating exploitation, poisoning, credential attacks, lateral movement, new runners, schema changes, or runtime behavior
+  - captured the operator-raised Mission Control/LAN follow-up gaps in `CURRENT_STATE.md`: duplicate host/task cards need selectable host detail instead of repeated cards, Mission Control needs a shorter drilldown-first layout, LAN `*` implies approval-gated cross-VLAN/adjacent-range scope expansion, Validation History needs to distinguish true task failure from completed checks with certificate/transport/tool warnings, and Settings remains a later dedicated UI task
+  - validation passed before the hold:
+    - earlier backlog validation before the queue extension reported `62 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task`
+    - `source .venv/bin/activate && python -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "ai_signal_typing_motion or reviews_ai_proposals_as_non_executing_suggestions"` (`2 passed, 288 deselected in 6.32s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "mission_control_live_telemetry or renders_grounded_ai_guidance or operator_console_empty_states_render or ready_to_start_and_thin_output"` (`4 passed, 286 deselected in 16.93s`)
+    - live visual review against `http://127.0.0.1:8000/app/`, including `ui/test-results/live-visual-review/13-ai-signal-right-column-stream-first.png`
+    - `git diff --check`
+    - final post-hold governance recheck: `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 78 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+  - validation failed:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`1 failed, 289 passed in 1554.74s`)
+    - failing test: `test_scope_revision_from_adaptive_web_to_internal_range_realigns_to_discovery_first_internal_plan`
+    - failure summary: after revising adaptive web scope to an internal range and clicking `wizard-confirm`, Playwright expected `screen-mission-control` to become visible within 15000ms, but it remained hidden
+  - validation note:
+    - `node --check` could not be executed because `node` is not installed in this environment; the touched browser modules loaded in targeted Playwright runs
+  - hold state:
+    - `NEXT_TASK.md` remains on backlog-55
+    - no backlog-56 promotion was made
+    - no backend endpoint, worker, migration, API contract, finding schema, Prompt 1 / Prompt 2, pack gate, runtime-binding, runtime self-modification, uncontrolled plugin, automatic dispatch, or scope-expansion behavior was introduced
+
+- 2026-04-23: closed the active `AI Signal Panel and Typing Effect Foundation` task after resolving the validation hold with a fresh green full-suite rerun:
+  - kept the implemented Mission Control AI Signal panel within the backlog-55 UI-only boundary: it uses existing `/api/v1/runs/{run_id}/ai-insights` records and the existing proposal review endpoint, with no new backend endpoints, workers, migrations, API contracts, finding schema fields, provider wiring, or automatic task dispatch
+  - retained the sticky right-column AI Signal placement, typed AI observation/proposal entries at 12ms per character, faster amber alert typing at 6ms per character, instant muted tool-completion updates, cyan chain-detection entries with supported Finding Theater links, thinking dots for in-flight reasoning, reduced-motion instant rendering, and left-rail pending-proposal pulse badge
+  - preserved the proposal boundary: Approve/Skip records operator review state only and does not queue tasks, grant approvals, expand scope, deploy packs, or execute tools
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 78 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_scope_revision_from_adaptive_web_to_internal_range_realigns_to_discovery_first_internal_plan -q` (passed)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "scope_revision_from_authenticated_web_to_internal_range or scope_revision_from_adaptive_web_to_internal_range or scope_revision_from_api_to_plain_web_url or scope_revision_from_internal_report_only_boundaries_to_web or scope_revision_from_internal_validation_lan" -q` (passed)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`290 passed in 1444.83s`)
+    - `git diff --check`
+  - updated `CURRENT_STATE.md` so the AI Signal panel is now recorded as a closed Mission Control feature and the prior hold is no longer the active repo state
+  - replaced `NEXT_TASK.md` with the single promoted `ChatGPT OAuth Provider Foundation` task from `codex/tasks/backlog-56-chatgpt-oauth-provider-foundation.json`
+  - important truth notes:
+    - the queue currently validates with 78 mapped packages, not the older 62-package instruction snapshot
+    - the Mission Control/LAN usability gaps raised during the AI Signal hold remain documented follow-up work, not implemented under backlog-55
+    - no backend endpoint, worker, migration, API contract, finding schema, Prompt 1 / Prompt 2, pack gate, runtime-binding, runtime self-modification, uncontrolled plugin, automatic dispatch, or scope-expansion behavior was introduced by the AI Signal closure
+
+- 2026-04-23: held the newly promoted `ChatGPT OAuth Provider Foundation` task before implementation because required backlog validation failed:
+  - `NEXT_TASK.md` now contains exactly one active task, `ChatGPT OAuth Provider Foundation`, promoted from `codex/tasks/backlog-56-chatgpt-oauth-provider-foundation.json`
+  - no ChatGPT OAuth code, settings UI, token storage, provider wiring, tests, or documentation changes were started after promotion
+  - validation passed:
+    - `git diff --check`
+  - validation failed:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - failure: `Backlog task files exist without a TASK_QUEUE.md entry: codex/tasks/backlog-80-first-run-onboarding.json, codex/tasks/backlog-81-installation-package.json, codex/tasks/backlog-82-bulk-delete-runs-engagements.json, codex/tasks/backlog-83-dashboard-home-screen.json`
+  - hold state:
+    - stop at backlog-56 until the queue/task-package mapping is repaired or explicitly approved
+    - do not implement or validate ChatGPT OAuth provider behavior while the backlog governance check is red
+
+- 2026-04-23: re-ran the required active-task governance read for the held `ChatGPT OAuth Provider Foundation` task and stopped again before implementation:
+  - read `NEXT_TASK.md`, `TASK_QUEUE.md`, `CURRENT_STATE.md`, `UI_REDESIGN_SPEC.md`, and `codex/tasks/backlog-56-chatgpt-oauth-provider-foundation.json`
+  - confirmed the repo truth differs from the older instruction snapshot: `NEXT_TASK.md` is backlog-56, not backlog-51, and `TASK_QUEUE.md` currently lists through backlog-79, not 62
+  - validation failed:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - failure: `Backlog task files exist without a TASK_QUEUE.md entry: codex/tasks/backlog-80-first-run-onboarding.json, codex/tasks/backlog-81-installation-package.json, codex/tasks/backlog-82-bulk-delete-runs-engagements.json, codex/tasks/backlog-83-dashboard-home-screen.json`
+  - hold state:
+    - no ChatGPT OAuth service, endpoints, token storage, provider wiring, Settings UI, tests, or docs were implemented
+    - backlog-56 remains active until the queue/task-package mapping is repaired or explicitly approved
+
+- 2026-04-23: closed the active `ChatGPT OAuth Provider Foundation` task after repairing queue governance and validating the provider foundation:
+  - repaired `TASK_QUEUE.md` so backlog items 80-83 map one-to-one to their repo-backed task packages; the queue now validates with 83 mapped packages
+  - added `api/app/services/chatgpt_oauth.py` with PKCE verifier/challenge generation, Codex-compatible authorize URL construction, token exchange at `https://auth.openai.com/oauth/token`, account-id extraction from OAuth token payloads, encrypted engagement-level token storage, token refresh before provider calls, and backend routing through `https://chatgpt.com/backend-api/codex/responses`
+  - added `api/app/routers/auth.py` with `GET /api/v1/auth/chatgpt/authorize`, `GET /api/v1/auth/chatgpt/callback`, and a token-safe status endpoint; the browser flow uses the Codex-compatible `http://localhost:1455/auth/callback` redirect with a small local callback listener and never renders token material
+  - wired `AI_PROVIDER=chatgpt_oauth` into finding enrichment, post-task analysis, and intake interpretation while preserving existing disabled/deterministic/http fallback behavior
+  - set the ChatGPT OAuth model default to `openai-codex/gpt-5.4`; feature-specific model settings remain fallback/override context
+  - added kill-switch enforcement so ChatGPT OAuth provider calls are blocked before refresh or backend API requests when `EXECUTION_KILL_SWITCH=true`
+  - added the operator-visible Connect ChatGPT card to the existing Advanced Settings drawer with connected/disconnected state, account identifier, and explicit `token exposed: no` copy
+  - updated `docs/secret_handling_baseline.md`, `docs/ai_pentesting_agent_scope_alignment.md`, and `infra/host/aegispt-host.env.example` with token storage, callback, provider, model, and kill-switch behavior
+  - live host proof:
+    - restarted `http://127.0.0.1:8000/app/` on the current code with a writable local Playwright browser cache
+    - verified `GET /api/v1/auth/chatgpt/authorize?engagement_id=a0cc5b78-8d4a-475d-8c9b-12931a251aa7` returns `200 OK` with `auth.openai.com/oauth/authorize`, `client_id=app_EMoamEEZ73f0CkXaXp7hrann`, `redirect_uri=http://localhost:1455/auth/callback`, Codex-compatible authorize flags, PKCE challenge, active local callback listener, and `token_exposed=false`
+    - verified the live status endpoint returns a connected account id and encrypted token secret ref without raw token material
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 83 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_chatgpt_oauth.py` (`4 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`183 passed in 117.36s`)
+    - an intermediate full Playwright run before the final callback/model adjustment stayed green (`291 passed in 1444.81s`)
+    - final `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`291 passed in 1394.65s`)
+  - replaced `NEXT_TASK.md` with the single promoted `Operator Settings Screen Foundation` task from `codex/tasks/backlog-57-operator-settings-screen-foundation.json`
+  - important truth notes:
+    - this task did not build the persistent Settings page; that remains backlog-57 and is now the active task
+    - no finding schema fields, Prompt 1 / Prompt 2 foundations, pack registry, validation, approval, deployment, runtime binding, worker runtime semantics, runtime self-modification, uncontrolled plugin installation, autonomous dispatch, or scan capability behavior were changed or bypassed
+    - no live OAuth calls are used in tests; OAuth and backend responses are mocked
+
+- 2026-04-23: closed the active `Operator Settings Screen Foundation` task after implementing the persistent settings surface and rerunning the full validation contract:
+  - added tenant-scoped `instance_settings` persistence through `api/app/models/control.py` plus Alembic migration `migrations/versions/20260423_0015_instance_settings.py`
+  - added `GET /api/v1/settings` and `PATCH /api/v1/settings` via `api/app/routers/settings.py`, `api/app/schemas/settings.py`, and `api/app/services/settings.py`
+  - kept sensitive defaults encrypted at rest using the existing Fernet/deployment-key secret materialization helpers; API reads now return only masked/configured indicators and never plaintext
+  - added environment-backed settings defaults in `api/app/config.py` and documented the settings-secret path in `docs/secret_handling_baseline.md` plus `infra/host/aegispt-host.env.example`
+  - replaced the old Settings-as-intake-drawer shortcut with a real screen route in `ui/index.html` and `ui/assets/app.js`
+  - added `ui/assets/modules/settings.js` and matching `ui/assets/styles.css` treatment so the Settings screen now renders six operator sections:
+    - AI Provider
+    - Default Network Scope
+    - Default Scan Profile
+    - Integrations
+    - Notifications
+    - Instance
+  - surfaced the existing ChatGPT OAuth engagement status inside Settings without exposing tokens, and explicitly showed the active provider model `openai-codex/gpt-5.4`
+  - added targeted browser coverage proving Settings is a real topbar route and that saved defaults persist while sensitive values stay masked
+  - fixed one full-suite Playwright regression by updating an older mocked API test to answer the new bootstrap `GET /api/v1/settings` call
+  - live host proof:
+    - restarted the inline host on `http://127.0.0.1:8000/app/`
+    - verified the live Settings API responds with masked/encrypted-aware payloads
+    - ran a live browser sanity pass that opened Settings from the topbar, checked for the `openai-codex/gpt-5.4` model text, confirmed no intake-copy leakage or console errors, and wrote `codex/results/backlog-57-settings-screen-live.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 83 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py` (`4 passed in 2.35s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`187 passed in 121.94s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "settings_screen"` (`2 passed, 291 deselected in 5.12s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "refresh_scopes_findings_to_selected_run_and_updates_stale_cache or settings_screen"` (`3 passed, 290 deselected in 7.39s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`293 passed in 1437.45s`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Free Navigation Foundation` task from `codex/tasks/backlog-58-free-navigation-foundation.json`
+  - important truth notes:
+    - this task intentionally did not change API execution behavior, worker runtime, run/finding schema, pack gates, Prompt 1 / Prompt 2, or the OAuth flow itself
+    - the persistent Settings screen now exists, but broader free navigation and screen consolidation remain later backlog slices
+
+- 2026-04-23: closed the active `Free Navigation Foundation` task after removing the remaining wizard-first navigation feel without touching backend behavior:
+  - added a true topbar screen-navigation strip in `ui/index.html`, `ui/assets/app.js`, and `ui/assets/styles.css`, alongside a contextual topbar phase indicator that reflects the selected screen without acting as an access gate
+  - kept the wizard as the default landing screen when no engagement exists, while allowing direct navigation to Mission Control, Surface Map, Findings, Reports, History, Packs, Explorer, Evidence, and Settings at any time
+  - left the existing sidebar selectors and test IDs intact, so older navigation flows still work while the topbar now provides the free-navigation path required by backlog-58
+  - tightened no-data guidance in `ui/assets/modules/explorer-history.js` so empty Explorer/History states now point operators back to Conversational Intake instead of looking like blocked or dead screens
+  - added browser coverage proving topbar navigation works before intake completion and after a run exists
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 83 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "topbar_navigation or sidebar_navigation_keeps_all_workflows_reachable or operator_console_empty_states_render"` (`5 passed, 290 deselected in 14.98s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`295 passed in 1443.02s`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `UI Screen Consolidation` task from `codex/tasks/backlog-59-ui-screen-consolidation.json`
+  - important truth notes:
+    - this slice did not consolidate screens yet; Evidence Replay, Explorer, and the existing rail still remain until backlog-59
+    - no API contracts, backend code, workers, migrations, finding schema fields, Prompt 1 / Prompt 2 foundations, pack gates, runtime binding, or runtime semantics changed
+
+- 2026-04-23: closed the active `UI Screen Consolidation` task after reducing the operator shell to a cleaner 6-screen primary navigation baseline without touching backend behavior:
+  - reworked the primary rail and topbar labels in `ui/assets/app.js`, `ui/index.html`, and `ui/assets/styles.css` so the main operator path is now `Intake`, `Mission Control`, `Surface / Attack Map`, `Findings + Evidence`, `Reports + Dossier`, and `History / Comparison`
+  - moved `Evidence Replay`, `Explorer`, and `Adaptive Packs` into a smaller compatibility section so the left rail keeps exactly 6 primary screens while legacy/deep-inspection routes remain explicitly reachable with their existing selectors
+  - added topbar engagement orientation that keeps engagement name, customer, ROE, and run count attached to the shell instead of forcing operators into Explorer for basic dossier context
+  - updated Findings Theater so the selected finding now renders its replay context inside an always-open inline disclosure panel before the legacy Evidence Replay route; this keeps evidence, remediation, and next steps on one surface
+  - updated Report Center with first-class `Reports` and `Dossier` tabs, where the dossier tab now carries selected-run scope, access posture, lineage, inventory/evidence totals, and handoff context without requiring an Explorer hop first
+  - kept Evidence Replay and Explorer as compatibility routes with explicit consolidation copy and preferred-path CTAs, while preserving their deep-inspection utility instead of deleting data
+  - aligned `docs/ui_phase_architecture.md` and `docs/ui_report_center.md` with the new 6-screen primary IA, dossier tab behavior, and compatibility-route truth
+  - added Playwright coverage for:
+    - the 6-screen primary navigation with compatibility routes
+    - the Report Center dossier tab
+    - Findings Theater inline evidence access before the legacy route
+  - live host proof:
+    - verified `http://127.0.0.1:8000/app/` serves the consolidated shell copy and labels
+    - captured live browser screenshots at `codex/results/backlog-59-findings-evidence-live.png`, `codex/results/backlog-59-report-dossier-live.png`, and `codex/results/backlog-59-explorer-compatibility-live.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 83 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "topbar_navigation_keeps_major_screens_reachable_without_intake or topbar_navigation_keeps_existing_run_screens_directly_reachable or discovery_report_center_shows_inventory_even_without_findings or discovery_evidence_replay_shows_run_level_context_without_findings or follow_up_inventory_run_surfaces_source_lineage"` (`4 passed, 291 deselected in 19.53s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "primary_navigation_consolidates_to_six_screens_with_compatibility_routes or report_center_dossier_tab_surfaces_run_context_without_explorer_hop or findings_theater_embeds_evidence_panel_before_legacy_route"` (`3 passed, 295 deselected in 9.41s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "operator_console_empty_states_render or sidebar_navigation_keeps_all_workflows_reachable"` (`2 passed, 296 deselected in 5.28s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`298 passed in 1430.61s (0:23:50)`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Autonomous AI Agent Mode Foundation` task from `codex/tasks/backlog-60-autonomous-ai-agent-mode.json`
+  - important truth notes:
+    - this slice remained UI-only and navigation-only; it did not add backend endpoints, finding schema fields, worker behavior, runtime mutation, or pack-gate changes
+    - Explorer and Evidence Replay still exist as compatibility routes for legacy/deeper inspection, but the intended operator path is now the consolidated Findings and Reports surfaces
+
+- 2026-04-23: closed the active `Autonomous AI Agent Mode Foundation` task after implementing the bounded autonomous dispatch layer and validating it end to end:
+  - added additive run flags `autonomous_mode` and `autonomous_intrusive_allowed` to `api/app/models/control.py` plus Alembic migration `migrations/versions/20260423_0016_run_autonomous_mode.py`
+  - added new run profiles `autonomous-web` and `autonomous-internal` in `api/app/services/run_profiles.py`; those profiles default `autonomous_mode` on at run creation while leaving all existing manual-mode profiles unchanged
+  - extended run API contracts in `api/app/schemas/runs.py` and `api/app/routers/runs.py` so run create/read payloads now expose autonomous flags and run-stream snapshots carry task `params_json`, which keeps autonomous task provenance visible in real-time browser updates
+  - extended `api/app/services/ai_agent.py` so post-task analysis now:
+    - auto-promotes in-scope passive and active proposals into approved queued follow-up tasks when the run opts into autonomous mode
+    - blocks intrusive proposals unless `autonomous_intrusive_allowed=true`
+    - cancels queued autonomous tasks when the kill switch is on
+    - records autonomous provenance on proposals and queued task params
+    - suppresses duplicate tool/target follow-ups on the same run so bounded autonomous chains cannot loop forever
+  - updated `workers/orchestration/tasks.py` so autonomous follow-up tasks are dispatched only after the source task commit completes, avoiding invisible uncommitted-task dispatch in inline mode
+  - updated `docs/ai_pentesting_agent_scope_alignment.md` with the new autonomous-mode contract, including absolute scope enforcement, intrusive gating, kill-switch behavior, and duplicate-chain suppression
+  - updated Mission Control in `ui/assets/modules/mission-control.js` and `ui/assets/styles.css` with a new autonomous agent activity feed that renders card-level tool / target / status / finding-count truth from persisted task state while preserving the existing AI Signal panel
+  - added regression coverage for:
+    - autonomous proposal dispatch, intrusive blocking, duplicate suppression, kill-switch cancellation, and autonomous boundary output in `api/tests/test_ai_agent_reasoning.py`
+    - autonomous run-profile defaults in `api/tests/test_runs.py`
+    - autonomous worker callback behavior in `workers/tests/test_task_ai_callbacks.py`
+    - browser-visible autonomous agent cards and autonomous proposal copy in `ui/tests/test_operator_console_e2e.py`
+  - live browser proof:
+    - verified `http://127.0.0.1:8000/health/live` is healthy on the current code
+    - seeded an autonomous run state into the live local host at `http://127.0.0.1:8000/app/` and captured `codex/results/backlog-60-autonomous-agent-feed-live.png`, which shows the autonomous Mission Control agent cards on the dark-sidebar / light-content shell
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 83 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py` (`16 passed in 8.31s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`193 passed in 133.73s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_task_ai_callbacks.py` (`3 passed`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`299 passed in 1464.08s (0:24:24)`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `AutoFix — AI Code Patch Generation Foundation` task from `codex/tasks/backlog-61-autofix-code-patch-generation.json`
+  - important truth notes:
+    - manual proposal review remains the unchanged default path outside autonomous runs
+    - autonomous mode does not broaden scope, bypass pack/runtime gates, auto-execute intrusive work without the explicit run flag, or introduce runtime self-modification
+    - the real-time Mission Control agent feed is derived from persisted task/finding truth only; it does not invent hidden agents or synthetic execution lanes
+
+- 2026-04-23: closed the active `AutoFix — AI Code Patch Generation Foundation` task after adding advisory-only code-patch generation to Finding Theater without introducing any automatic code application:
+  - extended `api/app/models/control.py` with additive `Finding.autofix_json` storage and added Alembic migration `migrations/versions/20260423_0017_finding_autofix.py`
+  - added `api/app/services/autofix.py`, which:
+    - keeps AutoFix disabled by default through `AI_AUTOFIX_ENABLED=false`
+    - uses the existing shared AI-provider selection seam with deterministic-test support and ChatGPT OAuth compatibility
+    - builds stack-aware remediation context from finding metadata, linked execution excerpts, and inventory fingerprints
+    - validates that output stays advisory-only and blocks destructive verification commands
+    - fails safe on provider errors so findings and Theater rendering remain unchanged
+  - exposed AutoFix on the Finding Theater API through `api/app/services/finding_views.py`, `api/app/schemas/finding_views.py`, and `api/app/routers/findings.py`, with lazy generation/persistence only when the feature is explicitly enabled
+  - updated `ui/assets/modules/findings.js` and `ui/assets/styles.css` so Findings now render:
+    - a compact advisory AutoFix card
+    - before/after diff-style lines
+    - provider/model/verification context
+    - a `Copy Fix` action that copies only `patch_after`
+  - documented the AutoFix output contract and no-auto-apply boundary in `docs/ai_pentesting_agent_scope_alignment.md`
+  - added regression coverage in:
+    - `api/tests/test_autofix.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - live host proof:
+    - confirmed `http://127.0.0.1:8000/health/live` is healthy on the current code
+    - captured `codex/results/backlog-61-autofix-findings-live.png`, showing the advisory AutoFix panel inside the live Findings + Evidence screen on the running local host
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 83 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_autofix.py` (`4 passed in 2.41s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_chain_detection.py` (`4 passed in 3.05s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`197 passed in 136.41s (0:02:16)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k autofix` (`1 passed, 299 deselected in 2.77s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`300 passed in 1479.42s (0:24:39)`)
+    - `git diff --check`
+  - replaced `NEXT_TASK.md` with the single promoted `Repository Integration Foundation — GitHub and GitLab` task from `codex/tasks/backlog-62-repository-integration-foundation.json`
+  - important truth notes:
+    - AutoFix remains advisory only and disabled by default
+    - no file writes, code execution, git commits, PR creation, or runtime mutation happen in backlog-61
+    - provider failure does not mutate finding severity, status, remediation state, or existing Theater behavior
+
+- 2026-04-23: closed the active `Repository Integration Foundation — GitHub and GitLab` task after adding encrypted repo linkage and advisory fix-PR creation to Finding Theater:
+  - extended `api/app/models/control.py`, `api/app/models/__init__.py`, and Alembic migration `migrations/versions/20260423_0018_repository_integrations.py` with additive `repo_integrations` and `finding_repo_links` persistence for engagement-scoped repository connections and finding-linked code snippets
+  - completed `api/app/services/repository_integration.py`, which now:
+    - starts and completes GitHub/GitLab OAuth flows through `SecretRef`-backed encrypted token storage
+    - parses repository URLs into provider-safe paths
+    - resolves finding evidence into repository file paths and line ranges
+    - stores only finding-linked snippets instead of full repository content
+    - creates advisory fix pull requests on a new branch only and permanently records `auto_merge_enabled = false`
+  - extended `api/app/routers/integrations.py` with:
+    - `GET /api/v1/engagements/{engagement_id}/integrations/repositories`
+    - `GET /api/v1/engagements/{engagement_id}/integrations/repositories/{provider}/authorize`
+    - `GET /api/v1/engagements/{engagement_id}/integrations/repositories/{provider}/callback`
+  - extended `api/app/routers/findings.py` with lazy repository-link generation during Theater reads plus `POST /api/v1/findings/{finding_id}/repository/fix-pr`
+  - extended `api/app/schemas/finding_views.py` and `api/app/services/finding_views.py` so Finding Theater now carries typed `repository_context`, including provider, repo path, branch, snippet range, highlighted line, view URL, and latest PR reference
+  - updated `ui/assets/modules/findings.js` and `ui/assets/styles.css` so Findings + Evidence now render:
+    - repository context cards
+    - highlighted source-line snippets
+    - `View in github/gitlab`
+    - `Create Fix PR`
+    - latest PR status inline in Theater
+  - documented encrypted token handling, snippet-only persistence, and no-auto-merge boundaries in `docs/integrations.md`
+  - added regression coverage in:
+    - `api/tests/test_repository_integration.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - live host proof:
+    - confirmed `http://127.0.0.1:8000/health/live` is healthy on the current code
+    - injected a repository-linked finding into the live local host at `http://127.0.0.1:8000/app/` and captured `codex/results/backlog-62-repository-context-live.png`, which shows the dark-sidebar / light-content Findings + Evidence screen with AutoFix, repository snippet context, line highlighting, and the latest PR block
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 83 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_repository_integration.py` (`3 passed in 2.48s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`200 passed in 140.41s (0:02:20)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "repository_context or autofix_diff"` (`2 passed, 299 deselected in 4.80s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "test_conversational_completion_matrix_covers_every_assessment_type and internal-range-lan"` (`1 passed, 300 deselected in 5.07s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`301 passed in 1495.35s (0:24:55)`)
+    - `git diff --check`
+  - important truth notes:
+    - repository tokens remain encrypted at rest and are never returned in plain text
+    - only finding-linked snippets are stored; full repository contents are not persisted
+    - AutoFix-created PRs remain advisory operator artifacts on a new branch and are never auto-merged
+    - the first full Playwright rerun surfaced one transient `internal-range-lan` API timeout late in the suite; an isolated rerun of that exact test passed immediately, and a clean second full Playwright rerun completed with `301 passed`
+  - replaced `NEXT_TASK.md` with the single promoted `CI/CD Event-Driven Trigger Foundation` task from `codex/tasks/backlog-63-cicd-event-driven-triggers.json`
+
+- 2026-04-23: closed the active `CI/CD Event-Driven Trigger Foundation` task after adding encrypted deploy-trigger configuration, signed webhook intake, and engagement-visible trigger history without bypassing any existing approval gates:
+  - extended `api/app/models/control.py`, `api/app/models/__init__.py`, and Alembic migration `migrations/versions/20260423_0019_cicd_triggers.py` with additive `cicd_triggers` and `cicd_trigger_events` persistence:
+    - one encrypted `SecretRef`-backed webhook secret per engagement/source
+    - enabled profile lists
+    - branch-filter glob patterns
+    - scope-override policy
+    - last-trigger pointers plus additive trigger-event history
+  - added `api/app/schemas/triggers.py`, `api/app/services/cicd_triggers.py`, and `api/app/routers/triggers.py`, which now provide:
+    - `GET /api/v1/engagements/{engagement_id}/triggers/cicd`
+    - `PUT /api/v1/engagements/{engagement_id}/triggers/cicd/{trigger_source}`
+    - `POST /api/v1/triggers/cicd`
+  - implemented the signed receiver contract for:
+    - GitHub via `X-Hub-Signature-256`
+    - GitLab via `X-Gitlab-Signature-256`
+    - generic senders via `X-AegisPT-Signature-256`
+  - kept the runtime path honest and bounded:
+    - invalid signatures are rejected before any run creation
+    - branch mismatches are recorded as ignored and create no run
+    - target URL overrides are accepted only when the trigger explicitly allows them and the override is narrower than the approved engagement scope
+    - approval-free profiles queue and dispatch through the existing run/task dispatch path
+    - approval-gated profiles become `pending_approval`; no trigger can auto-approve or bypass the kill switch
+  - updated the operator shell in `ui/assets/modules/runtime.js`, `ui/assets/app.js`, `ui/assets/modules/settings.js`, and `ui/assets/styles.css` so Settings now renders:
+    - one engagement-level CI/CD automation panel
+    - compact GitHub / GitLab / Generic trigger cards
+    - encrypted-secret-backed save flows
+    - the last 10 trigger events with status, branch, commit, and linked-run truth
+  - documented the feature in:
+    - `docs/integrations.md`
+    - `docs/cicd/aegispt-github-action.yml`
+  - added regression coverage in:
+    - `api/tests/test_cicd_triggers.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cicd_triggers.py` (`4 passed in 2.82s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`204 passed in 143.40s (0:02:23)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k "cicd_trigger"` (`1 passed, 301 deselected in 3.71s`)
+    - `git diff --check`
+  - important truth notes:
+    - the repo truth has moved on from the older `62` / `83` backlog instructions; the validator now reports `85` queued packages and governance was updated to reflect that actual state
+    - webhook secrets remain encrypted at rest and are never returned in API or UI responses
+    - triggered runs still use the existing manual approval boundary when a selected profile requires it
+    - this slice added operator-visible configuration and history, but did not add auto-approval, pack-gate bypasses, runtime mutation, or intrusive execution
+  - replaced `NEXT_TASK.md` with the single promoted `Finding Validation Layer — Zero False Positive Foundation` task from `codex/tasks/backlog-64-finding-validation-layer.json`
+
+- 2026-04-23: closed the active `Finding Validation Layer — Zero False Positive Foundation` task after adding an opt-in additive validator path that can re-probe a finding without mutating the original severity, status, evidence, or methodology fields:
+  - extended `api/app/models/control.py`, `api/app/models/__init__.py`, and Alembic migration `migrations/versions/20260423_0020_finding_validation_layer.py` with additive validation persistence:
+    - `Finding.validation_status`
+    - `Task.source_finding_id`
+    - `finding_validation_records` history rows linked to finding/run/task/execution context
+  - added `api/app/services/finding_validator.py`, which now:
+    - keeps the feature disabled by default through `AUTO_VALIDATE_FINDINGS=false`
+    - derives a bounded passive-or-active validation re-probe from the original finding evidence, source task, and in-scope target context
+    - rejects unsupported or no-source findings by recording `validation_skipped`
+    - queues validation runs through the existing run/task path, preserves approval gates for active validations, and never escalates to intrusive execution
+    - compares re-probe output against the original finding signature / evidence pattern and records `validated_confirmed` or `validated_not_reproduced` additively
+  - extended `api/app/services/runs.py` and `workers/orchestration/tasks.py` so validation runs stay on the normal dispatch lane:
+    - task scope checks now use shared `target_is_allowed(...)`
+    - validation tasks inherit `source_finding_id` plus validation metadata from run configuration
+    - validation executions skip duplicate finding creation and update only validation history/status on the source finding
+    - post-task AI analysis is skipped for validator tasks so the validator cannot spawn autonomous follow-up work
+  - extended `workers/orchestration/findings.py` so new finding creation returns created finding records, enabling the worker lane to queue validation only for newly created findings
+  - extended `api/app/schemas/findings.py`, `api/app/schemas/finding_views.py`, and `api/app/services/finding_views.py` so the API now exposes:
+    - additive `validation_status` on findings
+    - typed validation summaries in Finding Theater
+    - additive validation history in finding evidence replay
+    - verification messaging that distinguishes verified, unconfirmed, queued/running, skipped, and untouched findings
+  - updated `ui/assets/modules/findings.js` and `ui/assets/styles.css` so Findings Theater now renders:
+    - green `Verified` badges for `validated_confirmed`
+    - amber `Unconfirmed` badges for `validated_not_reproduced`
+    - a compact validation card with lifecycle, tool, target, profile, and note context
+  - added regression coverage in:
+    - `api/tests/test_finding_validator.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_finding_validator.py` (`4 passed in 3.09s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`208 passed in 149.38s (0:02:29)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'validation_badges_and_notes'` (`1 passed, 302 deselected in 2.84s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`303 passed in 1429.79s (0:23:49)`)
+    - `git diff --check`
+  - important truth notes:
+    - automated validation remains opt-in and disabled by default
+    - original findings are not deleted, downgraded, or otherwise rewritten by validator outcomes; only additive validation state/history changes are recorded
+    - validation stays bounded to passive or active profiles and preserves the existing approval gate when an active validation profile is selected
+    - validation runs do not create duplicate reported findings; they only update validation history on the source finding
+  - replaced `NEXT_TASK.md` with the single promoted `Business Logic Testing Runner Foundation` task from `codex/tasks/backlog-65-business-logic-testing-runner.json`
+
+- 2026-04-23: closed the active `Business Logic Testing Runner Foundation` task after adding a bounded authenticated access-control runner without creating a second finding, auth, or dispatch lane:
+  - added `workers/runners/biz_logic/__init__.py` and `workers/runners/biz_logic/runner.py`, which now provide a `biz-logic-probe` runner that:
+    - follows the existing `RunnerContract`
+    - supports bounded `idor`, `privilege_escalation`, `broken_access`, and `cross_tenant` probe types
+    - requires at least one authenticated context and rejects unauthenticated launches
+    - keeps probe URLs inside the approved scope allowlist even when operators provide absolute path templates
+    - stores a single structured `biz-logic-results.json` artifact and never emits raw bearer/session/api-key/password material in stdout or artifacts
+  - extended `api/app/services/run_profiles.py` with a new approval-gated `active-business-logic` profile using tool `biz-logic-probe`
+  - extended `api/app/services/runs.py` so business-logic runs now:
+    - require at least one in-scope URL target
+    - require at least one authenticated access account with stored secret bindings
+    - preserve only sanitized auth-context summaries plus bounded probe settings on queued task params
+    - keep the runner on the existing run/profile/approval/task-queue path
+  - extended `api/app/routers/runs.py` so both run creation and approval-time activation return honest `409` validation errors when the business-logic profile lacks executable auth context or URL scope
+  - extended `workers/orchestration/tasks.py` so the worker lane:
+    - recognizes `biz-logic-probe` as a supported execution tool
+    - materializes bearer/session/api-key/basic-auth data only at execution time from existing `SecretRef` storage
+    - passes only materialized headers/basic-auth tuples into the runner and never persists raw secret values in task params
+  - extended `workers/orchestration/findings.py` so business-logic artifacts normalize through the existing finding path with existing methodology derivation, preserving the current schema and WSTG mapping rules
+  - added regression coverage in:
+    - `workers/tests/test_biz_logic_runner.py`
+    - `api/tests/test_runs.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_biz_logic_runner.py` (`4 passed in 0.36s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py` (`41 passed in 22.85s`)
+    - `git diff --check`
+  - important truth notes:
+    - this foundation is path-template driven through run configuration and does not yet auto-discover business-logic endpoints from prior crawl data
+    - shared manual-auth notes and cookie-only guidance without stored secret bindings are not executable auth contexts for this runner
+    - external secret pointers that cannot be materialized through the current `SecretRef` decryption path remain non-executable for this runner until a future vault materialization slice explicitly supports them
+    - no UI or Playwright slice was part of backlog-65, so only the task-package worker/API validation contract was executed here
+  - replaced `NEXT_TASK.md` with the single promoted `Burp Suite Runner Integration` task from `codex/tasks/backlog-66-burp-suite-runner-integration.json`
+
+- 2026-04-24: closed the active `Burp Suite Runner Integration` task after adding an optional Burp REST execution lane alongside ZAP without changing the existing web-scan default:
+  - added `workers/runners/burp/__init__.py` and `workers/runners/burp/runner.py`, which now provide a `burp` runner that:
+    - follows the existing `RunnerContract`
+    - builds and validates the Burp REST API root from `BURP_API_URL` plus `BURP_API_KEY`
+    - starts scans, polls scan state, harvests issues, and stores the raw scan payload as `burp-results.json`
+    - fails gracefully with `BURP_API_URL is not configured` when the optional provider is unavailable
+    - keeps Burp launch targets inside the approved scope allowlist, while treating explicit URL scope as exact unless broader host/domain/CIDR scope is also configured
+  - extended `api/app/config.py` and `infra/host/aegispt-host.env.example` with additive `BURP_API_URL` and `BURP_API_KEY` settings so Burp remains optional and host-configured
+  - extended `api/app/services/run_profiles.py` with a new `passive-web-burp` run profile that uses tool `burp` and the lightweight `Audit checks - light` named scan configuration without replacing ZAP as the default profile
+  - extended `api/app/services/runs.py` so Burp target planning reuses the same normalized web-target deduplication path as ZAP
+  - extended `workers/orchestration/tasks.py` so the worker lane recognizes `burp` as a supported execution tool and dispatches the runner through the normal run/task/artifact path
+  - extended `workers/orchestration/findings.py` so Burp issue artifacts normalize through the existing finding path and inherit the standard methodology-derivation flow
+  - hardened `api/app/methodology.py` to normalize punctuation and scanner-style wording variants like `Cross-site scripting (reflected)`, allowing existing WSTG mappings to land correctly for Burp and similar scanner output
+  - added regression coverage in:
+    - `workers/tests/test_burp_runner.py`
+    - `api/tests/test_burp_dispatch.py`
+    - `workers/tests/test_findings_contract.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_burp_runner.py` (`3 passed in 1.31s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`249 passed in 152.91s (0:02:32)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice adds a safe, optional Burp REST foundation only; it does not bundle Burp binaries, install Burp, or change ZAP behavior
+    - Burp scan scope is still approval- and allowlist-bound, and discovered Burp issues flow through the existing finding schema instead of creating a second finding model
+    - the REST path shape is mocked and testable in-repo, while live availability still depends on an operator-configured Burp REST endpoint
+    - backlog-66 does not add new UI or Playwright work, so the task package’s required validation remained worker/API focused
+  - replaced `NEXT_TASK.md` with the single promoted `External Attack Surface Management (EASM) Foundation` task from `codex/tasks/backlog-67-external-attack-surface-management.json`
+
+- 2026-04-24: closed the active `External Attack Surface Management (EASM) Foundation` task after adding a passive external-discovery lane that maps public assets without silently broadening approved scan scope:
+  - added `workers/runners/easm/__init__.py`, `workers/runners/easm/runner.py`, and `workers/runners/easm/default_dns_words.txt`, which now provide an `easm-discover` runner that:
+    - follows the existing `RunnerContract`
+    - normalizes root-domain targets from approved scope input
+    - performs passive subdomain discovery through `crt.sh`, optional local `subfinder`, and a bounded local DNS wordlist
+    - resolves discovered hostnames, performs lightweight HTTP fingerprinting, and stores the structured result as `easm-results.json`
+    - keeps discovery approval- and allowlist-bound by validating the root-domain target before discovery starts
+  - extended `api/app/services/inventory.py` with `easm_observation_from_json(...)` and additive host-dict normalization support so EASM outputs become standard inventory snapshots with:
+    - host records
+    - inferred HTTP/HTTPS services
+    - HTTP endpoints
+    - technology hints
+    - vendor/product fingerprints
+  - extended `api/app/services/run_profiles.py` with the new `passive-easm-discovery` profile using tool `easm-discover`
+  - extended `api/app/services/runs.py` and `api/app/routers/runs.py` so EASM runs:
+    - plan only domain-like discovery targets
+    - reject launches that do not have at least one approved root-domain-style target
+    - remain on the existing run/task/approval path
+  - extended `workers/orchestration/tasks.py` so the worker lane:
+    - recognizes `easm-discover` as a supported execution tool
+    - stores EASM execution output as additive inventory snapshots
+    - records explicit no-auto-scope-expansion assumptions on derived EASM inventory
+  - extended `ui/assets/modules/mission-control.js` and `ui/assets/modules/shared.js` so Surface Map now:
+    - renders EASM assets with explicit `EASM candidate` context
+    - shows discovery notes in asset detail
+    - exposes an explicit `Add ... to scope` action for EASM-derived host/service/endpoint assets
+    - uses the existing scope snapshot API to add assets only when an operator clicks the control
+  - added regression coverage in:
+    - `workers/tests/test_easm_runner.py`
+    - `api/tests/test_easm_dispatch.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - updated regression expectations in:
+    - `api/tests/test_runs.py`
+    - `infra/host/aegispt-host.env.example`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_easm_runner.py api/tests/test_easm_dispatch.py api/tests/test_runs.py -k 'easm or test_list_run_profiles'` (`5 passed, 40 deselected in 2.18s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'surface_map_easm_asset_can_be_added_to_scope_explicitly'` (`1 passed, 303 deselected in 4.11s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`253 passed in 151.75s (0:02:31)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`304 passed in 1439.53s (0:23:59)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice is passive discovery only; it does not run active exploitation, port scanning, or paid EASM integrations
+    - discovered EASM assets are stored as reviewable inventory but are not auto-added to scope, not auto-queued into follow-up scans, and not silently turned into active targets
+    - the new Surface Map scope action reuses the existing scope snapshot flow instead of bypassing approval or creating a second scope lane
+  - replaced `NEXT_TASK.md` with the single promoted `SIEM Integration Foundation` task from `codex/tasks/backlog-68-siem-integration-foundation.json`
+
+- 2026-04-24: closed the active `SIEM Integration Foundation` task after extending the existing integration lane with push-only enterprise SIEM delivery that stays encrypted, additive, and operator-controlled:
+  - added `api/app/services/siem_push.py`, which now provides engagement-scoped SIEM provider support for `splunk`, `elastic`, and `sentinel` with:
+    - provider normalization and safe display labels
+    - encrypted credential storage through the existing `SecretRef` materialization path
+    - push-only delivery for critical findings and run-completion summaries
+    - ECS-aligned Elastic documents, Splunk HEC event payloads, and Azure Sentinel custom-log payloads
+    - optional Sigma-style advisory export derived from the existing detection-engineering block
+    - additive delivery-state recording through existing `FindingIntegrationLink` data instead of a second finding/integration model
+  - extended `api/app/schemas/integrations.py` and `api/app/routers/integrations.py` with masked SIEM configuration read/write routes so operators can:
+    - list all configured SIEM providers for an engagement
+    - read a single provider configuration without plaintext secret exposure
+    - upsert provider-specific settings and encrypted credentials without leaking tokens back through the API
+  - extended `workers/orchestration/tasks.py` so the normal worker lifecycle now:
+    - automatically pushes new critical findings to configured SIEMs after task processing
+    - automatically pushes run-completion summaries when a run first reaches `completed` or `completed_with_errors`
+    - keeps SIEM delivery failures non-blocking so run finalization remains truthful and deterministic
+  - extended `ui/assets/modules/runtime.js`, `ui/assets/app.js`, `ui/assets/modules/settings.js`, and `ui/assets/modules/findings.js` so the operator console now:
+    - loads SIEM settings alongside the existing Settings surface
+    - renders provider cards for Splunk, Elastic, and Azure Sentinel with masked credential state
+    - exposes advisory toggles for run-completion push, critical-finding push, and Sigma export
+    - labels delivered SIEM workflow handoffs truthfully inside Findings Theater
+  - added regression coverage in:
+    - `api/tests/test_siem_integration.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_siem_integration.py` (`4 passed in 4.48s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`217 passed in 168.50s (0:02:48)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'siem_integration_cards'` (`1 passed, 304 deselected in 3.24s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`305 passed in 1452.11s (0:24:12)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice is push-only and additive; it does not poll SIEMs, import cases, or gate platform behavior
+    - credentials remain encrypted at rest and masked in API/UI responses; tests explicitly avoid live OAuth or secret leakage
+    - Sigma export remains advisory detection-engineering context and does not claim deployable production rules by itself
+  - replaced `NEXT_TASK.md` with the single promoted `Continuous Exposure Score Foundation` task from `codex/tasks/backlog-69-continuous-exposure-score.json`
+
+- 2026-04-24: closed the active `Continuous Exposure Score Foundation` task after adding an advisory-only engagement risk score that stays grounded in existing findings and remediation state:
+  - added `ExposureScore` persistence in `api/app/models/control.py`, `api/app/models/__init__.py`, and `migrations/versions/20260424_0021_exposure_score.py` so each engagement now stores score snapshots with run linkage, severity breakdown, open critical/high counts, remediation counters, trend, and computed timestamp
+  - added `api/app/services/exposure_score.py`, which now:
+    - deduplicates findings by normalized `(title, target_id)` and evaluates the newest record per signature
+    - weights unresolved findings deterministically by severity
+    - applies bounded remediation and verification credit from the existing additive remediation model
+    - records a 0-100 advisory score plus `improving` / `stable` / `worsening` trend without using any external services or gating runtime behavior
+  - extended `api/app/routers/engagements.py` and `api/app/schemas/engagements.py` with `GET /api/v1/engagements/{engagement_id}/exposure-score`, returning the latest score, the last 10 history points, and explicit advisory/no-guarantee language
+  - extended `api/app/routers/findings.py` and `workers/orchestration/tasks.py` so exposure snapshots recompute after finding status/remediation changes and when a run first reaches `completed` or `completed_with_errors`
+  - extended `ui/assets/app.js`, `ui/assets/modules/runtime.js`, `ui/assets/modules/shared.js`, `ui/assets/modules/mission-control.js`, `ui/assets/modules/explorer-history.js`, `ui/index.html`, and `ui/assets/styles.css` so the operator console now shows:
+    - a sidebar engagement sparkline summary
+    - a Mission Control exposure gauge
+    - a History / Comparison exposure trend panel
+    - explicit advisory wording that the score does not guarantee safety and does not control execution behavior
+  - added regression coverage in:
+    - `api/tests/test_exposure_score.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_exposure_score.py` (`4 passed in 3.46s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`221 passed in 172.80s (0:02:52)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`276 passed in 1378.52s (0:22:58)`)
+    - `git diff --check`
+  - important truth notes:
+    - the score is advisory only and is never used to approve, block, dispatch, deploy, or bind runtime behavior
+    - scoring uses only existing findings/remediation state and does not call external providers or add new finding schema fields
+    - the Playwright suite was rerun end-to-end after current-shell expectation repairs, so the final green result reflects the live UI shape now in-repo rather than older shell assumptions
+  - replaced `NEXT_TASK.md` with the single promoted `Responder LLMNR/NBT-NS/MDNS Poisoning Runner` task from `codex/tasks/backlog-70-responder-llmnr-poisoning-runner.json`
+
+- 2026-04-24: closed the active `Responder LLMNR/NBT-NS/MDNS Poisoning Runner` task after adding a bounded internal credential-capture lane that protects captured hashes instead of leaking them through the normal artifact trail:
+  - added `workers/runners/responder/__init__.py` and `workers/runners/responder/runner.py`, which now provide a `responder` runner that:
+    - validates CIDR-only scope targets plus an explicit interface
+    - launches a bounded Responder subprocess with the interface-bound poisoning flags
+    - stops on the configured duration cap or when the execution kill switch flips during runtime
+    - parses captured NTLMv2 material from Responder log files
+    - returns sanitized stdout and log artifacts with hash bodies redacted before any API/storage path sees them
+    - emits a protected hash bundle separately for encrypted `SecretRef` storage
+  - extended `workers/runners/base/contracts.py` with additive protected-output support so runners can hand encrypted-only secret material to orchestration without placing it in normal stdout/artifact payloads
+  - extended `api/app/services/runs.py`, `api/app/routers/runs.py`, and `api/app/schemas/runs.py` so the new `intrusive-lan-credential-capture` profile now:
+    - exists as a first-class intrusive run profile
+    - requires CIDR scope plus `configuration_json.responder.interface`
+    - publishes `approval_step_id`
+    - enforces the named `intrusive-lan-poisoning` approval gate instead of silently accepting the default `run.launch` step
+  - extended `api/app/services/run_profiles.py` with the intrusive `intrusive-lan-credential-capture` profile and its bounded duration / named approval-step metadata
+  - extended `workers/orchestration/tasks.py` so the worker lane:
+    - recognizes `responder` as a supported execution tool
+    - stores protected hash bundles through encrypted `SecretRef` rows linked from sanitized results-artifact metadata
+    - marks the task/run cancelled when the runner reports kill-switch termination during live execution
+  - extended `workers/orchestration/findings.py` so sanitized responder result artifacts now normalize one finding per captured NTLMv2 record, preserving host/user context without exposing the raw hash value
+  - hardened `api/app/services/redaction.py` with explicit NTLMv2/Responder redaction patterns as a defense-in-depth backstop if captured material ever reaches a textual payload unexpectedly
+  - added regression coverage in:
+    - `workers/tests/test_responder_runner.py`
+    - `workers/tests/test_runner_contract.py`
+    - `api/tests/test_runs.py`
+  - updated host-environment guidance in `infra/host/aegispt-host.env.example` with the optional `RESPONDER_BINARY` setting
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_responder_runner.py` (`3 passed in 0.76s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`267 passed in 168.83s (0:02:48)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice captures and protects NTLMv2 material only; it does not crack hashes, relay SMB, poison IPv6, or exploit post-capture paths
+    - the results artifact remains viewable and sanitized, while the raw credential material is stored only through encrypted secret storage and never returned in task/run API payloads
+    - the named approval gate is now profile-specific and additive; existing approval-gated profiles continue to use the normal `run.launch` step
+  - replaced `NEXT_TASK.md` with the single promoted `BloodHound CE / SharpHound AD Attack Path Integration` task from `codex/tasks/backlog-71-bloodhound-sharphound-integration.json`
+
+- 2026-04-24: closed the active `BloodHound CE / SharpHound AD Attack Path Integration` task after adding a read-only AD graph-analysis lane that feeds the existing evidence, inventory, and attack-path surfaces instead of creating a parallel system:
+  - added `api/app/services/bloodhound_analysis.py`, which now:
+    - loads BloodHound-style JSON ZIP collections
+    - normalizes users, groups, computers, memberships, ACL relationships, and path-capable edges
+    - derives high-value attack paths toward Domain Admins, Enterprise Admins, and Domain Controller targets
+    - derives choke-point findings for principals or ACE-style relationships that recur across 3+ recorded paths
+    - emits Kerberoastable and AS-REP roastable account findings without ticket requests, cracking, or AD mutation
+  - added `workers/runners/bloodhound/__init__.py` and `workers/runners/bloodhound/runner.py`, which now provide a `bloodhound-collect` runner that:
+    - requires authenticated domain-read context
+    - runs `bloodhound-python` in a bounded subprocess
+    - stores the raw collection ZIP only through protected-output / encrypted `SecretRef` storage
+    - emits sanitized `bloodhound-results.json` plus a protected-artifact reference and execution log
+    - keeps usernames and passwords out of stored stdout/log payloads
+  - extended `api/app/services/runs.py`, `api/app/routers/runs.py`, and `api/app/services/run_profiles.py` so AegisPT now has an approval-gated `active-ad-bloodhound` profile that:
+    - prefers approved domain targets over directory-host fallbacks
+    - requires a username plus stored password binding
+    - validates domain hints from `bloodhound.domain`, domain targets, or UPN-style usernames
+    - queues `bloodhound-collect` tasks through the existing approval/runtime-binding path
+  - extended `workers/orchestration/tasks.py` so the worker lane now:
+    - recognizes `bloodhound-collect` as a supported execution tool
+    - materializes domain-read auth context from existing secret bindings
+    - stores BloodHound inventory snapshots from sanitized analysis output
+    - links protected ZIP bindings onto the visible artifact metadata without exposing raw collection bytes
+  - extended `workers/orchestration/findings.py` so sanitized BloodHound analysis artifacts now normalize:
+    - attack-path findings
+    - choke-point findings
+    - Kerberoastable account findings
+    - AS-REP roastable account findings
+  - extended `api/app/services/inventory.py` with `bloodhound_observation_from_json` plus additive normalized-inventory support for:
+    - `bloodhound_confirmed_edges`
+    - `bloodhound_attack_paths`
+    - derived BloodHound host / identity context
+  - extended `api/app/services/attack_paths.py` so the existing attack graph now:
+    - imports BloodHound confirmed edges as first-class confirmed graph edges
+    - creates candidate paths from stored BloodHound path records when matching normalized findings exist
+    - keeps this imported AD graph context inside the existing Surface / Attack Map response contract
+  - updated regression coverage in:
+    - `workers/tests/test_bloodhound_runner.py`
+    - `api/tests/test_attack_paths.py`
+    - `api/tests/test_runs.py`
+    - `requirements/base.txt`
+    - `infra/host/aegispt-host.env.example`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_bloodhound_runner.py` (`3 passed in 0.61s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_attack_paths.py` (`7 passed in 5.28s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'bloodhound or test_list_run_profiles'` (`3 passed, 42 deselected in 3.03s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`273 passed in 189.56s (0:03:09)`)
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`276 passed in 1436.27s (0:23:56)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice is read-only collection and graph analysis only; it does not exploit identified paths, request Kerberos material, crack hashes, spray passwords, move laterally, or modify AD objects
+    - the raw BloodHound ZIP is intentionally not exposed as a normal downloadable artifact body; it is preserved only through encrypted secret storage linked from artifact metadata
+    - attack-path import is additive to the existing graph contract and does not introduce a second graph engine or a graph-UI rewrite
+  - replaced `NEXT_TASK.md` with the single promoted `NetExec / CrackMapExec SMB and Network Execution Runner` task from `codex/tasks/backlog-72-netexec-crackmapexec-runner.json`
+
+- 2026-04-24: closed the active `NetExec / CrackMapExec SMB and Network Execution Runner` task after adding a bounded SMB validation lane that keeps credential material in protected storage while extending internal-network evidence coverage beyond discovery:
+  - added `workers/runners/netexec/__init__.py` and `workers/runners/netexec/runner.py`, which now provide a `netexec` SMB runner that:
+    - runs passive host-scoped SMB fingerprinting and null-session share enumeration without credentials
+    - runs intrusive authenticated SMB validation with password or NTLM-hash context only after approval-gated dispatch
+    - validates target scope before every host action
+    - sanitizes per-command logs so usernames, passwords, and NTLM hashes never land in persisted stdout, stderr, or artifact bodies
+    - emits aggregate `netexec-results.json`, per-host `netexec-<target>.json`, and sanitized `netexec-session.log` artifacts
+    - stores successful pass-the-hash evidence only through encrypted protected-output `SecretRef` bindings attached to per-host artifact metadata
+  - extended `api/app/services/runs.py`, `api/app/routers/runs.py`, and `api/app/services/run_profiles.py` so AegisPT now has:
+    - a passive `passive-lan-smb-enum` profile for signing/null-session/share review
+    - a two-person approval-gated intrusive `intrusive-lan-smb-auth` profile with named approval step `intrusive-lan-smb-auth`
+    - host-target planning for the `netexec` tool
+    - run-create validation that rejects intrusive SMB runs without at least one host target plus a stored password or NTLM-hash binding
+    - sanitized auth-context summaries on queued tasks instead of raw credential material
+  - extended `workers/orchestration/tasks.py` so the worker lane now:
+    - recognizes `netexec` as a supported execution tool
+    - materializes password and NTLM-hash bindings only at execution time
+    - dereferences internal `aegispt://secret-ref/<uuid>` pointers recursively, which lets future phases reuse previously protected credential material without copying plaintext into run configuration
+  - extended `workers/orchestration/findings.py` so sanitized NetExec result artifacts now normalize:
+    - `SMB signing disabled`
+    - `Anonymous SMB null session access`
+    - `Sensitive SMB share content exposed`
+    - `Pass-the-hash SMB access succeeded`
+  - updated `infra/host/aegispt-host.env.example` with the optional `NETEXEC_BINARY=nxc` host-setting seam
+  - added regression coverage in:
+    - `workers/tests/test_netexec_runner.py`
+    - `api/tests/test_runs.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_netexec_runner.py` (`4 passed in 1.90s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'netexec or test_list_run_profiles'` (`4 passed, 44 deselected in 3.29s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`280 passed in 174.98s (0:02:54)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice does not do remote code execution, password spraying, WinRM/RDP/MSSQL validation, or post-auth exploitation
+    - pass-the-hash evidence is preserved only through encrypted protected-output storage; raw NTLM hashes do not appear in findings, task params, logs, aggregate artifacts, or task/run API payloads
+    - intrusive SMB now has its own named two-person approval gate instead of reusing the generic `run.launch` step
+  - replaced `NEXT_TASK.md` with the single promoted `Credential Attack Runner — Password Spraying, Kerberoasting, and Hash Cracking` task from `codex/tasks/backlog-73-credential-attack-runner.json`
+
+- 2026-04-24: closed the active `Credential Attack Runner — Password Spraying, Kerberoasting, and Hash Cracking` task after wiring a bounded credential-impact lane that reuses existing inventory, approval, and protected-secret seams instead of introducing a second credential model:
+  - added `workers/runners/credential_attacks/` with:
+    - `kerberoast.py` for `GetUserSPNs.py` command construction and Kerberoast TGS parsing
+    - `asreproast.py` for `GetNPUsers.py` command construction and AS-REP parsing
+    - `hashcat.py` for offline hashcat command construction, bundle parsing, and cracked-output parsing across NTLMv2 / Kerberoast / AS-REP sources
+    - `spray.py` for bounded password-spray command construction and success parsing
+    - `runner.py` for the approval-aware `credential-attacks` dispatcher that:
+      - enforces scope checks and mode-specific prerequisites
+      - sanitizes usernames, hashes, and cracked passwords out of stdout, stderr, and visible artifacts
+      - stores Kerberoast and AS-REP material only as encrypted protected-output bundles (`kerberoast_tgs_hash_bundle`, `asrep_hash_bundle`)
+      - stores cracked or sprayed plaintext passwords only as protected password `SecretRef` material, one reusable secret per recovered account
+  - extended `api/app/services/run_profiles.py` with four new profiles:
+    - `active-ad-kerberoast`
+    - `active-ad-asreproast`
+    - `active-offline-hash-crack`
+    - `intrusive-ad-password-spray`
+  - extended `api/app/services/runs.py` and `api/app/routers/runs.py` so run creation / queueing now:
+    - validates `credential-attacks` targets against approved AD domain or directory-host scope
+    - requires `source_inventory_snapshot_id` for Kerberoast / AS-REP / spray phases
+    - derives roastable candidate accounts from stored inventory `credential_attack_context`
+    - resolves protected hash-bundle and password-candidate refs from `aegispt://secret-ref/<uuid>` pointers without exposing raw values in API payloads
+    - blocks spray runs unless the selected inventory snapshot carries a confirmed LDAP `lockout_threshold`, `credential_attacks.lockout_threshold_confirmed` matches it, and `attempts_per_window` stays below it
+  - extended `workers/orchestration/tasks.py` so the worker lane now:
+    - recognizes `credential-attacks` as a supported execution tool
+    - materializes protected password/hash source refs only at execution time
+    - preserves additive `credential_attack_context` inside LDAP and BloodHound-derived inventory snapshots for later credential phases
+  - extended `workers/orchestration/findings.py` so sanitized credential-attack result artifacts now normalize:
+    - `Kerberoast hash extracted for account ...`
+    - `AS-REP hash extracted for account ...`
+    - `Weak password cracked for account ...`
+    - `Password spray succeeded for account ...`
+  - updated `docs/identity_model.md` so the identity model no longer incorrectly claims Kerberoasting / AS-REP / password spraying are fully out of scope; the doc now reflects the new approval-gated credential-attack slice and its remaining safety boundaries
+  - updated `infra/host/aegispt-host.env.example` with:
+    - `IMPACKET_GETUSERSPNS_BINARY`
+    - `IMPACKET_GETNPUSERS_BINARY`
+    - `HASHCAT_BINARY`
+    - `HASHCAT_WORDLIST_PATH`
+    - `KERBRUTE_BINARY`
+  - added regression coverage in:
+    - `workers/tests/test_credential_attack_runner.py`
+    - `api/tests/test_runs.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_credential_attack_runner.py` (`4 passed in 1.01s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'credential_attack or kerberoast or password_spray or hashcat or list_run_profiles or inline_ldap_dispatch_stores_evidence_inventory_and_findings'` (`5 passed, 46 deselected in 3.82s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`287 passed in 170.41s (0:02:50)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice does not perform DCSync, LSASS dumping, lateral movement, persistence, or exploitation; it only converts approved identity inventory and previously protected hash material into bounded credential-impact evidence
+    - cracked plaintext passwords never appear in findings, logs, task params, results artifacts, or run/task API payloads
+    - spray approval is deliberately separate from the non-spray credential-attack approval step, and spray dispatch is blocked without explicit lockout confirmation from LDAP-backed inventory truth
+  - replaced `NEXT_TASK.md` with the single promoted `Metasploit Exploitation Runner — Controlled Exploit Execution` task from `codex/tasks/backlog-74-metasploit-exploitation-runner.json`
+
+- 2026-04-24: closed the active `Metasploit Exploitation Runner — Controlled Exploit Execution` task after adding a bounded exploit-confirmation lane that reuses the existing intrusive approval flow, protected-output storage, and finding-normalization path without opening an uncontrolled post-exploitation surface:
+  - added `workers/runners/metasploit/module_allowlist.py`, `workers/runners/metasploit/runner.py`, and a passive package `workers/runners/metasploit/__init__.py`, which now provide a `metasploit` runner that:
+    - talks to Metasploit through bounded MessagePack RPC calls
+    - resolves exploit modules only from the curated allowlist (`windows/smb/ms17_010_psexec`, `windows/smb/psexec`)
+    - enforces loopback-only `LHOST`
+    - limits evidence collection to `getuid`, `sysinfo`, and bounded `shell whoami /groups`
+    - tears down jobs, sessions, and consoles immediately after evidence capture or kill-switch activation
+    - stores recovered session context only as protected `metasploit_session_bundle` output
+  - extended `api/app/services/runs.py`, `api/app/routers/runs.py`, and `api/app/services/run_profiles.py` so queued `intrusive-exploitation` runs now:
+    - require a prior run-backed finding via `metasploit.finding_id`
+    - validate the selected finding against the approved target set
+    - require stored password or NTLM-hash bindings when the chosen allowlisted module needs authentication
+    - expose a single two-person `intrusive-exploitation` approval gate for Metasploit dispatch
+  - extended `workers/orchestration/tasks.py` and `workers/orchestration/findings.py` so the worker lane now:
+    - materializes protected auth bindings only at execution time
+    - dispatches the new `metasploit` tool
+    - normalizes sanitized exploit-confirmation findings from `metasploit-results.json`
+  - updated supporting seams in:
+    - `api/app/config.py`
+    - `api/tests/test_runs.py`
+    - `workers/tests/test_metasploit_runner.py`
+    - `infra/host/aegispt-host.env.example`
+    - `requirements/base.txt`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_metasploit_runner.py` (`4 passed in 0.28s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`292 passed in 174.12s (0:02:54)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice does not enable persistence, unrestricted shelling, listener exposure outside loopback, privilege-escalation automation beyond the allowlisted exploit path, or arbitrary module execution
+    - the allowlist was explicitly tightened so SMB findings do not silently unlock unrelated Metasploit modules
+    - the package import seam was reduced to a passive `__init__.py` to avoid circular-import fragility in worker startup
+  - replaced `NEXT_TASK.md` with the single promoted `Impacket Lateral Movement Runner — DCSync, SecretsDump, and Remote Execution` task from `codex/tasks/backlog-75-impacket-lateral-movement-runner.json`
+
+- 2026-04-24: closed the active `Impacket Lateral Movement Runner — DCSync, SecretsDump, and Remote Execution` task after adding a bounded lateral-movement lane that proves credential extraction, remote execution, and directory-replication compromise without leaking hashes into the visible evidence trail:
+  - added `workers/runners/impacket/` with:
+    - `secretsdump.py` for bounded credential-target construction and SAM/NTDS hash parsing
+    - `remote_exec.py` for bounded `psexec` / `wmiexec` command construction fixed to `cmd.exe /Q /c whoami && hostname`
+    - `dcsync.py` for `krbtgt`-only DCSync command construction
+    - `runner.py` for the approval-aware `impacket-lateral` dispatcher that:
+      - enforces approved host scope for every target
+      - requires stored password or NTLM-hash bindings
+      - stores extracted credential or `krbtgt` material only through protected-output bundles (`impacket_hash_bundle`, `dcsync_hash_bundle`)
+      - sanitizes visible logs so usernames, passwords, NTLM hashes, and parsed LM/NT hash outputs never appear in persisted artifacts
+      - limits remote execution to `whoami` / `hostname` proof only and treats kill-switch cancellation as an immediate stop condition
+  - extended `api/app/services/run_profiles.py` with three new profiles:
+    - `intrusive-impacket-secretsdump`
+    - `intrusive-impacket-remote-exec`
+    - `intrusive-impacket-dcsync`
+  - extended `api/app/services/runs.py` and `api/app/routers/runs.py` so run creation / queueing now:
+    - validates `impacket-lateral` targets against approved host or directory-host scope
+    - requires at least one stored password or NTLM-hash binding
+    - blocks invalid mode wiring and rejects `remote_exec_method` values other than `psexec` or `wmiexec`
+    - keeps queued auth context limited to secret-binding references instead of raw material
+  - extended `workers/orchestration/tasks.py` so the worker lane now:
+    - recognizes `impacket-lateral` as a supported execution tool
+    - materializes password and NTLM-hash bindings only at execution time
+    - passes through the configured Impacket binary seams for `secretsdump.py`, `psexec.py`, and `wmiexec.py`
+  - extended `workers/orchestration/findings.py` so sanitized Impacket result artifacts now normalize:
+    - `Credential extraction confirmed on <host>`
+    - `Confirmed lateral movement to <host> as <user>`
+    - `Domain compromise confirmed — DCSync successful`
+  - updated supporting seams in:
+    - `api/tests/test_runs.py`
+    - `workers/tests/test_impacket_runner.py`
+    - `infra/host/aegispt-host.env.example`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_impacket_runner.py` (`5 passed in 0.78s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'test_list_run_profiles or impacket'` (`2 passed, 51 deselected in 1.94s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`298 passed in 175.36s (0:02:55)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice does not introduce persistence, unrestricted remote command execution, Golden/Silver ticket activity, data exfiltration, or plaintext hash exposure in findings, logs, or API payloads
+    - the visible session log originally still reflected parsed hash output during local validation; that leak was patched before final signoff so all extracted hashes stay in protected outputs only
+    - all three Impacket modes reuse the existing highest `intrusive-exploitation` approval tier rather than inventing a second exploit lane
+  - replaced `NEXT_TASK.md` with the single promoted `Assessment Mode — Automated Phase Chain for LAN and Web Assessments` task from `codex/tasks/backlog-76-assessment-mode-automated-chain.json`
+
+- 2026-04-24: closed the active `Assessment Mode — Automated Phase Chain for LAN and Web Assessments` task after wiring the approved multi-phase orchestration model through the existing run / approval / dispatch surfaces instead of inventing a parallel runtime lane:
+  - added the new `AssessmentChain` control-plane model plus migration in:
+    - `api/app/models/control.py`
+    - `api/app/models/__init__.py`
+    - `migrations/versions/20260424_0022_assessment_chains.py`
+  - added `api/app/services/assessment_chain.py`, which now provides:
+    - the three built-in chain definitions `FULL-INTERNAL-LAN`, `FULL-EXTERNAL-WEB`, and `FULL-AD-ASSESSMENT`
+    - chain creation, summary serialization, phase approval / rejection, boundary halt, step-to-step advancement, and current-run dispatch helpers
+    - phase metadata with current phase / step indexes, auto-advance state, boundary state, and per-step run lineage
+    - reuse of existing scope, inventory snapshot, finding allowlist, and protected `SecretRef` seams when later phases need hash bundles, password candidates, or exploit source findings
+    - zero-target follow-up skipping so chain steps with no in-scope tasks are marked `skipped` instead of surfacing as inline-dispatch 500s
+  - extended run creation and read APIs in:
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/services/runs.py`
+    - `workers/orchestration/tasks.py`
+  - the API/runtime path now:
+    - allows intake/run creation to request a built-in assessment mode plus `assessment_auto_advance_on_phase_complete`
+    - returns chain summaries on run payloads and exposes dedicated chain read / approve / reject / halt endpoints
+    - treats phase-boundary approvals as chain decisions rather than normal per-run launch approvals
+    - keeps exploitation tiers explicitly approval-gated and never auto-started
+    - advances the chain automatically when an inline-dispatched run completes cleanly and dispatches the next queued step only when that step actually has work
+  - upgraded the wizard and Mission Control UI in:
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/app.js`
+  - the UI now:
+    - lets operators enable assessment mode directly from intake while keeping the advanced drawer accessible
+    - includes assessment-mode truth in the review/confirmation copy
+    - shows chain-aware phase cards in Mission Control instead of generic-only phase assumptions when a chain-backed run is selected
+    - exposes phase approve / reject / halt actions at the boundary card
+    - auto-follows the chain’s current run when refresh brings in a newly launched follow-up dossier
+  - added regression coverage in:
+    - `api/tests/test_assessment_chain.py`
+    - `ui/tests/test_operator_console_e2e.py`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py` (`6 passed in 5.15s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`240 passed in 185.54s (0:03:05)`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`277 passed in 1423.77s (0:23:43)`)
+    - `git diff --check`
+  - important truth notes:
+    - exploitation phases remain explicitly gated and never auto-start even when lower phases auto-advance
+    - the current halt path is implemented at the phase boundary layer; it stops future chain progression cleanly without bypassing existing run/task cancel semantics
+    - sparse wizard-backed internal-LAN chains can now skip LDAP / EASM follow-up steps that have no in-scope targets instead of crashing inline dispatch
+  - replaced `NEXT_TASK.md` with the single promoted `Wizard Tile-Based Redesign — Visual Assessment Type Selection and Short Questions` task from `codex/tasks/backlog-77-wizard-tile-redesign.json`
+
+- 2026-04-24: closed the active `Wizard Tile-Based Redesign — Visual Assessment Type Selection and Short Questions` task after replacing the first-run conversational intake surface with a visual tile-first workflow while keeping the existing deterministic run model intact:
+  - upgraded `ui/assets/modules/wizard.js` so intake now:
+    - renders eight assessment tiles for `External Web`, `Internal LAN`, `Active Directory`, `Full Internal`, `Cloud (AWS/Azure)`, `API Security`, `LLM / AI App`, and `Custom`
+    - treats tile clicks as a short-path intake mode that advances through `target -> depth -> exclusions` with a compact `Question X of Y` progress note
+    - renders depth as three large cards, `Passive only`, `Active scan`, and `Full including exploitation`, while still surfacing the legacy deterministic goal mappings inside the cards for operator clarity and Playwright compatibility
+    - keeps typed free-text answers on the older compatibility order so the broader conversational regression suite continues to exercise the existing deterministic parser paths
+    - shortens the boundary question copy without dropping the older compatibility phrasing that several long-tail tests still assert against
+  - extended `ui/assets/modules/runtime.js` with tile-flow wizard state so the intake can track tile selection and short-path ordering without backend or schema changes
+  - updated `ui/assets/styles.css` with the new assessment-tile and depth-card presentation, selected-state border treatment, compact mapping badges, and responsive layouts for the 8-card first step
+  - extended `ui/tests/test_operator_console_e2e.py` so the browser suite now:
+    - checks that all eight assessment tiles render
+    - verifies the tile-driven `Internal LAN` path moves through target first and reaches the depth cards as a true short path
+    - adapts older quick-reply helper coverage to the new tile-first flow without dropping typed compatibility scenarios
+  - captured visual proof on the live host in:
+    - `codex/results/backlog-77-wizard-tiles-live.png`
+    - `codex/results/backlog-77-wizard-depth-live.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no -x ui/tests/test_operator_console_e2e.py` (`278 passed in 1391.45s (0:23:11)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice did not modify backend routes, schemas, migrations, workers, or run-profile definitions
+    - the new short path applies to tile-driven intake only; typed answers still preserve the older compatibility order by design so deterministic text parsing and legacy test flows do not regress
+    - visual cleanup is improved but not complete; backlog-78 remains the next slice for the preview diagram and full-authorization layer rather than silently broadening backlog-77
+  - replaced `NEXT_TASK.md` with the single promoted `Visual Mission Preview Diagram and Full-Phase Authorization` task from `codex/tasks/backlog-78-visual-mission-preview-and-full-authorization.json`
+
+- 2026-04-24: closed the active `Visual Mission Preview Diagram and Full-Phase Authorization` task after wiring a true visual confirm surface and approval-aware chain authorization through the existing wizard and assessment-chain seams:
+  - upgraded `ui/assets/modules/runtime.js`, `ui/assets/modules/wizard.js`, and `ui/assets/styles.css` so the confirm step now:
+    - renders a static SVG mission preview with scope nodes, tier-colored phase cards, tool chips, duration badges, and dotted scope-to-tool connection lines
+    - exposes explicit `Passive only`, `Active`, and `Full` phase-boundary authorization cards directly under the preview
+    - requires typed target confirmation before `Full` authorization can unlock the confirm button
+    - keeps the confirm action visible on mobile by pinning the wizard action bar and preserving readable confirmation-summary geometry in the small-screen confirmation state
+  - extended `api/app/services/assessment_chain.py` so chain creation now:
+    - validates `Full` authorization server-side against the typed confirmation target
+    - stores authorization context in existing `configuration_json` / `metadata_json` rather than introducing new DB columns
+    - writes an `assessment_chain.authorization_confirmed` audit event with actor plus confirmed scope context
+    - preauthorizes later phases only when the selected authorization tier actually covers them, including exploitation-phase continuation for `Full`
+  - extended `api/tests/test_assessment_chain.py` so the backend regression lane now covers:
+    - `Full` authorization rejection when the typed target does not match
+    - authorization audit logging
+    - exploitation-phase auto-start under valid `Full` authorization
+  - extended `ui/tests/test_operator_console_e2e.py` so the browser lane now covers:
+    - the new SVG mission preview rendering
+    - visibility of the three authorization cards
+    - disabled `Full` authorization until the exact target is typed
+    - persisted full-authorization context on the created run payload
+    - the mobile confirmation viewport regression
+  - captured live visual proof on `http://localhost:8000/app/` in:
+    - `codex/results/backlog-78-mission-preview-live-desktop.png`
+    - `codex/results/backlog-78-mission-preview-live-mobile.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 85 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py` (`8 passed in 5.81s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`279 passed in 1431.53s (0:23:51)`)
+    - `git diff --check`
+  - important truth notes:
+    - this slice did not add live diagram feeds, custom graph layout engines, new database schema fields, or any bypass of the kill switch / scope allowlist / approval model
+    - `Full` authorization is now enforced both in the browser and in backend chain creation, so a crafted client payload cannot silently skip the typed confirmation requirement
+    - the mobile confirmation regression introduced by the new preview surface was fixed before final signoff by pinning the action bar on small screens and re-running the full Playwright suite
+  - replaced `NEXT_TASK.md` with the single promoted `External Infrastructure Assessment — External IP Ranges and Non-Web Services` task from `codex/tasks/backlog-79-external-infrastructure-assessment.json`
+
+- 2026-04-24: fixed a live `Settings` request-storm regression that could make Chromium hang even though the older browser suite stayed green:
+  - reproduced the failure against the real host at `http://localhost:8000/app/` with Playwright and confirmed that opening `Settings` was repeatedly refetching:
+    - `/api/v1/engagements/{id}/triggers/cicd`
+    - `/api/v1/engagements/{id}/integrations/siem`
+    - the rerender loop continued until Chromium started emitting `net::ERR_INSUFFICIENT_RESOURCES`
+  - identified the root cause in `ui/assets/modules/settings.js`:
+    - `renderSettingsScreen()` was performing network loads as a render side effect whenever CI/CD or SIEM payload state was still `null`
+    - when either endpoint returned an error, the loader catch paths rerendered the screen without establishing a stable loaded state, so the render path immediately reissued the same requests
+  - patched the UI in:
+    - `ui/assets/modules/settings.js`
+    - `ui/assets/app.js`
+    - `ui/tests/test_operator_console_e2e.py`
+  - implementation details:
+    - removed engagement-settings fetch side effects from `renderSettingsScreen()` so the renderer is no longer allowed to recursively refetch its own data
+    - moved engagement-scoped Settings refreshes to explicit navigation / engagement-change flows in `ui/assets/app.js`
+    - switched those entry-point refreshes to `Promise.allSettled(...)` so inline panel errors do not collapse the whole screen
+    - reset engagement-scoped Settings state when the selected engagement changes so stale SIEM / CI/CD details do not flash from the previous dossier
+    - added a dedicated Playwright regression that forces `400` on SIEM and `404` on CI/CD and asserts the screen remains usable with exactly one request per failing endpoint
+  - live host validation:
+    - targeted Playwright regression: `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'settings_screen_handles_failed_engagement_loads_without_request_storm'` (`1 passed, 279 deselected in 4.27s`)
+    - navigation smoke after the app-shell change: `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'phase_navigation_keeps_only_current_workflow_visible'` (`1 passed, 279 deselected in 3.29s`)
+    - `git diff --check`
+    - live Chromium repro after the fix: `Settings` now opens with one SIEM request and one CI/CD request, no `ERR_INSUFFICIENT_RESOURCES`, and a screenshot saved to `codex/results/live-settings-postfix.png`
+  - operational follow-up:
+    - the preexisting local `127.0.0.1:8000` host was also restarted directly from the repo venv after a stale background `uvicorn` was discovered, which restored current-route `200` responses for the SIEM and CI/CD Settings endpoints
+  - important truth notes:
+    - this was a stability hotfix only; `NEXT_TASK.md` remains unchanged and backlog-79 is still the single active task
+    - the original green suite did not catch this because there was no browser assertion for failing engagement-scoped Settings loads; that coverage gap is now closed by the new Playwright regression
+
+- 2026-04-24: fixed the follow-on live UI flicker issue where non-operational pages still visibly refreshed in the browser during auto-refresh:
+  - reproduced the problem from the live host report and confirmed the root cause in `ui/assets/app.js`:
+    - the background refresh timer was always calling `refreshSelectedEngagement()` and then `renderAll()`
+    - `renderAll()` rebuilds the active screen, so every timed refresh could replace the full DOM of `Settings`, `Reports`, `Findings`, `Explorer`, `History`, and `Intake` even when the operator was just reading static content
+    - when the selected run had queued or running tasks, that meant visible full-screen refreshes every 5 seconds on pages that were not intended to be live dashboards
+  - patched `ui/assets/app.js` so timed background refreshes now pass an explicit render policy:
+    - only `Mission Control` keeps full active-screen rerenders during background refresh
+    - non-live screens still refresh shared shell chrome such as status, context, counts, and nav state, but their content DOM is left intact
+    - `renderAll()` now supports a shell-only mode, and the timed refresh path uses it when the operator is not on `Mission Control`
+  - extended `ui/tests/test_operator_console_e2e.py` with a DOM-stability regression:
+    - `test_background_refresh_preserves_settings_screen_dom`
+    - the test opens `Settings`, attaches a `MutationObserver`, triggers a background-style engagement refresh through the runtime action, and asserts the Settings screen records `0` DOM mutations
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'settings_screen_handles_failed_engagement_loads_without_request_storm or background_refresh_preserves_settings_screen_dom'` (`2 passed, 279 deselected in 6.37s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'phase_navigation_keeps_only_current_workflow_visible'` (`1 passed, 280 deselected in 2.99s`)
+    - `git diff --check`
+  - live host validation:
+    - Playwright measurement against `http://localhost:8000/app/` now records `SETTINGS_MUTATIONS_OVER_7S 0`
+    - screenshot saved to `codex/results/live-settings-stable-after-background-refresh.png`
+  - important truth notes:
+    - this hotfix intentionally keeps Mission Control as the one live-updating screen because it is the operational dashboard; the change is to stop non-operational screens from blinking, not to remove all live telemetry
+    - `NEXT_TASK.md` remains unchanged and backlog-79 is still the single active task
+
+- 2026-04-24: rebuilt the Settings screen into a calmer disclosure-driven workspace and made ChatGPT OAuth actionable directly from Settings:
+  - addressed the operator-reported UX problem that `Settings` still felt like one long expanded form and that the ChatGPT provider state was visible but not meaningfully actionable from the page itself
+  - patched:
+    - `ui/assets/modules/settings.js`
+    - `ui/assets/styles.css`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_e2e.py`
+  - implementation details:
+    - converted the main Settings sections from always-expanded cards into disclosure panels backed by persisted `settingsUi.openPanels` state
+    - left only `ChatGPT OAuth` open by default so the page now lands on the one urgent provider action instead of dumping every settings field into view
+    - changed the default panel truth so `AI Provider`, scope defaults, profile defaults, integrations, notifications, instance settings, SIEM, and CI/CD remain collapsed until the operator intentionally opens them
+    - added a first-class `Connect ChatGPT` button inside the Settings OAuth panel that uses the same authorize route as the intake/provider lane and updates the on-page status to `Authorization window opened` after the URL is launched
+    - added summary pills and calmer nested integration panel styling so the page keeps context visible without forcing every form open at once
+    - bumped the Settings asset cache-bust in `ui/index.html` so the live browser picks up the new JS/CSS without depending on stale cached bundles
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 89 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'phase_navigation_keeps_only_current_workflow_visible or settings_screen_handles_failed_engagement_loads_without_request_storm or background_refresh_preserves_settings_screen_dom or settings_screen_defaults_to_disclosures_with_chatgpt_panel_open or settings_chatgpt_connect_opens_authorization_window'` (`5 passed, 278 deselected in 13.09s`)
+    - `git diff --check`
+  - live host validation:
+    - `curl -sS http://localhost:8000/health/live` returned `{"status":"ok","app":"AegisPT","environment":"development","detail":"service is running"}`
+    - Playwright against `http://localhost:8000/app/` confirmed:
+      - `ChatGPT OAuth` is open by default
+      - `AI Provider` is closed by default
+      - `Connect ChatGPT` is visible and enabled inside Settings
+      - clicking it opens the real authorize URL and updates the panel copy to `Authorization window opened`
+    - screenshot saved to `codex/results/live-settings-disclosures.png`
+  - important truth notes:
+    - this was a Settings UX hotfix only; `NEXT_TASK.md` remains unchanged and backlog-79 is still the single active task
+    - the new Playwright OAuth coverage is intentionally mocked at the authorize endpoint so the repo suite proves the UI behavior without depending on live third-party OAuth success
+
+- 2026-04-24: repaired the live localhost inline host after `Create Mission` started failing with `500` on `POST /api/v1/engagements/{id}/runs`:
+  - reproduced the failure from the live host log and confirmed the root cause was local SQLite schema drift, not the intake flow itself:
+    - `POST /api/v1/engagements/{id}/runs` failed because `runs.assessment_chain_id` did not exist
+    - `GET /api/v1/engagements/{id}/runs` and `GET /api/v1/engagements/{id}/exposure-score` also failed because newer finding-related columns such as `findings.validation_status` were missing
+    - the active local database was `aegispt.db`, and `alembic current` reported `20260422_0014` even though newer model-owned tables like `instance_settings`, `assessment_chains`, `exposure_scores`, `repo_integrations`, and `cicd_trigger_events` already existed
+  - root-cause detail:
+    - this localhost DB had been advanced by model-level table creation at some earlier point, so new tables existed but older tables were never altered to receive later migration columns
+    - a straight `alembic upgrade head` could not repair it safely because migrations such as `20260423_0015_instance_settings.py` tried to create tables that already existed
+  - patched:
+    - `scripts/repair_local_sqlite_schema.py`
+    - `scripts/restart_local_inline_host.sh`
+    - `scripts/restart_local_inline_host_systemd.sh`
+  - implementation details:
+    - added a local-only SQLite repair helper that:
+      - resolves the current SQLite database path from app settings
+      - detects the drift signature where newer post-`0014` tables already exist on a database that is not stamped to head
+      - adds the missing columns needed by the current localhost app surface:
+        - `runs.autonomous_mode`
+        - `runs.autonomous_intrusive_allowed`
+        - `runs.assessment_chain_id`
+        - `findings.autofix_json`
+        - `findings.validation_status`
+        - `tasks.source_finding_id`
+      - recreates the critical local indexes needed by the current host surface
+      - stamps the repaired SQLite database to Alembic head when the required table/column set is present
+    - updated both localhost restart helpers to run that repair helper before `alembic upgrade head`, so a drifted local dev DB is repaired first and a clean local DB still follows the normal Alembic path
+  - live local database handling:
+    - saved a pre-repair backup to `codex/results/aegispt.db.pre-upgrade-20260424-112500.bak`
+    - ran the repair helper against `aegispt.db`
+    - confirmed `alembic current` now reports `20260424_0022 (head)`
+    - restarted the inline host successfully with `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" bash scripts/restart_local_inline_host.sh`
+  - validation:
+    - `source .venv/bin/activate && python scripts/repair_local_sqlite_schema.py`
+    - `source .venv/bin/activate && python -m alembic current` (`20260424_0022 (head)`)
+    - `curl -sS http://localhost:8000/api/v1/engagements/d6ddc2eb-f203-40da-8cbe-4e92ee8198dd/exposure-score` (`200`)
+    - `curl -sS http://localhost:8000/api/v1/engagements/d6ddc2eb-f203-40da-8cbe-4e92ee8198dd/runs` (`200`)
+    - live Playwright mission creation on `http://localhost:8000/app/` now returns `201` on `POST /api/v1/engagements/{id}/runs` and reaches Mission Control again
+    - `git diff --check`
+  - live proof:
+    - `codex/results/live-create-mission-postfix.png`
+  - important truth notes:
+    - this was a localhost schema-repair hotfix only; `NEXT_TASK.md` remains unchanged and backlog-79 is still the single active task
+    - the repair helper is intentionally scoped to local SQLite drift and does not replace the normal Alembic migration path used by the broader host-install/service lane
+
+- 2026-04-24: completed `backlog-79-external-infrastructure-assessment` and promoted the next approved slice:
+  - task/package:
+    - completed `codex/tasks/backlog-79-external-infrastructure-assessment.json`
+    - promoted next active task to `codex/tasks/backlog-85-ui-quality-overhaul.json`
+  - repo-governance repair required during validation:
+    - `python3 scripts/validate_backlog_tasks.py` initially failed because backlog packages `90-92` were present on disk but not reconciled cleanly in `TASK_QUEUE.md`
+    - reconciled `TASK_QUEUE.md` so the queue now validates cleanly at `92` mapped packages with exactly one active task and no duplicate references
+  - patched backend/runtime scope:
+    - `workers/runners/external_infra/runner.py`
+    - `workers/runners/external_infra/__init__.py`
+    - `workers/runners/ssh_audit/runner.py`
+    - `workers/runners/ssh_audit/__init__.py`
+    - `workers/runners/nmap/runner.py`
+    - `workers/runners/nuclei/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/inventory.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/runs.py`
+  - patched UI/test scope:
+    - `ui/assets/modules/shared.js`
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `workers/tests/test_external_infra_runner.py`
+    - `workers/tests/test_runner_contract.py`
+    - `api/tests/test_runs.py`
+  - implementation details:
+    - added a composite `external-infra` runner that performs bounded domain-to-IP expansion through the existing EASM helper flow before scanning, then runs full-port/service-detection Nmap, HTTP follow-up, read-only `ssh-audit`, optional passive SMB review, and active-tier infrastructure Nuclei follow-up
+    - extended the Nmap runner with explicit `full_port_scan` support and the Nuclei runner with configurable template body/source metadata so the external-infra lane can keep a distinct infrastructure template identity without breaking the default web-template path
+    - added read-only `ssh-audit` runner support that uses the upstream JSON mode (`-j`) and normalizes weak-cipher / weak-KEX / weak-MAC and CVE signals into AegisPT finding-compatible analysis objects
+    - introduced `passive-external-infrastructure` and `active-external-infrastructure` profiles in the existing run-profile registry and kept them on the normal approval/queue/task-dispatch lane instead of inventing a separate orchestrator
+    - added `validate_external_infra_run_configuration()` and multi-target queueing for `external-infra` so one task can safely hold the explicit CIDR/IP/domain set, expand root domains, and still stay inside the existing scope-precheck and approval flow
+    - added `external_infrastructure_observation_from_json()` so the composite runner emits normal inventory snapshots from its own results JSON, preserving hosts, services, endpoints, technologies, and fingerprints in the existing inventory model
+    - added external-infra finding extraction so weak SSH cryptography, exposed management services, exposed databases, imported SMB findings, and infrastructure-Nuclei findings flow through the normal finding merge/enrichment path
+    - added an explicit `External Infrastructure` wizard tile and tied tile-driven WAN launches to `passive-external-infrastructure` / `active-external-infrastructure` without silently changing every legacy WAN conversational path; this keeps the new capability visible while avoiding broad regression across older intake tests
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 92 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_external_infra_runner.py` (`4 passed in 0.28s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_runner_contract.py -k 'nmap_full_port or nmap_service_enumeration_command_is_structured'` (`2 passed, 9 deselected in 0.38s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k 'external_infrastructure or test_list_run_profiles'` (`3 passed, 52 deselected in 2.85s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'external_infrastructure_tile_routes_to_external_infrastructure_execution_lane or wizard_assessment_tiles_drive_short_target_first_flow'` (`2 passed, 282 deselected in 7.32s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/` (`313 passed in 201.28s (0:03:21)`)
+    - `git diff --check`
+  - important truth notes:
+    - the new external-infrastructure lane is additive: legacy WAN conversational flows still exist, but operators now have an explicit tile that routes into the non-web external service assessment path required by backlog-79
+    - no exploitation, credential attacks, or schema changes were introduced in this slice; SSH audit remains read-only and all scope enforcement still runs through the existing allowlist/task lane
+
+- 2026-04-24: attempted `backlog-85-ui-quality-overhaul` but held the task open after the required full Playwright validation failed:
+  - repo truth before work:
+    - `python3 scripts/validate_backlog_tasks.py` passes at `93` queued task packages with exactly one active task in `NEXT_TASK.md`
+    - the active task remains `codex/tasks/backlog-85-ui-quality-overhaul.json`
+  - patched UI scope:
+    - `ui/index.html`
+    - `ui/assets/app.js`
+    - `ui/assets/styles.css`
+    - `ui/assets/modules/shared.js`
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/modules/findings.js`
+    - `ui/tests/test_operator_console_e2e.py`
+  - implementation details landed before the hold:
+    - simplified the topbar down to the shell controls only: logo, engagement selector, conditional active-run pill, settings gear, and actor field
+    - removed the oversized sidebar context/metrics/shortcut stack from the visible shell and replaced it with a compact active-run indicator that only appears when a run is actually queued/running
+    - rewrote the shared empty-state helper so the targeted operational panels now render one short sentence plus one action instead of stacked explanatory paragraphs
+    - rebuilt Mission Control `Current Activity` into a KPI-first status surface, trimmed `Run Activity` down to summary cards plus task swimlanes and selected-task focus, and removed the prose-heavy telemetry block from the visible default path
+    - collapsed Findings filters behind a single disclosure and collapsed the SLA / Retest Planning Queue by default
+    - updated Playwright coverage so the new shell contract, collapsed findings filters, collapsed remediation disclosure, and settings disclosure defaults are all asserted explicitly
+  - scope blocker discovered during implementation:
+    - backlog-85 requires `AI Features` toggles that must persist through the existing `PATCH /api/v1/settings` endpoint and control finding enrichment, post-task analysis, intake intelligence, AutoFix, and report drafting
+    - the current settings service exposes only `ai.provider`, `ai.chatgpt_model`, `ai.http_endpoint`, and `ai.http_api_key`; the required feature-enable keys are not present in `api/app/services/settings.py`
+    - the same task package explicitly lists `api/` in `must_not_touch`, so the toggle portion cannot be completed honestly within this slice without breaking the task's own scope guard
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`Backlog validation passed: 93 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task.`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'operator_console_empty_states_render or ready_to_start_and_thin_output_states_keep_one_dispatch_action_and_truthful_completion or settings_screen_defaults_to_disclosures_with_chatgpt_panel_open or mission_control_groups_secondary_context_into_calmer_snapshot_panels or topbar_is_reduced_to_shell_controls_and_hides_navigation_chrome or findings_filters_and_retest_queue_start_collapsed or exposure_score_render or phase_navigation_keeps_only_current_workflow_visible'` (`7 passed, 279 deselected in 24.94s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` failed (`284 passed, 2 failed in 1487.02s (0:24:47)`)
+    - failing tests at the required full-suite gate:
+      - `test_inventory_only_run_explains_empty_findings_and_history_actions`: the new compact discovery-only empty state no longer includes the older explanatory sentence that the suite still expects
+      - `test_dispatch_and_status_history_work_after_conversational_intake`: the shell simplification now keeps the status history disclosure hidden in the sidebar, but the suite still expects that disclosure to be visible after dispatch
+    - `git diff --check`
+  - hold state:
+    - `NEXT_TASK.md` was intentionally left unchanged because backlog-85 is still the single active task
+    - queue promotion was not performed because the task package is not complete and the required Playwright validation is red
+
+- 2026-04-24: continued `backlog-85-ui-quality-overhaul` from live operator feedback, landed targeted UI fixes, and stopped again on a new queue-validation blocker:
+  - user-reported issues addressed in this pass:
+    - AI Signal text was continuously replaying and unreadable in Mission Control
+    - `Start Validation` lacked clear in-screen dispatch feedback and there was no useful engagement-level run visibility for multiple concurrent runs
+    - the internal-LAN scope question did not surface the saved default LAN CIDR from Settings
+    - Surface / Attack Map overlay buttons felt dead because several views changed little or nothing visibly
+  - patched UI scope:
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_e2e.py`
+  - implementation details landed:
+    - added `surfaceView` UI state so Surface / Attack Map overlay buttons behave like explicit view selectors rather than silent toggles
+    - rewired Surface / Attack Map so `Hotspots`, `Pack Impact Zones`, and the future views all produce visible state changes, with attack-path summary rendering when present and explicit placeholders when later data is still missing
+    - removed the repeated AI typewriter reveal from stored Mission Control AI entries by rendering static readable text and treating provider-disabled AI state as a clean `Open Settings` empty state
+    - replaced the less useful Mission Control support cards with an `Active Runs` list and a `Latest Event` surface so multiple queued/running engagement runs and dispatch/status feedback are visible without the hidden sidebar feed
+    - made the `Start Validation` CTA visibly enter a disabled `Dispatching...` state while dispatch is in flight
+    - surfaced `network.default_lan_cidr` / `network.default_vlan_cidrs` from operator settings as internal-scope quick replies in the conversational intake
+    - updated Playwright coverage for the new LAN-scope quick reply, AI Signal disabled-provider state, and Surface / Attack Map future-view behavior
+    - realigned the earlier discovery-only findings expectation to the calmer `Open Surface Map` detail action now rendered by the UI
+  - validation and stop condition:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'internal_scope_question_surfaces_default_lan_cidr_from_settings or inventory_only_run_explains_empty_findings_and_history_actions or dispatch_and_status_history_work_after_conversational_intake or ai_signal_provider_disabled_state_is_static_and_readable or surface_map_future_views_show_clear_placeholders_and_can_return_to_hotspots or ready_to_start_and_thin_output_states_keep_one_dispatch_action_and_truthful_completion or manual_dispatch_mode_explains_why_start_validation_does_not_launch_work'` (`7 passed, 282 deselected in 42.98s`)
+    - `git diff --check`
+    - `python3 scripts/validate_backlog_tasks.py` failed before queue promotion with: `ERROR: Backlog task files exist without a TASK_QUEUE.md entry: codex/tasks/backlog-101-user-documentation.json`
+    - `codex/tasks/backlog-101-user-documentation.json` is currently present on disk but is not tracked in git and is not listed in `TASK_QUEUE.md`, so the repo queue is no longer governance-valid
+  - hold state:
+    - per the user instruction to stop on a validation failure, work stopped when the backlog validator failed on the unqueued backlog-101 file
+    - `NEXT_TASK.md` was intentionally left unchanged, so backlog-85 remains the single active task
+
+- 2026-04-24: continued `backlog-85-ui-quality-overhaul` again to add first-class Mission Control run approvals without changing the backend lane:
+  - user-reported issue addressed in this pass:
+    - normal run-level `pending_approval` states had no UI approve/reject path, forcing the operator onto raw API calls even though the backend route already existed
+  - patched UI scope:
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - implementation details landed:
+    - Mission Control now renders `Approve Run` / `Reject Run` controls for normal run-level approval gates, alongside the exact approval gate name, current actor, recorded approval decisions, and a `Change Actor` helper for multi-approver flows
+    - approval submissions now patch the selected run directly from the approval API response before any later engagement refresh finishes, so the approval wall can clear immediately in the UI instead of waiting on a slower secondary refresh path
+    - the topbar actor field still rerenders Mission Control, but that rerender is now deferred to the next animation frame so changing actor and immediately clicking `Approve Run` no longer swallows the approval click on blur
+    - approval actions now use shell-level delegated click handling, matching the rest of the Mission Control action model and avoiding stale inline-handler behavior after rerenders
+    - added compact approval-history styling so recorded decisions read as operator-facing context rather than raw counts
+  - validation:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py::test_pending_approval_run_can_be_approved_from_mission_control ui/tests/test_operator_console_e2e.py::test_pending_approval_run_guides_actor_switch_for_second_approver ui/tests/test_product_feature_matrix_e2e.py::test_execution_outcome_matrix_surfaces_blocked_pending_approval_state` (`3 passed in 14.77s`)
+    - `git diff --check`
+    - `python3 scripts/validate_backlog_tasks.py` still fails on the separate repo-governance drift: `ERROR: Backlog task files exist without a TASK_QUEUE.md entry: codex/tasks/backlog-101-user-documentation.json`
+  - hold state:
+    - `NEXT_TASK.md` remains intentionally unchanged because backlog-85 is still the single active task and the mandatory queue validator is still red on the unrelated backlog-101 drift
+
+- 2026-04-24: investigated and repaired the live localhost `Start Validation` outage reported from Mission Control on the real direct-host app:
+  - user-reported issue addressed in this pass:
+    - repeated clicks on `Start Validation` in Mission Control appeared to do nothing on `http://localhost:8000/app/`, leaving the run stuck in `queued` even though the UI had earlier dispatch-path tests
+  - root cause truth:
+    - the failure was real and had two layers on the live host rather than in the source tree alone
+    - first, the live inline uvicorn host on `127.0.0.1:8000` had stale imports and returned `500 Internal Server Error` from `POST /api/v1/runs/{id}/dispatch`; the traceback in `/tmp/aegispt-inline-host.log` showed an import failure while loading `SUPPORTED_TOOLS`
+    - second, after restarting the host onto current code, `active-web-safe` still depended on a local ZAP daemon and would fail the queued ZAP task when that daemon was absent
+  - patched local-host scope:
+    - `scripts/ensure_local_zap_daemon.sh`
+    - `scripts/restart_local_inline_host.sh`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - implementation details landed:
+    - added a new idempotent `scripts/ensure_local_zap_daemon.sh` helper that verifies `ZAP_BASE_URL`, auto-starts the default local daemon at `http://127.0.0.1:8080` when needed, waits for the version endpoint, and fails loudly when a non-local custom base URL is unreachable
+    - updated `scripts/restart_local_inline_host.sh` so the normal direct-host restart path now exports the default local `ZAP_BASE_URL` / `ZAP_API_KEY`, calls the new ZAP helper by default, and only then repairs schema drift, applies Alembic migrations, and restarts uvicorn
+    - restarted the inline host with `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" bash scripts/restart_local_inline_host.sh`, which now restores both the app and the required local ZAP prerequisite together on the direct-host path
+  - live verification on the real host:
+    - confirmed host health again at `http://127.0.0.1:8000/health/live`
+    - confirmed ZAP health again at `http://127.0.0.1:8080/JSON/core/view/version/?apikey=change-me-zap-key` with version `2.17.0`
+    - reproduced the exact user engagement flow by creating, approving, and dispatching a fresh `active-web-safe` run for engagement `88aa8d48-a179-41c4-95b8-7ff54c69d4e6`; the resulting run `7e1ac1a6-200e-4bb9-b3aa-710ef2bba56d` completed successfully in `inline` mode with one completed ZAP task and `42` findings
+    - also confirmed a second fresh run on the same engagement (`526f1e45-61af-4d72-adee-ccbbaddbce48`) completed successfully once the ZAP prerequisite was restored, while the earlier failed run (`878c4d49-e986-4470-aca2-71d60fb49bb5`) remains as honest evidence of the pre-fix broken host state
+  - validation:
+    - `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" bash scripts/restart_local_inline_host.sh`
+    - live ZAP health check: `curl --silent --show-error --fail "http://127.0.0.1:8080/JSON/core/view/version/?apikey=change-me-zap-key"`
+    - live HTTP dispatch repro against the real host and real engagement using the same `POST /api/v1/runs/{id}/dispatch` route the UI button calls
+    - `git diff --check`
+  - hold state:
+    - `NEXT_TASK.md` remains intentionally unchanged because backlog-85 is still the single active task
+    - the unrelated queue-governance blocker still exists because `python3 scripts/validate_backlog_tasks.py` continues to fail on `codex/tasks/backlog-101-user-documentation.json` missing from `TASK_QUEUE.md`
+
+- 2026-04-24: documented the real Gruyere product gap and expanded the intentionally vulnerable benchmark shortlist:
+  - user-reported issue addressed in this pass:
+    - the user correctly challenged the earlier implication that a completed Gruyere run meant AegisPT already covered the intentionally vulnerable classes Gruyere is designed to teach, and asked for the official site content plus other purpose-built benchmark websites to be reviewed directly
+  - research inputs used:
+    - official Gruyere sources:
+      - `https://google-gruyere.appspot.com/`
+      - `https://google-gruyere.appspot.com/part1`
+      - `https://google-gruyere.appspot.com/part4`
+      - `https://google-gruyere.appspot.com/part5`
+    - official benchmark-project sources:
+      - OWASP Juice Shop
+      - OWASP WebGoat
+      - OWASP crAPI
+      - DVWA
+      - OWASP Mutillidae II
+      - bWAPP
+      - OWASP NodeGoat
+      - OWASP PyGoat
+      - OWASP AspGoat
+      - PortSwigger Web Security Academy
+    - repo truth:
+      - `api/app/services/run_profiles.py`
+      - `docs/testing_coverage_matrix.md`
+      - `docs/runbooks/passive-web-validation-workflow.md`
+      - `workers/runners/biz_logic/runner.py`
+      - live run findings from `7e1ac1a6-200e-4bb9-b3aa-710ef2bba56d`
+  - artifacts and files added:
+    - `codex/results/gruyere-capability-gap-analysis-20260424.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - key conclusions recorded:
+    - Gruyere officially includes much richer classic-web vuln classes than the successful AegisPT run proved, including multiple XSS variants, XSRF, XSSI, path traversal, DoS, code execution, configuration disclosures, and AJAX abuse
+    - the successful live Gruyere run used `active-web-safe`, which is currently only the approval-gated ZAP crawl plus passive-validation lane, so the observed 42 findings were mostly header, clickjacking, cookie, and cache issues rather than the broader Gruyere teaching surface
+    - current repo truth still marks browser-assisted Playwright runtime validation as `Planned`, API validation as `Partial`, and manual/assisted authorization validation as `Partial`, which explains why several Gruyere classes are still only partial coverage or outright gaps today
+    - the repo-backed benchmark shortlist now identifies the most useful intentionally vulnerable targets for AegisPT evolution, with Juice Shop, WebGoat, crAPI, and DVWA as the highest practical next web/app benchmark priorities after Gruyere
+  - validation:
+    - `git diff --check`
+  - hold state:
+    - `NEXT_TASK.md` remains intentionally unchanged because backlog-85 is still the single active task
+    - no queue promotion was attempted in this research pass
+
+- 2026-04-24: completed a broader project-gap and AI-roadmap audit, converted it into repo-backed backlog work, and repaired the queue drift blocking validator truth:
+  - user-reported need addressed in this pass:
+    - the user asked for an honest review of what still has to be built for AegisPT, where the current testing gaps are, what a real "full pentesting" product still needs, and where AI should actually help instead of being decorative
+  - repo and external inputs reviewed:
+    - required repo governance and status files:
+      - `CURRENT_STATE.md`
+      - `NEXT_TASK.md`
+      - `DECISIONS.md`
+      - `TASK_QUEUE.md`
+    - current repo truth inputs:
+      - `docs/testing_coverage_matrix.md`
+      - `docs/methodology_alignment_summary.md`
+      - `docs/operator_product_operational_assurance.md`
+      - `scripts/run_acceptance_matrix.py`
+      - `scripts/acceptance_harness.py`
+      - `codex/tasks/target_lab_matrix.json`
+      - `codex/tasks/backlog-30-cloud-iam-kubernetes-analysis-foundation.json`
+      - `codex/tasks/backlog-31-llm-application-testing-foundation.json`
+      - `codex/tasks/backlog-47-llm-driven-intake-intelligence-foundation.json`
+      - `codex/tasks/backlog-99-known-vulnerability-validation-matrix.json`
+      - `codex/tasks/backlog-100-aegispt-self-security-test.json`
+      - `codex/tasks/backlog-101-user-documentation.json`
+      - `docs/ai_pentesting_agent_scope_alignment.md`
+    - primary external sources reviewed:
+      - PTES Technical Guidelines
+      - OWASP Web Security Testing Guide v4.2
+      - OWASP API Security Top 10 2023
+      - OWASP Mobile Application Security / MASTG
+      - OWASP Kubernetes Top Ten
+      - NSA/CISA Kubernetes Hardening Guidance
+      - OWASP Top 10 CI/CD Security Risks
+      - OWASP Benchmark
+      - OWASP Juice Shop
+      - OWASP WebGoat
+      - OWASP crAPI
+      - OWASP WrongSecrets
+      - OWASP PromptMe
+      - GOAD
+      - PortSwigger Web Security Academy
+      - OWASP Vulnerable Web Applications Directory
+      - OpenAI evaluation best practices
+  - key product-truth conclusions recorded:
+    - AegisPT already has meaningful evidence-first coverage across web, LAN, AD, external infrastructure, SMB, credential attacks, exploitation, reporting, and browser operator validation, but still does not honestly have first-class product coverage for browser-assisted runtime validation, API-first testing, mobile testing, cloud-native/container/Kubernetes assessment, CI/CD plus secrets-security assessment, broad benchmark-lab truth, AI-assisted benchmark grading, or desktop/thick-client assessment
+    - the acceptance harness is still too narrow for the breadth of current runners: it has strong local smoke plus Juice Shop, WebGoat, and crAPI proof, but not enough benchmark truth for GOAD/internal AD, WrongSecrets/secrets, PromptMe/LLM, OWASP Benchmark scoring, or broader browser/client-side workflow cases
+    - AI should help most as a benchmark oracle and expected-vs-actual explainer for known labs, not as a replacement scanner or autonomous truth generator
+  - files added:
+    - `codex/results/project-gap-and-ai-roadmap-20260424.md`
+    - `codex/tasks/backlog-102-browser-assisted-web-workflow-validation.json`
+    - `codex/tasks/backlog-103-api-first-assessment-workflow.json`
+    - `codex/tasks/backlog-104-mobile-application-testing-foundation.json`
+    - `codex/tasks/backlog-105-cloud-native-container-kubernetes-assessment-foundation.json`
+    - `codex/tasks/backlog-106-cicd-and-secrets-security-foundation.json`
+    - `codex/tasks/backlog-107-benchmark-lab-expansion-foundation.json`
+    - `codex/tasks/backlog-108-ai-benchmark-oracle-and-eval-foundation.json`
+    - `codex/tasks/backlog-109-desktop-thick-client-testing-foundation.json`
+  - files updated:
+    - `TASK_QUEUE.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - queue-governance repair landed:
+    - added the already-existing `codex/tasks/backlog-101-user-documentation.json` into `TASK_QUEUE.md`, which removed the specific validator drift that had been blocking queue truth in recent work
+    - appended new governed queue entries `101` through `109`, keeping the current active task unchanged while making the newly identified missing product slices explicit
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` will be rerun after this log entry to confirm the queue repair and new task packages are structurally valid
+    - `git diff --check` will also be rerun after the queue/status updates
+  - hold state:
+    - `NEXT_TASK.md` remains intentionally unchanged because backlog-85 is still the only active task
+    - this pass added audit artifacts and future backlog work; it did not implement or promote any new runtime slice
+
+- 2026-04-24: made the "every route needs a real run" expectation durable in project governance instead of leaving it as a chat-only preference:
+  - user-reported need addressed in this pass:
+    - the user asked that routes should not only be tested through code, but also be exercised for real against legal benchmark or lab targets
+  - files updated:
+    - `DECISIONS.md`
+    - `docs/operator_product_operational_assurance.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - rule added:
+    - a route, assessment type, or runtime lane must not be treated as fully supported on code tests alone
+    - support claims should use three layers where applicable:
+      - deterministic code validation
+      - browser/operator validation for UI-driven flows
+      - at least one safe real-run, benchmark-lab run, or explicitly authorized target proof
+    - when the third layer does not yet exist, the route should remain `supported-with-gap` or `blocked`
+    - arbitrary public internet targets are not the default proof path; local fixtures, official vulnerable labs, and explicitly authorized targets are preferred for safety and reproducibility
+  - validation:
+    - `git diff --check`
+  - hold state:
+    - `NEXT_TASK.md` remains intentionally unchanged because backlog-85 is still the only active task
+
+- 2026-04-24: retried the active `UI Quality Overhaul — Topbar Simplification, Empty States, and Data-Forward Panels` slice under the current governance prompt and stopped on the first blocking validation failure:
+  - repo truth re-established before touching work:
+    - read `NEXT_TASK.md`, `TASK_QUEUE.md`, `CURRENT_STATE.md`, `DECISIONS.md`
+    - because backlog-85 is a UI task, also read `UI_REDESIGN_SPEC.md`, `ui_mockup.html`, and `codex/tasks/backlog-85-ui-quality-overhaul.json`
+    - reran `python3 scripts/validate_backlog_tasks.py` and confirmed the queue is now valid at `109` mapped task packages with exactly one active task
+  - active-task blocker analysis:
+    - backlog-85 is internally contradictory in its current package:
+      - it requires `Settings > AI Provider` feature toggles for finding enrichment, post-task analysis, intake intelligence, AutoFix, and report drafting
+      - it requires those toggles to persist through the existing `PATCH /api/v1/settings` endpoint
+      - it simultaneously forbids `api/` changes
+    - current repo truth confirms the contradiction is real:
+      - `api/app/services/settings.py` only defines `ai.provider`, `ai.chatgpt_model`, `ai.http_endpoint`, and `ai.http_api_key`
+      - `api/tests/test_settings.py` explicitly proves unknown setting keys are rejected with `400`
+      - `ui/assets/modules/settings.js` still has no `AI Features` subsection or toggle rendering for those required flags
+    - current UI truth also shows backlog-85 is still incomplete independent of the settings contradiction:
+      - `ui/assets/modules/mission-control.js` still contains a developer-facing note: `This panel only reflects stored run snapshots, task status, and finding records. It does not invent stream events or per-task stdout.`
+  - required validation run and exact failure:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no -x ui/tests/test_operator_console_e2e.py`
+    - first blocker:
+      - `ui/tests/test_operator_console_e2e.py::test_external_infrastructure_tile_routes_to_external_infrastructure_execution_lane`
+      - failure summary:
+        - after creating an External Infrastructure mission, `#mission-scope-summary` no longer contains the expected `passive-external-infrastructure` text
+        - the actual UI content is the quick-overview mission-created message plus recent-event content, so the expected execution-lane truth is missing from that panel
+    - supporting static inspection used during the retry:
+      - `ui/assets/modules/settings.js`
+      - `ui/assets/modules/mission-control.js`
+      - `api/app/services/settings.py`
+      - `api/tests/test_settings.py`
+  - validation outcome:
+    - `python3 scripts/validate_backlog_tasks.py` → passed (`109` queued task packages, exactly one active task)
+    - full required Playwright suite → failed on the first blocking test above
+    - no safe real-run or benchmark proof was required in this retry because no route/runtime implementation changed and the task failed at the mandatory validation gate before any scoped product patch was landed
+  - hold state:
+    - no product-code edits were made for backlog-85 in this retry pass
+    - `NEXT_TASK.md` remains intentionally unchanged because the active task is not fully complete and the required validation contract failed
+
+- 2026-04-24: re-confirmed the active backlog-85 hold state again without changing product code, because the current governance prompt still requires stopping on the first failed validation:
+  - repo truth re-established before reporting:
+    - read `NEXT_TASK.md`, `TASK_QUEUE.md`, `CURRENT_STATE.md`, and `DECISIONS.md`
+    - because backlog-85 is a UI task, also re-read `UI_REDESIGN_SPEC.md`, `ui_mockup.html`, and the active package `codex/tasks/backlog-85-ui-quality-overhaul.json`
+    - reran `python3 scripts/validate_backlog_tasks.py` and reconfirmed `109` queued task packages with exactly one active task
+  - static blocker truth reconfirmed:
+    - `api/app/services/settings.py` still exposes only `ai.provider`, `ai.chatgpt_model`, `ai.http_endpoint`, and `ai.http_api_key`
+    - `ui/assets/modules/settings.js` still has no `AI Features` subsection or feature-toggle rendering
+    - `ui/assets/modules/mission-control.js` still contains the developer-facing note `This panel only reflects stored run snapshots, task status, and finding records. It does not invent stream events or per-task stdout.`
+  - required validation rerun and stopping point:
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no -x ui/tests/test_operator_console_e2e.py`
+    - first failure remains `ui/tests/test_operator_console_e2e.py::test_external_infrastructure_tile_routes_to_external_infrastructure_execution_lane`
+    - failure detail remains that `#mission-scope-summary` does not contain `passive-external-infrastructure` after mission creation and instead shows the quick-overview mission-created copy plus recent-event content
+  - validation outcome:
+    - `python3 scripts/validate_backlog_tasks.py` -> passed
+    - full required Playwright gate -> failed at the test above
+    - `git diff --check` -> passed after these log/state updates
+  - hold state:
+    - no product-code edits were made in this reconfirmation pass
+    - `NEXT_TASK.md` remains intentionally unchanged and backlog-85 stays the only active task
+
+- 2026-04-24: made another backlog-85 UI-only repair pass and reduced the remaining blocker to the task's own settings/API contradiction:
+  - repo truth re-established before changing code:
+    - re-read `NEXT_TASK.md`, `TASK_QUEUE.md`, `CURRENT_STATE.md`, `DECISIONS.md`
+    - because backlog-85 is still the active UI task, also re-read `UI_REDESIGN_SPEC.md`, `ui_mockup.html`, and `codex/tasks/backlog-85-ui-quality-overhaul.json`
+    - reran `python3 scripts/validate_backlog_tasks.py` and confirmed the actual queue truth is now `110` queued task packages with exactly one active task
+  - files updated in this pass:
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/index.html`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - UI fixes landed:
+    - restored `#mission-scope-summary` to the scope/profile/lane summary path by wiring Mission Control back to `renderScopeProfileSummary()` instead of the quick-overview latest-event card
+    - renamed the supporting-context panel heading from `Latest Event` to `Active Scope & Profile` so the panel label matches the data it now renders
+    - removed the lingering developer-facing telemetry note (`This panel only reflects stored run snapshots... It does not invent stream events...`) from the Mission Control code path
+    - stabilized the findings filter disclosure as a full-width disclosure block by making `#findings-filter-bar.toolbar` render as a block container and forcing `.finding-filters-disclosure` / `.remediation-portfolio-disclosure` to occupy the available width instead of behaving like shrinkable flex-toolbar children
+  - validation:
+    - targeted Playwright slice for the repaired regressions:
+      - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'external_infrastructure_tile_routes_to_external_infrastructure_execution_lane or mission_control_groups_secondary_context_into_calmer_snapshot_panels or internal_validation_conversation_stays_operational_without_credentials'`
+      - result: `3 passed, 288 deselected`
+    - targeted findings collapse regression:
+      - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'test_findings_filters_and_retest_queue_start_collapsed'`
+      - result: `1 passed, 290 deselected`
+    - full required Playwright gate:
+      - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no -x ui/tests/test_operator_console_e2e.py`
+      - interim blocker was `test_findings_filters_and_retest_queue_start_collapsed`; after the layout stabilization fix the full gate passed cleanly as `291 passed in 1556.28s (0:25:56)`
+    - queue validator:
+      - `python3 scripts/validate_backlog_tasks.py` -> passed (`110` queued task packages, exactly one active task)
+    - safe real-run / local-fixture proof:
+      - `source .venv/bin/activate && python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke`
+      - result: `passed`; engagement `f9dc45ab-a2d2-49a9-9e06-2d0109daf865`; run `00ac2d93-3f43-44df-95fb-4bb4e8f7f0b8`; result file `codex/results/acceptance-local-app-smoke-20260424-143607.json`
+    - `git diff --check` -> passed
+  - remaining blocker after this pass:
+    - backlog-85 is no longer blocked on Playwright regressions or missing local-proof evidence
+    - it is still not honestly completable because the task package requires persisted `Settings > AI Provider > AI Features` toggles while simultaneously forbidding `api/` changes, and `api/app/services/settings.py` still does not expose those feature keys through the existing settings endpoint
+  - hold state:
+    - `NEXT_TASK.md` remains intentionally unchanged because the active task is still not fully complete
+    - backlog-85 remains the only active task
+
+- 2026-04-24: finished backlog-85 by taking the narrowest logged exception needed to resolve its settings/runtime contradiction instead of leaving the task indefinitely half-complete:
+  - user-directed exception:
+    - the active task package still claimed `no backend, schema, migration, or new API work in this slice`, but the same package also required persisted `Settings > AI Provider > AI Features` toggles that the existing settings endpoint could not represent
+    - after the explicit user instruction to “go fix this” and not stop on these contradictions, the task was completed with a narrow backend/settings exception rather than held again
+    - the durable rule for handling this kind of contradiction is now recorded in `DECISIONS.md`
+  - files updated for the completion pass:
+    - `api/app/services/settings.py`
+    - `api/app/services/ai_enrichment.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/services/intake_intelligence.py`
+    - `api/app/services/autofix.py`
+    - `api/app/services/reports.py`
+    - `api/app/routers/findings.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_settings.py`
+    - `ui/assets/modules/settings.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `codex/tasks/backlog-80-first-run-onboarding.json`
+    - `codex/tasks/backlog-81-installation-package.json`
+    - `codex/tasks/backlog-82-bulk-delete-runs-engagements.json`
+    - `codex/tasks/backlog-83-dashboard-home-screen.json`
+    - `codex/tasks/backlog-84-problems-center.json`
+    - `codex/tasks/backlog-86-cinema-mode.json`
+    - `codex/tasks/backlog-87-risk-molecule-visualization.json`
+    - `codex/tasks/backlog-88-fix-forecast.json`
+    - `codex/tasks/backlog-89-lan-wizard-profile-fix.json`
+    - `codex/tasks/backlog-90-cve-feed-auto-sync.json`
+    - `codex/tasks/backlog-91-ai-nuclei-template-generation.json`
+    - `codex/tasks/backlog-92-custom-cve-library.json`
+    - `codex/tasks/backlog-93-on-demand-cve-intelligence.json`
+    - `codex/tasks/backlog-94-report-quality-overhaul.json`
+    - `codex/tasks/backlog-95-compliance-gap-advisor.json`
+    - `codex/tasks/backlog-96-gdpr-avg-data-handling.json`
+    - `codex/tasks/backlog-97-nis2-dora-tiber-compliance.json`
+    - `codex/tasks/backlog-98-evidence-completeness-guarantor.json`
+    - `codex/tasks/backlog-99-known-vulnerability-validation-matrix.json`
+    - `codex/tasks/backlog-100-aegispt-self-security-test.json`
+    - `codex/tasks/backlog-101-user-documentation.json`
+    - `codex/tasks/backlog-102-browser-assisted-web-workflow-validation.json`
+    - `codex/tasks/backlog-103-api-first-assessment-workflow.json`
+    - `codex/tasks/backlog-104-mobile-application-testing-foundation.json`
+    - `codex/tasks/backlog-105-cloud-native-container-kubernetes-assessment-foundation.json`
+    - `codex/tasks/backlog-106-cicd-and-secrets-security-foundation.json`
+    - `codex/tasks/backlog-107-benchmark-lab-expansion-foundation.json`
+    - `codex/tasks/backlog-108-ai-benchmark-oracle-and-eval-foundation.json`
+    - `codex/tasks/backlog-109-desktop-thick-client-testing-foundation.json`
+    - `codex/tasks/backlog-110-ui-visual-polish-round-2.json`
+    - `codex/tasks/backlog-111-wizard-chrome-cleanup.json`
+    - `codex/tasks/backlog-112-full-mockup-alignment.json`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `DECISIONS.md`
+    - `NEXT_TASK.md`
+  - completion details:
+    - added tenant-scoped persisted AI feature flags to the existing settings endpoint for finding enrichment, post-task analysis / AI Signal, intake intelligence, AutoFix, and report drafting
+    - added runtime settings overlay helpers so routes and AI services read persisted `ai.provider` and enabled flags instead of environment defaults only
+    - wired those overlays into finding enrichment, post-task analysis, intake intelligence, AutoFix, report drafting, finding theater, and run report-draft / intake flows
+    - rebuilt `Settings > AI Provider` so the screen now has a dedicated `AI Features` subsection, persisted checkbox toggles, and a warning whenever features are enabled before `ChatGPT OAuth` is selected
+    - repaired queue-governance drift by realigning `source_context.queue_index` across the affected backlog task files, which restored a green queue validator
+  - validation:
+    - targeted backend regression:
+      - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py` (`6 passed in 5.48s`)
+    - targeted browser regression:
+      - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'settings_screen_defaults_to_disclosures_with_chatgpt_panel_open or settings_chatgpt_connect_opens_authorization_window or settings_ai_feature_toggles_persist_and_warn_until_chatgpt_provider_selected'` (`3 passed, 289 deselected in 15.19s`)
+    - full API suite:
+      - `source .venv/bin/activate && python -m pytest --capture=no api/tests/` (`246 passed in 238.72s (0:03:58)`)
+    - full required Playwright gate:
+      - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`292 passed in 1560.51s (0:26:00)`)
+    - queue validator:
+      - `python3 scripts/validate_backlog_tasks.py` (`112 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task`)
+    - safe live proof:
+      - `source .venv/bin/activate && python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke` (`passed`; engagement `b430fc23-fabb-4063-8b71-8fe7d8be2371`; run `d858e6cd-2f41-4b5e-b3b9-dab95ab27c94`; result file `codex/results/acceptance-local-app-smoke-20260424-152355.json`)
+    - `git diff --check` (`passed`)
+  - promotion:
+    - backlog-85 is now complete and no longer the active task
+    - `NEXT_TASK.md` now promotes backlog-80 `First-Run Onboarding Experience`
+
+- 2026-04-24: repaired the queue after an external half-finished reprioritization attempt so the wizard-led UI work is now clearly and validly front-loaded in the repo instead of only in chat:
+  - repo-truth problem:
+    - a separate attempt had tried to move backlog-110, backlog-111, and backlog-112 forward by editing task-package `source_context.queue_index` values without updating the authoritative markdown queue
+    - `scripts/validate_backlog_tasks.py` correctly treats that as drift, because `TASK_QUEUE.md` is the source of truth for queue order and task JSON must match it
+  - queue decision implemented:
+    - kept the current active task unchanged: backlog-80 `First-Run Onboarding Experience` remains the single active slice in `NEXT_TASK.md`
+    - moved backlog-110 `UI Visual Polish Round 2`, backlog-111 `Wizard Chrome Cleanup`, and backlog-112 `Full UI Mockup Alignment` to the next three queue positions immediately after backlog-80 in `TASK_QUEUE.md` at positions 82-84
+    - shifted the previous queue items 82-109 down by three positions so the queue stays one-to-one and validator-safe
+  - task-package clarifications:
+    - re-synced `source_context.queue_index` across all queue-backed task files to match the new authoritative markdown order
+    - updated backlog-110 to depend on completed backlog-80 instead of the already-finished backlog-85 and explicitly added `wizard_mockup.html` as an alignment document
+    - kept backlog-111 as the next wizard-specific slice and left its dependency on backlog-110 intact
+    - updated backlog-112 to make the intended authority explicit: `wizard_mockup.html` now drives intake/design-language cues while `ui_mockup.html` remains the broader whole-app layout reference
+    - updated `TASK_QUEUE.md` wording so the queue itself now says these three accelerated slices are wizard-mockup-driven, making the design intent visible without chat context
+  - governance updates:
+    - added a durable queue/mockup rule to `DECISIONS.md`: `TASK_QUEUE.md` is the authoritative queue order, and newer visual authorities such as `wizard_mockup.html` must be named explicitly in affected task packages
+    - updated `CURRENT_STATE.md` to record that the upcoming UI work is now clearly front-loaded behind the active onboarding slice
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
+- 2026-04-24: tightened the queued Mission Control UI scope so operator feedback about unreadable live activity is now explicitly backlog-backed:
+  - user feedback captured:
+    - the current Mission Control still feels too text-heavy, the cards do not read as cleanly aligned operational widgets, and the operator wants to see the live command/run output directly on the page instead of only an abstract moving icon or separate drill-down flow
+  - task-package clarification applied:
+    - updated `codex/tasks/backlog-112-full-mockup-alignment.json` so its Mission Control scope now explicitly requires a readable selected-task panel with live terminal/stdout output or the latest captured command output for the active/selected task
+    - added explicit success and acceptance criteria that Mission Control must expose readable live run output on the main screen and keep cards compact/aligned/data-first instead of prose-heavy
+    - updated the `TASK_QUEUE.md` summary line for backlog-112 so the queue itself now says Mission Control includes readable live task output
+  - governance note:
+    - because the user explicitly said to ignore the complaint if it was already in backlog, this change keeps the work in the queued UI slices rather than starting an out-of-order implementation pass; the repo now makes that coverage explicit instead of leaving it implicit in `ui_mockup.html`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
+- 2026-04-24: repaired the live `Settings > AI Provider` AI-features experience after the operator found an empty `AI Features` card even with OpenAI connected:
+  - issue reproduced:
+    - the live screenshot was truthful: the `AI Features` subsection rendered with only explanatory copy and no actual toggles
+    - direct `curl http://127.0.0.1:8000/api/v1/settings` confirmed the running `ai_provider` section only exposed 4 settings (`ai.provider`, `ai.chatgpt_model`, `ai.http_endpoint`, `ai.http_api_key`) instead of the expected 9 including the five AI feature toggles
+  - root cause:
+    - repo code already contained the AI feature definitions, but the localhost `:8000` backend process was stale and still serving the older settings payload shape
+    - frontend copy also had a separate truthfulness bug: when ChatGPT OAuth was already selected and no helpers were enabled, the page still said `Select ChatGPT OAuth before turning on the AI helpers below`, which reads as wrong even after the toggles are visible
+  - fixes applied:
+    - restarted the inline localhost host from the current repo code using the repo-local Playwright browser path so the restart did not block on `/opt` sudo writes
+    - updated `ui/assets/modules/settings.js` so the `AI Features` note is truthful in both states:
+      - with ChatGPT OAuth selected and all helpers off: it now says helpers are currently off and can be enabled below
+      - with provider disabled and all helpers off: it now says to select ChatGPT OAuth before turning any of them on
+    - bumped the static asset version in `ui/index.html` so browsers pick up the refreshed bundle instead of holding on to the older settings script
+    - added a backend regression in `api/tests/test_settings.py` asserting that the AI feature toggle keys are present in `/api/v1/settings`
+    - added a Playwright regression in `ui/tests/test_operator_console_e2e.py` asserting truthful helper-copy when ChatGPT OAuth is selected but all helpers are off
+  - live verification:
+    - after the restart, `/api/v1/settings` now returns 9 settings in the `ai_provider` section:
+      - `ai.provider`
+      - `ai.chatgpt_model`
+      - `ai.http_endpoint`
+      - `ai.http_api_key`
+      - `ai.finding_enrichment_enabled`
+      - `ai.post_task_analysis_enabled`
+      - `ai.intake_intelligence_enabled`
+      - `ai.autofix_enabled`
+      - `ai.report_drafting_enabled`
+    - `http://127.0.0.1:8000/app/` is running on the refreshed bundle version `20260424-ai-features-hotfix-1`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py` (`7 passed in 5.26s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'settings_ai_feature_toggles_persist_and_warn_until_chatgpt_provider_selected or settings_ai_feature_copy_is_truthful_when_chatgpt_oauth_is_selected_but_helpers_are_off'` (`2 passed, 291 deselected in 11.94s`)
+    - `git diff --check`
+
+- 2026-04-24: corrected the backlog language after the user called out that the cleaner mockup standard was meant for the full UI, not just Mission Control:
+  - issue corrected:
+    - earlier wording around backlog-110 and the surrounding explanation could still be read as if the mockup standard only mattered for Mission Control cleanup
+    - that was too narrow and did not reflect the user's explicit direction that the cleaner standard should be held across the full UI touched by these slices
+  - repo-backed clarification:
+    - `DECISIONS.md` now states that for the accelerated post-onboarding UI slices, `wizard_mockup.html` is the default design-language authority across the full UI they touch, not only intake or Mission Control
+    - `TASK_QUEUE.md` now says backlog-110 applies the `wizard_mockup.html` standard across the full UI touched in that pass and backlog-112 treats `wizard_mockup.html` plus `ui_mockup.html` as the full product UI standard
+    - `codex/tasks/backlog-110-ui-visual-polish-round-2.json` now says explicitly that the slice applies the mockup as the default UI standard across every touched screen, not as a Mission-Control-only tweak
+    - `codex/tasks/backlog-112-full-mockup-alignment.json` now says explicitly that the combined mockup system is the product-wide UI standard for all touched screens, not a screen-specific suggestion
+  - intent preserved:
+    - this does not reorder the queue again and does not change the single active task; it only makes the backlog truth match the product direction more honestly and durably
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
+- 2026-04-24: completed backlog-80 `First-Run Onboarding Experience` and promoted the next UI slice:
+  - onboarding implementation:
+    - added a hidden persisted instance setting `instance.onboarding_completed` so first-run auto-display is durable without exposing a stray operator-facing toggle in generic settings lists
+    - added a 3-step onboarding overlay in the live UI:
+      - welcome
+      - quick setup for AI provider, default LAN scope, and actor name
+      - ready state with either `Run your first scan` or a dismiss-to-explore path
+    - onboarding now auto-shows only when no engagements exist and the onboarding-completed flag is still false
+    - `Settings > Instance` now exposes a `Re-run onboarding` control so the guided flow can be reopened intentionally later
+    - added setup checklist widgets that surface the first-run state on the intake landing and Mission Control until the core onboarding items are completed; this is the narrow repo-backed implementation of the task's dashboard checklist requirement because the product still has no separate dashboard screen
+    - `Run your first scan` persists the chosen defaults, updates the topbar actor, and pre-fills the intake wizard toward the first internal LAN mission path when a default CIDR is supplied
+  - stability / test-harness work:
+    - introduced fresh-install Playwright fixtures that do not pre-mark onboarding as complete, while keeping the default giant suite stable by continuing to patch `instance.onboarding_completed = true` for legacy tests
+    - fixed a fresh-install onboarding render crash caused by a local `selectedEngagement` shadowing bug inside the onboarding overlay renderer
+    - tightened screen-aware navigation waits inside the UI harness so full-suite navigation remains deterministic under load
+  - live localhost proof:
+    - verified the current code on `http://127.0.0.1:8000/app/` rather than only fixture-host test instances
+    - confirmed the new bundle version was loaded, opened `Settings`, triggered `Re-run onboarding`, and captured live proof at `codex/results/backlog-80-live-onboarding-rerun.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py` (`7 passed`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py -k 'first_run_onboarding or first_run_checklist_moves_from_intake_home_to_mission_control'` (`3 passed`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`296 passed`)
+    - `git diff --check`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-110-ui-visual-polish-round-2.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-24: completed and closed the active `UI Visual Polish Round 2` task, then promoted exactly one next backlog package:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `TASK_QUEUE.md`, `DECISIONS.md`, `UI_REDESIGN_SPEC.md`, `wizard_mockup.html`, `ui_mockup.html`, and `codex/tasks/backlog-110-ui-visual-polish-round-2.json` before continuing implementation
+  - applied the calmer `wizard_mockup.html` standard across the touched UI surfaces instead of treating it as a Mission-Control-only tweak:
+    - `ui/index.html` now keeps Mission Control inside a cleaner three-column shell by moving the phase timeline into `Current Activity`, removing the extra full-width supporting-context row, and nesting the operational snapshot/support context inside the AI column
+    - `ui/assets/modules/mission-control.js` now renders mission phases as a compact stepper, keeps only functional Surface Map tabs, shows a light empty-state when no mapped inventory exists, and restores the selected-run dispatch fallback plus readable empty-state copy
+    - `ui/assets/modules/wizard.js` and `ui/assets/modules/runtime.js` now keep the intake start cleaner by removing the old always-open manual-entry conflict, replacing the old floating `Mission Progress` block with calmer context notes, and preserving truthful tile-vs-conversational routing for the broader conversational matrix
+    - `ui/assets/modules/reports.js` now replaces raw SHA presentation with a human-readable `Evidence hash: verified` treatment plus copy/disclosure behavior
+    - `ui/assets/modules/explorer-history.js` now gives the empty comparison panel a guided visual state instead of a mostly blank instruction card
+    - `ui/assets/styles.css` now carries the compact phase stepper, calmer onboarding checklist strip, denser assessment-tile layout, cleaner Surface Map empty-state styling, and the support-grid width correction that keeps the Mission Control exposure sparkline visible
+    - `ui/tests/test_operator_console_e2e.py` was updated so the browser suite matches the current tile-first intake truth instead of stale conversational-copy assumptions, while still preserving the broader conversational-path coverage through manual-entry flows
+    - `ui/assets/modules/shared.js` now emits explicit sparkline SVG dimensions so exposure sparklines render as visible elements in both Mission Control and History
+  - live localhost proof:
+    - restarted the inline host on current code with the repo-local Playwright browser cache (`PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers"`) so the host proof did not stall on `/opt` sudo writes
+    - captured fresh live screenshots on `http://127.0.0.1:8000/app/` at:
+      - `codex/results/backlog-110-live-wizard.png`
+      - `codex/results/backlog-110-live-mission-control.png`
+      - `codex/results/backlog-110-live-surface-map.png`
+      - `codex/results/backlog-110-live-reports.png`
+      - `codex/results/backlog-110-live-history.png`
+  - safe proof run:
+    - `python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke` passed on the refreshed host with engagement `6227bf6d-59ba-402e-8c49-6bbf527b78c0`, run `d623a8ca-c492-4cc2-b37a-5396ac166334`, and result file `codex/results/acceptance-local-app-smoke-20260424-190053.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`112 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`298 passed in 1836.16s`)
+    - `git diff --check`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-111-wizard-chrome-cleanup.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-24: completed backlog-111 `Wizard Chrome Cleanup` and promoted the next approved UI slice:
+  - read `CURRENT_STATE.md`, `NEXT_TASK.md`, `TASK_QUEUE.md`, `DECISIONS.md`, `UI_REDESIGN_SPEC.md`, `wizard_mockup.html`, `ui_mockup.html`, and `codex/tasks/backlog-111-wizard-chrome-cleanup.json` before implementation
+  - delivered the task as a UI-only slice while preserving the existing deterministic wizard/runtime foundations:
+    - `ui/index.html` now carries the backlog-111 bundle version and the intake heading `What do you want to test?`
+    - `ui/assets/modules/runtime.js` now boots the wizard in tile mode with no synthetic assistant greeting turn
+    - `ui/assets/modules/wizard.js` now renders the 4-step intake indicator, the `Recent Missions` quick-start row, the explicit `Selected:` bar, and the calmer step-1 shell required by `wizard_mockup.html`
+    - `ui/assets/modules/wizard.js` also restores a narrow `Describe it instead` path for custom-intent missions like TLS-only validation, preserves truthful recent-mission prefill, removes the accidental default `External Web` selection state, and keeps target/depth order aligned by assessment family instead of forcing one stale ordering across every flow
+    - `ui/assets/styles.css` now compacts the intake shell so the 8 primary tiles fit above the fold at `1440x900`, including a denser empty recent-missions state and smaller tile geometry in the specific desktop viewport the task package required
+    - `ui/tests/test_operator_console_e2e.py` now matches the new wizard shell honestly:
+      - old greeting expectations are routed through the new assessment-shell compatibility helper
+      - recent-mission quick-start prefill is browser-covered
+      - TLS/custom-intent paths still work through the new `Describe it instead` route
+      - stale goal/scope ordering assumptions and stale stage-dot access edits were updated to the new stepper/edit semantics
+  - live localhost and operator-proof evidence:
+    - verified the current code on `http://127.0.0.1:8000/app/` rather than only fixture hosts
+    - captured live proof of the new intake shell at `codex/results/backlog-111-live-localhost-intake.png`
+    - visually confirmed the screenshot shows:
+      - the new heading
+      - the 4-step indicator
+      - recent mission cards
+      - 8 primary tiles above the fold without the old floating progress block
+      - no implicit preselected `External Web` state
+  - safe runtime proof:
+    - `python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke` passed with engagement `ef037432-2318-49ff-94a5-51567855dc12`, run `0433ac6a-e90a-4d8a-a5e2-6e450a570c1e`, and result file `codex/results/acceptance-local-app-smoke-20260424-223624.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`112 queued task packages mapped one-to-one, and NEXT_TASK.md contains exactly one active task`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`299 passed in 2047.95s`)
+    - `git diff --check`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-112-full-mockup-alignment.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-25: completed backlog-112 `Full UI Mockup Alignment`, closed the remaining full-app UI alignment work, and repaired a live ChatGPT OAuth report-drafting regression that surfaced during the slice:
+  - governance / reading:
+    - reread `CURRENT_STATE.md`, `NEXT_TASK.md`, `TASK_QUEUE.md`, `DECISIONS.md`, `UI_REDESIGN_SPEC.md`, `wizard_mockup.html`, `ui_mockup.html`, and the active package `codex/tasks/backlog-112-full-mockup-alignment.json`
+  - completed UI alignment work:
+    - `ui/index.html`, `ui/assets/app.js`, `ui/assets/modules/mission-control.js`, and `ui/assets/styles.css` now close the mockup-driven shell work with the 3-column Mission Control layout, compact phase strip, calmer topbar/avatar shell, correct sidebar grouping, and utility-link treatment for compatibility routes
+    - `ui/assets/modules/findings.js` now keeps the full-width findings list + right drawer pattern, collapsed filters, grouped row cards, and truthful discovery/follow-up empty/detail states
+    - `ui/assets/modules/reports.js` now keeps the run strip + report card grid, adds compact discovery/follow-up notes inside the strip, restores the `report-follow-up-note` and `report-discovery-note` contract surfaces, and keeps the reader panel consistent with the quieter mockup language
+    - `ui/tests/test_operator_console_e2e.py` was updated only where the older UI-contract assumptions no longer matched the final mockup-backed shell
+  - narrow repo-backed exception taken to finish the active task honestly:
+    - a live operator complaint showed that `Generate AI Draft` on localhost still failed even though ChatGPT OAuth showed as connected
+    - instead of leaving the UI in a false-supported state, I applied the smallest backend correction needed so the polished Reports screen pointed at a working feature
+  - ChatGPT OAuth report-drafting repair:
+    - `api/app/config.py` now defaults the ChatGPT OAuth model to `gpt-5.4` instead of the invalid `openai-codex/gpt-5.4`
+    - `api/app/services/chatgpt_oauth.py` now includes a streaming JSON helper for the Codex backend, using the working shape (`store: false`, `stream: true`, response-style input list, explicit instructions) and JSON parsing from streamed output text
+    - `api/app/services/reports.py` now supports `chatgpt_oauth` report drafting through that streaming helper instead of treating the provider as unsupported, and `api/app/routers/runs.py` now passes the database session into the report-draft builder
+    - `api/app/services/autofix.py` and `ui/assets/modules/settings.js` were updated so the displayed/default ChatGPT OAuth model truth matches the working backend model family
+    - backend/browser contract coverage was added or updated in:
+      - `api/tests/test_reports.py`
+      - `api/tests/test_chatgpt_oauth.py`
+      - `api/tests/test_settings.py`
+  - live proof:
+    - restarted the inline localhost host on the refreshed code with `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" bash scripts/restart_local_inline_host.sh`
+    - proved the live route directly:
+      - `POST /api/v1/runs/0433ac6a-e90a-4d8a-a5e2-6e450a570c1e/report-draft`
+      - returned `available: true`, `provider: chatgpt_oauth`, `status: review_only_draft`, populated sections, and `failure_reason: null`
+    - captured live browser proof at `codex/results/backlog-112-live-report-draft.png`, showing the report reader with `AI-assisted draft ready for operator review`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python -m pytest --capture=no api/tests/test_reports.py -k 'ai_report_draft'` (`3 passed`)
+    - `python -m pytest --capture=no api/tests/test_chatgpt_oauth.py -k 'refreshes_before_backend_call'` (`1 passed`)
+    - `python -m pytest --capture=no api/tests/test_settings.py` (`7 passed`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`299 passed in 2021.58s`)
+    - `python scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke` (`passed`; result file `codex/results/acceptance-local-app-smoke-20260425-014805.json`)
+    - `git diff --check`
+  - queue / governance:
+    - promoted `codex/tasks/backlog-81-installation-package.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-25: repaired the follow-on governance drift after backlog-112 closure and re-verified the live ChatGPT OAuth draft route:
+  - queue / governance repair:
+    - restored `NEXT_TASK.md` on disk after a transient local deletion so the repo once again had exactly one active task file
+    - set the restored task file back to backlog-81 `Installation Package`, matching the already-logged promotion and the current `TASK_QUEUE.md` ordering
+    - reran `python3 scripts/validate_backlog_tasks.py`, which now again passes at `112` queued task packages mapped one-to-one and exactly one active task
+  - live route recheck:
+    - re-posted a real JSON body to `POST /api/v1/runs/0433ac6a-e90a-4d8a-a5e2-6e450a570c1e/report-draft` on `http://127.0.0.1:8000`
+    - confirmed the route still returns `available: true`, `provider: chatgpt_oauth`, `status: ok`, populated sections, and no failure reason after the backend/model fix
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+
+- 2026-04-25: completed backlog-81 `Installation Package` and promoted the approved post-mockup UI closure slice:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-81-installation-package.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-81 was the single active task before implementation
+    - checked `http://127.0.0.1:8000/health/live`; the live host was relevant only as a safe local health proof, not as primary install-package validation
+  - installation package delivered:
+    - added root `docker-compose.yml` with `aegispt-api`, `aegispt-worker`, `aegispt-db`, `aegispt-redis`, and `aegispt-tools`
+    - added `docker-compose.override.yml.example` for local source mounts
+    - added root `.env.example` and updated `scripts/generate_compose_env.sh` so generated root `.env` files include PostgreSQL, ZAP, Metasploit, and local Fernet secrets
+    - added `infra/compose/Dockerfile` as the Kali-based runtime/tools image for Compose while keeping product code unchanged
+    - polished `scripts/install_aegispt_host.sh` with host detection, path/sudo checks, generated host-local secret key support, clear install phases, and a final ready/health/log summary
+    - extended `scripts/install_security_tools.sh` with backlog-81 tool dependencies for identity/offensive workflows where available from apt or pipx
+    - updated `infra/host/aegispt-host.env.example` with ZAP settings and current `CHATGPT_OAUTH_MODEL=gpt-5.4`
+    - added `docs/install/README.md` and `docs/install/windows-wsl.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`113` queued task packages mapped one-to-one; exactly one active task)
+    - `bash -n scripts/install_aegispt_host.sh`
+    - `bash -n scripts/generate_compose_env.sh`
+    - `bash -n scripts/install_security_tools.sh`
+    - `docker-compose config -q` (green fallback parser on this host)
+    - `scripts/generate_compose_env.sh /tmp/aegispt-compose-env-test-*` generated non-placeholder local secrets and a matching PostgreSQL URL
+    - `curl -sS http://127.0.0.1:8000/health/live` returned `{"status":"ok",...}`
+    - `git diff --check`
+  - validation risks / honest exceptions:
+    - required `docker compose config --quiet` could not run because this host lacks the Docker Compose v2 plugin and only has `docker-compose 1.29.2`; the v1 fallback parsed the root Compose file successfully
+    - required `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py` did not complete; the repeated direct run timed out after 180s while still on the first end-to-end test, so the feature matrix is not claimed green
+  - queue / governance:
+    - promoted `codex/tasks/backlog-113-post-mockup-ui-closure.json` into `NEXT_TASK.md` as the new single active task, preserving the approved order: installation first, then hard mockup parity UI closure, then bulk delete/dashboard/Problems Center
+
+- 2026-04-26: completed an operator-requested full regression and live-host stabilization pass after the UI/intake/live-agent changes, without closing or promoting the active backlog-93 task:
+  - rationale:
+    - the user reported broken intake launch behavior, weak live-agent visibility, stale live-host code, and missing proof that the full flow had actually been tested
+    - the work stayed corrective and validation-focused: no broad roadmap task was promoted, and backlog-93 remains active because its required dedicated test file is still missing
+  - fixes applied:
+    - `ui/assets/modules/wizard.js` now preserves the intended guided-flow configuration:
+      - external IP/WAN guided runs stay passive perimeter-discovery first even when the operator selected deeper follow-up intent
+      - internal LAN staged runs keep Standard/Deep follow-up modules such as web crawling, content discovery, nuclei, TLS, and adaptive coverage when depth requires them
+      - passive inventory-first LAN remains discovery-only
+      - External Web plus a private CIDR once again shows the LAN discovery routing warning and one-click correction
+    - `ui/assets/app.js` now marks first-run onboarding scope prefill as confirmed so the typed onboarding CIDR is not overwritten by the default LAN demo CIDR
+    - `workers/runners/responder/runner.py` now records deterministic clean kill-switch termination in the sanitized Responder evidence log even if the wrapped tool exits before writing its own final line
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`115` queued task packages mapped one-to-one; exactly one active task)
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_e2e.py` (`186 passed in 868.78s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_product_feature_matrix_e2e.py` (`46 passed in 153.48s`)
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_mockup_port_e2e.py ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_problems_center_e2e.py` (`8 passed in 25.54s`)
+    - `bash scripts/run_ui_fast_tests.sh` (`6 passed in 19.44s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests` (`268 passed in 283.20s`)
+    - `source .venv/bin/activate && python -m pytest --capture=no workers/tests` (`69 passed in 7.58s`)
+    - `python3 -m compileall -q api workers ui/tests scripts`
+    - JS syntax check for `ui/assets/app.js` and `ui/assets/modules/*.js`
+    - `git diff --check`
+  - live-host proof:
+    - restarted current-code localhost host with `AEGISPT_LOCAL_ENSURE_ZAP=0 PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" bash scripts/restart_local_inline_host.sh`
+    - verified `http://127.0.0.1:8000/health/live`, `/api/v1/dashboard`, `/api/v1/problems`, and `/app/`; `/api/v1/dashboard` no longer returns the stale-host 404
+    - ran safe live acceptance: `local-app-smoke` passed and wrote `codex/results/live-local-app-smoke-20260426.json`
+    - captured live browser route screenshots under `codex/results/live-ui-20260426/`
+    - full evidence summary is recorded in `codex/results/full-regression-validation-20260426.md`
+  - known blocker / not complete:
+    - backlog-93 remains active and is not closed
+    - required command `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_on_demand_cve_intel.py` still fails with `ERROR: file or directory not found: api/tests/test_on_demand_cve_intel.py`
+    - no next task was promoted because the active task is not finished
+
+- 2026-04-28: completed an operator-requested corrective hotfix for the Full Internal LAN chain and ChatGPT post-task AI path, without closing or promoting the active backlog-94 task:
+  - rationale:
+    - the user reported that Full LAN appeared to finish after the first phase, Findings stayed empty, intrusive runners were skipped without clear unblock guidance, and AI still failed
+    - this was treated as a blocking product/runtime fix; backlog-94 `Report Quality Overhaul` remains the single active backlog task
+  - fixes applied:
+    - `api/app/services/assessment_chain.py` now aggregates all inventory snapshots across the chain instead of only using the newest snapshot, so host and web follow-up stages keep the full discovered target set
+    - assessment chains now use `completed_with_gaps` when runnable checks finish but later runners are skipped due missing prerequisites, rather than showing a misleading clean completion
+    - host follow-up, web follow-up, and exploitation follow-up target binding now use discovered hosts, discovered URLs, configured host targets, or the allowlisted finding target as appropriate
+    - `ui/assets/modules/mission-control.js` now treats `completed_with_gaps` as terminal progress and exposes runner skip reasons in the Phase Runners disclosure
+    - `api/app/services/chatgpt_oauth.py` now auto-reuses an existing encrypted ChatGPT OAuth session for new engagements and post-task analysis now uses the streaming Codex response shape
+  - live proof:
+    - restarted current-code localhost with `bash scripts/restart_local_inline_host.sh`
+    - verified `http://127.0.0.1:8000/health/live` returns `status: ok`
+    - verified `/app/` loads `app.js?v=20260428-full-lan-chain-gaps-1`
+    - validated live Full Internal LAN chain `c5e81476-c653-4211-a983-160b5b8d88f8` on `10.0.20.0/28`: final status `completed_with_gaps`, 4 of 4 phases accounted for, 14 runs, 9 task cards, and 2 stored findings
+    - reran post-task AI on a completed live task and received `succeeded` from provider `chatgpt_oauth` with `token_exposed: false` and `dispatches_work: false`
+    - full evidence is recorded in `codex/results/full-lan-chain-ai-hotfix-20260428.md`
+  - validation:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/assessment_chain.py api/app/services/chatgpt_oauth.py`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py api/tests/test_chatgpt_oauth.py` (`19 passed in 17.19s`)
+  - remaining risks:
+    - phase 3/4 intrusive and AD runners still correctly skip without real prerequisites such as responder interface, AD/domain context, stored credentials/hashes, roastable candidates, or an allowlisted exploitation finding
+    - historical failed AI reasoning rows remain in the local database, but new post-fix AI validation succeeds
+    - no backlog task was promoted because this was a corrective hotfix and backlog-94 remains active
+
+- 2026-04-28: completed an operator-requested Deep LAN unauthenticated enrichment hotfix, without closing or promoting the active backlog-94 task:
+  - rationale:
+    - the user correctly reported that Deep/Internal LAN should still test much more without a username/password; credentials are not required for broader unauthenticated discovery/enrichment, only for credentialed/intrusive AD/lateral/exploitation steps
+    - the existing chain was skipping LDAP/EASM too early in Phase 1 before discovery had produced usable hosts/services, and Phase 2 service enumeration was too shallow for a Deep LAN intent
+  - fixes applied:
+    - `api/app/services/assessment_chain.py` now keeps Full Internal LAN Phase 1 focused on discovery and moves unauthenticated enrichment into Phase 2 after discovered inventory exists
+    - Phase 2 now includes `passive-network-service-enumeration`, `passive-lan-infrastructure-audit`, `passive-lan-smb-enum`, `passive-identity-ldap-enum`, web baseline, nuclei audit, and AD/BloodHound only when prerequisites exist
+    - `api/app/services/run_profiles.py` adds `passive-lan-infrastructure-audit`, backed by the existing infrastructure runner for full-port service detection, HTTP follow-up, SSH audit, passive SMB review, and infrastructure-focused nuclei validation against discovered internal hosts
+    - Deep LAN service enumeration now materializes bounded stronger nmap settings: `-Pn -sV --top-ports 1000 --version-intensity 5 -T3 --max-retries 2 --host-timeout 90s` plus task timeout `180s`
+    - `api/app/services/runs.py` now passes chain-specific nmap overrides into queued task params
+    - `workers/orchestration/tasks.py` now preserves task-specific runner timeout instead of always overwriting it with the environment default
+    - `workers/runners/ldap_enum/runner.py` can enumerate an LDAP IP target without preconfigured `base_dn` by discovering RootDSE `defaultNamingContext`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py workers/tests/test_ldap_enum_runner.py -q` (`20 passed`)
+    - `source .venv/bin/activate && python -m py_compile api/app/services/assessment_chain.py api/app/services/runs.py api/app/services/run_profiles.py workers/runners/ldap_enum/runner.py workers/orchestration/tasks.py`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - evidence:
+    - `codex/results/deep-lan-unauthenticated-enrichment-hotfix-20260428.md`
+  - remaining risks:
+    - credentialed and intrusive checks still correctly require prerequisites such as AD context, credentials/hashes, candidate accounts, allowlisted findings, or full authorization
+    - no standalone intrusive live run was started during validation
+    - no backlog task was promoted because this was a corrective hotfix and backlog-94 remains active
+
+- 2026-04-28: completed an operator-requested Mission Control chain-visibility hotfix, without closing or promoting the active backlog-94 task:
+  - rationale:
+    - the user reported that it was too hard to see what a session is actually doing, what is still coming, and what will still be tested
+    - this was treated as a live-operations usability correction on top of the existing assessment-chain payload, not as a new runtime lane
+  - fixes applied:
+    - `ui/assets/modules/mission-control.js` now renders a visible assessment-chain operator map with `Now`, `Next`, and `Remaining Plan`
+    - the same panel now renders a phase-by-phase runner roadmap showing readable runner names, live statuses, and inline skip reasons
+    - runner label formatting keeps real acronyms such as `LDAP`, `EASM`, `AD`, `LAN`, and `SMB`, while avoiding awkward labels like `WEB`
+    - `ui/assets/styles.css` adds compact roadmap styling that follows the existing card/chip language and collapses cleanly on narrower layouts
+    - `ui/index.html` and `ui/assets/app.js` now serve asset version `20260428-chain-visibility-2`
+  - live proof:
+    - restarted current-code localhost with `bash scripts/restart_local_inline_host.sh`
+    - verified `/app/` serves `styles.css?v=20260428-chain-visibility-2` and `app.js?v=20260428-chain-visibility-2`
+    - Playwright confirmed `assessment-chain-operator-map visible: True` in Mission Control
+    - screenshot captured at `codex/results/screenshots/chain-visibility-mission-control-20260428.png`
+    - evidence is recorded in `codex/results/assessment-chain-visibility-hotfix-20260428.md`
+  - validation:
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - remaining risks:
+    - this improves operator visibility only; it does not make AD/intrusive runners eligible without their required inputs
+    - no backlog task was promoted because this was a corrective hotfix and backlog-94 remains active
+
+- 2026-04-28: completed an operator-requested Deep LAN chain eligibility hotfix, without closing or promoting the active backlog-94 task:
+  - rationale:
+    - the user reported that Deep/Internal LAN still looked stuck because the wizard preview showed the planned multi-phase work but later phases did not actually run
+    - the latest live full-LAN chain `a1361a40-f101-4967-99e4-dc0b67cff799` had run discovery/enrichment work (`14` runs, `88` tasks, `7` findings) but skipped the credential/exploitation phases because prerequisites were missing
+    - the wizard preview also undercounted the backend plan as `4 phases · 11 tools` while the chain actually contains 18 conditional runner profiles
+  - fixes applied:
+    - `api/app/services/assessment_chain.py` now auto-detects the local route interface for `intrusive-lan-credential-capture` when a routed approved CIDR exists and `responder.interface` was not configured
+    - route-detected Responder configuration records `responder.interface` plus `responder.interface_source: route-auto-detected`
+    - the missing-interface skip reason now tells the operator that either a configured interface or routable approved CIDR is required
+    - `ui/assets/modules/wizard.js` now presents Full Internal LAN as `4 phases · 18 conditional runners`
+    - the guided phase preview now names Phase 3/4 conditions honestly: Responder on LAN route, Kerberos/NTLM if evidence exists, Metasploit for allowlisted findings, and Impacket with credentials
+    - full-authorization copy now says eligible runners execute and input-dependent runners show the exact missing prerequisite
+    - `ui/index.html` and `ui/assets/app.js` now serve asset version `20260428-lan-deep-chain-1`
+  - live proof:
+    - `ip route get 10.0.20.1` returned `dev eth0`
+    - `_ensure_responder_interface({"targets": {"cidr_ranges": ["10.0.20.0/24"]}})` produced `{"interface": "eth0", "interface_source": "route-auto-detected"}`
+    - restarted current-code localhost and verified `/app/` serves `20260428-lan-deep-chain-1`
+    - browser preview for Full Internal LAN on `10.0.20.0/24` showed `4 phases · 18 conditional runners` plus the updated Phase 3/4 prerequisite language
+    - evidence is recorded in `codex/results/deep-lan-chain-eligibility-hotfix-20260428.md`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py -q`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k responder -q`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/assessment_chain.py`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `python3 scripts/validate_backlog_tasks.py`
+  - remaining risks:
+    - I did not start a standalone live Responder poisoning run as a validation command; that remains an intrusive LAN action and should run only as part of an explicit operator-launched assessment
+    - AD/Kerberos/Impacket/Metasploit runners still correctly require real prerequisites such as AD context, stored credentials or hashes, candidate accounts, or allowlisted findings
+    - no backlog task was promoted because this was a corrective hotfix and backlog-94 remains active
+
+- 2026-04-28: completed backlog-99 `Known-Vulnerability Validation Matrix - Does AegisPT Actually Find What It Claims To Find?`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-99-known-vulnerability-validation-matrix.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-99 was the single active task before implementation
+    - checked `http://127.0.0.1:8000/health/live`; the live host returned `200`, but this task's unit validation does not require a live UI/API run unless the matrix is executed with `--execute`
+  - implementation:
+    - added `scripts/validation/expected_findings.json` with WebGoat, DVWA, clean nginx, and disabled Metasploitable3 expected/forbidden finding definitions
+    - added `scripts/run_validation_matrix.py` with fast offline-fixture comparison plus explicit `--execute` mode that launches Docker targets and drives AegisPT through the existing acceptance/API flow
+    - added `scripts/tests/test_validation_runner.py` for finding normalization, expected-match scoring, missing expected failure, false-positive failure, forbidden finding failure, CLI result writing, and workflow YAML validity
+    - added `.github/workflows/validation-matrix.yml` for scheduled/manual/relevant-PR validation, result artifact upload, and optional Slack failure notification
+    - unignored and wrote `codex/results/validation-matrix-latest.json` so the current accuracy state is visible and honestly marked `not_run` until a real `--execute` or collected-fixture matrix run is performed
+  - validation:
+    - `python3 scripts/run_validation_matrix.py --catalog scripts/validation/expected_findings.json --results-file /tmp/aegispt-validation-matrix-smoke.json` (`status: not_run`, catalog-only smoke succeeded)
+    - `python3 -m pytest -s scripts/tests/test_validation_runner.py` (`7 passed`)
+    - `TMPDIR=/tmp python3 -m pytest scripts/tests/test_validation_runner.py` (`7 passed`; the first plain pytest attempt crashed inside pytest capture before tests started on this host, so the required check was rerun with `/tmp` as the temp directory)
+    - `python3 scripts/run_validation_matrix.py --catalog scripts/validation/expected_findings.json --results-file codex/results/validation-matrix-latest.json` (`status: not_run`, latest state written)
+    - `python3 -m compileall scripts/run_validation_matrix.py scripts/tests/test_validation_runner.py`
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - scope / risks:
+    - no product code, pack registry, approval flow, deployment flow, or runtime binding behavior was changed
+    - the catalog and scoring logic are implemented and tested, but `codex/results/validation-matrix-latest.json` is not an accuracy proof yet because no real WebGoat/DVWA/nginx `--execute` run was performed in this slice
+  - queue / governance:
+    - promoted `codex/tasks/backlog-100-aegispt-self-security-test.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-29: completed backlog-117 `Full Product Operator Acceptance Audit and Settings Clarity`:
+  - rationale:
+    - the operator reported that Mission Control could show an empty Tasks panel after runner failure and that Settings did not expose runtime concurrency clearly
+    - the task was handled as a product/operator acceptance pass with narrow fixes instead of another isolated visual change
+  - fixes applied:
+    - `api/app/config.py`, `api/app/services/settings.py`, and `api/app/schemas/settings.py` now expose `runtime.inline_task_workers` as a validated numeric setting with min/max/step/placeholder metadata
+    - `api/app/services/task_dispatch.py` and `api/app/routers/runs.py` now read effective runtime Settings for new inline dispatch batches instead of relying only on hidden environment state
+    - `ui/assets/modules/settings.js` now renders numeric Settings inputs, saves runtime parallelism through the UI, and preserves unsaved operator input across background Settings refreshes
+    - `ui/assets/modules/mission-control.js` now defines `normalizeTaskStatus` at module scope so failed-run task terminals and task rows render instead of crashing the Tasks panel
+    - `TASK_QUEUE.md` was repaired to include backlog packages 119-131 and remove duplicate unreferenced tail lines; the affected task packages now include the required `NEXT_TASK.md` promotion reference
+  - live proof:
+    - current-code localhost was restarted on `http://127.0.0.1:8000`
+    - browser Settings proof saved `runtime.inline_task_workers` with PATCH body `{"settings":{"runtime.inline_task_workers":"8"}}`, read value `8` back from the API, then restored the prior live value `6`
+    - browser Mission Control proof rendered task rows, `Tasks`, and `Selected Check Focus` for a failed selected run with zero page errors
+    - browser Live Agents proof opened from Mission Control and showed `Live Agents`, `Agent #`, queued/running state, and stdout state
+    - evidence is recorded in `codex/results/backlog-117-full-product-operator-acceptance-audit-20260429.md`
+  - validation:
+    - `node --input-type=module --check < ui/assets/modules/settings.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_settings.py api/tests/test_task_dispatch.py` (`20 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_assessment_chain.py` (`16 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no ui/tests/test_operator_console_smoke_e2e.py` (`2 passed`)
+    - `python3 scripts/validate_backlog_tasks.py` (`131` queued task packages mapped one-to-one)
+  - remaining risks:
+    - this pass did not run unsafe public-target or intrusive live-target actions
+    - some selected-run states still expose rough `unavailable`, `failed`, or `blocked` wording; they are now visible rather than blank, but still need product-polish follow-up
+  - queue / governance:
+    - promoted `codex/tasks/backlog-118-adaptive-report-consolidation.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-29: recorded an operator-priority override for AI repair value before continuing backlog-118:
+  - rationale:
+    - the operator tried to use AI to fix a failed run, but the existing backlog-116 behavior only created/reviewed a repair proposal and did not continue the run or perform a visible recovery action
+    - leaving backlog-118 active would continue report work while the product's AI value proposition remained misleading
+  - governance change:
+    - added `codex/tasks/backlog-132-ai-repair-action-contract-and-signal-inbox.json`
+    - appended backlog-132 to `TASK_QUEUE.md`
+    - updated `DECISIONS.md` with the AI repair operator contract
+    - promoted backlog-132 into `NEXT_TASK.md` by explicit operator-priority override
+  - intended next work:
+    - make AI repair proposals expose safe concrete actions such as retry runner, continue remaining checks, accept coverage gap, create build-lane fix task, or show a non-recoverable explanation
+    - add a discoverable AI Signal Inbox/history surface
+    - keep approval, scope, pack registry, validation, deployment, and runtime binding gates intact
+
+- 2026-04-29: completed backlog-132 `AI Repair Action Contract and AI Signal Inbox`:
+  - rationale:
+    - the operator reported that asking AI to fix a failed/blocked run produced a review/proposal state but no visible recovery outcome
+    - the narrow correction was to make the AI repair lane honest and actionable without adding broad autonomous code changes or bypassing runtime gates
+  - implementation:
+    - `api/app/services/ai_repair_lane.py` now attaches an explicit action contract to AI repair proposals
+    - `POST /api/v1/runs/{run_id}/ai-proposals/{proposal_id}/repair-action` records safe operator recovery actions
+    - supported recorded actions are `accept_gap` and `create_build_lane_fix`; retry/continue actions are exposed with clear unavailable reasons unless the evidence marks them safe
+    - every implemented action preserves `dispatches_work: false`, `creates_tasks: false`, and `active_runtime_mutated: false`
+    - Mission Control now labels the panel as `AI Signal Inbox` and renders repair action buttons for AI repair proposals
+    - approval copy now states that approval alone is not a fix or continuation
+  - validation:
+    - `.venv/bin/python -m pytest api/tests/test_ai_repair_lane.py -q -s` (`5 passed`)
+    - `.venv/bin/python -m pytest api/tests/test_assessment_chain.py -q -s` (`16 passed`)
+    - `.venv/bin/python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q -s` (`2 passed`)
+    - `python3 scripts/validate_backlog_tasks.py` (`141` queued task packages mapped one-to-one, exactly one active task)
+    - `git diff --check`
+    - `python3 -m py_compile api/app/services/ai_repair_lane.py api/app/routers/runs.py api/app/schemas/runs.py`
+  - live proof:
+    - current-code localhost was restarted on `http://127.0.0.1:8000`
+    - `/health/live` returned `200`
+    - browser acceptance opened Mission Control and found `[data-testid="ai-signal-inbox"]`
+    - screenshot stored at `codex/results/backlog-132-live-ai-signal-inbox-20260429.png`
+    - evidence summary stored at `codex/results/backlog-132-ai-repair-action-contract-20260429.md`
+  - remaining risks:
+    - this task does not implement ChatGPT code patch generation; backlog-131 remains the right place for that
+    - retry/continue remain bounded by existing evidence and operator controls so they do not silently dispatch or mutate active runtime
+  - queue / governance:
+    - resumed the paused official queue by promoting `codex/tasks/backlog-118-adaptive-report-consolidation.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-29: completed backlog-118 `Adaptive Report Consolidation`:
+  - rationale:
+    - the old Report Center exposed too many near-duplicate primary report variants and did not clearly distinguish audience, tested coverage, or framework selection
+    - the task was implemented as a narrow consolidation: adaptive audience reports first, old direct URLs preserved for compatibility
+  - implementation:
+    - `api/app/services/reports.py` now defines primary variants `summary`, `technical`, `compliance`, and `retest`
+    - old variants map safely: `executive` to `summary`, compliance framework names to `compliance`, and `assurance` / `attack_narrative` to `technical`
+    - `report_sections_for_run(run)` and `build_test_coverage_block(run, tasks)` derive tested and not-tested coverage from actual run tasks, findings, profile, and configuration signals
+    - Management Summary now includes tested/not-tested coverage, Technical Report includes adaptive relevant sections, and Compliance Annex supports `nis2`, `dora`, `soc2`, `iso27001`, and `pci_dss`
+    - report export endpoints and PDF rendering accept selected compliance frameworks while preserving legacy variant URLs
+    - Report Center UI now shows the consolidated report catalog and a compliance framework selector instead of separate top-level compliance cards
+  - validation:
+    - `source .venv/bin/activate && python -m py_compile api/app/services/reports.py api/app/services/report_pdf.py api/app/routers/runs.py api/app/schemas/report_center.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py` (`14 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`3 passed`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - live proof:
+    - current-code localhost was restarted on `http://127.0.0.1:8000`
+    - `/health/live` returned healthy
+    - live report catalog returned four primary cards beginning with `summary`
+    - legacy `variant=executive` returned Management Summary
+    - canonical `variant=compliance&framework=dora` returned the DORA Compliance Annex
+    - browser acceptance found four report cards and one Compliance Annex framework selector
+    - evidence is recorded in `codex/results/backlog-118-adaptive-report-consolidation-20260429.md`
+  - remaining risks:
+    - adaptive section classification is deterministic but still heuristic around task/profile/tool signals
+    - the Compliance Annex maps stored technical evidence only and does not claim certification
+  - queue / governance:
+    - promoted `codex/tasks/backlog-119-evidence-chain-completeness.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-29: completed backlog-119 `Evidence Chain Completeness - RFC 3161 Timestamps, Finding Audit Events, CVSS Scores`:
+  - rationale:
+    - evidence artifacts needed durable timestamp-token provenance beyond metadata-only storage
+    - findings needed audit-backed lifecycle history and CVSS fields so report and operator surfaces can show stronger evidence truth
+    - the implementation stayed additive and reused existing evidence, audit, finding, and normalized import flows
+  - implementation:
+    - `api/app/config.py` now enables evidence timestamping by default
+    - `api/app/models/control.py` and Alembic revision `20260429_0028_evidence_chain_completeness` add `timestamp_token_uri`, `timestamp_verified_at`, `cvss_score`, and `cvss_vector`
+    - `api/app/services/evidence_integrity.py` persists timestamp token URIs and verification time through the existing RFC 3161 integrity path
+    - `workers/orchestration/findings.py` writes `finding.created` audit events and populates CVSS metadata from Nuclei and ZAP output where available
+    - `api/app/routers/findings.py` writes `finding.status_changed` and `finding.false_positive_marked` audit events for lifecycle updates
+    - `api/app/schemas/findings.py` and `ui/assets/modules/findings.js` expose CVSS metadata to API consumers and Finding Theater
+  - validation:
+    - `source .venv/bin/activate && python -m py_compile api/app/config.py api/app/models/control.py api/app/services/evidence_integrity.py api/app/routers/findings.py api/app/schemas/findings.py workers/orchestration/findings.py migrations/versions/20260429_0028_evidence_chain_completeness.py`
+    - `node --input-type=module --check < ui/assets/modules/findings.js`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_evidence_integrity.py workers/tests/test_findings_contract.py api/tests/test_findings.py -q`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py -q`
+    - `source .venv/bin/activate && alembic heads` reported `20260429_0028 (head)`
+    - `source .venv/bin/activate && alembic upgrade head` migrated the live local database
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - live proof:
+    - current-code localhost was restarted on `http://127.0.0.1:8000`
+    - `/health/live` returned healthy after migration and restart
+    - a safe local synthetic finding proved CVSS API output, false-positive audit events, and Finding Theater CVSS rendering without launching unsafe target actions
+    - evidence is recorded in `codex/results/backlog-119-evidence-chain-completeness-20260429.md`
+    - screenshot stored at `codex/results/backlog-119-finding-cvss-live-20260429.png`
+  - remaining risks:
+    - RFC 3161 timestamping depends on configured TSA/network availability and keeps the existing `timestamp-unavailable` degradation path
+    - CVSS values are populated when source tools provide them and are not retroactively mandatory for old findings
+  - queue / governance:
+    - promoted `codex/tasks/backlog-120-authentication-and-roe-gate.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-29: completed backlog-128 `Database Encryption at Rest`:
+  - rationale:
+    - the active task required filesystem-at-rest protection for the local SQLite database without changing models, migrations, pack flow, approval flow, or runtime binding
+    - the narrow implementation keeps encryption opt-in via `AEGISPT_DB_KEY` for backward compatibility while making non-development plaintext startup visibly unsafe
+  - implementation:
+    - `api/app/db.py` now uses SQLCipher through `sqlcipher3.dbapi2` and applies `PRAGMA key` when `AEGISPT_DB_KEY` is configured
+    - `api/app/main.py` logs the required production/non-development warning when the database key is missing
+    - `scripts/encrypt_existing_db.py` migrates a plaintext SQLite database into an encrypted SQLCipher copy
+    - `api/app/services/artifact_storage.py` supports `ARTIFACTS_S3_ENFORCE_SSE=true` by sending `ServerSideEncryption=AES256` on S3/MinIO uploads
+    - host, compose, requirements, and install documentation now expose the database key and SSE settings
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_database_encryption.py api/tests/test_artifact_storage.py api/tests/test_health.py` (`12 passed`)
+    - `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py` (`3 passed`)
+    - `git diff --check`
+    - `docker-compose config -q`
+    - real SQLCipher migration check wrote `/tmp/aegispt-encrypted-check.db`; plain `sqlite3` failed with `file is not a database`, while `build_engine(..., db_key="test-key")` read it successfully
+  - live proof:
+    - temporary Uvicorn on `127.0.0.1:8017` with `APP_ENV=production` and no `AEGISPT_DB_KEY` emitted the exact required warning
+    - `curl --fail --silent http://127.0.0.1:8017/health/live` returned healthy
+    - evidence is recorded in `codex/results/backlog-128-database-encryption-20260429.md`
+  - remaining risks:
+    - encryption is opt-in and operators must preserve `AEGISPT_DB_KEY`
+    - key rotation, PostgreSQL encryption, and HSM integration remain out of scope
+  - queue / governance:
+    - promoted `codex/tasks/backlog-129-jira-integration-ui.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-29: completed backlog-129 `Jira Integration UI - Push to Jira Button on Every Finding`:
+  - rationale:
+    - Jira already had engagement configuration, finding link, and sync models, but operators could not use them from Settings, Findings, or Problems Center
+    - the task package said `POST /api/v1/findings/{id}/handoff-jira` already existed; the repo did not contain that route, so the narrowest safe correction added a compatibility endpoint that reuses the existing Jira integration/link models
+  - implementation:
+    - `api/app/routers/findings.py` now exposes `POST /api/v1/findings/{finding_id}/handoff-jira` to prepare an existing-model Jira handoff link for the finding's source engagement
+    - Settings now has an engagement-scoped Jira Handoff panel with base URL, project key, auth method, protected credential reference, issue type, refresh, save, and local test controls
+    - Findings drawer now shows Jira handoff state, a `Push to Jira` button when configured, and a Jira ticket badge after successful handoff
+    - Problems Center now exposes `Push to Jira` in the bulk bar when Jira is configured and pushes selected findings sequentially
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m pytest -s api/tests/test_integrations.py -k jira -q` (`11` focused Jira tests passed)
+    - `python3 -m pytest -s api/tests/test_health.py -q` (`3` passed)
+    - `python3 -m pytest -s ui/tests/test_operator_console_smoke_e2e.py -k "jira" -q` (`2` focused UI tests passed)
+    - `python3 -m pytest -s ui/tests/test_problems_center_e2e.py::test_problems_center_renders_cross_engagement_queue_and_bulk_actions -q` (`1` passed)
+    - `node --input-type=module --check < ...` for the changed UI modules and app shell
+    - `git diff --check`
+  - live proof:
+    - current-code localhost on `http://127.0.0.1:8000` returned healthy and served the updated Jira Settings module
+    - browser acceptance verified Settings Jira fields, Findings `Push to Jira`, and post-push Jira badge rendering
+    - screenshot stored at `codex/results/backlog-129-jira-ui-live-20260429.png`
+    - evidence recorded in `codex/results/backlog-129-jira-integration-ui-20260429.md`
+  - remaining risks:
+    - this slice prepares and stores a controlled Jira handoff link; it does not create remote Jira issues or add bidirectional Jira sync
+    - Test Connection verifies saved local configuration availability; remote status validation remains the existing per-finding sync path after a Jira key exists
+  - queue / governance:
+    - promoted `codex/tasks/backlog-130-setup-checklist-fix.json` into `NEXT_TASK.md` as the new single active task
+
+- 2026-04-30: completed backlog-141 `Full LAN + IoT Assessment Chain - Integrated Smart Home and Network Security Assessment`:
+  - rationale:
+    - the active task required a single consultant-launchable smart-home/LAN assessment chain that ties together existing LAN and IoT runners without bypassing pack, approval, deployment, runtime binding, or intrusive authorization gates
+    - the narrow implementation stayed in orchestration, wizard selection, inventory typing, and adaptive report rendering
+  - implementation:
+    - `ui/assets/modules/wizard.js` adds the `Smart Home / IoT LAN` tile and `FULL-LAN-IOT` mission preview/mode wiring
+    - `api/app/services/assessment_chain.py` defines the six-phase `FULL-LAN-IOT` chain and disables launch-time phase preapproval so each phase remains explicitly gated
+    - `api/app/services/inventory.py`, `workers/runners/mdns_ssdp/runner.py`, and `workers/runners/camera_test/runner.py` preserve canonical IoT device categories in inventory
+    - `api/app/services/reports.py` adds adaptive `IoT Security Summary` technical report content
+    - focused tests cover chain shape, phase-gate behavior, follow-up routing, wizard source wiring, device typing, and report summary generation
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `.venv/bin/python -m py_compile api/app/services/assessment_chain.py api/app/services/inventory.py api/app/services/reports.py workers/runners/mdns_ssdp/runner.py workers/runners/camera_test/runner.py`
+    - `timeout 60s .venv/bin/python -m pytest -q api/tests/test_assessment_chain.py -k full_lan_iot` (`3 passed`)
+    - `timeout 60s .venv/bin/python -m pytest -q api/tests/test_reports.py -k iot_reports` (`1 passed`)
+    - `timeout 60s .venv/bin/python -m pytest -q api/tests/test_wizard_iot_static.py workers/tests/test_mdns_ssdp_runner.py workers/tests/test_camera_test_runner.py` (`9 passed`)
+    - `git diff --check`
+    - `curl -sS http://127.0.0.1:8000/health/live`
+  - not claimed green:
+    - `timeout 60s .venv/bin/python -m pytest -q api/tests/test_health.py` timed out with no output while the current-code live host stayed running for operator use
+    - no live LAN/IoT probes were run without an explicit approved scope
+  - live proof:
+    - current-code localhost was restarted and is available at `http://127.0.0.1:8000/app/`
+    - `/health/live` returned healthy
+    - evidence is recorded in `codex/results/backlog-141-full-lan-iot-assessment-chain-20260430.md`
+  - remaining risks:
+    - actual LAN/IoT runtime acceptance still requires an explicitly approved local scope with real devices or a lab
+    - conditional runners still need prerequisites; missing prerequisites must stay visible instead of being silently skipped
+    - Phase 6 remains intrusive and explicitly gated
+  - queue / governance:
+    - `TASK_QUEUE.md` currently has no approved backlog item after backlog-141
+    - `NEXT_TASK.md` was moved to a single idle holding task instead of inventing a roadmap item
+
+- 2026-04-30: completed full-system audit, defect planning, and backlog normalization pass:
+  - rationale:
+    - the operator requested a complete check of pages, buttons, fields, settings, operator flows, unclear states, and enterprise usability before continuing implementation
+    - the repo already contained unqueued concrete regression packages after backlog-141, so the safe first step was to preserve those tasks, avoid duplicate broad tasks, and restore one-to-one backlog governance
+  - analysis / evidence:
+    - live localhost on `http://127.0.0.1:8000` was healthy and relevant for safe UI validation
+    - live crawl artifacts were written to `codex/results/full-system-live-crawl-20260430.json`, `codex/results/full-system-live-visible-screen-crawl-20260430.json`, and `codex/results/full-system-live-network-errors-20260430.json`
+    - the human-readable audit and product plan is recorded in `codex/results/full-system-audit-and-task-plan-20260430.md`
+    - the analysis found high-risk product areas in Mission Control lifecycle clarity, Live Agents observability, Wizard prediction/matrix coverage, AI value, Settings readiness/concurrency/tool-state clarity, and Problems/Findings/Reports/History consistency
+  - backlog / task changes:
+    - normalized existing concrete regression task packages `backlog-142` through `backlog-148`
+    - moved the broad audit/corrective product tasks behind those unblockers as `backlog-149` through `backlog-155`
+    - removed duplicate report-catalog task metadata so every `codex/tasks/backlog-*.json` package has exactly one queue entry
+    - promoted `codex/tasks/backlog-142-roe-authorization-checkbox-test-helper.json` into `NEXT_TASK.md` as the new single active task
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` (`155` queued packages mapped one-to-one)
+    - `timeout 180s bash scripts/run_ui_fast_tests.sh --maxfail=1` passed under approved escalated execution (`20 passed in 60.41s`)
+    - `python3 scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --list-scenarios`
+    - `git diff --check`
+  - not claimed green:
+    - `timeout 120s .venv/bin/python -m pytest -q api/tests/test_product_feature_matrix.py api/tests/test_ui_support.py --maxfail=1` timed out and remains a validation risk
+    - no product behavior was fixed in this pass; this was an audit/tasking/governance pass
+  - remaining risks:
+    - the next concrete tasks must unblock stale/broken tests before the new full-system harness can be trusted
+    - broad product clarity and runtime correctness issues remain queued for backlog-149 through backlog-155
+
+- 2026-04-30: applied focused AI Signal OAuth status truth hotfix:
+  - rationale:
+    - the operator reported that Mission Control still showed `DETERMINISTIC MODE`, `PROVIDER DISABLED`, and `ChatGPT OAuth is not connected` even though ChatGPT OAuth was connected in Settings
+    - live API inspection confirmed the engagement OAuth status was connected and the configured provider was `chatgpt_oauth`, while the UI was still falling back to stale deterministic mission-guidance provider state
+  - implementation:
+    - `api/app/services/ai_agent.py` now includes `provider_status` in `build_ai_insights_for_run`, including connected ChatGPT OAuth truth for the selected run engagement
+    - `api/app/schemas/runs.py` exposes the new `provider_status` field on `RunAiInsightsRead`
+    - `ui/assets/modules/mission-control.js` now prefers `selectedAiInsights.provider_status` over mission-guidance fallback and only shows the ChatGPT connect CTA when the provider status is actually not connected
+    - added focused coverage in `api/tests/test_ai_agent_reasoning.py` for connected ChatGPT OAuth provider status
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `.venv/bin/python -m py_compile api/app/services/ai_agent.py api/app/schemas/runs.py`
+    - `git diff --check`
+    - current-code localhost restarted with `bash scripts/restart_local_inline_host.sh`
+    - live `GET /api/v1/runs/e34e69f2-be0c-4387-9372-d7699dfe172e/ai-insights` returned `provider_status.status: connected`, `provider_status.label: ChatGPT connected`, and `provider_status.connected: true`
+    - live `GET /api/v1/auth/chatgpt/status?engagement_id=1c1690c8-acdf-4705-9757-223f80676f08` returned `connected: true`
+  - not claimed green:
+    - focused pytest for `api/tests/test_ai_agent_reasoning.py` timed out with no output under the current host/session, so it is not claimed green
+  - remaining risks:
+    - this fixes AI Signal status truth; it does not solve the earlier ChatGPT backend `400 Bad Request` failure or broaden AI runtime authority
+    - browser cache may need a refresh before the operator sees the updated JS asset
+
+- 2026-04-30: added queued WiFi / wireless assessment surface task:
+  - rationale:
+    - the operator identified WiFi analysis as a missing capability in the pentest suite
+    - repo search found no first-class WiFi assessment surface beyond incidental `wireless-ap` metadata in IoT default credentials
+  - tasking:
+    - appended backlog-164 to `TASK_QUEUE.md`
+    - added `codex/tasks/backlog-164-wifi-wireless-assessment-surface.json`
+    - recorded the wireless passive-first/intrusive-gate boundary in `DECISIONS.md`
+    - updated `CURRENT_STATE.md` with the new queued scope truth
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - remaining risks:
+    - this only adds the task package; no WiFi runner, UI, report, or host tooling was implemented in this slice
+    - future implementation needs adapter/tool readiness and safe lab validation before claiming WiFi support
+
+- 2026-04-30: completed backlog-144 `Fix attack path tests failing due to run target outside engagement scope`:
+  - rationale:
+    - `api/tests/test_attack_paths.py` used scoped run fixtures whose configured targets were rejected by the product scope guard before the tests reached attack-path assertions
+    - the correct fix was to repair test fixture scope, not weaken scope enforcement or broaden runtime behavior
+  - implementation:
+    - added `10.0.1.10` to the shared attack-path test engagement host allowlist because the identity/cloud inference fixture intentionally uses that approved host
+    - changed the low-confidence unmatched-finding test run target to the already approved `https://app.example.test/login`, while keeping the seeded finding target unmatched
+  - files:
+    - `api/tests/test_attack_paths.py`
+    - `codex/results/backlog-144-attack-path-test-scope-mismatch-20260430.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m py_compile api/tests/test_attack_paths.py`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_attack_paths.py::test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges api/tests/test_attack_paths.py::test_attack_path_summary_retains_unmatched_findings_as_low_confidence --tb=short -q -s`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_attack_paths.py --tb=short -q -s`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_attack_paths.py --tb=short -s` (`7 passed in 7.57s`)
+    - `git diff --check`
+  - not claimed green:
+    - `source .venv/bin/activate && python -m pytest api/tests/test_attack_paths.py --tb=short -q` still fails on this host with the existing `_pytest/capture.py` `FileNotFoundError`
+  - live relevance:
+    - live browser validation was not relevant; this was a focused API test-data regression slice
+  - remaining risks:
+    - the host-level pytest capture failure remains unresolved
+    - broader attack-path product behavior was intentionally not changed
+
+- 2026-04-30: completed backlog-145 `Fix _answer_current_question helper can't fill CIDR/URL target when wizard is in tile-based flow after advanced pre-selection`:
+  - rationale:
+    - the active regression was in the Playwright helper path after advanced wizard preselection, where CIDR/URL answers could reach a tile-based target path without a conversational input or mapped assessment tile
+    - the safe fix was to make the test helper handle CIDR/URL target answers while leaving product wizard behavior and authorization gates unchanged
+  - implementation:
+    - `ui/tests/test_operator_console_e2e.py` now recognizes CIDR/URL-like target answers through `_looks_like_target_answer()`
+    - `_answer_current_question()` now fills visible `wizard-target-input` fields and advances to preview when available
+    - when advanced preselection leaves no visible target field, the helper uses a test-only browser-side runtime-state fallback to set targets and render the preview step without weakening launch gates
+  - files:
+    - `ui/tests/test_operator_console_e2e.py`
+    - `codex/results/backlog-145-wizard-advanced-mode-target-input-flow-20260430.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `source .venv/bin/activate && python -m pytest 'ui/tests/test_operator_console_e2e.py::test_assessment_mode_internal_lan_surfaces_chain_progress' --tb=short -s` (`1 passed in 15.31s`)
+    - `source .venv/bin/activate && python -m pytest 'ui/tests/test_operator_console_e2e.py::test_mission_preview_requires_typed_scope_for_full_authorization' --tb=short -s` (`1 passed in 14.39s`)
+    - `source .venv/bin/activate && python -m pytest 'ui/tests/test_operator_console_e2e.py::test_guided_wizard_clear_all_returns_to_assessment_selection' --tb=short -s` (`1 passed in 3.04s`)
+    - `git diff --check`
+  - not claimed green:
+    - the required no-capture-disabled pytest command for the target test still fails on this host with `_pytest/capture.py` `FileNotFoundError`; the same test content was validated with `-s`
+  - live relevance:
+    - live browser validation was relevant in principle, but this focused test-helper slice used the existing safe Playwright UI fixture and did not touch live product runtime behavior
+  - remaining risks:
+    - the host-level pytest capture failure remains unresolved
+    - broader wizard UX/runtime issues remain out of scope for this task
+
+- 2026-04-30: completed backlog-146 `Fix approval panel actor note not showing 'already approved this gate' for actor who already approved`:
+  - rationale:
+    - the active task required the approval panel to re-render against the current topbar actor so an actor who already approved the gate sees that state immediately
+    - current repo truth already satisfies the named regression: `ui/assets/app.js` updates `state.actor` and schedules `renderAll()` on actor-input change, while `ui/assets/modules/mission-control.js` derives `run-approval-actor-note` from the current actor and run approvals on render
+  - implementation:
+    - no new product-code edit was required for this slice
+    - evidence was recorded to document that the existing current-code behavior passes the actor-switch acceptance path
+  - files:
+    - `codex/results/backlog-146-approval-actor-note-already-approved-20260430.md`
+    - `DONE_LOG.md`
+    - `CURRENT_STATE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest 'ui/tests/test_operator_console_e2e.py::test_pending_approval_run_guides_actor_switch_for_second_approver' --tb=short -s` (`1 passed in 3.43s`)
+    - `source .venv/bin/activate && python -m pytest 'ui/tests/test_operator_console_e2e.py::test_pending_approval_run_can_be_approved_from_mission_control' 'ui/tests/test_operator_console_e2e.py::test_pending_approval_run_guides_actor_switch_for_second_approver' --tb=short -s` (`2 passed in 6.17s`)
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q -s` (`3` health tests passed)
+    - `git diff --check`
+  - not claimed green:
+    - the exact required no-`-s` health and UI pytest commands still fail on this host with `_pytest/capture.py` `FileNotFoundError`
+  - live relevance:
+    - browser validation was relevant and covered through the existing Playwright regression with seeded approval state; no live target action was needed
+  - remaining risks:
+    - the host-level pytest capture failure remains unresolved
+    - broader approval lifecycle clarity remains queued for later product slices
+
+- 2026-04-30: completed backlog-147 `Fix test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access and related wizard flow tests`:
+  - rationale:
+    - the active task required advanced wizard flow tests to acknowledge the mandatory ROE checkbox before clicking Create Mission
+    - current repo truth already satisfies the named regression: the affected advanced helpers route through `_click_create_mission()`, and that helper calls `_acknowledge_roe_authorization_if_required()` before clicking `[data-wizard-create-mission="true"]`
+  - implementation:
+    - no new product-code or test-code edit was required for this slice
+    - evidence was recorded to show the current test flow preserves the product ROE gate and passes the named regressions
+  - files:
+    - `codex/results/backlog-147-edit-token-advanced-api-detail-test-20260430.md`
+    - `DONE_LOG.md`
+    - `CURRENT_STATE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access ui/tests/test_operator_console_e2e.py::test_clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback ui/tests/test_operator_console_e2e.py::test_authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm --tb=short -s` (`3 passed in 14.81s`)
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py -k 'edit_token or clearing_advanced or authenticated_only_advanced' --tb=short -q -s`
+    - `python3 -m py_compile ui/tests/test_operator_console_e2e.py`
+    - `git diff --check`
+  - not claimed green:
+    - the exact required no-`-s` pytest selection still fails on this host with `_pytest/capture.py` `FileNotFoundError`
+  - live relevance:
+    - browser validation was relevant and covered through the existing Playwright fixture; no live target action was needed
+  - remaining risks:
+    - the host-level pytest capture failure remains unresolved
+    - broader wizard input matrix coverage remains queued for later product slices
+
+- 2026-04-30: completed backlog-148 `Fix stale report catalog assertion in test_adaptive_pack_pipeline_binds_to_run_and_exports_reports_end_to_end`:
+  - rationale:
+    - backlog-118 consolidated the primary report catalog to `summary`, `technical`, `compliance`, and `retest`
+    - the product feature matrix still asserted the older expanded catalog, causing a stale test failure while product behavior was correct
+  - implementation:
+    - updated `api/tests/test_product_feature_matrix.py` to assert the current adaptive primary report catalog
+    - product report generation, aliases, export routes, pack binding, and runtime behavior were not changed
+  - files:
+    - `api/tests/test_product_feature_matrix.py`
+    - `codex/results/backlog-148-report-catalog-stale-test-20260430.md`
+    - `DONE_LOG.md`
+    - `CURRENT_STATE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_product_feature_matrix.py::test_adaptive_pack_pipeline_binds_to_run_and_exports_reports_end_to_end --tb=short -q -s`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_product_feature_matrix.py --tb=short -q -s`
+    - `python3 -m py_compile api/tests/test_product_feature_matrix.py`
+    - `git diff --check`
+  - not claimed green:
+    - the exact required no-`-s` product feature matrix pytest command still fails on this host with `_pytest/capture.py` `FileNotFoundError`; the same test content was validated with `-s`
+  - live relevance:
+    - live report UI/API behavior is relevant in general, but this task was a narrow stale test expectation correction and did not require live target/browser execution
+  - remaining risks:
+    - the host-level pytest capture failure remains unresolved
+    - broader report UX/export behavior remains out of scope for this task
+
+- 2026-04-30: completed backlog-150 `Run Lifecycle, Dispatch, and Chain Recovery Truth`:
+  - rationale:
+    - operators needed one deterministic lifecycle contract for queued, running, blocked, failed, skipped, completed, and completed-with-gaps states
+    - Mission Control, Live Agents, run streams, and Cinema Mode needed to show current work, next work, blocked/skipped prerequisites, evidence, and safe next action without implying approvals or AI execution that did not happen
+  - implementation:
+    - assessment-chain summaries now expose `operator_state` with current runner, next runner, primary action, safe next action, and state counts
+    - skipped and failed chain steps now carry `blocker_type`, prerequisite/evidence text, and `safe_next_action`
+    - recoverable runner failures still continue through the safe chain path and now record explicit recovery metadata
+    - blocked critical runner failures now show a review-and-continue safe action rather than a vague blocked state
+    - run SSE snapshots now include `assessment_chain` and `completed_at`
+    - Mission Control renders a chain lifecycle fallback instead of an empty task panel when a run has chain state but no task cards
+    - Live Agents prioritizes running tasks, uses `Start Queued Checks`, and shows concrete no-output reasons
+    - Cinema Mode elapsed time uses authoritative start/completed timestamps and keeps its shell stable during polling
+  - files:
+    - `api/app/services/assessment_chain.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/services/ai_enrichment.py`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/cinema.js`
+    - `api/tests/test_assessment_chain.py`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth-20260430.md`
+    - `DONE_LOG.md`
+    - `CURRENT_STATE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m py_compile api/app/services/assessment_chain.py api/app/routers/runs.py api/app/schemas/runs.py api/app/services/ai_enrichment.py`
+    - `python3 -m pytest api/tests/test_assessment_chain.py -q -s`
+    - `python3 -m pytest ui/tests/test_operator_console_smoke_e2e.py -q -s -k "chain_gap or live_agents or cinema_elapsed or running_task_stdout"` (`4` focused Playwright tests passed)
+    - `git diff --check`
+    - safe live checks: `http://127.0.0.1:8000/health/live` returned `200`; `http://127.0.0.1:8000/app/` returned `200`
+  - not claimed green:
+    - no intrusive live scan was executed
+    - no normal-capture pytest command is claimed; host capture instability remains a known risk
+    - current localhost may still need a service restart to serve the newest changed assets in a manual browser session
+  - remaining risks:
+    - this does not install missing tools, broaden scope, bypass approvals, or make AI execute repairs
+    - full wizard input/depth/prerequisite launch correctness remains the next queued task
+
+- 2026-04-30: completed backlog-151 `Wizard Input Prediction and Assessment Matrix`:
+  - rationale:
+    - operators needed the wizard to prove what every visible tile, target shape, depth, prerequisite, authorization state, and launch path will do before a mission is created
+    - previous broad UI tests did not provide a fast matrix-driven proof for all assessment families, and the old large operator-console e2e suite was intentionally avoided for this task
+  - implementation:
+    - added an exported wizard prediction matrix covering all visible assessment tiles and passive/active/full depth choices
+    - added tile-specific target guidance, examples, and predicted interpretation copy in the target step
+    - made the Full Internal tile a coherent internal LAN + Active Directory preset that can also be deselected cleanly
+    - routed API and LLM/AI app selections to their assessment-specific execution profiles in the wizard launch contract
+    - generated a durable machine-readable matrix artifact under `codex/results/`
+    - added focused Playwright coverage for visible tile select/deselect behavior plus dispatch-disabled launch proof for every assessment family
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json`
+    - `codex/results/backlog-151-wizard-input-prediction-matrix-20260430.md`
+    - `DONE_LOG.md`
+    - `CURRENT_STATE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m pytest -s ui/tests/test_wizard_input_prediction_matrix_e2e.py --maxfail=1` (`2 passed`)
+    - `python3 -m pytest -s ui/tests/test_mockup_port_e2e.py::test_exact_mockup_port_tiles_sidebar_stepper_and_cinema ui/tests/test_mockup_port_e2e.py::test_lan_wizard_routes_private_cidr_to_discovery_lane --maxfail=1` (`2 passed`)
+    - `git diff --check`
+    - `curl -sS -o /tmp/aegispt-health.txt -w '%{http_code}' http://127.0.0.1:8000/health/live` (`200`, service running)
+  - live relevance:
+    - live/browser validation was relevant because the task touches the wizard UI and launch contract
+    - the focused Playwright tests exercised the app UI and API with safe fixtures and dispatch-disabled run creation
+  - not claimed green:
+    - no intrusive or real live target execution was run
+    - the current localhost service was not restarted in this slice, so manual browser validation may still require serving the newest branch assets
+    - repeated full click-launch across all families remains brittle due to hidden duplicate wizard DOM state, so the acceptance proof uses visible tile toggles plus dispatch-disabled API launch proof
+  - remaining risks:
+    - broader UI clarity, AI usefulness, Settings readiness, and findings/report/history consistency remain queued official tasks
+    - external infrastructure still launches passive-first under the current safe contract even when deeper operator intent is selected; this is recorded as product truth rather than overstated
+
+- 2026-04-30: completed backlog-154 `Settings, Environment, and Tool Readiness Control Plane`:
+  - rationale:
+    - operators needed one authoritative Settings place to see what the current host can run, which tools are missing, how concurrency is bounded, and why integrations or AI are ready/degraded/blocked
+    - Settings needed exportable support evidence without installing tools or changing active assessment behavior
+  - implementation:
+    - added `GET /api/v1/settings/readiness` with capability cards for concurrency, dispatch mode, tool readiness, AI provider, scheduled scans, threat intel cache, integrations, secret/database encryption, artifact storage, and live app health
+    - mapped tracked pentest binaries to affected assessment families and operator next steps
+    - surfaced min/default/max runtime worker limits and saved runtime impact in the readiness payload
+    - added Settings UI readiness panel, tool-readiness list, refresh action, and readiness JSON export button
+    - added focused API and browser coverage for readiness payload, bounds/persistence, affected families, and export visibility
+  - files:
+    - `api/app/schemas/settings.py`
+    - `api/app/services/settings.py`
+    - `api/app/routers/settings.py`
+    - `ui/assets/modules/settings.js`
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/app.js`
+    - `ui/assets/styles.css`
+    - `api/tests/test_settings.py`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-154-settings-readiness-validation-20260430.md`
+    - `codex/results/backlog-154-settings-readiness-artifact-20260430.json`
+    - `codex/results/backlog-154-settings-readiness-live-20260430.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m py_compile api/app/services/settings.py api/app/routers/settings.py api/app/schemas/settings.py api/tests/test_settings.py`
+    - `node --input-type=module --check < ui/assets/modules/settings.js && node --input-type=module --check < ui/assets/modules/runtime.js && node --input-type=module --check < ui/assets/app.js`
+    - `python3 -m pytest -s -q api/tests/test_settings.py` (`9` passed)
+    - `python3 -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_settings_readiness_panel_exposes_tools_and_export` (`1` passed)
+    - `python3 -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py -k settings` (`5` passed)
+    - `bash scripts/restart_local_inline_host.sh`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `curl -fsS http://127.0.0.1:8000/api/v1/settings/readiness`
+    - Playwright live Settings validation with screenshot evidence
+    - `git diff --check`
+  - not claimed green:
+    - no tools were installed and no live scans were run
+    - optional missing/degraded tool groups are now reported, not fixed by this task
+  - remaining risks:
+    - runner invocation correctness for each binary remains outside this Settings/readiness slice
+    - integrations and scheduled scans remain degraded until configured by an operator
+
+- 2026-04-30: completed backlog-155 `Findings, Reports, History, and Evidence Lifecycle Consistency`:
+  - rationale:
+    - post-run screens needed one consistent lifecycle truth so operators do not see reports as ready while a run is queued, or a Problems count that appears to contradict Findings/History
+    - the safest slice was additive: expose lifecycle/status metadata through existing report/problem payloads, then make UI empty states and badges explain scope and run state
+  - implementation:
+    - report catalog items now include explicit `availability_status`, `availability_label`, `availability_reason`, preview/export/draft permission booleans, and lifecycle summary metadata
+    - Reports UI now shows unavailable/draft-only/export-ready state and disables preview/export/draft actions when the selected run state does not support them
+    - Problems API stats now carry total findings, filtered findings, resolved/verified/false-positive totals, and grouped lifecycle counts; Problems UI shows visible-vs-total lifecycle scope copy
+    - Findings empty states now distinguish no selected run, queued/running run, failed/gapped run, filter mismatch, and true no-finding state
+    - History dossier wording now reports selected-run report lifecycle availability instead of a blanket “report variants ready” message
+    - added a lifecycle matrix artifact at `codex/results/backlog-155-lifecycle-matrix-20260430.md`
+  - files:
+    - `api/app/schemas/report_center.py`
+    - `api/app/schemas/problems.py`
+    - `api/app/services/reports.py`
+    - `api/app/services/problems.py`
+    - `ui/assets/modules/reports.js`
+    - `ui/assets/modules/problems.js`
+    - `ui/assets/modules/findings.js`
+    - `ui/assets/modules/explorer-history.js`
+    - `api/tests/test_lifecycle_consistency.py`
+    - `api/tests/test_problems.py`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `codex/results/backlog-155-lifecycle-matrix-20260430.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `python3 -m py_compile api/app/services/reports.py api/app/services/problems.py api/app/schemas/report_center.py api/app/schemas/problems.py api/tests/test_lifecycle_consistency.py api/tests/test_problems.py`
+    - `node --input-type=module --check < ui/assets/modules/reports.js && node --input-type=module --check < ui/assets/modules/problems.js && node --input-type=module --check < ui/assets/modules/findings.js && node --input-type=module --check < ui/assets/modules/explorer-history.js`
+    - `python3 -m pytest -s -q api/tests/test_lifecycle_consistency.py api/tests/test_problems.py::test_problems_center_defaults_are_tenant_scoped_and_cursor_paginated` (`3` passed)
+    - `python3 -m pytest -s -q ui/tests/test_operator_console_e2e.py::test_problems_center_renders_cross_engagement_queue_and_bulk_actions ui/tests/test_operator_console_e2e.py::test_reports_use_verified_hash_label_and_history_empty_state_is_guided` (`2` passed)
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+  - not claimed green:
+    - `python3 -m pytest -q ...` hit the known host-level pytest capture `FileNotFoundError`; the same focused tests were rerun with `-s`
+    - `api/tests/test_reports.py::test_run_report_exports_markdown_and_html` was blocked by missing local dependency `pypdf`
+    - no live intrusive scans or remote Jira actions were run
+  - remaining risks:
+    - full browser coverage for every historical fixture shape remains broader than this focused lifecycle slice, but the new API matrix covers queued, completed, failed, completed-with-gaps, zero-finding, and finding-rich states
+    - report export endpoints themselves still render deterministic content from stored evidence; this slice makes the catalog/UI availability truthful without adding a new export hard-block
+
+- 2026-05-01: completed backlog-156 `Fix AI enrichment Unavailable message when ChatGPT IS connected; add Enrich Now button`:
+  - rationale:
+    - the Findings drawer was showing provider-disconnected copy for stale per-finding `unavailable` enrichment even when global AI and finding enrichment were enabled
+    - operators needed a narrow, evidence-preserving way to enrich the selected finding without touching scans, approvals, packs, or runtime binding
+  - implementation:
+    - added `POST /api/v1/findings/{finding_id}/ai-enrich`, guarded by operator/admin role and tenant checks, delegating to the existing async finding enrichment service
+    - Findings drawer now shows `Not yet enriched` and `Enrich Now` only when finding enrichment is enabled and the configured provider is ready
+    - disconnected/disabled AI states still show the existing `Connect or enable an AI provider` guidance
+    - added targeted API and Playwright coverage for stale unavailable enrichment being requeued and the drawer moving to `Enriching`
+    - defensively fixed the run-event snapshot to tolerate the current `Run` model without `completed_at`, unblocking the existing AI enrichment event regression test
+  - files:
+    - `api/app/routers/findings.py`
+    - `api/app/routers/runs.py`
+    - `ui/assets/modules/findings.js`
+    - `api/tests/test_ai_finding_enrichment.py`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-156-ai-enrichment-enrich-now-validation-20260501.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s api/tests/test_health.py -q` (`3` passed)
+    - `source .venv/bin/activate && python -m pytest -s api/tests/test_ai_finding_enrichment.py -q` (`19` passed)
+    - `source .venv/bin/activate && python -m pytest -s ui/tests/test_operator_console_smoke_e2e.py::test_findings_drawer_ai_enrichment_status_badge ui/tests/test_operator_console_smoke_e2e.py::test_findings_drawer_ai_enrichment_unavailable_can_be_started_when_provider_ready -q` (`2` passed)
+    - `node --input-type=module --check < ui/assets/modules/findings.js`
+    - `python3 -m py_compile api/app/routers/findings.py api/app/routers/runs.py`
+    - `git diff --check`
+  - not claimed green:
+    - exact normal-capture health command hit the known host-level pytest capture `FileNotFoundError`; the same health tests passed with `-s`
+    - `curl --max-time 3 -fsS http://127.0.0.1:8000/health/live` timed out, so the fixed localhost service was not claimed healthy
+  - remaining risks:
+    - real ChatGPT enrichment still depends on valid engagement-scoped OAuth/provider availability
+    - the new path queues advisory enrichment only and intentionally does not auto-apply or mutate finding facts outside the existing additive enrichment record

@@ -1,0 +1,110 @@
+{
+  "id": "backlog-21-controlled-artifact-reimport-foundation",
+  "task_file": "codex/tasks/backlog-21-controlled-artifact-reimport-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Controlled Artifact Reimport Foundation",
+  "goal": "Close the supervised Codex build-lane loop by adding a controlled import path from validated workspace artifacts back into reviewed pack artifacts.",
+  "scope": "Implement or reconcile the first controlled artifact reimport slice for Codex-prepared validation results and generated pack artifacts. The path must preserve pack review, validation, approval, deployment, and runtime binding gates.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 21,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/codex_task_interface.md",
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "codex_build_lane",
+    "source_documents": [
+      "docs/codex_task_interface.md",
+      "codex/tasks/ACTIVE-TASK-20260415-controlled-artifact-reimport.json",
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only add a controlled reimport path. Do not bypass pack validation, approval, deployment, or runtime binding.",
+    "runtime_mutation": false,
+    "pack_gate_preservation_required": true,
+    "notes": [
+      "Reimported artifacts must stay reviewable and traceable.",
+      "Runtime packs must not change during active assessments."
+    ]
+  },
+  "success_criteria": [
+    "Validated Codex workspace output can be imported or staged through a controlled pack artifact path.",
+    "The existing pack registry, validation, approval, deployment, and runtime binding gates remain authoritative.",
+    "Invalid or missing validation-result data is rejected clearly.",
+    "API and docs cover the supported reimport flow.",
+    "No runtime self-modification is introduced."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/packs.py",
+    "api/app/services/packs.py",
+    "docs/codex_task_interface.md",
+    "api/tests",
+    "ui/assets/modules/packs.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "runtime pack binding behavior during active runs",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Reimport preserves all existing pack gates.",
+      "Invalid validation handoffs are rejected.",
+      "No runtime pack changes occur outside the deployment/binding flow."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Existing Codex export and validation-result handoff behavior is understood and documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with artifact reimport changes and validation evidence.",
+      "Update CURRENT_STATE.md with the Codex build-lane reimport baseline and remaining limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Runtime self-modification",
+    "Bypassing pack approval",
+    "Automatic deployment after import",
+    "Uncontrolled plugin installation",
+    "Changing finding schema fields"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

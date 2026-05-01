@@ -1,0 +1,109 @@
+{
+  "id": "backlog-29-compliance-framework-expansion-foundation",
+  "task_file": "codex/tasks/backlog-29-compliance-framework-expansion-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Compliance Framework Expansion Foundation",
+  "goal": "Expand compliance packaging beyond SOC 2 into ISO 27001 and PCI DSS while keeping every claim evidence-backed.",
+  "scope": "Implement the next compliance report-package slice for ISO 27001 and PCI DSS mappings using existing methodology, evidence, finding, and report structures. Do not claim certification, attestation, or full control coverage beyond evidence.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found ISO 27001 and PCI DSS were documented but not queued as explicit packages.",
+  "source_context": {
+    "queue_index": 29,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/operational_truth_signoff.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "compliance_packaging",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/operational_truth_signoff.md",
+      "docs/methodology_mapping.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add framework packages only where mappings can be evidence-backed. Do not imply certification, CPA attestation, or full compliance.",
+    "runtime_mutation": false,
+    "notes": [
+      "Control coverage and residual gaps must stay visible.",
+      "Unmapped findings must remain reviewable."
+    ]
+  },
+  "success_criteria": [
+    "ISO 27001 and PCI DSS report-package paths or documented templates exist.",
+    "Framework output is grouped by controls or requirements with evidence references.",
+    "Unmapped findings and untested controls remain explicit.",
+    "Markdown, HTML, and PDF behavior is validated if report variants are implemented.",
+    "Generated wording avoids certification or attestation overclaims."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "api/app/schemas/report_center.py",
+    "ui/assets/modules/reports.js",
+    "docs/operational_truth_signoff.md",
+    "api/tests/test_reports.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "api/app/methodology.py",
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Framework output is evidence-backed and scoped.",
+      "Untested and unmapped areas remain explicit.",
+      "No certification or attestation claim is generated."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Allowed and forbidden compliance language is reviewed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with compliance expansion changes and validation evidence.",
+      "Update CURRENT_STATE.md with the expanded compliance baseline and remaining certification limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "CPA attestation",
+    "ISO certification claims",
+    "PCI certification claims",
+    "New methodology framework redefinition",
+    "Changing finding schema fields"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

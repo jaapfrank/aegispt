@@ -1,0 +1,117 @@
+{
+  "id": "backlog-61-autofix-code-patch-generation",
+  "task_file": "codex/tasks/backlog-61-autofix-code-patch-generation.json",
+  "task_type": "backlog_slice",
+  "title": "AutoFix \u2014 AI Code Patch Generation Foundation",
+  "goal": "For each confirmed finding, generate a concrete, stack-aware code patch that the developer can review and apply \u2014 moving AegisPT from remediation guidance to actionable fix delivery.",
+  "scope": "Extend the finding model with an optional autofix_json field (Alembic migration). Implement an AutoFixProvider service in api/app/services/autofix.py that: (1) takes a confirmed finding with evidence refs, inventory context (detected technology, framework, language from vendor_product_fingerprints), and methodology tags; (2) calls Claude (via ChatGPT OAuth provider from backlog-56) to generate a targeted code patch \u2014 the prompt includes the specific vulnerable pattern detected in stdout_excerpt, the detected framework/language, and the fix type required by the finding class; (3) returns a structured AutoFix record containing: patch_language, patch_before (vulnerable snippet), patch_after (fixed snippet), patch_explanation, verification_command, and confidence label; (4) is disabled by default (AI_AUTOFIX_ENABLED=false); (5) fails safely \u2014 provider failure does not affect the finding. Expose autofix data through the Finding Theater API and render it in the Findings drawer as a copy-ready diff block. Add a 'Copy Fix' button that copies patch_after to clipboard. If repository integration exists (backlog-62), link to the affected file.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Aikido AutoFix generates merge-ready code patches for confirmed vulnerabilities. AegisPT currently provides remediation guidance text but no executable fix. AutoFix transforms AegisPT findings from 'you have a problem' to 'here is the fix, copy it'. This is a key commercial differentiator \u2014 developers act on a code patch immediately; they read remediation guidance later (or never).",
+  "source_context": {
+    "queue_index": 61,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "autofix_remediation",
+    "source_documents": [
+      "api/app/services/ai_enrichment.py",
+      "api/app/services/finding_views.py",
+      "api/app/models/control.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Code patch generation and display only. AutoFix never automatically applies patches to any system. Patches are advisory and operator-reviewed. No file writes, no git commits, no code execution from AutoFix output. Disabled by default.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "no_automatic_code_application": true
+  },
+  "success_criteria": [
+    "autofix_json field exists on the finding model with Alembic migration.",
+    "AutoFixProvider generates a structured patch for supported finding classes.",
+    "Patch includes patch_language, patch_before, patch_after, patch_explanation, verification_command.",
+    "Finding Theater API exposes autofix data.",
+    "Findings drawer renders a diff block with syntax highlighting and a Copy button.",
+    "Disabled by default (AI_AUTOFIX_ENABLED=false).",
+    "Provider failure does not affect the finding or existing enrichment.",
+    "AutoFix never modifies any file or executes any code.",
+    "Tests cover patch generation, sparse-evidence fallback, provider failure, and no-auto-apply enforcement.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/autofix.py",
+    "api/app/services/finding_views.py",
+    "api/app/schemas/finding_views.py",
+    "api/app/config.py",
+    "migrations/versions/20260423_0016_finding_autofix.py",
+    "ui/assets/modules/findings.js",
+    "ui/assets/styles.css",
+    "api/tests/test_autofix.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Automatic application of patches to any file or system",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema severity or status fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_autofix.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AutoFix patch renders in Findings drawer as diff block with Copy button.",
+      "Patch is advisory only \u2014 no automatic application.",
+      "Disabled by default.",
+      "Provider failure does not break finding display.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Autonomous AI agent mode (backlog-60) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "AutoFix output contract documented in docs/ai_pentesting_agent_scope_alignment.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AutoFix implementation, patch structure, no-auto-apply enforcement.",
+      "Update CURRENT_STATE.md with AutoFix as opt-in active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Automatic application of patches",
+    "Git commit or PR creation (covered in backlog-62)",
+    "Executing generated code",
+    "Finding severity changes from AutoFix"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -73,7 +73,9 @@ Important defaults:
 - `AEGISPT_PORT=8000`
 - `TASK_DISPATCH_MODE=inline`
 - `DATABASE_URL=sqlite+pysqlite:///./aegispt.db`
+- `AEGISPT_DB_KEY=` (blank means the local SQLite database stays plaintext)
 - `ARTIFACTS_STORAGE_MODE=inline`
+- `ARTIFACTS_S3_ENFORCE_SSE=false`
 
 The direct-host runner now also falls back to `TASK_DISPATCH_MODE=inline` and `ARTIFACTS_STORAGE_MODE=inline` if an older env file forgot to define them, so `Start Validation` does not silently behave like a manual no-worker queue on host installs.
 
@@ -97,6 +99,85 @@ bash scripts/generate_host_env.sh
 ```
 
 The installer does not force a new key automatically because older local test runs may still rely on the current development fallback key. Set it deliberately on fresh hosts or during a planned re-key.
+
+## Deployment-key-backed secret materialization
+
+Fresh host installs default to `SECRET_MATERIALIZATION_MODE=encrypted_local`. That keeps direct wizard-entered passwords, API keys, bearer tokens, and session material out of normal run configuration by encrypting them into `SecretRef` records with the local key.
+
+To use a deployment-specific Fernet key for direct wizard-entered secrets:
+
+```bash
+export AEGISPT_SECRET_MATERIALIZATION_MODE=deployment_key
+export AEGISPT_DEPLOYMENT_SECRET_ENCRYPTION_KEY="$(python3 - <<'PY'
+import base64
+import os
+print(base64.urlsafe_b64encode(os.urandom(32)).decode())
+PY
+)"
+bash scripts/generate_host_env.sh
+```
+
+If you want missing deployment-key configuration to block direct secret material instead of falling back to local encryption, also set:
+
+```bash
+export AEGISPT_REQUIRE_DEPLOYMENT_SECRET_ENCRYPTION_KEY=true
+```
+
+External references such as `vault://...` remain pointers and do not require the deployment key. The key is only needed when AegisPT has to encrypt direct secret material itself.
+
+## Database encryption at rest
+
+Direct-host installs use SQLite by default. To encrypt the SQLite database file with SQLCipher, set `AEGISPT_DB_KEY` before starting the service:
+
+```bash
+export AEGISPT_DB_KEY="$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(48))
+PY
+)"
+sudo systemctl restart aegispt.service
+```
+
+For a fresh install, pass the key while generating the host env file:
+
+```bash
+export AEGISPT_DB_KEY="$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(48))
+PY
+)"
+bash scripts/generate_host_env.sh
+```
+
+To encrypt an existing plaintext SQLite database, stop the service first, create an encrypted copy, then point `DATABASE_URL` at the encrypted file and set the same `AEGISPT_DB_KEY` in `/srv/aegispt/env/aegispt-host.env`:
+
+```bash
+sudo systemctl stop aegispt.service
+source .venv/bin/activate
+python scripts/encrypt_existing_db.py \
+  --source ./aegispt.db \
+  --output ./aegispt.encrypted.db \
+  --key "$AEGISPT_DB_KEY"
+```
+
+Keep the key in the service env file or a managed secret store. If `APP_ENV` is not a development-like value and `AEGISPT_DB_KEY` is missing, AegisPT logs:
+
+```text
+Database is NOT encrypted. Set AEGISPT_DB_KEY environment variable to enable encryption at rest.
+```
+
+The encryption path is transparent to the application models and queries; only the SQLite driver changes when `AEGISPT_DB_KEY` is present.
+
+## MinIO/S3 server-side encryption
+
+When artifact storage uses S3 or MinIO, enable AegisPT's SSE-S3 upload flag:
+
+```bash
+ARTIFACTS_STORAGE_MODE=s3
+ARTIFACTS_S3_ENFORCE_SSE=true
+```
+
+With MinIO, configure the deployment so the bucket accepts SSE-S3 (`x-amz-server-side-encryption: AES256`). AegisPT will add that header to artifact uploads when `ARTIFACTS_S3_ENFORCE_SSE=true`. Inline artifact storage is unaffected.
 
 ## Updating an existing host install
 
@@ -166,6 +247,59 @@ Follow logs with:
 ```bash
 journalctl -u aegispt.service -f
 ```
+
+## Kali/local-host signoff packet
+
+Use this packet after a fresh install, after copying the repo to a new Kali VM, or after pulling updates into an existing direct-host install. It is intentionally limited to the supported local host lane and does not replace the Compose stack or active-safe lab validation.
+
+From the repository root on the host:
+
+```bash
+cd /opt/aegispt/repo
+sudo bash scripts/install_host_service.sh
+systemctl status aegispt.service --no-pager
+curl --fail --silent http://127.0.0.1:8000/health/live
+curl --fail --silent http://127.0.0.1:8000/app/ > /tmp/aegispt-app.html
+grep -E 'Operator Console|assets/styles.css' /tmp/aegispt-app.html
+grep -E 'type="module"|assets/app.js' /tmp/aegispt-app.html
+source .venv/bin/activate
+python scripts/run_acceptance_matrix.py \
+  --base-url http://127.0.0.1:8000 \
+  --scenario-id local-app-smoke
+```
+
+The first two `grep` commands are the static app freshness check for this lane. They confirm that the host is serving the current operator-console shell and module asset references from the repo after the service restart, instead of an older ad hoc Uvicorn process or stale static copy.
+
+The `local-app-smoke` acceptance result must be written under `codex/results/` and should include direct HTML/PDF report links. Those links are the report-export signoff evidence for this minimal host packet.
+
+If the durable service path is unavailable during local development, use the transient inline host recovery first and then rerun the same health, app, and smoke checks:
+
+```bash
+cd /opt/aegispt/repo
+sudo bash scripts/restart_local_inline_host_systemd.sh
+```
+
+If `sudo` or `systemd-run` is unavailable in the current shell, the non-systemd fallback is:
+
+```bash
+cd /opt/aegispt/repo
+bash scripts/restart_local_inline_host.sh
+```
+
+In a non-interactive shell where `/opt/aegispt/ms-playwright` is root-owned and `sudo` cannot prompt for a password, use a repo-local browser cache explicitly:
+
+```bash
+cd /opt/aegispt/repo
+PLAYWRIGHT_BROWSERS_PATH="${PWD}/.cache/ms-playwright" bash scripts/restart_local_inline_host.sh
+```
+
+Expected failure modes to record honestly:
+
+- `aegispt.service` is missing while port `8000` is occupied: replace the ad hoc host with `scripts/install_host_service.sh` or one of the inline restart helpers before signing off.
+- `/health/live` fails: inspect `journalctl -u aegispt.service -f` for the durable service or `/tmp/aegispt-inline-host.log` for the non-systemd helper.
+- `/app/` loads but the asset references look old: restart through the repo helper or durable installer, then hard-refresh the browser.
+- PDF export fails while HTML export works: rerun the helper or installer so `scripts/ensure_playwright_chromium.sh` fills the configured `PLAYWRIGHT_BROWSERS_PATH`.
+- `local-app-smoke` waits forever or fails as queued: the host is likely in `manual` dispatch mode without an active worker; the direct-host signoff lane expects inline dispatch.
 
 ## What this does not replace
 

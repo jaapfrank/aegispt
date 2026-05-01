@@ -13,6 +13,7 @@ from api.app.services.artifact_storage import (
     artifact_storage_config_from_settings,
     load_artifact_content,
 )
+from api.app.services.tenancy import assert_artifact_tenant, get_current_tenant_id
 
 router = APIRouter(prefix="/api/v1/artifacts", tags=["artifacts"])
 
@@ -22,10 +23,12 @@ def get_artifact_content(
     artifact_id: UUID,
     session: Session = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> Response:
     artifact = session.scalar(select(EvidenceArtifact).where(EvidenceArtifact.id == artifact_id))
     if artifact is None:
         raise HTTPException(status_code=404, detail="artifact not found")
+    assert_artifact_tenant(artifact, tenant_id)
 
     content = load_artifact_content(
         config=artifact_storage_config_from_settings(settings),

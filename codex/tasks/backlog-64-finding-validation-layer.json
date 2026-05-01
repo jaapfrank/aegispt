@@ -1,0 +1,115 @@
+{
+  "id": "backlog-64-finding-validation-layer",
+  "task_file": "codex/tasks/backlog-64-finding-validation-layer.json",
+  "task_type": "backlog_slice",
+  "title": "Finding Validation Layer \u2014 Zero False Positive Foundation",
+  "goal": "Add an automated validation step for each finding that confirms exploitability against the live target before the finding is reported \u2014 matching XBOW's 'validator' approach that enables their zero-false-positive guarantee.",
+  "scope": "Implement: (1) A validation_status lifecycle extension on findings: unvalidated \u2192 validation_queued \u2192 validation_running \u2192 validated_confirmed \u2192 validated_not_reproduced \u2192 validation_skipped. (2) A FindingValidator service in api/app/services/finding_validator.py that, for a confirmed finding, generates a minimal targeted re-probe: selects the appropriate runner and a minimal param set derived from the finding's evidence (tool, target, stdout_excerpt pattern), creates a validation task linked to the finding via source_finding_id, runs it through the normal task dispatch path, and compares the result against the original finding evidence. (3) Validation runs are always passive or active tier \u2014 never intrusive \u2014 and use a narrowly scoped re-probe, not a full rescan. (4) Findings with validation_status=validated_confirmed display a green 'Verified \u2713' badge. Findings with validated_not_reproduced display an amber 'Unconfirmed' badge and a note explaining the re-probe result. (5) The validator is opt-in (AUTO_VALIDATE_FINDINGS=false by default). (6) Validation results are additive \u2014 they never delete or modify the original finding.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "XBOW's automated validators confirm each vulnerability before reporting, enabling a zero-false-positive guarantee. AegisPT currently marks findings as 'operator-validated' only after human review. An automated validation layer reduces false positives, increases finding credibility, and enables a 'confirmed findings only' reporting tier that matches enterprise buyer expectations.",
+  "source_context": {
+    "queue_index": 64,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "finding_quality",
+    "source_documents": [
+      "api/app/models/control.py",
+      "api/app/services/runs.py",
+      "api/app/services/finding_views.py",
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Validation probes are passive or active tier only \u2014 never intrusive. Validation never modifies, deletes, or escalates the original finding. Disabled by default. Validation tasks follow the same scope enforcement as all other tasks.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "no_finding_mutation": true
+  },
+  "success_criteria": [
+    "validation_status field exists on findings with Alembic migration.",
+    "FindingValidator service generates a minimal re-probe task for a finding.",
+    "Validation tasks are passive or active tier only.",
+    "validated_confirmed findings show a green Verified badge in Finding Theater.",
+    "validated_not_reproduced findings show an amber Unconfirmed badge with re-probe details.",
+    "Original finding evidence is never modified by the validation result.",
+    "AUTO_VALIDATE_FINDINGS=false by default.",
+    "Tests cover confirmed validation, not-reproduced result, scope enforcement, and no-finding-mutation.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/finding_validator.py",
+    "api/app/services/finding_views.py",
+    "api/app/schemas/finding_views.py",
+    "api/app/config.py",
+    "migrations/versions/20260423_0019_finding_validation_status.py",
+    "ui/assets/modules/findings.js",
+    "api/tests/test_finding_validator.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Original finding evidence, severity, or methodology fields",
+    "Intrusive validation probes",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_finding_validator.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Validation badges render correctly in Finding Theater.",
+      "Original findings unchanged by validation result.",
+      "Disabled by default.",
+      "Tests pass.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "CI/CD event-driven triggers (backlog-63) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with validation layer implementation and no-mutation evidence.",
+      "Update CURRENT_STATE.md with finding validation as opt-in active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Intrusive validation probes",
+    "Automatic finding deletion on not-reproduced",
+    "Severity changes from validation",
+    "Full rescan as validation"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

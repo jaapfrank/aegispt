@@ -1,0 +1,109 @@
+{
+  "id": "backlog-47-llm-driven-intake-intelligence-foundation",
+  "task_file": "codex/tasks/backlog-47-llm-driven-intake-intelligence-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "LLM-Driven Intake Intelligence Foundation",
+  "goal": "Add optional LLM-assisted intake interpretation while preserving explicit scope and deterministic fallback behavior.",
+  "scope": "Extend conversational intake with an optional provider-backed interpretation layer that can clarify ambiguous operator language, identify scope conflicts, suggest methodology or pack context, and propose safe follow-up questions. The schema must prevent scope broadening beyond explicit operator input, and deterministic intake must remain the fallback.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md identifies intake intelligence as a missing capability beyond deterministic question routing.",
+  "source_context": {
+    "queue_index": 47,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/ai_question_strategy.md",
+      "docs/conversational_intake_mapping.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_intake_guidance",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_question_strategy.md",
+      "docs/conversational_intake_mapping.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "The LLM may clarify and suggest, but schema validation must block broader scope, access assumptions, unsafe targets, or unapproved packs.",
+    "runtime_mutation": false,
+    "operator_control_required": true
+  },
+  "success_criteria": [
+    "Intake can optionally interpret ambiguous operator text into warnings, safe inferences, and follow-up questions.",
+    "The LLM layer cannot broaden target scope or access mode beyond explicit operator confirmation.",
+    "Provider-disabled and provider-failure paths preserve deterministic intake behavior.",
+    "Pack or methodology suggestions are advisory until operator confirmed.",
+    "Tests cover ambiguous input, scope conflict, disabled provider, provider failure, and no-scope-expansion rules."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_enrichment.py",
+    "api/app/services/runs.py",
+    "api/app/schemas/runs.py",
+    "ui/assets/modules/wizard.js",
+    "api/tests/test_runs.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/ai_question_strategy.md",
+    "docs/conversational_intake_mapping.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "protected secret exposure paths"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "LLM intake is optional and fallback-safe.",
+      "Scope expansion is blocked by schema and tests.",
+      "Operator confirmation remains required for advisory suggestions."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Run attack narrative foundation is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Allowed intake inference and blocked scope-broadening behavior are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with LLM intake changes and validation evidence.",
+      "Update CURRENT_STATE.md with LLM intake boundaries and fallback behavior.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Autonomous scope creation",
+    "Unconfirmed credential assumptions",
+    "Pack deployment from intake",
+    "Generic chat UI",
+    "Finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,102 @@
+{
+  "id": "backlog-81-installation-package",
+  "task_file": "codex/tasks/backlog-81-installation-package.json",
+  "task_type": "backlog_slice",
+  "title": "Installation Package \u2014 Docker Compose, One-Line Installer, and Windows/WSL Setup",
+  "goal": "Make AegisPT installable in under 5 minutes on any target environment with a single command \u2014 no manual dependency management required.",
+  "scope": "Implement three installation paths: (1) DOCKER COMPOSE: create docker-compose.yml and docker-compose.override.yml.example at the repo root. Services: aegispt-api (FastAPI + workers), aegispt-db (PostgreSQL), aegispt-redis (Redis), aegispt-tools (Kali-based container with nmap/nuclei/zap/nxc/bloodhound/responder/metasploit pre-installed). A .env.example documents all required variables. docker-compose up brings the full stack up in one command. Healthcheck endpoints confirm readiness. (2) ONE-LINE KALI INSTALLER: improve the existing install_aegispt_host.sh into a polished interactive installer that: detects Kali version, installs missing dependencies (python3, venv, nmap, nuclei, nxc, bloodhound-python, responder, metasploit, hashcat, impacket), configures the systemd service, generates a .env with secure defaults, prints a clear 'AegisPT ready at http://localhost:8000' message. Curl-installable: curl -fsSL https://install.aegispt.io/install.sh | bash (URL placeholder, not live). (3) WINDOWS/WSL SETUP GUIDE: docs/install/windows-wsl.md with step-by-step instructions for WSL2 + the existing scripts. (4) A docs/install/README.md index that links all three paths with a decision guide ('Which install method is right for you?').",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "There is no clean installation story. The existing scripts work but require expertise. A Docker Compose setup and a polished one-line installer are table stakes for any product targeting security teams. New evaluators need to go from zero to running scan in under 5 minutes.",
+  "source_context": {
+    "queue_index": 85,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/host_service_install.md",
+      "docs/Kali-VM-Reuse-Guide.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "installation_packaging",
+    "source_documents": [
+      "scripts/install_aegispt_host.sh",
+      "scripts/generate_host_env.sh",
+      "infra/host/aegispt-host.env.example"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Installation tooling and documentation only. No product code changes. Docker Compose uses official base images only. No live external URLs \u2014 all placeholder URLs clearly marked as such.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "docker-compose up starts all services and passes health checks.",
+    "One-line Kali installer runs non-interactively and produces a working AegisPT instance.",
+    "docs/install/README.md explains all three paths with a decision guide.",
+    "Windows/WSL setup guide is accurate and complete.",
+    "Existing Kali acceptance tests pass against the Docker Compose stack.",
+    "No product code changes."
+  ],
+  "likely_touched_files": [
+    "docker-compose.yml",
+    "docker-compose.override.yml.example",
+    ".env.example",
+    "scripts/install_aegispt_host.sh",
+    "docs/install/README.md",
+    "docs/install/windows-wsl.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/ (product code)",
+    "migrations/",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "docker compose config --quiet",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_product_feature_matrix.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "docker-compose.yml validates.",
+      "Feature matrix tests pass.",
+      "Install docs complete."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "First-run onboarding (backlog-80) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with installation package implementation.",
+      "Update CURRENT_STATE.md with Docker Compose and one-line installer as active install paths.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Kubernetes/Helm charts",
+    "Cloud marketplace listings",
+    "Auto-update mechanism"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

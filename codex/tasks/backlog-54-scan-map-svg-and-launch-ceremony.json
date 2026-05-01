@@ -1,0 +1,116 @@
+{
+  "id": "backlog-54-scan-map-svg-and-launch-ceremony",
+  "task_file": "codex/tasks/backlog-54-scan-map-svg-and-launch-ceremony.json",
+  "task_type": "backlog_slice",
+  "title": "Scan Map SVG and Mission Launch Ceremony Foundation",
+  "goal": "Replace the static active-target scan map with an animated SVG spider-web map showing tool-to-target threads drawing in real-time, and add the mission launch ceremony that transitions from wizard to mission control with intent.",
+  "scope": "Implement the SVG scan map defined in LIVING_SYSTEM_EXPERIENCE.md section 3: tool icons on the left edge, target host nodes on the right, SVG path elements connecting them. Node states: undiscovered (faint outline), scanning (sonar-ring pulse animation), completed-clean (green), completed-with-findings (amber + finding badge), critical-finding (red glow + ripple). Thread states: queued (dashed low-opacity), scanning (thread-draw animation + pulse-travel), completed (solid colored by severity). All state derived only from existing run/task/finding data via the existing SSE stream and polling state. Add the mission launch ceremony: overlay on wizard submit, run card materialize animation in Mission Control, Start Validation button pulse. No new backend endpoints. No AI signal panel in this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "LIVING_SYSTEM_EXPERIENCE.md section 3 identifies the animated SVG scan map as the central wow visual and the primary demo differentiator. Section 8 defines the mission launch ceremony as the most emotionally significant transition in the product. Both are frontend-only and build on the existing SSE stream and task/finding state.",
+  "source_context": {
+    "queue_index": 54,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/living_system_experience_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "living_system_experience",
+    "source_documents": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/modules/wizard.js",
+      "ui/assets/styles.css"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "SVG scan map and launch ceremony only. Do not add AI signal panel, sound design, Anthropic provider wiring, new backend endpoints, finding schema changes, or synthetic telemetry. All visual state must derive from persisted run/task/finding data \u2014 no invented or simulated scan events.",
+    "runtime_mutation": false,
+    "operator_control_required": false,
+    "no_synthetic_telemetry": true
+  },
+  "success_criteria": [
+    "Mission Control renders an SVG scan map showing tool icons, target nodes, and connecting threads derived from selected run task/finding state.",
+    "Nodes transition through visual states (undiscovered, scanning with sonar ring, completed clean, completed with findings, critical) based on stored task and finding data.",
+    "Threads draw themselves in when a task starts scanning a target and resolve to their final state when the task completes.",
+    "A finding badge pops onto the relevant target node when a finding is recorded for that target.",
+    "The mission launch overlay appears after wizard submission and fades before navigating to Mission Control.",
+    "The new run card materialises with scale animation in Mission Control.",
+    "The Start Validation button pulses twice to draw operator attention.",
+    "All visual state is derived from persisted data \u2014 no synthetic or fake scan events.",
+    "prefers-reduced-motion disables all scan map and launch ceremony animations.",
+    "Full Playwright suite remains green.",
+    "No new backend endpoints, finding schema changes, or worker behavior changes are introduced."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/styles.css",
+    "ui/assets/app.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "finding schema fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "SVG scan map renders with tool nodes, target nodes, and connecting threads.",
+      "Thread and node animations reflect stored task/finding state, not simulated events.",
+      "Mission launch overlay and run card materialize animation are visible.",
+      "Full Playwright suite is green.",
+      "No backend or schema changes were introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Ambient animation foundation (backlog-53) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "SVG component structure and state-derivation boundaries are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with SVG scan map and launch ceremony changes and Playwright validation evidence.",
+      "Update CURRENT_STATE.md with animated scan map and launch ceremony as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "AI signal panel with typing effect",
+    "Sound design Web Audio API",
+    "Anthropic provider wiring",
+    "New backend endpoints",
+    "Synthetic or simulated scan events",
+    "D3 or Cytoscape dependencies (use native SVG)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

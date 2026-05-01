@@ -1,0 +1,109 @@
+{
+  "id": "backlog-155-findings-reports-history-and-evidence-lifecycle-consistency",
+  "task_file": "codex/tasks/backlog-155-findings-reports-history-and-evidence-lifecycle-consistency.json",
+  "task_type": "backlog_slice",
+  "title": "Findings, Reports, History, and Evidence Lifecycle Consistency",
+  "goal": "Make the post-run lifecycle coherent from raw task evidence to findings, problems, reports, history, retest, false-positive handling, and export.",
+  "scope": "Audit and fix cross-screen consistency for finding counts, Problems Center, Findings Theater, Evidence Replay, Reports, History, remediation state, retest eligibility, Jira handoff state, evidence verification, and report export availability. The same run should tell the same story on every page.",
+  "status": "queued",
+  "generated_by": "operator-system-audit-2026-04-30",
+  "generation_reason": "The operator observed mismatches such as Findings showing nothing while Problems or run state imply data, History being low-value, and reports/actions appearing available for runs that are queued or incomplete. This task closes lifecycle consistency across post-run surfaces.",
+  "queue_index": 155,
+  "source_context": {
+    "queue_index": 155,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "post_run_lifecycle_consistency",
+    "source_documents": [
+      "api/app/routers/findings.py",
+      "api/app/routers/problems.py",
+      "api/app/services/reports.py",
+      "api/app/services/evidence_integrity.py",
+      "ui/assets/modules/findings.js",
+      "ui/assets/modules/problems.js",
+      "ui/assets/modules/reports.js",
+      "ui/assets/modules/explorer-history.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Lifecycle consistency only. Reuse existing finding, provenance, evidence, and report structures. Do not add schema fields unless a narrow migration is explicitly required and documented.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Finding counts match across Dashboard, Mission Control, Problems, Findings, Reports, and History for the same scope.",
+    "Reports are clearly unavailable, draft-only, or export-ready based on actual run/evidence state.",
+    "History shows useful run lineage, backlog/build-lane context where appropriate, comparison, audit events, and retest/remediation next steps.",
+    "Evidence Replay gives a direct route from report/finding/task to stored artifact and verification status.",
+    "False-positive, resolved, retest, Jira handoff, and AI enrichment states remain consistent across screens.",
+    "Empty states explain whether there is no data, no selected run, a queued run, a failed run, or a scope mismatch."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/findings.py",
+    "api/app/routers/problems.py",
+    "api/app/services/reports.py",
+    "api/app/services/evidence_integrity.py",
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/problems.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/explorer-history.js",
+    "api/tests/",
+    "ui/tests/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval gate bypass",
+    "runtime self-modification"
+  ],
+  "out_of_scope": [
+    "New pentest runners",
+    "Remote Jira issue creation beyond existing integration contract",
+    "Changing security methodology definitions",
+    "Live intrusive scans"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "API tests for count/scope consistency across findings, problems, reports, history, and dashboard",
+      "Browser tests for queued, completed, failed, completed-with-gaps, zero-finding, and finding-rich runs"
+    ],
+    "acceptance_criteria": [
+      "A lifecycle matrix artifact shows the same fixture runs rendered consistently across all post-run pages."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-154 has completed or been explicitly deferred by the operator.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

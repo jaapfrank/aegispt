@@ -1,0 +1,111 @@
+{
+  "id": "backlog-103-api-first-assessment-workflow",
+  "task_file": "codex/tasks/backlog-103-api-first-assessment-workflow.json",
+  "task_type": "backlog_slice",
+  "title": "API-First Assessment Workflow Foundation",
+  "goal": "Move API testing from a generic web-scan path into a dedicated API-first assessment workflow aligned to OWASP API Security Top 10 coverage.",
+  "scope": "Implement an additive API-first workflow that can ingest authorized OpenAPI specifications, Postman collections, or GraphQL introspection results when available and turn them into endpoint-aware inventory. Add bounded validation for the first high-value API classes: object-level authorization, function-level authorization, object-property exposure, method tampering, unauthenticated route exposure, GraphQL introspection/schema exposure, and selected sensitive business-flow abuse checks. Preserve existing approval gates, reuse stored auth contexts and protected secrets, and keep brute-force, volumetric DoS, and uncontrolled fuzzing out of scope.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The project audit found that AegisPT supports API targets and crAPI acceptance but still labels API validation as partial. OWASP API Security Top 10 2023 makes it clear that API testing needs its own auth-aware workflow, not just a generic web-safe lane.",
+  "source_context": {
+    "queue_index": 107,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/testing_coverage_matrix.md",
+      "docs/methodology_mapping.md",
+      "codex/results/project-gap-and-ai-roadmap-20260424.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "api_security_expansion",
+    "source_documents": [
+      "api/app/services/runs.py",
+      "api/app/services/run_profiles.py",
+      "docs/testing_coverage_matrix.md",
+      "codex/tasks/target_lab_matrix.json"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep the first slice auth-aware and deterministic. No load testing, volumetric abuse, automated account creation farms, or uncontrolled fuzzing.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Reuse existing secret-ref and session handling patterns.",
+      "Keep GraphQL support bounded to discovery and selected exposure/auth checks in this slice.",
+      "Do not change canonical finding schema fields."
+    ]
+  },
+  "success_criteria": [
+    "A dedicated API-first workflow and run profile exists.",
+    "Authorized OpenAPI, collection, or GraphQL inputs can populate API-aware inventory.",
+    "The first OWASP API Top 10-aligned checks produce evidence-backed findings or truthful no-finding output.",
+    "crAPI or an equivalent safe benchmark can exercise the dedicated API path instead of generic web-only behavior.",
+    "Tests cover missing spec input, unsupported schema formats, missing auth context, and out-of-scope API targets.",
+    "No uncontrolled fuzzing or denial-of-service behavior is introduced."
+  ],
+  "likely_touched_files": [
+    "api/app/services/run_profiles.py",
+    "api/app/services/runs.py",
+    "workers/runners/api_assessment/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/tests/test_runs.py",
+    "workers/tests/test_api_assessment_runner.py",
+    "codex/tasks/target_lab_matrix.json",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_api_assessment_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k api_assessment",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "API-first workflow exists and is auth-aware.",
+      "Spec-driven inventory stays bounded and explicit.",
+      "crAPI-safe benchmark path can exercise the dedicated lane."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "API safety boundaries and supported inputs are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with API-first workflow implementation and validation evidence.",
+      "Update CURRENT_STATE.md with the API-first assessment baseline and remaining API limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Volumetric DoS testing",
+    "Autonomous API fuzzing",
+    "Business-process abuse without explicit operator review",
+    "Canonical finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,111 @@
+{
+  "id": "backlog-98-evidence-completeness-guarantor",
+  "task_file": "codex/tasks/backlog-98-evidence-completeness-guarantor.json",
+  "task_type": "backlog_slice",
+  "title": "Evidence Completeness Guarantor \u2014 SHA256 Enforcement, RFC 3161 Timestamps, Replay Recipes, and Integrity Verification",
+  "goal": "Make the 'evidence-first' claim provably true and legally defensible: every finding has a hash-verified artifact with an eIDAS-compliant RFC 3161 timestamp, a stored replay recipe, and a one-click integrity check \u2014 without requiring blockchain.",
+  "scope": "Five specific fixes: (0) RFC 3161 TRUSTED TIMESTAMPING: After each artifact is written and SHA256 is computed, submit the hash to a public RFC 3161 Timestamp Authority (default: Freetsa.org, configurable in Settings). Store the returned .tsr (timestamp response) alongside the artifact. The timestamp is independently verifiable with standard openssl tooling: 'openssl ts -verify -in artifact.tsr -data artifact.json'. This is legally recognized under EU eIDAS regulation \u2014 stronger than blockchain for compliance purposes. When a Verify Evidence check runs, it verifies both the SHA256 integrity AND the RFC 3161 timestamp. A Settings option allows disabling timestamp requests for air-gapped environments. (1) SHA256 ENFORCEMENT: Make sha256 non-nullable on evidence_artifacts. Every artifact written by any runner must compute and store SHA256 before persisting. Add an Alembic migration. Add a background job that backfills SHA256 for existing artifacts where possible (reads artifact content, computes hash, writes). Artifacts without a computable hash are flagged as 'hash-unavailable' rather than silently having NULL. (2) REPLAY RECIPE: Add a replay_recipe_json field to the findings table (Alembic migration). The recipe stores: tool name, exact tool version, target, full params_json used, scope allowlist at time of finding, and an expected_match_pattern (the string or regex from stdout that confirmed the finding). This is set when the finding is created by the runner. The recipe allows anyone to reproduce the exact test: 'nuclei -t cve-2021-41773 -u http://10.0.20.5 -o /tmp/out.json'. (3) FULL STDOUT IN ARTIFACT: Remove the 400-char stdout_text truncation from tool_executions. Store the full stdout in the artifact file (already done), but also ensure stdout_text in the DB contains the relevant matching section (not truncated to 400 chars globally \u2014 truncate to 4000 chars or store the matched lines in full). Update _related_executions() to return the relevant matched lines, not just the first 400 chars of all output. (4) EVIDENCE INTEGRITY BUTTON: Add a 'Verify Evidence' action to each finding in Finding Theater. This action: reads the linked artifact file, computes its SHA256, compares to the stored hash, returns 'Verified: hash matches' or 'INTEGRITY FAILURE: hash mismatch' with timestamp. Result is stored as an audit event. Also: a bulk 'Verify All Findings' option on the Run level that runs integrity checks on all artifacts for a run.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Code inspection shows sha256 is nullable (many artifacts have no hash), stdout is truncated to 400 chars, and 'ready for replay' is determined by checking if evidence_ref is not None \u2014 not by verifying artifact integrity. This means the current evidence-first architecture is incomplete. For the claim to be provably true rather than aspirationally true, SHA256 must be enforced, replay recipes must be stored, and integrity verification must be executable.",
+  "source_context": {
+    "queue_index": 102,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/operational_truth_signoff.md",
+      "docs/secret_handling_baseline.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "evidence_integrity",
+    "source_documents": [
+      "api/app/models/control.py",
+      "api/app/services/finding_views.py",
+      "workers/runners/base/contracts.py",
+      "workers/orchestration/findings.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Evidence integrity only. No new runners, no new scan capabilities. Replay recipe is stored for operator use \u2014 it does not auto-execute. SHA256 backfill is best-effort for existing artifacts. Integrity failures are logged as audit events, not silently suppressed.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "RFC 3161 timestamp (.tsr file) is requested and stored for each artifact after SHA256 computation.",
+    "Timestamp verification works offline with standard openssl: 'openssl ts -verify -in artifact.tsr -data artifact.json'.",
+    "Timestamp request failure is non-blocking \u2014 artifact is stored without timestamp if TSA is unreachable, flagged as timestamp-unavailable.",
+    "Air-gapped mode (no timestamp requests) is configurable in Settings.",
+    "sha256 is non-nullable on new evidence_artifacts \u2014 runners that do not compute SHA256 are rejected at write time.",
+    "Existing artifacts without SHA256 are flagged as hash-unavailable rather than having NULL.",
+    "replay_recipe_json field exists on findings with exact tool, version, target, params, and expected match pattern.",
+    "stdout_text truncation increased from 400 to 4000 chars, and matched lines stored in full.",
+    "Verify Evidence button in Finding Theater computes and compares SHA256, stores audit event.",
+    "Bulk Verify All Findings action works at the run level.",
+    "'Evidence-linked and ready for replay' status only shown when SHA256 is present and replay recipe exists.",
+    "Tests cover SHA256 enforcement, hash mismatch detection, replay recipe content, and integrity audit event.",
+    "Full test suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/finding_views.py",
+    "workers/orchestration/findings.py",
+    "workers/runners/base/contracts.py",
+    "migrations/versions/20260424_0025_sha256_and_replay_recipe.py",
+    "ui/assets/modules/findings.js",
+    "api/tests/test_evidence_integrity.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Auto-executing replay recipes",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "Finding schema severity or status fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_evidence_integrity.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "SHA256 enforced on new artifacts.",
+      "Replay recipe stored per finding.",
+      "Verify Evidence works and creates audit event.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NIS2/DORA/TIBER compliance packages (backlog-97) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with evidence completeness guarantor implementation.",
+      "Update CURRENT_STATE.md with SHA256-enforced evidence chain as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Automatic replay execution",
+    "External immutable storage (separate backlog item if needed)",
+    "Blockchain/DLT evidence anchoring"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -79,6 +79,20 @@ function summarizeArtifactsByType(artifacts) {
   }, {});
 }
 
+function reimportArtifactPayload(artifact) {
+  return {
+    artifact_type: artifact.artifact_type,
+    logical_name: artifact.logical_name,
+    content_text: artifact.content_text ?? null,
+    content_json: artifact.content_json ?? null,
+    methodology_tags: artifact.methodology_tags || [],
+    provenance_json: {
+      ...(artifact.provenance_json || {}),
+      staged_from_pack_forge: true,
+    },
+  };
+}
+
 function renderLifecycleCard(title, status, summary) {
   return `
     <div class="status-count-card tone-${toneForStatus(status)}">
@@ -98,14 +112,14 @@ function nextLifecycleSuggestion(bundle, relatedCodexTasks) {
 
   if (!relatedCodexTasks.length) {
     return {
-      title: "Create a supervised Codex task if this pack needs operator-guided refinement.",
+      title: "Create a supervised build-lane task if this pack needs operator-guided refinement.",
       detail:
-        "The pack registry is already in place. A Codex task is only needed when the operator wants a controlled artifact review or refinement pass.",
+        "The pack registry is already in place. A build-lane task is only needed when the operator wants a controlled artifact review or refinement pass.",
     };
   }
   if (!state.selectedCodexResult && latestTask && String(latestTask.status).toLowerCase() !== "prepared") {
     return {
-      title: "Prepare the selected Codex task before editing or exporting workspace artifacts.",
+      title: "Prepare the selected build-lane task before editing or exporting workspace artifacts.",
       detail:
         "This generates the dry-run commands, workspace path, and validation hooks without changing the active runtime.",
     };
@@ -141,7 +155,7 @@ function nextLifecycleSuggestion(bundle, relatedCodexTasks) {
   return {
     title: "The pack is deployed. Review provenance and prepared tasks for future refinement.",
     detail:
-      "This pack is already bound through the normal deployment lane. Any further Codex work should remain a new supervised refinement cycle.",
+      "This pack is already bound through the normal deployment lane. Any further build-lane work should remain a new supervised refinement cycle.",
   };
 }
 
@@ -213,8 +227,8 @@ export function createPacksModule() {
         "Proposal",
         relatedCodexTasks[0]?.status || bundle.pack.status,
         relatedCodexTasks.length
-          ? `${relatedCodexTasks.length} linked Codex task${relatedCodexTasks.length === 1 ? "" : "s"}`
-          : "No linked Codex task yet"
+          ? `${relatedCodexTasks.length} linked build-lane task${relatedCodexTasks.length === 1 ? "" : "s"}`
+          : "No linked build-lane task yet"
       ),
       renderLifecycleCard(
         "Validation",
@@ -355,8 +369,8 @@ export function createPacksModule() {
           </div>
         </div>
         <div class="detail-surface">
-          <h4>Deployments & Linked Codex Tasks</h4>
-          <p>${escapeHtml(`${bundle.deployments.length} deployment${bundle.deployments.length === 1 ? "" : "s"} · ${relatedCodexTasks.length} linked Codex task${relatedCodexTasks.length === 1 ? "" : "s"}`)}</p>
+          <h4>Deployments & Linked Build-Lane Tasks</h4>
+          <p>${escapeHtml(`${bundle.deployments.length} deployment${bundle.deployments.length === 1 ? "" : "s"} · ${relatedCodexTasks.length} linked build-lane task${relatedCodexTasks.length === 1 ? "" : "s"}`)}</p>
           ${
             bundle.deployments.length
               ? bundle.deployments
@@ -389,7 +403,7 @@ export function createPacksModule() {
       <div class="info-pair-grid split-top">
         <div>
           <p class="eyebrow">Linked Task</p>
-          <p>${latestTask ? escapeHtml(`${latestTask.task_type} · ${latestTask.id}`) : "No Codex task selected"}</p>
+          <p>${latestTask ? escapeHtml(`${latestTask.task_type} · ${latestTask.id}`) : "No build-lane task selected"}</p>
         </div>
         <div>
           <p class="eyebrow">Task Status</p>
@@ -415,7 +429,7 @@ export function createPacksModule() {
           : `
             <div class="split-top">
               <p class="eyebrow">Generation Reason</p>
-              <p>${escapeHtml(bundle.context.generation_reason || "No Codex task is linked yet, so only pack-level generation context is available.")}</p>
+              <p>${escapeHtml(bundle.context.generation_reason || "No build-lane task is linked yet, so only pack-level generation context is available.")}</p>
             </div>
           `
       }
@@ -478,7 +492,7 @@ export function createPacksModule() {
       </div>
       ${renderDisclosure({
         title: "Runtime Guardrails",
-        summary: `${bundle.context.runtime_guardrails.length} rules that keep Codex out of the live runtime`,
+        summary: `${bundle.context.runtime_guardrails.length} rules that keep supervised build work out of the live runtime`,
         body: `<ul>${bundle.context.runtime_guardrails.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
       })}
       ${renderDisclosure({
@@ -523,6 +537,10 @@ export function createPacksModule() {
   }
 
   function renderCodexTaskResult(bundle) {
+    const latestValidation = bundle ? latestItem(bundle.validations) : null;
+    const validationPassed = String(latestValidation?.status || "").toLowerCase() === "passed";
+    const canStageReimport = Boolean(state.selectedCodexResult && validationPassed && bundle?.artifacts?.length);
+
     dom.codexTaskResult.innerHTML = state.selectedCodexResult
       ? `
         <h4>Prepared Task Output</h4>
@@ -575,10 +593,27 @@ export function createPacksModule() {
             .join(""),
           testId: "codex-validation-handoff",
         })}
+        <div class="detail-surface split-top" data-testid="codex-reimport-panel">
+          <h4>Controlled Artifact Reimport</h4>
+          <p>
+            ${statusPill(canStageReimport ? "ready" : "blocked")}
+            ${escapeHtml(
+              canStageReimport
+                ? "Validation result is available. Reimport will create a generated child pack that still needs validation, approval, and deployment."
+                : "Prepare a build-lane task and record a passing pack validation result before staging reimported artifacts."
+            )}
+          </p>
+          <p class="micro-copy">
+            Reimport never deploys automatically and never mutates a runtime-bound pack in place.
+          </p>
+          <button class="action secondary split-top" type="button" data-stage-codex-reimport ${canStageReimport ? "" : "disabled"}>
+            Stage Validated Child Pack
+          </button>
+        </div>
       `
       : emptyState(
           bundle
-            ? "Create or select a Codex task to view prepared commands, output files, and validation hooks."
+            ? "Create or select a build-lane task to view prepared commands, output files, and validation hooks."
             : "Prepared task output appears here."
         );
   }
@@ -595,15 +630,15 @@ export function createPacksModule() {
         "Generate or select a capability pack to review promotion readiness."
       );
       dom.packForgeDetail.innerHTML = emptyState(
-        "Pack artifacts, validations, approvals, deployments, and Codex tasks appear here."
+        "Pack artifacts, validations, approvals, deployments, and build-lane tasks appear here."
       );
       dom.codexSuggestions.innerHTML = emptyState(
-        "Operator suggestions appear once a pack and optional Codex task are linked."
+        "Operator suggestions appear once a pack and optional build-lane task are linked."
       );
       dom.codexPackPreview.innerHTML = emptyState(
         "Generated pack previews appear once a review bundle is available."
       );
-      dom.codexContext.innerHTML = emptyState("Codex context is available once a pack is selected.");
+      dom.codexContext.innerHTML = emptyState("Build-lane context is available once a pack is selected.");
       dom.codexTaskResult.innerHTML = emptyState(
         "Prepared task output appears here."
       );
@@ -641,6 +676,13 @@ export function createPacksModule() {
     renderCodexPackPreview(bundle);
     renderCodexContext(bundle);
     renderCodexTaskResult(bundle);
+    dom.codexTaskResult.querySelector("[data-stage-codex-reimport]")?.addEventListener("click", async () => {
+      try {
+        await stageCodexReimport(bundle);
+      } catch (error) {
+        runtime.actions.pushStatus?.(error.message || "Unable to stage build-lane reimport.", "error");
+      }
+    });
   }
 
   function renderAdaptiveForm() {
@@ -760,9 +802,9 @@ export function createPacksModule() {
       </label>
       <label class="field">
         <span>Generation Reason</span>
-        <textarea name="generation_reason" rows="3" placeholder="Explain why this supervised Codex task is needed."></textarea>
+        <textarea name="generation_reason" rows="3" placeholder="Explain why this supervised build-lane task is needed."></textarea>
       </label>
-      <button class="action secondary" type="submit">Create Codex Task</button>
+      <button class="action secondary" type="submit">Create Build-Lane Task</button>
       <div class="stack-zone split-top">
         ${filteredCodexTasks()
           .map(
@@ -770,12 +812,12 @@ export function createPacksModule() {
               <div class="list-card ${task.id === state.selectedCodexTaskId ? "selected" : ""}" data-codex-pick="${task.id}" data-testid="codex-task-card">
                 <h4>${escapeHtml(task.task_type)}</h4>
                 <p>${statusPill(task.status)} ${escapeHtml(task.validation_status)}</p>
-                <p class="micro-copy">${escapeHtml(task.scope)}</p>
-                <p class="micro-copy split-top">${escapeHtml(task.generation_reason)}</p>
+                <p class="micro-copy">${escapeHtml(`Task ${task.id}`)}</p>
+                <p class="micro-copy split-top">Select this task to inspect prepared output, controlled commands, and validation handoff.</p>
               </div>
             `
           )
-          .join("") || emptyState("No Codex tasks are linked to the selected pack yet.")}
+          .join("") || emptyState("No build-lane tasks are linked to the selected pack yet.")}
       </div>
     `;
     dom.codexTaskForm.onsubmit = async (event) => {
@@ -796,7 +838,7 @@ export function createPacksModule() {
       });
       state.selectedCodexTaskId = task.id;
       state.selectedCodexResult = null;
-      runtime.actions.pushStatus?.("Codex task created in the supervised build lane.", "success");
+      runtime.actions.pushStatus?.("Build-lane task created in the supervised build lane.", "success");
       state.codexTasks = await api("/api/v1/codex/tasks");
       renderPackForge();
     };
@@ -850,9 +892,9 @@ export function createPacksModule() {
   async function prepareSelectedCodexTask() {
     const taskId = state.selectedCodexTaskId || filteredCodexTasks()[0]?.id;
     if (!taskId) {
-      throw new Error("Create or select a Codex task first.");
+      throw new Error("Create or select a build-lane task first.");
     }
-    await withPackAction("Preparing Codex dry-run task", async () => {
+    await withPackAction("Preparing build-lane dry-run task", async () => {
       state.selectedCodexResult = await api(`/api/v1/codex/tasks/${taskId}/run`, {
         method: "POST",
         body: {
@@ -861,8 +903,33 @@ export function createPacksModule() {
           dry_run: true,
         },
       });
-      runtime.actions.pushStatus?.("Codex task prepared in dry-run mode.", "success");
+      runtime.actions.pushStatus?.("Build-lane task prepared in dry-run mode.", "success");
       renderPackForge();
+    });
+  }
+
+  async function stageCodexReimport(bundle) {
+    assertSelectedPack();
+    const latestValidation = latestItem(bundle.validations);
+    if (!latestValidation || String(latestValidation.status || "").toLowerCase() !== "passed") {
+      throw new Error("Run pack validation successfully before staging build-lane reimport.");
+    }
+    await withPackAction("Staging controlled build-lane reimport", async () => {
+      const response = await api(`/api/v1/packs/${state.selectedPackId}/codex-reimport`, {
+        method: "POST",
+        body: {
+          codex_task_id: state.selectedCodexTaskId,
+          pack_version: bundle.pack.version,
+          validation_result: latestValidation,
+          change_summary: "Pack Forge staged validated build-lane workspace output for operator review.",
+          operator_notes: "Staged from Pack Forge; runtime use still requires validation, approval, deployment, and binding.",
+          artifacts: (bundle.artifacts || []).map((artifact) => reimportArtifactPayload(artifact)),
+        },
+      });
+      state.selectedPackId = response.staged_pack.id;
+      state.selectedCodexResult = null;
+      runtime.actions.pushStatus?.("Build-lane reimport staged as a generated child pack.", "success");
+      await runtime.actions.refreshSelectedEngagement?.();
     });
   }
 

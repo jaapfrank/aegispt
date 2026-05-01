@@ -1,0 +1,107 @@
+{
+  "id": "backlog-107-benchmark-lab-expansion-foundation",
+  "task_file": "codex/tasks/backlog-107-benchmark-lab-expansion-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Benchmark Lab Expansion Foundation",
+  "goal": "Expand AegisPT's safe target catalog and acceptance harness so product validation is not limited to a handful of web and API labs.",
+  "scope": "Extend the repo-owned benchmark catalog and acceptance harness to support a broader and more truthful benchmark set. The first expansion slice should add catalog structure, fixture notes, and safe-scenario support for: OWASP Benchmark, WrongSecrets, PromptMe, and an internal-lab template for GOAD-style AD validation, plus richer metadata for Gruyere, Juice Shop, WebGoat, crAPI, and PortSwigger Web Security Academy references. Where a target can run locally and safely, add executable catalog entries and scenario stubs. Where a benchmark is documentation-only or hosted, add explicit documentation metadata, expected vulnerable-family coverage, and prerequisites rather than pretending it is automatically runnable.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The audit found that the current safe target catalog is too narrow for the breadth of runtimes now present in the repo. Internal AD, secrets, LLM, and benchmark-score truth are still underrepresented in practical product validation.",
+  "source_context": {
+    "queue_index": 111,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/acceptance_runbook.md",
+      "docs/operator_product_operational_assurance.md",
+      "codex/results/gruyere-capability-gap-analysis-20260424.md",
+      "codex/results/project-gap-and-ai-roadmap-20260424.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "benchmark_truth_expansion",
+    "source_documents": [
+      "codex/tasks/target_lab_matrix.json",
+      "scripts/run_acceptance_matrix.py",
+      "scripts/acceptance_harness.py",
+      "docs/acceptance_runbook.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Catalog and harness expansion only. Do not silently enable public or unauthorized targets. Every executable target must remain local, explicitly authorized, or deliberately vulnerable.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "This task expands benchmark truth; it does not replace backlog-99 validation scoring.",
+      "Documentation-only benchmarks must stay explicitly marked as non-runnable when appropriate."
+    ]
+  },
+  "success_criteria": [
+    "The benchmark catalog covers more than the current local-smoke/Juice-Shop/WebGoat/crAPI set.",
+    "New benchmark metadata explicitly records vuln families, prerequisites, and whether the target is runnable, fixture-backed, or documentation-only.",
+    "At least one non-web benchmark family is represented in the catalog.",
+    "Tests cover catalog parsing, unsupported-target handling, and fixture metadata truth.",
+    "No unauthorized or arbitrary public target execution is introduced."
+  ],
+  "likely_touched_files": [
+    "codex/tasks/target_lab_matrix.json",
+    "scripts/acceptance_harness.py",
+    "scripts/run_acceptance_matrix.py",
+    "api/tests/test_acceptance_harness.py",
+    "docs/acceptance_runbook.md",
+    "docs/operator_product_operational_assurance.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "Authorization boundaries for customer targets"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_acceptance_harness.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Expanded benchmark catalog remains safe and explicit.",
+      "Documentation-only versus runnable targets are distinguished clearly.",
+      "No unauthorized targets are enabled by default."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Benchmark target safety rules are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with benchmark catalog expansion and validation evidence.",
+      "Update CURRENT_STATE.md with expanded benchmark-truth coverage.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Arbitrary public target execution",
+    "Nightly scoring logic from backlog-99",
+    "Canonical finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

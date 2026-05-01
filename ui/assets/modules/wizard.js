@@ -7,13 +7,15 @@ import {
   WIZARD_STEPS,
 } from "./constants.js";
 import { api } from "./api.js";
-import { buildEmptyAccount, buildEmptyWizardState, dom, runtime, state } from "./runtime.js";
+import { buildEmptyAccount, buildEmptyWizardState, dom, patchState, runtime, state } from "./runtime.js";
 import {
   countMeaningfulAccessContexts,
   emptyState,
   executionPlanForProfile,
+  capitalizeWord,
   enabledModules,
   escapeHtml,
+  formatDateTime,
   fieldHelp,
   fieldLabel,
   flattenTargetValues,
@@ -40,26 +42,1315 @@ import {
   valueOrNull,
 } from "./shared.js";
 
+const RECENT_MISSION_SCOPE_CACHE = new Map();
+const RECENT_MISSION_PREFILL_CACHE = new Map();
+const RECENT_MISSION_SCOPE_REQUESTS = new Set();
+
+const ASSESSMENT_MODE_OPTIONS = [
+  {
+    value: "",
+    label: "Disabled",
+    copy: "Keep the current one-run-at-a-time launch model.",
+  },
+  {
+    value: "FULL-INTERNAL-LAN",
+    label: "Full Internal LAN",
+    copy: "Chain passive discovery, active enrichment, credential validation, and exploit confirmation per phase.",
+  },
+  {
+    value: "FULL-EXTERNAL-WEB",
+    label: "Full External Web",
+    copy: "Chain passive web mapping, active web validation, and gated intrusive confirmation.",
+  },
+  {
+    value: "FULL-AD-ASSESSMENT",
+    label: "Full AD Assessment",
+    copy: "Chain directory baseline, BloodHound, credential impact, and gated lateral confirmation.",
+  },
+  {
+    value: "FULL-LAN-IOT",
+    label: "Full LAN + IoT",
+    copy: "Chain LAN discovery, IoT enumeration, smart-home analysis, credential checks, segmentation, and optional intrusive validation.",
+  },
+];
+
+const ASSESSMENT_TILE_OPTIONS = [
+  {
+    key: "external-web",
+    label: "External Web",
+    icon: "🌐",
+    badge: "Popular",
+    badgeClass: "badge-amber",
+    phaseTags: [{ label: "passive", cls: "tag-p" }, { label: "active", cls: "tag-a" }],
+    description: "Websites, web apps, and public application surfaces reachable from the internet.",
+    assessmentType: "Website / Web App",
+    quickReply: "Our web application",
+    recommended: true,
+  },
+  {
+    key: "external-infrastructure",
+    label: "External IPs",
+    icon: "🖧",
+    badge: "New",
+    badgeClass: "badge-green",
+    phaseTags: [{ label: "passive", cls: "tag-p" }, { label: "active", cls: "tag-a" }],
+    description: "External IP ranges, exposed services, SSH/RDP/VPN endpoints, and non-web internet-facing hosts.",
+    assessmentType: "External IP / WAN",
+    quickReply: "Our external infrastructure",
+    recommended: true,
+  },
+  {
+    key: "internal-lan",
+    label: "Internal LAN",
+    icon: "🏠",
+    badge: "Popular",
+    badgeClass: "badge-amber",
+    phaseTags: [{ label: "passive", cls: "tag-p" }, { label: "active", cls: "tag-a" }, { label: "credential", cls: "tag-c" }],
+    description: "Internal network ranges, subnets, office segments, and on-premise servers.",
+    assessmentType: "Internal Range / LAN",
+    quickReply: "My LAN network",
+    recommended: true,
+  },
+  {
+    key: "active-directory",
+    label: "Active Directory",
+    icon: "🛡️",
+    badge: "AD",
+    badgeClass: "badge-violet",
+    phaseTags: [{ label: "passive", cls: "tag-p" }, { label: "active", cls: "tag-a" }, { label: "credential", cls: "tag-c" }, { label: "exploit", cls: "tag-e" }],
+    description: "Domain controllers, AD identities, trust edges, and directory attack paths.",
+    assessmentType: "Internal Range / LAN",
+    quickReply: "Active Directory",
+  },
+  {
+    key: "full-internal",
+    label: "Full Internal",
+    icon: "🎯",
+    badge: "Complete",
+    badgeClass: "badge-red",
+    phaseTags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }, { label: "P3", cls: "tag-c" }, { label: "P4", cls: "tag-e" }],
+    description: "Broader internal validation across LAN, identity, and deeper follow-up workflows.",
+    assessmentType: "Internal Range / LAN",
+    quickReply: "Full internal assessment",
+  },
+  {
+    key: "smart-home-lan",
+    label: "Smart Home / IoT LAN",
+    icon: "🏠🔒",
+    badge: "IoT",
+    badgeClass: "badge-green",
+    phaseTags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }, { label: "P3", cls: "tag-a" }, { label: "P6", cls: "tag-c" }],
+    description: "Smart home hubs, IP cameras, consumer IoT, gateways, SNMP devices, segmentation, and IPv6 on an internal LAN.",
+    assessmentType: "Internal Range / LAN",
+    quickReply: "Smart home / IoT LAN",
+    recommended: true,
+  },
+  {
+    key: "cloud",
+    label: "Cloud (AWS/Azure)",
+    icon: "☁️",
+    badge: null,
+    badgeClass: null,
+    phaseTags: [{ label: "passive", cls: "tag-p" }, { label: "active", cls: "tag-a" }],
+    description: "Cloud infrastructure, IAM exposure, and tenant-facing control plane review.",
+    assessmentType: "Mixed Assessment",
+    quickReply: "Cloud environment",
+  },
+  {
+    key: "api-security",
+    label: "API Security",
+    icon: "{ }",
+    badge: null,
+    badgeClass: null,
+    phaseTags: [{ label: "passive", cls: "tag-p" }, { label: "active", cls: "tag-a" }],
+    description: "REST, GraphQL, gRPC, and other endpoint-centric application surfaces.",
+    assessmentType: "API",
+    quickReply: "Our API",
+    recommended: true,
+  },
+  {
+    key: "llm-ai-app",
+    label: "LLM / AI App",
+    icon: "🤖",
+    badge: "New",
+    badgeClass: "badge-violet",
+    phaseTags: [{ label: "active", cls: "tag-a" }],
+    description: "Prompt injection, model misuse, agent behavior, and AI-assisted app workflows.",
+    assessmentType: "Website / Web App",
+    quickReply: "LLM / AI application",
+  },
+  {
+    key: "custom",
+    label: "Custom",
+    icon: "⚙️",
+    badge: null,
+    badgeClass: null,
+    phaseTags: [{ label: "fine-tune", cls: "tag-custom" }],
+    description: "Build your own combination and refine the exact run model in Advanced Configuration.",
+    assessmentType: "Mixed Assessment",
+    quickReply: "A mixed environment",
+  },
+];
+
+const TILE_FLOW_SPECIAL_KEYS = new Set(["active-directory", "full-internal", "smart-home-lan", "cloud", "llm-ai-app", "custom"]);
+
+const AUTHORIZATION_LEVEL_OPTIONS = [
+  {
+    value: "passive",
+    label: "Passive only",
+    copy: "Stop after the passive baseline and wait before a higher tier begins.",
+    boundaryCopy: "Auto stops after Phase 1.",
+    tierRank: 0,
+  },
+  {
+    value: "active",
+    label: "Active",
+    copy: "Pre-authorize the active validation tier, then stop before credential or exploitation work.",
+    boundaryCopy: "Auto stops before the credential tier.",
+    tierRank: 1,
+  },
+  {
+    value: "full",
+    label: "Full",
+    copy: "Authorize all approved phases, including Metasploit and Impacket confirmation, in one go.",
+    boundaryCopy: "Runs every planned phase automatically.",
+    tierRank: 3,
+  },
+];
+
+const ACCESS_UNLOCKER_OPTIONS = [
+  {
+    key: "unauthenticated_lane",
+    label: "No credentials available",
+    copy: "Run discovery, service enumeration, safe SMB/LDAP probes, web baseline, and infrastructure checks without secrets.",
+    unlocks: "Unauthenticated LAN lane",
+    className: "passive",
+  },
+  {
+    key: "directory_context",
+    label: "AD/domain context known",
+    copy: "Use known domain, DC, DNS, or base DN hints to make LDAP and identity mapping less blind.",
+    unlocks: "LDAP/AD targeting",
+    className: "active",
+  },
+  {
+    key: "credential_refs",
+    label: "Credential refs available",
+    copy: "Use stored secret references for authenticated SMB/LDAP/BloodHound style checks.",
+    unlocks: "Credentialed validation",
+    className: "credential",
+  },
+  {
+    key: "hash_or_password_material",
+    label: "Hashes or password candidates",
+    copy: "Use protected material for Kerberos/NTLM validation and controlled password-audit workflows.",
+    unlocks: "Credential review",
+    className: "credential",
+  },
+  {
+    key: "intrusive_lan_authorized",
+    label: "Intrusive LAN checks authorized",
+    copy: "Allow noisy LAN checks only inside the approved boundary and with the kill switch available.",
+    unlocks: "Intrusive LAN phase",
+    className: "intrusive",
+  },
+  {
+    key: "exploit_confirmation_authorized",
+    label: "Exploit confirmation authorized",
+    copy: "Permit confirmation with exploitation tools only after Full authorization and exact scope confirmation.",
+    unlocks: "Exploit confirmation",
+    className: "intrusive",
+  },
+];
+
+const PHASE_TIER_STYLES = {
+  passive: {
+    stroke: "#2e8b57",
+    fill: "#ecf8f1",
+    accent: "#d7f1e1",
+    badge: "#d5f2df",
+    text: "#165a38",
+  },
+  active: {
+    stroke: "#3d9ccc",
+    fill: "#ecf7fc",
+    accent: "#d8eef8",
+    badge: "#d9f3ff",
+    text: "#124c6b",
+  },
+  "intrusive-credential": {
+    stroke: "#c28a25",
+    fill: "#fff7ea",
+    accent: "#f5e5bf",
+    badge: "#fce8be",
+    text: "#6f4c10",
+  },
+  "intrusive-exploitation": {
+    stroke: "#bf4c3a",
+    fill: "#fff0ec",
+    accent: "#f7d6cf",
+    badge: "#ffd8d2",
+    text: "#6f2218",
+  },
+};
+
+const TOOL_ICON_LABELS = {
+  "external-infra": "WAN",
+  "nmap": "NMAP",
+  "ldap-enum": "LDAP",
+  "easm": "EASM",
+  "httpx": "HTTPX",
+  "nuclei": "NUCL",
+  "zap": "ZAP",
+  "burp": "BURP",
+  "bloodhound": "BLOOD",
+  "netexec": "SMB",
+  "responder": "RESP",
+  "kerberoast": "KRB",
+  "asreproast": "ASREP",
+  "hashcat": "CRACK",
+  "metasploit": "MSF",
+  "impacket": "IMPKT",
+  "llm-probe": "LLM",
+  "biz-logic": "BIZ",
+  "aws-inventory": "AWS",
+};
+
+const PROFILE_TARGET_GROUPS = {
+  "passive-external-infrastructure": ["network", "domain", "web"],
+  "passive-network-discovery": ["network"],
+  "passive-identity-ldap-enum": ["network", "directory"],
+  "passive-easm-discovery": ["domain", "web"],
+  "passive-network-service-enumeration": ["network"],
+  "passive-web-baseline": ["web", "api"],
+  "passive-web-nuclei-audit": ["web", "api"],
+  "active-external-infrastructure": ["network", "domain", "web"],
+  "active-web-safe": ["web", "api"],
+  "passive-web-burp": ["web", "api"],
+  "active-business-logic": ["web", "api"],
+  "active-ad-bloodhound": ["directory", "network"],
+  "passive-lan-smb-enum": ["network"],
+  "intrusive-lan-credential-capture": ["network"],
+  "active-ad-kerberoast": ["directory"],
+  "active-ad-asreproast": ["directory"],
+  "active-offline-hash-crack": ["directory"],
+  "intrusive-lan-smb-auth": ["network"],
+  "intrusive-ad-password-spray": ["directory", "network"],
+  "intrusive-exploitation": ["network", "web"],
+  "intrusive-impacket-remote-exec": ["network", "directory"],
+  "intrusive-impacket-secretsdump": ["network", "directory"],
+  "intrusive-impacket-dcsync": ["directory"],
+  "active-llm-application-probe": ["ai", "web"],
+};
+
+const LAN_DISCOVERY_EXECUTION_PROFILES = new Set([
+  "passive-network-discovery",
+  "passive-network-service-enumeration",
+]);
+
+const PROFILE_EXPECTATION_COPY = {
+  "passive-external-infrastructure": "External IP truth, service exposure, SSH posture, and passive SMB reachability.",
+  "passive-network-discovery": "Inventory, exposed hosts, and live-reachability truth.",
+  "passive-identity-ldap-enum": "Directory posture, trust hints, and identity inventory.",
+  "passive-easm-discovery": "Surface inventory, DNS truth, and discovered entry points.",
+  "passive-network-service-enumeration": "Service banners, ports, and protocol fingerprints.",
+  "passive-web-baseline": "HTTP stack inventory, routes, and response fingerprints.",
+  "passive-web-nuclei-audit": "Safe CVE and exposure validation from curated templates.",
+  "active-external-infrastructure": "Infrastructure-focused nuclei validation after the passive external baseline.",
+  "active-web-safe": "Guarded web validation with proof-backed application signals.",
+  "passive-web-burp": "Proxy-driven request mapping and normalized web issues.",
+  "active-business-logic": "IDOR, privilege, and workflow authorization weaknesses.",
+  "active-ad-bloodhound": "AD path analysis, roastable accounts, and graph-backed exposure.",
+  "passive-lan-smb-enum": "SMB signing, shares, and null-session posture.",
+  "intrusive-lan-credential-capture": "Captured NTLM challenge-response material in scope.",
+  "active-ad-kerberoast": "Kerberoastable service accounts and crack-ready hashes.",
+  "active-ad-asreproast": "AS-REP roastable users and crack-ready hashes.",
+  "active-offline-hash-crack": "Offline crack attempts against approved protected bundles.",
+  "intrusive-lan-smb-auth": "Authenticated SMB access, share proof, and pass-the-hash validation.",
+  "intrusive-ad-password-spray": "Bounded spray outcomes under confirmed lockout policy.",
+  "intrusive-exploitation": "Controlled exploit confirmation with immediate evidence only.",
+  "intrusive-impacket-remote-exec": "Remote whoami/hostname confirmation without persistence.",
+  "intrusive-impacket-secretsdump": "Credential extraction proof stored only as protected output.",
+  "intrusive-impacket-dcsync": "Domain-compromise validation for approved directory scope.",
+  "active-llm-application-probe": "Prompt-injection, leakage, and unsafe-agent behavior proof.",
+  "passive-lan-iot-discovery": "mDNS, SSDP, UPnP, and smart-device discovery evidence.",
+  "passive-lan-nse-full": "Read-only LAN NSE scripts and expanded IoT port fingerprinting.",
+  "passive-lan-snmp-enum": "SNMP identity, interfaces, ARP, and routing evidence.",
+  "passive-lan-smart-home-audit": "MQTT, Home Assistant, OpenHAB, Domoticz, and Node-RED exposure signals.",
+  "active-lan-camera-audit": "ONVIF, RTSP, snapshot, and bounded camera default-credential checks.",
+  "active-lan-default-creds-audit": "Bounded default credential testing for discovered management interfaces.",
+  "passive-lan-segmentation-check": "Segmentation, route, ARP, and cross-segment reachability evidence.",
+  "passive-lan-ipv6-discovery": "IPv6 neighbor, router, and link-local reachability evidence.",
+};
+
+const MISSION_PREVIEW_DEFINITIONS = {
+  "FULL-INTERNAL-LAN": {
+    mode: "FULL-INTERNAL-LAN",
+    label: "Full Internal LAN",
+    phases: [
+      {
+        key: "passive-discovery",
+        label: "Phase 1 · Passive Discovery",
+        tier: "passive",
+        icon: "DISC",
+        estimatedMinutes: 20,
+        findingCopy: "Hosts, services, and initial directory posture.",
+        profiles: ["passive-network-discovery", "passive-identity-ldap-enum", "passive-easm-discovery"],
+      },
+      {
+        key: "active-enrichment",
+        label: "Phase 2 · Active Enrichment",
+        tier: "active",
+        icon: "ACT",
+        estimatedMinutes: 28,
+        findingCopy: "Service detail, web issues, AD pathing, and SMB posture.",
+        profiles: [
+          "passive-network-service-enumeration",
+          "passive-web-baseline",
+          "passive-web-nuclei-audit",
+          "active-ad-bloodhound",
+          "passive-lan-smb-enum",
+        ],
+      },
+      {
+        key: "intrusive-credential",
+        label: "Phase 3 · Intrusive Credential Validation",
+        tier: "intrusive-credential",
+        icon: "CREDS",
+        estimatedMinutes: 24,
+        findingCopy: "Credential capture, roast paths, spray proof, and SMB auth validation.",
+        profiles: [
+          "intrusive-lan-credential-capture",
+          "active-ad-kerberoast",
+          "active-ad-asreproast",
+          "active-offline-hash-crack",
+          "intrusive-lan-smb-auth",
+          "intrusive-ad-password-spray",
+        ],
+      },
+      {
+        key: "intrusive-exploitation",
+        label: "Phase 4 · Intrusive Exploitation",
+        tier: "intrusive-exploitation",
+        icon: "EXP",
+        estimatedMinutes: 18,
+        findingCopy: "Controlled exploit confirmation and lateral movement proof only.",
+        profiles: [
+          "intrusive-exploitation",
+          "intrusive-impacket-remote-exec",
+          "intrusive-impacket-secretsdump",
+          "intrusive-impacket-dcsync",
+        ],
+      },
+    ],
+  },
+  "FULL-LAN-IOT": {
+    mode: "FULL-LAN-IOT",
+    label: "Full LAN + IoT",
+    phases: [
+      {
+        key: "iot-discovery",
+        label: "Phase 1 · Discovery",
+        tier: "passive",
+        icon: "DISC",
+        estimatedMinutes: 20,
+        findingCopy: "LAN hosts plus mDNS/SSDP smart-device inventory.",
+        profiles: ["passive-network-discovery", "passive-lan-iot-discovery"],
+      },
+      {
+        key: "iot-enumeration",
+        label: "Phase 2 · Enumeration",
+        tier: "active",
+        icon: "ENUM",
+        estimatedMinutes: 35,
+        findingCopy: "Service detail, safe NSE scripts, SNMP device data, ARP, and routes.",
+        profiles: ["passive-network-service-enumeration", "passive-lan-nse-full", "passive-lan-snmp-enum"],
+      },
+      {
+        key: "iot-service-analysis",
+        label: "Phase 3 · Service Analysis",
+        tier: "active",
+        icon: "IOT",
+        estimatedMinutes: 30,
+        findingCopy: "MQTT, Home Assistant, ONVIF, RTSP, and camera exposure checks.",
+        profiles: ["passive-lan-smart-home-audit", "active-lan-camera-audit"],
+      },
+      {
+        key: "iot-credential-testing",
+        label: "Phase 4 · Credential Testing",
+        tier: "active",
+        icon: "AUTH",
+        estimatedMinutes: 25,
+        findingCopy: "Bounded default credential checks and SMB posture.",
+        profiles: ["active-lan-default-creds-audit", "passive-lan-smb-enum"],
+      },
+      {
+        key: "iot-segmentation",
+        label: "Phase 5 · Segmentation",
+        tier: "active",
+        icon: "SEG",
+        estimatedMinutes: 24,
+        findingCopy: "Subnet, segmentation, route, and IPv6 exposure truth.",
+        profiles: ["passive-lan-segmentation-check", "passive-lan-ipv6-discovery"],
+      },
+      {
+        key: "iot-intrusive",
+        label: "Phase 6 · Optional Intrusive",
+        tier: "intrusive-credential",
+        icon: "INTR",
+        estimatedMinutes: 30,
+        findingCopy: "Full infrastructure follow-up and Responder capture only after explicit approval.",
+        profiles: ["passive-lan-infrastructure-audit", "intrusive-lan-credential-capture"],
+      },
+    ],
+  },
+  "FULL-EXTERNAL-WEB": {
+    mode: "FULL-EXTERNAL-WEB",
+    label: "Full External Web",
+    phases: [
+      {
+        key: "passive-surface",
+        label: "Phase 1 · Passive Surface Mapping",
+        tier: "passive",
+        icon: "SURF",
+        estimatedMinutes: 16,
+        findingCopy: "Surface inventory, baseline web responses, and discovered entry points.",
+        profiles: ["passive-easm-discovery", "passive-web-baseline"],
+      },
+      {
+        key: "active-web-validation",
+        label: "Phase 2 · Active Web Validation",
+        tier: "active",
+        icon: "WEB",
+        estimatedMinutes: 26,
+        findingCopy: "Safe web validation, business logic issues, and normalized evidence.",
+        profiles: ["passive-web-nuclei-audit", "active-web-safe", "passive-web-burp", "active-business-logic"],
+      },
+      {
+        key: "intrusive-confirmation",
+        label: "Phase 3 · Intrusive Confirmation",
+        tier: "intrusive-exploitation",
+        icon: "INTR",
+        estimatedMinutes: 18,
+        findingCopy: "High-risk confirmation limited to explicitly approved follow-up proof.",
+        profiles: ["active-llm-application-probe", "intrusive-exploitation"],
+      },
+    ],
+  },
+  "FULL-AD-ASSESSMENT": {
+    mode: "FULL-AD-ASSESSMENT",
+    label: "Full AD Assessment",
+    phases: [
+      {
+        key: "directory-baseline",
+        label: "Phase 1 · Directory Baseline",
+        tier: "passive",
+        icon: "DIR",
+        estimatedMinutes: 14,
+        findingCopy: "Directory inventory, trust anchors, and baseline posture.",
+        profiles: ["passive-identity-ldap-enum"],
+      },
+      {
+        key: "directory-enumeration",
+        label: "Phase 2 · Directory Enumeration",
+        tier: "active",
+        icon: "GRAPH",
+        estimatedMinutes: 18,
+        findingCopy: "BloodHound paths, privilege edges, and AD attack-path truth.",
+        profiles: ["active-ad-bloodhound"],
+      },
+      {
+        key: "credential-impact",
+        label: "Phase 3 · Credential Impact",
+        tier: "intrusive-credential",
+        icon: "AUTH",
+        estimatedMinutes: 22,
+        findingCopy: "Roast, crack, and spray outcomes under approved controls.",
+        profiles: [
+          "active-ad-kerberoast",
+          "active-ad-asreproast",
+          "active-offline-hash-crack",
+          "intrusive-ad-password-spray",
+        ],
+      },
+      {
+        key: "lateral-confirmation",
+        label: "Phase 4 · Lateral Confirmation",
+        tier: "intrusive-exploitation",
+        icon: "MOVE",
+        estimatedMinutes: 18,
+        findingCopy: "SMB auth, remote exec, secretsdump, or DCSync proof.",
+        profiles: [
+          "intrusive-lan-smb-auth",
+          "intrusive-impacket-remote-exec",
+          "intrusive-impacket-secretsdump",
+          "intrusive-impacket-dcsync",
+        ],
+      },
+    ],
+  },
+};
+
+const WIZARD_FLOW_DEPTH_OPTIONS = {
+  passive: {
+    goal: "inventory-first",
+    safetyPosture: "passive-only",
+    authorization: "passive",
+    profile: "Standard",
+    title: "Phases 1 only",
+    eta: "~15 min",
+    phases: "1 phase · 3 tools",
+  },
+  active: {
+    goal: "standard-assessment",
+    safetyPosture: "balanced",
+    authorization: "active",
+    profile: "Standard",
+    title: "Phases 1-2",
+    eta: "~60-90 min",
+    phases: "2 phases · 6 tools",
+  },
+  full: {
+    goal: "deep-assessment",
+    safetyPosture: "thorough",
+    authorization: "full",
+    profile: "Deep",
+    title: "Full - all 4 phases",
+    eta: "~2-3 hours",
+    phases: "4 phases · 18 conditional runners",
+  },
+};
+
+const WIZARD_TARGET_GUIDANCE = {
+  "external-web": {
+    question: "What is the target website or app?",
+    placeholder: "e.g. https://app.example.com",
+    examples: ["https://app.example.com", "portal.example.com", "https://staging.example.com"],
+    addLabel: "+ Add URL",
+    hint: "URLs and domains become web targets. API base paths should use the API Security tile.",
+    predictedGroup: "urls/domains",
+  },
+  "external-infrastructure": {
+    question: "What is the external IP range or host?",
+    placeholder: "e.g. 203.0.113.0/24 or vpn.example.com",
+    examples: ["203.0.113.0/24", "198.51.100.42", "vpn.example.com"],
+    addLabel: "+ Add host/range",
+    hint: "CIDRs and IPs become perimeter infrastructure targets; hostnames stay in the domain scope.",
+    predictedGroup: "cidr_ranges/ip_addresses/domains",
+  },
+  "internal-lan": {
+    question: "What is the target network?",
+    placeholder: "e.g. 10.0.20.0/24 or 192.168.1.0/24",
+    examples: ["10.0.20.0/24", "192.168.1.0/24", "172.16.0.0/16"],
+    addLabel: "+ Add range",
+    hint: "Multiple targets? Add them with the + button. Discovered hosts are added automatically during Phase 1.",
+    predictedGroup: "cidr_ranges/ip_addresses",
+  },
+  "active-directory": {
+    question: "What is the AD network, domain, or domain controller?",
+    placeholder: "e.g. corp.example.local, dc01.corp.example.local, or 10.0.20.0/24",
+    examples: ["corp.example.local", "dc01.corp.example.local", "10.0.20.0/24"],
+    addLabel: "+ Add AD scope",
+    hint: "Domain names guide LDAP/AD targeting; CIDRs start with discovery before identity-specific checks.",
+    predictedGroup: "domains/cidr_ranges",
+  },
+  "full-internal": {
+    question: "What is the internal LAN or AD scope?",
+    placeholder: "e.g. 10.0.20.0/24 or corp.example.local",
+    examples: ["10.0.20.0/24", "corp.example.local", "dc01.corp.example.local"],
+    addLabel: "+ Add scope",
+    hint: "Full Internal combines LAN discovery with AD-aware follow-up where prerequisites are available.",
+    predictedGroup: "cidr_ranges/domains",
+  },
+  "smart-home-lan": {
+    question: "What is the smart home or IoT network?",
+    placeholder: "e.g. 192.168.1.0/24 or 10.0.20.0/24",
+    examples: ["192.168.1.0/24", "10.0.20.0/24", "172.16.0.0/24"],
+    addLabel: "+ Add IoT range",
+    hint: "IoT discovery starts with local network inventory, then mDNS, SSDP, SNMP, camera, and segmentation checks.",
+    predictedGroup: "cidr_ranges/ip_addresses",
+  },
+  cloud: {
+    question: "What cloud account, tenant, or control-plane scope should be reviewed?",
+    placeholder: "e.g. aws-account-123456789012 or tenant.example.com",
+    examples: ["aws-account-123456789012", "tenant.example.com", "azure-tenant-example"],
+    addLabel: "+ Add cloud scope",
+    hint: "Cloud targets remain non-secret identifiers here. Credentials and account bindings belong in Advanced Configuration.",
+    predictedGroup: "domains/identifiers",
+  },
+  "api-security": {
+    question: "What is the API base URL or endpoint?",
+    placeholder: "e.g. https://api.example.com/v1",
+    examples: ["https://api.example.com/v1", "https://api.example.com/graphql", "api.example.com"],
+    addLabel: "+ Add API",
+    hint: "API URLs are routed to API base URL scope so the API assessment runner receives the right target type.",
+    predictedGroup: "api_base_urls",
+  },
+  "llm-ai-app": {
+    question: "What AI app or workflow URL should be tested?",
+    placeholder: "e.g. https://chat.example.com",
+    examples: ["https://chat.example.com", "https://agent.example.com", "ai.example.com"],
+    addLabel: "+ Add AI app",
+    hint: "AI app targets route to the LLM application probe when active validation is selected.",
+    predictedGroup: "urls/domains",
+  },
+  custom: {
+    question: "What exact target or scope should this custom mission use?",
+    placeholder: "e.g. https://app.example.com, api.example.com, or 203.0.113.10",
+    examples: ["https://app.example.com", "api.example.com", "203.0.113.10"],
+    addLabel: "+ Add target",
+    hint: "Custom scope is interpreted from the value type, then can be refined in Advanced Configuration.",
+    predictedGroup: "auto-detected",
+  },
+};
+
+function wizardDepthConfig(choice = "active") {
+  return WIZARD_FLOW_DEPTH_OPTIONS[String(choice || "active").trim()] || WIZARD_FLOW_DEPTH_OPTIONS.full;
+}
+
+function targetGuidanceForTile(tileKey = "") {
+  return WIZARD_TARGET_GUIDANCE[tileKey] || WIZARD_TARGET_GUIDANCE["external-web"];
+}
+
+function targetBucketForTileValue(value, selectedKey = "") {
+  const normalized = String(value || "").trim();
+  if (isLikelyCidr(normalized)) return "cidr_ranges";
+  if (isLikelyIp(normalized)) return "ip_addresses";
+  if (selectedKey === "api-security" || isLikelyUrl(normalized)) return selectedKey === "api-security" ? "api_base_urls" : "urls";
+  return "domains";
+}
+
+function buildWizardTargetsForTileValue(value, selectedKey = "") {
+  const target = String(value || "").trim();
+  const bucket = targetBucketForTileValue(target, selectedKey);
+  return {
+    domains: bucket === "domains" ? [target] : [],
+    subdomains: [],
+    urls: bucket === "urls" ? [target] : [],
+    ip_addresses: bucket === "ip_addresses" ? [target] : [],
+    cidr_ranges: bucket === "cidr_ranges" ? [target] : [],
+    api_base_urls: bucket === "api_base_urls" ? [target] : [],
+  };
+}
+
+function wizardMatrixExecutionProfile(tileKey, depthChoice, targetValue) {
+  const tile = assessmentTileByKey(tileKey);
+  const depth = wizardDepthConfig(depthChoice);
+  const targets = buildWizardTargetsForTileValue(targetValue, tileKey);
+  if (targetsContainPrivateNetwork(targets)) return "passive-network-discovery";
+  if (tileKey === "api-security") return depth.authorization === "passive" ? "passive-web-baseline" : "active-api-assessment";
+  if (tileKey === "llm-ai-app") return depth.authorization === "passive" ? "passive-web-baseline" : "active-llm-application-probe";
+  if (tileKey === "external-infrastructure") return "passive-external-infrastructure";
+  if (tile?.assessmentType === "Internal Range / LAN") return "passive-network-discovery";
+  if (depth.authorization === "passive") return "passive-web-baseline";
+  if (["cloud", "custom"].includes(tileKey) || depth.authorization === "full") return "active-web-safe";
+  return "passive-web-nuclei-audit";
+}
+
+function wizardMatrixAssessmentMode(tileKey, depthChoice) {
+  const keys = normalizeAssessmentTileKeys(tileKey === "full-internal" ? ["internal-lan", "active-directory"] : [tileKey]);
+  return guidedAssessmentModeForSelection({
+    keys,
+    selectedTile: assessmentTileByKey(primaryAssessmentTileKey(keys)),
+    depthChoice,
+  });
+}
+
+export function buildWizardInputPredictionMatrix() {
+  return {
+    generated_at: new Date().toISOString(),
+    assessment_tiles: ASSESSMENT_TILE_OPTIONS.map((tile) => {
+      const selectedKeys = normalizeAssessmentTileKeys(tile.key === "full-internal" ? ["internal-lan", "active-directory"] : [tile.key]);
+      const guidance = targetGuidanceForTile(tile.key);
+      const exampleTarget = guidance.examples[0] || "";
+      return {
+        key: tile.key,
+        label: tile.label,
+        assessment_type: tile.assessmentType,
+        selected_keys: selectedKeys,
+        target_guidance: {
+          question: guidance.question,
+          placeholder: guidance.placeholder,
+          examples: [...guidance.examples],
+          predicted_group: guidance.predictedGroup,
+          example_bucket: targetBucketForTileValue(exampleTarget, tile.key),
+        },
+        depths: Object.keys(WIZARD_FLOW_DEPTH_OPTIONS).map((depthKey) => {
+          const depth = wizardDepthConfig(depthKey);
+          const chain = wizardMatrixAssessmentMode(tile.key, depthKey);
+          const profiles = chain ? MISSION_PREVIEW_DEFINITIONS[chain]?.phases.flatMap((phase) => phase.profiles) || [] : [];
+          return {
+            key: depthKey,
+            goal: depth.goal,
+            safety_posture: depth.safetyPosture,
+            authorization_level: depth.authorization,
+            test_profile: depth.profile,
+            assessment_mode: chain,
+            expected_execution_profile: wizardMatrixExecutionProfile(tile.key, depthKey, exampleTarget),
+            expected_chain_profiles: profiles,
+            prereq_visibility: ACCESS_UNLOCKER_OPTIONS.map((option) => option.key),
+          };
+        }),
+      };
+    }),
+  };
+}
+
+export function humanizeAssessmentMode(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  const option = ASSESSMENT_MODE_OPTIONS.find((candidate) => candidate.value === normalized);
+  return option?.label || (normalized ? normalized.replaceAll("-", " ") : "Disabled");
+}
+
+function assessmentTileByKey(key) {
+  return ASSESSMENT_TILE_OPTIONS.find((option) => option.key === String(key || "").trim()) || null;
+}
+
+function normalizeAssessmentTileKeys(keys = []) {
+  const normalized = [];
+  (Array.isArray(keys) ? keys : [keys]).forEach((key) => {
+    const value = String(key || "").trim();
+    if (!value || normalized.includes(value)) return;
+    if (value === "full-internal") {
+      ["internal-lan", "active-directory"].forEach((comboKey) => {
+        if (!normalized.includes(comboKey)) normalized.push(comboKey);
+      });
+      return;
+    }
+    if (assessmentTileByKey(value)) normalized.push(value);
+  });
+  return normalized;
+}
+
+function selectedAssessmentTileKeys(wizard = state.wizard) {
+  const explicit = normalizeAssessmentTileKeys(wizard?.intake?.selectedAssessmentTileKeys || []);
+  if (explicit.length) return explicit;
+  const single = String(wizard?.intake?.selectedAssessmentTileKey || "").trim();
+  return normalizeAssessmentTileKeys(single ? [single] : []);
+}
+
+function primaryAssessmentTileKey(keys = selectedAssessmentTileKeys()) {
+  const normalized = normalizeAssessmentTileKeys(keys);
+  return normalized[0] || "";
+}
+
+function assessmentSelectionLabel(keys = selectedAssessmentTileKeys()) {
+  const tiles = normalizeAssessmentTileKeys(keys).map(assessmentTileByKey).filter(Boolean);
+  if (!tiles.length) return "";
+  if (tiles.some((tile) => tile.key === "internal-lan") && tiles.some((tile) => tile.key === "active-directory")) {
+    return "Internal LAN + Active Directory";
+  }
+  return tiles.map((tile) => tile.label).join(" + ");
+}
+
+function deriveAssessmentTileKey(data, intake = state.wizard?.intake || {}) {
+  const explicit = primaryAssessmentTileKey(intake.selectedAssessmentTileKeys || []) || String(intake.selectedAssessmentTileKey || "").trim();
+  if (explicit) {
+    const explicitTile = assessmentTileByKey(explicit);
+    if (
+      explicitTile &&
+      (explicitTile.assessmentType === data.assessment_type || TILE_FLOW_SPECIAL_KEYS.has(explicitTile.key))
+    ) {
+      return explicitTile.key;
+    }
+  }
+
+  const intent = String(data.intake_preferences?.mission_intent || "").toLowerCase();
+  if (/\b(active directory|domain controller|ldap|kerberos|bloodhound|sharphound)\b/.test(intent)) {
+    return "active-directory";
+  }
+  if (/\b(external infrastructure|external ips?|external ip \/ wan|internet-facing hosts?|public ip|wan|rdp|vpn|ssh|non-web|port scan)\b/.test(intent)) {
+    return "external-infrastructure";
+  }
+  if (/\b(cloud|aws|azure|gcp|subscription|tenant)\b/.test(intent)) {
+    return "cloud";
+  }
+  if (/\b(llm|ai app|ai assistant|prompt injection|agent)\b/.test(intent)) {
+    return "llm-ai-app";
+  }
+  if (String(data.assessment_type || "").trim() === "API") return "api-security";
+  if (String(data.assessment_type || "").trim() === "Internal Range / LAN") return "internal-lan";
+  if (String(data.assessment_type || "").trim() === "Mixed Assessment") return "custom";
+  return "external-web";
+}
+
+function selectedAssessmentTile(wizard = state.wizard) {
+  const explicit = primaryAssessmentTileKey(selectedAssessmentTileKeys(wizard));
+  if (
+    !explicit &&
+    String(wizard?.intake?.sources?.target_type || "").trim() === "still-needed" &&
+    !String(wizard?.data?.intake_preferences?.mission_intent || "").trim() &&
+    String(wizard?.data?.assessment_type || "").trim() === "Website / Web App"
+  ) {
+    return null;
+  }
+  return assessmentTileByKey(deriveAssessmentTileKey(wizard.data, wizard.intake));
+}
+
+function recentMissionCandidates() {
+  return [...(state.engagements || [])]
+    .filter((engagement) => engagement && engagement.id)
+    .sort((left, right) => new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime())
+    .slice(0, 3);
+}
+
+function firstTruthyTargetLabel(targets) {
+  const groups = [
+    ...(targets?.cidr_ranges || []),
+    ...(targets?.ip_addresses || []),
+    ...(targets?.api_base_urls || []),
+    ...(targets?.urls || []),
+    ...(targets?.domains || []),
+    ...(targets?.subdomains || []),
+  ].filter(Boolean);
+  if (!groups.length) return "No target on record";
+  return groups.length > 1 ? `${groups[0]} +${groups.length - 1} more` : groups[0];
+}
+
+function buildTargetsFromAllowlist(allowlist = {}, configurationTargets = {}, assessmentType = "") {
+  const apiTargets = Array.isArray(configurationTargets?.api_base_urls) ? configurationTargets.api_base_urls.filter(Boolean) : [];
+  const urlTargets = Array.isArray(configurationTargets?.urls) ? configurationTargets.urls.filter(Boolean) : [];
+  const domainTargets = Array.isArray(configurationTargets?.domains) ? configurationTargets.domains.filter(Boolean) : [];
+  const subdomainTargets = Array.isArray(configurationTargets?.subdomains) ? configurationTargets.subdomains.filter(Boolean) : [];
+  const sourceUrls = Array.isArray(allowlist?.urls) ? allowlist.urls.filter(Boolean) : [];
+  const sourceIpAddresses = [
+    ...(Array.isArray(allowlist?.hosts) ? allowlist.hosts.filter(Boolean) : []),
+    ...(Array.isArray(allowlist?.ip_addresses) ? allowlist.ip_addresses.filter(Boolean) : []),
+  ];
+  const sourceCidrs = [
+    ...(Array.isArray(allowlist?.cidrs) ? allowlist.cidrs.filter(Boolean) : []),
+    ...(Array.isArray(allowlist?.cidr_ranges) ? allowlist.cidr_ranges.filter(Boolean) : []),
+  ];
+  const normalized = {
+    domains: [],
+    subdomains: [],
+    urls: [],
+    ip_addresses: sourceIpAddresses,
+    cidr_ranges: sourceCidrs,
+    api_base_urls: [],
+  };
+
+  const apiUrlSet = new Set(apiTargets);
+  sourceUrls.forEach((value) => {
+    if (apiUrlSet.has(value)) {
+      normalized.api_base_urls.push(value);
+      return;
+    }
+    if (assessmentType === "API" && !urlTargets.includes(value)) {
+      normalized.api_base_urls.push(value);
+      return;
+    }
+    normalized.urls.push(value);
+  });
+
+  const configuredDomains = new Set([...domainTargets, ...subdomainTargets]);
+  const sourceDomains = Array.isArray(allowlist?.domains) ? allowlist.domains.filter(Boolean) : [];
+  sourceDomains.forEach((value) => {
+    if (configuredDomains.has(value)) {
+      if (subdomainTargets.includes(value)) normalized.subdomains.push(value);
+      else normalized.domains.push(value);
+      return;
+    }
+    const dotCount = value.split(".").length;
+    if (dotCount > 2) normalized.subdomains.push(value);
+    else normalized.domains.push(value);
+  });
+
+  normalized.api_base_urls = [...new Set(normalized.api_base_urls)];
+  normalized.urls = [...new Set(normalized.urls)];
+  normalized.domains = [...new Set(normalized.domains)];
+  normalized.subdomains = [...new Set(normalized.subdomains)];
+  normalized.ip_addresses = [...new Set(normalized.ip_addresses)];
+  normalized.cidr_ranges = [...new Set(normalized.cidr_ranges)];
+  return normalized;
+}
+
+function buildExclusionsFromDenylist(denylist = {}, configurationExclusions = {}) {
+  const configuredApiExclusions = Array.isArray(configurationExclusions?.api_base_urls)
+    ? configurationExclusions.api_base_urls.filter(Boolean)
+    : [];
+  const sourceUrls = Array.isArray(denylist?.urls) ? denylist.urls.filter(Boolean) : [];
+  const sourceIpAddresses = [
+    ...(Array.isArray(denylist?.hosts) ? denylist.hosts.filter(Boolean) : []),
+    ...(Array.isArray(denylist?.ip_addresses) ? denylist.ip_addresses.filter(Boolean) : []),
+  ];
+  const sourceCidrs = [
+    ...(Array.isArray(denylist?.cidrs) ? denylist.cidrs.filter(Boolean) : []),
+    ...(Array.isArray(denylist?.cidr_ranges) ? denylist.cidr_ranges.filter(Boolean) : []),
+  ];
+  return {
+    domains: Array.isArray(denylist?.domains) ? [...new Set(denylist.domains.filter(Boolean))] : [],
+    urls: sourceUrls.filter((value) => !configuredApiExclusions.includes(value)),
+    ip_addresses: [...new Set(sourceIpAddresses)],
+    cidr_ranges: [...new Set(sourceCidrs)],
+    api_base_urls: [...new Set(configuredApiExclusions.concat(sourceUrls.filter((value) => configuredApiExclusions.includes(value))))],
+    notes: Array.isArray(denylist?.notes) ? String(denylist.notes[0] || "").trim() : String(configurationExclusions?.notes || "").trim(),
+  };
+}
+
+function recentMissionSummaryForEngagement(engagementId) {
+  const cached = RECENT_MISSION_SCOPE_CACHE.get(String(engagementId || ""));
+  if (!cached) return "Loading target details...";
+  if (cached.error) return "Scope not recorded yet";
+  return cached.targetLabel || "No target on record";
+}
+
+function recentMissionDateLabel(value) {
+  if (!value) return "Unknown date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return date.toLocaleDateString();
+}
+
+function normalizedAuthorizationLevel(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return AUTHORIZATION_LEVEL_OPTIONS.some((option) => option.value === normalized) ? normalized : "passive";
+}
+
+function authorizationOption(value) {
+  return AUTHORIZATION_LEVEL_OPTIONS.find((option) => option.value === normalizedAuthorizationLevel(value))
+    || AUTHORIZATION_LEVEL_OPTIONS[0];
+}
+
+function selectedAuthorizationLevel(data = state.wizard?.data || {}) {
+  return normalizedAuthorizationLevel(data.assessment_mode?.authorization_level);
+}
+
+function normalizeAccessUnlockers(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const normalized = ACCESS_UNLOCKER_OPTIONS.reduce((next, option) => {
+    next[option.key] = Boolean(source[option.key]);
+    return next;
+  }, { unauthenticated_lane: true });
+  if (!Object.keys(source).length || !Object.values(normalized).some(Boolean)) {
+    normalized.unauthenticated_lane = true;
+  }
+  return normalized;
+}
+
+function selectedAccessUnlockerKeys(data = state.wizard?.data || {}) {
+  const unlockers = normalizeAccessUnlockers(data.access?.prerequisites);
+  const selected = ACCESS_UNLOCKER_OPTIONS
+    .filter((option) => unlockers[option.key])
+    .map((option) => option.key);
+  return selected.length ? selected : ["unauthenticated_lane"];
+}
+
+function accessUnlockerLabel(optionKey) {
+  return ACCESS_UNLOCKER_OPTIONS.find((option) => option.key === optionKey)?.label || optionKey;
+}
+
+function buildAccessPrerequisiteLine(data = state.wizard?.data || {}) {
+  const labels = selectedAccessUnlockerKeys(data).map(accessUnlockerLabel);
+  if (!labels.length) return "I will run the unauthenticated lane first and stop before prerequisite-gated checks.";
+  return `Access prerequisites declared before launch: ${labels.join(", ")}. Missing gated prerequisites remain visible instead of being silently skipped.`;
+}
+
+function authorizationTierRank(value) {
+  return Number(authorizationOption(value)?.tierRank || 0);
+}
+
+function chainAuthorizationAvailable(data = state.wizard?.data || {}) {
+  return Boolean(String(data.assessment_mode?.mode || "").trim());
+}
+
+function normalizedScopeConfirmation(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  try {
+    const parsed = new URL(normalized);
+    const path = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/+$/, "");
+    return `${parsed.protocol}//${parsed.host.toLowerCase()}${path}`.toLowerCase();
+  } catch {
+    return normalized.replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function missionScopeConfirmationToken(data = state.wizard?.data || {}) {
+  return flattenTargetValues(data.targets)[0] || "";
+}
+
+function missionScopeConfirmationSummary(data = state.wizard?.data || {}) {
+  const scopeValues = flattenTargetValues(data.targets);
+  if (!scopeValues.length) return "approved scope";
+  if (scopeValues.length === 1) return scopeValues[0];
+  return `${scopeValues.slice(0, 3).join(", ")}${scopeValues.length > 3 ? `, plus ${scopeValues.length - 3} more` : ""}`;
+}
+
+function hasValidFullAuthorizationConfirmation(data = state.wizard?.data || {}) {
+  if (selectedAuthorizationLevel(data) !== "full") return true;
+  const expectedToken = normalizedScopeConfirmation(missionScopeConfirmationToken(data));
+  if (!expectedToken) return false;
+  return normalizedScopeConfirmation(data.assessment_mode?.typed_scope_confirmation) === expectedToken;
+}
+
+function effectiveAssessmentModeAutoAdvance(data = state.wizard?.data || {}) {
+  if (!chainAuthorizationAvailable(data)) {
+    return Boolean(data.assessment_mode?.auto_advance_on_phase_complete);
+  }
+  return selectedAuthorizationLevel(data) !== "passive";
+}
+
+function compatibleAssessmentModesForSelection(keys = selectedAssessmentTileKeys(state.wizard), selectedTile = assessmentTileByKey(primaryAssessmentTileKey(keys))) {
+  const normalizedKeys = normalizeAssessmentTileKeys(keys);
+  if (normalizedKeys.includes("smart-home-lan")) {
+    return ["FULL-LAN-IOT"];
+  }
+  if (normalizedKeys.includes("active-directory") && !normalizedKeys.includes("internal-lan")) {
+    return ["FULL-AD-ASSESSMENT"];
+  }
+  if (
+    normalizedKeys.includes("internal-lan") ||
+    normalizedKeys.includes("active-directory") ||
+    selectedTile?.assessmentType === "Internal Range / LAN"
+  ) {
+    return ["FULL-INTERNAL-LAN"];
+  }
+  return [];
+}
+
+function guidedAssessmentModeForSelection({
+  keys = selectedAssessmentTileKeys(state.wizard),
+  selectedTile = assessmentTileByKey(primaryAssessmentTileKey(keys)),
+  depthChoice = state.wizard.intake.flowDepthChoice || "active",
+} = {}) {
+  if (String(depthChoice || "").trim() === "passive") return "";
+  return compatibleAssessmentModesForSelection(keys, selectedTile)[0] || "";
+}
+
+function depthChoiceKeyForGoal(goal) {
+  const normalized = String(goal || "").trim();
+  if (["quick-overview", "inventory-first"].includes(normalized)) return "passive";
+  if (["standard-assessment", "authenticated-review"].includes(normalized)) return "active";
+  if (["deep-assessment", "adaptive-coverage", "internal-validation"].includes(normalized)) return "full";
+  return "";
+}
+
+function depthChoiceOptions(assessmentType, tileKey = "") {
+  const normalizedType = String(assessmentType || "").trim();
+  const internalAssessment = normalizedType === "Internal Range / LAN";
+  const perimeterAssessment = normalizedType === "External IP / WAN";
+  const authenticatedAssessment = normalizedType === "Authenticated App";
+  const apiAssessment = normalizedType === "API";
+  const tlsAssessment = normalizedType === "SSL/TLS Only";
+
+  let passiveReply = "Inventory first";
+  let activeReply = "Standard assessment";
+  let fullReply = "Deep assessment";
+  let passiveHints = ["Inventory first"];
+  let activeHints = ["Standard assessment"];
+  let fullHints = ["Deep assessment"];
+
+  if (perimeterAssessment) {
+    passiveReply = "Quick perimeter overview";
+    activeReply = "Perimeter review";
+    fullReply = "Deep follow-up after discovery";
+    passiveHints = ["Quick perimeter overview"];
+    activeHints = ["Perimeter review"];
+    fullHints = ["Deep follow-up after discovery", "Adaptive follow-up after discovery"];
+  } else if (internalAssessment) {
+    passiveReply = "Inventory first";
+    activeReply = "Standard internal assessment";
+    fullReply = "Deep internal validation";
+    passiveHints = ["Inventory first", "Visibility with clear per-item detail"];
+    activeHints = ["Standard internal assessment"];
+    fullHints = ["Deep internal validation"];
+  } else if (authenticatedAssessment) {
+    activeReply = "Authenticated review";
+    passiveHints = ["Inventory first"];
+    activeHints = ["Authenticated review", "Standard assessment"];
+    fullHints = ["Deep assessment"];
+  } else if (apiAssessment) {
+    passiveReply = "Inventory first";
+    activeReply = "Standard assessment";
+    fullReply = "Deep API assessment";
+    passiveHints = ["Inventory first"];
+    activeHints = ["Authenticated API review", "Standard assessment"];
+    fullHints = ["Deep API assessment", "Adaptive customer-specific testing"];
+  } else if (tlsAssessment) {
+    passiveReply = "Quick overview";
+    activeReply = "Standard assessment";
+    fullReply = "Standard assessment";
+    passiveHints = ["Quick overview"];
+    activeHints = ["Standard assessment"];
+    fullHints = [];
+  } else {
+    passiveHints = ["Quick overview", "Inventory first"];
+    activeHints = ["Standard assessment"];
+    fullHints = ["Deep assessment", "Adaptive customer-specific testing"];
+  }
+
+  if (tileKey === "cloud") {
+    activeReply = "Adaptive customer-specific testing";
+    fullReply = "Deep assessment";
+    activeHints = ["Adaptive customer-specific testing"];
+    fullHints = ["Deep assessment"];
+  }
+  if (tileKey === "llm-ai-app") {
+    activeReply = "Standard assessment";
+    fullReply = "Adaptive customer-specific testing";
+    activeHints = ["Standard assessment"];
+    fullHints = ["Adaptive customer-specific testing"];
+  }
+  if (tileKey === "custom") {
+    activeReply = "Standard assessment";
+    fullReply = "Adaptive customer-specific testing";
+    activeHints = ["Standard assessment"];
+    fullHints = ["Adaptive customer-specific testing"];
+  }
+
+  return [
+    {
+      key: "passive",
+      eyebrow: "Low impact",
+      label: "Passive only",
+      description: internalAssessment
+        ? "Map hosts, services, and visible estate safely before any deeper validation."
+        : "Prioritize discovery and visibility with the lightest practical footprint.",
+      quickReply: passiveReply,
+      safetyPosture: "passive-only",
+      legacyHints: passiveHints,
+    },
+    {
+      key: "active",
+      eyebrow: "Balanced",
+      label: "Active scan",
+      description: perimeterAssessment
+        ? "Validate the exposed perimeter with bounded active follow-up."
+        : "Run the normal operator workflow with active validation where it fits the surface.",
+      quickReply: activeReply,
+      safetyPosture: "balanced",
+      legacyHints: activeHints,
+    },
+    {
+      key: "full",
+      eyebrow: "Deep",
+      label: "Full including exploitation",
+      description: internalAssessment
+        ? "Prepare deeper internal validation and approval-aware exploit confirmation when allowed."
+        : "Go beyond baseline validation and prepare the deepest approved follow-up path.",
+      quickReply: fullReply,
+      safetyPosture: internalAssessment ? "thorough" : "thorough",
+      legacyHints: fullHints,
+    },
+  ];
+}
+
+function inferGoalFromDepthAnswer(answer, assessmentType, tileKey = "") {
+  const normalized = String(answer || "").toLowerCase();
+  if (/\b(passive only|passive)\b/.test(normalized)) {
+    return String(assessmentType || "").trim() === "External IP / WAN" ? "quick-overview" : "inventory-first";
+  }
+  if (/\b(active scan|active)\b/.test(normalized)) {
+    if (tileKey === "cloud" || tileKey === "custom" || tileKey === "llm-ai-app") return "adaptive-coverage";
+    if (String(assessmentType || "").trim() === "Authenticated App") return "authenticated-review";
+    return "standard-assessment";
+  }
+  if (/\b(full including exploitation|full|exploitation)\b/.test(normalized)) {
+    if (String(assessmentType || "").trim() === "Internal Range / LAN") return "internal-validation";
+    if (tileKey === "cloud" || tileKey === "custom" || tileKey === "llm-ai-app") return "adaptive-coverage";
+    return "deep-assessment";
+  }
+  return null;
+}
+
+function tileFlowOrderedQuestions(wizard = state.wizard) {
+  const assessmentType = String(wizard?.data?.assessment_type || "").trim();
+  const targetFirstTypes = new Set(["Internal Range / LAN", "External IP / WAN"]);
+  if (targetFirstTypes.has(assessmentType)) {
+    return ["intent", "scope", "goal", "auth", "auth-details", "boundaries"];
+  }
+  return ["intent", "goal", "scope", "auth", "auth-details", "boundaries"];
+}
+
+function legacyOrderedQuestions() {
+  return ["intent", "goal", "scope", "auth", "auth-details", "safety", "boundaries"];
+}
+
+function activeOrderedQuestions(wizard = state.wizard) {
+  return wizard.intake.flowMode === "tile" ? tileFlowOrderedQuestions(wizard) : legacyOrderedQuestions();
+}
+
 export function createWizardModule() {
+  let chatgptOAuthStatusInFlight = false;
+
+  function patchWizardFields(fields, reason) {
+    patchState({ wizard: { ...state.wizard, ...fields } }, reason);
+  }
+
+  function patchWizardIntakeFields(fields, reason) {
+    patchWizardFields({ intake: { ...state.wizard.intake, ...fields } }, reason);
+  }
+
+  function patchWizardAccessAccounts(accounts, reason) {
+    patchWizardFields(
+      {
+        data: {
+          ...state.wizard.data,
+          access: {
+            ...state.wizard.data.access,
+            accounts,
+          },
+        },
+      },
+      reason
+    );
+  }
+
+  function missionLaunchDurationMs() {
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    return reducedMotion ? 60 : 860;
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  async function showMissionLaunchOverlay({ engagementName, profileName, targetSummary }) {
+    document.querySelectorAll(".mission-created-overlay").forEach((overlay) => overlay.remove());
+    const overlay = document.createElement("div");
+    overlay.className = "mission-created-overlay";
+    overlay.dataset.testid = "mission-created-overlay";
+    overlay.innerHTML = `
+      <div class="mission-created-panel">
+        <p class="eyebrow">Mission Created</p>
+        <h3>${escapeHtml(engagementName || "New mission")}</h3>
+        <p>${escapeHtml("Run dossier, scope seed, and queued checks are ready for Mission Control.")}</p>
+        <div class="mission-created-metrics">
+          <span>${escapeHtml(profileName || "selected execution lane")}</span>
+          <span>${escapeHtml(targetSummary || "approved scope")}</span>
+          <span>${escapeHtml("operator dispatch required")}</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    await wait(missionLaunchDurationMs());
+    overlay.classList.add("leaving");
+    await wait(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? 10 : 140);
+    overlay.remove();
+  }
+
   function renderWizard() {
     ensureConversationDefaults();
     const wizard = state.wizard;
     const context = buildConversationContext();
-    dom.wizardStepper.innerHTML = renderConversationStepper(context);
-    dom.wizardPanel.innerHTML = renderConversationPanel(context);
+    const guidedFlow = wizard.intake.flowMode === "tile";
+    dom.wizardPanel.closest(".wizard-main")?.classList.toggle("mission-wizard-flow", guidedFlow);
+    dom.wizardStepper.innerHTML = guidedFlow ? renderConversationStepper(context) : renderConversationStepper(context);
+    dom.wizardPanel.innerHTML = guidedFlow ? renderGuidedWizardFlow(context) : renderConversationPanel(context);
     dom.wizardErrors.innerHTML = wizard.errors.length
       ? wizard.errors.map((error) => `<div>${escapeHtml(error)}</div>`).join("")
       : "";
-    dom.wizardSummary.innerHTML = renderWizardSummary(wizard, context.estimate, context);
+    dom.wizardSummary.innerHTML = guidedFlow ? "" : renderWizardSummary(wizard, context.estimate, context);
     if (dom.wizardAdvancedDrawer) {
       dom.wizardAdvancedDrawer.innerHTML = renderAdvancedDrawer(context);
       dom.wizardAdvancedDrawer.classList.toggle("hidden", !wizard.intake.advancedOpen);
     }
 
     dom.wizardBackBtn.disabled = wizard.submitting || !hasConversationHistory();
-    dom.wizardNextBtn.classList.toggle("hidden", context.confirmationReady);
+    dom.wizardNextBtn.classList.toggle("hidden", context.confirmationReady || context.question.id === "intent");
     dom.wizardConfirmBtn.classList.toggle("hidden", !context.confirmationReady);
-    dom.wizardConfirmBtn.disabled = wizard.submitting;
+    dom.wizardConfirmBtn.disabled = wizard.submitting || !context.confirmationSubmitReady;
     dom.wizardNextBtn.disabled = wizard.submitting || !context.question.allowSubmission;
     dom.wizardBackBtn.textContent = wizard.submitting ? "Locked" : "Previous Topic";
     dom.wizardNextBtn.textContent = wizard.submitting
@@ -69,10 +1360,23 @@ export function createWizardModule() {
         : "Apply Answer";
     dom.wizardConfirmBtn.textContent = wizard.submitting
       ? "Creating Mission..."
-      : "Create Mission & Open Mission Control";
+      : context.fullAuthorizationPending
+        ? "Type Target To Unlock Full Authorization"
+        : chainAuthorizationAvailable(wizard.data) && selectedAuthorizationLevel(wizard.data) === "full"
+          ? "Authorize Full Mission & Open Mission Control"
+          : "Create Mission & Open Mission Control";
+    if (guidedFlow) {
+      dom.wizardBackBtn.classList.add("hidden");
+      dom.wizardNextBtn.classList.add("hidden");
+      dom.wizardConfirmBtn.classList.add("hidden");
+    }
 
+    queueRecentMissionScopePrefetch();
     attachConversationHandlers(context);
     attachAdvancedHandlers();
+    if (wizard.intake.advancedOpen) {
+      queueChatGptOAuthStatusRefresh();
+    }
 
     const answerInput = document.getElementById("wizard-answer-input");
     const shouldAutofocusAnswer =
@@ -88,7 +1392,7 @@ export function createWizardModule() {
       }
     } else if (!shouldAutofocusAnswer && questionChanged) {
       const mobileTargetSelector = context.confirmationReady
-        ? '[data-testid="conversation-thread"]'
+        ? '[data-testid="wizard-confirmation-summary"]'
         : '[data-testid="conversation-question"]';
       const scrollToMobileTarget = () => {
         document.querySelector(mobileTargetSelector)?.scrollIntoView({
@@ -215,6 +1519,15 @@ export function createWizardModule() {
       question,
       recommendedQuestionId: recommendedQuestion,
       confirmationReady: question.id === "confirm" && validateEntireWizard().length === 0,
+      confirmationSubmitReady:
+        question.id === "confirm" &&
+        validateEntireWizard().length === 0 &&
+        hasValidFullAuthorizationConfirmation(wizard.data),
+      fullAuthorizationPending:
+        question.id === "confirm" &&
+        chainAuthorizationAvailable(wizard.data) &&
+        selectedAuthorizationLevel(wizard.data) === "full" &&
+        !hasValidFullAuthorizationConfirmation(wizard.data),
       progress: buildConversationProgress(wizard),
       summary,
       reviewMode,
@@ -239,7 +1552,8 @@ export function createWizardModule() {
       return null;
     }
 
-    const order = ["intent", "goal", "output", "scope", "auth", "auth-details", "safety", "boundaries", "confirm"];
+    const baseOrder = activeOrderedQuestions(state.wizard);
+    const order = [...baseOrder.slice(0, 2), "output", ...baseOrder.slice(2), "safety", "confirm"];
     const activeIndex = order.indexOf(activeQuestionId);
     const recommendedIndex = order.indexOf(recommendedQuestionId);
     if (activeIndex === -1 || recommendedIndex === -1) return "other";
@@ -332,78 +1646,1042 @@ export function createWizardModule() {
   }
 
   function buildConversationProgress(wizard) {
-    const mapping = [
-      ["Intent & Type", ["intent", "target_type"]],
-      ["Scope", ["scope"]],
-      ["Access", ["auth"]],
-      ["Safety", ["goal", "safety", "boundaries"]],
-      ["Confirm", []],
+    const onConfirmationScreen = recommendedQuestionId(wizard) === "confirm" || wizard.intake.activeQuestionId === "confirm";
+    const assessmentComplete =
+      !questionStillNeedsInput(wizard, "intent") &&
+      String(wizard.data.assessment_type || "").trim() !== "";
+    const targetDepthComplete =
+      !questionStillNeedsInput(wizard, "scope") &&
+      !questionStillNeedsInput(wizard, "goal") &&
+      !questionStillNeedsInput(wizard, "auth") &&
+      !questionStillNeedsInput(wizard, "auth-details") &&
+      !questionStillNeedsInput(wizard, "boundaries");
+    const nextTargetDepthQuestionId = [...new Set(
+      activeOrderedQuestions(wizard)
+        .filter((questionId) => !["intent", "boundaries"].includes(questionId))
+        .map((questionId) => (questionId === "auth-details" ? resolveConversationTopicQuestionId("auth") : questionId))
+    )].find((questionId) => {
+      if (questionId === "auth") {
+        return questionStillNeedsInput(wizard, "auth") || questionStillNeedsInput(wizard, "auth-details");
+      }
+      return questionStillNeedsInput(wizard, questionId);
+    }) || resolveConversationTopicQuestionId("auth");
+    return [
+      {
+        label: "Assessment",
+        state: assessmentComplete ? "complete" : "active",
+        questionId: "intent",
+      },
+      {
+        label: "Target & Depth",
+        state: !assessmentComplete ? "pending" : targetDepthComplete ? "complete" : "active",
+        questionId: nextTargetDepthQuestionId,
+      },
+      {
+        label: "Preview",
+        state: !targetDepthComplete ? "pending" : onConfirmationScreen ? "complete" : "pending",
+        questionId: "confirm",
+      },
+      {
+        label: "Authorise",
+        state: !targetDepthComplete ? "pending" : onConfirmationScreen ? "active" : "pending",
+        questionId: "confirm",
+      },
     ];
-    const sourceForProgressKey = (key) => {
-      if (key === "auth") {
-        return questionStillNeedsInput(wizard, "auth") || questionStillNeedsInput(wizard, "auth-details")
-          ? "still-needed"
-          : wizard.intake.sources.auth;
-      }
-      if (["intent", "goal", "scope", "safety", "boundaries"].includes(key)) {
-        return questionStillNeedsInput(wizard, key) ? "still-needed" : wizard.intake.sources[key];
-      }
-      return wizard.intake.sources[key];
-    };
-    return mapping.map(([label, keys]) => {
-      const states = keys.map((key) => sourceForProgressKey(key));
-      const unresolved = states.filter((stateValue) => stateValue === "still-needed").length;
-      const refined = states.filter((stateValue) => stateValue === "override").length;
-      const inferred = states.filter((stateValue) => stateValue === "inferred").length;
-      let stateValue = "complete";
-      if (!keys.length) {
-        stateValue = recommendedQuestionId(wizard) === "confirm" ? "active" : "pending";
-      } else if (unresolved) {
-        stateValue = "active";
-      } else if (refined) {
-        stateValue = "complete";
-      } else if (inferred) {
-        stateValue = "complete";
-      }
-      return {
-        label,
-        state: stateValue,
-        meta: !keys.length
-          ? (recommendedQuestionId(wizard) === "confirm" ? "Ready for confirmation" : "Waiting for intake")
-          : unresolved
-            ? `${unresolved} item${unresolved === 1 ? "" : "s"} still needed`
-            : refined
-              ? "Advanced override active"
-              : inferred
-              ? "Resolved with safe inference"
-              : "Confirmed",
-        questionId:
-          keys[0] === "auth"
-            ? resolveConversationTopicQuestionId("auth")
-            : keys[0] || "confirm",
-      };
-    });
   }
 
   function renderConversationStepper(context) {
-    return context.progress.map((item, index) => `
-      <button class="wizard-step ${item.state}" type="button" data-edit-question="${escapeHtml(item.questionId)}" data-testid="wizard-stage-${index + 1}">
-        <small>${escapeHtml(item.meta)}</small>
-        <strong>${escapeHtml(item.label)}</strong>
+    return `
+      <div class="steps wizard-step-flow" data-testid="wizard-step-flow">
+        ${context.progress
+          .map((item, index) => {
+            const dotState = item.state === "complete" ? "done" : item.state;
+            const lineState = item.state === "complete" ? "done" : item.state === "active" ? "active" : "";
+            return `
+              <button class="step wizard-step-flow-item ${escapeHtml(item.state)}" type="button" data-edit-question="${escapeHtml(item.questionId)}" data-testid="wizard-stage-${index + 1}">
+                <span class="step-dot wizard-step-flow-dot ${escapeHtml(dotState)}" aria-hidden="true">${item.state === "complete" ? "✓" : index + 1}</span>
+                <span class="step-label wizard-step-flow-label ${escapeHtml(dotState)}">${escapeHtml(item.label)}</span>
+              </button>
+              ${index < context.progress.length - 1 ? `<span class="step-line wizard-step-flow-line ${escapeHtml(lineState)}" aria-hidden="true"></span>` : ""}
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderWizardStepBar(activeStep = wizardFlowStepIndex(buildConversationContext())) {
+    const steps = [
+      { step: 1, label: "1 · Choose", questionId: "intent" },
+      { step: 2, label: "2 · Target", questionId: recommendedQuestionId(state.wizard) === "goal" ? "goal" : "scope" },
+      { step: 3, label: "3 · Preview", questionId: "confirm" },
+      { step: 4, label: "4 · Launch", questionId: "confirm" },
+    ];
+    return `
+      <div class="wizard-step-bar" aria-label="Wizard demo steps" data-testid="wizard-bottom-stepper">
+        ${steps.map((item) => `
+          <button
+            class="demo-tab ${item.step === activeStep ? "on active" : ""}"
+            type="button"
+            data-wizard-step-target="${escapeHtml(item.questionId)}"
+            data-wizard-step-number="${escapeHtml(String(item.step))}"
+          >${escapeHtml(item.label)}</button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function wizardFlowStepIndex(context = buildConversationContext()) {
+    if (state.wizard.lastCreated) return 4;
+    if (context.question?.id === "intent") return 1;
+    if (context.question?.id === "confirm") return 3;
+    return 2;
+  }
+
+  function renderAssessmentTypeTiles() {
+    const selectedKeys = selectedAssessmentTileKeys(state.wizard);
+    const selectedKey = primaryAssessmentTileKey(selectedKeys) || selectedAssessmentTile(state.wizard)?.key || "";
+    const selectionBar = renderAssessmentSelectionBar();
+    const comboHint = (selectedKeys.includes("internal-lan") || selectedKeys.includes("active-directory"))
+      ? `
+        <div class="combo-hint" data-testid="wizard-combo-hint">
+          <span class="combo-hint-icon">💡</span>
+          <span class="combo-hint-text">Internal LAN + Active Directory is a common combination. BloodHound attack paths map across both.</span>
+          <button class="combo-add" type="button" data-assessment-combo="internal-lan,active-directory">Use this combo →</button>
+        </div>
+      `
+      : "";
+    return `
+      ${selectionBar}
+      <div class="tile-grid" data-testid="wizard-assessment-tile-grid">
+        ${ASSESSMENT_TILE_OPTIONS.map((tile) => {
+          const selectedIndex = selectedKeys.indexOf(tile.key);
+          const selected = selectedIndex >= 0;
+          const order = selectedIndex + 1;
+          const phaseTags = Array.isArray(tile.phaseTags) ? tile.phaseTags : [];
+          return `
+            <button
+              class="tile ${selected ? "selected" : ""} ${selected && order > 1 ? "t2" : ""}"
+              type="button"
+              data-assessment-tile-key="${escapeHtml(tile.key)}"
+              data-flow-mode="tile"
+              data-history-text="${escapeHtml(tile.label)}"
+              data-testid="wizard-assessment-tile-${escapeHtml(tile.key)}"
+              aria-pressed="${selected ? "true" : "false"}"
+            >
+              <div class="tile-num">${escapeHtml(String(selected ? order : tile.key === "custom" ? "+" : "1"))}</div>
+              <div class="tile-top">
+                <span class="tile-icon">${escapeHtml(tile.icon)}</span>
+                ${tile.badge ? `<span class="tile-badge ${escapeHtml(tile.badgeClass || "")}">${escapeHtml(tile.badge)}</span>` : ""}
+              </div>
+              <div class="tile-title">${escapeHtml(tile.label)}</div>
+              <div class="tile-desc">${escapeHtml(tile.description)}</div>
+              <div class="tile-tags">
+                ${phaseTags.map((tag) => `<span class="tag ${escapeHtml(tag.cls)}">${escapeHtml(tag.label)}</span>`).join("")}
+              </div>
+            </button>
+          `;
+        }).join("")}
+      </div>
+      ${comboHint}
+      ${renderWizardStepBar(1)}
+    `;
+  }
+
+  function renderDepthTiles() {
+    const currentTile = selectedAssessmentTile(state.wizard);
+    const options = depthChoiceOptions(state.wizard.data.assessment_type, currentTile?.key || "");
+    const selectedDepth = depthChoiceKeyForGoal(state.wizard.data.intake_preferences.primary_goal);
+    return `
+      <div class="depth-grid" data-testid="conversation-quick-replies">
+        ${options.map((option) => {
+          const selected = selectedDepth === option.key;
+          const icon = option.key === "passive" ? "🔍" : option.key === "active" ? "⚡" : "🎯";
+          const phaseTags = option.key === "passive"
+            ? [{ label: "Phase 1", cls: "tag-p" }]
+            : option.key === "active"
+              ? [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }]
+              : [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }, { label: "P3", cls: "tag-c" }, { label: "P4", cls: "tag-e" }];
+          return `
+            <button
+              class="d-tile ${selected ? `dsel ${option.key === "full" ? "damber" : option.key === "active" ? "" : ""}` : ""}"
+              type="button"
+              data-quick-reply="${escapeHtml(option.quickReply)}"
+              data-depth-choice="${escapeHtml(option.key)}"
+              data-depth-safety="${escapeHtml(option.safetyPosture)}"
+              data-history-text="${escapeHtml(option.label)}"
+              data-testid="wizard-depth-tile-${escapeHtml(option.key)}"
+              aria-pressed="${selected ? "true" : "false"}"
+            >
+              <div class="d-icon">${escapeHtml(icon)}</div>
+              <div class="d-title">${escapeHtml(option.key === "passive" ? "Passive" : option.key === "active" ? "Active Scan" : "Full Pentest")}</div>
+              <div class="d-desc">${escapeHtml(option.key === "passive" ? "Discovery and enumeration only" : option.key === "active" ? "Vulnerability detection + AD mapping" : "Credential attacks + exploitation")}</div>
+              <div class="d-phases">${phaseTags.map((tag) => `<span class="tag ${escapeHtml(tag.cls)}">${escapeHtml(tag.label)}</span>`).join("")}</div>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderQuestionChoiceSurface(question) {
+    if (question.id === "intent") return renderAssessmentTypeTiles();
+    if (question.id === "goal") return renderDepthTiles();
+    return "";
+  }
+
+  function renderAssessmentSelectionBar() {
+    const selectedKeys = selectedAssessmentTileKeys(state.wizard);
+    const selectedTiles = selectedKeys.map(assessmentTileByKey).filter(Boolean);
+    if (!selectedTiles.length) return "";
+    return `
+      <div class="selection-bar" data-testid="wizard-selection-bar">
+        <span class="sel-label">Selected:</span>
+        <div class="sel-chips">
+          ${selectedTiles.map((tile, index) => `
+            <div class="sel-chip ${index > 0 ? "c2" : ""}" data-testid="wizard-selection-chip">
+              <span class="sel-chip-icon" aria-hidden="true">${escapeHtml(tile.icon)}</span>
+              <span>${escapeHtml(tile.label)}</span>
+              <button class="sel-chip-remove" type="button" data-assessment-remove-key="${escapeHtml(tile.key)}" aria-label="${escapeHtml(`Remove ${tile.label}`)}">×</button>
+            </div>
+          `).join("")}
+        </div>
+        <div class="sel-actions">
+          <div class="sel-count" id="sel-count" data-testid="wizard-selection-count">${escapeHtml(`${selectedKeys.length} type${selectedKeys.length === 1 ? "" : "s"} selected`)}</div>
+          <button class="sel-clear" type="button" data-wizard-clear-assessment="true">Clear all</button>
+          <button class="btn btn-p sel-next" type="button" data-assessment-submit-selection="true" data-testid="wizard-assessment-submit-selection">Target & Depth →</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRecentMissionRow() {
+    const recentEngagements = recentMissionCandidates();
+    return `
+      <section class="wizard-recent-missions" data-testid="wizard-recent-missions">
+        <div class="wizard-section-head">
+          <p class="eyebrow">Recent Missions</p>
+        </div>
+        ${
+          recentEngagements.length
+            ? `
+              <div class="wizard-recent-mission-row">
+                ${recentEngagements
+                  .map(
+                    (engagement) => `
+                      <button
+                        class="wizard-recent-mission-card"
+                        type="button"
+                        data-recent-engagement-prefill="${escapeHtml(engagement.id)}"
+                        data-testid="wizard-recent-mission-card"
+                      >
+                        <span class="wizard-recent-mission-icon" aria-hidden="true">↗</span>
+                        <span class="wizard-recent-mission-copy">
+                          <strong>${escapeHtml(engagement.name || "Recent mission")}</strong>
+                          <small>${escapeHtml(recentMissionSummaryForEngagement(engagement.id))}</small>
+                        </span>
+                        <span class="wizard-recent-mission-meta">${escapeHtml(recentMissionDateLabel(engagement.created_at))}</span>
+                      </button>
+                    `
+                  )
+                  .join("")}
+              </div>
+            `
+            : `<p class="micro-copy">No recent missions yet. Start with the closest assessment type below.</p>`
+        }
+      </section>
+    `;
+  }
+
+  function flowStep() {
+    const step = Number(state.wizard.intake.flowStep || 1);
+    if (state.wizard.lastCreated) return 4;
+    return Math.max(1, Math.min(4, Number.isFinite(step) ? step : 1));
+  }
+
+  function flowTargetValue(data = state.wizard.data) {
+    const values = flattenTargetValues(data.targets);
+    if (values.length) return values[0];
+    const selectedKey = primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard));
+    if (["internal-lan", "active-directory"].includes(selectedKey) || selectedAssessmentTileKeys(state.wizard).includes("internal-lan")) {
+      return "10.0.20.0/24";
+    }
+    if (selectedKey === "api-security") return "https://api.example.com";
+    if (selectedKey === "external-infrastructure") return "203.0.113.0/24";
+    return "https://app.example.com";
+  }
+
+  function targetBucketForValue(value, selectedKey = primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard))) {
+    return targetBucketForTileValue(value, selectedKey);
+  }
+
+  function buildTargetsForFlowValue(value) {
+    const target = String(value || "").trim() || flowTargetValue();
+    const selectedKey = primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard));
+    const bucket = targetBucketForValue(target, selectedKey);
+    return {
+      domains: bucket === "domains" ? [target] : [],
+      subdomains: [],
+      urls: bucket === "urls" ? [target] : [],
+      ip_addresses: bucket === "ip_addresses" ? [target] : [],
+      cidr_ranges: bucket === "cidr_ranges" ? [target] : [],
+      api_base_urls: bucket === "api_base_urls" ? [target] : [],
+    };
+  }
+
+  function flowDepthConfig(choice = state.wizard.intake.flowDepthChoice || "active") {
+    return wizardDepthConfig(choice);
+  }
+
+  function applyGuidedSelectionToData({ targetValue = flowTargetValue(), depthChoice = state.wizard.intake.flowDepthChoice || "active", step = flowStep() } = {}) {
+    const previousNameContext = snapshotEngagementNameContext(state.wizard.data);
+    if (step >= 3 && containsUnauthorizedExpansion(targetValue)) {
+      patchWizardFields(
+        {
+          errors: ["I need exact authorized targets before I can build a mission preview."],
+          intake: {
+            ...state.wizard.intake,
+            flowMode: "tile",
+            flowStep: 2,
+          },
+        },
+        "wizard.guidedFlow.broadScopeRejected"
+      );
+      renderWizard();
+      return;
+    }
+    const keys = selectedAssessmentTileKeys(state.wizard);
+    const primaryKey = primaryAssessmentTileKey(keys);
+    const selectedTile = assessmentTileByKey(primaryKey);
+    const depth = flowDepthConfig(depthChoice);
+    const overrides = state.wizard.intake.overrides || {};
+    const preserveAssessmentTypeOverride = Boolean(overrides.assessment_type);
+    const preservePlanningOverrides = Boolean(overrides.profile || overrides.modules || overrides.safety);
+    const compatibleAssessmentModes = compatibleAssessmentModesForSelection(keys, selectedTile);
+    const selectedAssessmentMode = String(state.wizard.data.assessment_mode?.mode || "").trim();
+    const compatibleSelectedAssessmentMode = compatibleAssessmentModes.includes(selectedAssessmentMode)
+      ? selectedAssessmentMode
+      : "";
+    const guidedAssessmentMode =
+      compatibleSelectedAssessmentMode ||
+      guidedAssessmentModeForSelection({ keys, selectedTile, depthChoice });
+    const nextData = {
+      ...state.wizard.data,
+      engagement_name: state.wizard.data.engagement_name || assessmentSelectionLabel(keys) || selectedTile?.label || "AegisPT Assessment",
+      assessment_type: preserveAssessmentTypeOverride
+        ? state.wizard.data.assessment_type
+        : selectedTile?.assessmentType || state.wizard.data.assessment_type,
+      targets: buildTargetsForFlowValue(targetValue),
+      intake_preferences: {
+        ...state.wizard.data.intake_preferences,
+        mission_intent: assessmentSelectionLabel(keys) || selectedTile?.label || state.wizard.data.intake_preferences.mission_intent,
+        primary_goal: overrides.profile ? state.wizard.data.intake_preferences.primary_goal : depth.goal,
+        output_style: state.wizard.data.intake_preferences.output_style || "balanced-technical",
+        auth_strategy: state.wizard.data.intake_preferences.auth_strategy || "unauthenticated",
+        safety_posture: overrides.safety ? state.wizard.data.intake_preferences.safety_posture : depth.safetyPosture,
+        boundary_handling: state.wizard.data.intake_preferences.boundary_handling || "standard-scope-only",
+      },
+      assessment_mode: {
+        ...state.wizard.data.assessment_mode,
+        mode: guidedAssessmentMode,
+        authorization_level: depth.authorization,
+        typed_scope_confirmation: guidedAssessmentMode
+          ? state.wizard.data.assessment_mode?.typed_scope_confirmation || ""
+          : "",
+      },
+      test_profile: overrides.profile ? state.wizard.data.test_profile : depth.profile,
+    };
+    refreshSuggestedEngagementNameIfAutomatic(previousNameContext, nextData);
+    patchWizardFields(
+      {
+        data: nextData,
+        intake: {
+          ...state.wizard.intake,
+          flowMode: "tile",
+          flowStep: step,
+          flowDepthChoice: depthChoice,
+          selectedAssessmentTileKey: primaryKey,
+          selectedAssessmentTileKeys: keys,
+          sources: {
+            ...state.wizard.intake.sources,
+            intent: keys.length ? "confirmed" : "still-needed",
+            target_type: keys.length ? "confirmed" : "still-needed",
+            scope: targetValue ? "confirmed" : "still-needed",
+            goal: "confirmed",
+            auth: "confirmed",
+            safety: "confirmed",
+            boundaries: "confirmed",
+            output: "confirmed",
+          },
+        },
+      },
+      "wizard.guidedFlow.apply"
+    );
+    if (!preservePlanningOverrides) {
+      applyAssessmentTypePreset(nextData.assessment_type);
+    }
+    if (depth.profile && !overrides.profile) {
+      state.wizard.data.test_profile = depth.profile;
+      if (!overrides.modules && !overrides.safety) {
+        applyProfilePreset(depth.profile);
+      }
+    }
+    if (!preservePlanningOverrides && nextData.assessment_type === "External IP / WAN") {
+      applyAssessmentTypePreset(nextData.assessment_type);
+    }
+    if (!overrides.profile) {
+      state.wizard.data.intake_preferences.primary_goal = depth.goal;
+    }
+    if (!overrides.safety) {
+      state.wizard.data.intake_preferences.safety_posture = depth.safetyPosture;
+      applySafetyPreference(depth.safetyPosture);
+    }
+    if (
+      !preservePlanningOverrides &&
+      ["inventory-first", "quick-overview"].includes(state.wizard.data.intake_preferences.primary_goal)
+    ) {
+      applyInventoryGoalTuning(state.wizard.data.intake_preferences.primary_goal);
+    }
+    enforceDiscoveryFirstSafetyGuardrails(state.wizard.data);
+    state.wizard.data.assessment_mode = nextData.assessment_mode;
+    state.wizard.data.targets = nextData.targets;
+    refreshSuggestedEngagementNameIfAutomatic(snapshotEngagementNameContext(state.wizard.data), state.wizard.data);
+  }
+
+  function renderGuidedAssessmentStep() {
+    return `
+      <div class="wizard-intake-shell wizard-flow-step" data-testid="conversation-question">
+        ${renderRecentMissionRow()}
+        <section class="wizard-assessment-surface">
+          <div class="wizard-section-head">
+            <p class="eyebrow">Assessment Types</p>
+          </div>
+          ${renderAssessmentTypeTiles()}
+        </section>
+      </div>
+    `;
+  }
+
+  function renderGuidedTargetStep() {
+    const targetValue = flowTargetValue();
+    const selectedKeys = selectedAssessmentTileKeys(state.wizard);
+    const selectedKey = primaryAssessmentTileKey(selectedKeys);
+    const guidance = targetGuidanceForTile(
+      selectedKeys.includes("internal-lan") && selectedKeys.includes("active-directory") ? "full-internal" : selectedKey
+    );
+    const targetBucket = targetBucketForValue(targetValue, selectedKey);
+    const heading = assessmentSelectionLabel(selectedKeys) || "Selected Assessment";
+    const depthChoice = state.wizard.intake.flowDepthChoice || "full";
+    return `
+      <div class="wizard-flow-step wizard-target-depth-step" data-testid="conversation-question">
+        ${renderAssessmentSelectionBar()}
+        <div class="page-h">${escapeHtml(heading)}</div>
+        <div class="page-sub">Two quick questions - we'll generate the mission plan from your answers.</div>
+        <section class="q-card" data-testid="wizard-target-card">
+          <div class="q-meta">
+            <span class="q-step-label">Question 1 of 2 · Target</span>
+            <span class="q-badge">Required</span>
+          </div>
+          <div class="q-text">${escapeHtml(guidance.question)}</div>
+          <input id="wizard-target-input" class="q-input" type="text" value="${escapeHtml(targetValue)}" placeholder="${escapeHtml(guidance.placeholder)}" data-testid="wizard-target-input" />
+          <div class="q-tags">
+            ${guidance.examples.map((value) => `<button class="q-tag" type="button" data-wizard-target-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join("")}
+            <button class="q-tag" type="button" data-wizard-target-add="true">${escapeHtml(guidance.addLabel)}</button>
+          </div>
+          <div class="q-hint">${escapeHtml(guidance.hint)}</div>
+          <div class="q-hint" data-testid="wizard-target-interpretation">Predicted interpretation: ${escapeHtml(targetBucket)} target for ${escapeHtml(heading)}.</div>
+        </section>
+        <section class="q-card" data-testid="wizard-depth-card">
+          <div class="q-meta">
+            <span class="q-step-label">Question 2 of 2 · Depth</span>
+            <span class="q-badge">Required</span>
+          </div>
+          <div class="q-text">How deep should the assessment go?</div>
+          ${renderDepthTilesForFlow(depthChoice)}
+        </section>
+        <div class="nav-row">
+          <button class="btn btn-s" type="button" data-wizard-flow-step="1">← Back</button>
+          <button class="btn btn-p" type="button" data-wizard-preview="true">Preview Mission →</button>
+        </div>
+        ${renderWizardStepBar(2)}
+      </div>
+    `;
+  }
+
+  function renderDepthTilesForFlow(selectedChoice = "active") {
+    const options = [
+      { key: "passive", icon: "🔍", title: "Passive", desc: "Discovery and enumeration only", tags: [{ label: "Phase 1", cls: "tag-p" }] },
+      { key: "active", icon: "⚡", title: "Active Scan", desc: "Vulnerability detection + AD mapping", tags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }] },
+      { key: "full", icon: "🎯", title: "Full Pentest", desc: "Credential attacks + exploitation", tags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }, { label: "P3", cls: "tag-c" }, { label: "P4", cls: "tag-e" }] },
+    ];
+    return `
+      <div class="depth-grid" data-testid="conversation-quick-replies">
+        ${options.map((option) => `
+          <button class="d-tile ${option.key === selectedChoice ? `dsel ${option.key === "full" ? "damber" : ""}` : ""}" type="button" data-wizard-depth-choice="${escapeHtml(option.key)}" data-testid="wizard-depth-tile-${escapeHtml(option.key)}" aria-pressed="${option.key === selectedChoice ? "true" : "false"}">
+            <div class="d-icon">${escapeHtml(option.icon)}</div>
+            <div class="d-title">${escapeHtml(option.title)}</div>
+            <div class="d-desc">${escapeHtml(option.desc)}</div>
+            <div class="d-phases">${option.tags.map((tag) => `<span class="tag ${escapeHtml(tag.cls)}">${escapeHtml(tag.label)}</span>`).join("")}</div>
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function renderGuidedPreviewStep() {
+    const target = flowTargetValue();
+    const depth = flowDepthConfig();
+    const heading = assessmentSelectionLabel() || "Mission Preview";
+    // Use depth config directly so the auth level always matches the depth tile selection
+    const fullAuth = depth.authorization === "full";
+    const confirmed = hasValidFullAuthorizationConfirmation(state.wizard.data);
+    const estimate = estimateMission(state.wizard.data);
+    const plan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
+    const family = guidedPhaseFamily(state.wizard.data, plan);
+    const fullAuthCopy = guidedFullAuthorizationCopy(family);
+    return `
+      <div class="wizard-flow-step wizard-preview-step" data-testid="conversation-question">
+        <div class="page-h">Mission Preview</div>
+        <div class="page-sub">Here is exactly what AegisPT will do. Review, then choose your authorisation level.</div>
+        ${renderLanDiscoveryRoutingNotice(state.wizard.data)}
+        <section class="preview-box" data-testid="wizard-mission-preview">
+          <div class="preview-hd">
+            <div class="preview-hd-title">${escapeHtml(heading)}</div>
+            <div class="preview-chips">
+              <span class="p-chip">🎯 ${escapeHtml(target)}</span>
+              <span class="p-chip">⏱ ${escapeHtml(depth.eta)}</span>
+              <span class="p-chip">${escapeHtml(depth.phases)}</span>
+              <span class="p-chip" data-testid="wizard-preview-execution-lane">${escapeHtml(plan.profileName)} · ${escapeHtml(plan.toolsLabel)}</span>
+            </div>
+          </div>
+          <div class="tgt-bar">
+            <span class="tgt-label">Targets</span>
+            <span class="tgt-node">🌐 ${escapeHtml(target)}</span>
+            <span class="tgt-note">+ hosts discovered in Phase 1 automatically included in later phases</span>
+          </div>
+          ${renderGuidedPhaseDiagram(state.wizard.data, depth, plan)}
+          ${renderAccessUnlockerGate(state.wizard.data)}
+          <div class="auth-area" data-testid="wizard-authorization-selector">
+            <div class="auth-title">How far should AegisPT go?</div>
+            <div class="auth-grid">
+              ${renderGuidedAuthOption("passive", "🔍", "Phases 1 only", "Passive discovery. Stops automatically after Phase 1.")}
+              ${renderGuidedAuthOption("active", "⚡", "Phases 1-2", "Discovery and active analysis run as one mission. Manual confirmation is required before intrusive credential or exploit phases.")}
+              ${renderGuidedAuthOption("full", "🎯", "Full - all 4 phases", fullAuthCopy.option)}
+            </div>
+            ${fullAuth ? `
+              <div class="confirm-area" data-testid="wizard-full-authorization-confirmation">
+                <div class="confirm-text">
+                  I confirm I have <strong>written authorisation</strong> from the system owner to run <strong>${escapeHtml(fullAuthCopy.confirmTools)}</strong> against <strong>${escapeHtml(target)}</strong>. AegisPT will execute every eligible runner in the authorised phases; input-dependent runners show the exact missing prerequisite if they cannot run.
+                </div>
+                <div class="confirm-row">
+                  <input id="wizard-full-authorization-input" class="confirm-input" type="text" value="${escapeHtml(state.wizard.data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="Type target to confirm: ${escapeHtml(target)}" data-testid="wizard-full-authorization-input" />
+                  <span class="confirm-status ${confirmed ? "ok" : ""}">${escapeHtml(confirmed ? "Confirmed" : "Not confirmed")}</span>
+                </div>
+              </div>
+            ` : ""}
+          </div>
+        </section>
+        <div class="nav-row">
+          <button class="btn btn-s" type="button" data-wizard-flow-step="2">← Back</button>
+          <button class="btn btn-r" type="button" data-wizard-flow-step="4" ${fullAuth && !confirmed ? "disabled" : ""}>🚀 ${escapeHtml(fullAuth ? "Launch Full Assessment" : "Launch Mission")}</button>
+        </div>
+        ${renderWizardStepBar(3)}
+      </div>
+    `;
+  }
+
+  function renderAccessUnlockerGate(data = state.wizard.data) {
+    const unlockers = normalizeAccessUnlockers(data.access?.prerequisites);
+    const selectedLabels = selectedAccessUnlockerKeys(data).map(accessUnlockerLabel);
+    return `
+      <div class="access-unlocker-gate" data-testid="wizard-access-unlockers">
+        <div class="access-unlocker-head">
+          <div>
+            <div class="auth-title">What access or prerequisites do you already have?</div>
+            <p>Discovery always starts without credentials. Select extra unlockers now so gated tools can run automatically when their phase is reached.</p>
+          </div>
+          <span class="q-badge">${escapeHtml(`${selectedLabels.length} selected`)}</span>
+        </div>
+        <div class="unlocker-grid">
+          ${ACCESS_UNLOCKER_OPTIONS.map((option) => {
+            const selected = Boolean(unlockers[option.key]);
+            return `
+              <button class="unlocker-card ${escapeHtml(option.className)} ${selected ? "selected" : ""}" type="button" data-wizard-unlocker="${escapeHtml(option.key)}" aria-pressed="${selected ? "true" : "false"}">
+                <span class="unlocker-label">${escapeHtml(option.label)}</span>
+                <span class="unlocker-copy">${escapeHtml(option.copy)}</span>
+                <span class="unlocker-tag">${escapeHtml(option.unlocks)}</span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+        <p class="access-unlocker-summary">${escapeHtml(buildAccessPrerequisiteLine(data))}</p>
+      </div>
+    `;
+  }
+
+  function renderGuidedAuthOption(value, icon, title, desc) {
+    const selected = flowDepthConfig().authorization === value;
+    return `
+      <button class="a-opt ${selected ? (value === "full" ? "asel-r" : "asel") : ""}" type="button" data-wizard-authorization="${escapeHtml(value)}" data-testid="wizard-authorization-${escapeHtml(value)}" aria-pressed="${selected ? "true" : "false"}">
+        <div class="a-icon">${escapeHtml(icon)}</div>
+        <div class="a-title">${escapeHtml(title)}</div>
+        <div class="a-desc">${escapeHtml(desc)}</div>
       </button>
-    `).join("");
+    `;
+  }
+
+  function renderLanDiscoveryRoutingNotice(data = state.wizard.data) {
+    const issue = lanDiscoveryRoutingIssue(data);
+    if (!issue) return "";
+    return `
+      <div class="section-note split-top" data-testid="lan-discovery-routing-warning">
+        <strong>Internal network profile mismatch</strong>
+        <p>${escapeHtml(issue.message)}</p>
+        ${renderBadgeList([
+          `Current lane ${issue.profileName}`,
+          `Tools ${issue.toolsLabel}`,
+          "Recommended passive-network-discovery",
+        ], "compact-badge-list split-top")}
+        <div class="panel-actions split-top">
+          <button class="action primary" type="button" data-lan-profile-fix="true" data-testid="lan-profile-fix">
+            Switch to Internal Network profile
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function guidedPhaseFamily(data = state.wizard.data, plan = executionPlanForProfile(estimateMission(data).execution_profile, state.runProfiles)) {
+    const keys = selectedAssessmentTileKeys(state.wizard);
+    const assessmentType = String(data.assessment_type || "").toLowerCase();
+    const profileName = String(plan?.profileName || "").toLowerCase();
+    const missionIntent = String(data.intake_preferences?.mission_intent || "").toLowerCase();
+    if (
+      assessmentType.includes("api") ||
+      keys.includes("api-security") ||
+      missionIntent.includes("api") ||
+      profileName.includes("api")
+    ) {
+      return "api";
+    }
+    if (
+      assessmentType.includes("llm") ||
+      assessmentType.includes("ai") ||
+      keys.includes("llm-ai-app") ||
+      missionIntent.includes("llm") ||
+      missionIntent.includes("prompt")
+    ) {
+      return "ai";
+    }
+    if (
+      keys.includes("external-infrastructure") ||
+      profileName.includes("external-infrastructure") ||
+      assessmentType.includes("external ip") ||
+      missionIntent.includes("external infrastructure")
+    ) {
+      return "external-infrastructure";
+    }
+    if (
+      keys.includes("internal-lan") ||
+      keys.includes("active-directory") ||
+      profileName.includes("network") ||
+      assessmentType.includes("internal") ||
+      missionIntent.includes("active directory")
+    ) {
+      return "internal";
+    }
+    return "web";
+  }
+
+  function guidedPhaseLimit(depth = flowDepthConfig()) {
+    if (depth.authorization === "passive") return 1;
+    if (depth.authorization === "full") return 4;
+    return 3;
+  }
+
+  function guidedPhaseTemplates(family = "web") {
+    const templates = {
+      web: [
+        { cls: "ph-p", num: "Phase 1 · Auto", name: "🟢 Discovery", tools: ["🌐 HTTP fingerprint", "🔐 TLS/header review", "🧭 Content discovery"], dur: "⏱ ~15 min · no approval" },
+        { cls: "ph-a", num: "Phase 2 · 1x approval", name: "🔵 Analysis", tools: ["🎯 nuclei CVE checks", "🕸️ ZAP safe review", "📍 Route/input review"], dur: "⏱ ~30 min · 1 approval" },
+        { cls: "ph-c", num: "Phase 3 · 1x approval", name: "🟠 Validation", tools: ["🧪 Targeted validation", "🔑 Auth/session review", "📦 Evidence packaging"], dur: "⏱ ~45 min · 1 approval" },
+        { cls: "ph-e", num: "Phase 4 · explicit auth", name: "🔴 Exploitation", tools: ["💥 Controlled exploit proof", "🧯 No persistence", "🛑 Kill switch enforced"], dur: "⏱ ~30 min · full auth" },
+      ],
+      internal: [
+        { cls: "ph-p", num: "Phase 1 · Auto", name: "🟢 Discovery", tools: ["🔍 nmap host discovery", "🩺 Service fingerprint", "📋 Inventory snapshot"], dur: "⏱ ~15 min · no approval" },
+        { cls: "ph-a", num: "Phase 2 · 1x approval", name: "🔵 Analysis", tools: ["🎯 nuclei CVE scan", "🖧 SMB/LDAP review", "🗺️ Exposure mapping"], dur: "⏱ ~30 min · 1 approval" },
+        { cls: "ph-c", num: "Phase 3 · full auth", name: "🟠 Credential Review", tools: ["📡 Responder on LAN route", "🔑 Kerberos/NTLM if evidence exists", "📦 Protected evidence only"], dur: "⏱ ~45 min · prerequisites shown" },
+        { cls: "ph-e", num: "Phase 4 · full auth", name: "🔴 Exploitation", tools: ["💥 Metasploit for allowlisted findings", "🔗 Impacket with credentials", "🛑 Kill switch enforced"], dur: "⏱ ~30 min · prerequisites shown" },
+      ],
+      "external-infrastructure": [
+        { cls: "ph-p", num: "Phase 1 · Auto", name: "🟢 Discovery", tools: ["🌍 Host/service discovery", "🔐 TLS/SSH/RDP fingerprint", "📋 Exposure inventory"], dur: "⏱ ~15 min · no approval" },
+        { cls: "ph-a", num: "Phase 2 · 1x approval", name: "🔵 Analysis", tools: ["🎯 Infrastructure CVE checks", "🧱 Service misconfig review", "📈 Exposure scoring"], dur: "⏱ ~30 min · 1 approval" },
+        { cls: "ph-c", num: "Phase 3 · 1x approval", name: "🟠 Validation", tools: ["🧪 Targeted safe validation", "🔎 Version proof", "📦 Evidence packaging"], dur: "⏱ ~45 min · 1 approval" },
+        { cls: "ph-e", num: "Phase 4 · explicit auth", name: "🔴 Exploitation", tools: ["💥 Controlled exploit proof", "🧯 No persistence", "🛑 Kill switch enforced"], dur: "⏱ ~30 min · full auth" },
+      ],
+      api: [
+        { cls: "ph-p", num: "Phase 1 · Auto", name: "🟢 Discovery", tools: ["🔗 Base URL/spec discovery", "📋 Endpoint inventory", "🔐 Auth surface mapping"], dur: "⏱ ~15 min · no approval" },
+        { cls: "ph-a", num: "Phase 2 · 1x approval", name: "🔵 Analysis", tools: ["🎯 API nuclei checks", "🧩 OWASP API review", "📐 Schema/verb review"], dur: "⏱ ~30 min · 1 approval" },
+        { cls: "ph-c", num: "Phase 3 · 1x approval", name: "🟠 Validation", tools: ["🧪 Targeted API validation", "🔑 Auth/session checks", "📦 Evidence packaging"], dur: "⏱ ~45 min · 1 approval" },
+        { cls: "ph-e", num: "Phase 4 · explicit auth", name: "🔴 Exploitation", tools: ["💥 Controlled abuse-case proof", "🧯 No destructive actions", "🛑 Kill switch enforced"], dur: "⏱ ~30 min · full auth" },
+      ],
+      ai: [
+        { cls: "ph-p", num: "Phase 1 · Auto", name: "🟢 Discovery", tools: ["🧭 App/workflow inventory", "💬 Prompt surface mapping", "🤖 Model/provider context"], dur: "⏱ ~15 min · no approval" },
+        { cls: "ph-a", num: "Phase 2 · 1x approval", name: "🔵 Analysis", tools: ["🎯 Prompt injection checks", "🧾 Data leakage review", "🧠 Agent safety review"], dur: "⏱ ~30 min · 1 approval" },
+        { cls: "ph-c", num: "Phase 3 · 1x approval", name: "🟠 Validation", tools: ["🧪 Targeted workflow validation", "📦 Evidence packaging", "👀 Safe findings review"], dur: "⏱ ~45 min · 1 approval" },
+        { cls: "ph-e", num: "Phase 4 · explicit auth", name: "🔴 Abuse-Case Proof", tools: ["💥 Controlled abuse-case proof", "🧯 No destructive actions", "🛑 Kill switch enforced"], dur: "⏱ ~30 min · full auth" },
+      ],
+    };
+    return templates[family] || templates.web;
+  }
+
+  function guidedFullAuthorizationCopy(family = "web") {
+    const copy = {
+      web: {
+        option: "Allows controlled exploit proof for this web target when written authorisation is recorded.",
+        confirmTools: "controlled exploit validation and intrusive web checks",
+      },
+      internal: {
+        option: "Allows approved credential and exploitation tooling for this internal environment.",
+        confirmTools: "Metasploit, Impacket, and domain-impact validation tooling",
+      },
+      "external-infrastructure": {
+        option: "Allows controlled exploit proof against the authorised exposed services.",
+        confirmTools: "controlled infrastructure exploit validation tools",
+      },
+      api: {
+        option: "Allows intrusive API and business-logic validation under written authorisation.",
+        confirmTools: "intrusive API and business-logic validation",
+      },
+      ai: {
+        option: "Allows controlled abuse-case validation for the authorised AI workflows.",
+        confirmTools: "controlled AI abuse-case validation",
+      },
+    };
+    return copy[family] || copy.web;
+  }
+
+  function phaseGridTemplate(count) {
+    const columns = [];
+    for (let index = 0; index < count; index += 1) {
+      columns.push("minmax(0, 1fr)");
+      if (index < count - 1) columns.push("auto");
+    }
+    return columns.join(" ");
+  }
+
+  function renderGuidedPhaseDiagram(data = state.wizard.data, depth = flowDepthConfig(), plan = executionPlanForProfile(estimateMission(data).execution_profile, state.runProfiles)) {
+    const family = guidedPhaseFamily(data, plan);
+    const phases = guidedPhaseTemplates(family).slice(0, guidedPhaseLimit(depth));
+    const gridTemplate = phaseGridTemplate(phases.length);
+    return `
+      <div class="phase-diagram" data-testid="wizard-mission-preview-diagram">
+        <div class="phase-row" style="grid-template-columns: ${escapeHtml(gridTemplate)}">
+          ${phases.map((phase, index) => `
+            <div class="ph-card ${escapeHtml(phase.cls)}">
+              <div class="ph-num">${escapeHtml(phase.num)}</div>
+              <div class="ph-name">${escapeHtml(phase.name)}</div>
+              <div class="ph-tools">${phase.tools.map((tool) => `<div class="ph-tool">${escapeHtml(tool)}</div>`).join("")}</div>
+              <div class="ph-dur">${escapeHtml(phase.dur)}</div>
+            </div>
+            ${index < phases.length - 1 ? `<div class="ph-arrow">→</div>` : ""}
+          `).join("")}
+        </div>
+        <div class="phase-note">AegisPT stores evidence after each phase, keeps approvals explicit, and the kill switch remains available.</div>
+      </div>
+    `;
+  }
+
+  function renderGuidedLaunchStep() {
+    const target = flowTargetValue();
+    const depth = flowDepthConfig();
+    const heading = assessmentSelectionLabel() || "Selected Assessment";
+    const estimate = estimateMission(state.wizard.data);
+    const plan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
+    const needsAuthorizationConfirmation = needsRoeAuthorizationConfirmation(state.wizard.data);
+    return `
+      <div class="wizard-flow-step wizard-launch-step" data-testid="conversation-question">
+        <div class="launched">
+          <div class="launched-icon">🚀</div>
+          <div class="page-h">Mission Ready</div>
+          <div class="page-sub">Create the queued run dossier, then review the selected work from Mission Control.</div>
+          <div class="launch-missions">
+            <div class="launch-mission-chip">🎯 ${escapeHtml(heading)}</div>
+            <div class="launch-mission-chip">📍 ${escapeHtml(target)}</div>
+            <div class="launch-mission-chip">🧭 ${escapeHtml(depth.title)} · ${escapeHtml(plan.profileName)}</div>
+          </div>
+          ${
+            needsAuthorizationConfirmation
+              ? `
+                <label class="option-card launch-roe-confirmation" data-testid="wizard-roe-authorization-gate">
+                  <input id="wizard-roe-authorization-confirmed" data-testid="wizard-roe-authorization-checkbox" type="checkbox" ${state.wizard.data.authorization_confirmed ? "checked" : ""} />
+                  <div>
+                    <strong>I confirm I have written authorization from the system owner</strong>
+                    <p class="micro-copy">This creates an auditable authorization confirmation before the run can start.</p>
+                  </div>
+                </label>
+              `
+              : ""
+          }
+          <div class="launch-actions">
+            <button class="btn btn-p" type="button" data-wizard-create-mission="true" ${needsAuthorizationConfirmation && !state.wizard.data.authorization_confirmed ? "disabled" : ""}>Create Mission & Open Mission Control →</button>
+            <button class="btn btn-danger-outline" type="button" data-nav-screen="mission-control">⬜ Kill Switch</button>
+          </div>
+        </div>
+        ${renderWizardStepBar(4)}
+      </div>
+    `;
+  }
+
+  function needsRoeAuthorizationConfirmation(data = state.wizard.data) {
+    const selectedEngagement = state.wizard.useExistingEngagement
+      ? runtime.actions.selectedEngagement?.()
+      : null;
+    const roeRef = stringValue(selectedEngagement?.roe_ref || data.roe_ref);
+    const alreadyConfirmed = Boolean(selectedEngagement?.authorization_confirmed_at);
+    return !roeRef && !alreadyConfirmed;
+  }
+
+  function renderGuidedWizardFlow(context) {
+    const step = flowStep();
+    if (step === 2) return renderGuidedTargetStep();
+    if (step === 3) return renderGuidedPreviewStep(context);
+    if (step === 4) return renderGuidedLaunchStep();
+    return renderGuidedAssessmentStep();
+  }
+
+  function renderIntentQuestionSurface() {
+    const showCustomEntry = Boolean(state.wizard.intake.customAnswerOpen);
+    return `
+      <div class="wizard-intake-shell" data-testid="conversation-question">
+        ${renderRecentMissionRow()}
+        <section class="wizard-assessment-surface">
+          <div class="wizard-section-head">
+            <p class="eyebrow">Assessment Types</p>
+          </div>
+          ${renderAssessmentTypeTiles()}
+          <div class="conversation-manual-entry split-top" data-testid="conversation-manual-entry">
+            ${
+              showCustomEntry
+                ? `
+                  <form id="conversation-answer-form" class="conversation-answer-form">
+                    <label class="conversation-answer-label" for="wizard-answer-input">Describe the mission</label>
+                    <input
+                      id="wizard-answer-input"
+                      type="text"
+                      placeholder="For example: TLS posture for our public site, a narrow API review, or a mixed environment"
+                      value="${escapeHtml(state.wizard.intake.draftAnswer || "")}"
+                      data-testid="conversation-answer-input"
+                    />
+                  </form>
+                `
+                : `
+                  <button class="action ghost" type="button" data-intake-custom-entry="intent" data-testid="wizard-custom-answer-toggle">Describe it instead</button>
+                  <p class="micro-copy split-top">Use this for narrower workflows like TLS-only validation or other missions that do not fit a single tile.</p>
+                `
+            }
+          </div>
+        </section>
+        ${renderConversationPathNote(buildConversationContext())}
+      </div>
+    `;
+  }
+
+  function setAssessmentTileSelection(keys, reason = "wizard.assessment.selection") {
+    const normalized = normalizeAssessmentTileKeys(keys);
+    patchWizardFields(
+      {
+        intake: {
+          ...state.wizard.intake,
+          flowMode: "tile",
+          selectedAssessmentTileKey: primaryAssessmentTileKey(normalized),
+          selectedAssessmentTileKeys: normalized,
+        },
+      },
+      reason
+    );
+    renderWizard();
+  }
+
+  function toggleAssessmentTileSelection(key) {
+    const normalizedKey = String(key || "").trim();
+    if (normalizedKey === "full-internal") {
+      const current = selectedAssessmentTileKeys(state.wizard);
+      const comboSelected = current.includes("internal-lan") && current.includes("active-directory");
+      setAssessmentTileSelection(comboSelected ? [] : ["internal-lan", "active-directory"], "wizard.assessment.fullInternal");
+      return;
+    }
+    const current = selectedAssessmentTileKeys(state.wizard);
+    const next = current.includes(normalizedKey)
+      ? current.filter((item) => item !== normalizedKey)
+      : [...current, normalizedKey];
+    setAssessmentTileSelection(next, "wizard.assessment.toggle");
+  }
+
+  function removeAssessmentTileSelection(key) {
+    const next = selectedAssessmentTileKeys(state.wizard).filter((item) => item !== String(key || "").trim());
+    setAssessmentTileSelection(next, "wizard.assessment.remove");
+  }
+
+  async function submitAssessmentSelection() {
+    const keys = selectedAssessmentTileKeys(state.wizard);
+    if (!keys.length) {
+      patchWizardFields({ errors: ["Select at least one assessment type before continuing."] }, "wizard.assessment.required");
+      renderWizard();
+      return;
+    }
+    const primaryKey = primaryAssessmentTileKey(keys);
+    const label = assessmentSelectionLabel(keys);
+    await submitConversationAnswer(label, {
+      flowMode: "tile",
+      tileKey: primaryKey,
+      selectedTileKeys: keys,
+      historyText: label,
+    });
+  }
+
+  function queueRecentMissionScopePrefetch() {
+    recentMissionCandidates().forEach((engagement) => {
+      const engagementId = String(engagement?.id || "");
+      if (!engagementId || RECENT_MISSION_SCOPE_CACHE.has(engagementId) || RECENT_MISSION_SCOPE_REQUESTS.has(engagementId)) {
+        return;
+      }
+      RECENT_MISSION_SCOPE_REQUESTS.add(engagementId);
+      api(`/api/v1/engagements/${encodeURIComponent(engagementId)}/scope?optional=true`)
+        .then((scope) => {
+          const summaryTargets = buildTargetsFromAllowlist(scope?.allowlist_json || {});
+          RECENT_MISSION_SCOPE_CACHE.set(engagementId, {
+            targetLabel: firstTruthyTargetLabel(summaryTargets),
+            allowlist: scope?.allowlist_json || {},
+            denylist: scope?.denylist_json || {},
+          });
+        })
+        .catch(() => {
+          RECENT_MISSION_SCOPE_CACHE.set(engagementId, { error: true });
+        })
+        .finally(() => {
+          RECENT_MISSION_SCOPE_REQUESTS.delete(engagementId);
+          renderWizard();
+        });
+    });
+  }
+
+  async function prefillFromRecentMission(engagementId) {
+    const normalizedId = String(engagementId || "").trim();
+    if (!normalizedId) return;
+    const engagement = state.engagements.find((item) => String(item?.id || "") === normalizedId);
+    if (!engagement) return;
+
+    let cached = RECENT_MISSION_PREFILL_CACHE.get(normalizedId);
+    if (!cached) {
+      const [scope, runs] = await Promise.all([
+        api(`/api/v1/engagements/${encodeURIComponent(normalizedId)}/scope?optional=true`).catch(() => null),
+        api(`/api/v1/engagements/${encodeURIComponent(normalizedId)}/runs`).catch(() => []),
+      ]);
+      const latestRun = Array.isArray(runs)
+        ? [...runs].sort((left, right) => new Date(right?.created_at || 0).getTime() - new Date(left?.created_at || 0).getTime())[0] || null
+        : null;
+      const configuration = latestRun?.configuration_json || {};
+      cached = { scope, latestRun, configuration };
+      RECENT_MISSION_PREFILL_CACHE.set(normalizedId, cached);
+    }
+
+    const nextWizard = buildEmptyWizardState();
+    const cachedScope = cached.scope?.allowlist_json || RECENT_MISSION_SCOPE_CACHE.get(normalizedId)?.allowlist || {};
+    const cachedDenylist = cached.scope?.denylist_json || RECENT_MISSION_SCOPE_CACHE.get(normalizedId)?.denylist || {};
+    const configuration = cached.configuration || {};
+    const configurationTargets = configuration.targets || {};
+    const configurationExclusions = configuration.exclusions || {};
+
+    nextWizard.data.engagement_name = String(engagement.name || "").trim();
+    nextWizard.data.client = String(engagement.client || "").trim();
+    nextWizard.data.roe_ref = String(engagement.roe_ref || "").trim();
+    nextWizard.data.assessment_type =
+      String(configuration.assessment_type || "").trim() ||
+      inferAssessmentTypeFromTargets(buildTargetsFromAllowlist(cachedScope, configurationTargets)) ||
+      nextWizard.data.assessment_type;
+    nextWizard.data.targets = buildTargetsFromAllowlist(cachedScope, configurationTargets, nextWizard.data.assessment_type);
+    nextWizard.data.exclusions = {
+      ...nextWizard.data.exclusions,
+      ...buildExclusionsFromDenylist(cachedDenylist, configurationExclusions),
+    };
+    nextWizard.data.access = {
+      ...nextWizard.data.access,
+      ...(configuration.access || {}),
+    };
+    nextWizard.data.intake_preferences = {
+      ...nextWizard.data.intake_preferences,
+      ...(configuration.intake_preferences || {}),
+    };
+    nextWizard.data.assessment_mode = {
+      ...nextWizard.data.assessment_mode,
+      ...(configuration.assessment_mode || {}),
+    };
+    nextWizard.data.test_profile = String(configuration.test_profile || nextWizard.data.test_profile).trim() || nextWizard.data.test_profile;
+    nextWizard.data.modules = {
+      ...nextWizard.data.modules,
+      ...(configuration.modules || {}),
+    };
+    nextWizard.data.safety = {
+      ...nextWizard.data.safety,
+      ...(configuration.safety || {}),
+    };
+    nextWizard.intake.flowMode = "tile";
+    nextWizard.intake.selectedAssessmentTileKey = deriveAssessmentTileKey(nextWizard.data, nextWizard.intake);
+    nextWizard.intake.selectedAssessmentTileKeys = normalizeAssessmentTileKeys([nextWizard.intake.selectedAssessmentTileKey]);
+    nextWizard.intake.sources.intent = "confirmed";
+    nextWizard.intake.sources.target_type = "confirmed";
+    if (flattenTargetValues(nextWizard.data.targets).length) {
+      nextWizard.intake.sources.scope = "confirmed";
+    }
+    if (String(nextWizard.data.intake_preferences.primary_goal || "").trim()) {
+      nextWizard.intake.sources.goal = "confirmed";
+    }
+    if (String(nextWizard.data.intake_preferences.output_style || "").trim()) {
+      nextWizard.intake.sources.output = "confirmed";
+    }
+    if (String(nextWizard.data.intake_preferences.auth_strategy || "").trim()) {
+      nextWizard.intake.sources.auth = "confirmed";
+    }
+    if (String(nextWizard.data.intake_preferences.safety_posture || "").trim()) {
+      nextWizard.intake.sources.safety = "confirmed";
+    }
+    if (
+      countExplicitExclusions(nextWizard.data.exclusions) ||
+      hasBoundaryNotes(nextWizard.data.exclusions) ||
+      String(nextWizard.data.intake_preferences.boundary_handling || "").trim()
+    ) {
+      nextWizard.intake.sources.boundaries = "confirmed";
+    }
+    nextWizard.intake.activeQuestionId = "scope";
+    nextWizard.intake.reviewQuestionId = "scope";
+    nextWizard.intake.draftAnswer = flattenTargetValues(nextWizard.data.targets).join("\n");
+
+    patchState({ wizard: nextWizard }, "wizard.recentMission.prefill");
+    renderWizard();
+    requestAnimationFrame(() => {
+      document.getElementById("wizard-answer-input")?.focus();
+    });
+  }
+
+  function usesCollapsedCustomEntry(question, choiceSurface) {
+    return Boolean(choiceSurface) && question.id === "intent";
   }
 
   function renderConversationPanel(context) {
     const wizard = state.wizard;
     const question = context.question;
+    if (question.id === "intent") {
+      return renderIntentQuestionSurface();
+    }
     const recentHistory = wizard.intake.history.slice(-2);
     const earlierHistory = wizard.intake.history.slice(0, Math.max(0, wizard.intake.history.length - recentHistory.length));
+    const introOnly = !wizard.intake.history.some((turn) => turn.role === "user");
+    const choiceSurface = renderQuestionChoiceSurface(question);
+    const collapsedCustomEntry = usesCollapsedCustomEntry(question, choiceSurface);
+    const showTypedAnswerInput = !choiceSurface || !collapsedCustomEntry || wizard.intake.customAnswerOpen;
     return `
-      <div class="conversation-ribbon">
-        <strong>AI intake</strong>
-        <span>Plain-language intake mapped into the deterministic run model.</span>
-      </div>
+      ${renderAssessmentSelectionBar()}
       ${
         earlierHistory.length
           ? renderDisclosure({
@@ -415,41 +2693,46 @@ export function createWizardModule() {
             })
           : ""
       }
-      <div class="conversation-thread ${recentHistory.length <= 1 ? "compact" : ""}" data-testid="conversation-thread">
+      <div class="conversation-thread ${recentHistory.length <= 1 ? "compact" : ""} ${introOnly ? "intro-only" : ""}" data-testid="conversation-thread">
         ${recentHistory.map(renderConversationTurn).join("")}
       </div>
-      <div class="conversation-question-card" data-testid="conversation-question">
+      <div class="conversation-question-card ${choiceSurface ? "choice-surface-question" : ""}" data-testid="conversation-question">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">Current Question</p>
+            <p class="eyebrow">Next answer</p>
             <h3>${escapeHtml(question.title)}</h3>
           </div>
           <span class="badge">${escapeHtml(question.badge)}</span>
         </div>
-        ${renderConversationPathNote(context)}
         ${
           question.id === "confirm"
             ? `<p class="micro-copy">Review the planned mission below, revise any topic if needed, or open Advanced Configuration before you create the mission.</p>`
-            : `<p>${escapeHtml(question.prompt)}</p>`
+            : question.id === "intent"
+              ? ""
+              : `<p>${escapeHtml(question.prompt)}</p>`
         }
-        ${question.guidance && question.id !== "confirm" ? `<p class="micro-copy split-top">${escapeHtml(question.guidance)}</p>` : ""}
+        ${question.guidance && !["confirm", "intent"].includes(question.id) ? `<p class="micro-copy split-top">${escapeHtml(question.guidance)}</p>` : ""}
+        ${choiceSurface ? `<div class="split-top">${choiceSurface}</div>` : ""}
         ${question.recommendation ? `
           <div class="section-note split-top">
             <strong>Recommendation</strong>
             <p>${escapeHtml(question.recommendation)}</p>
           </div>
         ` : ""}
-        ${question.quickReplies.length ? `
+        ${question.quickReplies.length && !choiceSurface ? `
           <div class="chip-row split-top" data-testid="conversation-quick-replies">
             ${question.quickReplies.map((reply) => `
               <button class="action ghost quick-reply-chip" type="button" data-quick-reply="${escapeHtml(reply)}">${escapeHtml(reply)}</button>
             `).join("")}
           </div>
         ` : ""}
-        ${question.quickReplies.length && question.id !== "confirm" ? `
+        ${question.id === "goal" ? `
+          <p class="micro-copy split-top">Choose a depth tile for the fastest common path, or type your own wording below for a custom mission goal.</p>
+        ` : question.quickReplies.length && question.id !== "confirm" ? `
           <p class="micro-copy split-top">Use one of the suggested replies for the common path, or type your own wording below if your mission needs more detail.</p>
         ` : ""}
         ${question.id === "confirm" ? `
+          ${renderMissionPreviewSurface(context)}
           <div class="detail-surface emphasis-surface split-top" data-testid="wizard-confirmation-summary">
             <h4>Planned Mission</h4>
             <p>${escapeHtml(buildNaturalConfirmationSummary(context.estimate))}</p>
@@ -458,16 +2741,34 @@ export function createWizardModule() {
             <p class="micro-copy split-top">${escapeHtml(buildConfirmationSafetyLine(wizard.data, context.estimate.execution_profile))}</p>
           </div>
         ` : `
-          <form id="conversation-answer-form" class="conversation-answer-form split-top">
-            ${question.multiline ? `
-              <textarea id="wizard-answer-input" rows="4" placeholder="${escapeHtml(question.placeholder)}" data-testid="conversation-answer-input">${escapeHtml(wizard.intake.draftAnswer || "")}</textarea>
-            ` : `
-              <input id="wizard-answer-input" type="text" placeholder="${escapeHtml(question.placeholder)}" value="${escapeHtml(wizard.intake.draftAnswer || "")}" data-testid="conversation-answer-input" />
-            `}
-          </form>
+          ${
+            collapsedCustomEntry && !wizard.intake.customAnswerOpen
+              ? `
+                <div class="conversation-manual-entry split-top" data-testid="conversation-manual-entry">
+                  <button class="action ghost" type="button" data-intake-custom-entry="intent" data-testid="wizard-custom-answer-toggle">Describe it instead</button>
+                </div>
+              `
+              : ""
+          }
+          ${
+            showTypedAnswerInput
+              ? `
+                <form id="conversation-answer-form" class="conversation-answer-form split-top">
+                  ${choiceSurface ? `<label class="conversation-answer-label" for="wizard-answer-input">${escapeHtml(question.id === "scope" ? "Target" : question.id === "boundaries" ? "Optional exclusions or notes" : "Describe the mission")}</label>` : ""}
+                  ${question.multiline ? `
+                    <textarea id="wizard-answer-input" rows="4" placeholder="${escapeHtml(question.placeholder)}" data-testid="conversation-answer-input">${escapeHtml(wizard.intake.draftAnswer || "")}</textarea>
+                  ` : `
+                    <input id="wizard-answer-input" type="text" placeholder="${escapeHtml(question.placeholder)}" value="${escapeHtml(wizard.intake.draftAnswer || "")}" data-testid="conversation-answer-input" />
+                  `}
+                </form>
+              `
+              : ""
+          }
         `}
+        ${renderConversationPathNote(context)}
       </div>
       ${renderConversationEditActions(context)}
+      ${renderWizardStepBar(wizardFlowStepIndex(context))}
     `;
   }
 
@@ -475,10 +2776,57 @@ export function createWizardModule() {
     if (context.question.id === "confirm") {
       return `
         <div class="intake-progress-note ready split-top" data-testid="conversation-path-note">
-          <strong>Confirmation Ready</strong>
-          <p>All required intake topics are resolved. Review the mission summary, revise any topic if needed, then create the mission.</p>
+          <strong>${escapeHtml(context.fullAuthorizationPending ? "Full Authorization Needs Typed Scope Confirmation" : "Confirmation Ready")}</strong>
+          <p>${escapeHtml(
+            context.fullAuthorizationPending
+              ? `All intake topics are resolved. Type ${missionScopeConfirmationToken(state.wizard.data) || "an approved target"} exactly to unlock the full-mission authorization path.`
+              : "All required intake topics are resolved. Review the mission summary, revise any topic if needed, then create the mission."
+          )}</p>
         </div>
       `;
+    }
+
+    if (renderQuestionChoiceSurface(context.question) && context.question.id === "intent") {
+      const remainingStillNeededLabels = filterStillNeededLabelsForActiveQuestion(
+        context.summary,
+        context.question.id,
+      );
+      const remainingLine =
+        remainingStillNeededLabels.length === 0
+          ? "Choose the closest assessment shape and AegisPT will ask only the next missing mission details."
+          : `Still to confirm in this mission: ${remainingStillNeededLabels.join(", ")}.`;
+      return `
+        <div class="intake-progress-note review split-top" data-testid="conversation-path-note">
+          <strong>Still needed</strong>
+          <p>${escapeHtml(remainingLine)}</p>
+        </div>
+      `;
+    }
+
+    if (state.wizard.intake.flowMode === "tile") {
+      const needsAuthQuestion =
+        questionStillNeedsInput(state.wizard, "auth") ||
+        questionStillNeedsInput(state.wizard, "auth-details");
+      const tileQuestions = [...new Set(
+        activeOrderedQuestions(state.wizard)
+          .filter((questionId) => {
+            if (["intent", "safety", "output"].includes(questionId)) return false;
+            if (!needsAuthQuestion && ["auth", "auth-details"].includes(questionId)) return false;
+            return true;
+          })
+          .map((questionId) => (questionId === "auth-details" ? resolveConversationTopicQuestionId("auth") : questionId))
+      )];
+      const currentQuestionId =
+        context.question.id === "auth-details" ? resolveConversationTopicQuestionId("auth") : context.question.id;
+      const tileIndex = tileQuestions.indexOf(currentQuestionId);
+      if (tileIndex >= 0) {
+        return `
+          <div class="intake-progress-note split-top" data-testid="conversation-path-note">
+            <strong>Quick Setup</strong>
+            <p>Question ${tileIndex + 1} of ${tileQuestions.length}. Keep it short and I will map it into the deterministic run dossier immediately.</p>
+          </div>
+        `;
+      }
     }
 
     if (context.reviewMode === "earlier") {
@@ -514,7 +2862,6 @@ export function createWizardModule() {
       <div class="intake-progress-note split-top" data-testid="conversation-path-note">
         <strong>Mission Progress</strong>
         <p>${escapeHtml(remainingLine)}</p>
-        <p class="micro-copy split-top">Apply this answer to keep the intake moving toward a deterministic run dossier and confirmation-ready mission.</p>
       </div>
     `;
   }
@@ -557,7 +2904,7 @@ export function createWizardModule() {
     return [
       {
         questionId: "goal",
-        label: "Change Goal",
+        label: wizard.intake.flowMode === "tile" ? "Change Depth" : "Change Goal",
         ready: confirmedOrOverride(wizard.intake.sources.goal) && !questionStillNeedsInput(wizard, "goal"),
       },
       {
@@ -638,6 +2985,7 @@ export function createWizardModule() {
           <button class="action ghost tiny" type="button" data-advanced-close="true">Hide</button>
         </div>
         <p class="micro-copy">These controls write into the same run configuration that the conversational intake is building.</p>
+        ${renderChatGptOAuthCard()}
         <div class="advanced-nav split-top">
           ${steps.map((label, index) => `
             <button class="action ${wizard.advancedStep === index ? "secondary" : "ghost"} tiny" type="button" data-advanced-step="${index}">${escapeHtml(label)}</button>
@@ -650,6 +2998,226 @@ export function createWizardModule() {
     `;
   }
 
+  function renderChatGptOAuthCard() {
+    const engagementId = selectedEngagementIdForChatGptOAuth();
+    const selectedEngagement = runtime.actions.selectedEngagement?.();
+    const status = state.chatgptOAuthStatus?.loadedForEngagementId === engagementId
+      ? state.chatgptOAuthStatus
+      : null;
+    const connected = Boolean(status?.connected);
+    const loading = Boolean(status?.loading);
+    const reusable = Boolean(status?.reusable_session_available && !connected);
+    const accountId = status?.account_id || status?.accountId || "";
+    const statusLabel = !engagementId
+      ? "Select or create an engagement first"
+      : loading
+        ? "Checking connection"
+        : connected
+          ? "Connected"
+          : status?.error
+            ? "Needs attention"
+            : status?.pendingAuthorization
+              ? "Authorization window opened"
+              : "Disconnected";
+    const message = !engagementId
+      ? "ChatGPT OAuth is stored per engagement so customer contexts stay separated."
+      : status?.error
+        ? status.error
+        : connected
+          ? "AegisPT can use this encrypted ChatGPT OAuth session for enabled AI provider features."
+          : reusable
+            ? `An encrypted ChatGPT session for ${status.reusable_account_id || "another engagement"} is available. Use it here without logging in again.`
+          : status?.pendingAuthorization
+            ? "Complete the browser login, then refresh this status after the callback returns."
+            : "Connect a ChatGPT Plus/Pro account using PKCE. Tokens are encrypted through SecretRef and never rendered here.";
+    const buttonLabel = connected ? "Reconnect ChatGPT" : reusable ? "Use Existing ChatGPT Session" : "Connect ChatGPT";
+    return `
+      <section class="ai-provider-card split-top" data-testid="chatgpt-oauth-card">
+        <div>
+          <p class="eyebrow">AI Provider</p>
+          <h4>ChatGPT OAuth</h4>
+          <p>${escapeHtml(message)}</p>
+          <div class="chip-row compact split-top">
+            <span class="status-chip ${connected ? "success" : status?.error ? "danger" : "neutral"}" data-testid="chatgpt-oauth-status">${escapeHtml(statusLabel)}</span>
+            ${accountId ? `<span class="status-chip neutral" data-testid="chatgpt-oauth-account">${escapeHtml(accountId)}</span>` : ""}
+            <span class="status-chip neutral">token exposed: no</span>
+          </div>
+          <p class="micro-copy split-top">${escapeHtml(selectedEngagement?.name ? `Connection scope: ${selectedEngagement.name}` : "Connection scope: selected engagement")}</p>
+        </div>
+        <div class="ai-provider-actions">
+          <button class="action secondary" type="button" data-chatgpt-oauth-connect="true" data-testid="chatgpt-oauth-connect" ${engagementId ? "" : "disabled"}>${escapeHtml(buttonLabel)}</button>
+          <button class="action ghost" type="button" data-chatgpt-oauth-refresh="true" data-testid="chatgpt-oauth-refresh" ${engagementId ? "" : "disabled"}>Refresh Status</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function selectedEngagementIdForChatGptOAuth() {
+    return state.selectedEngagementId || runtime.actions.selectedEngagement?.()?.id || null;
+  }
+
+  function queueChatGptOAuthStatusRefresh() {
+    const engagementId = selectedEngagementIdForChatGptOAuth();
+    if (!engagementId || chatgptOAuthStatusInFlight) return;
+    if (state.chatgptOAuthStatus?.loadedForEngagementId === engagementId && !state.chatgptOAuthStatus?.stale) {
+      return;
+    }
+    refreshChatGptOAuthStatus().catch(runtime.actions.handleError || (() => {}));
+  }
+
+  async function refreshChatGptOAuthStatus({ force = false } = {}) {
+    const engagementId = selectedEngagementIdForChatGptOAuth();
+    if (!engagementId) return;
+    if (chatgptOAuthStatusInFlight && !force) return;
+    chatgptOAuthStatusInFlight = true;
+    patchState(
+      {
+        chatgptOAuthStatus: {
+          ...(state.chatgptOAuthStatus || {}),
+          loadedForEngagementId: engagementId,
+          loading: true,
+          stale: false,
+          error: null,
+        },
+      },
+      "wizard.chatgptOAuth.status.loading"
+    );
+    renderWizard();
+    try {
+      const status = await api(`/api/v1/auth/chatgpt/status?engagement_id=${encodeURIComponent(engagementId)}`);
+      patchState(
+        {
+          chatgptOAuthStatus: {
+            ...status,
+            loadedForEngagementId: engagementId,
+            loading: false,
+            stale: false,
+            error: null,
+          },
+        },
+        "wizard.chatgptOAuth.status.loaded"
+      );
+    } catch (error) {
+      patchState(
+        {
+          chatgptOAuthStatus: {
+            loadedForEngagementId: engagementId,
+            connected: false,
+            loading: false,
+            stale: false,
+            error: error.message || "Unable to read ChatGPT OAuth status.",
+            token_exposed: false,
+          },
+        },
+        "wizard.chatgptOAuth.status.failed"
+      );
+    } finally {
+      chatgptOAuthStatusInFlight = false;
+      renderWizard();
+    }
+  }
+
+  async function connectChatGptOAuth() {
+    const engagementId = selectedEngagementIdForChatGptOAuth();
+    if (!engagementId) return;
+    let authWindow = null;
+    const canReuse = Boolean(state.chatgptOAuthStatus?.reusable_session_available && !state.chatgptOAuthStatus?.connected);
+    if (!canReuse) {
+      authWindow = window.open("about:blank", "_blank");
+    }
+    patchState(
+      {
+        chatgptOAuthStatus: {
+          ...(state.chatgptOAuthStatus || {}),
+          loadedForEngagementId: engagementId,
+          loading: true,
+          stale: false,
+          error: null,
+        },
+      },
+      "wizard.chatgptOAuth.connecting"
+    );
+    renderWizard();
+    try {
+      const response = await api(`/api/v1/auth/chatgpt/authorize?engagement_id=${encodeURIComponent(engagementId)}`);
+      if (response.reused && response.status) {
+        authWindow?.close?.();
+        patchState(
+          {
+            chatgptOAuthStatus: {
+              ...response.status,
+              loadedForEngagementId: engagementId,
+              loading: false,
+              stale: false,
+              pendingAuthorization: false,
+              error: null,
+              token_exposed: false,
+            },
+          },
+          "wizard.chatgptOAuth.authorization.reused"
+        );
+        runtime.actions.pushStatus?.(
+          "Existing encrypted ChatGPT OAuth session was reused for this engagement.",
+          "success"
+        );
+        return;
+      }
+      if (!response.authorization_url) {
+        authWindow?.close?.();
+        throw new Error("ChatGPT OAuth authorization did not return a login URL.");
+      }
+      if (authWindow) {
+        authWindow.location.href = response.authorization_url;
+      } else {
+        window.open(response.authorization_url, "_blank", "noopener,noreferrer");
+      }
+      patchState(
+        {
+          chatgptOAuthStatus: {
+            loadedForEngagementId: engagementId,
+            connected: false,
+            configured: true,
+            pendingAuthorization: true,
+            authorizationUrl: response.authorization_url,
+            loading: false,
+            stale: false,
+            token_exposed: false,
+          },
+        },
+        "wizard.chatgptOAuth.authorization.opened"
+      );
+      scheduleChatGptOAuthStatusPolling();
+    } catch (error) {
+      authWindow?.close?.();
+      patchState(
+        {
+          chatgptOAuthStatus: {
+            loadedForEngagementId: engagementId,
+            connected: false,
+            loading: false,
+            stale: false,
+            error: error.message || "Unable to start ChatGPT OAuth.",
+            token_exposed: false,
+          },
+        },
+        "wizard.chatgptOAuth.authorization.failed"
+      );
+    } finally {
+      renderWizard();
+    }
+  }
+
+  function scheduleChatGptOAuthStatusPolling() {
+    let attempts = 0;
+    const poll = async () => {
+      attempts += 1;
+      const status = await refreshChatGptOAuthStatus({ force: true }).then(() => state.chatgptOAuthStatus).catch(() => null);
+      if (status?.connected || attempts >= 12) return;
+      window.setTimeout(poll, 5000);
+    };
+    window.setTimeout(poll, 5000);
+  }
+
   function attachConversationHandlers(context) {
     document.getElementById("conversation-answer-form")?.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -657,13 +3225,285 @@ export function createWizardModule() {
     });
 
     document.getElementById("wizard-answer-input")?.addEventListener("input", (event) => {
-      state.wizard.intake.draftAnswer = event.target.value;
+      patchWizardIntakeFields({ draftAnswer: event.target.value }, "wizard.intake.draftAnswer");
       dom.wizardNextBtn.disabled = !stringValue(event.target.value);
+    });
+
+    document.querySelectorAll("[data-assessment-tile-key]").forEach((button) => {
+      button.addEventListener("click", () => {
+        toggleAssessmentTileSelection(button.dataset.assessmentTileKey);
+      });
+    });
+
+    document.querySelectorAll("[data-assessment-remove-key]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        removeAssessmentTileSelection(button.dataset.assessmentRemoveKey);
+      });
+    });
+
+    document.querySelectorAll("[data-assessment-combo]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const keys = normalizeAssessmentTileKeys(String(button.dataset.assessmentCombo || "").split(","));
+        setAssessmentTileSelection(keys, "wizard.assessment.combo");
+        applyGuidedSelectionToData({ step: 2 });
+        renderWizard();
+      });
+    });
+
+    document.querySelectorAll("[data-assessment-submit-selection]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (state.wizard.intake.flowMode === "tile") {
+          const keys = selectedAssessmentTileKeys(state.wizard);
+          if (!keys.length) {
+            patchWizardFields({ errors: ["Select at least one assessment type before continuing."] }, "wizard.assessment.required");
+            renderWizard();
+            return;
+          }
+          if (state.wizard.intake.sources.scope !== "confirmed") {
+            // Use the tile default only when no real scope has already been prefetched or typed.
+            state.wizard.data.targets = { domains: [], subdomains: [], urls: [], ip_addresses: [], cidr_ranges: [], api_base_urls: [] };
+          }
+          applyGuidedSelectionToData({ step: 2 });
+          renderWizard();
+          return;
+        }
+        submitAssessmentSelection().catch(runtime.actions.handleError || (() => {}));
+      });
+    });
+
+    document.querySelectorAll("[data-wizard-step-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const step = Number(button.dataset.wizardStepNumber || 1);
+        if (state.wizard.intake.flowMode === "tile") {
+          if (step === 1) {
+            patchWizardIntakeFields({ flowStep: 1 }, "wizard.flow.step");
+            renderWizard();
+            return;
+          }
+          if (step === 2 && selectedAssessmentTileKeys(state.wizard).length) {
+            applyGuidedSelectionToData({ step: 2 });
+            renderWizard();
+            return;
+          }
+          if (step === 3 && flattenTargetValues(state.wizard.data.targets).length) {
+            applyGuidedSelectionToData({ step: 3 });
+            renderWizard();
+            return;
+          }
+          if (step === 4 && flattenTargetValues(state.wizard.data.targets).length) {
+            applyGuidedSelectionToData({ step: 4 });
+            renderWizard();
+            return;
+          }
+        }
+        if (step === 4 && !state.wizard.lastCreated) {
+          focusQuestion("confirm");
+          return;
+        }
+        focusQuestion(button.dataset.wizardStepTarget);
+      });
+    });
+
+    document.querySelectorAll("[data-wizard-flow-step]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const step = Number(button.dataset.wizardFlowStep || 1);
+        applyGuidedSelectionToData({ step });
+        renderWizard();
+      });
+    });
+
+    document.querySelectorAll("[data-wizard-target-value]").forEach((button) => {
+      button.addEventListener("click", () => {
+        applyGuidedSelectionToData({
+          targetValue: button.dataset.wizardTargetValue,
+          step: 2,
+        });
+        renderWizard();
+      });
+    });
+
+    document.getElementById("wizard-target-input")?.addEventListener("input", (event) => {
+      applyGuidedSelectionToData({
+        targetValue: event.target.value,
+        step: 2,
+      });
+    });
+
+    document.querySelectorAll("[data-wizard-depth-choice]").forEach((button) => {
+      button.addEventListener("click", () => {
+        applyGuidedSelectionToData({
+          targetValue: document.getElementById("wizard-target-input")?.value || flowTargetValue(),
+          depthChoice: button.dataset.wizardDepthChoice,
+          step: 2,
+        });
+        renderWizard();
+      });
+    });
+
+    document.querySelector("[data-wizard-preview]")?.addEventListener("click", () => {
+      const targetValue = document.getElementById("wizard-target-input")?.value || flowTargetValue();
+      if (containsUnauthorizedExpansion(targetValue)) {
+        patchWizardFields(
+          {
+            errors: ["I need exact authorized targets before I can build a mission preview."],
+            intake: {
+              ...state.wizard.intake,
+              flowMode: "tile",
+              flowStep: 2,
+            },
+          },
+          "wizard.guidedFlow.broadScopeRejected"
+        );
+        renderWizard();
+        return;
+      }
+      applyGuidedSelectionToData({
+        targetValue,
+        step: 3,
+      });
+      renderWizard();
+    });
+
+    document.querySelectorAll("[data-lan-profile-fix]").forEach((button) => {
+      button.addEventListener("click", () => {
+        applyLanDiscoveryProfileCorrection();
+        renderWizard();
+      });
+    });
+
+    document.querySelectorAll("[data-wizard-authorization]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const authorizationLevel = normalizedAuthorizationLevel(button.dataset.wizardAuthorization);
+        const depthChoice = authorizationLevel === "full"
+          ? "full"
+          : authorizationLevel === "passive"
+            ? "passive"
+            : "active";
+        const currentUnlockers = normalizeAccessUnlockers(state.wizard.data.access?.prerequisites);
+        const nextUnlockers = authorizationLevel === "full"
+          ? {
+              ...currentUnlockers,
+              unauthenticated_lane: currentUnlockers.unauthenticated_lane || !currentUnlockers.credential_refs,
+              intrusive_lan_authorized: true,
+              exploit_confirmation_authorized: true,
+            }
+          : {
+              ...currentUnlockers,
+              intrusive_lan_authorized: false,
+              exploit_confirmation_authorized: false,
+            };
+        applyGuidedSelectionToData({
+          targetValue: flowTargetValue(),
+          depthChoice,
+          step: 3,
+        });
+        patchWizardFields(
+          {
+            data: {
+              ...state.wizard.data,
+              access: {
+                ...state.wizard.data.access,
+                prerequisites: nextUnlockers,
+              },
+              assessment_mode: {
+                ...state.wizard.data.assessment_mode,
+                authorization_level: authorizationLevel,
+              },
+            },
+            intake: {
+              ...state.wizard.intake,
+              flowDepthChoice: depthChoice,
+            },
+          },
+          "wizard.flow.authorization"
+        );
+        renderWizard();
+      });
+    });
+
+    document.querySelectorAll("[data-wizard-unlocker]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.wizardUnlocker;
+        if (!ACCESS_UNLOCKER_OPTIONS.some((option) => option.key === key)) return;
+        const current = normalizeAccessUnlockers(state.wizard.data.access?.prerequisites);
+        const next = { ...current, [key]: !current[key] };
+        if (!Object.values(next).some(Boolean)) {
+          next.unauthenticated_lane = true;
+        }
+        if (key === "credential_refs" || key === "hash_or_password_material") {
+          next.unauthenticated_lane = false;
+        }
+        if (key === "unauthenticated_lane" && next.unauthenticated_lane) {
+          next.credential_refs = false;
+          next.hash_or_password_material = false;
+        }
+        const needsFullAuthorization = Boolean(next.intrusive_lan_authorized || next.exploit_confirmation_authorized);
+        const authorizationLevel = needsFullAuthorization
+          ? "full"
+          : selectedAuthorizationLevel(state.wizard.data);
+        const mode = authorizationLevel === "passive"
+          ? state.wizard.data.assessment_mode?.mode || guidedAssessmentModeForSelection({
+              keys: selectedAssessmentTileKeys(state.wizard),
+              depthChoice: state.wizard.intake.flowDepthChoice || "active",
+            }) || ""
+          : state.wizard.data.assessment_mode?.mode || guidedAssessmentModeForSelection({
+              keys: selectedAssessmentTileKeys(state.wizard),
+              depthChoice: authorizationLevel === "full" ? "full" : "active",
+            }) || "";
+        patchWizardFields(
+          {
+            data: {
+              ...state.wizard.data,
+              access: {
+                ...state.wizard.data.access,
+                prerequisites: next,
+              },
+              intake_preferences: {
+                ...state.wizard.data.intake_preferences,
+                auth_strategy: next.credential_refs || next.hash_or_password_material
+                  ? "credentialed"
+                  : "unauthenticated",
+              },
+              assessment_mode: {
+                ...state.wizard.data.assessment_mode,
+                mode,
+                authorization_level: authorizationLevel,
+              },
+            },
+          },
+          "wizard.accessUnlockers.toggle"
+        );
+        renderWizard();
+      });
+    });
+
+    document.querySelector("[data-wizard-create-mission]")?.addEventListener("click", () => {
+      submitWizard().catch(runtime.actions.handleError || (() => {}));
+    });
+
+    document.getElementById("wizard-roe-authorization-confirmed")?.addEventListener("change", (event) => {
+      patchWizardFields(
+        {
+          data: {
+            ...state.wizard.data,
+            authorization_confirmed: Boolean(event.target.checked),
+          },
+        },
+        "wizard.roeAuthorization.confirmed"
+      );
+      renderWizard();
     });
 
     document.querySelectorAll("[data-quick-reply]").forEach((button) => {
       button.addEventListener("click", () => {
-        submitConversationAnswer(button.dataset.quickReply).catch(runtime.actions.handleError || (() => {}));
+        submitConversationAnswer(button.dataset.quickReply, {
+          flowMode: button.dataset.flowMode,
+          tileKey: button.dataset.assessmentTileKey,
+          depthChoice: button.dataset.depthChoice,
+          depthSafety: button.dataset.depthSafety,
+          historyText: button.dataset.historyText,
+        }).catch(runtime.actions.handleError || (() => {}));
       });
     });
 
@@ -675,19 +3515,62 @@ export function createWizardModule() {
 
     document.querySelectorAll("[data-intake-advanced]").forEach((button) => {
       button.addEventListener("click", () => {
-        state.wizard.intake.advancedOpen = true;
         const requestedStep = Number(button.dataset.intakeAdvancedStep);
-        if (!Number.isNaN(requestedStep)) {
-          state.wizard.advancedStep = requestedStep;
-        }
+        patchWizardFields(
+          {
+            intake: { ...state.wizard.intake, advancedOpen: true },
+            advancedStep: Number.isNaN(requestedStep) ? state.wizard.advancedStep : requestedStep,
+          },
+          "wizard.intake.openAdvanced"
+        );
         renderWizard();
+      });
+    });
+
+    document.querySelectorAll("[data-intake-custom-entry]").forEach((button) => {
+      button.addEventListener("click", () => {
+        patchWizardIntakeFields(
+          { customAnswerOpen: true },
+          "wizard.intake.openCustomEntry"
+        );
+        renderWizard();
+        requestAnimationFrame(() => {
+          document.getElementById("wizard-answer-input")?.focus();
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-wizard-clear-assessment]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const wizard = state.wizard;
+        patchWizardFields(
+          {
+            intake: {
+              ...wizard.intake,
+              selectedAssessmentTileKey: "",
+              selectedAssessmentTileKeys: [],
+              draftAnswer: "",
+            },
+          },
+          "wizard.assessment.clearSelection"
+        );
+        renderWizard();
+      });
+    });
+
+    document.querySelectorAll("[data-recent-engagement-prefill]").forEach((button) => {
+      button.addEventListener("click", () => {
+        prefillFromRecentMission(button.dataset.recentEngagementPrefill).catch(runtime.actions.handleError || (() => {}));
       });
     });
 
     const advancedToggle = document.getElementById("wizard-advanced-toggle");
     if (advancedToggle) {
       advancedToggle.onclick = () => {
-        state.wizard.intake.advancedOpen = !state.wizard.intake.advancedOpen;
+        patchWizardIntakeFields(
+          { advancedOpen: !state.wizard.intake.advancedOpen },
+          "wizard.intake.toggleAdvanced"
+        );
         renderWizard();
       };
     }
@@ -698,19 +3581,78 @@ export function createWizardModule() {
         restartConversation();
       };
     }
+
+    document.querySelectorAll("[data-authorization-level]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!chainAuthorizationAvailable(state.wizard.data)) return;
+        patchWizardFields(
+          {
+            data: {
+              ...state.wizard.data,
+              assessment_mode: {
+                ...state.wizard.data.assessment_mode,
+                authorization_level: normalizedAuthorizationLevel(button.dataset.authorizationLevel),
+              },
+            },
+          },
+          "wizard.confirm.authorizationLevel"
+        );
+        renderWizard();
+      });
+    });
+
+    document.getElementById("wizard-full-authorization-input")?.addEventListener("input", (event) => {
+      patchWizardFields(
+        {
+          data: {
+            ...state.wizard.data,
+            assessment_mode: {
+              ...state.wizard.data.assessment_mode,
+              typed_scope_confirmation: event.target.value,
+            },
+          },
+        },
+        "wizard.confirm.fullAuthorizationTypedScope"
+      );
+      const fullAuthorizationReady = hasValidFullAuthorizationConfirmation(state.wizard.data);
+      const launchButton = document.querySelector('[data-wizard-flow-step="4"]');
+      const launchStatus = document.querySelector(".confirm-status");
+      if (launchButton) {
+        launchButton.disabled = !fullAuthorizationReady;
+      }
+      if (launchStatus) {
+        launchStatus.textContent = fullAuthorizationReady ? "Confirmed" : "Not confirmed";
+        launchStatus.classList.toggle("ok", fullAuthorizationReady);
+      }
+      dom.wizardConfirmBtn.disabled = state.wizard.submitting || !fullAuthorizationReady;
+      dom.wizardConfirmBtn.textContent = fullAuthorizationReady
+        ? "Authorize Full Mission & Open Mission Control"
+        : "Type Target To Unlock Full Authorization";
+    });
   }
 
   function attachAdvancedHandlers() {
     document.querySelectorAll("[data-advanced-step]").forEach((button) => {
       button.addEventListener("click", () => {
-        state.wizard.advancedStep = Number(button.dataset.advancedStep || 0);
+        patchWizardFields(
+          { advancedStep: Number(button.dataset.advancedStep || 0) },
+          "wizard.advanced.step"
+        );
         renderWizard();
       });
     });
 
     document.querySelector('[data-advanced-close="true"]')?.addEventListener("click", () => {
-      state.wizard.intake.advancedOpen = false;
+      patchWizardIntakeFields({ advancedOpen: false }, "wizard.intake.closeAdvanced");
       renderWizard();
+    });
+
+    document.querySelector('[data-chatgpt-oauth-connect="true"]')?.addEventListener("click", () => {
+      connectChatGptOAuth().catch(runtime.actions.handleError || (() => {}));
+    });
+
+    document.querySelector('[data-chatgpt-oauth-refresh="true"]')?.addEventListener("click", () => {
+      refreshChatGptOAuthStatus({ force: true }).catch(runtime.actions.handleError || (() => {}));
     });
 
     const advancedRoot = document.getElementById("wizard-advanced-content");
@@ -723,7 +3665,10 @@ export function createWizardModule() {
 
     advancedRoot.querySelector("#wizard-add-account-btn")?.addEventListener("click", () => {
       syncWizardStepFromDom();
-      state.wizard.data.access.accounts.push(buildEmptyAccount());
+      patchWizardAccessAccounts(
+        [...state.wizard.data.access.accounts, buildEmptyAccount()],
+        "wizard.access.addAccount"
+      );
       markAdvancedOverrideForStep(state.wizard.advancedStep);
       renderWizard();
     });
@@ -732,22 +3677,21 @@ export function createWizardModule() {
       button.addEventListener("click", () => {
         syncWizardStepFromDom();
         const index = Number(button.dataset.accountRemove);
-        state.wizard.data.access.accounts.splice(index, 1);
-        if (!state.wizard.data.access.accounts.length) {
-          state.wizard.data.access.accounts.push(buildEmptyAccount());
-        }
+        const accounts = state.wizard.data.access.accounts.filter((_, accountIndex) => accountIndex !== index);
+        patchWizardAccessAccounts(accounts.length ? accounts : [buildEmptyAccount()], "wizard.access.removeAccount");
         markAdvancedOverrideForStep(state.wizard.advancedStep);
         renderWizard();
       });
     });
   }
 
-  function submitConversationAnswer(answerOverride) {
+  function submitConversationAnswer(answerOverride, submitOptions = {}) {
     syncWizardStepFromDom();
     const wizard = state.wizard;
     const context = buildConversationContext();
     const question = context.question;
     const answer = stringValue(answerOverride ?? wizard.intake.draftAnswer ?? document.getElementById("wizard-answer-input")?.value);
+    const historyText = stringValue(submitOptions.historyText || answer);
 
     if (question.id === "confirm") {
       return Promise.resolve();
@@ -764,13 +3708,14 @@ export function createWizardModule() {
     }
 
     wizard.errors = [];
-    const result = applyConversationAnswer(question.id, answer);
+    const result = applyConversationAnswer(question.id, answer, submitOptions);
     wizard.intake.history.push({
       role: "user",
       questionId: question.id,
-      text: answer,
+      text: historyText || answer,
     });
     wizard.intake.draftAnswer = "";
+    wizard.intake.customAnswerOpen = false;
 
     if (!result.ok) {
       wizard.errors = [result.error];
@@ -811,6 +3756,8 @@ export function createWizardModule() {
     state.wizard.intake.activeQuestionId = questionId;
     state.wizard.intake.reviewQuestionId = questionId;
     state.wizard.intake.draftAnswer = draftAnswerForQuestion(questionId);
+    state.wizard.intake.customAnswerOpen =
+      questionId === "intent" && Boolean(state.wizard.intake.draftAnswer);
     state.wizard.errors = validationErrorsForQuestion(state.wizard, questionId);
     renderWizard();
   }
@@ -846,19 +3793,19 @@ export function createWizardModule() {
     const questionMap = {
       intent: {
         id: "intent",
-        badge: "Intent",
-        title: "Hello. What would you like to pentest today?",
-        prompt: "Describe the target in plain language. You can say things like “my LAN network”, “our customer portal”, “our API”, or “our external domain”.",
+        badge: "Assessment",
+        title: "Assessment types",
+        prompt: "",
         placeholder: "Example: My LAN network, our customer portal, our public API, our external domain",
-        quickReplies: ["My LAN network", "Our web application", "Our API", "An external domain", "A mixed environment"],
+        quickReplies: [],
         multiline: false,
         allowSubmission: true,
       },
       goal: {
         id: "goal",
-        badge: "Goal",
+        badge: "Depth",
         title: "What is your main goal for this assessment?",
-        prompt: "I only need the next decision that materially changes the run shape.",
+        prompt: "How deep should we go? This depth choice replaces the old open-ended main goal step and sets the run profile, safety posture, and likely follow-up path.",
         placeholder: "Example: Inventory first, a standard assessment, deep validation, authenticated review, or adaptive customer-specific testing",
         quickReplies: goalQuickRepliesForAssessment(assessmentType),
         multiline: false,
@@ -881,7 +3828,7 @@ export function createWizardModule() {
         prompt: scopeQuestionPrompt(assessmentType),
         guidance: "Only include explicitly authorized targets. I will not broaden scope from vague phrases like “look around” or “scan anything public”.",
         placeholder: scopePlaceholder(assessmentType),
-        quickReplies: [],
+        quickReplies: scopeQuickRepliesForAssessment(assessmentType),
         multiline: true,
         allowSubmission: true,
       },
@@ -942,8 +3889,8 @@ function boundaryQuestionConfig(assessmentType) {
     return {
       id: "boundaries",
       badge: "Boundaries",
-      title: "Are there systems, behaviors, or internal edges I must avoid or handle carefully?",
-      prompt: "This is where you can name exclusions, maintenance-sensitive targets, or how to treat adjacent internal ranges if they become visible.",
+      title: "Any targets, systems, or internal edges to exclude?",
+      prompt: "Use this for exclusions, sensitive internal systems, or how to handle adjacent ranges if they become visible. Are there systems, behaviors, or internal edges I must avoid or handle carefully?",
       guidance: "For internal expansion I stay inside your configured scope. I can report adjacent reachable ranges, but I do not scan newly discovered ranges without explicit authorization.",
       placeholder: "Example: Avoid 10.0.20.10, report adjacent internal ranges only, do not touch production payment hosts",
       quickReplies: ["No extra exclusions", "Report adjacent internal ranges only", "I need custom exclusions"],
@@ -955,8 +3902,8 @@ function boundaryQuestionConfig(assessmentType) {
   return {
     id: "boundaries",
     badge: "Boundaries",
-    title: "Are there systems, behaviors, or boundaries I must avoid or handle carefully?",
-    prompt: "This is where you can name exclusions, maintenance-sensitive targets, sensitive user journeys, or any scope assumptions that should stay explicit.",
+    title: "Any targets or flows to exclude?",
+    prompt: "Use this for exclusions, sensitive workflows, maintenance windows, or any scope notes that must stay explicit. Are there systems, behaviors, or boundaries I must avoid or handle carefully?",
     guidance: "I stay inside the exact approved scope. I do not broaden coverage, change target classes, or expand into related systems without explicit authorization.",
     placeholder: "Example: Avoid billing flows, do not touch production payment hosts, no after-hours testing",
     quickReplies: ["No extra exclusions", "I need custom exclusions"],
@@ -1029,10 +3976,35 @@ function goalQuickRepliesForAssessment(assessmentType) {
     return "Example: https://portal.example.com or app.example.com";
   }
 
+  function operatorSettingValue(key) {
+    const sections = Array.isArray(state.operatorSettings?.sections) ? state.operatorSettings.sections : [];
+    for (const section of sections) {
+      const settings = Array.isArray(section?.settings) ? section.settings : [];
+      const match = settings.find((setting) => String(setting?.key || "") === String(key || ""));
+      if (match) {
+        return match.value;
+      }
+    }
+    return null;
+  }
+
+  function scopeQuickRepliesForAssessment(assessmentType) {
+    if (assessmentType !== "Internal Range / LAN") return [];
+    const lanCidr = String(operatorSettingValue("network.default_lan_cidr") || "").trim();
+    const vlanValue = operatorSettingValue("network.default_vlan_cidrs");
+    const vlanCidrs = Array.isArray(vlanValue) ? vlanValue : [];
+    return [lanCidr, ...vlanCidrs.map((item) => String(item || "").trim())]
+      .filter(Boolean)
+      .slice(0, 4);
+  }
+
   function recommendedQuestionId(wizard) {
-    const orderedQuestions = ["intent", "goal", "scope", "auth", "auth-details", "safety", "boundaries"];
+    const orderedQuestions = activeOrderedQuestions(wizard);
     for (const questionId of orderedQuestions) {
       if (questionStillNeedsInput(wizard, questionId)) return questionId;
+    }
+    if (wizard.intake.flowMode === "legacy" && questionStillNeedsInput(wizard, "safety")) {
+      return "safety";
     }
     return "confirm";
   }
@@ -1040,6 +4012,8 @@ function goalQuickRepliesForAssessment(assessmentType) {
   function buildSummaryBuckets(wizard, estimate) {
     const data = wizard.data;
     const plan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
+    const goalLabel = wizard.intake.flowMode === "tile" ? "Depth" : "Goal";
+    const scopeLabel = wizard.intake.flowMode === "tile" ? "Target" : "Scope";
     const engagementRoute = currentEngagementRouteContext(data);
     const deferAccessUntilRelevant =
       wizard.intake.sources.intent === "still-needed" &&
@@ -1096,14 +4070,23 @@ function goalQuickRepliesForAssessment(assessmentType) {
       label: "Target Type",
       questionId: "intent",
     });
-    addToBucket(effectiveGoalSource, "Goal", humanizeGoal(data.intake_preferences.primary_goal), {
+    if (String(data.assessment_mode?.mode || "").trim()) {
+      confirmed.push(
+        `Assessment Mode: ${humanizeAssessmentMode(data.assessment_mode.mode)}${
+          effectiveAssessmentModeAutoAdvance(data)
+            ? " · auto-advance enabled"
+            : " · boundary approvals only"
+        } · ${authorizationOption(selectedAuthorizationLevel(data)).label.toLowerCase()} authorization`
+      );
+    }
+    addToBucket(effectiveGoalSource, goalLabel, humanizeGoal(data.intake_preferences.primary_goal), {
       key: "goal",
-      label: "Goal",
+      label: goalLabel,
       questionId: "goal",
     });
-    addToBucket(effectiveScopeSource, "Scope", renderTargetSummary(data.targets), {
+    addToBucket(effectiveScopeSource, scopeLabel, renderTargetSummary(data.targets), {
       key: "scope",
-      label: "Scope",
+      label: scopeLabel,
       questionId: "scope",
     });
     const accessStillNeededDetail =
@@ -1161,10 +4144,10 @@ function goalQuickRepliesForAssessment(assessmentType) {
     };
   }
 
-  function applyConversationAnswer(questionId, answer) {
+  function applyConversationAnswer(questionId, answer, submitOptions = {}) {
     const normalized = String(answer || "").trim();
-    if (questionId === "intent") return applyIntentAnswer(normalized);
-    if (questionId === "goal") return applyGoalAnswer(normalized);
+    if (questionId === "intent") return applyIntentAnswer(normalized, submitOptions);
+    if (questionId === "goal") return applyGoalAnswer(normalized, submitOptions);
     if (questionId === "output") return applyOutputAnswer(normalized);
     if (questionId === "scope") return applyScopeAnswer(normalized);
     if (questionId === "auth") return applyAuthAnswer(normalized);
@@ -1174,13 +4157,29 @@ function goalQuickRepliesForAssessment(assessmentType) {
     return { ok: true, message: "Understood." };
   }
 
-  function applyIntentAnswer(answer) {
+  function applyIntentAnswer(answer, submitOptions = {}) {
     const wizard = state.wizard;
     const previousNameContext = snapshotEngagementNameContext(wizard.data);
+    let inferredGoal = null;
     wizard.data.intake_preferences.mission_intent = answer;
     wizard.intake.sources.intent = "confirmed";
 
-    const inferredType = inferAssessmentType(answer);
+    const selectedTileKeysValue = normalizeAssessmentTileKeys(submitOptions.selectedTileKeys || []);
+    const selectedTileKey = String(submitOptions.tileKey || primaryAssessmentTileKey(selectedTileKeysValue)).trim();
+    const selectedTile = assessmentTileByKey(selectedTileKey);
+    const inferredType = selectedTile?.assessmentType || inferAssessmentType(answer);
+    if (selectedTile) {
+      wizard.intake.flowMode = "tile";
+      wizard.intake.selectedAssessmentTileKey = selectedTile.key;
+      wizard.intake.selectedAssessmentTileKeys = selectedTileKeysValue.length ? selectedTileKeysValue : [selectedTile.key];
+    } else if (submitOptions.flowMode === "tile") {
+      wizard.intake.flowMode = "tile";
+    } else {
+      wizard.intake.flowMode = "legacy";
+      wizard.intake.selectedAssessmentTileKey = deriveAssessmentTileKey(wizard.data, wizard.intake);
+      wizard.intake.selectedAssessmentTileKeys = [];
+    }
+
     if (inferredType) {
       wizard.data.assessment_type = inferredType;
       if (!wizard.intake.overrides.profile && !wizard.intake.overrides.modules && !wizard.intake.overrides.safety) {
@@ -1189,27 +4188,38 @@ function goalQuickRepliesForAssessment(assessmentType) {
       wizard.intake.sources.target_type = "confirmed";
     }
 
-    const inferredGoal = inferPrimaryGoal(answer);
-    if (inferredGoal) {
-      setGoalRecommendation(inferredGoal, "confirmed");
-    }
+    if (!selectedTile) {
+      inferredGoal = inferPrimaryGoal(answer);
+      if (inferredGoal) {
+        setGoalRecommendation(inferredGoal, "confirmed");
+      }
 
-    const outputStyle = inferOutputStyle(answer);
-    if (outputStyle) {
-      wizard.data.intake_preferences.output_style = outputStyle;
-      wizard.intake.sources.output = "confirmed";
-    }
+      const outputStyle = inferOutputStyle(answer);
+      if (outputStyle) {
+        wizard.data.intake_preferences.output_style = outputStyle;
+        wizard.intake.sources.output = "confirmed";
+      }
 
-    const authStrategy = inferAuthStrategy(answer);
-    if (authStrategy) {
-      wizard.data.intake_preferences.auth_strategy = authStrategy;
-      wizard.intake.sources.auth = "confirmed";
-    }
+      const authStrategy = inferAuthStrategy(answer);
+      if (authStrategy) {
+        wizard.data.intake_preferences.auth_strategy = authStrategy;
+        wizard.intake.sources.auth = "confirmed";
+      }
 
-    const lateral = inferLateralDiscovery(answer);
-    if (lateral) {
-      wizard.data.intake_preferences.lateral_discovery = lateral;
-      wizard.data.intake_preferences.boundary_handling = "";
+      const lateral = inferLateralDiscovery(answer);
+      if (lateral) {
+        wizard.data.intake_preferences.lateral_discovery = lateral;
+        wizard.data.intake_preferences.boundary_handling = "";
+        wizard.intake.sources.boundaries = "still-needed";
+      }
+      wizard.intake.selectedAssessmentTileKey = deriveAssessmentTileKey(wizard.data, wizard.intake);
+      wizard.intake.selectedAssessmentTileKeys = normalizeAssessmentTileKeys([wizard.intake.selectedAssessmentTileKey]);
+    } else {
+      wizard.data.intake_preferences.primary_goal = "";
+      wizard.data.intake_preferences.safety_posture = "";
+      wizard.intake.sources.safety = "still-needed";
+      wizard.intake.sources.goal = "still-needed";
+      wizard.intake.sources.scope = "still-needed";
       wizard.intake.sources.boundaries = "still-needed";
     }
 
@@ -1220,20 +4230,35 @@ function goalQuickRepliesForAssessment(assessmentType) {
     };
   }
 
-  function applyGoalAnswer(answer) {
+  function applyGoalAnswer(answer, submitOptions = {}) {
     const previousNameContext = snapshotEngagementNameContext(state.wizard.data);
-    const goal = inferPrimaryGoal(answer);
+    const currentTile = selectedAssessmentTile(state.wizard);
+    const goal =
+      inferPrimaryGoal(answer) ||
+      inferGoalFromDepthAnswer(answer, state.wizard.data.assessment_type, currentTile?.key || "");
     if (!goal) {
       return {
         ok: false,
-        error: "Tell me whether you want an overview, inventory-first run, standard assessment, deep assessment, authenticated review, or adaptive testing.",
+        error: "Choose a depth such as Passive only, Active scan, or Full including exploitation, or enter a custom mission goal.",
       };
     }
     const compatibility = setGoalRecommendation(goal, "confirmed");
+    const depthChoice = String(submitOptions.depthChoice || depthChoiceKeyForGoal(goal)).trim();
+    const depthSafety =
+      String(submitOptions.depthSafety || "").trim() ||
+      depthChoiceOptions(state.wizard.data.assessment_type, currentTile?.key || "").find((option) => option.key === depthChoice)?.safetyPosture ||
+      "";
     const outputStyle = inferOutputStyle(answer);
     if (outputStyle) {
       state.wizard.data.intake_preferences.output_style = outputStyle;
       state.wizard.intake.sources.output = "confirmed";
+    }
+    if (state.wizard.intake.flowMode === "tile" && !state.wizard.intake.overrides.safety) {
+      const safetyPosture = depthSafety || (goal === "internal-validation" ? "thorough" : "balanced");
+      state.wizard.data.intake_preferences.safety_posture = safetyPosture;
+      applySafetyPreference(safetyPosture);
+      enforceDiscoveryFirstSafetyGuardrails(state.wizard.data);
+      state.wizard.intake.sources.safety = "confirmed";
     }
     refreshSuggestedEngagementNameIfAutomatic(previousNameContext, state.wizard.data);
     return {
@@ -1312,6 +4337,10 @@ function goalQuickRepliesForAssessment(assessmentType) {
       previousLateralDiscovery,
       previousHasExplicitBoundaryScope,
     });
+    state.wizard.intake.selectedAssessmentTileKey = deriveAssessmentTileKey(state.wizard.data, state.wizard.intake);
+    if (!selectedAssessmentTileKeys(state.wizard).length) {
+      state.wizard.intake.selectedAssessmentTileKeys = normalizeAssessmentTileKeys([state.wizard.intake.selectedAssessmentTileKey]);
+    }
     state.wizard.intake.sources.scope = "confirmed";
     refreshSuggestedEngagementNameIfAutomatic(previousNameContext, state.wizard.data);
     return {
@@ -1604,6 +4633,7 @@ function applySafetyAnswer(answer) {
     const overrides = state.wizard.intake.overrides;
     if (step === 0) {
       overrides.mission = true;
+      overrides.assessment_type = true;
       state.wizard.intake.sources.intent = "override";
       state.wizard.intake.sources.target_type = "override";
     } else if (step === 1) {
@@ -1638,6 +4668,8 @@ function applySafetyAnswer(answer) {
         applyAssessmentTypePreset(state.wizard.data.assessment_type);
       }
       markAdvancedOverrideForStep(0);
+      state.wizard.intake.selectedAssessmentTileKey = deriveAssessmentTileKey(state.wizard.data, state.wizard.intake);
+      state.wizard.intake.selectedAssessmentTileKeys = normalizeAssessmentTileKeys([state.wizard.intake.selectedAssessmentTileKey]);
       syncConversationMetadataFromData();
       refreshSuggestedEngagementNameIfAutomatic(previousNameContext, state.wizard.data);
       realignConversationAfterAdvancedChange();
@@ -1690,6 +4722,16 @@ function applySafetyAnswer(answer) {
       state.wizard,
       state.wizard.intake.activeQuestionId || recommendedQuestionId(state.wizard),
     );
+    if (state.wizard.intake.flowMode === "tile") {
+      if (
+        event.type === "change" ||
+        ["SELECT", "OPTION"].includes(event.target.tagName) ||
+        ["checkbox", "radio"].includes(event.target.type)
+      ) {
+        renderWizard();
+      }
+      return;
+    }
     dom.wizardSummary.innerHTML = renderWizardSummary(state.wizard, estimateMission(state.wizard.data), buildConversationContext());
   }
 
@@ -1709,6 +4751,7 @@ function applySafetyAnswer(answer) {
   function wizardStepContent(step, data, useExistingEngagement) {
     if (step === 0) {
       const selectedEngagement = runtime.actions.selectedEngagement?.();
+      const selectedAssessmentMode = String(data.assessment_mode?.mode || "");
       return `
         <div class="wizard-panel-grid">
           <div class="stack-form">
@@ -1775,6 +4818,29 @@ function applySafetyAnswer(answer) {
                 </label>
               `).join("")}
             </div>
+            <div class="detail-surface split-top" data-testid="wizard-assessment-mode-panel">
+              <h4>Assessment Mode</h4>
+              <p class="micro-copy">Optional phase chaining for operators who want one approval per tier instead of launching each follow-up run by hand.</p>
+              <div class="toggle-grid split-top">
+                ${ASSESSMENT_MODE_OPTIONS.map((option) => `
+                  <label class="option-card">
+                    <input type="radio" name="wizard-assessment-mode" value="${escapeHtml(option.value)}" ${selectedAssessmentMode === option.value ? "checked" : ""} />
+                    <div>
+                      <strong>${escapeHtml(option.label)}</strong>
+                      <p class="micro-copy">${escapeHtml(option.copy)}</p>
+                    </div>
+                  </label>
+                `).join("")}
+              </div>
+              <label class="option-card split-top">
+                <input id="wizard-assessment-mode-auto-advance" type="checkbox" ${data.assessment_mode?.auto_advance_on_phase_complete !== false ? "checked" : ""} ${selectedAssessmentMode ? "" : "disabled"} />
+                <div>
+                  <strong>Auto-advance at safe phase boundaries</strong>
+                  <p class="micro-copy">AegisPT moves into the next phase automatically when the previous phase finishes cleanly. Exploitation phases still never auto-start.</p>
+                </div>
+              </label>
+              <p class="micro-copy split-top">The final preview step lets you pick the actual phase authorization level: Passive only, Active, or Full.</p>
+            </div>
           </div>
         </div>
       `;
@@ -1801,7 +4867,7 @@ function applySafetyAnswer(answer) {
             <p class="micro-copy">${escapeHtml(boundaryNotesIntro(data.assessment_type))}</p>
           </div>
           <div class="wizard-panel-grid">
-            ${visibleGroups.includes("domains") ? textareaField("wizard-exclude-domains", "Excluded Domains", data.exclusions.domains, "legacy.example.com", "Explicit domains that must stay out of scope even if operators mention them conversationally.", "Denied domains remain visible in the scope snapshot and confirmation summary.") : ""}
+            ${visibleGroups.includes("domains") ? textareaField("wizard-exclude-domains", "Excluded Domains", data.exclusions.domains, "old.example.com", "Explicit domains that must stay out of scope even if operators mention them conversationally.", "Denied domains remain visible in the scope snapshot and confirmation summary.") : ""}
             ${visibleGroups.includes("urls") ? textareaField("wizard-exclude-urls", "Excluded URLs", data.exclusions.urls, "https://example.com/admin", "Specific URLs or app paths that should not be touched during this run.", "Useful for maintenance pages, admin consoles, or sensitive user journeys.") : ""}
             ${visibleGroups.includes("ip_addresses") ? textareaField("wizard-exclude-ip-addresses", "Excluded IP Addresses", data.exclusions.ip_addresses, "10.0.20.10", "Individual hosts that must be avoided even when they sit inside an approved network block.", "Denied IPs are carried into the denylist scope snapshot.") : ""}
             ${visibleGroups.includes("cidr_ranges") ? textareaField("wizard-exclude-cidrs", "Excluded CIDR Ranges", data.exclusions.cidr_ranges, "10.0.21.0/24", "Internal ranges that must not be scanned or expanded into.", "Use this for known restricted network segments.") : ""}
@@ -1998,18 +5064,25 @@ function applySafetyAnswer(answer) {
     const moduleLabels = enabledModules(data.modules);
     const accessSummary = renderAccessContextSummary(data.access);
     const accessContextCount = countMeaningfulAccessContexts(data.access);
+    const assessmentModeLabel = String(data.assessment_mode?.mode || "").trim()
+      ? humanizeAssessmentMode(data.assessment_mode.mode)
+      : "";
     return `
       <div class="stack-zone" data-testid="wizard-review">
         <div class="detail-surface">
           <h4>Mission Review</h4>
           <p>${escapeHtml(data.assessment_type)} with the ${escapeHtml(data.test_profile)} operator profile will use the ${escapeHtml(plan.profileName)} execution lane.</p>
           <p>${escapeHtml(estimate.summary)}</p>
+          ${renderLanDiscoveryRoutingNotice(data)}
           ${renderBadgeList([
             renderTargetSummary(data.targets),
             `${accessContextCount} access context${accessContextCount === 1 ? "" : "s"}`,
             `${moduleLabels.length} enabled module${moduleLabels.length === 1 ? "" : "s"}`,
             `RPS ${data.safety.rate_limit_rps}`,
             `${humanizeCheckMode(data.safety.active_checks)}`,
+            assessmentModeLabel
+              ? `${assessmentModeLabel}${effectiveAssessmentModeAutoAdvance(data) ? " · auto-advance" : ""} · ${authorizationOption(selectedAuthorizationLevel(data)).label.toLowerCase()} authorization`
+              : null,
             `${estimate.confidence} ETA confidence`,
           ], "compact-badge-list split-top")}
         </div>
@@ -2037,6 +5110,11 @@ function applySafetyAnswer(answer) {
                 <div><span>Execution Lane</span><strong>${escapeHtml(plan.profileName)}</strong></div>
                 <div><span>Planned Tools</span><strong>${escapeHtml(plan.toolsLabel)}</strong></div>
                 <div><span>Approvals</span><strong>${escapeHtml(String(plan.requiredApprovals))}</strong></div>
+                <div><span>Assessment Mode</span><strong>${escapeHtml(
+                  assessmentModeLabel
+                    ? `${assessmentModeLabel}${effectiveAssessmentModeAutoAdvance(data) ? " · auto-advance" : ""} · ${authorizationOption(selectedAuthorizationLevel(data)).label.toLowerCase()} authorization`
+                    : "Disabled"
+                )}</strong></div>
                 <div><span>Coverage Intent</span><strong>${escapeHtml(moduleLabels.join(", ") || "None")}</strong></div>
               </div>
               <p class="micro-copy split-top">${escapeHtml(plan.description)}</p>
@@ -2055,8 +5133,16 @@ function applySafetyAnswer(answer) {
                 <div><span>Maximum Depth</span><strong>${escapeHtml(humanizeDepthLabel(data.safety.max_validation_depth))}</strong></div>
                 <div><span>Adaptive Generation</span><strong>${escapeHtml(data.safety.adaptive_generation ? "Enabled" : "Disabled")}</strong></div>
               </div>
-              <p class="micro-copy split-top">Confirming creates or reuses the engagement, stores this wizard configuration on the run record, seeds the inventory model from the reviewed scope, and opens Mission Control.</p>
-              <p class="micro-copy">After Mission Control opens, press <strong>Start Validation</strong> to launch the queued checks with the scope and safety settings you chose here.</p>
+              <p class="micro-copy split-top">${escapeHtml(
+                assessmentModeLabel
+                  ? "Confirming creates or reuses the engagement, stores this wizard configuration on the run record, seeds inventory, launches the first phase run, and opens Mission Control with the assessment chain armed."
+                  : "Confirming creates or reuses the engagement, stores this wizard configuration on the run record, seeds the inventory model from the reviewed scope, and opens Mission Control."
+              )}</p>
+              <p class="micro-copy">${escapeHtml(
+                assessmentModeLabel
+                  ? "Mission Control will show the current phase boundary, auto-chain the approved steps, and ask for a fresh approval whenever the next tier becomes more intrusive."
+                  : "After Mission Control opens, press Start Queued Checks only if the run is still queued; active runs continue automatically."
+              )}</p>
             `,
           })}
         </div>
@@ -2072,6 +5158,9 @@ function applySafetyAnswer(answer) {
     const moduleLabels = enabledModules(wizard.data.modules);
     const accessContextCount = countMeaningfulAccessContexts(wizard.data.access);
     const summary = context.summary || buildSummaryBuckets(wizard, estimate);
+    if (!summary.confirmed.length && !wizard.lastCreated) {
+      return "";
+    }
     const confirmedItems = summary.confirmed.length ? summary.confirmed.slice(0, 6) : [];
     const stillNeededItems = summary.stillNeeded.length
       ? summary.stillNeeded
@@ -2164,6 +5253,13 @@ function applySafetyAnswer(answer) {
         `
       : "<p class='micro-copy'>AegisPT only surfaces the execution lane, approvals, ETA, impact, and confidence here once the intake has enough confirmed or safely inferred mission context.</p>";
     return `
+      <div class="wizard-inline-head">
+        <div>
+          <p class="eyebrow">Mission Context</p>
+          <h3>Confirmed intake context</h3>
+        </div>
+        <span class="badge">${escapeHtml(`${summary.confirmed.length} confirmed`)}</span>
+      </div>
       <div class="list-card" data-testid="wizard-summary-current">
         <h4>Current Essentials</h4>
         <p>${escapeHtml(readinessSummary(wizard.data))}</p>
@@ -2267,7 +5363,10 @@ function applySafetyAnswer(answer) {
     if (addAccountButton) {
       addAccountButton.addEventListener("click", () => {
         syncWizardStepFromDom();
-        state.wizard.data.access.accounts.push(buildEmptyAccount());
+        patchWizardAccessAccounts(
+          [...state.wizard.data.access.accounts, buildEmptyAccount()],
+          "wizard.legacyAccess.addAccount"
+        );
         renderWizard();
       });
     }
@@ -2276,7 +5375,10 @@ function applySafetyAnswer(answer) {
       button.addEventListener("click", () => {
         syncWizardStepFromDom();
         const index = Number(button.dataset.accountRemove);
-        state.wizard.data.access.accounts.splice(index, 1);
+        patchWizardAccessAccounts(
+          state.wizard.data.access.accounts.filter((_, accountIndex) => accountIndex !== index),
+          "wizard.legacyAccess.removeAccount"
+        );
         renderWizard();
       });
     });
@@ -2310,7 +5412,16 @@ function applySafetyAnswer(answer) {
     const wizard = state.wizard;
     const data = wizard.data;
     const currentStep = stepOverride ?? currentWizardFormStep();
-    const formRoot = document.getElementById("wizard-advanced-content") || dom.wizardPanel || document;
+    const advancedContent = document.getElementById("wizard-advanced-content");
+    if (
+      state.wizard.intake.flowMode === "tile" &&
+      currentStep >= 1 &&
+      currentStep <= 5 &&
+      (!advancedContent || !state.wizard.intake.advancedOpen)
+    ) {
+      return;
+    }
+    const formRoot = advancedContent || dom.wizardPanel || document;
 
     if (currentStep === 0) {
       const useExisting = document.getElementById("wizard-use-existing");
@@ -2320,6 +5431,23 @@ function applySafetyAnswer(answer) {
       data.roe_ref = stringValue(document.getElementById("wizard-roe-ref")?.value);
       data.assessment_type =
         document.querySelector('input[name="wizard-assessment-type"]:checked')?.value || data.assessment_type;
+      const selectedAssessmentMode =
+        document.querySelector('input[name="wizard-assessment-mode"]:checked')?.value ||
+        data.assessment_mode?.mode ||
+        "";
+      data.assessment_mode = {
+        ...data.assessment_mode,
+        mode: selectedAssessmentMode,
+        auto_advance_on_phase_complete: Boolean(
+          document.getElementById("wizard-assessment-mode-auto-advance")?.checked
+        ),
+        authorization_level: selectedAssessmentMode
+          ? normalizedAuthorizationLevel(data.assessment_mode?.authorization_level)
+          : "passive",
+        typed_scope_confirmation: selectedAssessmentMode
+          ? String(data.assessment_mode?.typed_scope_confirmation || "")
+          : "",
+      };
       return;
     }
     if (currentStep === 1) {
@@ -2478,21 +5606,36 @@ function applySafetyAnswer(answer) {
   async function submitWizard() {
     syncWizardStepFromDom();
     const errors = validateEntireWizard();
-    if (errors.length) {
-      state.wizard.errors = errors;
+    const authorizationErrors = [];
+    if (needsRoeAuthorizationConfirmation(state.wizard.data) && !state.wizard.data.authorization_confirmed) {
+      authorizationErrors.push("Confirm written authorization before launching this mission.");
+    }
+    if (
+      chainAuthorizationAvailable(state.wizard.data) &&
+      selectedAuthorizationLevel(state.wizard.data) === "full" &&
+      !hasValidFullAuthorizationConfirmation(state.wizard.data)
+    ) {
+      authorizationErrors.push(
+        `Type ${missionScopeConfirmationToken(state.wizard.data) || "an approved target"} exactly to unlock Full authorization.`
+      );
+    }
+    if (errors.length || authorizationErrors.length) {
+      const nextIntake = authorizationErrors.length && state.wizard.intake.flowMode === "tile"
+        ? { ...state.wizard.intake, flowStep: 3 }
+        : state.wizard.intake;
+      patchWizardFields({ errors: [...errors, ...authorizationErrors], intake: nextIntake }, "wizard.submit.validationFailed");
       renderWizard();
       return;
     }
 
-    state.wizard.submitting = true;
-    state.wizard.errors = [];
+    patchWizardFields({ submitting: true, errors: [] }, "wizard.submit.start");
     runtime.actions.pushStatus?.("Creating mission dossier and run configuration.", "info");
     renderWizard();
 
     try {
       const estimate = estimateMission(state.wizard.data);
       const configuration = buildRunConfiguration(state.wizard.data, estimate);
-      const engagement = state.wizard.useExistingEngagement
+      let engagement = state.wizard.useExistingEngagement
         ? runtime.actions.selectedEngagement?.()
         : await api("/api/v1/engagements", {
             method: "POST",
@@ -2502,6 +5645,21 @@ function applySafetyAnswer(answer) {
               roe_ref: valueOrNull(state.wizard.data.roe_ref),
             },
           });
+      if (
+        engagement &&
+        !valueOrNull(engagement.roe_ref) &&
+        state.wizard.data.authorization_confirmed &&
+        !engagement.authorization_confirmed_at
+      ) {
+        const authorization = await api(`/api/v1/engagements/${engagement.id}/confirm-authorization`, {
+          method: "PATCH",
+        });
+        engagement = {
+          ...engagement,
+          authorization_confirmed_by: authorization.authorization_confirmed_by,
+          authorization_confirmed_at: authorization.authorization_confirmed_at,
+        };
+      }
       if (configuration.intake?.engagement_context) {
         configuration.intake.engagement_context = {
           ...configuration.intake.engagement_context,
@@ -2532,68 +5690,101 @@ function applySafetyAnswer(answer) {
           profile_name: estimate.execution_profile,
           source_inventory_snapshot_id: inventorySnapshot.id,
           configuration_json: configuration,
+          assessment_mode: state.wizard.data.assessment_mode?.mode || null,
+          assessment_auto_advance_on_phase_complete:
+            state.wizard.data.assessment_mode?.mode
+              ? configuration.assessment_mode?.auto_advance_on_phase_complete !== false
+              : null,
+          dispatch_after_create: true,
         },
       });
 
       runtime.actions.pushStatus?.(
-        `Mission ${engagement.name} created. Open Mission Control and press Start Validation to dispatch the queued run.`,
+        state.wizard.data.assessment_mode?.mode
+          ? `Mission ${engagement.name} created with ${humanizeAssessmentMode(state.wizard.data.assessment_mode.mode).toLowerCase()} enabled. Mission Control now tracks the phase chain.`
+          : `Mission ${engagement.name} created and dispatched through the existing runtime boundary.`,
         "success"
       );
-      if (!state.wizard.useExistingEngagement) {
-        state.engagements = [
-          engagement,
-          ...state.engagements.filter((item) => String(item.id) !== String(engagement.id)),
-        ];
-      }
-      state.selectedEngagementId = engagement.id;
-      state.selectedRunId = run.id;
-      state.selectedRun = {
+      const wizardData = state.wizard.data;
+      const useExistingEngagement = state.wizard.useExistingEngagement;
+      const selectedRun = {
         ...run,
         profile: run.profile || { name: estimate.execution_profile },
         tasks: Array.isArray(run.tasks) ? run.tasks : [],
-        configuration_json: configuration,
+        configuration_json: run.configuration_json || configuration,
       };
-      state.selectedTaskId = state.selectedRun.tasks[0]?.id || null;
-      state.selectedTask = state.selectedRun.tasks[0] || null;
-      state.selectedFindingId = null;
-      state.selectedFindingTheater = null;
-      state.selectedFindingEvidence = null;
-      state.reportCatalog = [];
-      state.selectedPackBundle = null;
-      state.selectedCodexContext = null;
-      state.selectedCodexResult = null;
-      state.mission = {
-        scope: {
-          allowlist_json: buildAllowlistFromWizard(state.wizard.data.targets),
-          denylist_json: buildDenylistFromWizard(state.wizard.data.exclusions),
-        },
-        inventory: inventorySnapshot ? [inventorySnapshot] : [],
-        relevance: [],
-        packs:
-          state.wizard.useExistingEngagement && String(runtime.actions.selectedEngagement?.()?.id || "") === String(engagement.id)
-            ? state.mission.packs
-            : [],
-        runs: [state.selectedRun],
-        internalValidations:
-          state.wizard.useExistingEngagement && String(runtime.actions.selectedEngagement?.()?.id || "") === String(engagement.id)
-            ? state.mission.internalValidations
-            : [],
-        findingsByRun: {
-          [run.id]: [],
+      const selectedTask = selectedRun.tasks[0] || null;
+      const sameExistingEngagement =
+        useExistingEngagement &&
+        String(runtime.actions.selectedEngagement?.()?.id || "") === String(engagement.id);
+      const nextWizard = {
+        ...buildEmptyWizardState(),
+        lastCreated: {
+          engagementName: engagement.name,
+          runId: run.id,
         },
       };
-      state.wizard = buildEmptyWizardState();
-      state.wizard.lastCreated = {
+      await showMissionLaunchOverlay({
         engagementName: engagement.name,
-        runId: run.id,
-      };
-      state.activeScreen = "mission-control";
-      state.activePhase = "execution";
+        profileName: estimate.execution_profile,
+        targetSummary: `${flattenTargetValues(wizardData.targets).length} target signal${flattenTargetValues(wizardData.targets).length === 1 ? "" : "s"}`,
+      });
+      patchState(
+        {
+          engagements: useExistingEngagement
+            ? state.engagements
+            : [
+                engagement,
+                ...state.engagements.filter((item) => String(item.id) !== String(engagement.id)),
+              ],
+          selectedEngagementId: engagement.id,
+          selectedRunId: run.id,
+          selectedRun,
+          selectedTaskId: selectedTask?.id || null,
+          selectedTask,
+          selectedFindingId: null,
+          selectedFindingTheater: null,
+          selectedFindingEvidence: null,
+          reportCatalog: [],
+          reportDraft: null,
+          selectedPackBundle: null,
+          selectedCodexContext: null,
+          selectedCodexResult: null,
+          mission: {
+            scope: {
+              allowlist_json: buildAllowlistFromWizard(wizardData.targets),
+              denylist_json: buildDenylistFromWizard(wizardData.exclusions),
+            },
+            inventory: inventorySnapshot ? [inventorySnapshot] : [],
+            relevance: [],
+            packs: sameExistingEngagement ? state.mission.packs : [],
+            runs: [selectedRun],
+            internalValidations: sameExistingEngagement ? state.mission.internalValidations : [],
+            findingsByRun: {
+              [run.id]: [],
+            },
+          },
+          wizard: nextWizard,
+          activeScreen: "mission-control",
+          activePhase: "execution",
+          missionLaunch: {
+            runId: run.id,
+            createdAt: Date.now(),
+          },
+        },
+        "wizard.submit.createdRun"
+      );
       runtime.actions.renderAll?.();
       await runtime.actions.refreshShell?.();
+      // Force-navigate to Mission Control in case refreshShell reset the active screen
+      if (state.activeScreen !== "mission-control") {
+        runtime.actions.navigateToScreen?.("mission-control");
+      }
     } catch (error) {
-      state.wizard.submitting = false;
-      state.wizard.errors = [error.message || "Wizard submission failed."];
+      patchWizardFields(
+        { submitting: false, errors: [error.message || "Wizard submission failed."] },
+        "wizard.submit.failed"
+      );
       renderWizard();
       throw error;
     }
@@ -2612,6 +5803,11 @@ function applySafetyAnswer(answer) {
 export function buildRunConfiguration(data, estimate) {
   const plan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
   const engagementRoute = currentEngagementRouteContext(data);
+  const assessmentMode = String(data.assessment_mode?.mode || "").trim();
+  const authorizationLevel = selectedAuthorizationLevel(data);
+  const authorizationScopeToken = missionScopeConfirmationToken(data);
+  const authorizationScopeSummary = missionScopeConfirmationSummary(data);
+  const effectiveAutoAdvance = effectiveAssessmentModeAutoAdvance(data);
   return {
     assessment_type: data.assessment_type,
     test_profile: data.test_profile,
@@ -2640,6 +5836,7 @@ export function buildRunConfiguration(data, estimate) {
         })),
       manual_auth_steps: valueOrNull(data.access.manual_auth_steps),
       cookie_notes: valueOrNull(data.access.cookie_notes),
+      prerequisites: normalizeAccessUnlockers(data.access?.prerequisites),
     },
     modules: data.modules,
     safety: data.safety,
@@ -2652,6 +5849,22 @@ export function buildRunConfiguration(data, estimate) {
       advanced_overrides: state.wizard?.intake?.overrides || {},
       confirmation_summary: buildNaturalConfirmationSummary(estimate, data),
     },
+    assessment_mode: assessmentMode
+      ? {
+          enabled: true,
+          mode: assessmentMode,
+          auto_advance_on_phase_complete: effectiveAutoAdvance,
+          authorization_level: authorizationLevel,
+          confirmed_scope: authorizationScopeSummary,
+          confirmation_target: authorizationScopeToken || null,
+          typed_scope_confirmation:
+            authorizationLevel === "full"
+              ? valueOrNull(data.assessment_mode?.typed_scope_confirmation)
+              : null,
+        }
+      : {
+          enabled: false,
+        },
     eta: estimate,
   };
 }
@@ -2793,7 +6006,34 @@ export function estimateMission(data) {
 }
 
 function resolveExecutionProfile(data) {
+  const selectedTileKeys = selectedAssessmentTileKeys(state.wizard);
+  const selectedTileKey = deriveAssessmentTileKey(data, state.wizard?.intake || {});
+  if (data.assessment_type === "API" || selectedTileKey === "api-security" || selectedTileKeys.includes("api-security")) {
+    return data.safety.active_checks === "passive-only" ? "passive-web-baseline" : "active-api-assessment";
+  }
+  if (selectedTileKey === "llm-ai-app" || selectedTileKeys.includes("llm-ai-app")) {
+    return data.safety.active_checks === "passive-only" ? "passive-web-baseline" : "active-llm-application-probe";
+  }
+  if (targetsContainPrivateNetwork(data.targets)) {
+    return "passive-network-discovery";
+  }
+  const externalIpWanScope =
+    data.assessment_type === "External IP / WAN" &&
+    flattenTargetValues(data.targets).some((value) => isLikelyIp(value) || isLikelyCidr(value));
   if (data.assessment_type === "Internal Range / LAN" || data.assessment_type === "External IP / WAN") {
+    if (
+      data.assessment_type === "External IP / WAN" &&
+      (
+        selectedTileKey === "external-infrastructure" ||
+        selectedTileKeys.includes("external-infrastructure") ||
+        externalIpWanScope
+      )
+    ) {
+      if (data.safety.active_checks !== "passive-only" && data.modules.nuclei_checks) {
+        return "active-external-infrastructure";
+      }
+      return "passive-external-infrastructure";
+    }
     if (data.test_profile === "Internal Validation") return "passive-network-discovery";
     return "passive-network-discovery";
   }
@@ -3436,6 +6676,9 @@ function needsAuthDetails(data) {
 
 function inferAssessmentType(answer) {
   const normalized = String(answer || "").toLowerCase();
+  if (/\b(active directory|domain controller|ldap|kerberos|bloodhound|sharphound)\b/.test(normalized)) return "Internal Range / LAN";
+  if (/\b(cloud|aws|azure|gcp|subscription|tenant)\b/.test(normalized)) return "Mixed Assessment";
+  if (/\b(llm|ai app|ai application|prompt injection|agentic)\b/.test(normalized)) return "Website / Web App";
   if (/\b(mixed|hybrid|both web and api|web and api)\b/.test(normalized)) return "Mixed Assessment";
   if (/\b(api|graphql|swagger|openapi)\b/.test(normalized)) return "API";
   if (/\b(wan|public ip|external ip|perimeter|internet-facing ip)\b/.test(normalized)) return "External IP / WAN";
@@ -3478,6 +6721,9 @@ function inferAssessmentTypeFromTargets(parsed) {
 
 function inferPrimaryGoal(answer) {
   const normalized = String(answer || "").toLowerCase();
+  if (/\b(passive only|passive)\b/.test(normalized)) return "inventory-first";
+  if (/\b(active scan|active)\b/.test(normalized)) return "standard-assessment";
+  if (/\b(full including exploitation|full)\b/.test(normalized)) return "deep-assessment";
   if (/\b(quick perimeter overview|perimeter overview)\b/.test(normalized)) return "quick-overview";
   if (/\b(quick|overview|high level|light)\b/.test(normalized)) return "quick-overview";
   if (/\b(perimeter review)\b/.test(normalized)) return "standard-assessment";
@@ -3850,6 +7096,16 @@ function externalPerimeterDiscoveryCompatibility(data) {
     };
   }
 
+  if (!goal || goal === "standard-assessment") {
+    return {
+      profile: "External Surface Only",
+      reason:
+        "External IP scope starts with staged perimeter discovery. I will begin with passive perimeter discovery and only surface deeper service-aware follow-up once reachable hosts and services are confirmed.",
+      confirmationLine:
+        "I will begin with passive perimeter discovery under the External Surface Only profile and surface deeper follow-up validation once reachable hosts and services are confirmed.",
+    };
+  }
+
   return null;
 }
 
@@ -4148,6 +7404,335 @@ function buildAdvancedSharedAccessHistoryEntry(access) {
   return null;
 }
 
+function humanizeProfileName(value) {
+  return String(value || "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => capitalizeWord(part))
+    .join(" ") || "Planned Runner";
+}
+
+function previewTierStyle(tier) {
+  return PHASE_TIER_STYLES[String(tier || "").trim()] || PHASE_TIER_STYLES.passive;
+}
+
+function targetGroupLabel(group) {
+  const mapping = {
+    network: "Network",
+    domain: "Domain",
+    web: "Web",
+    api: "API",
+    directory: "Identity",
+    ai: "AI",
+    summary: "Scope",
+  };
+  return mapping[String(group || "").trim()] || "Scope";
+}
+
+function buildMissionPreviewTargets(targets = state.wizard.data.targets) {
+  const normalized = typeof targets === "object" && targets !== null ? targets : {};
+  const rawTargets = [
+    ...(normalized.cidr_ranges || []).map((value) => ({ label: value, group: "network" })),
+    ...(normalized.ip_addresses || []).map((value) => ({ label: value, group: "network" })),
+    ...(normalized.domains || []).map((value) => ({ label: value, group: "domain" })),
+    ...(normalized.subdomains || []).map((value) => ({ label: value, group: "domain" })),
+    ...(normalized.urls || []).map((value) => ({ label: value, group: "web" })),
+    ...(normalized.api_base_urls || []).map((value) => ({ label: value, group: "api" })),
+  ];
+  const seen = new Set();
+  const deduped = rawTargets.filter((target) => {
+    const key = `${target.group}:${target.label}`;
+    if (!target.label || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const visibleTargets = deduped.slice(0, 5);
+  if (deduped.length > visibleTargets.length) {
+    visibleTargets.push({
+      label: `+${deduped.length - visibleTargets.length} more`,
+      group: "summary",
+      summary: true,
+    });
+  }
+  return visibleTargets.length
+    ? visibleTargets
+    : [{ label: "Approved scope", group: "summary", summary: true }];
+}
+
+function missionPreviewDefinition(data = state.wizard.data, estimate = estimateMission(data)) {
+  const configuredMode = String(data.assessment_mode?.mode || "").trim().toUpperCase();
+  if (configuredMode && MISSION_PREVIEW_DEFINITIONS[configuredMode]) {
+    return MISSION_PREVIEW_DEFINITIONS[configuredMode];
+  }
+  const executionPlan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
+  const tier = executionPlan.runClass === "intrusive"
+    ? "intrusive-exploitation"
+    : executionPlan.runClass === "active"
+      ? "active"
+      : "passive";
+  return {
+    mode: "",
+    label: "Single Run Mission",
+    phases: [
+      {
+        key: "single-run",
+        label: "Planned Validation Run",
+        tier,
+        icon: "RUN",
+        estimatedMinutes: estimate.estimated_total_minutes,
+        findingCopy: executionPlan.description,
+        profiles: [estimate.execution_profile],
+      },
+    ],
+  };
+}
+
+function buildMissionPreviewPhases(data = state.wizard.data, estimate = estimateMission(data)) {
+  return missionPreviewDefinition(data, estimate).phases.map((phase) => ({
+    ...phase,
+    tools: phase.profiles.map((profileName) => {
+      const plan = executionPlanForProfile(profileName, state.runProfiles);
+      const primaryTool = plan.tools[0] || "runner";
+      return {
+        profileName,
+        label: humanizeProfileName(profileName),
+        icon: TOOL_ICON_LABELS[primaryTool] || primaryTool.slice(0, 5).toUpperCase(),
+        toolLabel: primaryTool,
+        description: PROFILE_EXPECTATION_COPY[profileName] || plan.description,
+        targetGroups: PROFILE_TARGET_GROUPS[profileName] || ["network", "domain", "web", "api", "directory", "ai"],
+      };
+    }),
+  }));
+}
+
+function missionPreviewTargetIndexes(tool, targets) {
+  const groups = Array.isArray(tool?.targetGroups) ? tool.targetGroups : [];
+  const matches = targets.reduce((indexes, target, index) => {
+    if (target.summary || groups.includes(target.group) || groups.includes("all")) {
+      indexes.push(index);
+    }
+    if (groups.includes("web") && target.group === "domain") {
+      indexes.push(index);
+    }
+    return indexes;
+  }, []);
+  return [...new Set(matches)].length ? [...new Set(matches)] : targets.map((_, index) => index);
+}
+
+function renderMissionPreviewSvg(data = state.wizard.data, estimate = estimateMission(data)) {
+  const phases = buildMissionPreviewPhases(data, estimate);
+  const targets = buildMissionPreviewTargets(data.targets);
+  const width = 1120;
+  const cardX = 150;
+  const cardWidth = 820;
+  const targetStartX = 130;
+  const targetSpacing = targets.length > 1 ? (width - (targetStartX * 2)) / (targets.length - 1) : 0;
+  const targetY = 82;
+  const phaseGap = 30;
+  let cursorY = 156;
+  const phaseLayouts = phases.map((phase) => {
+    const toolRows = Math.max(1, Math.ceil((phase.tools?.length || 0) / 4));
+    const cardHeight = 132 + (toolRows - 1) * 34;
+    const layout = { ...phase, y: cursorY, height: cardHeight };
+    cursorY += cardHeight + phaseGap;
+    return layout;
+  });
+  const height = cursorY + 24;
+
+  const targetLayouts = targets.map((target, index) => ({
+    ...target,
+    x: targets.length === 1 ? width / 2 : targetStartX + (targetSpacing * index),
+    y: targetY,
+  }));
+
+  const connectionLines = [];
+  const toolCards = [];
+  const phaseCards = phaseLayouts.map((phase, phaseIndex) => {
+    const style = previewTierStyle(phase.tier);
+    const toolHeight = 24;
+    const toolWidth = 176;
+    const toolGap = 12;
+    const toolsPerRow = 4;
+    const toolStartX = cardX + 26;
+    const toolStartY = phase.y + 52;
+    (phase.tools || []).forEach((tool, toolIndex) => {
+      const row = Math.floor(toolIndex / toolsPerRow);
+      const column = toolIndex % toolsPerRow;
+      const x = toolStartX + (column * (toolWidth + toolGap));
+      const y = toolStartY + (row * 34);
+      const midX = x + (toolWidth / 2);
+      const targetIndexes = missionPreviewTargetIndexes(tool, targetLayouts);
+      targetIndexes.forEach((targetIndex) => {
+        const target = targetLayouts[targetIndex];
+        connectionLines.push(`
+          <line
+            x1="${midX}"
+            y1="${y}"
+            x2="${target.x}"
+            y2="${target.y + 18}"
+            stroke="${style.stroke}"
+            stroke-width="1.5"
+            stroke-dasharray="4 5"
+            opacity="0.34"
+          />
+        `);
+      });
+      toolCards.push(`
+        <g>
+          <rect x="${x}" y="${y}" width="${toolWidth}" height="${toolHeight}" rx="8" fill="#ffffff" stroke="${style.accent}" />
+          <rect x="${x + 7}" y="${y + 5}" width="38" height="14" rx="7" fill="${style.badge}" />
+          <text x="${x + 26}" y="${y + 15}" text-anchor="middle" font-size="9" font-weight="700" fill="${style.text}">${escapeHtml(tool.icon)}</text>
+          <text x="${x + 54}" y="${y + 15}" font-size="11" font-weight="600" fill="#15233b">${escapeHtml(tool.label)}</text>
+        </g>
+      `);
+    });
+    const connectorLine = phaseIndex < phaseLayouts.length - 1
+      ? `<line x1="${width / 2}" y1="${phase.y + phase.height}" x2="${width / 2}" y2="${phaseLayouts[phaseIndex + 1].y}" stroke="${style.stroke}" stroke-width="2" stroke-dasharray="6 6" opacity="0.5" />`
+      : "";
+    return `
+      ${connectorLine}
+      <g>
+        <rect x="${cardX}" y="${phase.y}" width="${cardWidth}" height="${phase.height}" rx="16" fill="${style.fill}" stroke="${style.stroke}" stroke-width="2" />
+        <rect x="${cardX + 18}" y="${phase.y + 18}" width="64" height="24" rx="12" fill="${style.badge}" />
+        <text x="${cardX + 50}" y="${phase.y + 34}" text-anchor="middle" font-size="11" font-weight="700" fill="${style.text}">${escapeHtml(phase.icon)}</text>
+        <text x="${cardX + 96}" y="${phase.y + 34}" font-size="18" font-weight="700" fill="#15233b">${escapeHtml(phase.label)}</text>
+        <rect x="${cardX + cardWidth - 118}" y="${phase.y + 18}" width="96" height="24" rx="12" fill="#ffffff" stroke="${style.accent}" />
+        <text x="${cardX + cardWidth - 70}" y="${phase.y + 34}" text-anchor="middle" font-size="11" font-weight="700" fill="#233655">${escapeHtml(`~${phase.estimatedMinutes}m`)}</text>
+        <text x="${cardX + 26}" y="${phase.y + phase.height - 22}" font-size="12" fill="#44566f">${escapeHtml(phase.findingCopy)}</text>
+      </g>
+    `;
+  }).join("");
+
+  const targetNodes = targetLayouts.map((target) => `
+    <g>
+      <line x1="${target.x}" y1="44" x2="${target.x}" y2="${target.y - 16}" stroke="#c8d5e3" stroke-width="1" />
+      <circle cx="${target.x}" cy="${target.y}" r="18" fill="#ffffff" stroke="#7f9ab5" stroke-width="2" />
+      <text x="${target.x}" y="${target.y + 4}" text-anchor="middle" font-size="9" font-weight="700" fill="#173049">${escapeHtml(targetGroupLabel(target.group).slice(0, 4).toUpperCase())}</text>
+      <text x="${target.x}" y="${target.y + 36}" text-anchor="middle" font-size="11" font-weight="600" fill="#15233b">${escapeHtml(target.label.length > 24 ? `${target.label.slice(0, 21)}...` : target.label)}</text>
+    </g>
+  `).join("");
+
+  return `
+    <div class="mission-preview-canvas" data-testid="wizard-mission-preview-diagram">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Mission preview diagram">
+        <rect x="0" y="0" width="${width}" height="${height}" rx="22" fill="#f8fbfd" />
+        <text x="42" y="38" font-size="12" font-weight="700" letter-spacing="0.18em" fill="#6a7f96">SCOPE BAR</text>
+        <line x1="88" y1="82" x2="${width - 88}" y2="82" stroke="#d8e2ec" stroke-width="3" stroke-linecap="round" />
+        ${connectionLines.join("")}
+        ${phaseCards}
+        ${toolCards.join("")}
+        ${targetNodes}
+      </svg>
+    </div>
+  `;
+}
+
+function renderMissionAuthorizationSelector(data = state.wizard.data) {
+  const authorizationEnabled = chainAuthorizationAvailable(data);
+  const selectedLevel = selectedAuthorizationLevel(data);
+  const expectedToken = missionScopeConfirmationToken(data);
+  const scopeSummary = missionScopeConfirmationSummary(data);
+  return `
+    <section class="mission-preview-authorization split-top">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Authorization</p>
+          <h4>Phase Boundary Approval</h4>
+        </div>
+        <span class="badge">${escapeHtml(authorizationEnabled ? "Assessment mode armed" : "Assessment mode disabled")}</span>
+      </div>
+      <div class="authorization-card-grid" data-testid="wizard-authorization-selector">
+        ${AUTHORIZATION_LEVEL_OPTIONS.map((option) => `
+          <button
+            class="authorization-card ${selectedLevel === option.value ? "selected" : ""}"
+            type="button"
+            data-authorization-level="${escapeHtml(option.value)}"
+            data-testid="wizard-authorization-${escapeHtml(option.value)}"
+            ${authorizationEnabled ? "" : "disabled"}
+          >
+            <strong>${escapeHtml(option.label)}</strong>
+            <span>${escapeHtml(option.copy)}</span>
+            <span class="authorization-card-note">${escapeHtml(option.boundaryCopy)}</span>
+          </button>
+        `).join("")}
+      </div>
+      <p class="micro-copy split-top">${escapeHtml(
+        authorizationEnabled
+          ? "The kill switch remains available in Mission Control at every phase boundary and during active execution."
+          : "Enable Assessment Mode in Advanced Configuration if you want multi-phase authorization instead of a single-run launch."
+      )}</p>
+      ${
+        authorizationEnabled && selectedLevel === "full"
+          ? `
+            <div class="detail-surface split-top authorization-confirm-box" data-testid="wizard-full-authorization-confirmation">
+              <h4>Typed Full Authorization</h4>
+              <p>${escapeHtml(`I confirm I have written authorisation to run exploitation tools including Metasploit and Impacket against ${scopeSummary}. This will run all phases automatically.`)}</p>
+              <label class="field split-top">
+                ${fieldLabel("Type the primary approved target exactly", "This prevents accidental one-click approval of the exploitation tier.")}
+                <input id="wizard-full-authorization-input" type="text" value="${escapeHtml(data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="${escapeHtml(expectedToken || "approved target")}" data-testid="wizard-full-authorization-input" />
+                ${fieldHelp(expectedToken ? `Type ${expectedToken} exactly to unlock Full authorization.` : "Add scope first so Full authorization has a concrete confirmation target.")}
+              </label>
+            </div>
+          `
+          : ""
+      }
+    </section>
+  `;
+}
+
+function renderMissionAccessUnlockerGate(data = state.wizard.data) {
+  const unlockers = normalizeAccessUnlockers(data.access?.prerequisites);
+  return `
+    <section class="mission-preview-access split-top" data-testid="wizard-access-unlockers">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Access Prerequisites</p>
+          <h4>What can AegisPT use during the run?</h4>
+        </div>
+        <span class="badge">${escapeHtml(`${selectedAccessUnlockerKeys(data).length} selected`)}</span>
+      </div>
+      <p class="micro-copy">${escapeHtml("Discovery always starts without credentials. Extra context is declared here so gated checks can run when the selected authorization tier allows them.")}</p>
+      <div class="unlocker-grid split-top">
+        ${ACCESS_UNLOCKER_OPTIONS.map((option) => `
+          <button class="unlocker-card ${escapeHtml(option.className)} ${unlockers[option.key] ? "selected" : ""}" type="button" data-wizard-unlocker="${escapeHtml(option.key)}" aria-pressed="${unlockers[option.key] ? "true" : "false"}">
+            <span class="unlocker-label">${escapeHtml(option.label)}</span>
+            <span class="unlocker-copy">${escapeHtml(option.copy)}</span>
+            <span class="unlocker-tag">${escapeHtml(option.unlocks)}</span>
+          </button>
+        `).join("")}
+      </div>
+      <p class="access-unlocker-summary">${escapeHtml(buildAccessPrerequisiteLine(data))}</p>
+    </section>
+  `;
+}
+
+function renderMissionPreviewSurface(context) {
+  const definition = missionPreviewDefinition(state.wizard.data, context.estimate);
+  const targetCount = flattenTargetValues(state.wizard.data.targets).length;
+  const selectedAuth = authorizationOption(selectedAuthorizationLevel(state.wizard.data));
+  return `
+    <section class="mission-preview-surface split-top" data-testid="wizard-mission-preview">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Mission Preview</p>
+          <h4>${escapeHtml(definition.label)}</h4>
+        </div>
+        <span class="badge">Static SVG</span>
+      </div>
+      <p class="micro-copy">This preview is generated from the configured scope and planned execution path. It does not depend on live runtime state.</p>
+      <div class="chip-row compact split-top">
+        <span class="status-chip neutral">${escapeHtml(`${targetCount} target${targetCount === 1 ? "" : "s"}`)}</span>
+        <span class="status-chip neutral">${escapeHtml(`${definition.phases.length} phase${definition.phases.length === 1 ? "" : "s"}`)}</span>
+        <span class="status-chip neutral">${escapeHtml(`${context.estimate.estimated_total_minutes} min ETA`)}</span>
+        <span class="status-chip neutral">${escapeHtml(`Authorization: ${selectedAuth.label}`)}</span>
+      </div>
+      ${renderMissionPreviewSvg(state.wizard.data, context.estimate)}
+      ${renderMissionAccessUnlockerGate(state.wizard.data)}
+      ${renderMissionAuthorizationSelector(state.wizard.data)}
+    </section>
+  `;
+}
+
 function buildNaturalConfirmationSummary(estimate, data = state.wizard.data) {
   const engagementRoute = currentEngagementRouteContext(data);
   const assessmentLead =
@@ -4176,6 +7761,10 @@ function buildNaturalConfirmationSummary(estimate, data = state.wizard.data) {
     ? `I will attach this run to the existing engagement dossier "${engagementRoute.configContext.engagement_name}" instead of creating a new customer dossier.`
     : `I will create a new engagement dossier named "${engagementRoute.configContext.engagement_name}" before this run begins.`;
   const authorizationLine = buildAuthorizationContextLine(engagementRoute.configContext);
+  const phaseAuthorizationLine = String(data.assessment_mode?.mode || "").trim()
+    ? `Phase authorization: ${authorizationOption(selectedAuthorizationLevel(data)).label}. ${authorizationOption(selectedAuthorizationLevel(data)).boundaryCopy}`
+    : "";
+  const accessPrerequisiteLine = buildAccessPrerequisiteLine(data);
   const scopeGuardrailLine = buildScopeGuardrailLine(data);
   return [
     `I am going to run ${assessmentLead} against ${scopeText}.`,
@@ -4186,6 +7775,8 @@ function buildNaturalConfirmationSummary(estimate, data = state.wizard.data) {
       : `I will prioritize ${humanizeGoal(data.intake_preferences.primary_goal).toLowerCase()} with the ${data.test_profile} profile and the ${estimate.execution_profile} execution lane.`,
     engagementRouteLine,
     authorizationLine,
+    accessPrerequisiteLine,
+    phaseAuthorizationLine,
     scopeGuardrailLine,
     outputLine,
     lateralLine,
@@ -4275,4 +7866,70 @@ function isPrivateIp(value) {
   return octets[0] === 10 ||
     (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
     (octets[0] === 192 && octets[1] === 168);
+}
+
+function isPrivateCidr(value) {
+  const normalized = String(value || "").trim();
+  if (!isLikelyCidr(normalized)) return false;
+  return isPrivateIp(normalized.split("/")[0]);
+}
+
+function targetsContainPrivateNetwork(targets = {}) {
+  const privateIps = Array.isArray(targets.ip_addresses)
+    ? targets.ip_addresses.some((value) => isPrivateIp(value))
+    : false;
+  const privateCidrs = Array.isArray(targets.cidr_ranges)
+    ? targets.cidr_ranges.some((value) => isPrivateCidr(value))
+    : false;
+  return privateIps || privateCidrs;
+}
+
+function lanDiscoveryRoutingIssue(data = state.wizard.data) {
+  if (!targetsContainPrivateNetwork(data.targets)) return null;
+  const estimate = estimateMission(data);
+  const selectedKeys = selectedAssessmentTileKeys(state.wizard);
+  const selectionMatchesLan =
+    data.assessment_type === "Internal Range / LAN" ||
+    selectedKeys.includes("internal-lan") ||
+    selectedKeys.includes("active-directory");
+  const alreadyInLanLane = LAN_DISCOVERY_EXECUTION_PROFILES.has(estimate.execution_profile);
+  if (selectionMatchesLan && alreadyInLanLane) return null;
+  const plan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
+  return {
+    profileName: plan.profileName,
+    toolsLabel: plan.toolsLabel,
+    message: alreadyInLanLane
+      ? "This looks like an internal network. Keep it classified as Internal Range / LAN so scope, reporting, and follow-up phases use the LAN discovery model. Switch to passive-network-discovery before launch."
+      : "This looks like an internal network. The current lane is not the LAN discovery lane and may miss host and service truth. Switch to passive-network-discovery before launch.",
+  };
+}
+
+function applyLanDiscoveryProfileCorrection() {
+  const data = state.wizard.data;
+  const previousNameContext = snapshotEngagementNameContext(data);
+  data.assessment_type = "Internal Range / LAN";
+  data.test_profile = "Standard";
+  data.intake_preferences.primary_goal = "inventory-first";
+  data.intake_preferences.safety_posture = "passive-only";
+  data.assessment_mode = {
+    ...data.assessment_mode,
+    mode: "",
+    authorization_level: normalizedAuthorizationLevel(data.assessment_mode?.authorization_level || "passive"),
+  };
+  Object.assign(data.modules, moduleState(["discovery"]));
+  Object.assign(data.safety, {
+    ...data.safety,
+    active_checks: "passive-only",
+    adaptive_generation: false,
+    max_validation_depth: "light",
+  });
+  state.wizard.intake.overrides.profile = false;
+  state.wizard.intake.overrides.modules = false;
+  state.wizard.intake.overrides.safety = false;
+  state.wizard.intake.sources.target_type = "inferred";
+  state.wizard.intake.sources.goal = "inferred";
+  state.wizard.intake.sources.safety = "inferred";
+  state.wizard.intake.selectedAssessmentTileKey = "internal-lan";
+  state.wizard.intake.selectedAssessmentTileKeys = normalizeAssessmentTileKeys(["internal-lan"]);
+  refreshSuggestedEngagementNameIfAutomatic(previousNameContext, data);
 }

@@ -1,0 +1,96 @@
+{
+  "id": "backlog-100-aegispt-self-security-test",
+  "task_file": "codex/tasks/backlog-100-aegispt-self-security-test.json",
+  "task_type": "backlog_slice",
+  "title": "AegisPT Security Self-Test \u2014 Does AegisPT Itself Have Vulnerabilities?",
+  "goal": "Run AegisPT's own scanning capabilities against AegisPT to find and fix security vulnerabilities in the platform itself \u2014 closing the loop on 'we test your systems but have we tested ours?'",
+  "scope": "Three components: (1) API SECURITY SCAN: Run nuclei and ZAP against the AegisPT API (http://127.0.0.1:8000) with a scope allowlist limited to the local instance. Focus: authentication bypass on API endpoints, SSRF via target input fields (can a scan target redirect to internal infrastructure?), command injection in tool parameter fields, path traversal in artifact URIs, excessive data exposure in API responses, insecure direct object references (can operator A access operator B's findings via ID enumeration?). Document findings in a dedicated security-self-test report. (2) INPUT VALIDATION TESTS: Automated tests that send malicious inputs to every API endpoint that accepts user-controlled data: oversized payloads, null bytes, path traversal sequences (../../etc/passwd), SSRF payloads in target fields (http://169.254.169.254/), command injection in tool params (&& id), SQL injection via engagement names. Verify that all are rejected safely. (3) DEPENDENCY AUDIT: Run safety (Python) and npm audit against all dependencies. Document CVEs in AegisPT's own dependencies with a remediation plan. Run quarterly. Output: a self-assessment report in docs/security_self_assessment.md that is updated with each run, showing what was tested, what was found, and what was fixed. This is the document that answers 'has the platform itself been pentested?'",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AegisPT processes untrusted content from scan targets (HTTP responses, tool output, CVE data, user inputs). A malicious scan target or a malicious operator could attempt to exploit AegisPT itself via SSRF, injection, or insecure deserialization. If AegisPT is a security tool that customers trust, it must be able to demonstrate it has been security-tested. 'We test your systems' requires 'our system has been tested too.'",
+  "source_context": {
+    "queue_index": 104,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/operational_truth_signoff.md",
+      "docs/secret_handling_baseline.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "quality_assurance",
+    "source_documents": [
+      "api/app/routers/",
+      "api/app/services/",
+      "requirements/base.txt"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Self-test only against local AegisPT instance. Never scan external infrastructure. Input validation tests use synthetic malicious inputs \u2014 never real exploitation. Dependency audit uses static analysis only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "API security scan against local instance completes without finding critical/high issues.",
+    "Input validation tests verify all API endpoints reject malicious inputs safely.",
+    "SSRF payloads in target fields are blocked by scope enforcement.",
+    "Dependency audit finds and documents all CVEs in AegisPT's dependencies.",
+    "docs/security_self_assessment.md exists and documents what was tested and found.",
+    "Any findings from the self-test are tracked as internal findings and fixed before release.",
+    "Tests cover SSRF, injection, IDOR, path traversal, and oversized payloads."
+  ],
+  "likely_touched_files": [
+    "api/tests/test_input_validation_security.py",
+    "scripts/run_dependency_audit.py",
+    "docs/security_self_assessment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "External infrastructure scanning",
+    "Production data",
+    "pack registry"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_input_validation_security.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No critical/high self-test findings unresolved.",
+      "Input validation tests pass.",
+      "Dependency audit complete."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Known-vulnerability validation matrix (backlog-99) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with security self-test results.",
+      "Update CURRENT_STATE.md with self-security-test as active quality gate.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "External penetration test by third party (manual activity)",
+    "Performance testing"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

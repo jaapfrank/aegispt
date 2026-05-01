@@ -28,7 +28,16 @@ for arg in args:
     if skip_next:
         skip_next = False
         continue
-    if arg in {"-oX", "--top-ports"}:
+    if arg in {
+        "-oX",
+        "--top-ports",
+        "-p",
+        "--script",
+        "--script-args",
+        "--version-intensity",
+        "--max-retries",
+        "--host-timeout",
+    }:
         skip_next = True
         continue
     if arg.startswith("-"):
@@ -49,8 +58,13 @@ if discovery_only:
         for host in hosts
     ) + "</nmaprun>"
 else:
+    scripts_enabled = "--script" in args
+    http_scripts = (
+        "<script id='http-title' output='Aegis Test Console'/>"
+        "<script id='http-server-header' output='nginx/1.25'/>"
+    ) if scripts_enabled else ""
     xml = "<?xml version='1.0'?><nmaprun>" + "".join(
-        f"<host><status state='up'/><address addr='{host}' addrtype='ipv4'/><ports><port protocol='tcp' portid='80'><state state='open'/><service name='http' product='nginx' version='1.25'/></port>{'<port protocol=\\'tcp\\' portid=\\'22\\'><state state=\\'open\\'/><service name=\\'ssh\\' product=\\'OpenSSH\\' version=\\'9.0\\'/></port>' if service_detection else ''}</ports></host>"
+        f"<host><status state='up'/><address addr='{host}' addrtype='ipv4'/><ports><port protocol='tcp' portid='80'><state state='open'/><service name='http' product='nginx' version='1.25'/>{http_scripts}</port>{'<port protocol=\\'tcp\\' portid=\\'22\\'><state state=\\'open\\'/><service name=\\'ssh\\' product=\\'OpenSSH\\' version=\\'9.0\\'/></port>' if service_detection else ''}</ports></host>"
         for host in hosts
     ) + "</nmaprun>"
 output_path.write_text(xml, encoding="utf-8")
@@ -261,3 +275,13 @@ def test_service_enumeration_uses_configured_hosts_and_records_services(
     inventory_payload = inventory_response.json()
     assert inventory_payload[0]["source_tools_json"] == ["nmap"]
     assert inventory_payload[0]["summary_json"]["service_count"] >= 2
+    normalized_inventory = inventory_payload[0]["normalized_inventory_json"]
+    assert normalized_inventory["http_endpoints"][0]["title"] == "Aegis Test Console"
+    assert any(
+        script["id"] == "http-server-header"
+        for script in normalized_inventory["script_outputs"]
+    )
+    assert any(
+        technology["name"] == "http-server-header"
+        for technology in normalized_inventory["technologies"]
+    )

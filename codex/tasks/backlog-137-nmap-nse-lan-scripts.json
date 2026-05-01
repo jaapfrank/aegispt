@@ -1,0 +1,89 @@
+{
+  "id": "backlog-137-nmap-nse-lan-scripts",
+  "task_file": "codex/tasks/backlog-137-nmap-nse-lan-scripts.json",
+  "task_type": "backlog_slice",
+  "title": "Nmap NSE Scripts for LAN \u2014 Enable Vulnerability and Service Detection Scripts",
+  "goal": "Add targeted Nmap Scripting Engine (NSE) scripts to the LAN scan profiles to detect specific vulnerabilities, enumerate services in depth, and identify IoT device types. Currently AegisPT uses zero NSE scripts.",
+  "scope": "Extend workers/runners/nmap/runner.py to support NSE script execution. Add a scripts parameter to the runner configuration. Create specific script sets for LAN profiles: (1) DISCOVERY SCRIPTS (passive-safe, add to passive-network-service-enumeration): --script banner,http-title,http-server-header,ssl-cert,ike-version,ftp-anon,snmp-info,snmp-sysdescr,nbstat,smb-security-mode,msrpc-enum \u2014 these are read-only information gathering scripts. (2) VULNERABILITY SCRIPTS (add to active-lan-default-creds-audit): --script http-default-accounts,telnet-brute (single attempt only),ftp-brute (single attempt only),http-auth-finder \u2014 test for default credentials on common services. (3) IOT-SPECIFIC SCRIPTS: --script http-title,http-server-header to fingerprint IoT web UIs. Add rtsp-url-brute (for camera RTSP streams, list of common paths like /cam, /video, /live, /stream). Add upnp-info (gets UPnP device description). (4) EXPANDED PORT LIST: for LAN scans change from top-50 to a targeted IoT port list: 21,22,23,25,53,80,81,443,554,1883,1900,3260,4443,5353,7547,8008,8080,8083,8086,8123,8443,8554,9000,49152-49157 plus top-100 common ports. Add new profile passive-lan-nse-full that runs the full discovery script set against the expanded port list.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "AegisPT uses zero NSE scripts. This means: no HTTP banner grabbing, no SSL certificate inspection, no SNMP enumeration via nmap, no SMB security mode check, no FTP anonymous access check, no RTSP stream discovery. Adding targeted safe scripts transforms the nmap scan from a port counter into a real reconnaissance tool.",
+  "queue_index": 137,
+  "source_context": {
+    "queue_index": 137,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "workers/runners/nmap/runner.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only safe/intrusive-safe NSE scripts. No DoS scripts (smb-vuln-ms17-010 scan is safe but mark it explicitly). No exploit scripts. Brute scripts limited to single default credential attempt.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "NSE scripts parameter added to nmap runner.",
+    "passive-network-service-enumeration uses discovery script set.",
+    "HTTP titles and server headers captured from discovered hosts.",
+    "SSL certificate details captured.",
+    "Port list expanded to include IoT ports (8123, 1883, 554, 1900, etc.).",
+    "Profile passive-lan-nse-full added.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/runners/nmap/runner.py",
+    "api/app/services/run_profiles.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Exploit NSE scripts",
+    "Full vuln scan (use nuclei for that)",
+    "DOS/crash scripts"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "NSE scripts run with nmap. HTTP titles captured. IoT ports included. No regression on existing profiles."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

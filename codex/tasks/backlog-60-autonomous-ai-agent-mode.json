@@ -1,0 +1,121 @@
+{
+  "id": "backlog-60-autonomous-ai-agent-mode",
+  "task_file": "codex/tasks/backlog-60-autonomous-ai-agent-mode.json",
+  "task_type": "backlog_slice",
+  "title": "Autonomous AI Agent Mode Foundation",
+  "goal": "Add an opt-in fully autonomous execution mode where the AI agent dispatches follow-up tasks, chains tool runs, and adapts the assessment plan without requiring operator approval for each step \u2014 while preserving all scope, safety, and kill-switch enforcement.",
+  "scope": "Implement an autonomous_mode flag on the run model and a new run profile class 'autonomous-web' and 'autonomous-internal'. When autonomous_mode=true: (1) the post-task AI analysis callback (from backlog-41) automatically promotes pending AgentProposals to approved and queues them as real tasks without waiting for operator review, subject to scope enforcement and risk-tier limits; (2) passive and active proposals auto-execute; (3) intrusive proposals require a separate autonomous_intrusive_allowed flag (default false) \u2014 if not set, intrusive proposals are logged but not auto-dispatched; (4) a real-time agent activity feed shows each dispatched agent as a card (tool name, target, status, findings count) mirroring the Aikido 'Attacker #N' grid; (5) the kill switch immediately stops all queued autonomous tasks; (6) scope enforcement remains absolute \u2014 no target outside the approved allowlist is ever reached. Manual mode (current behavior) is unchanged and remains the default.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Competitor analysis shows Aikido deploys 96-800+ autonomous agents per assessment. AegisPT currently requires human approval for every AI proposal, limiting throughput and operator experience. An opt-in autonomous mode closes this gap while preserving the controlled approach as the default for enterprise/audit environments.",
+  "source_context": {
+    "queue_index": 60,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/multi_agent_red_team_program.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "autonomous_ai_agents",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "api/app/services/ai_agent.py",
+      "api/app/models/control.py",
+      "api/app/services/task_dispatch.py",
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Autonomous dispatch of AI proposals only. Scope enforcement is absolute \u2014 no out-of-scope targets regardless of autonomous mode. The kill switch must immediately halt all queued autonomous tasks. Intrusive proposals never auto-execute without explicit autonomous_intrusive_allowed=true. Manual mode remains unchanged and is the default.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_required": true,
+    "scope_enforcement_absolute": true
+  },
+  "success_criteria": [
+    "A run with autonomous_mode=true auto-dispatches passive and active AI proposals without operator approval.",
+    "Intrusive proposals are only auto-dispatched when autonomous_intrusive_allowed=true.",
+    "The kill switch immediately halts all queued autonomous tasks.",
+    "Scope enforcement rejects out-of-scope proposals regardless of autonomous mode.",
+    "An agent activity feed renders dispatched agents as cards showing tool, target, status, and finding count.",
+    "Manual mode (default) behavior is completely unchanged.",
+    "New autonomous-web and autonomous-internal run profiles exist.",
+    "Tests cover autonomous dispatch, kill-switch halt, scope rejection, and intrusive gate.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/ai_agent.py",
+    "api/app/services/run_profiles.py",
+    "api/app/routers/runs.py",
+    "api/app/schemas/runs.py",
+    "workers/agent/callbacks.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "api/tests/test_ai_agent_reasoning.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Scope enforcement \u2014 never bypass allowlist",
+    "execution_kill_switch \u2014 must remain respected",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Autonomous mode dispatches proposals without operator review.",
+      "Kill switch halts all queued autonomous tasks immediately.",
+      "Scope enforcement rejects out-of-scope targets regardless of mode.",
+      "Manual mode unchanged.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "UI screen consolidation (backlog-59) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Autonomous mode scope boundaries documented in docs/ai_pentesting_agent_scope_alignment.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with autonomous mode implementation, scope enforcement evidence, kill-switch test results.",
+      "Update CURRENT_STATE.md with autonomous mode as opt-in capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Removing scope enforcement",
+    "Bypassing the kill switch",
+    "Auto-executing intrusive proposals without explicit flag",
+    "Changing manual mode behavior"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

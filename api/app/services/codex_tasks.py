@@ -216,6 +216,7 @@ def run_codex_task(
             [
                 f"bash scripts/export_codex_pack_workspace.sh {base_url} {pack.id} {workspace_root}",
                 f"bash scripts/validate_codex_pack.sh {base_url} {pack.id} {validation_result_path}",
+                f"POST {base_url}/api/v1/packs/{pack.id}/codex-reimport only after reviewing {validation_result_path}",
             ]
         )
         output_files.extend(
@@ -228,7 +229,9 @@ def run_codex_task(
             ]
         )
         summary_parts.append(f"Task is linked to capability pack {pack.name} {pack.version}.")
-        summary_parts.append(f"Workspace export and validation handoff are staged under {workspace_root}.")
+        summary_parts.append(
+            f"Workspace export, validation handoff, and controlled child-pack reimport are staged under {workspace_root}."
+        )
 
     commands.extend(
         [
@@ -248,6 +251,7 @@ def run_codex_task(
             "Treat Prompt 1 and Prompt 2 as authoritative.",
             "Do not self-modify the active assessment runtime.",
             "Do not bypass validation, approval, deployment, or runtime binding.",
+            "Reimport validated workspace output only as a staged child pack that must re-enter the existing lifecycle.",
             "Keep repository files as the source of truth for future Codex runs.",
             "Prefer additive changes and reuse existing pack, provenance, and methodology structures.",
         ],

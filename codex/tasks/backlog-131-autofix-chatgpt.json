@@ -1,0 +1,94 @@
+{
+  "id": "backlog-131-autofix-chatgpt",
+  "task_file": "codex/tasks/backlog-131-autofix-chatgpt.json",
+  "task_type": "backlog_slice",
+  "title": "AutoFix with ChatGPT \u2014 Language-Specific Code Patches",
+  "goal": "Replace the 4 hardcoded AutoFix templates with real ChatGPT-generated remediation code that is specific to the finding type, the detected technology stack, and the actual vulnerable endpoint context.",
+  "scope": "Extend the existing autofix service (api/app/services/autofix.py). Add a ChatGPTOAuthAutoFixProvider alongside the existing DeterministicAutoFixProvider. When ChatGPT OAuth is configured and a finding has evidence_ref pointing to task output, call ChatGPT with: (1) finding title and description, (2) CWE and CVSS references if available, (3) detected technology stack from the run inventory snapshot (e.g. Python/Django, Java/Spring, Node.js/Express detected from HTTP headers or fingerprints), (4) the vulnerable HTTP request/response from the artifact (first 500 chars), (5) prompt: generate a specific remediation code snippet for {technology_stack} that fixes this {finding_type}. Keep it under 20 lines. Include the import or config change needed. Store the AI-generated fix as FindingRemediation.ai_fix_suggestion (add this text field to FindingRemediation model). In the Findings drawer, show the AI-generated fix under a Suggested Fix section with a clearly labeled AI-generated banner and disclaimer: This is an AI-generated suggestion. Review before applying. Do not apply to production without testing. The existing DeterministicAutoFixProvider remains as fallback when ChatGPT is not configured.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "The AutoFix service has 4 hardcoded generic templates that are not specific to the actual technology being tested. Real ChatGPT-generated fixes that know the stack (Django vs Spring vs Express) deliver immediate value to developers.",
+  "queue_index": 131,
+  "source_context": {
+    "queue_index": 131,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_value",
+    "source_documents": [
+      "api/app/services/autofix.py",
+      "api/app/services/chatgpt_oauth.py",
+      "api/app/models/control.py",
+      "ui/assets/modules/findings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Advisory fix suggestions only. Never auto-apply fixes. Prominent disclaimer required. No code execution.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "ChatGPT-generated fix shown in Findings drawer when provider configured.",
+    "Fix is technology-stack specific (different for Django vs Spring vs Node.js).",
+    "AI-generated banner and disclaimer always shown with the fix.",
+    "ai_fix_suggestion stored in FindingRemediation model.",
+    "DeterministicAutoFixProvider still works as fallback.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/services/autofix.py",
+    "api/app/services/chatgpt_oauth.py",
+    "api/app/models/control.py",
+    "ui/assets/modules/findings.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Finding severity fields",
+    "evidence_ref field",
+    "pack registry"
+  ],
+  "out_of_scope": [
+    "Auto-applying fixes to target systems",
+    "Pull request generation",
+    "CI/CD pipeline integration"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "ChatGPT fix generated and stored. Shown in drawer with disclaimer. Deterministic fallback unchanged."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

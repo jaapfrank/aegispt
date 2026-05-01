@@ -1,0 +1,98 @@
+{
+  "id": "backlog-119-evidence-chain-completeness",
+  "task_file": "codex/tasks/backlog-119-evidence-chain-completeness.json",
+  "task_type": "backlog_slice",
+  "title": "Evidence Chain Completeness \u2014 RFC 3161 Timestamps, Finding Audit Events, CVSS Scores",
+  "goal": "Make the evidence chain legally complete: enable RFC 3161 external timestamps on every artifact by default, add finding lifecycle audit events so every status change is logged, and add CVSS score fields to findings.",
+  "scope": "Three concrete changes: (1) RFC 3161 TIMESTAMPS: change evidence_timestamping_enabled default to True in config.py. Add timestamp_token_uri (VARCHAR 512 nullable) and timestamp_verified_at (DATETIME nullable) columns to evidence_artifacts table via Alembic migration. After artifact is stored, call the existing _collect_timestamp() in evidence_integrity.py and save the token URI. (2) FINDING AUDIT EVENTS: in api/app/routers/findings.py, call write_audit_event() with action='finding.created' when a finding is stored, action='finding.status_changed' with old/new status when PATCH changes status, action='finding.false_positive_marked' with reason when status becomes false_positive. (3) CVSS FIELDS: add cvss_score (Float nullable) and cvss_vector (String 64 nullable) to Finding model in control.py. In workers/orchestration/findings.py, populate these fields from nuclei tool output (nuclei includes cvss-score and cvss-metrics in its JSONL output) and ZAP output (risk score field). Show CVSS score in Findings drawer if present.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "RFC 3161 timestamp column does not exist in DB. Zero finding audit events in 3050 total events. CVSS field missing. These three gaps prevent the system from being legally defensible.",
+  "queue_index": 119,
+  "source_context": {
+    "queue_index": 119,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "api/app/services/evidence_integrity.py",
+      "api/app/models/control.py"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "evidence_integrity",
+    "source_documents": [
+      "api/app/services/evidence_integrity.py",
+      "api/app/models/control.py",
+      "api/app/routers/findings.py",
+      "api/app/config.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Evidence chain and CVSS only. No new API endpoints beyond what is needed.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "evidence_timestamping_enabled defaults to True.",
+    "timestamp_token_uri column exists in evidence_artifacts after migration.",
+    "New artifacts get RFC 3161 timestamp token stored.",
+    "Finding creation generates finding.created audit event.",
+    "Finding status change generates finding.status_changed audit event with old/new status.",
+    "cvss_score and cvss_vector columns exist on findings table.",
+    "Nuclei findings with CVSS data have cvss_score populated.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/config.py",
+    "api/app/models/control.py",
+    "api/app/services/evidence_integrity.py",
+    "api/app/routers/findings.py",
+    "workers/orchestration/findings.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Mandatory CVSS for all findings retroactively",
+    "New compliance reports"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Timestamps stored on artifacts. Finding events in audit log. CVSS fields populated from nuclei output."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

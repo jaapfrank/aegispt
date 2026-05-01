@@ -1,0 +1,276 @@
+{
+  "id": "backlog-114-exact-mockup-port",
+  "task_file": "codex/tasks/backlog-114-exact-mockup-port.json",
+  "task_type": "backlog_slice",
+  "title": "Exact Mockup Port — Wizard Tiles, Sidebar, and Cinema Mode",
+  "goal": "Make the running application match wizard_mockup.html and cinema_mockup.html pixel-for-pixel. Every change below is a direct port of existing mockup code. Do not interpret or approximate — copy the exact CSS classes, HTML structure, and data values from the source mockup files.",
+  "source_of_truth": {
+    "wizard": "wizard_mockup.html — lines 1–714, already in the repo root",
+    "cinema": "cinema_mockup.html — lines 1–716, already in the repo root",
+    "ui_main": "ui_mockup.html — lines 1–990, already in the repo root"
+  },
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-25",
+  "generation_reason": "Seven consecutive prompts asked for mockup alignment. Previous tasks (backlog-110 through 113) described the goal in text and Codex interpreted loosely. This task provides exact code to copy so there is no room for interpretation.",
+  "scope": "Six discrete code changes. Do them all. Do not stop after one.",
+
+  "change_1_tile_data": {
+    "file": "ui/assets/modules/wizard.js",
+    "location": "ASSESSMENT_TILE_OPTIONS array, lines 72–149",
+    "instruction": "Replace the entire ASSESSMENT_TILE_OPTIONS array with the version below. The only changes are: (a) icon fields become emoji, (b) each entry gains a 'badge', 'badgeClass', and 'phaseTags' field. Do not change any other field (key, label, description, assessmentType, quickReply, recommended).",
+    "replacement": [
+      {
+        "key": "external-web",
+        "label": "External Web",
+        "icon": "🌐",
+        "badge": "Popular",
+        "badgeClass": "badge-amber",
+        "phaseTags": [{"label":"passive","cls":"tag-p"},{"label":"active","cls":"tag-a"}],
+        "description": "Websites, web apps, and public application surfaces reachable from the internet.",
+        "assessmentType": "Website / Web App",
+        "quickReply": "Our web application",
+        "recommended": true
+      },
+      {
+        "key": "external-infrastructure",
+        "label": "External IPs",
+        "icon": "🖧",
+        "badge": "New",
+        "badgeClass": "badge-green",
+        "phaseTags": [{"label":"passive","cls":"tag-p"},{"label":"active","cls":"tag-a"}],
+        "description": "External IP ranges, exposed services, SSH/RDP/VPN endpoints, and non-web internet-facing hosts.",
+        "assessmentType": "External IP / WAN",
+        "quickReply": "Our external infrastructure",
+        "recommended": true
+      },
+      {
+        "key": "internal-lan",
+        "label": "Internal LAN",
+        "icon": "🏠",
+        "badge": "Popular",
+        "badgeClass": "badge-amber",
+        "phaseTags": [{"label":"passive","cls":"tag-p"},{"label":"active","cls":"tag-a"},{"label":"credential","cls":"tag-c"}],
+        "description": "Internal network ranges, subnets, office segments, and on-premise servers.",
+        "assessmentType": "Internal Range / LAN",
+        "quickReply": "My LAN network",
+        "recommended": true
+      },
+      {
+        "key": "active-directory",
+        "label": "Active Directory",
+        "icon": "🛡️",
+        "badge": "AD",
+        "badgeClass": "badge-violet",
+        "phaseTags": [{"label":"passive","cls":"tag-p"},{"label":"active","cls":"tag-a"},{"label":"credential","cls":"tag-c"},{"label":"exploit","cls":"tag-e"}],
+        "description": "Domain controllers, AD identities, trust edges, and directory attack paths.",
+        "assessmentType": "Internal Range / LAN",
+        "quickReply": "Active Directory"
+      },
+      {
+        "key": "full-internal",
+        "label": "Full Internal",
+        "icon": "🎯",
+        "badge": "Complete",
+        "badgeClass": "badge-red",
+        "phaseTags": [{"label":"P1","cls":"tag-p"},{"label":"P2","cls":"tag-a"},{"label":"P3","cls":"tag-c"},{"label":"P4","cls":"tag-e"}],
+        "description": "Broader internal validation across LAN, identity, and deeper follow-up workflows.",
+        "assessmentType": "Internal Range / LAN",
+        "quickReply": "Full internal assessment"
+      },
+      {
+        "key": "cloud",
+        "label": "Cloud (AWS/Azure)",
+        "icon": "☁️",
+        "badge": null,
+        "badgeClass": null,
+        "phaseTags": [{"label":"passive","cls":"tag-p"},{"label":"active","cls":"tag-a"}],
+        "description": "Cloud infrastructure, IAM exposure, and tenant-facing control plane review.",
+        "assessmentType": "Mixed Assessment",
+        "quickReply": "Cloud environment"
+      },
+      {
+        "key": "api-security",
+        "label": "API Security",
+        "icon": "{ }",
+        "badge": null,
+        "badgeClass": null,
+        "phaseTags": [{"label":"passive","cls":"tag-p"},{"label":"active","cls":"tag-a"}],
+        "description": "REST, GraphQL, gRPC, and other endpoint-centric application surfaces.",
+        "assessmentType": "API",
+        "quickReply": "Our API",
+        "recommended": true
+      },
+      {
+        "key": "llm-ai-app",
+        "label": "LLM / AI App",
+        "icon": "🤖",
+        "badge": "New",
+        "badgeClass": "badge-violet",
+        "phaseTags": [{"label":"active","cls":"tag-a"}],
+        "description": "Prompt injection, model misuse, agent behavior, and AI-assisted app workflows.",
+        "assessmentType": "Website / Web App",
+        "quickReply": "LLM / AI application"
+      },
+      {
+        "key": "custom",
+        "label": "Custom",
+        "icon": "⚙️",
+        "badge": null,
+        "badgeClass": null,
+        "phaseTags": [{"label":"fine-tune","cls":"tag-custom"}],
+        "description": "Build your own combination and refine the exact run model in Advanced Configuration.",
+        "assessmentType": "Mixed Assessment",
+        "quickReply": "A mixed environment"
+      }
+    ]
+  },
+
+  "change_2_tile_html": {
+    "file": "ui/assets/modules/wizard.js",
+    "location": "renderAssessmentTypeTiles() function, lines 1243–1310",
+    "instruction": "Replace the entire renderAssessmentTypeTiles() function body with the implementation below. This ports the exact tile HTML structure from wizard_mockup.html lines 293–366. Keep the function signature and the surrounding renderAssessmentTypeStep() call intact — only replace the function body.",
+    "new_function_body": "Copy this exact logic:\n1. Build selectedKey = state.wizard.intake.selectedTileKey (or selectedAssessmentTile(state.wizard)?.key).\n2. Render a 3-column tile grid using CSS class 'tile-grid' (not 'intake-choice-grid').\n3. Each tile is a <button class='tile {selected ? \"selected\" : \"\"}' data-assessment-tile-key='...' ...>.\n4. Inside each tile render exactly:\n   a. <div class='tile-num'>{selectionOrder or '1'}</div> — hidden (opacity:0) unless selected\n   b. <div class='tile-top'><span class='tile-icon'>{tile.icon}</span>{tile.badge ? `<span class='tile-badge ${tile.badgeClass}'>${tile.badge}</span>` : ''}</div>\n   c. <div class='tile-title'>{tile.label}</div>\n   d. <div class='tile-desc'>{tile.description}</div>\n   e. <div class='tile-tags'>{tile.phaseTags.map(t => `<span class='tag ${t.cls}'>${t.label}</span>`).join('')}</div>\n5. After the grid, if the selected tile is 'internal-lan' or 'active-directory', render the combo hint:\n   <div class='combo-hint'><span class='combo-hint-icon'>💡</span><span class='combo-hint-text'>Internal LAN + Active Directory is a common combination. BloodHound attack paths map across both.</span><button class='combo-add'>Use this combo →</button></div>\n6. Before the grid (when a tile is selected), render a selection bar:\n   <div class='selection-bar'><span class='sel-label'>Selected:</span><div class='sel-chips'><div class='sel-chip'>{icon} {label}<span class='sel-chip-remove'>×</span></div></div></div>\n7. At the bottom of the wizard panel, render a sticky step bar:\n   <div class='wizard-step-bar'><button class='demo-tab' data-step='1'>1 · Choose</button><button class='demo-tab' data-step='2'>2 · Target</button><button class='demo-tab' data-step='3'>3 · Preview</button><button class='demo-tab' data-step='4'>4 · Launch</button></div>"
+  },
+
+  "change_3_tile_css": {
+    "file": "ui/assets/styles.css",
+    "location": "Add after existing .intake-choice-tile rules",
+    "instruction": "Copy the EXACT CSS from wizard_mockup.html <style> block for these selectors and add them to styles.css. Copy verbatim — do not paraphrase:\n- .tile-grid (line 67)\n- .tile (lines 68–72)\n- .tile:hover (line 73)\n- .tile.selected (line 74)\n- .tile-num (line 76)\n- .tile.selected .tile-num (line 77)\n- .tile-top (line 79)\n- .tile-icon (line 80)\n- .tile-badge (line 81)\n- .badge-amber (line 82)\n- .badge-red (line 83)\n- .badge-violet (line 84)\n- .badge-green (line 85)\n- .tile-title (line 86)\n- .tile-desc (line 87)\n- .tile-tags (line 88)\n- .tag (line 89)\n- .tag-p (line 90)\n- .tag-a (line 91)\n- .tag-c (line 92)\n- .tag-e (line 93)\n- .combo-hint (line 96)\n- .combo-hint-icon (line 97)\n- .combo-hint-text (line 98)\n- .combo-add (lines 99–100)\n- .selection-bar (line 103)\n- .sel-label (line 104)\n- .sel-chips (line 105)\n- .sel-chip (line 106)\n- .sel-chip-remove (lines 108–109)\n- .sel-clear (lines 110–111)\n- .demo-bar / .wizard-step-bar (lines 213–216)\n- .demo-tab (lines 214–216)\n- .demo-tab.on (line 216)"
+  },
+
+  "change_4_sidebar": {
+    "file": "ui/assets/app.js",
+    "location": "NAV_GROUPS constant, lines 106–132",
+    "instruction": "Replace NAV_GROUPS with a flat array of 5 items with no group labels. This matches the mockup sidebar (wizard_mockup.html lines 233–239). The sidebar rendering in renderNav() must also be updated to render flat items (no group wrappers, no section labels). Each item gets a text icon prefix exactly as in the mockup.",
+    "new_nav_groups": [
+      {"screen": "wizard", "label": "Intake", "icon": "⬡", "testId": "nav-wizard"},
+      {"screen": "mission-control", "label": "Mission Control", "icon": "◈", "testId": "nav-mission-control"},
+      {"screen": "findings-theater", "label": "Findings", "icon": "⚠", "testId": "nav-findings"},
+      {"screen": "report-center", "label": "Reports", "icon": "☰", "testId": "nav-reports"},
+      {"screen": "settings", "label": "Settings", "icon": "⚙", "testId": "nav-settings"}
+    ],
+    "sidebar_html_per_item": "<button class='sb-item {active}' data-nav-screen='{screen}'>{icon}  {label}</button>",
+    "sidebar_css": "Copy .sidebar, .sb-item, .sb-item.active from wizard_mockup.html lines 30–33 verbatim."
+  },
+
+  "change_5_stepper": {
+    "file": "ui/assets/modules/wizard.js",
+    "location": "renderStepper() or wizard-stepper render, wherever the step dots are generated",
+    "instruction": "Replace the step indicator HTML to match wizard_mockup.html lines 244–252 exactly. Use classes: .steps, .step, .step-dot (with .done/.active/.pending), .step-label (with .done/.active/.pending), .step-line (with .done/.active). Copy the exact CSS for these classes from wizard_mockup.html lines 36–48 into styles.css."
+  },
+
+  "change_6_cinema_mode": {
+    "file_new": "ui/assets/modules/cinema.js",
+    "file_css": "ui/assets/styles.css",
+    "file_html": "ui/index.html",
+    "instruction": "Add a Cinema Mode fullscreen overlay that activates when the operator clicks 'Cinema Mode' on Mission Control. Source: cinema_mockup.html — use Concept 1 (Cinema Mode, element #c1) as the implementation.\n\n1. Add a 'Cinema Mode' button to the Mission Control screen header (inside .screen-head for screen-mission-control in index.html).\n2. Create ui/assets/modules/cinema.js that exports openCinemaMode() and closeCinemaMode(). openCinemaMode() creates a fullscreen overlay div with id='cinema-overlay' appended to body, containing the SVG node graph, animated spider threads, topbar with live stats (hosts found, findings, active tools), and phase lane tabs from cinema_mockup.html #c1.\n3. Copy the exact CSS from cinema_mockup.html <style> block for: #c1, .c1-topbar, .c1-logo, .c1-status, .c1-pulse, @keyframes pulse, .c1-right, .c1-stat, .c1-canvas, .cinema-svg, .node-ring, @keyframes sonar into styles.css.\n4. Add an ESC key handler that calls closeCinemaMode().\n5. Import cinema.js in app.js and wire the button click to openCinemaMode().\n6. The Cinema overlay has a close button ('✕ Exit Cinema') in the top-right that calls closeCinemaMode()."
+  },
+
+  "constraints": {
+    "active_task_gate": "This task is promoted to NEXT_TASK.md immediately — operator-escalated priority.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only the six changes above. Do not touch backend, pack registry, API routes, or any screen not listed.",
+    "runtime_mutation": false,
+    "test_suite": "Run python -m pytest api/tests/test_health.py after changes. UI tests: open http://localhost:8000/app, verify tiles show emoji icons and phase tags, verify sidebar has exactly 5 items, verify Cinema Mode opens on button click."
+  },
+
+  "success_criteria": [
+    "Wizard tiles show emoji icons (🌐 🖧 🏠 🛡️ 🎯 ☁️ { } 🤖 ⚙️) — not text labels (WEB, LAN, AD).",
+    "Tiles show Popular/New/Complete/AD color badges in top-right of tile-top.",
+    "Tiles show phase tags row at the bottom (passive · active · credential · exploit).",
+    "Selected tile shows a numbered badge (1) in top-right corner.",
+    "A 'Selected: [icon] [name] ×' chips bar appears above the tile grid when a tile is selected.",
+    "A combo hint appears when Internal LAN or Active Directory is selected.",
+    "A sticky step bar at the bottom of the wizard shows 1·Choose / 2·Target / 3·Preview / 4·Launch pills.",
+    "Sidebar shows exactly 5 items with icon prefix: ⬡ Intake / ◈ Mission Control / ⚠ Findings / ☰ Reports / ⚙ Settings — no group category labels.",
+    "Step indicator uses .step-dot circles (.done=green, .active=cyan, .pending=grey) and .step-line connectors.",
+    "Mission Control has a 'Cinema Mode' button that opens a fullscreen dark overlay with animated SVG node graph.",
+    "Cinema Mode overlay can be closed with ESC or the close button.",
+    "python -m pytest api/tests/test_health.py passes.",
+    "python3 scripts/validate_backlog_tasks.py passes."
+  ],
+
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/cinema.js",
+    "ui/assets/app.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+
+  "must_not_touch": [
+    "api/ (backend — no changes)",
+    "codex/tasks/ (except marking this done)",
+    "pack registry",
+    "Any screen not listed in the 6 changes above"
+  ],
+
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All 11 success criteria verified visually.",
+      "Health test passes.",
+      "No whitespace errors in git diff."
+    ]
+  },
+
+  "promotion_requirements": {
+    "before_promotion": ["Operator-escalated: no predecessor task required. python3 scripts/validate_backlog_tasks.py must pass."],
+    "after_completion": [
+      "Update DONE_LOG.md with exact mockup port.",
+      "Update CURRENT_STATE.md noting wizard tiles, sidebar, and cinema mode now match mockup.",
+      "Promote next approved task into NEXT_TASK.md."
+    ]
+  },
+
+  "queue_index": 114,
+  "source_context": {
+    "queue_index": 114,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": ["wizard_mockup.html", "cinema_mockup.html", "ui_mockup.html"],
+    "escalation_reason": "Operator has requested this 7 times. Promoted to front of queue.",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_mockup_port",
+    "source_documents": [
+      "wizard_mockup.html",
+      "cinema_mockup.html",
+      "ui_mockup.html",
+      "ui/assets/modules/wizard.js",
+      "ui/assets/app.js",
+      "ui/assets/styles.css",
+      "ui/index.html"
+    ]
+  },
+  "out_of_scope": [
+    "Backend API changes",
+    "New finding schema fields",
+    "Pack registry changes",
+    "Video tutorials",
+    "Multi-language support",
+    "Any screen not listed in the six changes"
+  ],
+  "validation_status": "task_package_ready",
+  "approval_status": "promoted"
+}

@@ -1,0 +1,99 @@
+{
+  "id": "backlog-89-lan-wizard-profile-fix",
+  "task_file": "codex/tasks/backlog-89-lan-wizard-profile-fix.json",
+  "task_type": "backlog_slice",
+  "title": "LAN Wizard Profile Fix \u2014 Route Internal Network to Correct Discovery Profile",
+  "goal": "Fix the wizard so that selecting 'Internal LAN' as assessment type routes to the passive-network-discovery profile (nmap host + service scan) instead of passive-web-baseline (web-only), so internal scans actually find hosts and services instead of returning zero findings.",
+  "scope": "Fix the wizard assessment type to run profile mapping: (1) When the operator selects 'Internal LAN' tile (or the wizard detects a private IP CIDR like 10.x, 192.168.x, 172.16-31.x), the default profile must be 'passive-network-discovery' (nmap -sn + service fingerprint), not 'passive-web-baseline'. (2) Add a second follow-up profile suggestion after discovery: when nmap completes and hosts are found, the wizard or Mission Control should prompt 'X hosts discovered \u2014 run vulnerability scan on discovered services? [Yes \u2192]'. (3) Fix the profile display in the wizard preview: show which tools will actually run for the selected profile. (4) Add validation: if the target is a private CIDR and the selected profile is web-only, show a warning: 'This looks like an internal network. The web-only profile may not find LAN vulnerabilities. Switch to Internal Network profile?' with a one-click fix. (5) Ensure the 'Internal LAN' assessment chain (from backlog-76 when built) maps correctly to the nmap-first \u2192 vulnerability scan \u2192 credential attack chain.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The user ran a LAN scan on 10.0.20.0/24 and found 0 findings. Inspection shows the run used passive-web-baseline which only scans HTTP/HTTPS \u2014 completely wrong for a LAN assessment. The wizard is not routing private CIDRs to the network discovery profile. This is a correctness bug that makes LAN assessments appear to produce nothing even when there are real vulnerabilities.",
+  "source_context": {
+    "queue_index": 93,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/methodology_mapping.md",
+      "docs/inventory_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_correctness",
+    "source_documents": [
+      "ui/assets/modules/wizard.js",
+      "api/app/services/run_profiles.py",
+      "api/app/services/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Profile routing fix and validation warning only. No new runners. No new profiles beyond existing ones. The operator can still override to any profile via Advanced Settings.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Entering a private CIDR (10.x, 192.168.x, 172.16-31.x) defaults to passive-network-discovery profile.",
+    "Wizard shows a warning when private CIDR is paired with web-only profile.",
+    "After nmap discovery, Mission Control suggests following up with vulnerability scan.",
+    "Wizard preview shows actual tools that will run for the selected profile.",
+    "Advanced Settings override still works.",
+    "Tests cover private CIDR detection, profile routing, and warning display.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "api/app/services/run_profiles.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "New runners",
+    "New profiles",
+    "Finding schema",
+    "Workers",
+    "Migrations",
+    "pack registry"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Private CIDR \u2192 network discovery profile.",
+      "Warning shown for web profile + LAN target.",
+      "Playwright green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Fix Forecast (backlog-88) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with LAN profile fix.",
+      "Update CURRENT_STATE.md with corrected LAN profile routing.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "New LAN runners (backlog 70-76)",
+    "Automatic profile switching without operator awareness"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

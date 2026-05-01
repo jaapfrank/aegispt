@@ -9,6 +9,12 @@ testpaths = [
   "ui/tests",
   "workers/tests",
 ]
+markers = [
+  "ui_fast: fast Playwright checks suitable for active UI task iteration",
+  "smoke: broad smoke checks that avoid the full operator-console regression matrix",
+  "feature: feature-focused checks for one operator-console surface",
+  "regression: slow full-regression coverage that should run before release or explicit full UI gates",
+]
 
 [tool.ruff]
 line-length = 100

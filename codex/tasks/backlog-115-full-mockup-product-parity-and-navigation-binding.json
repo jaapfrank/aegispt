@@ -1,0 +1,120 @@
+{
+  "id": "backlog-115-full-mockup-product-parity-and-navigation-binding",
+  "task_file": "codex/tasks/backlog-115-full-mockup-product-parity-and-navigation-binding.json",
+  "task_type": "backlog_slice",
+  "title": "Full Mockup Product Parity and Navigation Binding",
+  "goal": "Port the complete product language from wizard_mockup.html, ui_mockup.html, and cinema_mockup.html into the live operator console, including missing screens, menu items, wizard steps, route bindings, and styling for all screens not explicitly drawn in the mockups.",
+  "scope": "Create one coherent operator UI where the mockups are the product design authority. Inventory every mockup screen and interactive entrypoint, restore missing navigation items, add the Live/Autonomous Agents view, align wizard steps 1-4, align Mission Control, Attack Map, Findings, Reports, Settings, History, Packs, Problems, Dashboard, Evidence Replay, and Explorer to the same design language, strengthen the currently sparse Dashboard into a true command center in that same language, and ensure buttons navigate or execute existing safe actions instead of being decorative.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-25",
+  "generation_reason": "The previous exact mockup port was too narrow and only covered a few surfaces. The operator explicitly authorized deviating from the currently promoted backlog task because the whole product must be consistent with the root mockups and all missing menu items/screens must be included and wired.",
+  "source_context": {
+    "queue_index": 115,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "wizard_mockup.html",
+      "ui_mockup.html",
+      "cinema_mockup.html",
+      "codex/results/backlog-114-exact-mockup-port-evidence-20260425.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "source_documents": [
+      "wizard_mockup.html",
+      "ui_mockup.html",
+      "cinema_mockup.html",
+      "UI_REDESIGN_SPEC.md"
+    ],
+    "live_environment": "http://127.0.0.1:8000/app/"
+  },
+  "constraints": {
+    "active_task_gate": "This task is operator-escalated and may supersede the currently promoted backlog-86 task for UI parity repair.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "UI/product parity and safe route binding only. Do not add new offensive runtime behavior, new backend mutation semantics, pack-gate bypasses, hidden agents, or uncontrolled tool execution."
+  },
+  "success_criteria": [
+    "All root mockup screens are inventoried and mapped to live screens or explicitly documented as product-truth deviations.",
+    "Sidebar includes all mockup menu items: New Mission, Intake, Mission Control, Attack Map, Findings, Reports, History, Packs, Settings, plus active-run context.",
+    "Bottom screen switcher includes Intake, Mission Control, Agents, Findings, Reports, and Settings and navigates correctly.",
+    "Wizard steps 1-4 match the wizard mockup language: Choose, Target, Preview, Launch.",
+    "Mission Control includes mockup-style Scan Map, Tasks, Findings pulse, AI Signal, View Agents, Kill Run, View Findings, and Cinema Mode actions bound to existing state/actions.",
+    "A Live/Autonomous Agents screen exists and renders real task/proposal-derived cards when available, with safe empty-state fallback.",
+    "Dashboard becomes a mockup-consistent command center with active run, agent status, risk, open findings/problems, upcoming scans/retests, report readiness, setup/readiness, and quick actions.",
+    "Attack Map, Findings, Reports, Settings, History, Packs, Problems, Dashboard, Evidence Replay, and Explorer share the same shell, cards, chips, toolbar, type, radius, and spacing language.",
+    "No decorative-only controls remain for key mockup buttons: visible buttons either navigate, open an existing dialog, trigger an existing safe action, or show a truthful disabled state.",
+    "Desktop and mobile/narrow screenshots show no incoherent overlap or horizontal overflow.",
+    "Fast UI tests cover the newly restored navigation and mockup route binding."
+  ],
+  "likely_touched_files": [
+    "ui/index.html",
+    "ui/assets/app.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/reports.js",
+    "ui/assets/modules/settings.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_mockup_product_parity_e2e.py",
+    "scripts/run_ui_fast_tests.sh",
+    "TASK_QUEUE.md",
+    "NEXT_TASK.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 and Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding bypasses",
+    "runtime self-modification",
+    "uncontrolled plugin installation",
+    "new live-target actions beyond existing safe/local/authorized flows",
+    "finding schema field changes"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "node --input-type=module --check < ui/assets/app.js",
+      "node --input-type=module --check < ui/assets/modules/wizard.js",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "bash scripts/run_ui_fast_tests.sh",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Browser acceptance verifies all primary sidebar and bottom-nav routes.",
+      "Browser acceptance captures wizard step 1-4, Mission Control, Agents, Attack Map, Findings, Reports, Settings, History, Packs, Dashboard, Problems, Evidence Replay, and Explorer screenshots where relevant.",
+      "Buttons from the mockups are either functionally bound or truthfully disabled with existing state.",
+      "No full slow operator-console monolith is required unless explicitly requested by the operator."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Operator explicitly authorized superseding the current next task to repair full mockup parity."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with full mockup parity implementation and validation evidence.",
+      "Update CURRENT_STATE.md with the new UI product truth and remaining risks.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New backend endpoints unless required to read existing data safely.",
+    "New offensive runtime capabilities.",
+    "Changing pack approval or deployment semantics.",
+    "Replacing evidence or finding schemas.",
+    "Claiming full security feature support without safe-run evidence."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "operator_escalated_repair_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "promoted"
+}

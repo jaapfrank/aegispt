@@ -4,80 +4,102 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AegisPT Operator Console</title>
-    <link rel="stylesheet" href="./assets/styles.css?v=20260418-phase1-focus" />
+    <link rel="stylesheet" href="./assets/styles.css?v=20260430-enterprise-ia-1" />
   </head>
   <body>
-    <div class="bg-orbit orbit-a"></div>
-    <div class="bg-orbit orbit-b"></div>
-    <div class="scan-grid"></div>
-
     <div class="app-shell">
-      <header class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">AegisPT</p>
-          <h1>Operator Console</h1>
-          <p class="hero-subcopy">
-            Guided setup, live run control, evidence review, and report delivery in one quieter operator workspace.
-          </p>
+      <header class="topbar" data-testid="topbar">
+        <div class="topbar-brand">
+          <span class="topbar-mark">A</span>
+          <span class="topbar-wordmark">AegisPT</span>
         </div>
-        <div class="hero-side">
-          <label class="field compact">
-            <span>Actor</span>
-            <input id="actor-input" type="text" placeholder="operator-ui" />
-          </label>
-          <div id="hero-metrics" class="hero-metrics"></div>
+
+        <div id="topbar-phase-indicator" class="topbar-phase-indicator hidden" data-testid="topbar-phase-indicator"></div>
+
+        <div class="topbar-engagement">
+          <select id="engagement-select" data-testid="engagement-select"></select>
+          <button
+            id="manage-engagements-btn"
+            class="topbar-button compact-topbar-button"
+            type="button"
+            data-testid="manage-engagements"
+            aria-label="Open engagement cleanup"
+            title="Open engagement cleanup"
+          >
+            Cleanup
+          </button>
+        </div>
+
+        <nav id="topbar-nav" class="topbar-nav hidden" data-testid="topbar-nav" aria-label="Screen Navigation"></nav>
+
+        <div id="topbar-run-status" class="topbar-run-status is-hidden" data-testid="topbar-run-status"></div>
+
+        <div class="topbar-actions">
+          <button id="refresh-btn" class="topbar-button hidden" type="button" data-testid="refresh-state">Refresh</button>
+          <button
+            class="topbar-button topbar-settings-button"
+            type="button"
+            data-nav-screen="settings"
+            data-testid="topbar-settings"
+            aria-label="Settings"
+            title="Settings"
+          >
+            &#9881;
+          </button>
+          <div class="topbar-actor topbar-avatar-pill" data-testid="topbar-actor-pill">
+            <span id="topbar-avatar-mark" class="topbar-avatar-mark" aria-hidden="true">J</span>
+            <span id="actor-role-badge" class="topbar-role-badge role-admin" data-testid="topbar-role-badge">admin</span>
+            <span id="actor-display" class="topbar-actor-name" aria-label="Current operator">operator-ui</span>
+            <input id="actor-input" type="text" placeholder="operator-ui" aria-label="Actor name" class="hidden" />
+          </div>
         </div>
       </header>
 
-      <section class="context-strip">
-        <div id="flow-overview" class="flow-overview" data-testid="phase-nav"></div>
-        <div class="context-strip-row">
-          <div class="context-controls">
-            <label class="field compact">
-              <span>Engagement</span>
-              <select id="engagement-select" data-testid="engagement-select"></select>
-            </label>
-            <button id="refresh-btn" class="action ghost" type="button" data-testid="refresh-state">Refresh State</button>
-          </div>
-          <div id="next-actions" class="action-row quiet-actions"></div>
-        </div>
-        <div id="selected-engagement-summary" class="context-summary" data-testid="persistent-context"></div>
-      </section>
-
       <div class="workspace">
-        <aside class="rail">
-          <nav class="screen-nav rail-card">
-            <div class="rail-card-head">
-              <div>
-                <p class="eyebrow">Current Phase</p>
-                <h2 id="phase-subnav-title">Intake</h2>
-              </div>
-            </div>
-            <div id="phase-subnav" class="nav-group" data-testid="phase-subnav"></div>
-          </nav>
+        <aside class="sidebar" data-testid="sidebar">
+          <button id="sidebar-new-mission-btn" class="sidebar-new-mission" type="button" data-nav-screen="wizard" data-testid="sidebar-new-mission">
+            + New Mission
+          </button>
+          <nav id="sidebar-nav" class="sidebar-nav" data-testid="phase-subnav" aria-label="Primary"></nav>
+          <div id="sidebar-compatibility-nav" class="sidebar-compatibility-nav" data-testid="compatibility-nav"></div>
 
-          <div id="phase-feed-card" class="rail-card hidden" data-testid="phase-feed-card">
-            <div class="rail-card-head">
-              <div>
-                <p class="eyebrow" id="phase-feed-kicker">Activity</p>
-                <h2 id="phase-feed-title">Recent Signals</h2>
-              </div>
-            </div>
+          <div class="sidebar-spacer"></div>
+          <div id="selected-engagement-summary" class="sidebar-run-card" data-testid="persistent-context"></div>
+
+          <div id="phase-feed-card" class="sidebar-status-card hidden" data-testid="phase-feed-card">
+            <p class="sidebar-section-label" id="phase-feed-kicker">Activity</p>
+            <h2 id="phase-feed-title">Recent Signals</h2>
             <div id="status-feed" class="status-feed"></div>
           </div>
+          <div id="next-actions" class="sidebar-actions"></div>
+          <div id="sidebar-metrics" class="sidebar-metrics"></div>
+          <span id="phase-subnav-title" class="hidden">Navigation</span>
         </aside>
 
         <main class="stage">
-          <section id="screen-wizard" class="screen active" data-testid="screen-wizard">
+          <section id="screen-dashboard" class="screen" data-testid="screen-dashboard">
             <div class="screen-head">
               <div>
-                <p class="eyebrow">Mandatory Start</p>
-                <h2>Conversational Mission Intake</h2>
+                <p class="eyebrow">Command Center</p>
+                <h2>Dashboard</h2>
               </div>
               <p class="screen-copy">
-                Describe the mission in plain language. Advanced controls stay available whenever you want exact run settings.
+                Track the active run, risk posture, open problems, schedule, recent activity, and setup readiness.
               </p>
             </div>
+
+            <div id="dashboard-content" class="dashboard-content" data-testid="dashboard-content"></div>
+          </section>
+
+          <section id="screen-wizard" class="screen active" data-testid="screen-wizard">
+            <div class="screen-head wizard-screen-head">
+              <div>
+                <p class="eyebrow">New Mission</p>
+                <h2>What do you want to test?</h2>
+              </div>
+            </div>
+
+            <div id="wizard-onboarding-checklist" class="screen-onboarding-slot" data-testid="wizard-onboarding-slot"></div>
 
             <div class="wizard-layout">
               <article class="panel wizard-main">
@@ -94,17 +116,8 @@
                   <button id="wizard-next-btn" class="action primary" type="button" data-testid="wizard-next">Apply Answer</button>
                   <button id="wizard-confirm-btn" class="action primary hidden" type="button" data-testid="wizard-confirm">Create Mission & Open Mission Control</button>
                 </div>
+                <div id="wizard-summary" class="wizard-inline-context" data-testid="wizard-inline-context"></div>
               </article>
-
-              <aside class="panel wizard-summary-panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Live Summary</p>
-                    <h3>Run Configuration</h3>
-                  </div>
-                </div>
-                <div id="wizard-summary" class="stack-zone"></div>
-              </aside>
             </div>
           </section>
 
@@ -115,53 +128,63 @@
                 <h2>Mission Control</h2>
               </div>
               <p class="screen-copy">
-                See what is running now, what is blocked, how far the run is, and where to go next.
+                See what is running now, what just finished, and the latest command output without leaving the run.
               </p>
+              <div class="screen-actions">
+                <button id="mission-kill-run-btn" class="action danger" type="button" data-run-cancel-selected="true" data-testid="mission-kill-run">Kill Run</button>
+                <button id="mission-dispatch-btn" class="action primary hidden" type="button" data-run-dispatch="selected">Start Queued Checks</button>
+                <button class="action primary" type="button" data-nav-screen="findings-theater" data-testid="mission-view-findings">View Findings →</button>
+                <button class="action ghost" type="button" data-nav-screen="agents" data-testid="mission-view-agents">Live Agents ↗</button>
+                <button id="cinema-mode-btn" class="action ghost cinema-mode-launch" type="button" data-testid="cinema-mode-open">Cinema Mode</button>
+              </div>
             </div>
 
             <div class="grid mission-grid">
-              <article class="panel span-2 mission-primary-panel">
+              <article class="panel mission-map-panel">
                 <div class="panel-head">
                   <div>
-                    <p class="eyebrow">Now</p>
-                    <h3>Current Activity</h3>
+                    <p class="eyebrow">Live Map</p>
+                    <h3>Scan Map</h3>
                   </div>
                 </div>
-                <div id="mission-activity" class="detail-surface emphasis-surface" data-testid="mission-activity"></div>
+                <div id="mission-activity" class="mission-map-column" data-testid="mission-activity"></div>
+                <div id="mission-timeline" class="mission-phase-stepper hidden" data-testid="mission-timeline"></div>
               </article>
 
-              <article class="panel mission-sidebar-panel">
+              <article class="panel mission-task-panel">
                 <div class="panel-head">
                   <div>
                     <p class="eyebrow">Execution</p>
-                    <h3>Run Activity</h3>
+                    <h3>Tasks</h3>
                   </div>
                 </div>
                 <div id="mission-run-activity" class="detail-surface tall" data-testid="mission-run-activity"></div>
               </article>
 
-              <article class="panel span-2 mission-primary-panel">
+              <article class="panel mission-ai-panel" data-testid="mission-ai-signal-panel">
                 <div class="panel-head">
                   <div>
-                    <p class="eyebrow">Timeline</p>
-                    <h3>Mission Phases</h3>
+                    <p class="eyebrow">Context</p>
+                    <h3>AI Signal</h3>
                   </div>
                 </div>
-                <div id="mission-timeline" class="timeline-grid" data-testid="mission-timeline"></div>
-              </article>
-
-              <article class="panel mission-sidebar-panel" data-testid="mission-snapshot-panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Snapshot</p>
-                    <h3>Operational Snapshot</h3>
-                  </div>
+                <div class="detail-surface compact-surface mission-ai-console">
+                  <div id="mission-ai-narrative" class="stack-zone compact-stack"></div>
                 </div>
-                <div class="mission-secondary-stack">
-                  <div id="mission-eta" class="detail-surface compact-surface"></div>
-                  <div id="mission-findings-pulse" class="detail-surface compact-surface"></div>
-                  <div class="detail-surface compact-surface">
-                    <h4>Status Board</h4>
+                <div class="mission-ai-support-stack split-top">
+                  <div class="detail-surface compact-surface mission-context-card" data-testid="mission-snapshot-panel">
+                    <p class="eyebrow">Run Snapshot</p>
+                    <div id="mission-eta" class="compact-surface"></div>
+                    <div id="mission-findings-pulse" class="compact-surface split-top"></div>
+                  </div>
+                  <div class="detail-surface compact-surface mission-context-card" data-testid="mission-support-panel">
+                    <p class="eyebrow">Selected Run</p>
+                    <div id="mission-scope-summary" class="stack-zone compact-stack"></div>
+                    <div id="mission-pack-status" class="stack-zone compact-stack split-top"></div>
+                    <div id="mission-exposure-score" class="stack-zone compact-stack split-top" data-testid="mission-exposure-score-slot"></div>
+                  </div>
+                  <div class="detail-surface compact-surface mission-context-card">
+                    <p class="eyebrow">Status Board</p>
                     <div class="mission-status-stack split-top">
                       <div class="mission-status-lane">
                         <p class="eyebrow">Going Well</p>
@@ -179,30 +202,30 @@
                   </div>
                 </div>
               </article>
-
-              <article class="panel span-full mission-support-panel" data-testid="mission-support-panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Context</p>
-                    <h3>Supporting Context</h3>
-                  </div>
-                </div>
-                <div class="mission-support-grid">
-                  <div class="detail-surface compact-surface">
-                    <h4>AI Signal</h4>
-                    <div id="mission-ai-narrative" class="stack-zone compact-stack"></div>
-                  </div>
-                  <div class="detail-surface compact-surface">
-                    <h4>Pack Forge Status</h4>
-                    <div id="mission-pack-status" class="stack-zone compact-stack"></div>
-                  </div>
-                  <div class="detail-surface compact-surface">
-                    <h4>Active Scope & Profile</h4>
-                    <div id="mission-scope-summary" class="stack-zone compact-stack"></div>
-                  </div>
-                </div>
-              </article>
             </div>
+
+            <div
+              id="mission-onboarding-checklist"
+              class="screen-onboarding-slot"
+              data-testid="mission-onboarding-slot"
+            ></div>
+          </section>
+
+          <section id="screen-agents" class="screen" data-testid="screen-agents">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Live Operations</p>
+                <h2>Live Agents</h2>
+              </div>
+              <p class="screen-copy">
+                Inspect live task cards, stdout tails, proposals, and operator boundaries for the selected run.
+              </p>
+              <div class="screen-actions">
+                <button class="action secondary" type="button" data-nav-screen="mission-control">Mission Control</button>
+                <button class="action primary" type="button" data-nav-screen="findings-theater">View Findings →</button>
+              </div>
+            </div>
+            <div id="agents-content" class="agents-content" data-testid="agents-content"></div>
           </section>
 
           <section id="screen-surface-map" class="screen" data-testid="screen-surface-map">
@@ -269,38 +292,52 @@
             </div>
           </section>
 
+          <section id="screen-problems-center" class="screen" data-testid="screen-problems-center">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Problems</p>
+                <h2>Problems Center</h2>
+              </div>
+              <p class="screen-copy">
+                Track open security problems across engagements, assign owners, schedule retests, and keep recent fixes visible.
+              </p>
+            </div>
+
+            <div id="problems-content" class="problems-content" data-testid="problems-content"></div>
+          </section>
+
+          <section id="screen-custom-vulnerabilities" class="screen" data-testid="screen-custom-vulnerabilities">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Custom Intelligence</p>
+                <h2>Custom CVE Library</h2>
+              </div>
+              <p class="screen-copy">
+                Manage internal vulnerability definitions, imports, and pack-backed signature checks for the selected engagement.
+              </p>
+            </div>
+
+            <div id="custom-vulnerabilities-content" class="custom-vulnerabilities-content" data-testid="custom-vulnerabilities-content"></div>
+          </section>
+
           <section id="screen-findings-theater" class="screen" data-testid="screen-findings-theater">
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Findings</p>
-                <h2>Findings Theater</h2>
+                <h2>Findings</h2>
               </div>
               <p class="screen-copy">
-                Triage findings by severity, status, origin, and methodology with the evidence trail close at hand.
+                Triage by severity, open the drawer when you need detail, and keep the list readable first.
               </p>
             </div>
 
-            <div id="findings-filter-bar" class="toolbar"></div>
-
-            <div class="grid theater-grid">
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Queue</p>
-                    <h3>Finding Groups</h3>
-                  </div>
-                </div>
-                <div id="findings-group-list" class="stack-zone" data-testid="findings-group-list"></div>
-              </article>
-              <article class="panel span-2">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Selected</p>
-                    <h3>Finding Detail</h3>
-                  </div>
-                </div>
-                <div id="finding-theater-detail" class="detail-surface tall" data-testid="finding-theater-detail"></div>
-              </article>
+            <div class="findings-screen-shell">
+              <div id="findings-filter-bar" class="toolbar findings-toolbar-shell"></div>
+              <div id="remediation-portfolio" class="split-top hidden" data-testid="remediation-portfolio"></div>
+              <div class="panel findings-list-panel">
+                <div id="findings-group-list" class="stack-zone findings-list-stack" data-testid="findings-group-list"></div>
+              </div>
+              <aside id="finding-theater-detail" class="finding-drawer-shell" data-testid="finding-theater-detail"></aside>
             </div>
           </section>
 
@@ -311,7 +348,7 @@
                 <h2>Evidence Replay</h2>
               </div>
               <p class="screen-copy">
-                Inspect the execution trail, artifacts, and provenance behind a finding in one place.
+                Inspect run-level task output, artifacts, provenance, and verification detail. Finding-level evidence remains embedded in Findings for triage.
               </p>
             </div>
 
@@ -362,7 +399,7 @@
                 <h2>Pack Forge</h2>
               </div>
               <p class="screen-copy">
-                Review adaptive pack planning, validation, approval, and Codex-supervised changes before deployment.
+                Review adaptive pack planning, validation, approval, and supervised build-lane changes before deployment.
               </p>
             </div>
 
@@ -405,7 +442,7 @@
               <article class="panel">
                 <div class="panel-head">
                   <div>
-                    <p class="eyebrow">Codex</p>
+                    <p class="eyebrow">Build Lane</p>
                     <h3>Task Planner</h3>
                   </div>
                 </div>
@@ -432,67 +469,92 @@
             <div class="screen-head">
               <div>
                 <p class="eyebrow">Reports</p>
-                <h2>Report Center</h2>
+                <h2>Reports</h2>
               </div>
               <p class="screen-copy">
-                Preview and export executive, technical, evidence, and retest reports with the current run context attached.
+                Review and export technical, executive, and compliance reports for the selected run.
               </p>
             </div>
 
-            <div class="grid report-center-grid">
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Catalog</p>
-                    <h3>Report Variants</h3>
-                  </div>
-                </div>
-                <div id="report-catalog" class="stack-zone" data-testid="report-catalog"></div>
-              </article>
+            <div id="report-center-tabs" class="view-tabs" data-testid="report-center-tabs"></div>
 
-              <article class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Metadata</p>
-                    <h3>Report Details</h3>
+            <div id="report-center-reports-view" class="report-center-view">
+              <div class="report-product-shell">
+                <div id="report-metadata" class="report-run-strip panel" data-testid="report-metadata"></div>
+                <div id="report-catalog" class="report-card-grid" data-testid="report-catalog"></div>
+                <article class="panel report-reader-panel">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Reader</p>
+                      <h3>Selected Report</h3>
+                    </div>
                   </div>
-                </div>
-                <div id="report-metadata" class="detail-surface" data-testid="report-metadata"></div>
-                <div id="report-actions" class="action-row split-top" data-testid="report-actions"></div>
-              </article>
+                  <div id="report-actions" class="action-row report-reader-actions" data-testid="report-actions"></div>
+                  <pre id="report-preview" class="report-preview split-top" data-testid="report-preview"></pre>
+                  <iframe id="report-frame" class="report-frame" title="Report Preview" data-testid="report-frame"></iframe>
+                </article>
+                <article class="panel report-compare-panel">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Delta</p>
+                      <h3>Compare with Earlier Run</h3>
+                    </div>
+                  </div>
+                  <div id="report-compare" class="detail-surface"></div>
+                </article>
+              </div>
+            </div>
 
-              <article class="panel span-2">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Preview</p>
-                    <h3>Reader</h3>
+            <div id="report-center-dossier-view" class="report-center-view hidden">
+              <div class="grid report-dossier-grid">
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Context</p>
+                      <h3>Engagement Dossier</h3>
+                    </div>
                   </div>
-                </div>
-                <pre id="report-preview" class="report-preview" data-testid="report-preview"></pre>
-                <iframe id="report-frame" class="report-frame" title="Report Preview" data-testid="report-frame"></iframe>
-              </article>
+                  <div id="report-dossier-context" class="detail-surface" data-testid="report-dossier-context"></div>
+                </article>
 
-              <article class="panel span-2">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Compare</p>
-                    <h3>Prior Report Delta</h3>
+                <article class="panel span-2">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Run</p>
+                      <h3>Dossier Tab</h3>
+                    </div>
                   </div>
-                </div>
-                <div id="report-compare" class="detail-surface"></div>
-              </article>
+                  <div id="report-dossier-detail" class="detail-surface tall" data-testid="report-dossier-detail"></div>
+                </article>
+              </div>
             </div>
           </section>
 
           <section id="screen-explorer" class="screen" data-testid="screen-explorer">
             <div class="screen-head">
               <div>
-                <p class="eyebrow">Dossiers</p>
-                <h2>Customer / Project / Run Explorer</h2>
+                <p class="eyebrow">Dossier</p>
+                <h2>Explorer</h2>
               </div>
               <p class="screen-copy">
-                Move through customers, engagements, and runs, then inspect the selected run as a full dossier.
+                Inspect customer, engagement, ROE, and selected-run context when you need a dossier-level view.
               </p>
+            </div>
+
+            <div class="compatibility-banner panel" data-testid="explorer-compatibility-banner">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Dossier Context</p>
+                  <h3>Reports + Dossier is the primary workspace</h3>
+                </div>
+                <div class="pill-grid">
+                  <button class="action primary" type="button" data-report-center-view="dossier" data-testid="explorer-open-dossier-tab">Open Dossier Tab</button>
+                  <button class="action ghost" type="button" data-nav-screen="history">Open History</button>
+                </div>
+              </div>
+              <div class="detail-surface split-top">
+                <p>The selected engagement, customer, ROE reference, and run-ready dossier summary travel with the topbar and Report Center. Use this view when you need customer and engagement lists beside the current run.</p>
+              </div>
             </div>
 
             <div class="grid explorer-grid">
@@ -569,10 +631,27 @@
               </article>
             </div>
           </section>
+
+          <section id="screen-settings" class="screen" data-testid="screen-settings">
+            <div class="screen-head">
+              <div>
+                <p class="eyebrow">Instance</p>
+                <h2>Settings</h2>
+              </div>
+              <p class="screen-copy">
+                Configure operator defaults, provider state, encrypted integration secrets, and notification preferences without redeploying.
+              </p>
+            </div>
+            <div id="settings-content" class="settings-content" data-testid="settings-content"></div>
+          </section>
         </main>
       </div>
     </div>
 
-    <script type="module" src="./assets/app.js?v=20260418-phase1-focus"></script>
+    <div id="onboarding-overlay-root" class="onboarding-overlay-root" data-testid="onboarding-overlay-root"></div>
+    <div id="delete-modal-root" class="delete-modal-root" data-testid="delete-modal-root"></div>
+    <nav id="bottom-screen-nav" class="demo-bar app-screen-switcher" data-testid="bottom-screen-nav" aria-label="Screen switcher"></nav>
+
+    <script type="module" src="./assets/app.js?v=20260430-enterprise-ia-1"></script>
   </body>
 </html>

@@ -1,0 +1,107 @@
+{
+  "id": "backlog-27-active-target-scan-map-foundation",
+  "task_file": "codex/tasks/backlog-27-active-target-scan-map-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Active Target Scan Map Foundation",
+  "goal": "Give active runs a clear target-and-tool visual story grounded in real run, task, and finding events.",
+  "scope": "Build an active target scan map for Mission Control or Surface Map using existing run targets, task state, and finding severity. Animate only real state transitions and keep static fallback behavior truthful.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found active scan-map visualization was not represented by the attack-path graph task.",
+  "source_context": {
+    "queue_index": 27,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/ui_mission_control.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "live_operations",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/ui_mission_control.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Use real existing state only. Do not create fake scan paths, fake findings, or decorative success states.",
+    "runtime_mutation": false,
+    "notes": [
+      "This is active-run visualization, not attack-path inference.",
+      "The map must degrade to a static target/task summary when live events are unavailable."
+    ]
+  },
+  "success_criteria": [
+    "Active runs show targets and tool/task progress in a visual map or equivalent panel.",
+    "Completed, failed, blocked, and no-live-event states remain explicit.",
+    "Finding severity coloring is based on stored findings only.",
+    "Browser tests cover running, completed, and no-event fallback states.",
+    "No attack-path scoring or new runtime execution is bundled."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/surface-map.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/ui_mission_control.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "api/app/services/attack_paths.py",
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Visual state is derived from real run/task/finding data.",
+      "Fallback states are truthful when live updates are unavailable.",
+      "No attack-path or runtime behavior changes are bundled."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Existing run/task/finding event data is inspected for supported visual states."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with active scan-map changes and validation evidence.",
+      "Update CURRENT_STATE.md with the active visualization baseline and remaining live-ops limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Attack-path graph inference",
+    "Fake animated beams",
+    "New worker execution paths",
+    "Per-task stdout streaming",
+    "Risk scoring changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

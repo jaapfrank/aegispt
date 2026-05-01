@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from api.app.models import CapabilityPack, CapabilityPackApproval, CapabilityPackDeployment
 
 
 def _create_engagement_with_scope(client: TestClient) -> str:
@@ -152,3 +157,180 @@ def test_codex_review_bundle_reuses_existing_pack_records(client: TestClient) ->
         field == "source_pack_version"
         for field in payload["context"]["operator_visibility"]["finding_provenance_fields"]
     )
+
+
+def test_codex_reimport_stages_validated_workspace_output_as_child_pack(client: TestClient) -> None:
+    engagement_id = _create_engagement_with_scope(client)
+    pack_id = _create_pack(client, engagement_id)
+
+    validation_response = client.post(
+        f"/api/v1/packs/{pack_id}/validate",
+        headers={"X-Actor": "codex-validator"},
+    )
+    assert validation_response.status_code == 200
+    validation_result = validation_response.json()
+    assert validation_result["status"] == "passed"
+
+    pack = client.get(f"/api/v1/packs/{pack_id}").json()
+    artifacts = client.get(f"/api/v1/packs/{pack_id}/artifacts").json()
+    playwright_artifact = next(artifact for artifact in artifacts if artifact["artifact_type"] == "playwright_flow")
+    refined_flow = {
+        **playwright_artifact["content_json"],
+        "steps": [
+            *playwright_artifact["content_json"]["steps"],
+            {"action": "capture", "label": "codex-reimport-review"},
+        ],
+    }
+
+    response = client.post(
+        f"/api/v1/packs/{pack_id}/codex-reimport",
+        headers={"X-Actor": "codex-reimporter"},
+        json={
+            "codex_task_id": "task-20260422-pack-refinement",
+            "pack_version": pack["version"],
+            "validation_result": validation_result,
+            "change_summary": "Added an explicit post-login review capture.",
+            "operator_notes": "Reviewed in the supervised Codex workspace.",
+            "artifacts": [
+                {
+                    "artifact_type": playwright_artifact["artifact_type"],
+                    "logical_name": playwright_artifact["logical_name"],
+                    "content_json": refined_flow,
+                    "methodology_tags": playwright_artifact["methodology_tags"],
+                    "provenance_json": {"reviewed_by": "codex"},
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    staged_pack = payload["staged_pack"]
+    assert payload["source_pack_id"] == pack_id
+    assert payload["imported_artifact_count"] == 1
+    assert staged_pack["parent_pack_id"] == pack_id
+    assert staged_pack["status"] == "generated"
+    assert staged_pack["generation_mode"] == "codex-reimport"
+    assert staged_pack["version"] != pack["version"]
+    assert staged_pack["manifest_json"]["codex_reimport"]["codex_task_id"] == "task-20260422-pack-refinement"
+    assert "existing lifecycle" in payload["lifecycle_note"]
+
+    staged_artifacts = client.get(f"/api/v1/packs/{staged_pack['id']}/artifacts").json()
+    staged_flow = next(artifact for artifact in staged_artifacts if artifact["artifact_type"] == "playwright_flow")
+    assert staged_flow["content_json"]["steps"][-1]["label"] == "codex-reimport-review"
+    assert staged_flow["provenance_json"]["codex_reimport"]["source_pack_id"] == pack_id
+
+    original_artifacts = client.get(f"/api/v1/packs/{pack_id}/artifacts").json()
+    original_flow = next(artifact for artifact in original_artifacts if artifact["artifact_type"] == "playwright_flow")
+    assert original_flow["content_json"]["steps"][-1].get("label") != "codex-reimport-review"
+
+    approval_before_validation = client.post(
+        f"/api/v1/packs/{staged_pack['id']}/approve",
+        headers={"X-Actor": "approver"},
+    )
+    assert approval_before_validation.status_code == 409
+    assert "successful validation" in approval_before_validation.json()["detail"]
+
+    staged_validation = client.post(
+        f"/api/v1/packs/{staged_pack['id']}/validate",
+        headers={"X-Actor": "validator"},
+    )
+    assert staged_validation.status_code == 200
+    assert staged_validation.json()["status"] == "passed"
+
+
+def test_codex_reimport_rejects_missing_failed_or_mismatched_validation_result(client: TestClient) -> None:
+    engagement_id = _create_engagement_with_scope(client)
+    pack_id = _create_pack(client, engagement_id)
+    artifacts = client.get(f"/api/v1/packs/{pack_id}/artifacts").json()
+    metadata_artifact = next(artifact for artifact in artifacts if artifact["artifact_type"] == "metadata")
+    artifact_payload = {
+        "artifact_type": metadata_artifact["artifact_type"],
+        "logical_name": metadata_artifact["logical_name"],
+        "content_json": metadata_artifact["content_json"],
+    }
+
+    missing_response = client.post(
+        f"/api/v1/packs/{pack_id}/codex-reimport",
+        headers={"X-Actor": "codex-reimporter"},
+        json={"artifacts": [artifact_payload]},
+    )
+    assert missing_response.status_code == 409
+    assert "validation-result payload is required" in missing_response.json()["detail"]
+
+    failed_response = client.post(
+        f"/api/v1/packs/{pack_id}/codex-reimport",
+        headers={"X-Actor": "codex-reimporter"},
+        json={
+            "validation_result": {"pack_id": pack_id, "status": "failed"},
+            "artifacts": [artifact_payload],
+        },
+    )
+    assert failed_response.status_code == 409
+    assert "status must be passed" in failed_response.json()["detail"]
+
+    mismatched_response = client.post(
+        f"/api/v1/packs/{pack_id}/codex-reimport",
+        headers={"X-Actor": "codex-reimporter"},
+        json={
+            "validation_result": {
+                "pack_id": "00000000-0000-0000-0000-000000000000",
+                "status": "passed",
+                "blocking_issues_json": [],
+            },
+            "artifacts": [artifact_payload],
+        },
+    )
+    assert mismatched_response.status_code == 409
+    assert "does not match the source pack" in mismatched_response.json()["detail"]
+
+
+def test_assessment_pattern_pack_effectiveness_is_sparse_advisory_and_non_promoting(
+    client: TestClient,
+) -> None:
+    engagement_id = _create_engagement_with_scope(client)
+    pack_id = _create_pack(client, engagement_id)
+
+    with client.app.state.session_factory() as session:
+        pack = session.get(CapabilityPack, UUID(pack_id))
+        assert pack is not None
+        status_before = pack.status
+        approvals_before = session.scalars(
+            select(CapabilityPackApproval).where(CapabilityPackApproval.pack_id == UUID(pack_id))
+        ).all()
+        deployments_before = session.scalars(
+            select(CapabilityPackDeployment).where(CapabilityPackDeployment.pack_id == UUID(pack_id))
+        ).all()
+
+    response = client.get(f"/api/v1/engagements/{engagement_id}/assessment-patterns")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["sparse_data"] is True
+    assert payload["summary"]["run_count"] == 0
+    assert payload["summary"]["finding_count"] == 0
+    assert payload["boundary"]["advisory_only"] is True
+    assert payload["boundary"]["external_model_training_performed"] is False
+    assert payload["boundary"]["customer_data_exported"] is False
+    assert payload["pack_effectiveness"]["mode"] == "advisory_only"
+    assert payload["pack_effectiveness"]["automatic_pack_promotion_performed"] is False
+    assert payload["pack_effectiveness"]["automatic_pack_approval_performed"] is False
+    assert payload["pack_effectiveness"]["automatic_pack_deployment_performed"] is False
+    assert payload["pack_effectiveness"]["automatic_pack_mutation_performed"] is False
+    assert payload["pack_effectiveness"]["runtime_binding_changed"] is False
+    pack_summary = next(item for item in payload["pack_effectiveness"]["packs"] if item["pack_id"] == pack_id)
+    assert "needs_validation_before_promotion" in pack_summary["quality_signals"]
+    assert "existing validation, approval, deployment, and runtime binding gates" in pack_summary["next_operator_boundary"]
+
+    with client.app.state.session_factory() as session:
+        pack = session.get(CapabilityPack, UUID(pack_id))
+        assert pack is not None
+        assert pack.status == status_before
+        approvals_after = session.scalars(
+            select(CapabilityPackApproval).where(CapabilityPackApproval.pack_id == UUID(pack_id))
+        ).all()
+        deployments_after = session.scalars(
+            select(CapabilityPackDeployment).where(CapabilityPackDeployment.pack_id == UUID(pack_id))
+        ).all()
+        assert len(approvals_after) == len(approvals_before)
+        assert len(deployments_after) == len(deployments_before)

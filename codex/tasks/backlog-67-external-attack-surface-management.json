@@ -1,0 +1,110 @@
+{
+  "id": "backlog-67-external-attack-surface-management",
+  "task_file": "codex/tasks/backlog-67-external-attack-surface-management.json",
+  "task_type": "backlog_slice",
+  "title": "External Attack Surface Management (EASM) Foundation",
+  "goal": "Add passive external discovery that automatically maps an organisation's attack surface from a domain name \u2014 subdomains, IPs, exposed services, technology stack \u2014 before the operator has to manually specify targets.",
+  "scope": "Implement an 'easm-discover' runner in workers/runners/easm/ that performs read-only passive reconnaissance from a root domain: (1) Subdomain enumeration using subfinder (already available on Kali) or DNS brute-force with a curated wordlist; (2) DNS resolution and ASN lookup for discovered subdomains; (3) HTTP fingerprinting of live hosts using httpx (already in stack) to detect status codes, titles, technology stack; (4) Certificate transparency log query (crt.sh JSON API \u2014 no key required) for additional subdomain discovery; (5) Results feed into inventory snapshots as easm-class assets distinct from operator-seeded scope. A new 'passive-easm-discovery' run profile is added. The operator provides only a root domain (e.g. example.com) \u2014 the runner discovers the full external footprint. Discovered assets are presented in Surface Map with an 'Add to scope' option \u2014 they are not automatically added to active scan scope. This enables Hadrian/Pentera-style 'give us your domain, we find everything' positioning.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "External Attack Surface Management is one of the fastest-growing segments in offensive security. Pentera, NodeZero, and dedicated EASM tools (Hadrian, Censys, Shodan) all offer automated external discovery. AegisPT currently requires the operator to manually specify every target. EASM lets an operator provide just a domain name and see their full external footprint before deciding what to test \u2014 matching how real assessments start.",
+  "source_context": {
+    "queue_index": 67,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/inventory_model.md",
+      "docs/methodology_mapping.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runner_expansion",
+    "source_documents": [
+      "workers/runners/base/contracts.py",
+      "workers/runners/nmap/",
+      "api/app/services/inventory.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Passive discovery only \u2014 no active probing beyond HTTP fingerprinting. Discovered assets require explicit operator approval before being added to active scan scope. crt.sh queries are the only external API call \u2014 no paid EASM services required. DNS brute-force uses a bounded wordlist (max 10,000 entries).",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "no_auto_scope_expansion": true
+  },
+  "success_criteria": [
+    "easm-discover runner enumerates subdomains from a root domain using subfinder/DNS and crt.sh.",
+    "Discovered assets are stored as easm-class inventory snapshots.",
+    "Surface Map displays discovered assets with 'Add to scope' option.",
+    "Discovered assets are NOT automatically added to active scan scope.",
+    "passive-easm-discovery run profile exists.",
+    "DNS brute-force uses bounded wordlist.",
+    "crt.sh is the only external API call.",
+    "Tests cover discovery, inventory storage, scope non-expansion, and Surface Map rendering.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "workers/runners/easm/__init__.py",
+    "workers/runners/easm/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/services/inventory.py",
+    "ui/assets/modules/mission-control.js",
+    "workers/tests/test_easm_runner.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Automatic scope expansion from discovered assets",
+    "Active exploitation of discovered assets",
+    "Paid external EASM API calls",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_easm_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Runner discovers subdomains and stores as EASM inventory.",
+      "No auto-scope expansion.",
+      "Surface Map shows discovered assets with Add to scope option.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Burp Suite runner integration (backlog-66) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with EASM runner implementation.",
+      "Update CURRENT_STATE.md with EASM discovery as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Active exploitation of discovered assets",
+    "Paid EASM service integration",
+    "Port scanning of discovered assets (nmap runner handles this after scope approval)",
+    "Continuous external monitoring"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

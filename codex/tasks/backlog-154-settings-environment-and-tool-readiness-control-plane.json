@@ -1,0 +1,106 @@
+{
+  "id": "backlog-154-settings-environment-and-tool-readiness-control-plane",
+  "task_file": "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",
+  "task_type": "backlog_slice",
+  "title": "Settings, Environment, and Tool Readiness Control Plane",
+  "goal": "Make Settings the authoritative place for runtime readiness, tool availability, concurrency, integrations, AI provider status, scheduler behavior, and operator-safe configuration.",
+  "scope": "Audit and improve Settings and readiness checks so every configurable field has bounds, examples, validation, saved-state feedback, and runtime effect. Add clear readiness cards for required pentest binaries, optional integrations, ChatGPT OAuth, scheduler, worker/inline dispatch mode, local concurrency limits, evidence storage, database encryption, threat intelligence cache, and live app health.",
+  "status": "queued",
+  "generated_by": "operator-system-audit-2026-04-30",
+  "generation_reason": "The operator needs settings that explain what can be entered and what it affects, including concurrency limits and tool availability. Earlier settings tasks added pieces, but not a unified readiness/control-plane view.",
+  "queue_index": 154,
+  "source_context": {
+    "queue_index": 154,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md",
+      "docs/host_service_install.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runtime_readiness_and_settings",
+    "source_documents": [
+      "api/app/services/settings.py",
+      "api/app/routers/settings.py",
+      "scripts/verify_host.sh",
+      "scripts/install_security_tools.sh",
+      "ui/assets/modules/settings.js",
+      "docs/host_service_install.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Settings/readiness only. Do not install tools automatically, bypass approvals, or change active assessment behavior except through existing persisted settings and documented runtime binding.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Settings exposes adjustable safe concurrency limits with min/max/default and explains runtime impact.",
+    "Tool readiness identifies installed/missing binaries and maps missing tools to affected assessment families.",
+    "Every Settings field has a label, placeholder/example, validation rule, and saved/error feedback.",
+    "ChatGPT OAuth status and reconnect behavior are clear and durable.",
+    "Threat intel, scheduler, integrations, database encryption, artifact storage, and host health show clear operational status.",
+    "Readiness output can be exported or attached to support/installation evidence."
+  ],
+  "likely_touched_files": [
+    "api/app/services/settings.py",
+    "api/app/routers/settings.py",
+    "api/app/config.py",
+    "scripts/verify_host.sh",
+    "scripts/install_security_tools.sh",
+    "ui/assets/modules/settings.js",
+    "api/tests/test_settings.py",
+    "ui/tests/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime self-modification",
+    "uncontrolled plugin/tool installation",
+    "approval gate bypass"
+  ],
+  "out_of_scope": [
+    "Installing tools as part of this task",
+    "Changing runner semantics",
+    "Cloud-hosted configuration management",
+    "New authentication models"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check",
+      "Focused Settings API tests for validation, bounds, persistence, and effective runtime settings",
+      "Browser tests for all Settings sections and readiness cards"
+    ],
+    "acceptance_criteria": [
+      "A new readiness artifact shows each runtime capability as ready, degraded, missing, or blocked with affected product behavior and operator next step."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "backlog-153 has completed or been explicitly deferred by the operator.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EvidenceArtifactRead(BaseModel):
@@ -44,3 +44,4 @@ class TaskDetailRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     executions: list[ToolExecutionRead]
+    stdout_snapshot: dict[str, Any] = Field(default_factory=dict)

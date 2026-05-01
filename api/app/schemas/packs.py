@@ -32,6 +32,25 @@ class CapabilityPackArtifactRead(BaseModel):
     created_at: datetime
 
 
+class CapabilityPackArtifactReimportCreate(BaseModel):
+    artifact_type: str
+    logical_name: str
+    content_text: str | None = None
+    content_json: dict[str, Any] | None = None
+    checksum_sha256: str | None = None
+    methodology_tags: list[str] | None = None
+    provenance_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class CapabilityPackReimportCreate(BaseModel):
+    codex_task_id: str | None = None
+    pack_version: str | None = None
+    validation_result: dict[str, Any] = Field(default_factory=dict)
+    change_summary: str | None = None
+    operator_notes: str | None = None
+    artifacts: list[CapabilityPackArtifactReimportCreate] = Field(default_factory=list)
+
+
 class CapabilityPackValidationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -109,6 +128,15 @@ class CapabilityPackRead(BaseModel):
     created_at: datetime
 
 
+class CapabilityPackReimportRead(BaseModel):
+    source_pack_id: UUID
+    staged_pack: CapabilityPackRead
+    artifacts: list[CapabilityPackArtifactRead]
+    imported_artifact_count: int
+    validation_result_status: str
+    lifecycle_note: str
+
+
 class RunPackBindingRead(BaseModel):
     pack_id: UUID
     pack_version: str | None
@@ -124,4 +152,3 @@ class RunPackBindingRead(BaseModel):
 
 class RunPackBindCreate(BaseModel):
     pack_id: UUID
-

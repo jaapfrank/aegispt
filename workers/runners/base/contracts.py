@@ -18,6 +18,21 @@ class EvidenceArtifact:
 
 
 @dataclass(slots=True, frozen=True)
+class ProtectedSecretMaterial:
+    artifact_name: str
+    value: str
+    secret_kind: str = "protected_material"
+    purpose: str = "task.protected_material"
+    display_label: str | None = None
+    content_type: str = "text/plain"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def digest(self) -> str:
+        return sha256(self.value.encode("utf-8")).hexdigest()
+
+
+@dataclass(slots=True, frozen=True)
 class RunnerRequest:
     tool: str
     targets: list[str]
@@ -34,3 +49,4 @@ class RunnerExecution:
     stderr: str
     metadata: dict[str, Any] = field(default_factory=dict)
     artifacts: list[EvidenceArtifact] = field(default_factory=list)
+    protected_outputs: list[ProtectedSecretMaterial] = field(default_factory=list)

@@ -1,0 +1,96 @@
+{
+  "id": "backlog-147-edit-token-advanced-api-detail-test",
+  "task_file": "codex/tasks/backlog-147-edit-token-advanced-api-detail-test.json",
+  "task_type": "corrective_test_slice",
+  "title": "Fix test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access and related wizard flow tests",
+  "goal": "For each affected test, before clicking [data-wizard-create-mission], add a check for wizard-roe-authorization-checkbox and check it if present and unchecked. This is the same pattern as backlog-142 but applied to tests that directly call the button rather than using the helper.",
+  "scope": "Multiple wizard flow tests fail with disabled Create Mission button (same root cause as backlog-142). These tests are identified separately because they test specific advanced wizard flows: test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access, test_clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback, test_authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm. These tests likely also call _launch_guided_mission_from_preview or directly call [data-wizard-create-mission] without first checking/clicking wizard-roe-authorization-checkbox.",
+  "status": "queued",
+  "generated_by": "full-system-assessment-2026-04-30",
+  "generation_reason": "Multiple wizard flow tests fail with disabled Create Mission button (same root cause as backlog-142). These tests are identified separately because they test specific advanced wizard flows: test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access, test_clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback, test_authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm. These tests likely also call _launch_guided_mission_from_preview or directly call [data-wizard-create-mission] without first checking/clicking wizard-roe-authorization-checkbox.",
+  "source_context": {
+    "queue_index": 147,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/results/full-system-audit-and-task-plan-20260430.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "full_system_regression_unblockers",
+    "source_documents": [
+      "ui/tests/test_operator_console_e2e.py",
+      "TASK_QUEUE.md",
+      "NEXT_TASK.md"
+    ],
+    "affected_tests": [
+      "ui/tests/test_operator_console_e2e.py::test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access",
+      "ui/tests/test_operator_console_e2e.py::test_clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback",
+      "ui/tests/test_operator_console_e2e.py::test_authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm"
+    ],
+    "root_cause": "Same root cause as backlog-142: ROE authorization checkbox not handled. These tests may directly click [data-wizard-create-mission] without going through _launch_guided_mission_from_preview, so they need individual fixes."
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep the fix to the named regression slice. Do not use this task for broad UI/product redesign or unrelated runtime changes.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "All three named tests pass.",
+    "No regressions in other tests."
+  ],
+  "likely_touched_files": [
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry bypass",
+    "approval or scope gate bypass",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py -k 'edit_token or clearing_advanced or authenticated_only_advanced' --tb=short -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All three named tests pass.",
+      "No regressions in other tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Broad product redesign",
+    "Installing new tools",
+    "Running live customer or intrusive targets",
+    "Changing unrelated schemas or prompts"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,120 @@
+{
+  "id": "backlog-62-repository-integration-foundation",
+  "task_file": "codex/tasks/backlog-62-repository-integration-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Repository Integration Foundation \u2014 GitHub and GitLab",
+  "goal": "Connect AegisPT findings to source code repositories so operators can see the exact file, line, and code context for each finding \u2014 and optionally create fix pull requests from AutoFix patches.",
+  "scope": "Implement the following: (1) A repo_integrations table storing GitHub/GitLab OAuth tokens, repo URL, branch, and engagement association \u2014 tokens encrypted via existing secret materialization. (2) OAuth flows for GitHub (oauth.github.com) and GitLab (gitlab.com/oauth) to connect repositories without requiring personal access tokens. (3) A repository_context service that, given a finding with a detected file path or endpoint pattern in its evidence, queries the connected repository's file tree and retrieves the relevant file content and line range. (4) A finding_repo_links table connecting findings to specific repo file paths and line numbers. (5) Exposure in Finding Theater: when a repo is connected and a file path is identified, show a code snippet panel with the vulnerable line highlighted, repository URL, and a 'View in GitHub/GitLab' link. (6) When AutoFix (backlog-61) is available and a repo is connected: a 'Create Fix PR' button that opens a pre-filled pull request in the connected repository with the AutoFix patch_after content applied to the correct file \u2014 the PR is created via the GitHub/GitLab API, not automatically merged.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Aikido connects findings directly to source code with file-level precision and generates fix PRs. AegisPT currently works only on deployed applications with no source code linkage. Repository integration enables whitebox assessments, makes findings immediately actionable for developers, and enables the AutoFix PR flow that Aikido uses as its core developer-facing value proposition.",
+  "source_context": {
+    "queue_index": 62,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/integrations.md",
+      "docs/secret_handling_baseline.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "repository_integration",
+    "source_documents": [
+      "api/app/services/integrations.py",
+      "api/app/services/secrets.py",
+      "api/app/services/finding_views.py",
+      "api/app/models/control.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Repository read access and PR creation only. Never write to main/production branches automatically. PRs are always created in a new branch requiring review. OAuth tokens stored encrypted, never in API responses or logs. No repository content is stored beyond finding-linked snippets.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "no_auto_merge": true,
+    "tokens_encrypted": true
+  },
+  "success_criteria": [
+    "GitHub and GitLab OAuth flows connect repositories to engagements.",
+    "OAuth tokens stored encrypted, never returned in plain text.",
+    "Finding Theater shows a code snippet panel with the vulnerable line highlighted when a connected repo has the relevant file.",
+    "A 'View in GitHub/GitLab' link opens the file at the correct line.",
+    "When AutoFix is available: 'Create Fix PR' opens a pull request in a new branch with the patch applied \u2014 never auto-merges.",
+    "No repository content is stored beyond finding-linked snippets.",
+    "Tests cover OAuth token storage, code snippet retrieval, PR creation, and no-auto-merge enforcement.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/repository_integration.py",
+    "api/app/routers/integrations.py",
+    "api/app/schemas/integrations.py",
+    "api/app/services/finding_views.py",
+    "api/app/config.py",
+    "migrations/versions/20260423_0017_repo_integrations.py",
+    "ui/assets/modules/findings.js",
+    "ui/assets/styles.css",
+    "api/tests/test_repository_integration.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Auto-merge to any branch",
+    "Repository write access beyond PR creation",
+    "Storing OAuth tokens in plain text",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema severity or status fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_repository_integration.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "GitHub/GitLab repos connect via OAuth.",
+      "Code snippet panel shows vulnerable line in Finding Theater.",
+      "Create Fix PR opens PR in new branch without auto-merge.",
+      "Tokens encrypted at rest.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "AutoFix code patch generation (backlog-61) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Repository token encryption and PR creation boundaries documented in docs/integrations.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with repository integration implementation and no-auto-merge enforcement.",
+      "Update CURRENT_STATE.md with GitHub/GitLab repository integration as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Auto-merge of fix PRs",
+    "Writing to main/production branches",
+    "Full repository code scanning (whitebox SAST \u2014 separate capability)",
+    "Storing full repository content"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

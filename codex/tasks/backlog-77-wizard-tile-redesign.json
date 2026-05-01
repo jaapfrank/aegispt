@@ -1,0 +1,107 @@
+{
+  "id": "backlog-77-wizard-tile-redesign",
+  "task_file": "codex/tasks/backlog-77-wizard-tile-redesign.json",
+  "task_type": "backlog_slice",
+  "title": "Wizard Tile-Based Redesign \u2014 Visual Assessment Type Selection and Short Questions",
+  "goal": "Replace the current open-ended conversational intake with a tile-based visual selector followed by 3-4 short targeted questions \u2014 making the mission setup fast, clear, and visually intuitive for both novice operators and experienced pentesters.",
+  "scope": "Replace the current conversational wizard with a 3-step flow: STEP 1 \u2014 ASSESSMENT TYPE TILES: A grid of 8 visual tiles, each with an icon, title, and one-line description. Tiles: (1) External Web \u2014 globe icon, 'Websites, web apps, APIs reachable from the internet'; (2) Internal LAN \u2014 network icon, 'Internal network, subnets, on-premise servers'; (3) Active Directory \u2014 shield icon, 'Domain controllers, AD users, attack paths'; (4) Full Internal \u2014 fire icon, 'Complete internal assessment: LAN + AD + credential attacks + exploitation'; (5) Cloud (AWS/Azure) \u2014 cloud icon, 'Cloud infrastructure, IAM, exposed resources'; (6) API Security \u2014 brackets icon, 'REST, GraphQL, gRPC endpoints'; (7) LLM / AI App \u2014 robot icon, 'AI applications, prompt injection, LLM security'; (8) Custom \u2014 sliders icon, 'Build your own combination'. Each tile is a large card (~180\u00d7160px) with icon (48px), bold title, short description, and a subtle 'Recommended' badge on the most-used types. Selected tile gets cyan border and checkmark. STEP 2 \u2014 3 SHORT QUESTIONS shown one at a time with large text and clear input: Q1: 'What is the target?' \u2014 text input with placeholder and validation; Q2: 'How deep should we go?' \u2014 3 tiles: Passive only / Active scan / Full including exploitation; Q3: 'Any targets to exclude?' \u2014 optional, shows only if target has multiple hosts. No more than 3 questions total for most paths. STEP 3 \u2014 MISSION PREVIEW DIAGRAM (covered in backlog-78). This backlog covers steps 1 and 2 only. The existing advanced drawer remains accessible throughout for operators who need exact parameter control. All existing deterministic run configuration logic is preserved under the new UI \u2014 the tiles map to existing run profiles.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The current conversational wizard is slow, unclear, and requires too many steps. Tile-based selection with short questions is the standard pattern in modern security tools (Aikido, NodeZero) and dramatically reduces time-to-first-run. Most operators know immediately what they want to test \u2014 the wizard should confirm scope in 60 seconds, not 5 minutes.",
+  "source_context": {
+    "queue_index": 77,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "UI_REDESIGN_SPEC.md",
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/ui_phase_architecture.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_redesign",
+    "source_documents": [
+      "ui/assets/modules/wizard.js",
+      "ui/assets/styles.css",
+      "ui/index.html",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Steps 1 and 2 only \u2014 tile selection and short questions. The visual mission preview diagram is covered in backlog-78. All existing run profile and deterministic configuration logic is preserved. Advanced drawer remains accessible. No backend changes.",
+    "runtime_mutation": false,
+    "operator_control_required": false
+  },
+  "success_criteria": [
+    "Step 1 shows 8 visual assessment type tiles with icons, titles, and descriptions.",
+    "Selected tile gets cyan border and checkmark indicator.",
+    "Step 2 shows 3 or fewer short questions one at a time with large clear text.",
+    "Depth selection is a 3-tile choice: Passive / Active / Full.",
+    "Advanced drawer remains accessible throughout.",
+    "All existing run profiles map correctly from tile selections.",
+    "Wizard completes target + profile configuration in under 5 clicks for common paths.",
+    "Full Playwright suite remains green after wizard expectation updates.",
+    "No backend or schema changes."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "8 assessment tiles visible and selectable.",
+      "Short question flow completes in 3 questions for common paths.",
+      "Advanced drawer accessible.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Assessment Mode automated chain (backlog-76) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with wizard tile redesign implementation.",
+      "Update CURRENT_STATE.md with tile-based wizard as active intake.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Visual mission preview diagram (backlog-78)",
+    "Backend run profile changes",
+    "New assessment types beyond the 8 tiles"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

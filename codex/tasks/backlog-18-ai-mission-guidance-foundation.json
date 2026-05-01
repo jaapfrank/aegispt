@@ -1,0 +1,109 @@
+{
+  "id": "backlog-18-ai-mission-guidance-foundation",
+  "task_file": "codex/tasks/backlog-18-ai-mission-guidance-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "AI Mission Guidance Foundation",
+  "goal": "Add grounded operator guidance that explains run choices and follow-up recommendations without letting AI execute or broaden scope.",
+  "scope": "Implement the first AI mission-guidance slice by deriving explanation text and next-step suggestions from deterministic scope, inventory, findings, relevance, and pack provenance. Keep execution deterministic and operator-controlled.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 18,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/operator_console_stabilization_plan.md",
+      "docs/competitive_landscape_2026.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_operator_leverage",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/operator_console_stabilization_plan.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep AI guidance explanatory and grounded. Do not add autonomous execution, new scan scope, or generic chat.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "AI guidance must cite deterministic inputs or evidence categories.",
+      "Operators must remain able to override or ignore suggestions."
+    ]
+  },
+  "success_criteria": [
+    "The UI can explain why a profile, safety posture, or follow-up action is recommended using existing deterministic data.",
+    "Guidance never expands target scope or authorization.",
+    "AI output is disabled/fallback-safe where provider configuration is absent or fails.",
+    "Tests cover grounded guidance, fallback behavior, and no-scope-expansion rules.",
+    "Docs clarify AI guidance boundaries."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_enrichment.py",
+    "api/app/schemas/finding_views.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/wizard.js",
+    "api/tests/test_ai_finding_enrichment.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "pack validation, approval, deployment, or runtime binding flows",
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_finding_enrichment.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Guidance is traceable to deterministic data.",
+      "Provider failure or disabled AI leaves deterministic behavior intact.",
+      "No autonomous execution or scope expansion is added."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The guidance surface is explicitly selected before implementation starts."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AI guidance changes and validation evidence.",
+      "Update CURRENT_STATE.md with the AI guidance baseline and remaining AI limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Autonomous runtime execution",
+    "Generic chat over findings",
+    "AI-generated scan scope",
+    "AI report drafting",
+    "Bypassing pack review or approval"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -330,10 +330,20 @@ AegisPT should make AI valuable in very specific ways:
 - infer the right mission profile from plain-language intake
 - recommend next-step runs after discovery
 - synthesize relevance from inventory and threat intelligence
+- map findings to curated technique-style threat context with explicit non-attribution boundaries
 - propose customer-specific capability packs
 - summarize why a finding matters in business and technical terms
 - translate evidence into clearer remediation and retest guidance
 - explain uncertainty, assumptions, and out-of-scope boundaries
+- expose read-only operator context to approved assistants without granting scan launch, approval,
+  deployment, runtime mutation, or secret-access powers
+
+Current threat-context boundary:
+
+- the first supported slice uses `AegisPT curated threat-context mapping` as a static reviewed mapping source
+- mappings connect stored finding evidence, methodology tags, and CWE/CVE references where present to technique-style context
+- mappings do not claim that a named threat actor is present, that compromise happened, or that breach likelihood is known
+- sparse findings must remain unmapped rather than receiving fabricated actor or technique context
 
 ## Strategic truth about "replacing red teams"
 
@@ -396,6 +406,8 @@ Every AI feature should be judged by whether it:
 - increases detection or prioritization quality
 - improves reporting and remediation clarity
 - safely expands coverage through customer-specific pack generation
+- makes existing operator context safely reusable by external copilots while keeping actions on
+  existing approval and runtime-control paths
 
 ## What "more than competitors" should mean
 

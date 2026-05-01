@@ -100,5 +100,37 @@ Minimal supporting endpoints:
 - `GET /api/v1/codex/tasks/{id}`
 - `POST /api/v1/codex/tasks/{id}/run`
 - `GET /api/v1/codex/tasks/{id}/result`
+- `POST /api/v1/packs/{pack_id}/codex-reimport`
 
 The `run` endpoint prepares safe commands and validation handoff. It is not a live runtime mutation path.
+
+## Controlled artifact reimport
+
+Validated Codex workspace output may be staged back into the pack lifecycle only
+through `POST /api/v1/packs/{pack_id}/codex-reimport`.
+
+Required input:
+
+- the source `pack_version`
+- optional `codex_task_id`
+- the `validation-result.json` payload from the existing pack validation lane
+- one or more artifacts already present in the source pack, identified by
+  `artifact_type` and `logical_name`
+- optional operator notes and change summary
+
+Safety rules:
+
+- missing, failed, mismatched, or blocking validation-result data is rejected
+- reimport does not edit the source pack in place
+- reimport creates a generated child pack with `generation_mode = codex-reimport`
+- imported artifacts preserve parent pack, parent artifact, task, validation, and
+  operator-note provenance
+- the child pack has no copied approval, deployment, or runtime binding state
+- the child pack must still pass the normal validate, approve, deploy, and
+  runtime binding gates before any assessment can use it
+- deployed runtime packs are never mutated by Codex reimport
+
+Pack Forge exposes this as a staged child-pack action after a Codex task is
+prepared and a passing validation result exists. External workspace clients may
+post edited artifact content directly to the same API, but the resulting pack
+remains staged until the normal pack lifecycle completes.

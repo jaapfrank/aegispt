@@ -1,0 +1,91 @@
+{
+  "id": "backlog-139-mqtt-homeassistant-testing",
+  "task_file": "codex/tasks/backlog-139-mqtt-homeassistant-testing.json",
+  "task_type": "backlog_slice",
+  "title": "MQTT Broker and Home Assistant API Testing",
+  "goal": "Test MQTT brokers for unauthenticated access and topic enumeration, and check Home Assistant instances for API token exposure, unprotected REST API, and default configuration weaknesses.",
+  "scope": "Create workers/runners/smart_home/runner.py with two test modules: (1) MQTT TESTING: connect to port 1883 (and 8883 for TLS) without credentials. If connection succeeds, subscribe to # (all topics) and listen for 30 seconds. Create CRITICAL finding: 'MQTT broker accepts anonymous connections'. Log sample topic names found (redacted values). Also check for retained messages on common sensitive topics: homeassistant/+/+/state, home/+/+, devices/+. Check port 9001 for MQTT over WebSocket. (2) HOME ASSISTANT TESTING: check port 8123 for Home Assistant. Test: (a) GET /api/ without Authorization header \u2014 if returns 200 with data, CRITICAL finding 'Home Assistant API accessible without authentication'. (b) GET /api/config \u2014 reveals installed integrations and configuration. (c) Check for long-lived access tokens in common locations. (d) GET /frontend_latest/index.html without auth \u2014 if accessible, MEDIUM finding. (e) Check if Supervisor API (port 4357) is accessible. Create findings for: unauthenticated API access, exposed integrations list, accessible configuration details. Add profile passive-lan-smart-home-audit: checks MQTT + Home Assistant + other smart home hubs (OpenHAB port 8080, Domoticz port 8080, Node-RED port 1880).",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Home Assistant (port 8123) and MQTT brokers (port 1883) are present in the user's network. MQTT with anonymous access exposes ALL smart home device states, commands, and potentially sensitive data. Home Assistant without authentication gives complete smart home control. Neither is currently tested.",
+  "queue_index": 139,
+  "source_context": {
+    "queue_index": 139,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "workers/runners/httpx/runner.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only testing. MQTT subscribe only (no publish). Home Assistant API read-only (GET requests only). No device control commands. Topic values redacted in findings.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "MQTT anonymous connection attempt works correctly.",
+    "MQTT topic names captured (values redacted) for findings.",
+    "CRITICAL finding created for unauthenticated MQTT.",
+    "Home Assistant API test runs without triggering automations.",
+    "CRITICAL finding created for unauthenticated Home Assistant API.",
+    "Profile passive-lan-smart-home-audit added.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/runners/smart_home/runner.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "MQTT message publishing",
+    "Home Assistant automation triggering",
+    "Device control commands",
+    "Smart home exploitation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "MQTT unauthenticated access detected. Home Assistant API check works. Findings created with correct severity."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,96 @@
+{
+  "id": "backlog-128-database-encryption",
+  "task_file": "codex/tasks/backlog-128-database-encryption.json",
+  "task_type": "backlog_slice",
+  "title": "Database Encryption at Rest",
+  "goal": "Encrypt the SQLite database so findings, IP addresses, discovered credentials, and vulnerability details are not readable by anyone with filesystem access.",
+  "scope": "Migrate from plain SQLite to SQLCipher encrypted SQLite. Steps: (1) Add sqlcipher3 to requirements. (2) In api/app/db.py, when AEGISPT_DB_KEY env var is set, use sqlcipher3 instead of standard sqlite3 driver and pass the key as PRAGMA key. (3) Add a migration script scripts/encrypt_existing_db.py that reads the existing unencrypted DB and writes an encrypted copy using sqlcipher3. (4) In api/app/main.py startup, if AEGISPT_DB_KEY is not set and environment is not development, log a prominent warning: 'Database is NOT encrypted. Set AEGISPT_DB_KEY environment variable to enable encryption at rest.' (5) Update docs/host_service_install.md with instructions for setting AEGISPT_DB_KEY and running the migration script. (6) For artifact storage: add enforce_sse flag to MinIO/S3 configuration in api/app/config.py, document how to enable SSE-S3 on MinIO. The encryption is transparent to all existing code \u2014 no model or query changes needed.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "Database is plain SQLite with no encryption. All pentest findings, IP addresses, credential hashes, and vulnerability details are readable by anyone with filesystem access. GDPR requires appropriate technical measures for sensitive data.",
+  "queue_index": 128,
+  "source_context": {
+    "queue_index": 128,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "security_foundation",
+    "source_documents": [
+      "api/app/db.py",
+      "api/app/config.py",
+      "api/app/main.py",
+      "docs/host_service_install.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "SQLite encryption only in this slice. No PostgreSQL migration. Encryption is opt-in via env var for backwards compatibility.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When AEGISPT_DB_KEY is set, database file is encrypted with SQLCipher.",
+    "Existing code reads and writes data identically with encryption enabled.",
+    "Migration script successfully encrypts an existing plaintext database.",
+    "Warning shown on startup when AEGISPT_DB_KEY not set in production.",
+    "docs/host_service_install.md updated with encryption setup instructions.",
+    "Tests pass (with and without encryption key set)."
+  ],
+  "likely_touched_files": [
+    "api/app/db.py",
+    "api/app/config.py",
+    "api/app/main.py",
+    "requirements.txt",
+    "scripts/encrypt_existing_db.py",
+    "docs/host_service_install.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Model definitions",
+    "Existing migrations"
+  ],
+  "out_of_scope": [
+    "PostgreSQL migration",
+    "Key rotation in this slice",
+    "Hardware security modules"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Encrypted database readable by application. Migration script works. Warning shown without key."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

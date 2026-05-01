@@ -1,0 +1,91 @@
+{
+  "id": "backlog-140-camera-onvif-rtsp-testing",
+  "task_file": "codex/tasks/backlog-140-camera-onvif-rtsp-testing.json",
+  "task_type": "backlog_slice",
+  "title": "IP Camera Testing \u2014 ONVIF Discovery, RTSP Stream Access, and Unauthenticated View",
+  "goal": "Discover IP cameras on the network via ONVIF, test whether RTSP streams are accessible without credentials, and check camera management interfaces for default credentials and unauthenticated access.",
+  "scope": "Create workers/runners/camera_test/runner.py: (1) ONVIF DISCOVERY: send WS-Discovery probe (UDP multicast to 239.255.255.250:3702 with SOAP envelope) to find ONVIF-compatible devices. Parse ProbeMatch responses for XAddrs (device service URLs). For each found camera: GET /onvif/device_service WSDL, extract device information (manufacturer, model, firmware). Check if GetDeviceInformation is accessible without auth (WS-Security). (2) RTSP STREAM TEST: for each host with port 554 open, test RTSP OPTIONS request (no auth needed for OPTIONS in many cameras). Test common RTSP paths without credentials: rtsp://host/live, /cam, /video, /stream, /h264, /channel1, /Streaming/Channels/1. Use Python opencv or standard socket to send RTSP DESCRIBE request. If 200 OK without auth, create CRITICAL finding: 'RTSP video stream accessible without authentication'. (3) CAMERA WEB INTERFACE: test port 80/8080/443 for camera web UIs. Send requests for common camera web paths: /cgi-bin/viewer/video.jpg, /snapshot.jpg, /image.jpg \u2014 if accessible without auth, CRITICAL finding. Test default credentials: admin/admin, admin/12345, admin/password, root/root, admin/empty for HTTP Basic and Digest auth. Add profile active-lan-camera-audit.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "User has Unifi cameras on the network. Unauthenticated RTSP access is a common misconfiguration where anyone on the network can view camera feeds. ONVIF is the standard protocol for IP cameras and allows complete control. Neither ONVIF nor RTSP is currently tested.",
+  "queue_index": 140,
+  "source_context": {
+    "queue_index": 140,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_iot_testing",
+    "source_documents": [
+      "workers/runners/httpx/runner.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only access testing. No video frame capture or storage. RTSP test sends OPTIONS and DESCRIBE only (no PLAY/SETUP). No PTZ control. No configuration changes.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "ONVIF WS-Discovery finds cameras on the network.",
+    "Camera manufacturer and model extracted from ONVIF response.",
+    "RTSP stream accessibility tested without credentials.",
+    "CRITICAL finding created for unauthenticated RTSP streams.",
+    "Camera web interface default credentials tested.",
+    "Profile active-lan-camera-audit added.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "workers/runners/camera_test/runner.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Video frame capture",
+    "Camera firmware exploitation",
+    "PTZ control",
+    "Recording deletion"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "ONVIF discovery works. RTSP accessibility tested. Unauthenticated access findings created."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

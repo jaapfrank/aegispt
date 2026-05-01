@@ -1,0 +1,116 @@
+{
+  "id": "backlog-78-visual-mission-preview-and-full-authorization",
+  "task_file": "codex/tasks/backlog-78-visual-mission-preview-and-full-authorization.json",
+  "task_type": "backlog_slice",
+  "title": "Visual Mission Preview Diagram and Full-Phase Authorization",
+  "goal": "Show the operator a clear visual diagram of exactly what will happen before they confirm \u2014 and allow a single comprehensive authorization that runs all phases including exploitation automatically without further interruptions.",
+  "scope": "Implement the final wizard step: a visual mission preview screen and a full-authorization confirmation. (1) VISUAL MISSION PREVIEW DIAGRAM: An SVG diagram rendered before confirmation showing the complete planned assessment as a vertical flow with connecting lines. Each phase is a card with: phase name, phase icon, list of tools with tool icons, estimated duration, and what type of findings to expect. Phases are connected by animated dotted lines. Colour coding per tier: passive=green, active=cyan, intrusive-credential=amber, exploitation=red. A horizontal 'scope bar' at the top shows discovered/configured targets as nodes. If multiple targets exist, lines extend from each tool card to the relevant target nodes \u2014 visually showing which tool runs against which target. The diagram is static (no live data) but uses the configured scope and selected assessment type to generate a meaningful picture. (2) AUTHORIZATION LEVEL SELECTOR at the bottom of the preview: Three options shown as cards: [Passive only \u2014 auto stops after Phase 1], [Active \u2014 auto stops before credential phase, requires approval to continue], [Full \u2014 operator authorises all phases including exploitation in one go]. The Full option shows an explicit confirmation text: 'I confirm I have written authorisation to run exploitation tools including Metasploit and Impacket against [scope]. This will run all phases automatically.' Operator must type the target domain/IP to confirm (not just click). (3) After Full authorization, Assessment Mode (backlog-76) runs all 4 phases without interruption. The kill switch remains available at all times. Phase completion events still appear in Mission Control AI Signal panel so the operator can watch progress.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The operator requested: 'there must be a visual image with pictures and lines explaining exactly what is going to happen' and 'I want this to also run automatically' for all phases including exploitation. The visual preview is the 'show me what you are going to do' screen. The full authorization confirmation is the single explicit consent that unlocks automatic execution through all phases \u2014 typed target confirmation ensures informed consent without being burdensome.",
+  "source_context": {
+    "queue_index": 78,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "UI_REDESIGN_SPEC.md",
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/ai_pentesting_agent_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_redesign",
+    "source_documents": [
+      "ui/assets/modules/wizard.js",
+      "ui/assets/styles.css",
+      "ui/index.html",
+      "api/app/services/assessment_chain.py",
+      "api/app/models/control.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Preview diagram is static \u2014 no live data, no backend calls. Full authorization requires typed target confirmation, not just a click. Kill switch always available. The authorization event is logged as an audit record with timestamp, actor, and confirmed scope.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_always_available": true,
+    "typed_confirmation_required_for_full_auth": true,
+    "authorization_audit_logged": true
+  },
+  "success_criteria": [
+    "Visual mission preview diagram renders as SVG with phase cards, tool icons, connecting lines, and colour-coded tier indicators.",
+    "Diagram shows which tools run against which targets.",
+    "Duration estimates are displayed per phase.",
+    "Authorization level selector shows three cards: Passive / Active / Full.",
+    "Full authorization requires typed target confirmation before enabling the confirm button.",
+    "Full authorization is logged as an audit event with actor, timestamp, and confirmed scope.",
+    "With Full authorization, Assessment Mode runs all 4 phases without interruption.",
+    "Kill switch halts all phases immediately regardless of authorization level.",
+    "Full Playwright suite remains green.",
+    "No backend schema changes beyond audit log entry."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "api/app/services/assessment_chain.py",
+    "api/app/routers/runs.py",
+    "api/app/services/audit.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Kill switch enforcement",
+    "Scope allowlist enforcement",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Preview diagram renders with phase cards and connecting lines.",
+      "Full authorization requires typed confirmation.",
+      "Authorization is audit-logged.",
+      "Full auto-run executes all 4 phases without interruption.",
+      "Kill switch halts immediately.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Wizard tile redesign (backlog-77) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with visual preview diagram and full-authorization implementation.",
+      "Update CURRENT_STATE.md with visual mission preview and full-phase authorization as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Live data in the preview diagram",
+    "Custom diagram layouts",
+    "Animation of the preview (static only)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

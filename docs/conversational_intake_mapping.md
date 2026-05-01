@@ -4,6 +4,8 @@
 
 The conversational intake translates plain-language operator answers into the existing deterministic run configuration. It does not create a second config model.
 
+Optional LLM intake intelligence can attach advisory interpretation metadata under `intake.llm_interpretation` when explicitly enabled. That metadata is not authoritative configuration: it cannot add targets, widen allowlists, assume credentials, approve packs, deploy packs, bind packs, dispatch tasks, or bypass the existing deterministic intake and run gates.
+
 ## Mapping model
 
 | Conversation topic | Primary run fields | Notes |
@@ -15,6 +17,7 @@ The conversational intake translates plain-language operator answers into the ex
 | Safety | `safety`, `intake_preferences.safety_posture` | conservative defaults may be inferred for low-risk inventory-first missions |
 | Boundaries | `exclusions`, `intake_preferences.boundary_handling`, `intake_preferences.lateral_discovery` | boundary notes and denylist values stay visible in scope/report context |
 | Output preference | `intake_preferences.output_style` | affects summary/report framing, not runtime safety |
+| Optional LLM interpretation | `intake.llm_interpretation` | advisory warnings, safe inferences, blocked suggestions, and follow-up questions only; no runtime or scope mutation |
 
 ## Inference rules
 
@@ -43,6 +46,7 @@ The intake must confirm or surface as still-needed anything that materially chan
   - within the authorized internal environment
   - subject to configured limits
   - report-only unless explicit follow-up approval exists
+- LLM-produced scope expansion, unconfirmed access assumptions, and pack approval or deployment language are recorded as blocked suggestions rather than being mapped into run fields
 
 ## Advanced synchronization
 

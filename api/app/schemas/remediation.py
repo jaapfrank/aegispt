@@ -42,6 +42,7 @@ class FindingRemediationRead(BaseModel):
     state: str
     notes: str | None
     owner: str | None
+    ai_fix_suggestion: str | None = None
     created_by: str
     updated_by: str
     created_at: datetime

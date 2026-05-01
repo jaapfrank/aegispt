@@ -1,0 +1,115 @@
+{
+  "id": "backlog-58-free-navigation-foundation",
+  "task_file": "codex/tasks/backlog-58-free-navigation-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Free Navigation Foundation",
+  "goal": "Remove the wizard-first mandatory gate so operators can navigate directly to any screen from the topbar at any time \u2014 while keeping the wizard as the recommended starting point for new engagements.",
+  "scope": "Change the navigation model so all screens (Mission Control, Findings + Evidence, Reports + Dossier, Surface Map, History, Settings) are reachable from the topbar at any time regardless of whether a wizard intake has been completed. The wizard remains the default landing screen when no engagement exists. When an engagement with at least one run exists, the topbar shows all screens as active links. Empty states on each screen guide the operator to the wizard if no relevant data exists yet \u2014 they do not block navigation. The phase bar (DEFINE / OPERATE / INSPECT) becomes a contextual indicator, not a navigation gate. Remove any JavaScript guards that prevent navigating to execution or analysis screens before an intake is complete. Preserve all existing test IDs and Playwright coverage by updating expectations where navigation guards are removed.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The current UI forces operators through the wizard before they can access Mission Control, Findings, or Reports. Operators returning to an existing engagement to review findings or download a report should not be forced to re-enter intake. Free navigation is standard in every enterprise SaaS product and is a prerequisite for the settings screen and the overall enterprise feel.",
+  "source_context": {
+    "queue_index": 58,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/living_system_experience_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ui_navigation",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/modules/runtime.js",
+      "ui/assets/modules/wizard.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Navigation gate removal only. Do not redesign screen layouts, add animations, add new screens, change API contracts, add backend endpoints, or change finding schema fields in this slice.",
+    "runtime_mutation": false,
+    "operator_control_required": false
+  },
+  "success_criteria": [
+    "All screens are navigable from the topbar without completing a wizard intake first.",
+    "The wizard remains the default landing screen when no engagement exists.",
+    "When an engagement with runs exists, Mission Control, Findings, Reports, Surface Map, and History are all directly reachable.",
+    "Navigating to an empty screen shows a helpful empty state with a link to the wizard \u2014 not a navigation block.",
+    "The phase bar (DEFINE / OPERATE / INSPECT) is a visual indicator of the selected screen's context, not a navigation gate.",
+    "The Settings screen (from backlog-57) is accessible at all times from the topbar.",
+    "All existing Playwright data-testid selectors continue to pass after navigation guard expectations are updated.",
+    "Full Playwright suite remains green.",
+    "No API contracts, backend code, or finding schema fields are changed."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/modules/runtime.js",
+    "ui/assets/modules/wizard.js",
+    "ui/assets/modules/mission-control.js",
+    "ui/index.html",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "finding schema fields",
+    "runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All screens reachable from topbar without wizard completion.",
+      "Wizard is default when no engagement exists, not a mandatory gate.",
+      "Empty states guide to wizard rather than blocking navigation.",
+      "Full Playwright suite is green.",
+      "No backend changes introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Operator settings screen foundation (backlog-57) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Navigation model change is documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with navigation gate removal and Playwright validation evidence.",
+      "Update CURRENT_STATE.md with free navigation as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Screen layout redesign",
+    "Screen consolidation (covered in backlog-59)",
+    "New screens or features",
+    "Backend changes",
+    "Animation changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,96 @@
+{
+  "id": "backlog-95-compliance-gap-advisor",
+  "task_file": "codex/tasks/backlog-95-compliance-gap-advisor.json",
+  "task_type": "backlog_slice",
+  "title": "Compliance Gap Advisor \u2014 What Is Covered and What Still Needs Human Certification",
+  "goal": "After every run, show operators exactly what the assessment covered per compliance framework, what gaps remain, and what requires a human auditor \u2014 so they can honestly answer 'are we compliant?' without overstating what a pentest tool can certify.",
+  "scope": "Add a Compliance Coverage panel to the Report Center for each compliance variant (SOC2, ISO27001, PCI DSS). For each framework, show three sections: (1) COVERED BY THIS ASSESSMENT: list of controls/requirements that were tested and have findings or confirmed-clean results. Green checkmarks. (2) NOT TESTED IN THIS RUN: controls that the framework requires but that were not in scope (e.g. physical security, HR processes, access provisioning workflows). Amber indicators. Explanation: 'This control requires organisational process review, not a technical scan.' (3) REQUIRES HUMAN AUDITOR: explicit list of what a pentest tool structurally cannot certify \u2014 SOC2 Type II opinion (requires CPA), ISO27001 certification (requires accredited body), PCI DSS Report on Compliance (requires QSA), NIS2 compliance declaration (requires risk management programme). These are shown as a permanent advisory block in every compliance report. Also add: (4) COVERAGE PERCENTAGE: 'This assessment covered 14 of 47 PCI DSS v4.0 requirements in scope for web application testing.' Honest about what was not tested. (5) NEXT STEPS for each gap: 'To complete SOC2 coverage: engage a licensed CPA firm for Type II audit, schedule annual penetration test, implement access review process.'",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The current SOC2/ISO27001/PCI DSS reports do not tell operators what they cannot certify. A client could incorrectly believe a passed AegisPT scan means SOC2 compliance. The compliance gap advisor prevents this misunderstanding, protects AegisPT from liability, and adds genuine value by telling operators exactly what they still need to do.",
+  "source_context": {
+    "queue_index": 99,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/ui_report_center.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "compliance",
+    "source_documents": [
+      "api/app/services/reports.py",
+      "ui/assets/modules/reports.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Advisory display only. No new certifications or compliance claims. Coverage percentage is based on testable technical controls only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Compliance coverage panel shows covered/not-tested/requires-auditor sections for SOC2, ISO27001, PCI DSS.",
+    "Coverage percentage is shown for each framework.",
+    "Human-auditor requirement block appears in every compliance report.",
+    "Next steps list is actionable and framework-specific.",
+    "Tests verify advisory boundaries are not overstated.",
+    "Full test suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "ui/assets/modules/reports.js",
+    "api/tests/test_reports.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Making compliance certification claims",
+    "Finding schema fields",
+    "pack registry"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Three-section compliance panel renders.",
+      "Coverage percentage shown.",
+      "Human-auditor block always present.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Report quality overhaul (backlog-94) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with compliance gap advisor.",
+      "Update CURRENT_STATE.md with compliance gap advisor as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "TIBER-EU/DORA compliance (covered in backlog-97)",
+    "NIS2 evidence package (backlog-96)",
+    "Making any certification claims"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

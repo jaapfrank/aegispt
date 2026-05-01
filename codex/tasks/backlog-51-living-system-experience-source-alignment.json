@@ -1,0 +1,103 @@
+{
+  "id": "backlog-51-living-system-experience-source-alignment",
+  "task_file": "codex/tasks/backlog-51-living-system-experience-source-alignment.json",
+  "task_type": "backlog_slice",
+  "title": "Living System Experience Source Alignment",
+  "goal": "Absorb LIVING_SYSTEM_EXPERIENCE.md into governed scope-alignment documentation and extend TASK_QUEUE.md with the implementation slices it defines, without activating any animation, UI change, or new runtime behavior.",
+  "scope": "Create docs/living_system_experience_scope_alignment.md that records the animation philosophy, the spider metaphor design language, the scan-map SVG concept, the AI signal panel typing pattern, the micro-interaction inventory, and the sound-design opt-in boundary. Update docs/product_recommendations_scope_alignment.md to reference the new alignment doc. Do not implement any CSS animation, JS change, new component, or backend modification in this slice.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "LIVING_SYSTEM_EXPERIENCE.md defines a complete animation and experience philosophy that needs to be absorbed into governed documentation before implementation slices begin, following the same pattern used for AI_PENTESTING_AGENT.md in backlog-39.",
+  "source_context": {
+    "queue_index": 51,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "living_system_experience",
+    "source_documents": [
+      "LIVING_SYSTEM_EXPERIENCE.md",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Documentation and scope alignment only. Do not implement CSS animations, JS changes, new UI components, backend changes, audio API usage, or SVG scan map elements in this slice.",
+    "runtime_mutation": false,
+    "operator_control_required": false
+  },
+  "success_criteria": [
+    "docs/living_system_experience_scope_alignment.md exists and records the animation philosophy, spider metaphor, scan-map concept, AI signal panel pattern, micro-interaction inventory, sound-design boundary, and implementation priority order.",
+    "docs/product_recommendations_scope_alignment.md references the new alignment doc.",
+    "No CSS, JS, HTML, Python, or migration files are changed.",
+    "Validation script passes with the new queue entries."
+  ],
+  "likely_touched_files": [
+    "docs/living_system_experience_scope_alignment.md",
+    "docs/product_recommendations_scope_alignment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "ui/assets/styles.css",
+    "ui/assets/app.js",
+    "ui/assets/modules/",
+    "ui/index.html",
+    "api/",
+    "workers/",
+    "migrations/",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Alignment doc exists and covers all major sections from LIVING_SYSTEM_EXPERIENCE.md.",
+      "No UI, backend, or worker code was changed.",
+      "Validation script passes with updated queue."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Controlled multi-agent orchestration preparation foundation (backlog-50) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "LIVING_SYSTEM_EXPERIENCE.md is present in the repo root."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with alignment doc creation and scope boundaries.",
+      "Update CURRENT_STATE.md with living-system-experience as a governed direction without active implementation.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Any CSS animation or transition implementation",
+    "SVG scan map component",
+    "AI signal panel typing effect",
+    "Sound design Web Audio API usage",
+    "UI structural changes",
+    "Backend or worker changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

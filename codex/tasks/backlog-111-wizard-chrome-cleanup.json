@@ -1,0 +1,107 @@
+{
+  "id": "backlog-111-wizard-chrome-cleanup",
+  "task_file": "codex/tasks/backlog-111-wizard-chrome-cleanup.json",
+  "task_type": "backlog_slice",
+  "title": "Wizard Chrome Cleanup \u2014 Remove Old Conversational Frame from Tile-Based Intake",
+  "goal": "Remove the old conversational wizard chrome that still wraps the assessment tiles \u2014 specifically the 'Hello. What would you like to pentest today?' AI greeting, the old 5-step progress bar (Intent & Type / Scope / Access / Safety / Confirm), and the screen heading 'Conversational Mission Intake' \u2014 and replace with the clean 4-step flow from wizard_mockup.html.",
+  "scope": "The wizard was updated in backlog-77 to add assessment tiles, but the old conversational chrome was not removed. This slice removes the remnants and aligns the intake with wizard_mockup.html Step 1. Specific changes: (1) HEADING: Replace 'Conversational Mission Intake' with 'What do you want to test?' as the primary H1. (2) STEP INDICATOR: Replace the old 5-step bar (Intent & Type / Scope / Access / Safety / Confirm) with the 4-step indicator from the mockup: 1 Assessment \u2192 2 Target & Depth \u2192 3 Preview \u2192 4 Authorise. (3) REMOVE AI GREETING: Remove 'Hello. What would you like to pentest today?' and the guidance text above the tiles. The tiles themselves are self-explanatory. (4) ADD RECENT MISSIONS ROW: A 'Recent Missions' section above the tiles showing the last 3 engagements as quick-start cards (name, last target, date). Clicking a recent mission pre-fills Step 2 with its configuration. (5) ADD SELECTION BAR: Show a 'Selected: [Internal LAN \u00d7] [Active Directory \u00d7] [Clear all]' bar below the section header when one or more tiles are selected. (6) REMOVE WRITE YOUR OWN ANSWER: Remove the text input below the tiles. (7) REMOVE MISSION PROGRESS TEXT: Remove the 'MISSION PROGRESS: Still to confirm...' paragraph below the tiles. (8) TILE LAYOUT: Ensure all 8 tiles are visible in a 3-column grid (not 4) at 1440px viewport without scrolling. The mockup uses 3 columns so all tiles fit. (9) RIGHT DESCRIPTION: Remove the right-side description text ('Describe the mission in plain language. Advanced controls stay available...'). This space can be used for the Recent Missions or left clean.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Full visual comparison between wizard_mockup.html and the current intake shows the old conversational wizard chrome still wraps the tiles. The result is a confusing hybrid: tiles from backlog-77 inside the old 5-step AI wizard structure. The heading still says 'Conversational Mission Intake', the old step bar is still there, and the AI greeting message is still visible above the tiles. This single slice aligns the intake with the mockup design without touching the tile selection logic or the step 2/3/4 flow (those remain in backlog-78).",
+  "source_context": {
+    "queue_index": 83,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "wizard_mockup.html",
+      "UI_REDESIGN_SPEC.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_redesign",
+    "source_documents": [
+      "ui/assets/modules/wizard.js",
+      "ui/assets/styles.css",
+      "wizard_mockup.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Wizard chrome removal and step 1 alignment only. Do not implement step 2 questions, step 3 preview diagram, or step 4 authorization (those are in backlog-78). Do not change tile selection logic. All existing run-profile mapping from tile selection must be preserved.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Heading reads 'What do you want to test?' not 'Conversational Mission Intake'.",
+    "4-step indicator shows: 1 Assessment \u2192 2 Target & Depth \u2192 3 Preview \u2192 4 Authorise.",
+    "'Hello. What would you like to pentest today?' AI greeting removed.",
+    "Old 5-step bar (Intent & Type / Scope / Access / Safety / Confirm) removed.",
+    "Recent Missions row shows last 3 engagements as quick-start cards.",
+    "Selection bar appears when 1+ tiles selected.",
+    "'Write your own answer' input removed.",
+    "'MISSION PROGRESS' paragraph removed.",
+    "All 8 tiles visible without scrolling at 1440px in 3-column grid.",
+    "Full Playwright suite remains green after expectation updates.",
+    "No backend or schema changes."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Tile selection logic",
+    "Run profile mapping from tiles",
+    "api/",
+    "workers/",
+    "migrations/",
+    "pack registry"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Heading and step indicator match wizard_mockup.html Step 1.",
+      "Old AI greeting and 5-step bar removed.",
+      "All 8 tiles visible without scroll.",
+      "Recent Missions row present.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "UI visual polish round 2 (backlog-110) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with wizard chrome cleanup.",
+      "Update CURRENT_STATE.md with clean tile intake as active baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Step 2 target/depth questions (backlog-78)",
+    "Step 3 visual preview diagram (backlog-78)",
+    "Step 4 authorization flow (backlog-78)",
+    "Light content background (separate styling decision)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

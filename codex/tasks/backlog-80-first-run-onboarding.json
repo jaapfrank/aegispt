@@ -1,0 +1,101 @@
+{
+  "id": "backlog-80-first-run-onboarding",
+  "task_file": "codex/tasks/backlog-80-first-run-onboarding.json",
+  "task_type": "backlog_slice",
+  "title": "First-Run Onboarding Experience",
+  "goal": "Guide a new operator through initial setup in 3 steps so they can run their first scan within 5 minutes of installation \u2014 without reading documentation.",
+  "scope": "Implement a first-run onboarding flow that appears when: no engagements exist AND onboarding_completed flag is not set in instance_settings. The flow is a modal overlay with 3 steps: STEP 1 \u2014 WELCOME: Product name, one-sentence mission statement, 'Start setup' button. STEP 2 \u2014 QUICK SETUP (3 items, each optional/skippable): (a) Connect AI provider \u2014 ChatGPT OAuth button or 'Skip for now'; (b) Set default network scope \u2014 LAN CIDR input with common presets (10.0.0.0/8, 192.168.0.0/16, 172.16.0.0/12) and 'Skip'; (c) Actor name input (defaults to hostname). STEP 3 \u2014 READY: Summary of what was configured, a 'Run your first scan \u2192' button that opens the wizard with the configured defaults pre-filled, and a 'Explore first' button that dismisses to the Dashboard. The onboarding modal can be re-triggered from Settings > Instance > 'Re-run onboarding'. A setup completion checklist widget appears on the Dashboard until all items are completed: [ ] Connect AI provider [ ] Set default scope [ ] Run first scan [ ] Review first finding.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "First-time operator experience is currently a blank wizard with no guidance. Every serious product has an onboarding flow. NodeZero, Aikido, and Cobalt all have guided setup. Without it, new operators are dropped into a complex interface with no clear starting point.",
+  "source_context": {
+    "queue_index": 81,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "operator_experience",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/modules/settings.js",
+      "api/app/services/settings.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Onboarding modal and setup checklist only. No new backend endpoints beyond instance_settings. All steps are optional/skippable. Does not appear if any engagement exists.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Onboarding modal appears on first launch with no engagements.",
+    "All 3 steps complete in under 2 minutes.",
+    "All steps are skippable.",
+    "onboarding_completed flag prevents repeated display.",
+    "Setup checklist widget on Dashboard shows completion status.",
+    "Re-trigger from Settings works.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/assets/modules/settings.js",
+    "ui/assets/styles.css",
+    "api/app/services/settings.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/ beyond instance_settings",
+    "workers/",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Onboarding appears on first launch.",
+      "All steps skippable.",
+      "Checklist widget on Dashboard.",
+      "Full Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "UI quality overhaul (backlog-85) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with onboarding implementation.",
+      "Update CURRENT_STATE.md with first-run onboarding as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Video tutorials",
+    "In-app documentation browser",
+    "Multi-step product tour overlay on existing screens"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

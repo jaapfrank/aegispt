@@ -20,18 +20,37 @@ pkill -f "uvicorn api.app.main:create_app --factory --host ${HOST} --port ${PORT
 
 export PYTHONUNBUFFERED=1
 export TASK_DISPATCH_MODE="${TASK_DISPATCH_MODE:-inline}"
+export INLINE_DISPATCH_BACKGROUND="${INLINE_DISPATCH_BACKGROUND:-true}"
+export RUNNER_TIMEOUT_SECONDS="${RUNNER_TIMEOUT_SECONDS:-60.0}"
 export ARTIFACTS_STORAGE_MODE="${ARTIFACTS_STORAGE_MODE:-inline}"
 export APP_PUBLIC_BASE_URL="${BASE_URL}"
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/aegispt/ms-playwright}"
+export ZAP_BASE_URL="${ZAP_BASE_URL:-http://127.0.0.1:8080}"
+export ZAP_API_KEY="${ZAP_API_KEY:-change-me-zap-key}"
+export AEGISPT_LOCAL_ENSURE_ZAP="${AEGISPT_LOCAL_ENSURE_ZAP:-1}"
 
 bash "${REPO_ROOT}/scripts/ensure_playwright_chromium.sh"
+if [[ "${AEGISPT_LOCAL_ENSURE_ZAP}" == "1" ]]; then
+  bash "${REPO_ROOT}/scripts/ensure_local_zap_daemon.sh"
+fi
+"${REPO_ROOT}/.venv/bin/python" "${REPO_ROOT}/scripts/repair_local_sqlite_schema.py"
+"${REPO_ROOT}/.venv/bin/python" -m alembic upgrade head
 
-nohup "${REPO_ROOT}/.venv/bin/python" -m uvicorn \
-  api.app.main:create_app \
-  --factory \
-  --host "${HOST}" \
-  --port "${PORT}" \
-  >"${LOG_PATH}" 2>&1 &
+if command -v setsid >/dev/null 2>&1; then
+  setsid "${REPO_ROOT}/.venv/bin/python" -m uvicorn \
+    api.app.main:create_app \
+    --factory \
+    --host "${HOST}" \
+    --port "${PORT}" \
+    >"${LOG_PATH}" 2>&1 < /dev/null &
+else
+  nohup "${REPO_ROOT}/.venv/bin/python" -m uvicorn \
+    api.app.main:create_app \
+    --factory \
+    --host "${HOST}" \
+    --port "${PORT}" \
+    >"${LOG_PATH}" 2>&1 < /dev/null &
+fi
 
 for ((i=1; i<=WAIT_SECONDS; i+=1)); do
   if curl --fail --silent "${HEALTH_URL}" >/dev/null 2>&1; then

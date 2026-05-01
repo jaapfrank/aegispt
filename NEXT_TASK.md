@@ -2,74 +2,48 @@
 
 ## Title
 
-Remediation Tracking and Single-Finding Retest Foundation
+Fix Jira 404 console error fired on every findings drawer open when Jira not configured
 
 ## Promoted From
 
-`codex/tasks/backlog-02-remediation-status-and-single-finding-retest.json`
+`codex/tasks/backlog-157-jira-404-console-error-findings-drawer.json`
 
 ## Goal
 
-Add a first-class remediation loop without redefining the existing finding schema by introducing additive remediation tracking, linked retest runs, and proof-of-resolution output.
+In the findings drawer JS, change the Jira integration status fetch from api() to apiOrNull() so a 404 does not produce a browser console error. Alternatively, check cached state.settings.integrations.jira_base_url before calling - if null or empty, skip the Jira fetch entirely and show a static "Configure Jira in Settings" hint without an API roundtrip.
 
 ## Scope
 
-Implement the first remediation slice by adding an additive remediation tracking model tied to findings, a single-finding retest launch path linked back to the original finding, and a proof-of-resolution report variant that reuses the existing evidence, reporting, and provenance structures.
+Implement the active backlog package `codex/tasks/backlog-157-jira-404-console-error-findings-drawer.json`.
+
+Expected slice:
+
+- prevent a missing Jira configuration from producing browser console 404 noise on every finding drawer open
+- keep the "Configure Jira in Settings" guidance visible when Jira is unconfigured
+- keep the configured-Jira fetch and handoff behavior working
+- do not broaden Jira integration behavior beyond this drawer-console bug
 
 ## Constraints
 
-- work only inside this remediation closure slice
-- do not silently reprioritize `TASK_QUEUE.md`
-- do not add untracked future work
-- keep the slice to additive remediation tracking, one finding-scoped retest path, and proof-of-resolution output
-- defer batch retest orchestration, ticketing integrations, and broader workflow automation
-- do not expand the existing `FindingUpdate.status` literal
-- use an additive remediation record or equivalent additive metadata layer instead of redefining finding schema fields
-- keep Prompt 1, Prompt 2, Prompt 3, the deterministic run model, and runtime safety controls authoritative
-
-## Success Criteria
-
-- operators can record remediation state and notes for a finding without changing the existing finding status contract
-- a single-finding retest run can be launched and linked back to its source finding and source run
-- proof-of-resolution output shows the original finding, remediation notes, retest evidence, and verification timestamp in one report path
-- Findings Theater and report surfaces expose the remediation and retest linkage truthfully
-- API, report, and browser tests cover the additive remediation path
-
-## Likely Touched Files
-
-- `api/app/models/control.py`
-- `api/app/routers/findings.py`
-- `api/app/services/reports.py`
-- `api/app/services/finding_views.py`
-- `ui/assets/modules/findings.js`
-- `api/tests/test_reports.py`
-- `ui/tests/test_operator_console_e2e.py`
-- `CURRENT_STATE.md`
-- `DONE_LOG.md`
-- `NEXT_TASK.md`
-
-## Must Not Touch
-
-- `api/app/methodology.py`
-- `api/app/schemas/findings.py`
-- `api/app/services/packs.py`
-- `workers/orchestration/findings.py`
-- `workers/orchestration/tasks.py`
-- Prompt 1 / Prompt 2 methodology and adaptive-pack foundations
-- runtime self-modification
-- arbitrary public-target expansion
-
-## Out Of Scope
-
-- batch retest or retest-all orchestration
-- Jira, ServiceNow, Slack, or Teams integration
-- automatic SLA enforcement
-- changes to the existing `FindingUpdate.status` enum
-- remediation SLA dashboards or enterprise workflow automation
+- Keep Prompt 1 and Prompt 2 intact.
+- Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
+- No runtime self-modification.
+- Fix only the specific bug described.
+- Do not use this task for broad redesign.
+- Do not install new tools.
+- Do not run live customer or intrusive targets.
+- Do not change unrelated schemas or prompts.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest --capture=no api/tests/test_reports.py api/tests/test_runs.py`
-- `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
+- No regression in Jira handoff tests.
+
+## Acceptance
+
+- Opening finding drawer with Jira unconfigured produces no 404 console error.
+- Drawer still shows "Configure Jira in Settings" when unconfigured.
+- When Jira IS configured the fetch runs normally.
+- No regression in Jira handoff tests.

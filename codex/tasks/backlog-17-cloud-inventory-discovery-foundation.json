@@ -1,0 +1,110 @@
+{
+  "id": "backlog-17-cloud-inventory-discovery-foundation",
+  "task_file": "codex/tasks/backlog-17-cloud-inventory-discovery-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Cloud Inventory Discovery Foundation",
+  "goal": "Add the first read-only cloud inventory discovery slice while preserving the existing approval-aware runtime and inventory model.",
+  "scope": "Implement one read-only cloud inventory provider slice, preferably AWS first unless a future active task explicitly selects another provider, collecting limited account/resource metadata into existing inventory structures. Do not perform exploitation, mutation, credential harvesting, or cloud-to-on-prem attack chaining.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 17,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/identity_model.md",
+      "docs/inventory_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "cloud_identity_expansion",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/identity_model.md",
+      "docs/inventory_model.md",
+      "docs/competitive_landscape_2026.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Implement one read-only cloud inventory slice only. Defer IAM attack paths, mutation, exploitation, Kubernetes, and multi-cloud expansion.",
+    "runtime_mutation": false,
+    "read_only_cloud_access": true,
+    "notes": [
+      "Cloud credentials must use protected secret binding patterns.",
+      "Inventory output must reuse existing inventory/report surfaces before adding new surfaces."
+    ]
+  },
+  "success_criteria": [
+    "One cloud provider read-only discovery path is implemented or made decision-complete for implementation.",
+    "Collected resources normalize into existing inventory structures or documented additive fields.",
+    "The run profile and task planning remain approval-aware and scoped.",
+    "No cloud resources are modified, exploited, or chained into active attack paths.",
+    "Tests cover deterministic fixture output and unsafe/missing-credential behavior."
+  ],
+  "likely_touched_files": [
+    "api/app/services/inventory.py",
+    "api/app/services/run_profiles.py",
+    "workers/orchestration/tasks.py",
+    "docs/inventory_model.md",
+    "docs/identity_model.md",
+    "api/tests/test_runs.py",
+    "workers/tests",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "pack registry and runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "live runtime mutation controls"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py workers/tests",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The provider slice is read-only and scoped.",
+      "Inventory is evidence-backed and visible through existing surfaces.",
+      "No cloud mutation or exploitation is possible in this slice."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "A single provider and read-only resource boundary are selected."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with cloud discovery changes and validation evidence.",
+      "Update CURRENT_STATE.md with the cloud inventory baseline and remaining cloud risks.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Cloud exploitation",
+    "Cloud resource mutation",
+    "Kubernetes testing",
+    "Multi-cloud in one slice",
+    "IAM attack-path inference"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

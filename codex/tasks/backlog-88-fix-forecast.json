@@ -1,0 +1,104 @@
+{
+  "id": "backlog-88-fix-forecast",
+  "task_file": "codex/tasks/backlog-88-fix-forecast.json",
+  "task_type": "backlog_slice",
+  "title": "Fix Forecast \u2014 Interactive Remediation Impact Calculator",
+  "goal": "Let operators see their projected risk score in real-time as they mark findings as fixed \u2014 a split-screen before/after view where checking off fixes instantly shows the impact on the risk score.",
+  "scope": "Add a Fix Forecast view to the Problems Center (backlog-84) or as a tab in Reports + Dossier. Layout: (1) Left panel (NOW): current risk score as a large red number + severity bars + list of open findings with severity dot, name, and impact score. (2) Right panel (AFTER): a green projected score that live-updates as operator checks off fixes. Each checked finding: strikes through in the left panel, shows as resolved in the right. (3) Diff notes appear: 'Risk drops from 72 to 18', 'Below 30 threshold achieved', 'X findings resolved'. (4) The risk score uses the exposure score calculation from backlog-69 \u2014 deterministic, no AI call. (5) Checks are in-session only (not saved) \u2014 this is a planning tool, not a state change. Actual status changes go through the existing remediation workflow. (6) A 'Create Retest Plan' button at the bottom converts checked items into a batch retest plan (using existing backlog-37 retest planning). The cinema_mockup.html Fix Forecast tab is the visual reference.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The cinema_mockup.html Fix Forecast concept shows a split before/after remediation impact view. No competitor makes remediation impact interactive and immediate. This is the 'show me what happens if I fix X' answer that security managers ask every time they review a pentest report. It turns the risk score into a planning tool.",
+  "source_context": {
+    "queue_index": 92,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "cinema_mockup.html",
+      "PRODUCT_RECOMMENDATIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "remediation",
+    "source_documents": [
+      "cinema_mockup.html",
+      "api/app/services/exposure_score.py",
+      "ui/assets/modules/findings.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "In-session planning tool only. Checks do not save finding status changes \u2014 those go through existing remediation workflow. No new API calls for score calculation \u2014 derive from existing finding data in state. No AI calls.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Fix Forecast view accessible from Problems Center or Reports.",
+    "Left panel shows current score and open findings.",
+    "Right panel shows live-updating projected score as findings are checked.",
+    "Score animation plays on value change.",
+    "Checked findings strike through in left panel.",
+    "Diff notes appear showing impact.",
+    "Checks are in-session only \u2014 no finding status changes.",
+    "Create Retest Plan converts checked items to batch retest.",
+    "No new backend endpoints.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/problems.js",
+    "ui/assets/styles.css",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "migrations/",
+    "Finding status fields \u2014 session-only checks",
+    "pack registry"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Split view renders.",
+      "Score live-updates on check.",
+      "No finding status saved.",
+      "Playwright green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Risk Molecule (backlog-87) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Fix Forecast implementation.",
+      "Update CURRENT_STATE.md with Fix Forecast as active planning tool.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Saving forecast results",
+    "AI-generated fix predictions",
+    "Multi-scenario comparison"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

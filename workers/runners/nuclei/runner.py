@@ -24,10 +24,42 @@ http:
           - 200
 """
 CURATED_TEMPLATE_SOURCE = "aegispt-curated"
+DEFAULT_TEMPLATE_ID = "aegispt-http-status-200"
+DEFAULT_TEMPLATE_FILENAME = "aegispt-http-status-200.yaml"
+
+INFRASTRUCTURE_NUCLEI_TEMPLATE = """id: aegispt-infrastructure-management-surfaces
+info:
+  name: AegisPT Infrastructure Management Surface Baseline
+  author: aegispt
+  severity: medium
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: or
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "Remote Desktop"
+          - "OpenSSH"
+          - "VPN"
+          - "Fortinet"
+          - "Citrix"
+          - "VMware"
+      - type: word
+        part: header
+        words:
+          - "Server"
+"""
+INFRASTRUCTURE_TEMPLATE_ID = "aegispt-infrastructure-management-surfaces"
+INFRASTRUCTURE_TEMPLATE_FILENAME = "aegispt-infrastructure-management-surfaces.yaml"
+INFRASTRUCTURE_TEMPLATE_SOURCE = "aegispt-curated-infrastructure"
 
 
-def curated_nuclei_template_sha256() -> str:
-    return sha256(DEFAULT_NUCLEI_TEMPLATE.encode("utf-8")).hexdigest()
+def curated_nuclei_template_sha256(template_body: str = DEFAULT_NUCLEI_TEMPLATE) -> str:
+    return sha256(template_body.encode("utf-8")).hexdigest()
 
 
 def build_nuclei_command(
@@ -91,6 +123,10 @@ def execute_nuclei_scan(
     rate_limit: int = 1,
     timeout_seconds: float = 10.0,
     binary: str = "nuclei",
+    template_body: str | None = DEFAULT_NUCLEI_TEMPLATE,
+    template_id: str | None = DEFAULT_TEMPLATE_ID,
+    template_source: str | None = CURATED_TEMPLATE_SOURCE,
+    template_filename: str | None = DEFAULT_TEMPLATE_FILENAME,
 ) -> RunnerExecution:
     if not targets:
         raise ValueError("at least one target is required")
@@ -100,13 +136,17 @@ def execute_nuclei_scan(
         raise ValueError("targets must not be blank")
 
     with tempfile.TemporaryDirectory(prefix="aegispt-nuclei-") as temp_dir_name:
+        effective_template_body = template_body or DEFAULT_NUCLEI_TEMPLATE
+        effective_template_id = template_id or DEFAULT_TEMPLATE_ID
+        effective_template_source = template_source or CURATED_TEMPLATE_SOURCE
+        effective_template_filename = template_filename or DEFAULT_TEMPLATE_FILENAME
         temp_dir = Path(temp_dir_name)
         targets_file = temp_dir / "targets.txt"
-        template_file = temp_dir / "aegispt-http-status-200.yaml"
+        template_file = temp_dir / effective_template_filename
         output_file = temp_dir / "nuclei-results.jsonl"
 
         targets_file.write_text("\n".join(normalized_targets) + "\n", encoding="utf-8")
-        template_file.write_text(DEFAULT_NUCLEI_TEMPLATE, encoding="utf-8")
+        template_file.write_text(effective_template_body, encoding="utf-8")
 
         command = build_nuclei_command(
             binary=binary,
@@ -143,9 +183,9 @@ def execute_nuclei_scan(
                 "timeout_seconds": timeout_seconds,
                 "tool_version": get_nuclei_version(binary),
                 "runner_digest": "workers.nuclei.runner:v1",
-                "template_id": "aegispt-http-status-200",
-                "template_source": CURATED_TEMPLATE_SOURCE,
-                "template_sha256": curated_nuclei_template_sha256(),
+                "template_id": effective_template_id,
+                "template_source": effective_template_source,
+                "template_sha256": curated_nuclei_template_sha256(effective_template_body),
             },
             artifacts=[artifact],
         )

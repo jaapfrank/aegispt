@@ -1,0 +1,104 @@
+{
+  "id": "backlog-40-ai-agent-reasoning-ledger-foundation",
+  "task_file": "codex/tasks/backlog-40-ai-agent-reasoning-ledger-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "AI Agent Reasoning Ledger Foundation",
+  "goal": "Create the additive persistence and schema foundation for AI reasoning and proposal audit records.",
+  "scope": "Add disabled-by-default, additive AgentReasoning and AgentProposal data structures, migrations, schemas, and read-safe service helpers that can store AI observations, hypotheses, proposals, context snapshots, provider metadata, confidence, and review status without dispatching any new runtime work.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md calls for auditable AgentReasoning and AgentProposal records before any reasoning loop can be safely activated.",
+  "source_context": {
+    "queue_index": 40,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_reasoning_audit_foundation",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Ledger only. Do not run LLM calls, dispatch proposals, auto-approve actions, or change worker runtime behavior.",
+    "runtime_mutation": false,
+    "operator_control_required": true
+  },
+  "success_criteria": [
+    "AgentReasoning and AgentProposal records are additive and linked to existing run/task context where appropriate.",
+    "Stored context snapshots and proposal outputs are auditable without mutating original evidence.",
+    "Provider metadata and failure states are representable without requiring a live provider.",
+    "Tests cover creation, retrieval, and immutability of evidence/source records.",
+    "Docs define the ledger as inactive until later reasoning/proposal tasks are promoted."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/models/__init__.py",
+    "api/app/schemas/runs.py",
+    "api/app/services/ai_enrichment.py",
+    "api/tests/test_ai_agent_reasoning.py",
+    "migrations/versions",
+    "docs/ai_pentesting_agent_scope_alignment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime execution dispatch"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Reasoning/proposal records are additive and auditable.",
+      "No AI provider call or proposal dispatch runs in this slice.",
+      "Canonical evidence and finding fields remain unchanged."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "AI Pentesting Agent source alignment is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The ledger field set is reviewed against existing evidence/provenance models."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with reasoning-ledger changes and validation evidence.",
+      "Update CURRENT_STATE.md with the inactive AI reasoning ledger baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "LLM provider wiring",
+    "Post-task callbacks",
+    "Proposal approval UI",
+    "Automatic task queueing",
+    "Finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

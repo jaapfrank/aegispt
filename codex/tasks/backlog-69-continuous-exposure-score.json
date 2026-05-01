@@ -1,0 +1,116 @@
+{
+  "id": "backlog-69-continuous-exposure-score",
+  "task_file": "codex/tasks/backlog-69-continuous-exposure-score.json",
+  "task_type": "backlog_slice",
+  "title": "Continuous Exposure Score Foundation",
+  "goal": "Give every engagement a live, single-number exposure score that updates after each run \u2014 showing risk posture trend over time and making the 'are we getting better?' question answerable at a glance.",
+  "scope": "Implement: (1) An ExposureScore model per engagement: engagement_id, score (0\u2013100), severity_breakdown, open_critical_count, open_high_count, remediated_count, verified_count, trend (improving/stable/worsening), computed_at, run_id. (2) A score computation service api/app/services/exposure_score.py that derives the score from open findings weighted by severity (critical=10, high=5, medium=2, low=0.5), adjusted for remediation progress (verified findings reduce the score), and normalised to 0\u2013100. Higher score = worse posture. (3) Score is recomputed after every run completion and after every finding status change. (4) GET /api/v1/engagements/{id}/exposure-score returns current score and last 10 score history points. (5) A score trend sparkline widget in the sidebar below the engagement selector, and a score gauge on the Mission Control screen. (6) A score history panel in History/Comparison showing score over time across all runs for the engagement. The score is advisory \u2014 it is never used to gate runs or approvals. It complements, not replaces, individual findings.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "XM Cyber, Pentera, and NodeZero all show a continuous risk/exposure score. It is the single metric that a CISO looks at to answer 'are we improving?'. AegisPT shows individual findings but has no aggregate risk posture metric. The exposure score transforms AegisPT from a point-in-time scanner into a continuous posture platform \u2014 which is what the Gartner AEV category requires.",
+  "source_context": {
+    "queue_index": 69,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "risk_posture",
+    "source_documents": [
+      "api/app/models/control.py",
+      "api/app/services/finding_views.py",
+      "api/app/services/runs.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Score is advisory only \u2014 never gates runs, approvals, or pack deployment. Score computation is deterministic from existing finding and remediation data \u2014 no external calls. Score never overclaims risk reduction or security posture.",
+    "runtime_mutation": false,
+    "operator_control_required": false,
+    "advisory_only": true
+  },
+  "success_criteria": [
+    "ExposureScore model exists with Alembic migration.",
+    "Score is recomputed after run completion and finding status change.",
+    "GET /api/v1/engagements/{id}/exposure-score returns score and 10-point history.",
+    "Score gauge is visible in Mission Control.",
+    "Score sparkline is visible in the sidebar or topbar.",
+    "Score history panel in History/Comparison shows trend across runs.",
+    "Score never gates any operation.",
+    "Score labels include explicit advisory/no-guarantee language.",
+    "Tests cover score computation, trend detection, and history endpoint.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/services/exposure_score.py",
+    "api/app/routers/engagements.py",
+    "api/app/schemas/engagements.py",
+    "migrations/versions/20260423_0020_exposure_score.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/explorer-history.js",
+    "ui/assets/styles.css",
+    "api/tests/test_exposure_score.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Score gating runs or approvals",
+    "External risk scoring APIs",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_exposure_score.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Score computed correctly from findings.",
+      "History endpoint returns 10 points.",
+      "Score gauge visible in Mission Control.",
+      "No gating behavior.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "SIEM integration foundation (backlog-68) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with exposure score implementation.",
+      "Update CURRENT_STATE.md with continuous exposure score as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Gating runs on score thresholds",
+    "External risk benchmarking",
+    "Certified security posture claims"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

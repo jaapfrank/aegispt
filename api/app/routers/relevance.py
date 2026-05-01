@@ -12,6 +12,7 @@ from api.app.models import Engagement, InventorySnapshot, RelevanceDecision, Thr
 from api.app.schemas.relevance import RelevanceAnalyzeCreate, RelevanceDecisionRead
 from api.app.services.audit import write_audit_event
 from api.app.services.relevance import analyze_relevance
+from api.app.services.tenancy import get_current_tenant_id, load_engagement_for_tenant
 
 router = APIRouter(prefix="/api/v1", tags=["relevance"])
 
@@ -20,7 +21,9 @@ router = APIRouter(prefix="/api/v1", tags=["relevance"])
 def list_relevance_decisions(
     engagement_id: UUID,
     session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> list[RelevanceDecisionRead]:
+    load_engagement_for_tenant(session, engagement_id, tenant_id)
     decisions = session.scalars(
         select(RelevanceDecision)
         .where(RelevanceDecision.engagement_id == engagement_id)
@@ -34,10 +37,9 @@ def analyze_inventory_relevance(
     payload: RelevanceAnalyzeCreate,
     session: Session = Depends(get_session),
     actor: str = Depends(get_current_actor),
+    tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> RelevanceDecisionRead:
-    engagement = session.scalar(select(Engagement).where(Engagement.id == payload.engagement_id))
-    if engagement is None:
-        raise HTTPException(status_code=404, detail="engagement not found")
+    engagement = load_engagement_for_tenant(session, payload.engagement_id, tenant_id)
 
     inventory_snapshot = session.scalar(
         select(InventorySnapshot).where(

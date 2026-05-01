@@ -1,0 +1,107 @@
+{
+  "id": "backlog-109-desktop-thick-client-testing-foundation",
+  "task_file": "codex/tasks/backlog-109-desktop-thick-client-testing-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Desktop Thick Client Testing Foundation",
+  "goal": "Add a first desktop / thick-client assessment slice so AegisPT can assess enterprise application surfaces that are not purely web, API, or mobile.",
+  "scope": "Implement a bounded desktop/thick-client assessment path for authorized Windows or Electron-style application artifacts and locally reachable helper services. The first slice covers: extracted config and secret review, updater and code-signing posture, local storage and log exposure, IPC/named-pipe or local-helper endpoint exposure where observable, embedded URL/API endpoint inventory, transport-security posture, and selected authorization/misconfiguration findings grounded in the OWASP Desktop App Security Top 10. Keep kernel drivers, memory-corruption exploit development, malware triage, and unrestricted host instrumentation out of scope.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The audit found no first-class desktop or thick-client assessment coverage in the repo, while many enterprise assessments still involve Windows desktop, Electron, or helper-client attack surfaces. OWASP Desktop App Security Top 10 provides enough structure for a bounded first slice.",
+  "source_context": {
+    "queue_index": 113,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/testing_coverage_matrix.md",
+      "codex/results/project-gap-and-ai-roadmap-20260424.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "desktop_security_expansion",
+    "source_documents": [
+      "docs/testing_coverage_matrix.md",
+      "api/app/services/inventory.py",
+      "docs/methodology_mapping.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Bounded desktop artifact and helper-surface assessment only. No exploit development, no unrestricted process injection, and no kernel or malware workflows in this slice.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Focus on artifact-backed posture and observable local-service exposure first.",
+      "Do not imply complete desktop reversing or offensive binary analysis from this slice.",
+      "Canonical finding schema fields must remain unchanged."
+    ]
+  },
+  "success_criteria": [
+    "A desktop/thick-client assessment path exists for authorized application artifacts.",
+    "The first slice surfaces evidence-backed findings for config, local storage, updater, transport, secret exposure, and selected local-service risks.",
+    "Findings can reference OWASP Desktop App Security Top 10 categories where the mapping is clear.",
+    "Tests cover unsupported artifacts, missing artifacts, and evidence-backed finding extraction.",
+    "No exploit-development or unrestricted instrumentation path is introduced."
+  ],
+  "likely_touched_files": [
+    "workers/runners/desktop_client/runner.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/services/runs.py",
+    "workers/tests/test_desktop_client_runner.py",
+    "api/tests/test_runs.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "Prompt 1 / Prompt 2 foundations",
+    "pack registry, validation, approval, deployment, or runtime binding flows"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_desktop_client_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_runs.py -k desktop_client",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Desktop assessment stays bounded and evidence-backed.",
+      "Unsupported artifact types fail truthfully.",
+      "No exploit-development or unrestricted host instrumentation path is added."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Desktop/thick-client support boundaries are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with desktop/thick-client implementation and validation evidence.",
+      "Update CURRENT_STATE.md with the desktop assessment baseline and remaining limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Kernel or driver analysis",
+    "Exploit development",
+    "Malware triage",
+    "Canonical finding schema changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

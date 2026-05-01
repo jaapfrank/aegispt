@@ -1,0 +1,110 @@
+{
+  "id": "backlog-38-integration-portfolio-expansion-foundation",
+  "task_file": "codex/tasks/backlog-38-integration-portfolio-expansion-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Integration Portfolio Expansion Foundation",
+  "goal": "Expand enterprise workflow integrations beyond Jira and one handoff while preserving the existing integration safety model.",
+  "scope": "Implement or prepare the next integration portfolio slice for Slack, Teams, ServiceNow, and generic webhook handoffs using the existing integration configuration and finding-link patterns. Keep background sync workers and shadow workflow engines out of scope unless explicitly promoted later.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found named enterprise integrations were not explicitly queued beyond Jira and one generic handoff.",
+  "source_context": {
+    "queue_index": 38,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/integrations.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_workflow_integrations",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/integrations.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Reuse the existing integration configuration and finding-link pattern. Do not create a second integration engine or background sync lane.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "notes": [
+      "Each external system must be opt-in per engagement or tenant boundary.",
+      "Secrets and tokens must use protected secret handling."
+    ]
+  },
+  "success_criteria": [
+    "The next named integration options are represented through existing configuration patterns or a documented provider interface.",
+    "At least one additional integration path can create a controlled handoff without background automation.",
+    "Unsupported providers and missing credentials show explicit fallback states.",
+    "API/browser tests cover configured, missing, and failed handoff states.",
+    "Jira integration behavior remains compatible."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/routers/integrations.py",
+    "api/app/services/integrations.py",
+    "ui/assets/modules/findings.js",
+    "api/tests/test_integrations.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "docs/integrations.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "workers/orchestration/tasks.py",
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "raw secret material"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_integrations.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Integration expansion reuses existing configuration and link patterns.",
+      "External handoff failures are visible and non-fatal.",
+      "No background sync or shadow workflow engine is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The next provider or provider interface is selected without reordering earlier queue items."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with integration portfolio changes and validation evidence.",
+      "Update CURRENT_STATE.md with the integration expansion baseline and remaining provider limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Background sync workers",
+    "Shadow workflow engine",
+    "Uncontrolled webhook execution",
+    "Automatic ticket closure",
+    "Bypassing approval or runtime binding gates"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

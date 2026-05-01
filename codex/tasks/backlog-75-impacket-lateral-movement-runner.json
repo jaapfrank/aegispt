@@ -1,0 +1,117 @@
+{
+  "id": "backlog-75-impacket-lateral-movement-runner",
+  "task_file": "codex/tasks/backlog-75-impacket-lateral-movement-runner.json",
+  "task_type": "backlog_slice",
+  "title": "Impacket Lateral Movement Runner \u2014 DCSync, SecretsDump, and Remote Execution",
+  "goal": "Add Impacket-based lateral movement capabilities: secretsdump for credential extraction, psexec/wmiexec for remote execution confirmation, and DCSync for domain controller privilege validation \u2014 the final phase of an internal pentest that proves domain compromise.",
+  "scope": "Implement a 'impacket-lateral' runner in workers/runners/impacket/ using the impacket Python library (available on Kali). Three sub-operations, each requiring the highest approval gate and valid credential secrets_refs: (1) SECRETSDUMP: runs impacket secretsdump.py against a target host using credentials from secrets_refs. Extracts NTLM hashes from SAM/NTDS. Stores all hash material as encrypted artifacts only \u2014 never in findings or logs. Produces finding: 'Credential extraction confirmed on [host]' with privilege level. (2) PSEXEC/WMIEXEC remote execution: confirms code execution on target using impacket psexec or wmiexec with confirmed credentials. Runs only 'whoami' and 'hostname' \u2014 nothing destructive. Closes connection immediately. Produces finding: 'Confirmed lateral movement to [host] as [user/privilege]'. (3) DCSYNC: runs impacket secretsdump with DCSync flag against Domain Controller to confirm domain admin privilege. Extracts krbtgt hash (stored as encrypted artifact). Produces critical finding: 'Domain compromise confirmed \u2014 DCSync successful'. All three require: target in approved scope, valid credential secrets_ref, and explicit intrusive-exploitation approval. Kill switch terminates immediately.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "DCSync and lateral movement confirmation are the proof-of-domain-compromise that enterprise security teams need to understand true risk. NodeZero includes complete lateral movement chains. Without this, AegisPT can identify AD weaknesses but cannot prove that they lead to domain compromise \u2014 the most impactful finding in any internal assessment.",
+  "source_context": {
+    "queue_index": 75,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/methodology_mapping.md",
+      "docs/secret_handling_baseline.md",
+      "docs/identity_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "lan_pentest_expansion",
+    "source_documents": [
+      "workers/runners/base/contracts.py",
+      "workers/orchestration/tasks.py",
+      "api/app/services/secrets.py",
+      "api/app/services/run_profiles.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Hash material never in plain text. Remote execution runs only whoami/hostname \u2014 nothing destructive. Connections closed immediately after evidence collection. Requires highest intrusive-exploitation approval gate AND valid credential secrets_ref. Scope allowlist absolute. Kill switch terminates all impacket processes.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_required": true,
+    "no_plaintext_hashes": true,
+    "no_destructive_execution": true,
+    "requires_highest_approval_gate": true
+  },
+  "success_criteria": [
+    "secretsdump extracts credentials and stores as encrypted artifacts only.",
+    "psexec/wmiexec runs only whoami/hostname and closes immediately.",
+    "DCSync extracts krbtgt as encrypted artifact and produces domain-compromise finding.",
+    "No hash or password material in plain text anywhere.",
+    "All three require intrusive-exploitation gate and credential secrets_ref.",
+    "Kill switch terminates all impacket processes.",
+    "Tests cover hash encryption, no-destructive-execution, gate enforcement, kill-switch.",
+    "Full test suite remains green."
+  ],
+  "likely_touched_files": [
+    "workers/runners/impacket/__init__.py",
+    "workers/runners/impacket/secretsdump.py",
+    "workers/runners/impacket/remote_exec.py",
+    "workers/runners/impacket/dcsync.py",
+    "workers/orchestration/tasks.py",
+    "api/app/services/run_profiles.py",
+    "api/app/services/secrets.py",
+    "workers/tests/test_impacket_runner.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Plaintext hash or password storage",
+    "Destructive remote commands",
+    "Persistence mechanisms",
+    "Running without credential secrets_ref",
+    "Running without intrusive-exploitation approval gate",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no workers/tests/test_impacket_runner.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/ workers/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Hash material encrypted.",
+      "Remote execution limited to whoami/hostname.",
+      "Gate enforcement works.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Metasploit exploitation runner (backlog-74) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Impacket runner implementation.",
+      "Update CURRENT_STATE.md with Impacket lateral movement as active runner.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Mimikatz in-memory execution",
+    "Golden/Silver ticket attacks",
+    "Persistence via scheduled tasks or services",
+    "Data exfiltration"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

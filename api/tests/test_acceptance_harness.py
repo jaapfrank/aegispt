@@ -12,9 +12,11 @@ from scripts.acceptance_harness import (
     build_inventory_seed_payload,
     build_allowlist_from_target,
     build_run_configuration,
+    load_target_catalog,
     summarize_result,
     resolve_safe_target,
     select_next_real_run_scenario,
+    validate_target_catalog,
 )
 
 
@@ -33,6 +35,81 @@ def test_resolve_safe_target_rejects_unauthorized_public_scope() -> None:
 
     with pytest.raises(ValueError, match="unauthorized public scope"):
         resolve_safe_target(catalog, "public-demo")
+
+
+def test_default_target_catalog_expands_benchmark_truth_safely() -> None:
+    catalog = load_target_catalog()
+
+    summary = validate_target_catalog(catalog)
+    targets = {target["id"]: target for target in catalog["targets"]}
+    scenarios = {scenario["id"]: scenario for scenario in catalog["real_run_scenarios"]}
+
+    assert summary["target_count"] >= 12
+    assert "secrets_lab" in summary["surface_kinds"]
+    assert "llm_app" in summary["surface_kinds"]
+    assert "internal_ad_lab" in summary["surface_kinds"]
+    assert targets["owasp-wrongsecrets-local-template"]["runnability"] == "disabled_template"
+    assert targets["promptme-reference"]["runnability"] == "documentation_only"
+    assert targets["goad-ad-lab-template"]["surface_kind"] == "internal_ad_lab"
+    assert targets["owasp-benchmark-reference"]["benchmark_metadata"]["vulnerable_families"]
+    assert scenarios["wrongsecrets-reference-stub"]["dispatch"] is False
+    assert scenarios["promptme-reference-stub"]["enabled"] is False
+
+
+def test_validate_target_catalog_rejects_enabled_documentation_only_target() -> None:
+    catalog = {
+        "targets": [
+            {
+                "id": "hosted-reference",
+                "classification": "training_lab",
+                "enabled": True,
+                "authorized": False,
+                "runnability": "documentation_only",
+            }
+        ],
+        "real_run_scenarios": [],
+    }
+
+    with pytest.raises(ValueError, match="Documentation-only target"):
+        validate_target_catalog(catalog)
+
+
+def test_build_run_configuration_supports_non_web_scope_inputs() -> None:
+    scenario = {
+        "id": "wrongsecrets-stub",
+        "name": "WrongSecrets Stub",
+        "assessment_type": "CI/CD and Secrets",
+        "profile": "Secrets Hygiene",
+        "run_profile": "passive-cicd-security-assessment",
+        "modules": ["secrets_hygiene_review", "cicd_security_review"],
+        "expected_outputs": ["fixture_metadata"],
+    }
+    target = {
+        "id": "wrongsecrets-template",
+        "label": "WrongSecrets Template",
+        "classification": "training_lab",
+        "scope": {
+            "pipeline_config_paths": ["/tmp/aegispt/pipelines/build.yml"],
+            "repositories": ["acme/repo"],
+            "llm_endpoints": ["http://127.0.0.1:9000/chat"],
+            "apk_paths": ["/tmp/aegispt/app.apk"],
+            "container_images": ["registry.example/app:latest"],
+            "kubernetes_manifest_paths": ["/tmp/aegispt/k8s/app.yaml"],
+            "directory_domains": ["ad.lab.local"],
+        },
+    }
+
+    configuration = build_run_configuration(scenario=scenario, target=target)
+    allowlist = build_allowlist_from_target(target)
+
+    assert configuration["targets"]["pipeline_config_paths"] == ["/tmp/aegispt/pipelines/build.yml"]
+    assert configuration["targets"]["repositories"] == ["acme/repo"]
+    assert configuration["targets"]["directory_domains"] == ["ad.lab.local"]
+    assert configuration["modules"]["secrets_hygiene_review"] is True
+    assert configuration["modules"]["cicd_security_review"] is True
+    assert allowlist["pipeline_config_paths"] == ["/tmp/aegispt/pipelines/build.yml"]
+    assert allowlist["repositories"] == ["acme/repo"]
+    assert allowlist["domains"] == ["ad.lab.local"]
 
 
 def test_build_run_configuration_preserves_acceptance_metadata() -> None:

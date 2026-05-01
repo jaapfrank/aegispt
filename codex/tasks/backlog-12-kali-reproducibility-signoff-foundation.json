@@ -1,0 +1,107 @@
+{
+  "id": "backlog-12-kali-reproducibility-signoff-foundation",
+  "task_file": "codex/tasks/backlog-12-kali-reproducibility-signoff-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Kali Reproducibility Signoff Foundation",
+  "goal": "Make the supported local/Kali host path reproducible as an explicit signoff lane instead of relying on ad hoc live-host checks.",
+  "scope": "Define and validate the first install/update/restart/signoff packet for the supported local host path, including service health, static asset freshness, browser-visible app loading, report export, and one safe smoke run. Reuse existing host scripts and acceptance harnesses.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Backlog refresh requested by the project owner after the previous queue ended at backlog item 10.",
+  "source_context": {
+    "queue_index": 12,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/operator_console_stabilization_plan.md",
+      "docs/host_service_install.md",
+      "docs/acceptance_runbook.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "host_reproducibility",
+    "source_documents": [
+      "docs/operator_console_stabilization_plan.md",
+      "docs/host_service_install.md",
+      "docs/Kali-VM-Reuse-Guide.md",
+      "scripts/restart_local_inline_host_systemd.sh",
+      "scripts/run_acceptance_matrix.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Stay limited to reproducibility, health, asset freshness, and safe smoke validation. Do not redesign deployment or add hosted multi-tenancy.",
+    "runtime_mutation": false,
+    "safe_targets_only": true,
+    "notes": [
+      "Use local, authorized, or fixture-backed targets only.",
+      "Do not run uncontrolled external scanning."
+    ]
+  },
+  "success_criteria": [
+    "A documented Kali/local-host signoff procedure exists and matches the repo scripts.",
+    "The procedure verifies health, static app load, report export, and at least one safe smoke path.",
+    "Stale asset and stale service failure modes are called out honestly.",
+    "Validation evidence is recorded under the accepted repo result paths.",
+    "No hosted deployment or multi-tenant architecture is introduced."
+  ],
+  "likely_touched_files": [
+    "docs/host_service_install.md",
+    "docs/Kali-VM-Reuse-Guide.md",
+    "docs/acceptance_runbook.md",
+    "scripts/restart_local_inline_host_systemd.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "workers/orchestration/tasks.py",
+    "pack registry and deployment flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "python3 scripts/run_acceptance_matrix.py --base-url http://127.0.0.1:8000 --scenario-id local-app-smoke",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The signoff procedure is reproducible from repo scripts.",
+      "The safe smoke run produces evidence without probing the control plane as the target.",
+      "The docs state what was not validated."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "The host path is still a supported deployment lane."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the host reproducibility evidence.",
+      "Update CURRENT_STATE.md with the reproducibility baseline and remaining host risks.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Hosted SaaS deployment",
+    "MSSP multi-tenancy",
+    "Uncontrolled external scanning",
+    "Replacing the existing direct-host installer"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

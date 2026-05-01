@@ -1,0 +1,77 @@
+{
+  "catalog": "/home/administrator/project/automation skill/AegisPT/scripts/validation/expected_findings.json",
+  "generated_at": "2026-04-28T21:22:29.627734+00:00",
+  "matrix_id": "known_vulnerability_validation_v1",
+  "mode": "catalog-only",
+  "scenarios": [
+    {
+      "counts": {
+        "actual_findings": 0,
+        "expected": 4,
+        "expected_found": 0,
+        "forbidden_findings": 0,
+        "unexpected_findings": 0
+      },
+      "detection_rate_pct": null,
+      "false_positive_rate_pct": null,
+      "minimum_coverage_pct": 75,
+      "missing_expected": [
+        "webgoat-sql-injection",
+        "webgoat-cross-site-scripting",
+        "webgoat-access-control",
+        "webgoat-weak-crypto-or-secret"
+      ],
+      "reason": "No --execute or --actual-findings-dir was supplied; catalog loaded and scenario marked not_run.",
+      "scenario_id": "webgoat-active-web-safe",
+      "scenario_name": "OWASP WebGoat active-safe validation",
+      "status": "not_run"
+    },
+    {
+      "counts": {
+        "actual_findings": 0,
+        "expected": 4,
+        "expected_found": 0,
+        "forbidden_findings": 0,
+        "unexpected_findings": 0
+      },
+      "detection_rate_pct": null,
+      "false_positive_rate_pct": null,
+      "minimum_coverage_pct": 80,
+      "missing_expected": [
+        "dvwa-sql-injection",
+        "dvwa-command-injection",
+        "dvwa-cross-site-scripting",
+        "dvwa-file-inclusion"
+      ],
+      "reason": "No --execute or --actual-findings-dir was supplied; catalog loaded and scenario marked not_run.",
+      "scenario_id": "dvwa-active-web-safe",
+      "scenario_name": "DVWA active-safe validation",
+      "status": "not_run"
+    },
+    {
+      "counts": {
+        "actual_findings": 0,
+        "expected": 0,
+        "expected_found": 0,
+        "forbidden_findings": 0,
+        "unexpected_findings": 0
+      },
+      "detection_rate_pct": null,
+      "false_positive_rate_pct": null,
+      "minimum_coverage_pct": 100,
+      "missing_expected": [],
+      "reason": "No --execute or --actual-findings-dir was supplied; catalog loaded and scenario marked not_run.",
+      "scenario_id": "clean-nginx-passive-web",
+      "scenario_name": "Clean nginx false-positive guard",
+      "status": "not_run"
+    }
+  ],
+  "schema_version": 1,
+  "status": "not_run",
+  "summary": {
+    "failed": 0,
+    "not_run": 3,
+    "passed": 0,
+    "scenarios": 3
+  }
+}

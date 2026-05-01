@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 
 from api.app.config import Settings
 from api.app.models import Run
-from api.app.services.reports import REPORT_VARIANT_LABELS, render_html_report
+from api.app.services.reports import REPORT_VARIANT_LABELS, normalize_report_variant, render_html_report
 
 
 def _inject_pdf_base_and_styles(html: str, *, base_url: str) -> str:
@@ -82,10 +82,10 @@ def _inject_pdf_base_and_styles(html: str, *, base_url: str) -> str:
     return with_head
 
 
-def render_pdf_report(run: Run, *, variant: str, settings: Settings) -> bytes:
-    html = render_html_report(run, variant=variant)
+def render_pdf_report(run: Run, *, variant: str, settings: Settings, framework: str | None = None) -> bytes:
+    html = render_html_report(run, variant=variant, framework=framework)
     prepared_html = _inject_pdf_base_and_styles(html, base_url=settings.app_public_base_url)
-    title = REPORT_VARIANT_LABELS.get(variant, "AegisPT Report")
+    title = REPORT_VARIANT_LABELS.get(normalize_report_variant(variant), "AegisPT Report")
     header_template = f"""
       <div style="width:100%; font-size:8px; padding:0 12px; color:#6b7280; font-family:Segoe UI, Helvetica Neue, sans-serif;">
         <span>{escape(title)} · {escape(run.engagement.name if run.engagement is not None else 'Unknown engagement')}</span>

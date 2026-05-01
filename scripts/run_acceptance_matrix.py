@@ -22,6 +22,7 @@ from scripts.acceptance_harness import (
     build_engagement_payload,
     build_inventory_seed_payload,
     build_run_configuration,
+    validate_target_catalog,
     default_target_catalog_path,
     list_real_run_scenarios,
     load_result_history,
@@ -116,11 +117,13 @@ def collect_task_details(client: httpx.Client, run: dict[str, Any], actor: str) 
 def main() -> int:
     args = parse_args()
     catalog = load_target_catalog(args.catalog)
+    catalog_summary = validate_target_catalog(catalog)
 
     if args.list_scenarios:
         payload = {
             "scenarios": list_real_run_scenarios(catalog),
             "targets": catalog.get("targets", []),
+            "catalog_summary": catalog_summary,
         }
         print(json.dumps(payload, indent=2))
         return 0

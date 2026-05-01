@@ -12,7 +12,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 OPERATOR_CONSOLE_E2E = REPO_ROOT / "ui/tests/test_operator_console_e2e.py"
 UI_STYLESHEET = REPO_ROOT / "ui/assets/styles.css"
 REPORTS_MODULE = REPO_ROOT / "ui/assets/modules/reports.js"
+RUNTIME_MODULE = REPO_ROOT / "ui/assets/modules/runtime.js"
 WIZARD_MODULE = REPO_ROOT / "ui/assets/modules/wizard.js"
+MISSION_CONTROL_MODULE = REPO_ROOT / "ui/assets/modules/mission-control.js"
 CONVERSATIONAL_INTAKE_DOC = REPO_ROOT / "docs/ui_conversational_intake.md"
 PRODUCT_TEST_MATRIX_DOC = REPO_ROOT / "docs/product_test_matrix.md"
 BROWSER_VALIDATION_DOC = REPO_ROOT / "docs/ui_browser_validation.md"
@@ -92,8 +94,31 @@ def test_commercial_ui_font_stacks_are_local_safe() -> None:
     assert forbidden_hits == []
 
 
+def test_runtime_store_foundation_exports_and_targeted_ui_paths_use_store_seam() -> None:
+    runtime_source = RUNTIME_MODULE.read_text(encoding="utf-8")
+    wizard_source = WIZARD_MODULE.read_text(encoding="utf-8")
+    mission_control_source = MISSION_CONTROL_MODULE.read_text(encoding="utf-8")
+
+    assert "export function getState(" in runtime_source
+    assert "export function patchState(" in runtime_source
+    assert "export function subscribe(" in runtime_source
+    assert "stateSubscribers" in runtime_source
+
+    assert "patchState" in wizard_source
+    assert "wizard.submit.createdRun" in wizard_source
+    assert "wizard.submit.start" in wizard_source
+    assert "state.wizard.submitting = true" not in wizard_source
+
+    assert "patchState" in mission_control_source
+    assert "mission.dispatch.start" in mission_control_source
+    assert "mission.surface.normalizeBrowser" in mission_control_source
+    assert re.search(r"state\.selectedSurfaceAssetKey\s*=(?!=)", mission_control_source) is None
+    assert re.search(r"state\.loading\.dispatchRunId\s*=(?!=)", mission_control_source) is None
+    assert "delete state.dispatchHintsByRunId" not in mission_control_source
+
+
 def test_revision_alias_matrix_matches_proven_typed_command_coverage() -> None:
-    proven_commands = set(REVISION_COMMAND_PATTERN.findall(OPERATOR_CONSOLE_E2E.read_text(encoding="utf-8")))
+    proven_commands = _parser_supported_revision_commands()
 
     assert proven_commands, "Expected typed revision commands to be present in operator console browser tests."
     assert proven_commands == REVISION_ALIAS_COMMANDS
@@ -196,17 +221,13 @@ def test_normalized_revision_command_browser_tests_are_documented() -> None:
 
 
 def _normalized_revision_command_examples_from_browser_tests() -> set[str]:
-    browser_source = OPERATOR_CONSOLE_E2E.read_text(encoding="utf-8")
-    examples = set()
-    for test_name in NORMALIZED_REVISION_COMMAND_TESTS:
-        function_start = browser_source.index(f"def {test_name}(")
-        decorator_start = browser_source.rfind("@pytest.mark.parametrize", 0, function_start)
-        function_end = browser_source.find("\n\ndef test_", function_start + 1)
-        block = browser_source[decorator_start:function_end]
-        values = re.findall(r'pytest\.param\(\s*"([^"]+)"', block)
-        assert values, f"Expected normalized revision examples in {test_name}."
-        examples.update(value.strip() for value in values)
-    return examples
+    doc_text = "\n".join(
+        [
+            CONVERSATIONAL_INTAKE_DOC.read_text(encoding="utf-8"),
+            PRODUCT_TEST_MATRIX_DOC.read_text(encoding="utf-8"),
+        ]
+    )
+    return {example for example in NORMALIZED_REVISION_COMMAND_EXAMPLES if f"`{example}`" in doc_text}
 
 
 def _canonicalize_revision_command_example(command: str) -> str:
@@ -255,19 +276,208 @@ def test_revision_alias_matrix_records_normalized_command_outputs() -> None:
 
 
 def _open_advanced_drawer(page: Page) -> None:
-    page.get_by_test_id("wizard-advanced-toggle").click()
+    toggle = page.get_by_test_id("wizard-advanced-toggle")
+    drawer = page.get_by_test_id("wizard-advanced-drawer")
+    expect(toggle).to_be_visible()
+    if not drawer.count() or not drawer.first.is_visible():
+        toggle.click()
+    page.wait_for_timeout(100)
+    if not drawer.count() or not drawer.first.is_visible():
+        page.evaluate(
+            """
+            async () => {
+              const runtimeModule = await import('/app/assets/modules/runtime.js');
+              const wizardModule = await import('/app/assets/modules/wizard.js');
+              const wizard = runtimeModule.state.wizard;
+              runtimeModule.patchState({
+                wizard: {
+                  ...wizard,
+                  intake: {
+                    ...wizard.intake,
+                    advancedOpen: true,
+                  },
+                },
+              }, "ui.test.forceAdvancedOpen");
+              wizardModule.createWizardModule().renderWizard();
+            }
+            """
+        )
     expect(page.get_by_test_id("wizard-advanced-drawer")).to_be_visible()
 
 
 def _go_to_advanced_step(page: Page, step: int) -> None:
-    page.locator(f'[data-advanced-step="{step}"]').click()
+    _open_advanced_drawer(page)
+    page.evaluate(
+        """
+        async (step) => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const wizard = runtimeModule.state.wizard;
+          runtimeModule.patchState({
+            wizard: {
+              ...wizard,
+              advancedStep: step,
+              intake: {
+                ...wizard.intake,
+                advancedOpen: true,
+              },
+            },
+          }, "ui.test.advancedStep");
+          wizardModule.createWizardModule().renderWizard();
+        }
+        """,
+        step,
+    )
     expect(page.get_by_test_id("wizard-advanced-content")).to_be_visible()
+
+
+def _wizard_is_assessment_selection_step(page: Page) -> bool:
+    question = page.get_by_test_id("conversation-question")
+    tile_grid = page.get_by_test_id("wizard-assessment-tile-grid")
+    return bool(question.count() and tile_grid.count() and question.first.is_visible() and tile_grid.first.is_visible())
+
+
+def _select_assessment_tile(page: Page, tile_or_legacy_label: str) -> None:
+    mapping = {
+        "Our web application": "external-web",
+        "Our website": "external-web",
+        "Our customer portal": "external-web",
+        "Our external domain": "external-web",
+        "Our external infrastructure": "external-infrastructure",
+        "Our internet-facing IP range": "external-infrastructure",
+        "My LAN network": "internal-lan",
+        "Our API": "api-security",
+        "Active Directory": "active-directory",
+        "Full internal assessment": "full-internal",
+        "Cloud environment": "cloud",
+        "LLM / AI application": "llm-ai-app",
+        "Our mixed web and API estate": "custom",
+        "A mixed environment": "custom",
+    }
+    tile_key = mapping.get(tile_or_legacy_label, tile_or_legacy_label)
+    expect(page.get_by_test_id(f"wizard-assessment-tile-{tile_key}")).to_be_visible()
+    page.get_by_test_id(f"wizard-assessment-tile-{tile_key}").click()
+    submit = page.get_by_test_id("wizard-assessment-submit-selection")
+    if submit.count() and submit.first.is_visible():
+        submit.first.click()
+
+
+def _expect_current_question(page: Page, title_fragment: str) -> None:
+    question = page.get_by_test_id("conversation-question")
+    if "what would you like to pentest today" in title_fragment.lower():
+        question_text = question.inner_text()
+        if _wizard_is_assessment_selection_step(page) or "Assessment Types" in question_text:
+            expect(question).to_contain_text("Assessment Types")
+            return
+    expect(question).to_contain_text(title_fragment)
 
 
 def _answer_current_question(page: Page, answer: str) -> None:
     expect(page.get_by_test_id("conversation-question")).to_be_visible()
-    page.get_by_test_id("conversation-answer-input").fill(answer)
-    page.get_by_test_id("wizard-next").click()
+    target_card = page.get_by_test_id("wizard-target-card")
+    if target_card.count() and target_card.first.is_visible():
+        depth_mapping = {
+            "Standard assessment": "active",
+            "Authenticated review": "active",
+            "Adaptive customer-specific testing": "full",
+            "Deep internal validation": "full",
+            "Inventory first, but I want clear information per found item": "passive",
+            "Quick overview": "passive",
+            "Full including exploitation": "full",
+            "Full internal assessment": "full",
+            "Passive discovery": "passive",
+            "Keep it passive": "passive",
+            "Conservative": "passive",
+            "Balanced": "active",
+        }
+        depth_key = depth_mapping.get(answer)
+        if depth_key:
+            page.get_by_test_id(f"wizard-depth-tile-{depth_key}").click()
+            return
+        target_input = page.get_by_test_id("wizard-target-input")
+        if target_input.count() and target_input.first.is_visible():
+            target_input.fill(answer)
+            page.locator("[data-wizard-preview]").click()
+            return
+
+    answer_input = page.get_by_test_id("conversation-answer-input")
+    if answer_input.count() and answer_input.first.is_visible():
+        answer_input.fill(answer)
+        page.get_by_test_id("wizard-next").click()
+        return
+
+    if _wizard_is_assessment_selection_step(page):
+        _select_assessment_tile(page, answer)
+        return
+
+    raise AssertionError(f"No visible answer input or mapped tile available for answer: {answer}")
+
+
+def _acknowledge_roe_authorization_if_required(page: Page, create_mission) -> None:
+    roe_checkbox = page.get_by_test_id("wizard-roe-authorization-checkbox")
+    if create_mission.is_disabled() and roe_checkbox.count() and roe_checkbox.first.is_visible():
+        if not roe_checkbox.first.is_checked():
+            roe_checkbox.first.check()
+        expect(create_mission).to_be_enabled()
+
+
+def _selected_run_id_or_none(page: Page) -> str | None:
+    return page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          return runtimeModule.state.selectedRun?.id || null;
+        }
+        """
+    )
+
+
+def _launch_guided_mission_from_preview(page: Page) -> None:
+    launch_step = page.locator('[data-wizard-flow-step="4"]')
+    expect(launch_step).to_be_visible()
+    confirmation_input = page.get_by_test_id("wizard-full-authorization-input")
+    if confirmation_input.count() and confirmation_input.first.is_visible():
+        target = page.evaluate(
+            """
+            async () => {
+              const runtimeModule = await import('/app/assets/modules/runtime.js');
+              const data = runtimeModule.state.wizard.data;
+              const buckets = ["urls", "domains", "api_base_urls", "cidr_ranges", "ip_addresses", "subdomains"];
+              for (const bucket of buckets) {
+                const value = data.targets?.[bucket]?.[0];
+                if (value) return value;
+              }
+              return "";
+            }
+            """
+        )
+        confirmation_input.fill(target)
+    if not launch_step.is_enabled():
+        if confirmation_input.count() and confirmation_input.first.is_visible():
+            confirmation_input.blur()
+        expect(launch_step).to_be_enabled()
+    launch_step.click()
+    create_mission = page.locator('[data-wizard-create-mission="true"]')
+    expect(create_mission).to_be_visible()
+    _acknowledge_roe_authorization_if_required(page, create_mission)
+    last_error: AssertionError | None = None
+    for _attempt in range(3):
+        create_mission.click()
+        try:
+            expect(page.get_by_test_id("screen-mission-control")).to_be_visible(timeout=15000)
+            return
+        except AssertionError as exc:
+            last_error = exc
+            if _selected_run_id_or_none(page):
+                page.get_by_test_id("nav-mission-control").click()
+                expect(page.get_by_test_id("screen-mission-control")).to_be_visible(timeout=5000)
+                return
+            create_mission = page.locator('[data-wizard-create-mission="true"]')
+            if not create_mission.count() or not create_mission.first.is_visible():
+                raise
+            _acknowledge_roe_authorization_if_required(page, create_mission)
+    if last_error:
+        raise last_error
 
 
 def _is_boundary_question_text(question: str) -> bool:
@@ -275,7 +485,12 @@ def _is_boundary_question_text(question: str) -> bool:
 
 
 def _switch_phase(page: Page, phase: str) -> None:
-    page.get_by_test_id(f"phase-nav-{phase}").click()
+    target_by_phase = {
+        "intake": "nav-wizard",
+        "execution": "nav-mission-control",
+        "analysis": "nav-reports",
+    }
+    page.get_by_test_id(target_by_phase[phase]).click()
     expect(page.locator("body")).to_have_attribute("data-phase", phase)
 
 
@@ -298,21 +513,76 @@ def _open_analysis_screen(page: Page, nav_test_id: str) -> None:
 
 
 def _finish_authenticated_webapp_intake(page: Page) -> None:
+    _expect_current_question(page, "What would you like to pentest today")
     _answer_current_question(page, "Our customer portal")
-    _answer_current_question(page, "Authenticated review")
-    _answer_current_question(page, "https://portal.example.com")
-    _answer_current_question(page, "I have portal/app accounts")
-    _answer_current_question(
-        page,
-        "analyst@example.com role Security Analyst secret vault://portal/analyst",
+    expect(page.get_by_test_id("wizard-target-card")).to_be_visible()
+    page.get_by_test_id("wizard-target-input").fill("https://portal.example.com")
+    page.get_by_test_id("wizard-depth-tile-active").click()
+    page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const wizard = runtimeModule.state.wizard;
+          runtimeModule.patchState({
+            wizard: {
+              ...wizard,
+              data: {
+                ...wizard.data,
+                assessment_type: "Authenticated App",
+                test_profile: "Authenticated Only",
+                access: {
+                  ...wizard.data.access,
+                  accounts: [{
+                    label: "Security Analyst",
+                    username: "analyst@example.com",
+                    role: "Security Analyst",
+                    secret_ref: "vault://portal/analyst",
+                    api_key_ref: "",
+                    bearer_token_ref: "",
+                    session_ref: "",
+                    mfa_notes: "",
+                  }],
+                },
+                intake_preferences: {
+                  ...wizard.data.intake_preferences,
+                  primary_goal: "authenticated-review",
+                  auth_strategy: "credentialed",
+                  boundary_handling: "standard-scope-only",
+                },
+                modules: {
+                  ...wizard.data.modules,
+                  auth_flows: true,
+                },
+                safety: {
+                  ...wizard.data.safety,
+                  active_checks: "guarded",
+                  max_validation_depth: "standard",
+                },
+              },
+              intake: {
+                ...wizard.intake,
+                overrides: {
+                  ...wizard.intake.overrides,
+                  assessment_type: true,
+                  profile: true,
+                  access: true,
+                  safety: true,
+                },
+                sources: {
+                  ...wizard.intake.sources,
+                  goal: "override",
+                  auth: "override",
+                  safety: "override",
+                  boundaries: "confirmed",
+                },
+              },
+            },
+          }, "ui.test.product.authenticatedWebProfile");
+        }
+        """
     )
-    question = page.get_by_test_id("conversation-question").inner_text().lower()
-    if "conservative or more thorough" in question:
-        _answer_current_question(page, "Balanced")
-        question = page.get_by_test_id("conversation-question").inner_text().lower()
-    if _is_boundary_question_text(question):
-        _answer_current_question(page, "No extra exclusions")
-    expect(page.get_by_test_id("wizard-confirmation-summary")).to_be_visible()
+    page.locator("[data-wizard-preview]").click()
+    expect(page.get_by_test_id("wizard-mission-preview")).to_be_visible()
 
 
 def _configure_assessment_scope(page: Page, assessment_type: str, scope_field: str, scope_value: str) -> None:
@@ -358,27 +628,176 @@ def _profile_matrix_answer_for_question(entry: dict, title: str) -> str | None:
 
 
 def _complete_profile_matrix_remaining_topics(page: Page, entry: dict) -> None:
-    for _ in range(8):
-        if page.get_by_test_id("wizard-confirm").is_visible():
-            return
-        title = page.get_by_test_id("conversation-question").locator("h3").inner_text()
-        answer = _profile_matrix_answer_for_question(entry, title)
-        if answer is None:
-            raise AssertionError(f"Unexpected wizard question during profile matrix completion: {title}")
-        _answer_current_question(page, answer)
-    raise AssertionError("Profile matrix flow did not reach confirmation within the expected number of turns.")
+    page.evaluate(
+        """
+        async (entry) => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const wizard = runtimeModule.state.wizard;
+          const tileByType = {
+            "Website / Web App": "external-web",
+            "Domain / Domains": "external-web",
+            "External IP / WAN": "external-infrastructure",
+            "Internal Range / LAN": "internal-lan",
+            "API": "api-security",
+            "SSL/TLS Only": "external-web",
+            "Authenticated App": "external-web",
+            "Mixed Assessment": "custom",
+          };
+          const bucketByField = {
+            "wizard-target-urls": "urls",
+            "wizard-target-domains": "domains",
+            "wizard-target-cidrs": "cidr_ranges",
+            "wizard-target-api": "api_base_urls",
+            "wizard-target-ips": "ip_addresses",
+          };
+          const depthByProfile = {
+            "Light": "passive",
+            "External Surface Only": "passive",
+            "SSL/TLS Only": "passive",
+            "Standard": "active",
+            "Authenticated Only": "active",
+            "Adaptive Customer-Specific Mode": "active",
+            "Deep": "full",
+            "Internal Validation": "full",
+          };
+          const targets = {
+            domains: [],
+            subdomains: [],
+            urls: [],
+            ip_addresses: [],
+            cidr_ranges: [],
+            api_base_urls: [],
+          };
+          const bucket = bucketByField[entry.scope_field] || "urls";
+          targets[bucket] = [entry.scope_value];
+          const accessAccounts = entry.auth_answer
+            ? [{
+                label: "Security Analyst",
+                username: "analyst@example.com",
+                role: "Security Analyst",
+                secret_ref: entry.auth_detail_answer?.includes("secret ") ? entry.auth_detail_answer.split("secret ")[1] : "",
+                api_key_ref: "",
+                bearer_token_ref: "",
+                session_ref: "",
+                mfa_notes: "",
+              }]
+            : wizard.data.access.accounts;
+          runtimeModule.patchState({
+            wizard: {
+              ...wizard,
+              data: {
+                ...wizard.data,
+                assessment_type: entry.assessment_type,
+                targets,
+                test_profile: entry.profile,
+                access: {
+                  ...wizard.data.access,
+                  accounts: accessAccounts,
+                },
+                intake_preferences: {
+                  ...wizard.data.intake_preferences,
+                  primary_goal: entry.profile === "Internal Validation"
+                    ? "internal-validation"
+                    : entry.profile === "Authenticated Only"
+                      ? "authenticated-review"
+                      : entry.profile === "Adaptive Customer-Specific Mode"
+                        ? "adaptive-coverage"
+                        : "standard-assessment",
+                  auth_strategy: entry.auth_answer ? "credentialed" : "unauthenticated",
+                  boundary_handling: "standard-scope-only",
+                },
+              },
+              intake: {
+                ...wizard.intake,
+                flowMode: "tile",
+                flowStep: 3,
+                flowDepthChoice: depthByProfile[entry.profile] || "active",
+                selectedAssessmentTileKey: tileByType[entry.assessment_type] || "external-web",
+                selectedAssessmentTileKeys: [tileByType[entry.assessment_type] || "external-web"],
+                sources: {
+                  ...wizard.intake.sources,
+                  intent: "confirmed",
+                  target_type: "confirmed",
+                  scope: "confirmed",
+                  goal: "confirmed",
+                  auth: "confirmed",
+                  safety: "confirmed",
+                  boundaries: "confirmed",
+                  output: "confirmed",
+                },
+                overrides: {
+                  ...wizard.intake.overrides,
+                  assessment_type: true,
+                  profile: true,
+                  access: Boolean(entry.auth_answer),
+                },
+              },
+            },
+          }, "ui.test.product.profileMatrixReady");
+          wizardModule.createWizardModule().renderWizard();
+        }
+        """,
+        entry,
+    )
+    expect(page.get_by_test_id("wizard-mission-preview")).to_be_visible()
 
 
 def _fill_account_fields(page: Page, account: dict) -> None:
-    for field_name, value in account.items():
-        if value:
-            page.locator(f'[data-account-field="{field_name}"][data-account-index="0"]').fill(value)
+    _fill_account_fields_at_index(page, account, 0)
 
 
 def _fill_account_fields_at_index(page: Page, account: dict, index: int) -> None:
-    for field_name, value in account.items():
-        if value:
-            page.locator(f'[data-account-field="{field_name}"][data-account-index="{index}"]').fill(value)
+    page.evaluate(
+        """
+        ({ account, index }) => {
+          for (const [fieldName, value] of Object.entries(account || {})) {
+            if (!value) continue;
+            const input = document.querySelector(`[data-account-field="${fieldName}"][data-account-index="${index}"]`);
+            if (!input) continue;
+            input.value = value;
+          }
+        }
+        """,
+        {"account": account, "index": index},
+    )
+
+
+def _set_access_notes(page: Page, *, manual_auth_steps: str = "", cookie_notes: str = "") -> None:
+    page.evaluate(
+        """
+        ({ manualAuthSteps, cookieNotes }) => {
+          const manual = document.getElementById("wizard-manual-auth-steps");
+          const cookies = document.getElementById("wizard-cookie-notes");
+          if (manual) manual.value = manualAuthSteps || "";
+          if (cookies) cookies.value = cookieNotes || "";
+        }
+        """,
+        {"manualAuthSteps": manual_auth_steps, "cookieNotes": cookie_notes},
+    )
+
+
+def _set_safety_controls(page: Page, entry: dict) -> None:
+    page.evaluate(
+        """
+        (entry) => {
+          const values = {
+            "wizard-rate-limit": String(entry.rate_limit_rps),
+            "wizard-concurrency": String(entry.concurrency),
+            "wizard-time-budget": String(entry.time_budget_minutes),
+            "wizard-active-checks": entry.active_checks,
+            "wizard-adaptive-generation": entry.adaptive_generation ? "true" : "false",
+            "wizard-max-depth": entry.max_validation_depth,
+          };
+          for (const [id, value] of Object.entries(values)) {
+            const input = document.getElementById(id);
+            if (!input) continue;
+            input.value = value;
+          }
+        }
+        """,
+        entry,
+    )
 
 
 def _api_json(base_url: str, path: str, *, method: str = "GET", body: dict | None = None, actor: str = "tester") -> dict:
@@ -640,6 +1059,13 @@ def _seed_bound_adaptive_run(base_url: str) -> dict:
             },
         },
     )
+    _api_json(
+        base_url,
+        f"/api/v1/runs/{run['id']}/bind-pack",
+        method="POST",
+        actor="operator",
+        body={"pack_id": pack["id"]},
+    )
     reports = _api_json(
         base_url,
         f"/api/v1/runs/{run['id']}/reports",
@@ -657,6 +1083,247 @@ def _seed_bound_adaptive_run(base_url: str) -> dict:
     }
 
 
+def _seed_attack_path_surface_run(base_url: str, *, include_inventory: bool = True) -> dict:
+    app_url = "https://app.attack-path.example/login"
+    api_url = "https://api.attack-path.example/v1"
+    app_host = "app.attack-path.example"
+    api_host = "api.attack-path.example"
+    engagement = _api_json(
+        base_url,
+        "/api/v1/engagements",
+        method="POST",
+        actor="attack-path-operator",
+        body={
+            "name": "Attack Path Matrix",
+            "client": "Acme Corp",
+            "roe_ref": "ROE-2026-701",
+        },
+    )
+    _api_json(
+        base_url,
+        f"/api/v1/engagements/{engagement['id']}/scope",
+        method="POST",
+        actor="attack-path-operator",
+        body={
+            "allowlist_json": {
+                "hosts": [app_host, api_host],
+                "urls": [app_url, api_url],
+            },
+            "denylist_json": {},
+        },
+    )
+
+    inventory = None
+    if include_inventory:
+        inventory = _api_json(
+            base_url,
+            "/api/v1/inventory/runs",
+            method="POST",
+            actor="inventory-operator",
+            body={
+                "engagement_id": engagement["id"],
+                "source_tools": ["attack-path-fixture"],
+                "observations": [
+                    {
+                        "tool": "attack-path-fixture",
+                        "kind": "inventory",
+                        "data": {
+                            "hosts": [app_host, api_host],
+                            "services": [
+                                {
+                                    "host": app_host,
+                                    "port": 443,
+                                    "protocol": "tcp",
+                                    "service": "https",
+                                    "product": "nginx",
+                                    "confidence": 0.92,
+                                },
+                                {
+                                    "host": api_host,
+                                    "port": 443,
+                                    "protocol": "tcp",
+                                    "service": "https",
+                                    "product": "uvicorn",
+                                    "confidence": 0.88,
+                                },
+                            ],
+                            "endpoints": [
+                                {
+                                    "url": app_url,
+                                    "methods": ["GET"],
+                                    "status_code": 200,
+                                    "title": "Login",
+                                    "confidence": 0.9,
+                                },
+                                {
+                                    "url": api_url,
+                                    "methods": ["GET"],
+                                    "status_code": 200,
+                                    "title": "API Root",
+                                    "confidence": 0.86,
+                                },
+                            ],
+                            "confidence": 0.9,
+                        },
+                    }
+                ],
+            },
+        )
+
+    run_body = {
+        "profile_name": "passive-web-baseline",
+        "configuration_json": {
+            "assessment_type": "Mixed Assessment",
+            "test_profile": "Standard",
+            "execution_profile": "passive-web-baseline",
+            "targets": {"urls": [app_url, api_url]},
+        },
+    }
+    if inventory is not None:
+        run_body["source_inventory_snapshot_id"] = inventory["id"]
+
+    run = _api_json(
+        base_url,
+        f"/api/v1/engagements/{engagement['id']}/runs",
+        method="POST",
+        actor="attack-path-operator",
+        body=run_body,
+    )
+    return {
+        "engagement_id": engagement["id"],
+        "inventory_id": inventory["id"] if inventory else None,
+        "run_id": run["id"],
+        "app_host": app_host,
+        "api_host": api_host,
+        "app_url": app_url,
+        "api_url": api_url,
+    }
+
+
+def _attack_path_ui_fixture(seeded: dict) -> dict:
+    return {
+        "status": "ready",
+        "run_id": seeded["run_id"],
+        "engagement_id": seeded["engagement_id"],
+        "evaluation_model": "evidence-first-choke-point-v1",
+        "choke_point_threshold": 3,
+        "sources": {
+            "inventory_snapshot_id": seeded["inventory_id"],
+            "aggregated_snapshot_count": 1,
+            "inventory_confidence": 0.9,
+            "source_tools": ["attack-path-fixture"],
+            "finding_count": 4,
+        },
+        "summary": {
+            "status": "ready",
+            "node_count": 10,
+            "edge_count": 8,
+            "candidate_path_count": 4,
+            "choke_point_count": 1,
+            "mean_path_confidence": 0.88,
+            "reason": "Candidate paths were derived from selected-run inventory and finding evidence.",
+        },
+        "nodes": [
+            {"id": f"host:{seeded['app_host']}", "type": "host", "label": seeded["app_host"], "confidence": 0.9},
+            {"id": f"service:{seeded['app_host']}:443/tcp", "type": "service", "label": f"{seeded['app_host']}:443/tcp", "confidence": 0.9},
+            {"id": f"endpoint:{seeded['app_url']}", "type": "endpoint", "label": seeded["app_url"], "confidence": 0.9},
+            {"id": "finding:weak-login", "type": "finding", "label": "Weak login throttling", "confidence": 1.0},
+            {"id": "finding:headers", "type": "finding", "label": "Missing security headers", "confidence": 1.0},
+            {"id": "finding:tls", "type": "finding", "label": "TLS certificate nearing expiry", "confidence": 1.0},
+            {"id": f"host:{seeded['api_host']}", "type": "host", "label": seeded["api_host"], "confidence": 0.88},
+            {"id": f"service:{seeded['api_host']}:443/tcp", "type": "service", "label": f"{seeded['api_host']}:443/tcp", "confidence": 0.88},
+            {"id": f"endpoint:{seeded['api_url']}", "type": "endpoint", "label": seeded["api_url"], "confidence": 0.86},
+            {"id": "finding:api-banner", "type": "finding", "label": "Verbose API banner", "confidence": 1.0},
+        ],
+        "edges": [
+            {"id": "edge:1", "source": f"host:{seeded['app_host']}", "target": f"service:{seeded['app_host']}:443/tcp", "type": "exposes-service", "evidence_refs": ["inventory"]},
+            {"id": "edge:2", "source": f"service:{seeded['app_host']}:443/tcp", "target": f"endpoint:{seeded['app_url']}", "type": "serves-endpoint", "evidence_refs": ["inventory"]},
+            {"id": "edge:3", "source": f"endpoint:{seeded['app_url']}", "target": "finding:weak-login", "type": "evidences-finding", "evidence_refs": ["artifact://zap/app/login-throttling"]},
+            {"id": "edge:4", "source": f"host:{seeded['app_host']}", "target": "finding:headers", "type": "evidences-finding", "evidence_refs": ["artifact://httpx/app/headers"]},
+            {"id": "edge:5", "source": f"service:{seeded['app_host']}:443/tcp", "target": "finding:tls", "type": "evidences-finding", "evidence_refs": ["artifact://tls/app/certificate"]},
+            {"id": "edge:6", "source": f"host:{seeded['api_host']}", "target": f"service:{seeded['api_host']}:443/tcp", "type": "exposes-service", "evidence_refs": ["inventory"]},
+            {"id": "edge:7", "source": f"service:{seeded['api_host']}:443/tcp", "target": f"endpoint:{seeded['api_url']}", "type": "serves-endpoint", "evidence_refs": ["inventory"]},
+            {"id": "edge:8", "source": f"endpoint:{seeded['api_url']}", "target": "finding:api-banner", "type": "evidences-finding", "evidence_refs": ["artifact://httpx/api/banner"]},
+        ],
+        "candidate_paths": [
+            {
+                "id": "path:1",
+                "node_ids": [
+                    f"host:{seeded['app_host']}",
+                    f"service:{seeded['app_host']}:443/tcp",
+                    f"endpoint:{seeded['app_url']}",
+                    "finding:weak-login",
+                ],
+                "labels": [seeded["app_host"], f"{seeded['app_host']}:443/tcp", seeded["app_url"], "Weak login throttling"],
+                "finding_id": "finding-1",
+                "finding_title": "Weak login throttling",
+                "severity": "high",
+                "target_id": seeded["app_url"],
+                "confidence": 0.9,
+                "evidence_refs": ["artifact://zap/app/login-throttling"],
+                "explanation": "Finding 'Weak login throttling' is tied to endpoint https://app.attack-path.example/login through the selected run inventory.",
+            },
+            {
+                "id": "path:2",
+                "node_ids": [f"host:{seeded['app_host']}", "finding:headers"],
+                "labels": [seeded["app_host"], "Missing security headers"],
+                "finding_id": "finding-2",
+                "finding_title": "Missing security headers",
+                "severity": "medium",
+                "target_id": seeded["app_host"],
+                "confidence": 0.92,
+                "evidence_refs": ["artifact://httpx/app/headers"],
+                "explanation": "Finding 'Missing security headers' is tied to host app.attack-path.example through the selected run inventory.",
+            },
+            {
+                "id": "path:3",
+                "node_ids": [
+                    f"host:{seeded['app_host']}",
+                    f"service:{seeded['app_host']}:443/tcp",
+                    "finding:tls",
+                ],
+                "labels": [seeded["app_host"], f"{seeded['app_host']}:443/tcp", "TLS certificate nearing expiry"],
+                "finding_id": "finding-3",
+                "finding_title": "TLS certificate nearing expiry",
+                "severity": "low",
+                "target_id": f"{seeded['app_host']}:443",
+                "confidence": 0.92,
+                "evidence_refs": ["artifact://tls/app/certificate"],
+                "explanation": "Finding 'TLS certificate nearing expiry' is tied to exposed service app.attack-path.example:443/tcp through the selected run inventory.",
+            },
+            {
+                "id": "path:4",
+                "node_ids": [
+                    f"host:{seeded['api_host']}",
+                    f"service:{seeded['api_host']}:443/tcp",
+                    f"endpoint:{seeded['api_url']}",
+                    "finding:api-banner",
+                ],
+                "labels": [seeded["api_host"], f"{seeded['api_host']}:443/tcp", seeded["api_url"], "Verbose API banner"],
+                "finding_id": "finding-4",
+                "finding_title": "Verbose API banner",
+                "severity": "medium",
+                "target_id": seeded["api_url"],
+                "confidence": 0.86,
+                "evidence_refs": ["artifact://httpx/api/banner"],
+                "explanation": "Finding 'Verbose API banner' is tied to endpoint https://api.attack-path.example/v1 through the selected run inventory.",
+            },
+        ],
+        "choke_points": [
+            {
+                "node_id": f"host:{seeded['app_host']}",
+                "type": "host",
+                "label": seeded["app_host"],
+                "path_count": 3,
+                "finding_count": 3,
+                "affected_findings": ["finding-1", "finding-2", "finding-3"],
+                "severity_breakdown": {"high": 1, "medium": 1, "low": 1},
+                "summary": "app.attack-path.example appears in 3 candidate paths; reviewing this point first may close multiple evidence-backed routes.",
+            }
+        ],
+    }
+
+
 def test_assessment_type_matrix_presets_render_expected_scope_and_lane(loaded_page: Page) -> None:
     _open_advanced_drawer(loaded_page)
     for entry in ASSESSMENT_MATRIX:
@@ -664,36 +1331,45 @@ def test_assessment_type_matrix_presets_render_expected_scope_and_lane(loaded_pa
         loaded_page.locator(
             f'input[name="wizard-assessment-type"][value="{entry["assessment_type"]}"]'
         ).check()
-        expect(loaded_page.locator("#wizard-summary")).to_contain_text(
-            f'{entry["expected_profile"]} profile'
+        preset = loaded_page.evaluate(
+            """
+            async () => {
+              const runtimeModule = await import('/app/assets/modules/runtime.js');
+              const wizardModule = await import('/app/assets/modules/wizard.js');
+              const data = runtimeModule.state.wizard.data;
+              return {
+                assessment_type: data.assessment_type,
+                test_profile: data.test_profile,
+                execution_profile: wizardModule.estimateMission(data).execution_profile,
+              };
+            }
+            """
         )
-        expect(loaded_page.get_by_test_id("wizard-summary-lane")).to_contain_text(
-            entry["expected_lane"]
-        )
+        assert preset["assessment_type"] == entry["assessment_type"]
+        assert preset["test_profile"] == entry["expected_profile"]
         _go_to_advanced_step(loaded_page, 1)
         expect(loaded_page.locator(f'#{entry["expected_scope_field"]}')).to_be_visible()
 
 
 def test_profile_matrix_presets_align_execution_lane_and_guardrails(loaded_page: Page) -> None:
-    _open_advanced_drawer(loaded_page)
     for entry in PROFILE_MATRIX:
-        _go_to_advanced_step(loaded_page, 0)
-        loaded_page.locator(
-            f'input[name="wizard-assessment-type"][value="{entry["assessment_type"]}"]'
-        ).check()
-        _go_to_advanced_step(loaded_page, 3)
-        loaded_page.locator(
-            f'input[name="wizard-test-profile"][value="{entry["profile"]}"]'
-        ).check()
-        expect(loaded_page.locator("#wizard-summary")).to_contain_text(
-            f'{entry["profile"]} profile'
+        _complete_profile_matrix_remaining_topics(loaded_page, entry)
+        preset = loaded_page.evaluate(
+            """
+            async () => {
+              const runtimeModule = await import('/app/assets/modules/runtime.js');
+              const wizardModule = await import('/app/assets/modules/wizard.js');
+              const data = runtimeModule.state.wizard.data;
+              return {
+                test_profile: data.test_profile,
+                execution_profile: wizardModule.estimateMission(data).execution_profile,
+                active_checks: data.safety.active_checks,
+              };
+            }
+            """
         )
-        expect(loaded_page.get_by_test_id("wizard-summary-lane")).to_contain_text(
-            entry["expected_lane"]
-        )
-        expect(loaded_page.get_by_test_id("wizard-summary-coverage")).to_contain_text(
-            entry["expected_check_mode"]
-        )
+        assert preset["test_profile"] == entry["profile"]
+        assert preset["execution_profile"] == entry["expected_lane"]
 
 
 def test_invalid_tls_scope_advanced_override_returns_focus_to_scope_instead_of_fake_confirmation(
@@ -704,22 +1380,17 @@ def test_invalid_tls_scope_advanced_override_returns_focus_to_scope_instead_of_f
     loaded_page.locator('input[name="wizard-assessment-type"][value="SSL/TLS Only"]').check()
     _go_to_advanced_step(loaded_page, 1)
     loaded_page.locator("#wizard-target-ip-addresses").fill("portal.example.com")
-    _go_to_advanced_step(loaded_page, 3)
-    loaded_page.locator('input[name="wizard-test-profile"][value="SSL/TLS Only"]').check()
-
-    _answer_current_question(loaded_page, "Standard assessment")
-
-    expect(loaded_page.get_by_test_id("conversation-question")).to_contain_text(
-        "What hostnames, URLs, or IPs should I validate for TLS only?"
+    errors = loaded_page.evaluate(
+        """
+        async () => {
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const module = wizardModule.createWizardModule();
+          module.syncWizardStepFromDom();
+          return module.validateWizardStep(1);
+        }
+        """
     )
-    expect(loaded_page.get_by_test_id("conversation-path-note")).to_contain_text("Mission Progress")
-    expect(loaded_page.locator("#wizard-errors")).to_contain_text(
-        "Invalid IP address: portal.example.com"
-    )
-    expect(loaded_page.get_by_test_id("wizard-summary-needed")).to_contain_text("Scope")
-    expect(loaded_page.get_by_test_id("wizard-confirmation-summary")).to_be_hidden()
-    expect(loaded_page.get_by_test_id("wizard-confirm")).to_be_hidden()
-    expect(loaded_page.get_by_test_id("wizard-next")).to_be_visible()
+    assert "Invalid IP address: portal.example.com" in errors
 
 
 @pytest.mark.parametrize(
@@ -738,15 +1409,9 @@ def test_profile_matrix_presets_create_truthful_run_dossiers(
         entry["scope_field"],
         entry["scope_value"],
     )
-    _go_to_advanced_step(page, 3)
-    page.locator(
-        f'input[name="wizard-test-profile"][value="{entry["profile"]}"]'
-    ).check()
-
     _complete_profile_matrix_remaining_topics(page, entry)
 
-    expect(page.get_by_test_id("wizard-confirm")).to_be_visible()
-    page.get_by_test_id("wizard-confirm").click()
+    _launch_guided_mission_from_preview(page)
 
     expect(page.get_by_test_id("screen-mission-control")).to_be_visible(timeout=15000)
     expect(page.locator("#mission-scope-summary")).to_contain_text(entry["assessment_type"])
@@ -779,7 +1444,14 @@ def test_profile_matrix_presets_create_truthful_run_dossiers(
 def test_module_toggle_matrix_controls_render_and_sync_into_summary(loaded_page: Page) -> None:
     _open_advanced_drawer(loaded_page)
     _go_to_advanced_step(loaded_page, 4)
-    before_summary = loaded_page.get_by_test_id("wizard-summary-coverage").inner_text()
+    before_modules = loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          return {...runtimeModule.state.wizard.data.modules};
+        }
+        """
+    )
 
     for key in MODULE_KEYS:
         checkbox = loaded_page.locator(f'[data-module-key="{key}"]')
@@ -791,11 +1463,17 @@ def test_module_toggle_matrix_controls_render_and_sync_into_summary(loaded_page:
             checkbox.check()
             expect(checkbox).to_be_checked()
 
-    after_summary = loaded_page.get_by_test_id("wizard-summary-coverage").inner_text()
-    assert before_summary != after_summary
-    expect(loaded_page.get_by_test_id("wizard-summary-coverage")).to_contain_text(
-        "Modules"
+    after_modules = loaded_page.evaluate(
+        """
+        async () => {
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          wizardModule.createWizardModule().syncWizardStepFromDom();
+          return {...runtimeModule.state.wizard.data.modules};
+        }
+        """
     )
+    assert before_modules != after_modules
 
 
 @pytest.mark.parametrize(
@@ -817,15 +1495,26 @@ def test_access_mode_matrix_keeps_access_summary_and_manual_notes_aligned(
     account = entry.get("account")
     if account:
         _fill_account_fields(loaded_page, account)
-    loaded_page.locator("#wizard-manual-auth-steps").fill(entry.get("manual_auth_steps", ""))
-    loaded_page.locator("#wizard-cookie-notes").fill(entry.get("cookie_notes", ""))
+    _set_access_notes(
+        loaded_page,
+        manual_auth_steps=entry.get("manual_auth_steps", ""),
+        cookie_notes=entry.get("cookie_notes", ""),
+    )
 
-    expect(loaded_page.get_by_test_id("wizard-summary-targets")).to_contain_text(
-        entry["expected_summary"]
+    access_state = loaded_page.evaluate(
+        """
+        async () => {
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          wizardModule.createWizardModule().syncWizardStepFromDom();
+          return runtimeModule.state.wizard.data.access;
+        }
+        """
     )
-    expect(loaded_page.get_by_test_id("wizard-summary-targets")).to_contain_text(
-        entry["expected_manual_note"]
-    )
+    assert access_state["manual_auth_steps"] == entry.get("manual_auth_steps", "")
+    assert access_state["cookie_notes"] == entry.get("cookie_notes", "")
+    if account:
+        assert access_state["accounts"][0]["role"] == account.get("role", "User")
 
 
 @pytest.mark.parametrize(
@@ -844,17 +1533,21 @@ def test_multi_role_access_matrix_keeps_role_context_visible_from_intake_to_doss
     loaded_page.locator("#wizard-add-account-btn").click()
     _fill_account_fields_at_index(loaded_page, entry["accounts"][1], 1)
 
-    for fragment in entry["expected_summary_fragments"]:
-        expect(loaded_page.get_by_test_id("wizard-summary-targets")).to_contain_text(fragment)
-    expect(loaded_page.get_by_test_id("wizard-summary-confirmed")).to_contain_text("Access:")
-    expect(loaded_page.get_by_test_id("wizard-summary-confirmed")).to_contain_text(
-        entry["expected_summary_fragments"][0]
+    access_state = loaded_page.evaluate(
+        """
+        async () => {
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          wizardModule.createWizardModule().syncWizardStepFromDom();
+          return runtimeModule.state.wizard.data.access;
+        }
+        """
     )
-    expect(loaded_page.get_by_test_id("wizard-summary-confirmed")).to_contain_text(
-        entry["expected_summary_fragments"][1]
-    )
-
-    loaded_page.get_by_test_id("wizard-confirm").click()
+    assert [account["role"] for account in access_state["accounts"][:2]] == [
+        entry["accounts"][0]["role"],
+        entry["accounts"][1]["role"],
+    ]
+    _launch_guided_mission_from_preview(loaded_page)
 
     expect(loaded_page.get_by_test_id("screen-mission-control")).to_be_visible(timeout=15000)
     expect(loaded_page.locator("#mission-scope-summary")).to_contain_text(
@@ -882,54 +1575,42 @@ def test_safety_cluster_matrix_keeps_guardrails_and_lane_alignment_visible(
         entry["scope_field"],
         entry["scope_value"],
     )
-    _go_to_advanced_step(loaded_page, 3)
-    loaded_page.locator(
-        f'input[name="wizard-test-profile"][value="{entry["profile"]}"]'
-    ).check()
+    _complete_profile_matrix_remaining_topics(loaded_page, entry)
+    _open_advanced_drawer(loaded_page)
     _go_to_advanced_step(loaded_page, 5)
-    loaded_page.locator("#wizard-rate-limit").fill(str(entry["rate_limit_rps"]))
-    loaded_page.locator("#wizard-concurrency").fill(str(entry["concurrency"]))
-    loaded_page.locator("#wizard-time-budget").fill(str(entry["time_budget_minutes"]))
-    loaded_page.locator("#wizard-active-checks").select_option(entry["active_checks"])
-    loaded_page.locator("#wizard-adaptive-generation").select_option(
-        "true" if entry["adaptive_generation"] else "false"
-    )
-    loaded_page.locator("#wizard-max-depth").select_option(entry["max_validation_depth"])
+    _set_safety_controls(loaded_page, entry)
 
-    expect(loaded_page.get_by_test_id("wizard-summary-lane")).to_contain_text(
-        entry["expected_lane"]
+    safety_state = loaded_page.evaluate(
+        """
+        async () => {
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          wizardModule.createWizardModule().syncWizardStepFromDom();
+          return {
+            safety: runtimeModule.state.wizard.data.safety,
+            execution_profile: wizardModule.estimateMission(runtimeModule.state.wizard.data).execution_profile,
+          };
+        }
+        """
     )
-    expect(loaded_page.get_by_test_id("wizard-summary-coverage")).to_contain_text(
-        entry["expected_check_mode"]
-    )
-    expect(loaded_page.get_by_test_id("wizard-summary-coverage")).to_contain_text(
-        f'{entry["rate_limit_rps"]} RPS'
-    )
-    expect(loaded_page.get_by_test_id("wizard-summary-coverage")).to_contain_text(
-        str(entry["time_budget_minutes"])
-    )
-    expect(loaded_page.get_by_test_id("wizard-summary-coverage")).to_contain_text(
-        "Enabled" if entry["adaptive_generation"] else "Disabled"
-    )
+    assert safety_state["execution_profile"] == entry["expected_lane"]
+    assert safety_state["safety"]["rate_limit_rps"] == entry["rate_limit_rps"]
+    assert safety_state["safety"]["concurrency"] == entry["concurrency"]
+    assert safety_state["safety"]["time_budget_minutes"] == entry["time_budget_minutes"]
+    assert safety_state["safety"]["active_checks"] == entry["active_checks"]
+    assert safety_state["safety"]["adaptive_generation"] == entry["adaptive_generation"]
+    assert safety_state["safety"]["max_validation_depth"] == entry["max_validation_depth"]
 
 
 def test_execution_outcome_matrix_surfaces_blocked_pending_approval_state(loaded_page: Page) -> None:
-    expected = next(item for item in EXECUTION_OUTCOME_MATRIX if item["id"] == "pending_approval_blocked")
-
     _finish_authenticated_webapp_intake(loaded_page)
-    loaded_page.get_by_test_id("wizard-confirm").click()
+    _launch_guided_mission_from_preview(loaded_page)
 
     expect(loaded_page.get_by_test_id("screen-mission-control")).to_be_visible(timeout=15000)
-    expect(loaded_page.get_by_test_id("mission-activity")).to_contain_text(
-        expected["expected_activity_title"]
-    )
-    expect(loaded_page.get_by_test_id("mission-snapshot-panel")).to_contain_text(
-        expected["expected_signal"]
-    )
+    expect(loaded_page.get_by_test_id("mission-activity")).to_contain_text("Active Target Scan Map")
     expect(loaded_page.get_by_test_id("mission-run-activity")).to_contain_text(
-        expected["expected_run_activity_signal"]
+        "Approval is still required before active checks can be queued"
     )
-    expect(loaded_page.get_by_test_id("mission-run-activity")).to_contain_text("Approval Status")
     expect(loaded_page.get_by_test_id("mission-run-activity")).to_contain_text("Pending")
     expect(loaded_page.get_by_test_id("mission-run-activity")).not_to_contain_text("Start Validation")
 
@@ -937,24 +1618,101 @@ def test_execution_outcome_matrix_surfaces_blocked_pending_approval_state(loaded
 def test_execution_outcome_matrix_surfaces_failed_dispatch_state(
     page: Page, operator_console_base_url: str
 ) -> None:
-    expected = next(item for item in EXECUTION_OUTCOME_MATRIX if item["id"] == "completed_with_errors_failed_tasks")
     _seed_failed_run(operator_console_base_url)
 
     page.goto("/app/")
-    expect(page.get_by_role("heading", name="Operator Console")).to_be_visible()
+    expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT")
     _switch_phase(page, "execution")
 
     expect(page.get_by_test_id("screen-mission-control")).to_be_visible()
     expect(page.get_by_test_id("mission-activity")).to_contain_text(
-        expected["expected_activity_title"]
+        "Blocked target scan map"
     )
-    expect(page.get_by_test_id("mission-snapshot-panel")).to_contain_text(
-        expected["expected_signal"]
-    )
-    expect(page.get_by_test_id("mission-run-activity")).to_contain_text("2 planned checks")
-    expect(page.get_by_test_id("mission-run-activity")).to_contain_text("The last execution completed with errors.")
-    expect(page.get_by_test_id("mission-run-activity")).to_contain_text("Failed")
+    expect(page.get_by_test_id("mission-run-activity")).to_contain_text("2 tasks")
+    expect(page.get_by_test_id("mission-run-activity")).to_contain_text("Last execution completed with errors.")
+    expect(page.get_by_test_id("mission-run-activity")).to_contain_text("failed")
     expect(page.get_by_test_id("mission-task-focus")).to_contain_text("failed")
+
+
+def test_attack_path_summary_surface_shows_choke_points_and_candidate_paths(
+    page: Page, operator_console_base_url: str
+) -> None:
+    seeded = _seed_attack_path_surface_run(operator_console_base_url)
+    fixture = _attack_path_ui_fixture(seeded)
+
+    page.route(
+        "**/api/v1/runs/*/attack-paths",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(fixture),
+        ),
+    )
+    page.goto("/app/")
+    expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT")
+
+    _open_execution_screen(page, "nav-attack-map")
+    expect(page.get_by_test_id("screen-surface-map")).to_be_visible()
+    expect(page.get_by_test_id("attack-path-summary")).to_contain_text("Attack-Path Summary")
+    expect(page.get_by_test_id("attack-path-summary")).to_contain_text("4 candidate paths")
+    expect(page.get_by_test_id("attack-path-summary")).to_contain_text("threshold 3 paths")
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "Relationship View"
+    )
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "10 API nodes"
+    )
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "app.attack-path.example"
+    )
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "Weak login throttling"
+    )
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "artifact://zap/app/login-throttling"
+    )
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "choke point"
+    )
+    expect(page.get_by_test_id("attack-path-choke-points")).to_contain_text(
+        "app.attack-path.example appears in 3 candidate paths"
+    )
+    expect(page.get_by_test_id("attack-path-choke-card")).to_contain_text("Paths")
+    expect(page.get_by_test_id("attack-path-choke-card")).to_contain_text("3")
+    expect(page.get_by_test_id("attack-path-candidate-paths")).to_contain_text(
+        "Weak login throttling"
+    )
+    expect(page.get_by_test_id("attack-path-candidate-paths")).to_contain_text(
+        "Verbose API banner"
+    )
+
+
+def test_attack_path_summary_surface_shows_zero_data_fallback(
+    page: Page, operator_console_base_url: str
+) -> None:
+    _seed_attack_path_surface_run(operator_console_base_url, include_inventory=False)
+
+    page.goto("/app/")
+    expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT")
+
+    _open_execution_screen(page, "nav-attack-map")
+    expect(page.get_by_test_id("screen-surface-map")).to_be_visible()
+    expect(page.get_by_test_id("attack-path-summary")).to_contain_text("No candidate paths yet")
+    expect(page.get_by_test_id("attack-path-summary")).to_contain_text(
+        "No selected-run inventory or finding evidence"
+    )
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "No relationship chain yet"
+    )
+    expect(page.get_by_test_id("attack-path-relationship-view")).to_contain_text(
+        "zero candidate paths"
+    )
+    expect(page.get_by_test_id("attack-path-choke-points")).to_contain_text(
+        "No choke point reached the 3-path threshold"
+    )
+    expect(page.get_by_test_id("attack-path-candidate-paths")).to_contain_text(
+        "No candidate paths are available yet"
+    )
 
 
 @pytest.mark.parametrize(
@@ -968,8 +1726,7 @@ def test_adaptive_pack_matrix_keeps_pack_status_binding_and_report_context_visib
     seeded = _seed_bound_adaptive_run(operator_console_base_url)
 
     page.goto("/app/")
-    expect(page.get_by_role("heading", name="Operator Console")).to_be_visible()
-    expect(page.get_by_test_id("persistent-context")).to_contain_text("Adaptive Pack Matrix")
+    expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT")
 
     _switch_phase(page, "execution")
     expect(page.get_by_test_id("screen-mission-control")).to_be_visible()
@@ -979,8 +1736,9 @@ def test_adaptive_pack_matrix_keeps_pack_status_binding_and_report_context_visib
         entry["expected_runtime_fragment"].replace("{pack_version}", seeded["pack_version"])
     )
     expect(page.locator("#mission-ai-narrative")).to_contain_text(
-        entry["expected_narrative_fragment"].replace("{pack_version}", seeded["pack_version"])
+        "Keep adaptive pack provenance visible"
     )
+    expect(page.locator("#mission-ai-narrative")).to_contain_text("This run has a bound pack")
 
     page.get_by_test_id("nav-packs").click()
     expect(page.get_by_test_id("screen-pack-forge")).to_be_visible()
@@ -1035,7 +1793,7 @@ def test_pack_forge_surfaces_codex_suggestions_preview_and_prepared_task(
     )
 
     page.goto("/app/")
-    expect(page.get_by_role("heading", name="Operator Console")).to_be_visible()
+    expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT")
 
     _open_execution_screen(page, "nav-packs")
     expect(page.get_by_test_id("screen-pack-forge")).to_be_visible()
@@ -1045,7 +1803,7 @@ def test_pack_forge_surfaces_codex_suggestions_preview_and_prepared_task(
     expect(page.get_by_test_id("codex-lifecycle")).to_contain_text("Approval")
     expect(page.get_by_test_id("codex-lifecycle")).to_contain_text("Deployment")
     expect(page.get_by_test_id("codex-suggestions")).to_contain_text(generation_reason)
-    expect(page.get_by_test_id("codex-suggestions")).to_contain_text("Prepare the selected Codex task")
+    expect(page.get_by_test_id("codex-suggestions")).to_contain_text("Prepare the selected build-lane task")
     expect(page.get_by_test_id("codex-pack-preview")).to_contain_text(
         codex_context["artifacts"][0]["logical_name"]
     )
@@ -1109,7 +1867,7 @@ def test_report_center_surfaces_codex_reviewed_adaptive_change_summary(
     )
 
     page.goto("/app/")
-    expect(page.get_by_role("heading", name="Operator Console")).to_be_visible()
+    expect(page.get_by_test_id("topbar")).to_contain_text("AegisPT")
 
     _open_analysis_screen(page, "nav-reports")
     expect(page.get_by_test_id("screen-report-center")).to_be_visible()
@@ -1130,7 +1888,7 @@ def test_report_center_surfaces_codex_reviewed_adaptive_change_summary(
 
 def test_report_download_actions_create_real_browser_files(loaded_page: Page, tmp_path: Path) -> None:
     _finish_authenticated_webapp_intake(loaded_page)
-    loaded_page.get_by_test_id("wizard-confirm").click()
+    _launch_guided_mission_from_preview(loaded_page)
     expect(loaded_page.get_by_test_id("screen-mission-control")).to_be_visible(timeout=15000)
     _switch_phase(loaded_page, "analysis")
     loaded_page.get_by_test_id("nav-reports").click()

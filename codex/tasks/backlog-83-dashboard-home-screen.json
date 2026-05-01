@@ -1,0 +1,108 @@
+{
+  "id": "backlog-83-dashboard-home-screen",
+  "task_file": "codex/tasks/backlog-83-dashboard-home-screen.json",
+  "task_type": "backlog_slice",
+  "title": "Dashboard Home Screen \u2014 Tile-Based Command Center",
+  "goal": "Make the Dashboard the first screen operators see \u2014 a tile-based command center showing active runs, combined risk posture, open problems, upcoming scans, and recent activity across all engagements at a glance.",
+  "scope": "Add a Dashboard screen as the default landing screen (replaces the wizard as the starting view when engagements exist). The Dashboard is accessible via a 'home' icon at the top of the sidebar. Layout uses a responsive tile grid with the following tiles/widgets: (1) ACTIVE RUN TILE (full-width if run active, hidden if none): shows current run name, phase progress, tasks running/done, live finding counter with severity colours. Links to Mission Control. (2) RISK SCORE TILE: current exposure score gauge (0-100) with trend arrow (improving/stable/worsening) and sparkline for last 7 runs. Links to History. (3) OPEN PROBLEMS TILE: count of open critical/high/medium findings across ALL engagements. Critical count in red, prominent. Links to Problems Center (backlog-84). (4) UPCOMING SCANS TILE: next 3 scheduled runs with engagement name, profile, and ETA. Links to Settings > Schedules. (5) RECENT ACTIVITY FEED: last 10 events across all engagements (new findings, completed runs, remediated items, new scans). Time-relative timestamps. (6) QUICK ACTIONS TILE: 4 action buttons: [+ New Mission], [View Findings], [Download Report], [View All Engagements]. (7) SETUP CHECKLIST (shown until all items done, from backlog-80 onboarding): compact card showing completion status. (8) ENGAGEMENTS SUMMARY: table of last 5 active engagements with columns: name, last run date, risk score, open critical/high counts, and quick-link arrow. GET /api/v1/dashboard provides all widget data in a single API call to avoid waterfall loading.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AegisPT has no home screen. Opening the app drops you into the wizard whether or not you have existing data. A dashboard is the first thing enterprise buyers expect. NodeZero, Pentera, and Cobalt all have dashboard home screens. The dashboard makes AegisPT feel like a platform, not a scanner.",
+  "source_context": {
+    "queue_index": 88,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "UI_REDESIGN_SPEC.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "dashboard",
+    "source_documents": [
+      "ui/assets/app.js",
+      "ui/assets/modules/mission-control.js",
+      "api/app/routers/engagements.py",
+      "api/app/services/exposure_score.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Read-only aggregate dashboard. No new write operations. Single /api/v1/dashboard endpoint aggregates existing data. Dashboard replaces wizard as default only when engagements exist \u2014 new operators still see onboarding/wizard first.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Dashboard screen appears as default landing when engagements exist.",
+    "Wizard remains the default when no engagements exist.",
+    "All 7 tiles/widgets render with correct data.",
+    "GET /api/v1/dashboard returns all widget data in a single call.",
+    "Active run tile shows live data when a run is active.",
+    "Risk score tile shows exposure score and trend.",
+    "Open problems tile shows cross-engagement finding counts.",
+    "Full Playwright suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/dashboard.py",
+    "api/app/schemas/dashboard.py",
+    "api/app/services/dashboard.py",
+    "api/app/main.py",
+    "ui/assets/app.js",
+    "ui/assets/modules/dashboard.js",
+    "ui/assets/styles.css",
+    "ui/index.html",
+    "api/tests/test_dashboard.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_dashboard.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Dashboard renders with all tiles.",
+      "Single API call loads all widget data.",
+      "Default routing correct per engagement existence.",
+      "Playwright suite green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "Bulk delete (backlog-82) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with Dashboard implementation.",
+      "Update CURRENT_STATE.md with Dashboard as active home screen.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Custom dashboard layouts",
+    "Widget drag-and-drop",
+    "Dashboard export"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

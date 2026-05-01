@@ -31,6 +31,20 @@ The intake may recommend:
 - conservative posture when the mission is clearly inventory-led
 - adaptive coverage when the operator explicitly wants customer-specific follow-up checks
 
+## Optional LLM intake intelligence
+
+When enabled, the LLM intake layer is a review aid around the existing deterministic intake. It may translate ambiguous operator text into warnings, safe inferences, methodology or pack context, and follow-up questions. It does not replace the deterministic parser and it does not create a second run-configuration model.
+
+The layer is disabled by default. Disabled, unsupported, or provider-failure paths preserve the normal deterministic intake behavior and may only attach failure metadata when the backend is explicitly configured to store interpretation context.
+
+Allowed interpretation output is bounded:
+
+- scope, targets, allowlists, denylists, and exclusions cannot be broadened from LLM output
+- authenticated access cannot be inferred unless credentials or access context are explicitly present in operator input or configuration
+- methodology and pack suggestions are advisory until the operator confirms them
+- pack suggestions cannot approve, deploy, bind, auto-bind, or dispatch work
+- follow-up questions always require operator confirmation before they affect the run
+
 ## Safety behavior
 
 - access is not assumed just because a portal or API exists

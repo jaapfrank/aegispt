@@ -1,0 +1,113 @@
+{
+  "id": "backlog-91-ai-nuclei-template-generation",
+  "task_file": "codex/tasks/backlog-91-ai-nuclei-template-generation.json",
+  "task_type": "backlog_slice",
+  "title": "AI-Driven Nuclei Template Generation from CVEs",
+  "goal": "Let the AI generate a working Nuclei YAML test template from a CVE description and affected product \u2014 so new CVEs from the auto-sync feed can be tested immediately without waiting for the Nuclei community to publish a template.",
+  "scope": "Implement: (1) A new endpoint POST /api/v1/threat-intel/{record_id}/generate-template that takes a threat intel record (CVE ID, description, CVSS, affected products, CWE) and calls the AI provider (ChatGPT OAuth) to generate a Nuclei YAML template. The AI prompt includes: CVE metadata, the Nuclei YAML specification schema, examples of well-formed Nuclei templates for similar vulnerability classes, and explicit instructions to generate only safe detection-only templates (no payload delivery, no destructive actions). (2) The generated template is stored as a pending capability pack artifact in the existing Codex pack lane \u2014 it goes through the same human review, validation, approval, and deployment gates as any other pack. It is NEVER auto-deployed. (3) In the threat intel record view, a 'Generate Test Template' button appears when the record has no linked Nuclei template. After generation: shows a diff of the generated YAML with a 'Review in Pack Forge' link. (4) A generated-template quality check: validate the YAML structure against the Nuclei template schema before storing. Reject templates that contain: active exploitation payloads beyond detection, destructive operations, out-of-scope target references. (5) After operator review and deployment, the template is linked back to the threat intel record so the finding badge shows 'Tested via generated template'.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "The Nuclei community publishes CVE templates but there is always a lag between CVE disclosure and template availability. AI-generated templates close this gap for newly disclosed CVEs, especially for CVEs affecting internal software or uncommon products that the community may never cover. This is a capability no competitor currently offers as a built-in feature.",
+  "source_context": {
+    "queue_index": 95,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md",
+      "docs/threat_intel_model.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_test_generation",
+    "source_documents": [
+      "api/app/services/threat_intel.py",
+      "api/app/services/chatgpt_oauth.py",
+      "api/app/services/codex_tasks.py",
+      "api/app/services/packs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Detection-only templates \u2014 no exploitation payloads beyond confirming vulnerability presence. Generated template always requires human review and existing pack approval gate before use. AI generation requires ChatGPT OAuth provider to be connected. Never auto-deploys.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "no_auto_deploy": true,
+    "detection_only_templates": true
+  },
+  "success_criteria": [
+    "POST /api/v1/threat-intel/{record_id}/generate-template calls AI and returns a Nuclei YAML.",
+    "Generated YAML is validated against Nuclei template schema before storage.",
+    "Templates containing exploitation payloads or destructive operations are rejected.",
+    "Generated template stored as a pending pack artifact in the Codex lane.",
+    "Pack goes through existing review, validation, approval, and deployment gates.",
+    "Never auto-deployed.",
+    "'Generate Test Template' button visible in threat intel record view.",
+    "After deployment, finding badge shows 'Tested via generated template'.",
+    "Requires ChatGPT OAuth provider \u2014 graceful unavailable state without it.",
+    "Tests cover generation, schema validation, payload rejection, pack staging.",
+    "Full test suite remains green."
+  ],
+  "likely_touched_files": [
+    "api/app/services/cve_template_generator.py",
+    "api/app/routers/threat_intel.py",
+    "api/app/services/chatgpt_oauth.py",
+    "api/app/services/packs.py",
+    "api/tests/test_cve_template_generator.py",
+    "ui/assets/modules/findings.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Exploitation payloads in generated templates",
+    "Auto-deployment of generated templates",
+    "Pack approval gate bypass",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_cve_template_generator.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "AI generates valid Nuclei YAML from CVE metadata.",
+      "Schema validation rejects malformed or dangerous templates.",
+      "Pack staging uses existing approval gates.",
+      "Tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "CVE feed auto-sync (backlog-90) is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with AI template generation implementation.",
+      "Update CURRENT_STATE.md with CVE-to-template generation as active capability.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Exploitation payloads",
+    "Auto-deployment",
+    "Custom CVE creation (backlog-92)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_prompted"
+}

@@ -1,0 +1,96 @@
+{
+  "id": "backlog-121-sla-and-false-positive",
+  "task_file": "codex/tasks/backlog-121-sla-and-false-positive.json",
+  "task_type": "backlog_slice",
+  "title": "SLA Tracking and False Positive Formalization",
+  "goal": "Track remediation deadlines per severity and surface overdue findings on the Dashboard. Require a documented reason when a finding is marked false positive.",
+  "scope": "Two changes: (1) SLA TRACKING: add remediation_due_date (DATETIME nullable) and sla_breached (BOOLEAN default False) to Finding model. On finding creation, compute remediation_due_date based on severity using configurable SLA days from Settings (defaults: critical=1d, high=7d, medium=30d, low=90d, info=none). Add sla_days_critical/high/medium/low settings keys with defaults. Add a background check (or lazy compute on GET) that sets sla_breached=True when now > remediation_due_date and status not in (resolved, false_positive, accepted_risk). Add overdue_critical_count and overdue_high_count to the Dashboard API response. Show an Overdue badge on Dashboard with count and color. (2) FALSE POSITIVE FORMALIZATION: add false_positive_reason (TEXT nullable) and false_positive_confirmed_by (VARCHAR 255 nullable) to Finding model. In PATCH /api/v1/findings/{id}, when status is changed to false_positive, require false_positive_reason in the request body (return 422 if missing). In the Findings drawer UI, when operator selects false_positive status, show a text field Reason for false positive decision (required). Store false_positive_confirmed_by from the current actor.",
+  "status": "queued",
+  "generated_by": "operator-review-2026-04-29",
+  "generation_reason": "No SLA enforcement means critical findings can sit open indefinitely with no alert. No false positive documentation means decisions are undocumented and unreviewable.",
+  "queue_index": 121,
+  "source_context": {
+    "queue_index": 121,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "compliance",
+    "source_documents": [
+      "api/app/models/control.py",
+      "api/app/routers/findings.py",
+      "api/app/routers/dashboard.py",
+      "ui/assets/modules/findings.js",
+      "ui/assets/modules/dashboard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "SLA and false positive fields only. No automated escalation emails in this slice.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "remediation_due_date populated on finding creation based on severity.",
+    "sla_breached flag computed correctly.",
+    "Dashboard shows overdue critical and high counts.",
+    "PATCH to false_positive requires false_positive_reason (422 without it).",
+    "False positive reason shown in Findings drawer.",
+    "Tests pass."
+  ],
+  "likely_touched_files": [
+    "api/app/models/control.py",
+    "api/app/routers/findings.py",
+    "api/app/routers/dashboard.py",
+    "api/app/schemas/findings.py",
+    "ui/assets/modules/findings.js",
+    "ui/assets/modules/dashboard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "pack registry",
+    "Prompt 1 / Prompt 2 foundations"
+  ],
+  "out_of_scope": [
+    "Email escalation",
+    "Webhook notifications for SLA breach",
+    "SLA reports"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_health.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "SLA dates computed. Overdue shown on Dashboard. False positive requires reason."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

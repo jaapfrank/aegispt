@@ -31,6 +31,8 @@ WAIT_SECONDS="${AEGISPT_LOCAL_HOST_WAIT_SECONDS:-20}"
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/aegispt/ms-playwright}"
 
 bash "${REPO_ROOT}/scripts/ensure_playwright_chromium.sh"
+"${REPO_ROOT}/.venv/bin/python" "${REPO_ROOT}/scripts/repair_local_sqlite_schema.py"
+"${REPO_ROOT}/.venv/bin/python" -m alembic upgrade head
 
 $SUDO systemctl stop "${UNIT_NAME}.service" >/dev/null 2>&1 || true
 pkill -f "uvicorn api.app.main:create_app --factory --host ${HOST} --port ${PORT}" >/dev/null 2>&1 || true
@@ -40,6 +42,8 @@ $SUDO systemd-run \
   --property="WorkingDirectory=${REPO_ROOT}" \
   --setenv=PYTHONUNBUFFERED=1 \
   --setenv=TASK_DISPATCH_MODE="${TASK_DISPATCH_MODE:-inline}" \
+  --setenv=INLINE_DISPATCH_BACKGROUND="${INLINE_DISPATCH_BACKGROUND:-true}" \
+  --setenv=RUNNER_TIMEOUT_SECONDS="${RUNNER_TIMEOUT_SECONDS:-60.0}" \
   --setenv=ARTIFACTS_STORAGE_MODE="${ARTIFACTS_STORAGE_MODE:-inline}" \
   --setenv=APP_PUBLIC_BASE_URL="${BASE_URL}" \
   --setenv=PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH}" \

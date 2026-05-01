@@ -1,0 +1,104 @@
+{
+  "id": "backlog-41-post-task-ai-analysis-proposal-foundation",
+  "task_file": "codex/tasks/backlog-41-post-task-ai-analysis-proposal-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Post-Task AI Analysis Proposal Foundation",
+  "goal": "Add a guarded, disabled-by-default post-task analysis path that can create reviewed AI proposals without executing them.",
+  "scope": "Wire a narrow post-task analysis service after task completion only when explicitly enabled, using existing run/task/finding/inventory context and the AI reasoning ledger. Store observations, hypotheses, and proposed next steps as pending proposals, but do not auto-dispatch, auto-approve, broaden scope, or bypass the existing approval model.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "AI_PENTESTING_AGENT.md's reasoning loop requires post-tool analysis, but AegisPT must add it behind existing safety controls and audit storage.",
+  "source_context": {
+    "queue_index": 41,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_reasoning_loop",
+    "source_documents": [
+      "AI_PENTESTING_AGENT.md",
+      "docs/ai_pentesting_agent_scope_alignment.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Post-task analysis may create pending proposals only. It must not execute, approve, expand scope, alter findings, or queue tasks directly.",
+    "runtime_mutation": false,
+    "operator_control_required": true,
+    "kill_switch_required": true
+  },
+  "success_criteria": [
+    "AI analysis is disabled by default and skipped cleanly when no provider is configured.",
+    "Any generated proposal is stored as pending review and remains non-executing.",
+    "Out-of-scope targets or unsupported tools are blocked before proposal storage.",
+    "Provider failure leaves task completion and findings unchanged.",
+    "Tests cover disabled, provider-failure, blocked-out-of-scope, and pending-proposal cases."
+  ],
+  "likely_touched_files": [
+    "api/app/config.py",
+    "api/app/services/ai_enrichment.py",
+    "api/app/services/ai_agent.py",
+    "workers/orchestration/tasks.py",
+    "api/tests/test_ai_agent_reasoning.py",
+    "workers/tests/test_task_ai_callbacks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "runtime self-modification",
+    "uncontrolled plugin installation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_ai_agent_reasoning.py workers/tests/test_task_ai_callbacks.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Post-task AI analysis is opt-in and safe by default.",
+      "Pending proposals are review-only records.",
+      "No proposal can bypass scope, approval, pack, or runtime binding gates."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "AI reasoning ledger foundation is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Allowed proposal shape and blocked action classes are documented."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with post-task AI analysis changes and validation evidence.",
+      "Update CURRENT_STATE.md with the pending-proposal-only reasoning baseline.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Proposal approval UI",
+    "Automatic execution",
+    "Autonomous exploitation",
+    "Finding severity mutation",
+    "Scope expansion"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

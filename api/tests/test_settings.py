@@ -1,0 +1,295 @@
+from __future__ import annotations
+
+from sqlalchemy import select
+
+from api.app.config import Settings
+from api.app.models import InstanceSetting
+from api.app.services.settings import effective_runtime_settings
+
+
+def _settings_by_key(payload: dict) -> dict[str, dict]:
+    return {
+        setting["key"]: setting
+        for section in payload["sections"]
+        for setting in section["settings"]
+    }
+
+
+def test_get_settings_returns_all_sections_with_environment_defaults(client) -> None:
+    response = client.get("/api/v1/settings")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["tenant_id"] == "default"
+    assert payload["sensitive_plaintext_exposed"] is False
+    assert {section["id"] for section in payload["sections"]} == {
+        "ai_provider",
+        "default_network_scope",
+        "default_scan_profile",
+        "runtime_execution",
+        "integrations",
+        "notifications",
+        "threat_intel",
+        "evidence_integrity",
+        "remediation",
+        "instance",
+    }
+
+    settings = _settings_by_key(payload)
+    assert settings["ai.chatgpt_model"]["value"] == "gpt-5.4"
+    assert settings["ai.chatgpt_model"]["read_only"] is True
+    assert settings["ai.finding_enrichment_enabled"]["value"] is False
+    assert settings["ai.post_task_analysis_enabled"]["value"] is False
+    assert settings["ai.intake_intelligence_enabled"]["value"] is False
+    assert settings["ai.autofix_enabled"]["value"] is False
+    assert settings["ai.report_drafting_enabled"]["value"] is False
+    assert settings["network.default_lan_cidr"]["value"] == "10.0.0.0/8"
+    assert settings["network.default_lan_cidr"]["source"] == "environment"
+    assert settings["runtime.inline_task_workers"]["value"] == 4
+    assert settings["runtime.inline_task_workers"]["input_type"] == "number"
+    assert settings["runtime.inline_task_workers"]["min_value"] == 1
+    assert settings["runtime.inline_task_workers"]["max_value"] == 32
+    assert settings["integrations.slack_webhook_url"]["sensitive"] is True
+    assert settings["integrations.slack_webhook_url"]["value"] is None
+    assert settings["integrations.slack_webhook_url"]["configured"] is False
+    assert settings["threat_intel.sync_enabled"]["value"] is True
+    assert settings["threat_intel.nvd_api_key"]["sensitive"] is True
+    assert settings["threat_intel.opencve_api_token"]["value"] is None
+
+
+def test_patch_settings_persists_plain_and_encrypted_sensitive_values(client) -> None:
+    secret = "https://hooks.slack.example/services/T000/B000/super-secret"
+    response = client.patch(
+        "/api/v1/settings",
+        headers={"X-Actor": "settings-admin"},
+        json={
+            "settings": {
+                "network.default_lan_cidr": "10.42.0.0/16",
+                "network.default_vlan_cidrs": ["10.43.0.0/16", "10.44.0.0/16"],
+                "notifications.run_completion": True,
+                "integrations.slack_webhook_url": secret,
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    settings = _settings_by_key(response.json())
+    assert settings["network.default_lan_cidr"]["value"] == "10.42.0.0/16"
+    assert settings["network.default_vlan_cidrs"]["value"] == ["10.43.0.0/16", "10.44.0.0/16"]
+    assert settings["notifications.run_completion"]["value"] is True
+    assert settings["integrations.slack_webhook_url"]["value"] is None
+    assert settings["integrations.slack_webhook_url"]["configured"] is True
+    assert settings["integrations.slack_webhook_url"]["masked_value"]
+    assert secret not in str(response.json())
+
+    with client.app.state.session_factory() as session:
+        rows = {row.setting_key: row for row in session.scalars(select(InstanceSetting)).all()}
+
+    assert rows["network.default_lan_cidr"].value_json == {"value": "10.42.0.0/16"}
+    assert rows["integrations.slack_webhook_url"].sensitive is True
+    assert rows["integrations.slack_webhook_url"].encrypted_value
+    assert secret not in rows["integrations.slack_webhook_url"].encrypted_value
+    assert rows["integrations.slack_webhook_url"].updated_by == "settings-admin"
+
+
+def test_settings_are_tenant_scoped(client) -> None:
+    tenant_headers = {"X-Actor": "settings-admin", "X-Tenant-ID": "acme"}
+    response = client.patch(
+        "/api/v1/settings",
+        headers=tenant_headers,
+        json={"settings": {"network.default_lan_cidr": "10.99.0.0/16"}},
+    )
+    assert response.status_code == 200
+    assert _settings_by_key(response.json())["network.default_lan_cidr"]["value"] == "10.99.0.0/16"
+    assert response.json()["tenant_id"] == "acme"
+
+    default_response = client.get("/api/v1/settings")
+    assert default_response.status_code == 200
+    assert _settings_by_key(default_response.json())["network.default_lan_cidr"]["value"] == "10.0.0.0/8"
+
+    tenant_response = client.get("/api/v1/settings", headers={"X-Tenant-ID": "acme"})
+    assert tenant_response.status_code == 200
+    assert _settings_by_key(tenant_response.json())["network.default_lan_cidr"]["value"] == "10.99.0.0/16"
+
+
+def test_patch_rejects_unknown_and_read_only_settings(client) -> None:
+    unknown_response = client.patch(
+        "/api/v1/settings",
+        json={"settings": {"scan.activate_new_runner": "nope"}},
+    )
+    assert unknown_response.status_code == 400
+    assert "unknown setting key" in unknown_response.json()["detail"]
+
+    readonly_response = client.patch(
+        "/api/v1/settings",
+        json={"settings": {"ai.chatgpt_model": "other-model"}},
+    )
+    assert readonly_response.status_code == 400
+    assert "read-only" in readonly_response.json()["detail"]
+
+
+def test_patch_settings_persists_ai_feature_toggles_and_runtime_overlay(client) -> None:
+    response = client.patch(
+        "/api/v1/settings",
+        headers={"X-Actor": "settings-admin"},
+        json={
+            "settings": {
+                "ai.provider": "chatgpt_oauth",
+                "ai.finding_enrichment_enabled": True,
+                "ai.post_task_analysis_enabled": True,
+                "ai.intake_intelligence_enabled": True,
+                "ai.autofix_enabled": True,
+                "ai.report_drafting_enabled": True,
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    payload = _settings_by_key(response.json())
+    assert payload["ai.provider"]["value"] == "chatgpt_oauth"
+    assert payload["ai.finding_enrichment_enabled"]["value"] is True
+    assert payload["ai.post_task_analysis_enabled"]["value"] is True
+    assert payload["ai.intake_intelligence_enabled"]["value"] is True
+    assert payload["ai.autofix_enabled"]["value"] is True
+    assert payload["ai.report_drafting_enabled"]["value"] is True
+
+    with client.app.state.session_factory() as session:
+        effective = effective_runtime_settings(session, tenant_id=None, settings=Settings())
+
+    assert effective.ai_provider == "chatgpt_oauth"
+    assert effective.ai_finding_enrichment_enabled is True
+    assert effective.ai_agent_post_task_analysis_enabled is True
+    assert effective.ai_intake_interpretation_enabled is True
+    assert effective.ai_autofix_enabled is True
+    assert effective.ai_report_drafting_enabled is True
+
+
+def test_patch_settings_persists_runtime_parallelism_and_validates_limits(client) -> None:
+    response = client.patch(
+        "/api/v1/settings",
+        headers={"X-Actor": "settings-admin"},
+        json={"settings": {"runtime.inline_task_workers": "8"}},
+    )
+
+    assert response.status_code == 200
+    payload = _settings_by_key(response.json())
+    assert payload["runtime.inline_task_workers"]["value"] == 8
+    assert payload["runtime.inline_task_workers"]["description"]
+
+    with client.app.state.session_factory() as session:
+        effective = effective_runtime_settings(session, tenant_id=None, settings=Settings())
+
+    assert effective.inline_task_workers == 8
+
+    too_low = client.patch("/api/v1/settings", json={"settings": {"runtime.inline_task_workers": 0}})
+    assert too_low.status_code == 400
+    assert "at least 1" in too_low.json()["detail"]
+
+    too_high = client.patch("/api/v1/settings", json={"settings": {"runtime.inline_task_workers": 64}})
+    assert too_high.status_code == 400
+    assert "at most 32" in too_high.json()["detail"]
+
+
+def test_settings_readiness_reports_tools_runtime_and_export_artifact(client, monkeypatch) -> None:
+    def fake_which(binary: str) -> str | None:
+        if binary in {"nmap", "nuclei", "httpx"}:
+            return f"/usr/bin/{binary}"
+        return None
+
+    monkeypatch.setattr("api.app.services.settings.shutil.which", fake_which)
+
+    patch_response = client.patch(
+        "/api/v1/settings",
+        headers={"X-Actor": "settings-admin"},
+        json={"settings": {"runtime.inline_task_workers": "6", "ai.provider": "chatgpt_oauth"}},
+    )
+    assert patch_response.status_code == 200
+
+    response = client.get("/api/v1/settings/readiness")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["tenant_id"] == "default"
+    assert payload["overall_status"] in {"ready", "degraded", "missing", "blocked"}
+    assert payload["artifact"]["kind"] == "aegispt.settings_readiness"
+    assert payload["artifact"]["tenant_id"] == "default"
+
+    capabilities = {item["id"]: item for item in payload["capabilities"]}
+    assert capabilities["runtime_concurrency"]["metadata"]["current"] == 6
+    assert capabilities["runtime_concurrency"]["metadata"]["min"] == 1
+    assert capabilities["runtime_concurrency"]["metadata"]["max"] == 32
+    assert "does not mutate active runs" in " ".join(capabilities["runtime_concurrency"]["details"])
+    assert capabilities["ai_provider"]["metadata"]["provider"] == "chatgpt_oauth"
+
+    tools = {item["id"]: item for item in payload["tools"]}
+    assert tools["nmap"]["installed"] is True
+    assert tools["nmap"]["detected_path"] == "/usr/bin/nmap"
+    assert "LAN discovery" in tools["nmap"]["affected_assessment_families"]
+    assert tools["metasploit"]["installed"] is False
+    assert tools["metasploit"]["status"] == "degraded"
+    assert "Exploit confirmation" in tools["metasploit"]["affected_assessment_families"]
+
+
+def test_read_settings_includes_ai_feature_toggle_fields(client) -> None:
+    response = client.get("/api/v1/settings")
+    assert response.status_code == 200
+
+    payload = _settings_by_key(response.json())
+    expected_toggle_keys = [
+        "ai.finding_enrichment_enabled",
+        "ai.post_task_analysis_enabled",
+        "ai.intake_intelligence_enabled",
+        "ai.autofix_enabled",
+        "ai.report_drafting_enabled",
+    ]
+    for key in expected_toggle_keys:
+        assert key in payload
+        assert payload[key]["input_type"] == "checkbox"
+
+
+def test_run_ai_insights_uses_persisted_settings_defaults(client) -> None:
+    engagement_response = client.post(
+        "/api/v1/engagements",
+        headers={"X-Actor": "settings-admin"},
+        json={"name": "AI Settings Run", "client": "Acme", "roe_ref": "ROE-AI-SETTINGS"},
+    )
+    assert engagement_response.status_code == 201
+    engagement_id = engagement_response.json()["id"]
+
+    scope_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/scope",
+        headers={"X-Actor": "settings-admin"},
+        json={
+            "allowlist_json": {"urls": ["https://portal.example.test"]},
+            "denylist_json": {},
+        },
+    )
+    assert scope_response.status_code == 201
+
+    patch_response = client.patch(
+        "/api/v1/settings",
+        headers={"X-Actor": "settings-admin"},
+        json={
+            "settings": {
+                "ai.provider": "chatgpt_oauth",
+                "ai.post_task_analysis_enabled": True,
+            }
+        },
+    )
+    assert patch_response.status_code == 200
+
+    run_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "settings-admin"},
+        json={
+            "profile_name": "passive-web-baseline",
+            "configuration_json": {"targets": {"urls": ["https://portal.example.test"]}},
+        },
+    )
+    assert run_response.status_code == 201
+    run_id = run_response.json()["id"]
+
+    insights_response = client.get(f"/api/v1/runs/{run_id}/ai-insights")
+    assert insights_response.status_code == 200
+    payload = insights_response.json()
+    assert payload["post_task_analysis_enabled"] is True
+    assert payload["provider"] == "chatgpt_oauth"

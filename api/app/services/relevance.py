@@ -202,7 +202,7 @@ def analyze_relevance(
         session.scalars(
             select(Finding)
             .join(Run, Finding.run_id == Run.id)
-            .where(Run.engagement_id == engagement_id)
+            .where(Run.engagement_id == engagement_id, Run.deleted_at.is_(None))
         ).all()
         if include_prior_findings
         else []

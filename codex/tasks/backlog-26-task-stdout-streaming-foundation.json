@@ -1,0 +1,109 @@
+{
+  "id": "backlog-26-task-stdout-streaming-foundation",
+  "task_file": "codex/tasks/backlog-26-task-stdout-streaming-foundation.json",
+  "task_type": "backlog_slice",
+  "title": "Task Stdout Streaming Foundation",
+  "goal": "Expose live task output truthfully so active runs feel observable without inventing telemetry.",
+  "scope": "Implement the first per-task stdout streaming slice through the existing task lifecycle. Add a bounded stream buffer, task stdout SSE endpoint, and terminal-style Mission Control panel only where runner output can be captured safely.",
+  "status": "queued",
+  "generated_by": "codex",
+  "generation_reason": "Product recommendation coverage audit found per-task stdout streaming was explicitly deferred but not queued as its own package.",
+  "source_context": {
+    "queue_index": 26,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/ui_mission_control.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "live_operations",
+    "source_documents": [
+      "PRODUCT_RECOMMENDATIONS.md",
+      "docs/product_recommendations_scope_alignment.md",
+      "docs/ui_mission_control.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement this task until it is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Stream only real task output and preserve existing dispatch, approval, and runtime binding paths. Do not add a second runner protocol.",
+    "runtime_mutation": false,
+    "notes": [
+      "Output buffers must be bounded and safe for secrets.",
+      "Terminal UI must clearly show unavailable output when a runner cannot stream."
+    ]
+  },
+  "success_criteria": [
+    "At least one supported runner path can emit bounded stdout lines tied to task identity.",
+    "A task stdout stream endpoint exposes only authorized, sanitized task output.",
+    "Mission Control can render a truthful terminal panel for streaming and unavailable states.",
+    "Tests cover streaming, completion, missing task, and no-stream fallback behavior.",
+    "Existing approval, dispatch, pack binding, and evidence paths remain intact."
+  ],
+  "likely_touched_files": [
+    "workers/runners/base/stdout_stream.py",
+    "workers/orchestration/tasks.py",
+    "api/app/routers/tasks.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/styles.css",
+    "api/tests/test_task_dispatch.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/schemas/findings.py",
+    "pack registry, validation, approval, deployment, or runtime binding flows",
+    "Prompt 1 / Prompt 2 foundations",
+    "live runtime self-modification"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest --capture=no api/tests/test_task_dispatch.py",
+      "source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.playwright-browsers\" python -m pytest --capture=no ui/tests/test_operator_console_e2e.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Stdout stream content is real, bounded, and tied to task identity.",
+      "Unavailable streaming states are explicit.",
+      "No approval, dispatch, or runtime binding bypass is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "The prior active task is completed and logged.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "Runner output safety and secret redaction constraints are reviewed before implementation."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with stdout streaming changes and validation evidence.",
+      "Update CURRENT_STATE.md with the stdout streaming baseline and remaining runner limits.",
+      "Promote exactly one next approved task package into NEXT_TASK.md, or set an explicit holding state if the queue is exhausted."
+    ]
+  },
+  "out_of_scope": [
+    "Streaming raw secrets",
+    "Second worker runtime",
+    "Unbounded output storage",
+    "Synthetic terminal output",
+    "Bypassing approval or dispatch gates"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

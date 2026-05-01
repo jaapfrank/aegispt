@@ -23,7 +23,15 @@ class FindingRead(BaseModel):
     target_id: str
     evidence_ref: str
     status: str
+    remediation_due_date: datetime | None = None
+    sla_breached: bool = False
+    false_positive_reason: str | None = None
+    false_positive_confirmed_by: str | None = None
+    cvss_score: float | None = None
+    cvss_vector: str | None = None
+    validation_status: str = "unvalidated"
     summary: str | None
+    replay_recipe_json: dict | None = None
     methodology_tags: list[str]
     ptes_phase: str | None
     nist_phase: str | None
@@ -36,3 +44,5 @@ class FindingRead(BaseModel):
 
 class FindingUpdate(BaseModel):
     status: Literal["open", "triaged", "in_progress", "resolved", "accepted_risk", "false_positive"]
+    reason: str | None = None
+    false_positive_reason: str | None = None
