@@ -687,6 +687,129 @@ def test_settings_threat_intel_nvd_rate_limit_hint_focuses_api_key_field(
     expect(loaded_page.locator('[data-setting-key="threat_intel.nvd_api_key"]')).to_be_focused()
 
 
+def test_surface_map_renders_hosts_from_service_only_inventory_and_counts_tabs(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-attack-map").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const now = new Date().toISOString();
+          const runId = '61616161-6161-4161-8161-616161616161';
+          const snapshotId = '62626262-6262-4262-8262-626262626262';
+          const run = {
+            id: runId,
+            status: 'completed',
+            requested_by: 'operator-ui',
+            created_at: now,
+            updated_at: now,
+            configuration_json: { targets: { cidr_ranges: ['10.0.20.0/24'] } },
+            profile: { name: 'passive-network-discovery', run_class: 'passive', limits_json: {} },
+            tasks: [],
+            findings: { finding_count: 0, findings_by_severity: {}, findings_by_status: {} },
+          };
+          runtimeModule.patchState({
+            activeScreen: 'surface-map',
+            selectedEngagementId: '60606060-6060-4060-8060-606060606060',
+            selectedRunId: runId,
+            selectedRun: run,
+            selectedAttackPathSummary: null,
+            mission: {
+              scope: { allowlist_json: { cidr_ranges: ['10.0.20.0/24'] }, denylist_json: {} },
+              runs: [run],
+              relevance: [],
+              packs: [],
+              internalValidations: [],
+              findingsByRun: { [runId]: [] },
+              inventory: [{
+                id: snapshotId,
+                engagement_id: '60606060-6060-4060-8060-606060606060',
+                summary_json: { host_count: 0, service_count: 2, endpoint_count: 0, technology_count: 0 },
+                raw_inputs_json: { run_id: runId },
+                source_tools_json: ['nmap'],
+                environment_notes_json: [],
+                assumptions_json: [],
+                confidence_score: 0.8,
+                normalized_inventory_json: {
+                  hosts: [],
+                  services: [
+                    { host: '10.0.20.10', port: 22, protocol: 'tcp', service: 'ssh', source: 'nmap', confidence: 0.8 },
+                    { host: '10.0.20.11', port: 445, protocol: 'tcp', service: 'smb', source: 'nmap', confidence: 0.75 },
+                  ],
+                  http_endpoints: [],
+                  technologies: [],
+                  vendor_product_fingerprints: [],
+                },
+              }],
+            },
+            surfaceAssetFilter: 'all',
+            surfaceAssetQuery: '',
+            selectedSurfaceAssetKey: null,
+          }, 'ui.test.surfaceMapServiceInventory');
+          missionModule.createMissionModule().renderSurfaceMap();
+        }
+        """
+    )
+
+    canvas = loaded_page.locator("#surface-map-canvas")
+    expect(canvas).to_contain_text("10.0.20.10")
+    expect(canvas).to_contain_text("10.0.20.11")
+    expect(canvas).to_contain_text("Derived from mapped services")
+    expect(loaded_page.get_by_test_id("surface-browser-summary")).to_contain_text("2 total asset records")
+    expect(loaded_page.get_by_test_id("surface-asset-browser")).to_contain_text("Services (2)")
+    expect(loaded_page.get_by_test_id("surface-asset-browser")).to_contain_text("Hosts (0)")
+    expect(loaded_page.locator("#surface-insights")).to_contain_text("2 hosts or network objects")
+
+
+def test_surface_map_empty_state_names_discovery_run_that_populates_it(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-attack-map").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const now = new Date().toISOString();
+          const runId = '63636363-6363-4363-8363-636363636363';
+          const run = {
+            id: runId,
+            status: 'completed',
+            requested_by: 'operator-ui',
+            created_at: now,
+            updated_at: now,
+            configuration_json: { targets: { cidr_ranges: ['10.0.20.0/24'] } },
+            profile: { name: 'passive-network-discovery', run_class: 'passive', limits_json: {} },
+            tasks: [],
+            findings: { finding_count: 0, findings_by_severity: {}, findings_by_status: {} },
+          };
+          runtimeModule.patchState({
+            activeScreen: 'surface-map',
+            selectedRunId: runId,
+            selectedRun: run,
+            mission: {
+              scope: { allowlist_json: { cidr_ranges: ['10.0.20.0/24'] }, denylist_json: {} },
+              runs: [run],
+              relevance: [],
+              packs: [],
+              internalValidations: [],
+              findingsByRun: { [runId]: [] },
+              inventory: [],
+            },
+            selectedAttackPathSummary: null,
+          }, 'ui.test.surfaceMapEmptyDiscoveryGuidance');
+          missionModule.createMissionModule().renderSurfaceMap();
+        }
+        """
+    )
+
+    empty_state = loaded_page.get_by_test_id("surface-map-empty-state")
+    expect(empty_state).to_contain_text("No inventory snapshot is available for this run yet")
+    expect(empty_state).to_contain_text("Run a Passive Network Discovery scan to map your assets here")
+
+
 def test_settings_jira_panel_exposes_configuration_fields(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-settings").click()
     loaded_page.evaluate(

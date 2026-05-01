@@ -5259,11 +5259,11 @@ export function createMissionModule() {
         : { label: "Start a mission", screen: "wizard" };
       dom.surfaceMapCanvas.innerHTML = renderSurfaceMapCanvasEmptyState({
         message: selectedRun
-          ? "No inventory has been mapped yet."
+          ? "No inventory snapshot is available for this run yet."
           : "No inventory snapshot is available yet.",
         detail: selectedRun
-          ? "Start a discovery scan before expecting a live surface map."
-          : "Create a mission first, then start a discovery run to populate the surface map.",
+          ? "Run a Passive Network Discovery scan to map your assets here."
+          : "Create a mission and run Passive Network Discovery to map your assets here.",
         actionLabel: canDispatchSelectedRun() ? "Start a discovery scan →" : selectedRun ? "Open Mission Control" : "Start a mission",
         actionScreen: canDispatchSelectedRun() ? null : selectedRun ? "mission-control" : "wizard",
         dispatchSelected: canDispatchSelectedRun(),
@@ -5284,6 +5284,7 @@ export function createMissionModule() {
 
     const inventory = snapshot.normalized_inventory_json || {};
     const hosts = Array.isArray(inventory.hosts) ? inventory.hosts : [];
+    const services = Array.isArray(inventory.services) ? inventory.services : [];
     const endpoints = Array.isArray(inventory.http_endpoints) ? inventory.http_endpoints : [];
     const technologies = Array.isArray(inventory.technologies) ? inventory.technologies : [];
     const fingerprints = Array.isArray(inventory.vendor_product_fingerprints)
@@ -5308,8 +5309,10 @@ export function createMissionModule() {
       ? filteredAssets.findIndex((asset) => asset.key === selectedAsset.key) + 1
       : 0;
     const assetTypeBreakdown = summarizeSurfaceAssetTypes(surfaceAssets);
+    const mapHosts = deriveSurfaceMapHosts(hosts, services);
     const hasRenderableSurfaceData =
-      hosts.length > 0 ||
+      mapHosts.length > 0 ||
+      services.length > 0 ||
       endpoints.length > 0 ||
       technologies.length > 0 ||
       fingerprints.length > 0;
@@ -5325,10 +5328,10 @@ export function createMissionModule() {
 
     if (!hasRenderableSurfaceData) {
       dom.surfaceMapCanvas.innerHTML = renderSurfaceMapCanvasEmptyState({
-        message: "No inventory has been mapped yet.",
+        message: "No host or service inventory is available for this run yet.",
         detail: canDispatchSelectedRun()
-          ? "Start a discovery scan to populate hosts, apps, APIs, and technology signals."
-          : "This run has not produced any surface telemetry yet.",
+          ? "Run a Passive Network Discovery scan to map your assets here."
+          : "Surface Map needs a completed discovery snapshot with hosts, services, endpoints, technologies, or product fingerprints.",
         actionLabel: canDispatchSelectedRun() ? "Start a discovery scan →" : "Open Mission Control",
         actionScreen: canDispatchSelectedRun() ? null : "mission-control",
         dispatchSelected: canDispatchSelectedRun(),
@@ -5361,7 +5364,7 @@ export function createMissionModule() {
     }
 
     const mapNodes = buildSurfaceMapNodes({
-      hosts,
+      hosts: mapHosts,
       endpoints,
       technologies,
       fingerprints,
@@ -5441,7 +5444,7 @@ export function createMissionModule() {
                   type="button"
                   data-surface-filter="${escapeHtml(type)}"
                 >
-                  ${escapeHtml(surfaceAssetTypeLabel(type))}
+                  ${escapeHtml(surfaceAssetFilterLabel(type, assetTypeBreakdown, surfaceAssets.length))}
                 </button>
               `
             )
@@ -5532,7 +5535,7 @@ export function createMissionModule() {
       </div>
       ${renderStringCards(
         [
-          `${hosts.length} hosts or network objects are visible in the current surface model.`,
+          `${mapHosts.length} hosts or network objects are visible in the current surface model.`,
           `${endpoints.length} HTTP or API endpoints are mapped for the selected engagement.`,
           `${technologies.length || fingerprints.length} stack indicators are available for adaptive relevance decisions.`,
           isSeedOnlyInventory(snapshot) ? "The current surface model is wizard-seeded input, not discovery-confirmed telemetry yet." : "This surface model reflects discovery-confirmed inventory inputs.",
@@ -5879,13 +5882,34 @@ function deriveWebTargetsFromServices(services) {
   });
 }
 
+function deriveSurfaceMapHosts(hosts, services) {
+  const normalizedHosts = Array.isArray(hosts) ? hosts.filter((host) => host?.host) : [];
+  const seenHosts = new Set(normalizedHosts.map((host) => String(host.host || "").toLowerCase()));
+  const derivedHosts = [];
+  (Array.isArray(services) ? services : []).forEach((service) => {
+    const host = String(service?.host || "").trim();
+    const key = host.toLowerCase();
+    if (!host || seenHosts.has(key)) return;
+    seenHosts.add(key);
+    derivedHosts.push({
+      host,
+      source: service.source || "service-inventory",
+      confidence: service.confidence,
+      _serviceInferred: true,
+    });
+  });
+  return [...normalizedHosts, ...derivedHosts];
+}
+
 function buildSurfaceMapNodes({ hosts, endpoints, technologies, fingerprints, selectedAssetKey, hotspotTargets }) {
   const hostNodes = spreadColumnNodes(
     hosts.map((host) => ({
       key: `host:${host.host}`,
       kind: "host",
       title: host.host,
-      meta: host.source === "wizard-input" ? "Seeded from reviewed scope" : `${toPercent(host.confidence)} confidence`,
+      meta: host._serviceInferred
+        ? "Derived from mapped services"
+        : host.source === "wizard-input" ? "Seeded from reviewed scope" : `${toPercent(host.confidence)} confidence`,
       hotspot: hotspotTargets.has(host.host),
     })),
     8
@@ -6210,6 +6234,12 @@ function surfaceAssetTypeLabel(type) {
     product: "Products",
   };
   return labels[type] || type;
+}
+
+function surfaceAssetFilterLabel(type, breakdown, totalCount) {
+  if (type === "all") return `All (${Number(totalCount || 0)})`;
+  const count = Number(breakdown?.[type] || 0);
+  return `${surfaceAssetTypeLabel(type)} (${count})`;
 }
 
 function getFollowUpMetadata(run) {

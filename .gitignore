@@ -24,6 +24,7 @@ Thumbs.db
 *.egg-info/
 node_modules/
 artifacts/
+.aegispt-artifacts/
 reports/
 ui/test-results/
 codex/results/*
