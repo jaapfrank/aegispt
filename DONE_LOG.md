@@ -1,5 +1,21 @@
 # Done Log
 
+- 2026-05-01: queued backlog-180 `Launch authorization and phase auto-advance contract`:
+  - rationale:
+    - operator feedback showed that per-phase confirmation after a full mission launch authorization is confusing and inefficient
+    - added a narrow task package to honor launch-time authorization for already-authorized non-exploitation phases while preserving scope, credential, exploitation, pack validation, runtime binding, and kill-switch boundaries
+  - files:
+    - `codex/tasks/backlog-180-launch-authorization-auto-advance-contract.json`
+    - `TASK_QUEUE.md`
+    - `codex/tasks/backlog-173-topbar-subtitle-too-verbose.json`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with `180` queued task packages mapped one-to-one and exactly one active task
+    - `git diff --check` passed
+  - note:
+    - repaired pre-existing backlog-173 metadata drift by renaming `source_context.relevance_snapshot_id` to the validator-required `source_context.relevance_decision_id`
+
 - 2026-04-30: completed backlog-153 `Enterprise Information Architecture and Page UX Clarity`:
   - governance / reading:
     - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-153-enterprise-information-architecture-and-page-ux-clarity.json`

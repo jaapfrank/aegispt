@@ -18,7 +18,7 @@
     "pack_id": null,
     "pack_version": null,
     "inventory_snapshot_id": null,
-    "relevance_snapshot_id": null,
+    "relevance_decision_id": null,
     "threat_intel_refs": []
   },
   "inputs": {
