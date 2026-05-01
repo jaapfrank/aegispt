@@ -1658,7 +1658,43 @@ function renderFindingEvidencePanel(theater, evidence) {
 }
 
 function renderAutoFix(autofix) {
-  if (!autofix || autofix.available !== true) return "";
+  const enabled =
+    typeof autofix?.enabled === "boolean" ? autofix.enabled : operatorSettingBoolean("ai.autofix_enabled");
+  if (!enabled) {
+    return `
+      <section class="detail-surface split-top" data-testid="finding-autofix">
+        <div class="panel-header-row">
+          <div>
+            <p class="eyebrow">Suggested Fix</p>
+            <h4>AutoFix is disabled</h4>
+          </div>
+          <span class="badge">Advisory only</span>
+        </div>
+        <p>AutoFix is disabled - enable in Settings &gt; AI Provider.</p>
+        <div class="action-row split-top">
+          <button class="action secondary compact-action" type="button" data-nav-screen="settings" data-testid="finding-autofix-settings">
+            Open Settings
+          </button>
+        </div>
+      </section>
+    `;
+  }
+
+  if (!autofix || autofix.available !== true || !String(autofix.ai_fix_suggestion || autofix.patch_after || "").trim()) {
+    return `
+      <section class="detail-surface split-top" data-testid="finding-autofix">
+        <div class="panel-header-row">
+          <div>
+            <p class="eyebrow">Suggested Fix</p>
+            <h4>AutoFix suggested fix</h4>
+          </div>
+          <span class="badge">Advisory only</span>
+        </div>
+        <p>No suggestion available - re-run with AutoFix enabled.</p>
+      </section>
+    `;
+  }
+
   const aiGenerated = Boolean(
     autofix.ai_generated ||
       autofix.ai_fix_suggestion ||

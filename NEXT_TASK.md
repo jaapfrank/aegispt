@@ -2,28 +2,26 @@
 
 ## Title
 
-Fix AutoFix Suggested Fix section absent from findings drawer when ai.autofix_enabled=false
+Fix non-functional notifications bell placeholder in topbar
 
 ## Promoted From
 
-`codex/tasks/backlog-159-autofix-section-missing-findings-drawer.json`
+`codex/tasks/backlog-160-notifications-bell-non-functional-placeholder.json`
 
 ## Goal
 
-Add an AutoFix section to the findings drawer that: (a) when ai.autofix_enabled=false shows a compact "AutoFix is disabled - enable in Settings > AI Provider" with a direct Settings link; (b) when ai.autofix_enabled=true and ai_fix_suggestion exists renders the suggestion with the advisory review/testing disclaimer from backlog-131; (c) when ai.autofix_enabled=true but no suggestion shows "No suggestion available - re-run with AutoFix enabled". Never auto-apply code. Use existing FindingRemediation.ai_fix_suggestion field - no new API endpoints needed.
+Remove the notifications bell from the topbar entirely. This is the safest fix - a broken bell is worse than no bell. If a notification panel is desired instead, it must: open on click, close on Escape or second click, show last 5 audit events from the existing dashboard API response, and require no new backend endpoints. Removing is strongly preferred for this task.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-159-autofix-section-missing-findings-drawer.json`.
+Implement the active backlog package `codex/tasks/backlog-160-notifications-bell-non-functional-placeholder.json`.
 
 Expected slice:
 
-- make the AutoFix section visible in the finding drawer at all times
-- when disabled, show an enable-in-Settings hint with a direct Settings action
-- when enabled with an existing suggestion, render that suggestion with the advisory review/testing disclaimer
-- when enabled without a suggestion, show a truthful no-suggestion-yet message
-- do not add new API endpoints
-- do not auto-apply code or mutate repositories
+- remove the non-functional notifications bell from the topbar, or implement a minimal real panel
+- if removed, keep adjacent topbar layout and settings controls intact
+- if implemented, use only existing dashboard/audit data and no new backend endpoints
+- do not add a fake placeholder panel
 
 ## Constraints
 
@@ -44,8 +42,7 @@ Expected slice:
 
 ## Acceptance
 
-- AutoFix section is visible in the finding drawer at all times.
-- When disabled: shows "AutoFix disabled - enable in Settings" with a link.
-- When enabled with `ai_fix_suggestion`: shows the suggestion with advisory disclaimer.
-- When enabled but no suggestion: shows "No suggestion yet" message.
-- No new API endpoints are added; the drawer uses existing `FindingRemediation.ai_fix_suggestion`.
+- Notifications bell is either removed or opens a real panel with content.
+- If removed: no other topbar element is broken and layout remains intact.
+- If implemented: panel shows recent audit events from existing dashboard API data.
+- No regression in topbar-related tests.

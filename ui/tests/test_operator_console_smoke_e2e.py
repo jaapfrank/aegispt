@@ -1416,6 +1416,173 @@ def test_findings_drawer_ai_autofix_disclaimer_and_suggestion(loaded_page: Page)
     expect(loaded_page.get_by_test_id("finding-autofix-diff")).to_contain_text("db.execute")
 
 
+def test_findings_drawer_autofix_disabled_state_links_to_settings(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-findings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const findingsModule = await import('/app/assets/modules/findings.js?v=20260501-ai-autofix-disabled-1');
+          const state = runtimeModule.state;
+          const runId = '33333333-3333-4333-8333-333333333334';
+          const finding = {
+            id: '44444444-4444-4444-8444-444444444445',
+            title: 'Missing Security Header',
+            severity: 'medium',
+            target_id: 'https://portal.example.test',
+            evidence_ref: 'artifact://headers/security',
+            status: 'open',
+            summary: 'The response did not include a hardening header.',
+            finding_origin: 'standard',
+            methodology_tags: [],
+          };
+          runtimeModule.patchState({
+            activeScreen: 'findings-theater',
+            activePhase: 'analysis',
+            selectedRunId: runId,
+            selectedRun: {
+              id: runId,
+              status: 'completed',
+              tasks: [],
+              configuration_json: {},
+              profile: { name: 'ui-test-run' },
+            },
+            mission: {
+              ...state.mission,
+              runs: [{
+                id: runId,
+                status: 'completed',
+                tasks: [],
+                configuration_json: {},
+                profile: { name: 'ui-test-run' },
+              }],
+              findingsByRun: { [runId]: [finding] },
+            },
+            selectedFindingId: finding.id,
+            selectedFindingTheater: {
+              finding,
+              severity_rank: 2,
+              confidence_label: 'medium',
+              exploitability: 'limited',
+              business_impact: 'Fallback impact.',
+              technical_details: 'Fallback technical context.',
+              evidence_summary: 'Evidence is linked.',
+              provenance: { origin: 'standard' },
+              methodology: {},
+              remediation: {
+                priority: 'Routine',
+                summary: 'Fix the affected control.',
+                detail: 'Retest after remediation.',
+              },
+              autofix: {
+                available: false,
+                enabled: false,
+                advisory_only: true,
+                detail: 'AutoFix is disabled for this deployment.',
+              },
+              verification_status: 'evidence-linked',
+              next_steps: ['Review remediation guidance.'],
+              risk_snapshot: {},
+            },
+            selectedFindingEvidence: { related_executions: [], artifacts: [] },
+          }, 'ui.test.findingAiAutofixDisabled');
+          runtimeModule.runtime.actions.engagementFindings = () => [finding].map((item) => ({ ...item, _runId: runId }));
+          findingsModule.createFindingsModule().renderFindingsTheater();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("finding-autofix")).to_contain_text("AutoFix is disabled")
+    expect(loaded_page.get_by_test_id("finding-autofix")).to_contain_text(
+        "enable in Settings > AI Provider"
+    )
+    expect(loaded_page.get_by_test_id("finding-autofix-settings")).to_be_visible()
+
+
+def test_findings_drawer_autofix_enabled_without_suggestion_explains_rerun(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-findings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const findingsModule = await import('/app/assets/modules/findings.js?v=20260501-ai-autofix-empty-1');
+          const state = runtimeModule.state;
+          const runId = '33333333-3333-4333-8333-333333333335';
+          const finding = {
+            id: '44444444-4444-4444-8444-444444444446',
+            title: 'Weak TLS Configuration',
+            severity: 'low',
+            target_id: 'https://portal.example.test',
+            evidence_ref: 'artifact://tls/config',
+            status: 'open',
+            summary: 'TLS hardening guidance is needed.',
+            finding_origin: 'standard',
+            methodology_tags: [],
+          };
+          runtimeModule.patchState({
+            activeScreen: 'findings-theater',
+            activePhase: 'analysis',
+            selectedRunId: runId,
+            selectedRun: {
+              id: runId,
+              status: 'completed',
+              tasks: [],
+              configuration_json: {},
+              profile: { name: 'ui-test-run' },
+            },
+            mission: {
+              ...state.mission,
+              runs: [{
+                id: runId,
+                status: 'completed',
+                tasks: [],
+                configuration_json: {},
+                profile: { name: 'ui-test-run' },
+              }],
+              findingsByRun: { [runId]: [finding] },
+            },
+            selectedFindingId: finding.id,
+            selectedFindingTheater: {
+              finding,
+              severity_rank: 3,
+              confidence_label: 'medium',
+              exploitability: 'limited',
+              business_impact: 'Fallback impact.',
+              technical_details: 'Fallback technical context.',
+              evidence_summary: 'Evidence is linked.',
+              provenance: { origin: 'standard' },
+              methodology: {},
+              remediation: {
+                priority: 'Routine',
+                summary: 'Fix the affected control.',
+                detail: 'Retest after remediation.',
+              },
+              autofix: {
+                available: false,
+                enabled: true,
+                advisory_only: true,
+                detail: 'No advisory patch has been generated for this finding yet.',
+              },
+              verification_status: 'evidence-linked',
+              next_steps: ['Review remediation guidance.'],
+              risk_snapshot: {},
+            },
+            selectedFindingEvidence: { related_executions: [], artifacts: [] },
+          }, 'ui.test.findingAiAutofixNoSuggestion');
+          runtimeModule.runtime.actions.engagementFindings = () => [finding].map((item) => ({ ...item, _runId: runId }));
+          findingsModule.createFindingsModule().renderFindingsTheater();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("finding-autofix")).to_contain_text("AutoFix suggested fix")
+    expect(loaded_page.get_by_test_id("finding-autofix")).to_contain_text(
+        "No suggestion available - re-run with AutoFix enabled"
+    )
+
+
 def test_findings_jira_handoff_button_creates_badge(loaded_page: Page) -> None:
     finding_id = "44444444-4444-4444-8444-444444444444"
     handoff_requests = []
