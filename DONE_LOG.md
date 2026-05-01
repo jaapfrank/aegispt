@@ -1,5 +1,24 @@
 # Done Log
 
+- 2026-05-01: fresh-install cleanup and local runtime reset:
+  - stopped/replaced the stale local inline host state and removed generated/local-only runtime data so the development install starts like a fresh instance
+  - removed ignored generated artifacts and old local evidence from `.aegispt-artifacts/`, `ui/screenshots/`, `ui/test-results/`, stale ignored `codex/results/` artifacts, caches, and the local `aegispt.db`
+  - removed three untracked one-off wizard audit test files from `ui/tests/` because they were local generated audit leftovers and not part of the tracked regression suite
+  - confirmed no screenshots, videos, `.aegispt-artifacts`, or `ui/test-results` files are tracked by Git; the remaining tracked `codex/results` files are small repo evidence files referenced by backlog/source documents
+  - fixed a real fresh-install defect exposed by rebuilding from an empty SQLite database: migrations `20260423_0020_finding_validation_layer.py` and `20260424_0022_assessment_chains.py` now use Alembic batch mode for foreign keys added to existing tables, which SQLite requires
+  - restarted the local inline host at `http://127.0.0.1:8000/app/` after recreating a clean `aegispt.db`
+  - validation:
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" bash scripts/restart_local_inline_host.sh` passed from an empty local database and applied all Alembic migrations through head
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - local database counts after reset are `engagements: 0`, `runs: 0`, `tasks: 0`, and `findings: 0`
+    - `curl -fsS http://127.0.0.1:8000/api/v1/engagements` returned `[]`
+    - `python3 scripts/validate_backlog_tasks.py` passed with `187` queued task packages and exactly one active task
+    - `git diff --check` passed
+  - residual risk:
+    - `bash scripts/init_runtime_dirs.sh` still requires sudo for system-level directory ownership and failed in this non-interactive shell without a sudo password; the repo-local inline host works without that step
+    - this was a local cleanup/reset and fresh-install migration fix, not implementation of the active backlog-164 WiFi task
+    - ignored `__pycache__` folders are recreated by Python imports while the app runs and remain untracked
+
 - 2026-05-01: GitHub CI PR gate correction:
   - inspected GitHub Actions for PR `#1` with the GitHub CI-fix workflow and confirmed the failing `ci` job was running plain `pytest`
   - identified the current failure as broad CI scope drift: the workflow collected the slow/stale full UI regression monolith and failed with `129 failed, 740 passed in 2796.33s`

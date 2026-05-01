@@ -21,17 +21,14 @@ def upgrade() -> None:
             server_default="unvalidated",
         ),
     )
-    op.add_column(
-        "tasks",
-        sa.Column("source_finding_id", sa.Uuid(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_tasks_source_finding_id_findings",
-        "tasks",
-        "findings",
-        ["source_finding_id"],
-        ["id"],
-    )
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.add_column(sa.Column("source_finding_id", sa.Uuid(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_tasks_source_finding_id_findings",
+            "findings",
+            ["source_finding_id"],
+            ["id"],
+        )
     op.create_table(
         "finding_validation_records",
         sa.Column("finding_id", sa.Uuid(), nullable=False),
@@ -58,6 +55,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("finding_validation_records")
-    op.drop_constraint("fk_tasks_source_finding_id_findings", "tasks", type_="foreignkey")
-    op.drop_column("tasks", "source_finding_id")
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.drop_constraint("fk_tasks_source_finding_id_findings", type_="foreignkey")
+        batch_op.drop_column("source_finding_id")
     op.drop_column("findings", "validation_status")

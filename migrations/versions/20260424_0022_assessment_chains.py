@@ -59,25 +59,25 @@ def upgrade() -> None:
         unique=False,
     )
 
-    op.add_column("runs", sa.Column("assessment_chain_id", sa.Uuid(), nullable=True))
-    op.create_index("ix_runs_assessment_chain_id", "runs", ["assessment_chain_id"], unique=False)
-    op.create_foreign_key(
-        "fk_runs_assessment_chain_id_assessment_chains",
-        "runs",
-        "assessment_chains",
-        ["assessment_chain_id"],
-        ["id"],
-    )
+    with op.batch_alter_table("runs") as batch_op:
+        batch_op.add_column(sa.Column("assessment_chain_id", sa.Uuid(), nullable=True))
+        batch_op.create_index("ix_runs_assessment_chain_id", ["assessment_chain_id"], unique=False)
+        batch_op.create_foreign_key(
+            "fk_runs_assessment_chain_id_assessment_chains",
+            "assessment_chains",
+            ["assessment_chain_id"],
+            ["id"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_runs_assessment_chain_id_assessment_chains",
-        "runs",
-        type_="foreignkey",
-    )
-    op.drop_index("ix_runs_assessment_chain_id", table_name="runs")
-    op.drop_column("runs", "assessment_chain_id")
+    with op.batch_alter_table("runs") as batch_op:
+        batch_op.drop_constraint(
+            "fk_runs_assessment_chain_id_assessment_chains",
+            type_="foreignkey",
+        )
+        batch_op.drop_index("ix_runs_assessment_chain_id")
+        batch_op.drop_column("assessment_chain_id")
 
     op.drop_index("ix_assessment_chains_last_completed_run_id", table_name="assessment_chains")
     op.drop_index("ix_assessment_chains_current_run_id", table_name="assessment_chains")
