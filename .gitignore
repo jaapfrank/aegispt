@@ -26,6 +26,7 @@ node_modules/
 artifacts/
 .aegispt-artifacts/
 reports/
+ui/screenshots/
 ui/test-results/
 codex/results/*
 !codex/results/README.md

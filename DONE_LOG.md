@@ -1,5 +1,11 @@
 # Done Log
 
+- 2026-05-01: repo hygiene correction after backlog-163:
+  - added `ui/screenshots/` to `.gitignore` so local browser/audit screenshots are not offered for git staging or pushed accidentally
+  - confirmed `.aegispt-artifacts/runs` remains ignored through `.aegispt-artifacts/`
+  - left the existing untracked `ui/tests/test_wizard_*_2026_05_01.py` files visible because they are source-like test files, not generated folders, and should not be hidden without an explicit decision
+  - no active task implementation, runtime behavior, pack registry, validation, approval, deployment, runtime binding, or Prompt 1/Prompt 2 behavior changed
+
 - 2026-05-01: completed backlog-163 `Fix Surface Map showing empty canvas after completed discovery run; improve empty state messaging`:
   - governance / reading:
     - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-163-surface-map-empty-after-discovery-run.json`
