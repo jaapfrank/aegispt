@@ -20,6 +20,7 @@ ASSESSMENT_CASES = [
     ("active-directory", "corp.example.local", "active"),
     ("full-internal", "10.0.20.0/24", "active"),
     ("smart-home-lan", "192.168.1.0/24", "active"),
+    ("wifi-wireless", "HQ-Amsterdam | CorpWiFi | aa:bb:cc:dd:ee:ff | wlan0", "passive"),
     ("cloud", "tenant.example.com", "active"),
     ("api-security", "https://api.example.com/v1", "active"),
     ("llm-ai-app", "https://chat.example.com", "active"),
@@ -162,6 +163,21 @@ def _launch_guided_case(page: Page, tile_key: str, target: str, depth: str) -> d
 
 
 def _targets_for_case(tile_key: str, target: str) -> dict[str, list[str]]:
+    if tile_key == "wifi-wireless":
+        parts = [part.strip() for part in target.split("|")]
+        while len(parts) < 4:
+            parts.append("")
+        return {
+            "domains": [],
+            "subdomains": [],
+            "urls": [],
+            "ip_addresses": [],
+            "cidr_ranges": [],
+            "api_base_urls": [],
+            "wireless_sites": [parts[0]] if parts[0] else [],
+            "ssids": [parts[1]] if parts[1] else [],
+            "bssids": [parts[2]] if parts[2] else [],
+        }
     if "/" in target and not target.startswith("http"):
         bucket = "cidr_ranges"
     elif target.replace(".", "").isdigit():
@@ -179,6 +195,9 @@ def _targets_for_case(tile_key: str, target: str) -> dict[str, list[str]]:
         "ip_addresses": [target] if bucket == "ip_addresses" else [],
         "cidr_ranges": [target] if bucket == "cidr_ranges" else [],
         "api_base_urls": [target] if bucket == "api_base_urls" else [],
+        "wireless_sites": [],
+        "ssids": [],
+        "bssids": [],
     }
 
 
@@ -214,9 +233,13 @@ def _create_predicted_run(page: Page, *, tile_key: str, target: str, prediction:
               urls: targets.urls.concat(targets.api_base_urls),
               hosts: targets.ip_addresses,
               cidrs: targets.cidr_ranges,
+              wireless_sites: targets.wireless_sites,
+              ssids: targets.ssids,
+              bssids: targets.bssids,
             },
             denylist_json: {},
           });
+          const wirelessParts = target.split("|").map((part) => part.trim());
           const run = await post(`/api/v1/engagements/${engagement.id}/runs`, {
             profile_name: profile,
             configuration_json: {
@@ -228,6 +251,20 @@ def _create_predicted_run(page: Page, *, tile_key: str, target: str, prediction:
                 authorization_level: "active",
                 auto_advance_on_phase_complete: Boolean(assessmentMode),
               },
+              wireless: tileKey === "wifi-wireless" ? {
+                site: targets.wireless_sites[0] || null,
+                adapter: wirelessParts[3] || "wlan0",
+                approved_ssids: targets.ssids,
+                approved_bssids: targets.bssids,
+                excluded_ssids: [],
+                excluded_bssids: [],
+                roe_acknowledged: true,
+                passive_only: true,
+                rf_disruptive_actions: false,
+                handshake_capture: false,
+                credential_harvesting: false,
+                wps_pin_testing: false,
+              } : undefined,
               intake: {
                 wizard_prediction_matrix: true,
                 selected_tile: tileKey,
@@ -270,6 +307,7 @@ def test_wizard_prediction_matrix_covers_visible_tiles_and_toggle_contract(loade
         "active-directory",
         "full-internal",
         "smart-home-lan",
+        "wifi-wireless",
         "cloud",
         "api-security",
         "llm-ai-app",
@@ -311,4 +349,9 @@ def test_wizard_launch_flow_matches_matrix_for_each_assessment_family(manual_loa
         if chain_profiles:
             acceptable_profiles.add(chain_profiles[0])
         assert run["profile"] in acceptable_profiles, f"{tile_key} launched {run} not {acceptable_profiles}"
-        assert any(target in values for values in run["targets"].values() if isinstance(values, list))
+        if tile_key == "wifi-wireless":
+            assert "HQ-Amsterdam" in run["targets"]["wireless_sites"]
+            assert "CorpWiFi" in run["targets"]["ssids"]
+            assert "aa:bb:cc:dd:ee:ff" in run["targets"]["bssids"]
+        else:
+            assert any(target in values for values in run["targets"].values() if isinstance(values, list))

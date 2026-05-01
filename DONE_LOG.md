@@ -8769,3 +8769,48 @@
   - remaining risks:
     - this task does not add engagement create, rename, archive, or full CRUD management
     - the existing cleanup/delete modal behavior is intentionally unchanged
+
+- 2026-05-01: completed backlog-164 `WiFi / Wireless Assessment Surface Foundation`:
+  - rationale:
+    - WiFi was missing as a first-class assessment surface, while operators need explicit site/SSID/BSSID authorization, adapter readiness truth, and passive evidence import before any future intrusive wireless work can be considered
+    - the safest foundation is passive-only and fixture/lab-evidence backed, with disruptive RF actions explicitly unavailable
+  - implementation:
+    - added the `passive-wifi-survey` profile and `wifi-survey` runner with parsers for `iw scan` and `airodump-ng` CSV style evidence
+    - added WiFi run configuration validation for site/location, adapter/interface, approved SSID/BSSID scope, and wireless ROE acknowledgement
+    - imported wireless access points and networks into existing inventory snapshots and normalized conservative WiFi findings from runner evidence
+    - exposed wireless readiness in Settings with ready/degraded/blocked states, detected-adapter metadata, safe parallelism, and passive-only boundaries
+    - added the `WiFi / Wireless` wizard tile and target fields for wireless site, SSID, BSSID, adapter, exclusions, and ROE acknowledgement
+    - added Mission Control WiFi task focus fields and Report Center WiFi inventory visibility; technical reports now include `WiFi Security Summary` only when wireless evidence exists
+  - files:
+    - `api/app/routers/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/inventory.py`
+    - `api/app/services/reports.py`
+    - `api/app/services/settings.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/runners/wifi_survey/__init__.py`
+    - `workers/runners/wifi_survey/runner.py`
+    - `workers/tests/test_wifi_survey_runner.py`
+    - `api/tests/test_wifi_assessment.py`
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/modules/reports.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-164-wifi-readiness-20260501.md`
+  - validation:
+    - `python3 -m py_compile api/app/routers/runs.py api/app/services/runs.py api/app/services/inventory.py api/app/services/reports.py api/app/services/settings.py workers/orchestration/findings.py workers/orchestration/tasks.py workers/runners/wifi_survey/runner.py api/tests/test_wifi_assessment.py workers/tests/test_wifi_survey_runner.py`
+    - `python3 -m pytest -s workers/tests/test_wifi_survey_runner.py api/tests/test_wifi_assessment.py ui/tests/test_wizard_input_prediction_matrix_e2e.py ui/tests/test_operator_console_smoke_e2e.py -k 'settings_readiness_panel_exposes_tools_and_export or wifi_mission_control or wizard_prediction_matrix or wizard_launch_flow or wifi_survey or wifi_assessment'` (`10 passed, 31 deselected`)
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+  - not claimed green:
+    - a broad `ui/tests/test_operator_console_smoke_e2e.py` run surfaced an unrelated existing failure in `test_settings_threat_intel_nvd_rate_limit_hint_focuses_api_key_field`, where the NVD API-key focus assertion did not focus the password input
+    - real WiFi monitor-mode/channel/hardware validation was not performed and is intentionally left for a future explicit lab task
+  - remaining risks:
+    - host-backed WiFi readiness depends on authorized wireless hardware and installed tools; fixture-backed validation proves the product flow without launching live RF actions
+    - intrusive wireless work such as deauth, jamming, evil-twin, handshake capture, WPS PIN testing, credential harvesting, or cracking remains unavailable in this slice
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-165 `Fix 'View Agents' button in Mission Control: change action danger to action secondary`

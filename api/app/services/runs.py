@@ -76,6 +76,12 @@ TARGET_KEY_MAP = {
     "llm_endpoints": "llm-endpoint",
     "llm_api_endpoints": "llm-endpoint",
     "ai_endpoints": "llm-endpoint",
+    "wireless_sites": "wireless-site",
+    "wifi_sites": "wireless-site",
+    "ssids": "ssid",
+    "approved_ssids": "ssid",
+    "bssids": "bssid",
+    "approved_bssids": "bssid",
     "targets": "target",
 }
 
@@ -284,6 +290,14 @@ def _normalized_string_list(
         if limit is not None and len(normalized) >= limit:
             break
     return normalized
+
+
+def _normalized_bssid(value: object) -> str:
+    candidate = str(value or "").strip().lower()
+    compact = candidate.replace("-", "").replace(":", "")
+    if len(compact) == 12 and all(char in "0123456789abcdef" for char in compact):
+        return ":".join(compact[index : index + 2] for index in range(0, 12, 2))
+    return candidate
 
 
 def business_logic_auth_contexts_from_configuration(
@@ -1311,6 +1325,57 @@ def responder_runner_params_from_configuration(
     return result
 
 
+def wifi_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    settings = payload.get("wireless") if isinstance(payload.get("wireless"), dict) else {}
+    targets = payload.get("targets") if isinstance(payload.get("targets"), dict) else {}
+    exclusions = payload.get("exclusions") if isinstance(payload.get("exclusions"), dict) else {}
+
+    approved_ssids = _normalized_string_list(settings.get("approved_ssids"), limit=256)
+    if not approved_ssids:
+        approved_ssids = _normalized_string_list(targets.get("ssids"), limit=256)
+    approved_bssids = [_normalized_bssid(value) for value in _normalized_string_list(settings.get("approved_bssids"), limit=512)]
+    if not approved_bssids:
+        approved_bssids = [_normalized_bssid(value) for value in _normalized_string_list(targets.get("bssids"), limit=512)]
+
+    result: dict[str, Any] = {
+        "site": str(
+            settings.get("site")
+            or settings.get("location")
+            or next(iter(_normalized_string_list(targets.get("wireless_sites"), limit=1)), "")
+        ).strip(),
+        "adapter": str(settings.get("adapter") or settings.get("interface") or "").strip(),
+        "approved_ssids": approved_ssids,
+        "approved_bssids": [value for value in approved_bssids if value],
+        "excluded_ssids": _normalized_string_list(
+            settings.get("excluded_ssids") or exclusions.get("ssids"),
+            limit=256,
+        ),
+        "excluded_bssids": [
+            _normalized_bssid(value)
+            for value in _normalized_string_list(
+                settings.get("excluded_bssids") or exclusions.get("bssids"),
+                limit=512,
+            )
+            if _normalized_bssid(value)
+        ],
+        "roe_acknowledged": bool(settings.get("roe_acknowledged") or settings.get("wireless_roe_acknowledged")),
+        "passive_only": True,
+        "rf_disruptive_actions": False,
+        "handshake_capture": False,
+        "credential_harvesting": False,
+        "wps_pin_testing": False,
+        "evil_twin": False,
+        "jamming": False,
+    }
+    for field_name in ("fixture_iw_scan_text", "fixture_airodump_csv_text"):
+        if isinstance(settings.get(field_name), str) and settings[field_name].strip():
+            result[field_name] = settings[field_name]
+    return result
+
+
 def validate_business_logic_run_configuration(
     *,
     scope: Scope,
@@ -1603,6 +1668,48 @@ def validate_responder_run_configuration(
         raise ValueError(
             "intrusive-lan-credential-capture requires responder.interface in configuration_json"
         )
+
+
+def validate_wifi_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    params = wifi_runner_params_from_configuration(configuration)
+    if not params.get("site"):
+        raise ValueError("passive-wifi-survey requires an explicit site/location")
+    if not params.get("adapter"):
+        raise ValueError("passive-wifi-survey requires a wireless adapter/interface context")
+    if not params.get("approved_ssids") and not params.get("approved_bssids"):
+        raise ValueError("passive-wifi-survey requires at least one approved SSID or BSSID")
+    if not params.get("roe_acknowledged"):
+        raise ValueError("passive-wifi-survey requires wireless ROE acknowledgement before launch")
+
+    wireless_settings = (
+        configuration.get("wireless")
+        if isinstance(configuration, dict) and isinstance(configuration.get("wireless"), dict)
+        else {}
+    )
+    for forbidden in (
+        "deauth",
+        "deauthentication",
+        "jamming",
+        "evil_twin",
+        "handshake_capture",
+        "credential_harvesting",
+        "wps_pin_testing",
+        "wps_bruteforce",
+    ):
+        if wireless_settings.get(forbidden) is True:
+            raise ValueError(f"passive-wifi-survey does not allow {forbidden} in the foundation slice")
+
+    for value in [
+        params["site"],
+        *list(params.get("approved_ssids") or []),
+        *list(params.get("approved_bssids") or []),
+    ]:
+        if value and not target_value_is_allowed(scope.allowlist_json, str(value)):
+            raise ValueError(f"configured wireless target {value} is outside the approved engagement scope")
 
 
 def validate_netexec_run_configuration(
@@ -1908,6 +2015,12 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
     if tool == "mdns-ssdp":
         return [target for target in targets if target["kind"] in {"host", "cidr", "target"}]
 
+    if tool == "wifi-survey":
+        site_targets = [target for target in targets if target["kind"] == "wireless-site"]
+        if site_targets:
+            return list(site_targets)
+        return [target for target in targets if target["kind"] in {"ssid", "bssid", "target"}]
+
     if tool == "iot-default-creds":
         return [
             target
@@ -2020,6 +2133,16 @@ def target_value_is_allowed(target_map: dict[str, Any] | None, target_id: str) -
     allowed_values = {target["value"] for target in allowed_targets}
     if target_id in allowed_values:
         return True
+    normalized_wireless_target = str(target_id or "").strip().lower()
+    wireless_allowed_values = {
+        _normalized_bssid(target["value"])
+        if target["kind"] == "bssid"
+        else str(target["value"]).strip().lower()
+        for target in allowed_targets
+        if target["kind"] in {"wireless-site", "ssid", "bssid"}
+    }
+    if normalized_wireless_target in wireless_allowed_values or _normalized_bssid(target_id) in wireless_allowed_values:
+        return True
 
     cidr_ranges = []
     domain_like_targets: set[str] = set()
@@ -2107,6 +2230,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     nmap_params = nmap_runner_params_from_configuration(run_configuration)
     netexec_params = netexec_runner_params_from_configuration(run_configuration)
     responder_params = responder_runner_params_from_configuration(run_configuration)
+    wifi_params = wifi_runner_params_from_configuration(run_configuration)
     validation_configuration = run_configuration.get("validation")
     validation_params = (
         validation_configuration if isinstance(validation_configuration, dict) else {}
@@ -2193,6 +2317,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "responder":
             validate_responder_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "wifi-survey":
+            validate_wifi_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -2625,6 +2754,22 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         "mdns_enabled": bool(normalized_limits.get("mdns_enabled", True)),
                         "ssdp_enabled": bool(normalized_limits.get("ssdp_enabled", True)),
                         "timeout_seconds": normalized_limits.get("timeout_seconds", 8),
+                    }
+                )
+            if tool == "wifi-survey":
+                task_params.update(
+                    {
+                        **{
+                            key: value
+                            for key, value in wifi_params.items()
+                            if value not in (None, [], {})
+                        },
+                        "passive_only": True,
+                        "rf_disruptive_actions": False,
+                        "handshake_capture": False,
+                        "credential_harvesting": False,
+                        "wps_pin_testing": False,
+                        "timeout_seconds": normalized_limits.get("timeout_seconds", 10),
                     }
                 )
             if tool == "iot-default-creds":

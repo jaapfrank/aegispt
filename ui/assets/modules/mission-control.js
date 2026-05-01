@@ -6380,6 +6380,7 @@ function renderMissionTaskFocus(selectedTaskSummary, selectedTask, latestExecuti
         <div><span>Reason</span><strong>${escapeHtml(taskReasonSummary(selectedTaskSummary))}</strong></div>
         <div><span>Artifacts</span><strong>${escapeHtml(String(artifactCount))}</strong></div>
       </div>
+      ${renderWirelessTaskFocus(selectedTaskSummary)}
       ${
         latestExecution
           ? renderDisclosure({
@@ -6407,6 +6408,23 @@ function renderMissionTaskFocus(selectedTaskSummary, selectedTask, latestExecuti
         <button class="action ghost" type="button" data-nav-screen="explorer">Open Run Dossier</button>
         <button class="action ghost" type="button" data-nav-screen="history">Open History</button>
       </div>
+    </div>
+  `;
+}
+
+function renderWirelessTaskFocus(task) {
+  if (String(task?.tool || "").toLowerCase() !== "wifi-survey") return "";
+  const params = task?.params_json || {};
+  const ssids = Array.isArray(params.approved_ssids) ? params.approved_ssids.filter(Boolean) : [];
+  const bssids = Array.isArray(params.approved_bssids) ? params.approved_bssids.filter(Boolean) : [];
+  return `
+    <div class="compact-definition-grid split-top" data-testid="mission-wireless-task-focus">
+      <div><span>Wireless Site</span><strong>${escapeHtml(params.site || task.target_id || "Not recorded")}</strong></div>
+      <div><span>Adapter</span><strong>${escapeHtml(params.adapter || "Not recorded")}</strong></div>
+      <div><span>Approved SSIDs</span><strong>${escapeHtml(ssids.length ? ssids.join(", ") : "Not recorded")}</strong></div>
+      <div><span>Approved BSSIDs</span><strong>${escapeHtml(bssids.length ? bssids.join(", ") : "Not recorded")}</strong></div>
+      <div><span>Boundary</span><strong>${escapeHtml("Passive only")}</strong></div>
+      <div><span>RF Actions</span><strong>${escapeHtml("No deauth / no capture")}</strong></div>
     </div>
   `;
 }
@@ -6528,6 +6546,7 @@ function formatToolLabel(tool) {
     nuclei: "Template validation",
     semgrep: "Code pattern check",
     zap: "Active web validation",
+    "wifi-survey": "WiFi passive survey",
   };
   return mapping[String(tool || "").toLowerCase()] || String(tool || "Unknown tool");
 }

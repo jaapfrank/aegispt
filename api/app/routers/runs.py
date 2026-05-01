@@ -105,6 +105,7 @@ from api.app.services.runs import (
     validate_netexec_run_configuration,
     validate_playwright_web_run_configuration,
     validate_responder_run_configuration,
+    validate_wifi_run_configuration,
     validate_configured_targets_within_scope,
     validate_easm_run_configuration,
     cancel_run_tasks,
@@ -575,6 +576,11 @@ def create_run(
             )
         if "responder" in planned_tools(profile):
             validate_responder_run_configuration(
+                scope=scope,
+                configuration=sanitized_configuration,
+            )
+        if "wifi-survey" in planned_tools(profile):
+            validate_wifi_run_configuration(
                 scope=scope,
                 configuration=sanitized_configuration,
             )

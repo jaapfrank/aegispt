@@ -146,6 +146,18 @@ const ASSESSMENT_TILE_OPTIONS = [
     recommended: true,
   },
   {
+    key: "wifi-wireless",
+    label: "WiFi / Wireless",
+    icon: "📶",
+    badge: "Passive",
+    badgeClass: "badge-green",
+    phaseTags: [{ label: "passive", cls: "tag-p" }],
+    description: "Authorized wireless sites, SSIDs, BSSIDs, adapter context, and passive AP posture review.",
+    assessmentType: "WiFi / Wireless",
+    quickReply: "WiFi assessment",
+    recommended: true,
+  },
+  {
     key: "cloud",
     label: "Cloud (AWS/Azure)",
     icon: "☁️",
@@ -192,7 +204,7 @@ const ASSESSMENT_TILE_OPTIONS = [
   },
 ];
 
-const TILE_FLOW_SPECIAL_KEYS = new Set(["active-directory", "full-internal", "smart-home-lan", "cloud", "llm-ai-app", "custom"]);
+const TILE_FLOW_SPECIAL_KEYS = new Set(["active-directory", "full-internal", "smart-home-lan", "wifi-wireless", "cloud", "llm-ai-app", "custom"]);
 
 const AUTHORIZATION_LEVEL_OPTIONS = [
   {
@@ -341,6 +353,7 @@ const PROFILE_TARGET_GROUPS = {
   "intrusive-impacket-secretsdump": ["network", "directory"],
   "intrusive-impacket-dcsync": ["directory"],
   "active-llm-application-probe": ["ai", "web"],
+  "passive-wifi-survey": ["wireless"],
 };
 
 const LAN_DISCOVERY_EXECUTION_PROFILES = new Set([
@@ -373,6 +386,7 @@ const PROFILE_EXPECTATION_COPY = {
   "intrusive-impacket-secretsdump": "Credential extraction proof stored only as protected output.",
   "intrusive-impacket-dcsync": "Domain-compromise validation for approved directory scope.",
   "active-llm-application-probe": "Prompt-injection, leakage, and unsafe-agent behavior proof.",
+  "passive-wifi-survey": "Passive SSID, BSSID, channel, security posture, WPS, PMF, and rogue/unknown AP evidence.",
   "passive-lan-iot-discovery": "mDNS, SSDP, UPnP, and smart-device discovery evidence.",
   "passive-lan-nse-full": "Read-only LAN NSE scripts and expanded IoT port fingerprinting.",
   "passive-lan-snmp-enum": "SNMP identity, interfaces, ARP, and routing evidence.",
@@ -670,6 +684,14 @@ const WIZARD_TARGET_GUIDANCE = {
     hint: "IoT discovery starts with local network inventory, then mDNS, SSDP, SNMP, camera, and segmentation checks.",
     predictedGroup: "cidr_ranges/ip_addresses",
   },
+  "wifi-wireless": {
+    question: "Which WiFi site and allowlisted SSIDs/BSSIDs are authorized?",
+    placeholder: "e.g. HQ-Amsterdam | CorpWiFi | aa:bb:cc:dd:ee:ff | wlan0",
+    examples: ["HQ-Amsterdam | CorpWiFi | aa:bb:cc:dd:ee:ff | wlan0", "Warehouse-2 | GuestWiFi | | wlan1"],
+    addLabel: "+ Add WiFi scope",
+    hint: "Format: site | SSID | BSSID | adapter. BSSID may be blank when unknown; adapter and wireless ROE remain required.",
+    predictedGroup: "wireless_sites/ssids/bssids",
+  },
   cloud: {
     question: "What cloud account, tenant, or control-plane scope should be reviewed?",
     placeholder: "e.g. aws-account-123456789012 or tenant.example.com",
@@ -714,6 +736,7 @@ function targetGuidanceForTile(tileKey = "") {
 
 function targetBucketForTileValue(value, selectedKey = "") {
   const normalized = String(value || "").trim();
+  if (selectedKey === "wifi-wireless") return "wireless_sites";
   if (isLikelyCidr(normalized)) return "cidr_ranges";
   if (isLikelyIp(normalized)) return "ip_addresses";
   if (selectedKey === "api-security" || isLikelyUrl(normalized)) return selectedKey === "api-security" ? "api_base_urls" : "urls";
@@ -722,6 +745,20 @@ function targetBucketForTileValue(value, selectedKey = "") {
 
 function buildWizardTargetsForTileValue(value, selectedKey = "") {
   const target = String(value || "").trim();
+  if (selectedKey === "wifi-wireless") {
+    const parts = target.split("|").map((item) => item.trim());
+    return {
+      domains: [],
+      subdomains: [],
+      urls: [],
+      ip_addresses: [],
+      cidr_ranges: [],
+      api_base_urls: [],
+      wireless_sites: parts[0] ? [parts[0]] : [],
+      ssids: parts[1] ? [parts[1]] : [],
+      bssids: parts[2] ? [parts[2]] : [],
+    };
+  }
   const bucket = targetBucketForTileValue(target, selectedKey);
   return {
     domains: bucket === "domains" ? [target] : [],
@@ -730,6 +767,9 @@ function buildWizardTargetsForTileValue(value, selectedKey = "") {
     ip_addresses: bucket === "ip_addresses" ? [target] : [],
     cidr_ranges: bucket === "cidr_ranges" ? [target] : [],
     api_base_urls: bucket === "api_base_urls" ? [target] : [],
+    wireless_sites: [],
+    ssids: [],
+    bssids: [],
   };
 }
 
@@ -740,6 +780,7 @@ function wizardMatrixExecutionProfile(tileKey, depthChoice, targetValue) {
   if (targetsContainPrivateNetwork(targets)) return "passive-network-discovery";
   if (tileKey === "api-security") return depth.authorization === "passive" ? "passive-web-baseline" : "active-api-assessment";
   if (tileKey === "llm-ai-app") return depth.authorization === "passive" ? "passive-web-baseline" : "active-llm-application-probe";
+  if (tileKey === "wifi-wireless") return "passive-wifi-survey";
   if (tileKey === "external-infrastructure") return "passive-external-infrastructure";
   if (tile?.assessmentType === "Internal Range / LAN") return "passive-network-discovery";
   if (depth.authorization === "passive") return "passive-web-baseline";
@@ -902,6 +943,9 @@ function firstTruthyTargetLabel(targets) {
     ...(targets?.urls || []),
     ...(targets?.domains || []),
     ...(targets?.subdomains || []),
+    ...(targets?.wireless_sites || []),
+    ...(targets?.ssids || []),
+    ...(targets?.bssids || []),
   ].filter(Boolean);
   if (!groups.length) return "No target on record";
   return groups.length > 1 ? `${groups[0]} +${groups.length - 1} more` : groups[0];
@@ -928,6 +972,18 @@ function buildTargetsFromAllowlist(allowlist = {}, configurationTargets = {}, as
     ip_addresses: sourceIpAddresses,
     cidr_ranges: sourceCidrs,
     api_base_urls: [],
+    wireless_sites: [
+      ...(Array.isArray(configurationTargets?.wireless_sites) ? configurationTargets.wireless_sites.filter(Boolean) : []),
+      ...(Array.isArray(allowlist?.wireless_sites) ? allowlist.wireless_sites.filter(Boolean) : []),
+    ],
+    ssids: [
+      ...(Array.isArray(configurationTargets?.ssids) ? configurationTargets.ssids.filter(Boolean) : []),
+      ...(Array.isArray(allowlist?.ssids) ? allowlist.ssids.filter(Boolean) : []),
+    ],
+    bssids: [
+      ...(Array.isArray(configurationTargets?.bssids) ? configurationTargets.bssids.filter(Boolean) : []),
+      ...(Array.isArray(allowlist?.bssids) ? allowlist.bssids.filter(Boolean) : []),
+    ],
   };
 
   const apiUrlSet = new Set(apiTargets);
@@ -962,6 +1018,9 @@ function buildTargetsFromAllowlist(allowlist = {}, configurationTargets = {}, as
   normalized.subdomains = [...new Set(normalized.subdomains)];
   normalized.ip_addresses = [...new Set(normalized.ip_addresses)];
   normalized.cidr_ranges = [...new Set(normalized.cidr_ranges)];
+  normalized.wireless_sites = [...new Set(normalized.wireless_sites)];
+  normalized.ssids = [...new Set(normalized.ssids)];
+  normalized.bssids = [...new Set(normalized.bssids)];
   return normalized;
 }
 
@@ -1903,6 +1962,7 @@ export function createWizardModule() {
     const values = flattenTargetValues(data.targets);
     if (values.length) return values[0];
     const selectedKey = primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard));
+    if (selectedKey === "wifi-wireless") return "HQ-Amsterdam | CorpWiFi | aa:bb:cc:dd:ee:ff | wlan0";
     if (["internal-lan", "active-directory"].includes(selectedKey) || selectedAssessmentTileKeys(state.wizard).includes("internal-lan")) {
       return "10.0.20.0/24";
     }
@@ -1918,6 +1978,7 @@ export function createWizardModule() {
   function buildTargetsForFlowValue(value) {
     const target = String(value || "").trim() || flowTargetValue();
     const selectedKey = primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard));
+    if (selectedKey === "wifi-wireless") return buildWizardTargetsForTileValue(target, selectedKey);
     const bucket = targetBucketForValue(target, selectedKey);
     return {
       domains: bucket === "domains" ? [target] : [],
@@ -1926,6 +1987,9 @@ export function createWizardModule() {
       ip_addresses: bucket === "ip_addresses" ? [target] : [],
       cidr_ranges: bucket === "cidr_ranges" ? [target] : [],
       api_base_urls: bucket === "api_base_urls" ? [target] : [],
+      wireless_sites: [],
+      ssids: [],
+      bssids: [],
     };
   }
 
@@ -1962,6 +2026,9 @@ export function createWizardModule() {
     const compatibleSelectedAssessmentMode = compatibleAssessmentModes.includes(selectedAssessmentMode)
       ? selectedAssessmentMode
       : "";
+    const wirelessParts = primaryKey === "wifi-wireless"
+      ? String(targetValue || "").split("|").map((item) => item.trim())
+      : [];
     const guidedAssessmentMode =
       compatibleSelectedAssessmentMode ||
       guidedAssessmentModeForSelection({ keys, selectedTile, depthChoice });
@@ -1989,6 +2056,25 @@ export function createWizardModule() {
           ? state.wizard.data.assessment_mode?.typed_scope_confirmation || ""
           : "",
       },
+      wireless: primaryKey === "wifi-wireless"
+        ? {
+            ...(state.wizard.data.wireless || {}),
+            site: wirelessParts[0] || state.wizard.data.wireless?.site || "",
+            adapter: wirelessParts[3] || state.wizard.data.wireless?.adapter || "",
+            approved_ssids: wirelessParts[1] ? [wirelessParts[1]] : [...(state.wizard.data.wireless?.approved_ssids || [])],
+            approved_bssids: wirelessParts[2] ? [wirelessParts[2]] : [...(state.wizard.data.wireless?.approved_bssids || [])],
+            excluded_ssids: [...(state.wizard.data.wireless?.excluded_ssids || [])],
+            excluded_bssids: [...(state.wizard.data.wireless?.excluded_bssids || [])],
+            roe_acknowledged: true,
+            passive_only: true,
+            rf_disruptive_actions: false,
+            handshake_capture: false,
+            credential_harvesting: false,
+            wps_pin_testing: false,
+            evil_twin: false,
+            jamming: false,
+          }
+        : state.wizard.data.wireless,
       test_profile: overrides.profile ? state.wizard.data.test_profile : depth.profile,
     };
     refreshSuggestedEngagementNameIfAutomatic(previousNameContext, nextData);
@@ -2045,6 +2131,13 @@ export function createWizardModule() {
     enforceDiscoveryFirstSafetyGuardrails(state.wizard.data);
     state.wizard.data.assessment_mode = nextData.assessment_mode;
     state.wizard.data.targets = nextData.targets;
+    state.wizard.data.wireless = nextData.wireless;
+    if (primaryKey === "wifi-wireless") {
+      state.wizard.data.safety.active_checks = "passive-only";
+      state.wizard.data.safety.adaptive_generation = false;
+      state.wizard.data.safety.max_validation_depth = "light";
+      state.wizard.data.test_profile = "Standard";
+    }
     refreshSuggestedEngagementNameIfAutomatic(snapshotEngagementNameContext(state.wizard.data), state.wizard.data);
   }
 
@@ -3262,7 +3355,7 @@ export function createWizardModule() {
           }
           if (state.wizard.intake.sources.scope !== "confirmed") {
             // Use the tile default only when no real scope has already been prefetched or typed.
-            state.wizard.data.targets = { domains: [], subdomains: [], urls: [], ip_addresses: [], cidr_ranges: [], api_base_urls: [] };
+            state.wizard.data.targets = { domains: [], subdomains: [], urls: [], ip_addresses: [], cidr_ranges: [], api_base_urls: [], wireless_sites: [], ssids: [], bssids: [] };
           }
           applyGuidedSelectionToData({ step: 2 });
           renderWizard();
@@ -4861,7 +4954,20 @@ function applySafetyAnswer(answer) {
           ${visibleGroups.includes("ip_addresses") ? textareaField("wizard-target-ip-addresses", "IP Addresses", data.targets.ip_addresses, "203.0.113.5\n203.0.113.8", "Use individual hosts when the scope is defined as explicit IPs rather than a whole range.", "One host per line. Use this for explicit WAN or LAN hosts.") : ""}
           ${visibleGroups.includes("cidr_ranges") ? textareaField("wizard-target-cidrs", "CIDR Ranges", data.targets.cidr_ranges, "10.10.0.0/24", "Use only approved network blocks here. CIDR ranges drive network discovery breadth and can increase runtime quickly.", "Only enter ranges that are explicitly allowed in scope, for example 10.10.0.0/24.") : ""}
           ${visibleGroups.includes("api_base_urls") ? textareaField("wizard-target-api", "API Base URLs", data.targets.api_base_urls, "https://api.example.com/v1", "Use the base URL that API crawling and validation should start from, not every individual endpoint.", "Start point for API coverage, for example https://api.example.com/v1.") : ""}
-          </div>
+          ${visibleGroups.includes("wireless_sites") ? textareaField("wizard-target-wireless-sites", "Wireless Sites", data.targets.wireless_sites || [], "HQ-Amsterdam\nWarehouse-2", "Name the exact authorized physical site or location for passive wireless observation.", "Site names must be explicit because wireless evidence is location-bound.") : ""}
+          ${visibleGroups.includes("ssids") ? textareaField("wizard-target-ssids", "Approved SSIDs", data.targets.ssids || [], "CorpWiFi\nGuestWiFi", "List only SSIDs explicitly approved for this assessment.", "SSID names are treated as allowlist values, not discovery expansion.") : ""}
+          ${visibleGroups.includes("bssids") ? textareaField("wizard-target-bssids", "Approved BSSIDs", data.targets.bssids || [], "aa:bb:cc:dd:ee:ff", "Known AP BSSIDs make rogue/unknown AP review more precise. Leave blank when unknown.", "BSSIDs are optional only if at least one approved SSID is listed.") : ""}
+          ${visibleGroups.includes("wireless_sites") ? `
+            <label>Wireless Adapter / Interface
+              <input id="wizard-wireless-adapter" type="text" value="${escapeHtml(data.wireless?.adapter || "")}" placeholder="wlan0" />
+              ${fieldHelp("Required adapter context for evidence provenance. This foundation does not enable monitor mode automatically.")}
+            </label>
+            <label class="check-row">
+              <input id="wizard-wireless-roe" type="checkbox" ${data.wireless?.roe_acknowledged ? "checked" : ""} />
+              <span>I confirm the wireless site, SSIDs/BSSIDs, adapter context, and passive-only ROE are authorized.</span>
+            </label>
+          ` : ""}
+        </div>
           <div class="detail-surface split-top">
             <h4>Exclusions and boundary handling</h4>
             <p class="micro-copy">${escapeHtml(boundaryNotesIntro(data.assessment_type))}</p>
@@ -5458,6 +5564,9 @@ function applySafetyAnswer(answer) {
         ip_addresses: splitLines(document.getElementById("wizard-target-ip-addresses")?.value),
         cidr_ranges: splitLines(document.getElementById("wizard-target-cidrs")?.value),
         api_base_urls: splitLines(document.getElementById("wizard-target-api")?.value),
+        wireless_sites: splitLines(document.getElementById("wizard-target-wireless-sites")?.value),
+        ssids: splitLines(document.getElementById("wizard-target-ssids")?.value),
+        bssids: splitLines(document.getElementById("wizard-target-bssids")?.value),
       };
       data.exclusions = {
         domains: splitLines(document.getElementById("wizard-exclude-domains")?.value),
@@ -5465,7 +5574,26 @@ function applySafetyAnswer(answer) {
         ip_addresses: splitLines(document.getElementById("wizard-exclude-ip-addresses")?.value),
         cidr_ranges: splitLines(document.getElementById("wizard-exclude-cidrs")?.value),
         api_base_urls: splitLines(document.getElementById("wizard-exclude-api")?.value),
+        ssids: splitLines(document.getElementById("wizard-exclude-ssids")?.value),
+        bssids: splitLines(document.getElementById("wizard-exclude-bssids")?.value),
         notes: stringValue(document.getElementById("wizard-boundary-notes")?.value),
+      };
+      data.wireless = {
+        ...(data.wireless || {}),
+        site: data.targets.wireless_sites[0] || "",
+        adapter: stringValue(document.getElementById("wizard-wireless-adapter")?.value),
+        approved_ssids: [...data.targets.ssids],
+        approved_bssids: [...data.targets.bssids],
+        excluded_ssids: [...data.exclusions.ssids],
+        excluded_bssids: [...data.exclusions.bssids],
+        roe_acknowledged: Boolean(document.getElementById("wizard-wireless-roe")?.checked),
+        passive_only: true,
+        rf_disruptive_actions: false,
+        handshake_capture: false,
+        credential_harvesting: false,
+        wps_pin_testing: false,
+        evil_twin: false,
+        jamming: false,
       };
       const exclusionCount = countExplicitExclusions(data.exclusions);
       if (exclusionCount) {
@@ -5537,6 +5665,12 @@ function applySafetyAnswer(answer) {
       const errors = [];
       if (!targets.length) {
         errors.push("Add at least one target in scope.");
+      }
+      if (data.assessment_type === "WiFi / Wireless") {
+        if (!(data.targets.wireless_sites || []).length) errors.push("Add the authorized wireless site/location.");
+        if (!(data.targets.ssids || []).length && !(data.targets.bssids || []).length) errors.push("Add at least one approved SSID or BSSID.");
+        if (!stringValue(data.wireless?.adapter)) errors.push("Add the wireless adapter/interface context.");
+        if (!data.wireless?.roe_acknowledged) errors.push("Confirm passive wireless ROE before launch.");
       }
       data.targets.urls.forEach((value) => {
         if (!isLikelyUrl(value)) errors.push(`Invalid URL: ${value}`);
@@ -5840,6 +5974,24 @@ export function buildRunConfiguration(data, estimate) {
     },
     modules: data.modules,
     safety: data.safety,
+    wireless: data.assessment_type === "WiFi / Wireless"
+      ? {
+          site: data.wireless?.site || data.targets?.wireless_sites?.[0] || null,
+          adapter: data.wireless?.adapter || null,
+          approved_ssids: [...(data.wireless?.approved_ssids || data.targets?.ssids || [])],
+          approved_bssids: [...(data.wireless?.approved_bssids || data.targets?.bssids || [])],
+          excluded_ssids: [...(data.wireless?.excluded_ssids || data.exclusions?.ssids || [])],
+          excluded_bssids: [...(data.wireless?.excluded_bssids || data.exclusions?.bssids || [])],
+          roe_acknowledged: Boolean(data.wireless?.roe_acknowledged),
+          passive_only: true,
+          rf_disruptive_actions: false,
+          handshake_capture: false,
+          credential_harvesting: false,
+          wps_pin_testing: false,
+          evil_twin: false,
+          jamming: false,
+        }
+      : undefined,
     intake: {
       mode: "conversational-ai-guided",
       engagement_route: engagementRoute.mode,
@@ -5875,6 +6027,9 @@ function buildAllowlistFromWizard(targets) {
     urls: [...targets.urls, ...targets.api_base_urls].filter(Boolean),
     hosts: [...targets.ip_addresses].filter(Boolean),
     cidrs: [...targets.cidr_ranges].filter(Boolean),
+    wireless_sites: [...(targets.wireless_sites || [])].filter(Boolean),
+    ssids: [...(targets.ssids || [])].filter(Boolean),
+    bssids: [...(targets.bssids || [])].filter(Boolean),
   };
 }
 
@@ -5945,6 +6100,16 @@ function buildInventorySeedPayload(engagementId, data) {
             confidence: 0.7,
           })),
           api_types: data.targets.api_base_urls.map((url) => ({ type: "rest", base_url: url, confidence: 0.7 })),
+          wireless_networks: (data.targets.ssids || []).map((ssid) => ({
+            ssid,
+            bssid_count: (data.targets.bssids || []).length,
+            bssids: [...(data.targets.bssids || [])],
+            encryption: "unknown",
+            auth_modes: [],
+            wps: false,
+            pmf: ["unknown"],
+            confidence: 0.4,
+          })),
           tls: data.assessment_type === "SSL/TLS Only"
             ? { protocols: ["tls"], issues: [], confidence: 0.8 }
             : undefined,
@@ -6013,6 +6178,9 @@ function resolveExecutionProfile(data) {
   }
   if (selectedTileKey === "llm-ai-app" || selectedTileKeys.includes("llm-ai-app")) {
     return data.safety.active_checks === "passive-only" ? "passive-web-baseline" : "active-llm-application-probe";
+  }
+  if (selectedTileKey === "wifi-wireless" || selectedTileKeys.includes("wifi-wireless") || data.assessment_type === "WiFi / Wireless") {
+    return "passive-wifi-survey";
   }
   if (targetsContainPrivateNetwork(data.targets)) {
     return "passive-network-discovery";
@@ -6176,6 +6344,7 @@ function assessmentTypeProfileRecommendation(assessmentType) {
     "Domain / Domains": "External Surface Only",
     "External IP / WAN": "External Surface Only",
     "Internal Range / LAN": "Standard",
+    "WiFi / Wireless": "Standard",
     "API": "Standard",
     "SSL/TLS Only": "SSL/TLS Only",
     "Authenticated App": "Authenticated Only",
@@ -6198,6 +6367,18 @@ function applyAssessmentTypePreset(assessmentType) {
 
   if (assessmentType === "External IP / WAN") {
     Object.assign(state.wizard.data.modules, moduleState(["discovery", "ssl_tls_analysis"]));
+    Object.assign(state.wizard.data.safety, {
+      ...state.wizard.data.safety,
+      active_checks: "passive-only",
+      adaptive_generation: false,
+      max_validation_depth: "light",
+    });
+    return;
+  }
+
+  if (assessmentType === "WiFi / Wireless") {
+    state.wizard.data.test_profile = "Standard";
+    Object.assign(state.wizard.data.modules, moduleState(["discovery"]));
     Object.assign(state.wizard.data.safety, {
       ...state.wizard.data.safety,
       active_checks: "passive-only",
@@ -6316,6 +6497,7 @@ function assessmentTypeCopy(type) {
     "Domain / Domains": "Domain-scoped recon and service discovery across named targets.",
     "External IP / WAN": "Perimeter validation against explicit WAN IP targets.",
     "Internal Range / LAN": "Internal network range validation with scope-controlled depth.",
+    "WiFi / Wireless": "Passive wireless site, SSID/BSSID, adapter, and AP security posture review.",
     "API": "API-first assessment with base URLs, auth context, and protocol-aware testing.",
     "SSL/TLS Only": "Certificate, protocol, and crypto posture validation only.",
     "Authenticated App": "Application validation where session or credentialed access is central.",
@@ -6356,6 +6538,7 @@ function moduleCopy(key) {
 
 function visibleTargetGroups(assessmentType) {
   const base = ["domains", "urls"];
+  if (assessmentType === "WiFi / Wireless") return ["wireless_sites", "ssids", "bssids"];
   if (assessmentType === "API") return ["api_base_urls", "urls", "domains"];
   if (assessmentType === "SSL/TLS Only") return ["domains", "urls", "ip_addresses"];
   if (assessmentType === "External IP / WAN") return ["ip_addresses", "cidr_ranges"];
@@ -6384,6 +6567,9 @@ function snapshotEngagementNameContext(data) {
       ip_addresses: [...(data.targets?.ip_addresses || [])],
       cidr_ranges: [...(data.targets?.cidr_ranges || [])],
       api_base_urls: [...(data.targets?.api_base_urls || [])],
+      wireless_sites: [...(data.targets?.wireless_sites || [])],
+      ssids: [...(data.targets?.ssids || [])],
+      bssids: [...(data.targets?.bssids || [])],
     },
     intake_preferences: {
       primary_goal: data.intake_preferences?.primary_goal || "",
@@ -6415,6 +6601,7 @@ function humanizeAssessmentTypeShort(value) {
     "Domain / Domains": "Domain",
     "External IP / WAN": "External Surface",
     "Internal Range / LAN": "Internal Range",
+    "WiFi / Wireless": "WiFi",
     "API": "API",
     "SSL/TLS Only": "TLS",
     "Authenticated App": "Authenticated App",
@@ -6678,6 +6865,7 @@ function inferAssessmentType(answer) {
   const normalized = String(answer || "").toLowerCase();
   if (/\b(active directory|domain controller|ldap|kerberos|bloodhound|sharphound)\b/.test(normalized)) return "Internal Range / LAN";
   if (/\b(cloud|aws|azure|gcp|subscription|tenant)\b/.test(normalized)) return "Mixed Assessment";
+  if (/\b(wifi|wi-fi|wireless|ssid|bssid|wlan)\b/.test(normalized)) return "WiFi / Wireless";
   if (/\b(llm|ai app|ai application|prompt injection|agentic)\b/.test(normalized)) return "Website / Web App";
   if (/\b(mixed|hybrid|both web and api|web and api)\b/.test(normalized)) return "Mixed Assessment";
   if (/\b(api|graphql|swagger|openapi)\b/.test(normalized)) return "API";
@@ -6701,6 +6889,7 @@ function shouldPreserveAssessmentType(currentType, inferredType) {
 }
 
 function inferAssessmentTypeFromTargets(parsed) {
+  if ((parsed.wireless_sites || []).length || (parsed.ssids || []).length || (parsed.bssids || []).length) return "WiFi / Wireless";
   const hasDomains = parsed.domains.length || parsed.subdomains.length;
   const hasUrls = parsed.urls.length;
   const hasApi = parsed.api_base_urls.length;

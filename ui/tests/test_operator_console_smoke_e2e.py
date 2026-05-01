@@ -537,6 +537,16 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
                   affected_assessment_families: ['Exploit confirmation'],
                   metadata: {},
                 },
+                {
+                  id: 'wireless_readiness',
+                  title: 'Wireless adapter readiness',
+                  status: 'ready',
+                  summary: '1 wireless adapter detected and passive WiFi tooling is available.',
+                  details: ['Foundation WiFi support is passive-only.', 'No deauth, capture, WPS brute force, jamming, or rogue AP actions are enabled.'],
+                  operator_next_step: 'Use passive WiFi survey only with explicit site, SSID/BSSID allowlist, adapter context, and wireless ROE.',
+                  affected_assessment_families: ['WiFi discovery', 'Wireless security review'],
+                  metadata: { detected_adapters: ['wlan0'], safe_parallelism_limit: 1 },
+                },
               ],
               tools: [
                 {
@@ -549,6 +559,17 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
                   status: 'ready',
                   affected_assessment_families: ['LAN discovery'],
                   operator_next_step: 'Ready.',
+                },
+                {
+                  id: 'wifi',
+                  title: 'WiFi analysis tools',
+                  binary_names: ['iw', 'airodump-ng', 'aircrack-ng'],
+                  required: false,
+                  installed: true,
+                  detected_path: '/usr/bin/iw',
+                  status: 'ready',
+                  affected_assessment_families: ['WiFi discovery', 'Wireless security review'],
+                  operator_next_step: 'Ready for passive fixture or authorized hardware evidence.',
                 },
                 {
                   id: 'metasploit',
@@ -572,7 +593,10 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
     panel = loaded_page.get_by_test_id("settings-readiness-panel")
     expect(panel).to_contain_text("Runtime Readiness")
     expect(panel).to_contain_text("6 inline task workers configured")
+    expect(panel).to_contain_text("Wireless adapter readiness")
+    expect(panel).to_contain_text("Foundation WiFi support is passive-only")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Metasploit")
+    expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("WiFi analysis tools")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Exploit confirmation")
     expect(loaded_page.get_by_test_id("settings-readiness-export")).to_be_visible()
 
@@ -1196,6 +1220,134 @@ def test_mission_control_running_task_stdout_shows_live_indicator(loaded_page: P
 
     expect(loaded_page.get_by_test_id("mission-task-stdout-live-indicator")).to_contain_text("Live")
     expect(loaded_page.get_by_test_id("mission-task-stdout-output")).to_contain_text("nmap scan report")
+
+
+def test_wifi_mission_control_and_report_center_surface_wireless_context(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const now = new Date().toISOString();
+          const runId = '88888888-8888-4888-8888-888888888888';
+          const taskId = '99999999-9999-4999-8999-999999999999';
+          const task = {
+            id: taskId,
+            run_id: runId,
+            tool: 'wifi-survey',
+            target_id: 'HQ-Amsterdam',
+            status: 'running',
+            params_json: {
+              target_kind: 'wireless-site',
+              profile_name: 'passive-wifi-survey',
+              site: 'HQ-Amsterdam',
+              adapter: 'wlan0',
+              approved_ssids: ['CorpWiFi'],
+              approved_bssids: ['aa:bb:cc:dd:ee:ff'],
+              passive_only: true,
+              rf_disruptive_actions: false,
+            },
+            created_at: now,
+            updated_at: now,
+            executions: [],
+          };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedRunId: runId,
+            selectedTaskId: taskId,
+            selectedRun: {
+              id: runId,
+              status: 'running',
+              requested_by: 'operator-ui',
+              created_at: now,
+              updated_at: now,
+              configuration_json: {
+                assessment_type: 'WiFi / Wireless',
+                targets: { wireless_sites: ['HQ-Amsterdam'], ssids: ['CorpWiFi'], bssids: ['aa:bb:cc:dd:ee:ff'] },
+              },
+              profile: { name: 'passive-wifi-survey', run_class: 'passive', limits_json: {} },
+              tasks: [task],
+              findings: { finding_count: 0, findings_by_severity: {}, findings_by_status: {} },
+              ai_mission_guidance: {},
+            },
+            selectedTask: task,
+            taskStdoutStream: {
+              source: null,
+              taskId,
+              status: 'running',
+              sourceLabel: 'runner-buffer',
+              fallbackReason: null,
+              lines: [{ sequence: 1, text: 'wifi-survey: passive evidence imported for site HQ-Amsterdam using adapter context wlan0' }],
+              lineCount: 1,
+              truncated: false,
+              terminal: false,
+              lastEventAt: now,
+            },
+          }, 'ui.test.wifiMissionControl');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("mission-task-focus")).to_contain_text("WiFi passive survey")
+    expect(loaded_page.get_by_test_id("mission-wireless-task-focus")).to_contain_text("wlan0")
+    expect(loaded_page.get_by_test_id("mission-wireless-task-focus")).to_contain_text("CorpWiFi")
+    expect(loaded_page.get_by_test_id("mission-wireless-task-focus")).to_contain_text("Passive only")
+    expect(loaded_page.get_by_test_id("mission-task-stdout-output")).to_contain_text("passive evidence imported")
+
+    loaded_page.get_by_test_id("nav-reports").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const reportsModule = await import('/app/assets/modules/reports.js');
+          const runId = '88888888-8888-4888-8888-888888888888';
+          runtimeModule.patchState({
+            activeScreen: 'report-center',
+            selectedRunId: runId,
+            reportVariant: 'technical',
+            reportCenterView: 'reports',
+            reportPreview: '## WiFi Security Summary\\n\\n- Wireless Networks Observed: 1\\n- Boundary: passive evidence only; no deauthentication, jamming, evil-twin, handshake capture, WPS brute force, or credential harvesting was performed.',
+            reportHtml: '',
+            reportCatalog: [{
+              variant: 'technical',
+              title: 'Technical Report',
+              description: 'Technical report with WiFi Security Summary.',
+              source_run_id: runId,
+              generated_at: new Date().toISOString(),
+              available_formats: ['markdown', 'html'],
+              methodology_references: ['PTES'],
+              source_scope_profile: { run_profile: 'passive-wifi-survey', assessment_type: 'WiFi / Wireless', targets: { wireless_sites: ['HQ-Amsterdam'] } },
+              included_findings: { count: 1, by_severity: { info: 1 }, by_status: { open: 1 }, report_sections: ['wifi_security_summary'], test_coverage: {} },
+              included_inventory: { host_count: 0, service_count: 0, endpoint_count: 0, technology_count: 0, wireless_access_point_count: 1, wireless_network_count: 1, confidence_score: 0.84 },
+              evidence_status: { linked_findings: 1, total_findings: 1, completeness_ratio: 1 },
+              compliance_summary: {},
+              assurance_summary: {},
+              adaptive_change_summary: {},
+              ai_draft_summary: {},
+              run_narrative_summary: {},
+              version_label: 'technical-wifi',
+              content_sha256: 'abcd',
+              availability_status: 'export_ready',
+              availability_label: 'Export ready',
+              availability_reason: 'Wireless evidence is available for export.',
+              preview_allowed: true,
+              export_allowed: true,
+              draft_allowed: true,
+              lifecycle_summary: {},
+              export_paths: { markdown: '/api/v1/runs/' + runId + '/report?format=markdown&variant=technical', html: '/api/v1/runs/' + runId + '/report?format=html&variant=technical' },
+              download_names: { markdown: 'wifi.md', html: 'wifi.html' },
+            }],
+          }, 'ui.test.wifiReportCenter');
+          reportsModule.createReportsModule().renderReportCenter();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("report-card")).to_contain_text("Technical Report")
+    expect(loaded_page.get_by_test_id("report-metadata")).to_contain_text("WiFi APs 1")
+    expect(loaded_page.get_by_test_id("report-preview")).to_contain_text("WiFi Security Summary")
 
 
 def test_mission_control_chain_gap_keeps_tasks_panel_actionable_without_task_cards(loaded_page: Page) -> None:

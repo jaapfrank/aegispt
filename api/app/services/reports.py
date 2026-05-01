@@ -1687,6 +1687,7 @@ REPORT_SECTION_LABELS = {
     "iam_findings": "IAM Findings",
     "exposure_findings": "Exposure Findings",
     "iot_security_summary": "IoT Security Summary",
+    "wifi_security_summary": "WiFi Security Summary",
     "exploitation_evidence": "Exploitation Evidence",
     "post_exploitation": "Post-Exploitation",
 }
@@ -1747,6 +1748,12 @@ SURFACE_COVERAGE_RULES: tuple[dict[str, object], ...] = (
         "sections": ("iot_security_summary", "network_discovery", "host_inventory"),
     },
     {
+        "key": "wifi_wireless",
+        "label": "WiFi / Wireless",
+        "keywords": ("wifi", "wireless", "ssid", "bssid", "wifi-survey"),
+        "sections": ("wifi_security_summary",),
+    },
+    {
         "key": "intrusive_validation",
         "label": "Intrusive validation",
         "keywords": ("intrusive", "metasploit", "exploit", "impacket", "secretsdump", "dcsync"),
@@ -1781,12 +1788,28 @@ def _signals_match(text: str, keywords: tuple[str, ...]) -> bool:
     return any(keyword in text for keyword in keywords)
 
 
+def _run_has_wireless_evidence(run: Run) -> bool:
+    snapshot = effective_inventory_snapshot_for_run(run)
+    normalized_inventory = (
+        snapshot.normalized_inventory_json
+        if snapshot is not None
+        and isinstance(getattr(snapshot, "normalized_inventory_json", None), dict)
+        else {}
+    )
+    return bool(
+        normalized_inventory.get("wireless_access_points")
+        or normalized_inventory.get("wireless_networks")
+    )
+
+
 def report_sections_for_run(run: Run) -> list[str]:
     task_signals = " ".join(_task_signal_text(task) for task in list(run.tasks or []))
     run_signal = _run_signal_text(run)
     sections = list(ALWAYS_REPORT_SECTIONS)
 
     for rule in SURFACE_COVERAGE_RULES:
+        if rule["key"] == "wifi_wireless" and not _run_has_wireless_evidence(run):
+            continue
         keywords = tuple(str(keyword) for keyword in rule["keywords"])
         if _signals_match(task_signals, keywords) or _signals_match(run_signal, keywords):
             for section in rule["sections"]:
@@ -2980,6 +3003,65 @@ def _iot_security_summary_html(context: dict[str, object]) -> str:
     """
 
 
+def _wifi_security_summary_lines(context: dict[str, object]) -> list[str]:
+    inventory_snapshot = context.get("inventory_snapshot")
+    normalized_inventory = (
+        inventory_snapshot.normalized_inventory_json
+        if inventory_snapshot is not None
+        and isinstance(getattr(inventory_snapshot, "normalized_inventory_json", None), dict)
+        else {}
+    )
+    access_points = [
+        item
+        for item in normalized_inventory.get("wireless_access_points", [])
+        if isinstance(item, dict)
+    ]
+    networks = [
+        item for item in normalized_inventory.get("wireless_networks", []) if isinstance(item, dict)
+    ]
+    findings = [finding for finding in context.get("findings", []) if isinstance(finding, Finding)]
+    wifi_findings = [
+        finding
+        for finding in findings
+        if any(
+            token in " ".join([finding.title, finding.summary or "", finding.target_id]).lower()
+            for token in ("wifi", "wireless", "ssid", "bssid", "wps", "pmf")
+        )
+    ]
+    lines = [
+        f"- Wireless Networks Observed: {len(networks)}",
+        f"- Access Points Observed: {len(access_points)}",
+        f"- WiFi Findings: {len(wifi_findings)}",
+        "- Boundary: passive evidence only; no deauthentication, jamming, evil-twin, handshake capture, WPS brute force, or credential harvesting was performed.",
+        "",
+        "#### Observed Networks",
+        "",
+    ]
+    for network in networks[:12]:
+        lines.append(
+            f"- {network.get('ssid')}: {network.get('encryption', 'unknown')} · {network.get('bssid_count', 0)} BSSID(s)"
+        )
+    if not networks:
+        lines.append("- No wireless network inventory is recorded in the linked inventory snapshot.")
+    lines.append("")
+    return lines
+
+
+def _wifi_security_summary_html(context: dict[str, object]) -> str:
+    lines = _wifi_security_summary_lines(context)
+    items = "".join(
+        f"<li>{escape(line[2:])}</li>"
+        for line in lines
+        if line.startswith("- ")
+    )
+    return f"""
+    <section class="panel">
+      <h2>WiFi Security Summary</h2>
+      <ul class="meta-list">{items or "<li>No WiFi inventory is recorded for this run.</li>"}</ul>
+    </section>
+    """
+
+
 def _render_test_coverage_markdown(context: dict[str, object]) -> list[str]:
     coverage = context.get("test_coverage", {})
     if not isinstance(coverage, dict):
@@ -3096,6 +3178,8 @@ def _render_adaptive_technical_sections_markdown(context: dict[str, object]) -> 
             lines.append(f"- Relevant Findings: {len(matching)}")
         elif section == "iot_security_summary":
             lines.extend(_iot_security_summary_lines(context))
+        elif section == "wifi_security_summary":
+            lines.extend(_wifi_security_summary_lines(context))
         else:
             lines.append("- Included because the run profile or executed tools touched this evidence surface.")
         lines.append("")
@@ -3109,6 +3193,7 @@ def _render_adaptive_technical_sections_html(context: dict[str, object]) -> str:
         for section in sections
     )
     iot_summary = _iot_security_summary_html(context) if "iot_security_summary" in sections else ""
+    wifi_summary = _wifi_security_summary_html(context) if "wifi_security_summary" in sections else ""
     return f"""
     <section class="panel">
       <h2>Adaptive Technical Sections</h2>
@@ -3116,6 +3201,7 @@ def _render_adaptive_technical_sections_html(context: dict[str, object]) -> str:
       <ul class="meta-list">{items}</ul>
     </section>
     {iot_summary}
+    {wifi_summary}
     """
 
 
@@ -5622,6 +5708,14 @@ def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
                     "service_count": context["inventory_summary"].get("service_count", 0),
                     "endpoint_count": context["inventory_summary"].get("endpoint_count", 0),
                     "technology_count": context["inventory_summary"].get("technology_count", 0),
+                    "wireless_access_point_count": context["inventory_summary"].get(
+                        "wireless_access_point_count",
+                        0,
+                    ),
+                    "wireless_network_count": context["inventory_summary"].get(
+                        "wireless_network_count",
+                        0,
+                    ),
                     "confidence_score": context["inventory_summary"].get("confidence_score", 0.0),
                 },
                 evidence_status={

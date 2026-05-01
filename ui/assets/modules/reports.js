@@ -221,7 +221,13 @@ export function createReportsModule() {
     const discoveredAssetCount =
       Number(selectedReport.included_inventory.host_count || 0) +
       Number(selectedReport.included_inventory.service_count || 0) +
-      Number(selectedReport.included_inventory.endpoint_count || 0);
+      Number(selectedReport.included_inventory.endpoint_count || 0) +
+      Number(selectedReport.included_inventory.wireless_access_point_count || 0) +
+      Number(selectedReport.included_inventory.wireless_network_count || 0);
+    const wirelessMetric =
+      Number(selectedReport.included_inventory.wireless_access_point_count || 0) > 0
+        ? `<span class="metric-pill">${escapeHtml(`WiFi APs ${selectedReport.included_inventory.wireless_access_point_count}`)}</span>`
+        : "";
     const discoveryOnlyNote =
       Number(selectedReport.included_findings.count || 0) === 0 && discoveredAssetCount
         ? `
@@ -268,6 +274,7 @@ export function createReportsModule() {
           <span class="metric-pill">${escapeHtml(`Assets ${discoveredAssetCount}`)}</span>
           <span class="metric-pill">${escapeHtml(`${selectedReport.included_inventory.host_count || 0} hosts`)}</span>
           <span class="metric-pill">${escapeHtml(`${selectedReport.included_inventory.endpoint_count || 0} endpoints`)}</span>
+          ${wirelessMetric}
         </div>
       </div>
       <div class="report-run-strip-notes">

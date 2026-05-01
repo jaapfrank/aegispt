@@ -233,6 +233,25 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "passive-wifi-survey",
+        "run_class": RunClass.PASSIVE.value,
+        "limits_json": {
+            "description": "Passive WiFi survey from authorized site, adapter, SSID, and BSSID context. Consumes passive fixture/capture evidence only and never performs deauthentication, jamming, evil-twin, handshake capture, WPS brute force, or credential harvesting.",
+            "required_approvals": 0,
+            "tools": ["wifi-survey"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_wireless_roe": True,
+            "passive_only": True,
+            "rf_disruptive_actions": False,
+            "handshake_capture": False,
+            "credential_harvesting": False,
+            "wps_pin_testing": False,
+            "evil_twin": False,
+            "jamming": False,
+        },
+    },
+    {
         "name": "active-lan-default-creds-audit",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

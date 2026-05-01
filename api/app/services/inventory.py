@@ -31,6 +31,34 @@ def _normalize_str_list(values: Any) -> list[str]:
     return normalized
 
 
+def wifi_survey_observation_from_json(
+    *,
+    json_bytes: bytes,
+    target_id: str | None = None,
+) -> dict[str, Any]:
+    payload = json.loads(json_bytes.decode("utf-8", errors="replace"))
+    if not isinstance(payload, dict):
+        payload = {}
+    inventory = payload.get("inventory") if isinstance(payload.get("inventory"), dict) else {}
+    return {
+        "tool": "wifi-survey",
+        "kind": "inventory",
+        "data": {
+            "site": str(payload.get("site") or target_id or "").strip() or None,
+            "adapter": str(payload.get("adapter") or "").strip() or None,
+            "wireless_access_points": [
+                item
+                for item in inventory.get("wireless_access_points", [])
+                if isinstance(item, dict)
+            ],
+            "wireless_networks": [
+                item for item in inventory.get("wireless_networks", []) if isinstance(item, dict)
+            ],
+            "confidence": _bounded_confidence(inventory.get("confidence"), default=0.6),
+        },
+    }
+
+
 def _host_from_value(value: str) -> str:
     parsed = urlparse(value)
     if parsed.scheme and parsed.netloc:
@@ -1422,6 +1450,8 @@ def normalize_inventory_observations(
     ipv6_addresses: list[dict[str, Any]] = []
     ipv6_prefixes: list[dict[str, Any]] = []
     api_types: list[dict[str, Any]] = []
+    wireless_access_points: list[dict[str, Any]] = []
+    wireless_networks: list[dict[str, Any]] = []
     fingerprints: list[dict[str, Any]] = []
     tls_posture = {
         "protocols": [],
@@ -1455,6 +1485,8 @@ def normalize_inventory_observations(
     seen_ipv6_addresses: set[tuple[str, str]] = set()
     seen_ipv6_prefixes: set[tuple[str, str | None]] = set()
     seen_api: set[tuple[str, str | None, str]] = set()
+    seen_wireless_access_points: set[tuple[str, str]] = set()
+    seen_wireless_networks: set[tuple[str, str]] = set()
     seen_fingerprints: set[tuple[str | None, str, str]] = set()
     confidence_values: list[float] = []
 
@@ -2276,6 +2308,72 @@ def normalize_inventory_observations(
             }
         )
 
+    def add_wireless_access_point(
+        *,
+        ap: dict[str, Any],
+        source: str,
+        confidence: float,
+    ) -> None:
+        bssid = str(ap.get("bssid") or "").strip().lower()
+        if not bssid:
+            return
+        key = (bssid, source.lower())
+        if key in seen_wireless_access_points:
+            return
+        seen_wireless_access_points.add(key)
+        ap_confidence = _bounded_confidence(ap.get("confidence"), default=confidence)
+        confidence_values.append(ap_confidence)
+        wireless_access_points.append(
+            {
+                "ssid": str(ap.get("ssid") or "<hidden>").strip() or "<hidden>",
+                "bssid": bssid,
+                "site": str(ap.get("site") or "").strip() or None,
+                "adapter": str(ap.get("adapter") or "").strip() or None,
+                "channel": str(ap.get("channel") or "").strip() or None,
+                "band": str(ap.get("band") or "").strip() or None,
+                "encryption": str(ap.get("encryption") or "unknown").strip() or "unknown",
+                "auth_mode": str(ap.get("auth_mode") or "unknown").strip() or "unknown",
+                "cipher": str(ap.get("cipher") or "").strip() or None,
+                "pmf": str(ap.get("pmf") or "unknown").strip() or "unknown",
+                "wps": bool(ap.get("wps")),
+                "signal_dbm": ap.get("signal_dbm") if isinstance(ap.get("signal_dbm"), int) else None,
+                "observed_at": str(ap.get("observed_at") or "").strip() or None,
+                "sources": _normalize_str_list(ap.get("sources")) or [source],
+                "source": source,
+                "confidence": ap_confidence,
+            }
+        )
+
+    def add_wireless_network(
+        *,
+        network: dict[str, Any],
+        source: str,
+        confidence: float,
+    ) -> None:
+        ssid = str(network.get("ssid") or "").strip()
+        if not ssid:
+            return
+        key = (ssid.lower(), source.lower())
+        if key in seen_wireless_networks:
+            return
+        seen_wireless_networks.add(key)
+        network_confidence = _bounded_confidence(network.get("confidence"), default=confidence)
+        confidence_values.append(network_confidence)
+        wireless_networks.append(
+            {
+                "ssid": ssid,
+                "bssid_count": int(network.get("bssid_count") or 0),
+                "bssids": _normalize_str_list(network.get("bssids")),
+                "channels": _normalize_str_list(network.get("channels")),
+                "encryption": str(network.get("encryption") or "unknown").strip() or "unknown",
+                "auth_modes": _normalize_str_list(network.get("auth_modes")),
+                "wps": bool(network.get("wps")),
+                "pmf": _normalize_str_list(network.get("pmf")),
+                "source": source,
+                "confidence": network_confidence,
+            }
+        )
+
     def add_ipv6_address(
         *,
         address: str,
@@ -2343,6 +2441,30 @@ def normalize_inventory_observations(
         direct_host = str(payload.get("host") or payload.get("hostname") or "").strip()
         if direct_host:
             add_host(direct_host, source=source, confidence=confidence)
+
+        for ap_entry in (
+            payload.get("wireless_access_points", [])
+            if isinstance(payload.get("wireless_access_points"), list)
+            else []
+        ):
+            if isinstance(ap_entry, dict):
+                add_wireless_access_point(
+                    ap=ap_entry,
+                    source=source,
+                    confidence=confidence,
+                )
+
+        for network_entry in (
+            payload.get("wireless_networks", [])
+            if isinstance(payload.get("wireless_networks"), list)
+            else []
+        ):
+            if isinstance(network_entry, dict):
+                add_wireless_network(
+                    network=network_entry,
+                    source=source,
+                    confidence=confidence,
+                )
 
         host_entries = payload.get("hosts", [])
         if isinstance(host_entries, list):
@@ -3011,6 +3133,8 @@ def normalize_inventory_observations(
         "ipv6_addresses": ipv6_addresses,
         "ipv6_prefixes": ipv6_prefixes,
         "api_types": api_types,
+        "wireless_access_points": wireless_access_points,
+        "wireless_networks": wireless_networks,
         "tls_posture": tls_posture,
         "vendor_product_fingerprints": fingerprints,
         "environment_notes": list(dict.fromkeys(_normalize_str_list(list(environment_notes)))),
@@ -3054,6 +3178,10 @@ def inventory_summary_from_normalized(normalized_inventory: dict[str, Any]) -> d
         "ipv6_address_count": len(normalized_inventory.get("ipv6_addresses", [])),
         "ipv6_prefix_count": len(normalized_inventory.get("ipv6_prefixes", [])),
         "api_type_count": len(normalized_inventory.get("api_types", [])),
+        "wireless_access_point_count": len(
+            normalized_inventory.get("wireless_access_points", [])
+        ),
+        "wireless_network_count": len(normalized_inventory.get("wireless_networks", [])),
         "device_type_count": len(device_types),
         "device_types": device_types,
         "tls_issue_count": len(
@@ -3205,6 +3333,16 @@ def observation_from_normalized_inventory(
             "api_types": [
                 entry
                 for entry in normalized_inventory.get("api_types", [])
+                if isinstance(entry, dict)
+            ],
+            "wireless_access_points": [
+                entry
+                for entry in normalized_inventory.get("wireless_access_points", [])
+                if isinstance(entry, dict)
+            ],
+            "wireless_networks": [
+                entry
+                for entry in normalized_inventory.get("wireless_networks", [])
                 if isinstance(entry, dict)
             ],
             "tls_summary": tls_posture if isinstance(tls_posture, dict) else {},

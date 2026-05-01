@@ -39,6 +39,7 @@ from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
 from workers.runners.semgrep.runner import normalize_semgrep_rule_id
 from workers.runners.smart_home.runner import SMART_HOME_RESULTS_ARTIFACT_NAME
 from workers.runners.snmp_enum.runner import SNMP_ENUM_RESULTS_ARTIFACT_NAME
+from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
 
 
 @dataclass(slots=True, frozen=True)
@@ -482,8 +483,64 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
+    if task.tool == "wifi-survey":
+        return extract_wifi_survey_findings(
+            target_id=task.target_id,
+            artifact=artifact,
+            artifact_record=artifact_record,
+        )
 
     return []
+
+
+def extract_wifi_survey_findings(
+    *,
+    target_id: str,
+    artifact: EvidenceArtifact,
+    artifact_record: EvidenceArtifactRecord,
+) -> list[NormalizedFinding]:
+    if artifact.name != WIFI_SURVEY_RESULTS_ARTIFACT_NAME:
+        return []
+
+    payload = json.loads(artifact.data.decode("utf-8", errors="replace"))
+    if not isinstance(payload, dict):
+        return []
+
+    findings: list[NormalizedFinding] = []
+    seen_keys: set[tuple[str, str]] = set()
+    for raw_finding in (
+        payload.get("analysis_findings", [])
+        if isinstance(payload.get("analysis_findings"), list)
+        else []
+    ):
+        if not isinstance(raw_finding, dict):
+            continue
+        title = str(raw_finding.get("title") or "WiFi survey finding").strip()
+        finding_target = str(raw_finding.get("target_id") or target_id).strip() or target_id
+        dedupe_key = (title.lower(), finding_target.lower())
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
+        methodology_tags = tuple(
+            str(tag).strip()
+            for tag in list(raw_finding.get("methodology_tags") or ["wireless", "wifi"])
+            if str(tag).strip()
+        )
+        findings.append(
+            NormalizedFinding(
+                title=title,
+                severity=normalize_severity(str(raw_finding.get("severity") or "info")),
+                target_id=finding_target,
+                evidence_ref=artifact_record.uri,
+                summary=str(raw_finding.get("summary") or "").strip()
+                or f"WiFi passive survey reported {title}.",
+                methodology_tags=methodology_tags,
+                ptes_phase=str(raw_finding.get("ptes_phase") or "") or None,
+                nist_phase=str(raw_finding.get("nist_phase") or "") or None,
+                control_family=str(raw_finding.get("control_family") or "") or None,
+            )
+        )
+    return findings
 
 
 def extract_api_assessment_findings(

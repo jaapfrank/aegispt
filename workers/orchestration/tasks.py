@@ -52,6 +52,7 @@ from api.app.services.inventory import (
     nmap_observation_from_xml,
     smart_home_observation_from_json,
     snmp_enum_observation_from_json,
+    wifi_survey_observation_from_json,
 )
 from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_task
 from api.app.services.cve_sync import suggest_watchlist_from_inventory_snapshot
@@ -136,6 +137,10 @@ from workers.runners.snmp_enum.runner import (
     SNMP_ENUM_RESULTS_ARTIFACT_NAME,
     execute_snmp_enumeration,
 )
+from workers.runners.wifi_survey.runner import (
+    WIFI_SURVEY_RESULTS_ARTIFACT_NAME,
+    execute_wifi_survey,
+)
 from workers.runners.zap.runner import execute_zap_scan
 from workers.runners.base.stdout_stream import (
     append_task_stdout,
@@ -180,6 +185,7 @@ SUPPORTED_TOOLS = {
     "semgrep",
     "smart-home",
     "snmp-enum",
+    "wifi-survey",
     "zap",
 }
 
@@ -481,6 +487,52 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             timeout_seconds=timeout_seconds,
             mdns_enabled=bool(request.params.get("mdns_enabled", True)),
             ssdp_enabled=bool(request.params.get("ssdp_enabled", True)),
+        )
+    if request.tool == "wifi-survey":
+        return execute_wifi_survey(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            site=(
+                request.params.get("site")
+                if isinstance(request.params.get("site"), str)
+                else None
+            ),
+            adapter=(
+                request.params.get("adapter")
+                if isinstance(request.params.get("adapter"), str)
+                else None
+            ),
+            approved_ssids=(
+                request.params.get("approved_ssids")
+                if isinstance(request.params.get("approved_ssids"), list)
+                else None
+            ),
+            approved_bssids=(
+                request.params.get("approved_bssids")
+                if isinstance(request.params.get("approved_bssids"), list)
+                else None
+            ),
+            excluded_ssids=(
+                request.params.get("excluded_ssids")
+                if isinstance(request.params.get("excluded_ssids"), list)
+                else None
+            ),
+            excluded_bssids=(
+                request.params.get("excluded_bssids")
+                if isinstance(request.params.get("excluded_bssids"), list)
+                else None
+            ),
+            iw_scan_text=(
+                request.params.get("fixture_iw_scan_text")
+                if isinstance(request.params.get("fixture_iw_scan_text"), str)
+                else None
+            ),
+            airodump_csv_text=(
+                request.params.get("fixture_airodump_csv_text")
+                if isinstance(request.params.get("fixture_airodump_csv_text"), str)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
         )
     if request.tool == "iot-default-creds":
         return execute_iot_default_credential_audit(
@@ -1563,6 +1615,14 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         return f"$ desktop-client-assessment --sources {source_label} --static-only --approved-scope {target_label}{extra}"
     if tool == "mdns-ssdp":
         return f"$ mdns-ssdp-discovery --mdns --ssdp --approved-scope {target_label}{extra}"
+    if tool == "wifi-survey":
+        adapter = str(effective_params.get("adapter") or "approved-adapter").strip()
+        site = str(effective_params.get("site") or target_label).strip()
+        return (
+            "$ wifi-survey --passive-only --no-deauth --no-handshake-capture "
+            f"--adapter {shlex.quote(adapter)} --site {shlex.quote(site)} "
+            f"--approved-scope {target_label}{extra}"
+        )
     if tool == "iot-default-creds":
         return (
             "$ iot-default-creds-audit --http-management --max-attempts 3 "
@@ -2222,6 +2282,38 @@ def _store_inventory_snapshot_from_execution(
         assumptions = [
             "Only passively advertised mDNS and SSDP/UPnP device metadata emitted by the runner is reflected in this snapshot.",
             "The mDNS/SSDP runner performs local discovery queries only and does not authenticate, modify devices, or exploit advertised services.",
+        ]
+    elif task.tool == "wifi-survey":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == WIFI_SURVEY_RESULTS_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = wifi_survey_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Passive WiFi survey imported from task {task.id}.",
+            f"Run {task.run_id} wireless site {task.target_id}.",
+        ]
+        assumptions = [
+            "Only passive wireless survey metadata emitted by the runner is reflected in this snapshot.",
+            "The WiFi foundation runner does not deauthenticate clients, capture handshakes, brute-force WPS, jam RF, or create rogue access points.",
         ]
     elif task.tool == "snmp-enum":
         artifact_pair = next(

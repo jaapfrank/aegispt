@@ -821,6 +821,7 @@ def read_settings_readiness(
         _runtime_concurrency_readiness(effective),
         _dispatch_mode_readiness(effective),
         _tool_summary_readiness(tools),
+        _wireless_readiness(tools),
         _ai_provider_readiness(session, tenant_key=tenant_key, settings=effective),
         _scheduler_readiness(session),
         _threat_intel_readiness(session, tenant_key=tenant_key, settings=effective),
@@ -955,6 +956,59 @@ def _tool_summary_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabili
             "ready_count": sum(1 for tool in tools if tool.status == "ready"),
             "degraded_count": len(degraded),
             "missing_count": len(missing_required),
+        },
+    )
+
+
+def _detect_wireless_adapters() -> list[str]:
+    net_root = Path("/sys/class/net")
+    if not net_root.exists():
+        return []
+    adapters: list[str] = []
+    for entry in sorted(net_root.iterdir(), key=lambda item: item.name):
+        if (entry / "wireless").exists():
+            adapters.append(entry.name)
+    return adapters
+
+
+def _wireless_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabilityRead:
+    wifi_tool = next((tool for tool in tools if tool.id == "wifi"), None)
+    adapters = _detect_wireless_adapters()
+    required_binaries = wifi_tool.binary_names if wifi_tool is not None else ["iw", "airodump-ng", "aircrack-ng"]
+    installed = bool(wifi_tool and wifi_tool.installed)
+    if adapters and installed:
+        status = "ready"
+        summary = f"{len(adapters)} wireless adapter(s) detected and passive WiFi tooling is available."
+        next_step = "Use passive WiFi survey only with explicit site, SSID/BSSID allowlist, adapter context, and wireless ROE."
+    elif adapters:
+        status = "degraded"
+        summary = f"{len(adapters)} wireless adapter(s) detected, but optional WiFi tooling is incomplete."
+        next_step = "Install iw/aircrack-ng tooling before relying on host-backed WiFi readiness."
+    else:
+        status = "blocked"
+        summary = "No wireless adapter is detected on this host."
+        next_step = "Attach authorized wireless hardware or use fixture/lab evidence for the passive foundation runner."
+    return _capability(
+        capability_id="wireless_readiness",
+        title="Wireless adapter readiness",
+        status=status,
+        summary=summary,
+        details=[
+            "Foundation WiFi support is passive-only.",
+            "AegisPT does not enable monitor mode, deauthenticate clients, capture handshakes, brute-force WPS, jam RF, or create rogue APs in this slice.",
+            "Monitor-mode capability and channel support are reported as unknown until a future explicit lab validation task adds safe hardware probing.",
+        ],
+        operator_next_step=next_step,
+        affected_assessment_families=["WiFi discovery", "Wireless security review"],
+        metadata={
+            "detected_adapters": adapters,
+            "required_binaries": required_binaries,
+            "tool_group_installed": installed,
+            "monitor_mode_capability": "unknown",
+            "channel_support": "unknown",
+            "safe_parallelism_limit": 1,
+            "rf_disruptive_actions_allowed": False,
+            "handshake_capture_allowed": False,
         },
     )
 

@@ -2,29 +2,26 @@
 
 ## Title
 
-WiFi / Wireless Assessment Surface Foundation
+Fix 'View Agents' button in Mission Control: change action danger to action secondary
 
 ## Promoted From
 
-`codex/tasks/backlog-164-wifi-wireless-assessment-surface.json`
+`codex/tasks/backlog-165-view-agents-button-danger-class.json`
 
 ## Goal
 
-Add WiFi as a first-class AegisPT assessment surface with passive-first wireless discovery, explicit site/SSID/BSSID authorization, adapter readiness checks, AP security posture review, rogue/unknown AP detection against an allowlist, and clearly gated intrusive wireless options.
+In ui/index.html, the 'View Agents ↗' button at line 143 in the Mission Control screen header uses CSS class 'action danger', which renders it red and implies a destructive action. Change the class to 'action secondary' or 'action ghost' so the button reads as a navigation action, not a destructive one. Verify no other navigation buttons in screen headers use 'action danger' incorrectly.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-164-wifi-wireless-assessment-surface.json`.
+Implement the active backlog package `codex/tasks/backlog-165-view-agents-button-danger-class.json`.
 
 Expected slice:
 
-- add a WiFi / Wireless Assessment wizard tile with site/location, approved SSIDs, approved BSSIDs where known, exclusions, and adapter/interface context before launch
-- expose wireless readiness in Settings, including detected adapters, monitor-mode capability, required binaries, channel support, safe parallelism limits, and clear blocked/degraded states
-- add a passive WLAN survey runner that records SSID, BSSID, channel, band, encryption/auth mode, PMF/WPA2/WPA3/WEP/open/WPS hints, vendor/OUI, signal strength, and observation timestamp without disruption
-- store wireless access points/networks using existing provenance/evidence patterns
-- create conservative evidence-backed findings for observable weak or unexpected wireless posture
-- show wireless task focus and evidence capture in Mission Control and Live Agents
-- add WiFi Security Summary report output only when WiFi evidence exists
+- change the Mission Control `View Agents` navigation button from danger styling to secondary or ghost styling
+- preserve its existing navigation behavior to the Live Agents screen
+- verify destructive buttons such as `Kill Run` keep danger styling
+- verify no other screen-head navigation button is incorrectly marked as danger
 
 ## Constraints
 
@@ -32,23 +29,21 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Do not run live customer, RF-disruptive, intrusive, or out-of-scope wireless actions.
-- Keep the first WiFi slice passive-first and evidence-first.
-- Do not add deauthentication, jamming, evil-twin simulation, WPS PIN brute force, credential harvesting, or handshake/password cracking in this foundation task.
-- Do not claim WiFi support without adapter/tool readiness and fixture-backed validation evidence.
+- Do not change approval or scope gate logic.
+- Do not change backend APIs.
+- Do not redesign Mission Control layout.
+- Do not change the destructive styling of real destructive actions such as Kill Run.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused runner unit tests with fixture iw/airodump-style outputs and no RF hardware dependency
-- API tests proving WiFi profile creation, scope/ROE validation, and inventory import
-- Browser tests for the WiFi wizard tile, Settings readiness states, Mission Control task visibility, and WiFi report section
-- Safe host-readiness validation showing supported, degraded, and missing-adapter states without launching RF-disruptive actions
+- Focused Mission Control E2E/smoke coverage for the View Agents button and destructive button styling
 
 ## Acceptance
 
-- A WiFi assessment can be prepared and launched only after explicit wireless ROE is acknowledged.
-- A fixture-backed passive survey produces inventory, findings, Mission Control visibility, and report output.
-- Intrusive wireless actions remain blocked/unavailable in this foundation slice.
-- A readiness artifact under `codex/results/` documents adapter/tool state and remaining lab-validation gaps.
+- View Agents button renders with secondary/ghost styling, not red/danger.
+- View Agents still navigates to the Agents screen.
+- Kill Run remains styled as danger.
+- No regression in Mission Control E2E tests.
