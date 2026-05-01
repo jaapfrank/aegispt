@@ -35,3 +35,28 @@
 ## Operator Impact
 
 The mission appears stuck or degraded from the operator perspective: the control plane is partly responsive in logs, but health checks time out, the listener is CPU saturated, and the current run has running tasks without execution records. No restart, kill, or database mutation was performed during this check because the mission may still have in-flight state.
+
+## Operator-Authorized Recovery
+
+- Recovery was authorized after the stuck state was reported back.
+- Official cancel flow:
+  - `POST /api/v1/runs/d4a4d2c1-3f0c-458c-9d7c-528a2187e2d9/cancel`
+  - result: HTTP `200`
+  - immediate state: run moved to `cancelling`; queued tasks were cancelled by the application flow.
+- Runtime recovery:
+  - stopped stale local `uvicorn` processes.
+  - restarted with `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`.
+- Stale state reconciliation:
+  - current run `d4a4d2c13f0c458c9d7c528a2187e2d9` is now `cancelled`.
+  - current run task counts are now `277 cancelled` and `4 completed`.
+  - chain `2fcd9f53e20048d7b31f1ca5ac52423a` is now `cancelled` with `current_run_id=None`.
+  - `367` stale non-terminal local runs older than 30 minutes were cancelled with audit events.
+  - `16` stale active chains whose current run was already terminal were cancelled with audit events.
+- Post-recovery validation:
+  - `/health/live` returned healthy JSON.
+  - Dashboard API returned `active_run: null`.
+  - Database read-only checks showed `0` non-terminal runs.
+  - Database read-only checks showed `0` active assessment chains.
+- Remaining product risk:
+  - this was an operational recovery, not a code-level stale-run watchdog.
+  - backlog-181 remains the durable implementation task for runtime liveness, stale-state detection, and operator-visible recovery tooling.

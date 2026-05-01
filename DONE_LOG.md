@@ -25,6 +25,24 @@
     - CI must still complete on GitHub after push before it can be called green
     - the live mission was not restarted or killed because it may still have in-flight runner state; the evidence points to the already queued runtime liveness/diagnostics gap rather than a safe quick product fix
 
+- 2026-05-01: operator-authorized local runtime recovery:
+  - rationale:
+    - operator asked to carry out the controlled recovery after the live mission remained stuck
+    - used the app cancel API first, then performed local stale-state cleanup for records that had no viable live worker state
+  - recovery:
+    - `POST /api/v1/runs/d4a4d2c1-3f0c-458c-9d7c-528a2187e2d9/cancel` returned HTTP 200 and moved the current run to `cancelling`
+    - restarted the local inline host with `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+    - cleared the four stale `running` smart-home tasks on the current run that had no persisted `tool_executions`; the run and chain are now `cancelled`
+    - cleaned up 367 stale non-terminal local runs older than 30 minutes and cancelled their queued/running tasks with audit events
+    - cleaned up 16 stale active chains whose current run was already terminal; these chains are now `cancelled` with `current_run_id=None`
+  - validation:
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - `GET /api/v1/dashboard` returned `active_run: null`
+    - database read-only checks showed `0` non-terminal runs and `0` active assessment chains
+  - residual risk:
+    - this was an operational local DB/runtime recovery, not a product-code fix; backlog-181 remains the durable product task for automatic stale-run detection, liveness health, and operator-visible recovery tooling
+    - two old blocked chains remain as historical blocked states, not active/running work
+
 - 2026-05-01: enterprise-readiness audit and backlog curation:
   - rationale:
     - operator requested a full system/user-perspective review for enterprise readiness without duplicating existing queued work
