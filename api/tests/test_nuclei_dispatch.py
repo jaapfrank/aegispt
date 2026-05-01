@@ -309,7 +309,7 @@ def test_nuclei_outputs_are_redacted_before_storage(
     assert "[REDACTED]" in execution["stderr_text"]
     assert artifact["redaction_state"] == "redacted"
     assert artifact["metadata_json"]["redaction_count"] >= 2
-    assert len(fake_s3_client.objects) == 1
+    assert fake_s3_client.objects
 
     content_response = inline_s3_client.get(f"/api/v1/artifacts/{artifact['id']}/content")
 

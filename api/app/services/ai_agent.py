@@ -442,10 +442,12 @@ def _ai_insights_provider_status(
             "status": "connected" if connected else "not_connected",
             "connected": connected,
             "model": str(settings.chatgpt_oauth_model or settings.ai_agent_post_task_analysis_model or "gpt-5.4"),
-            "account_id": status.account_id if status else None,
-            "reusable_session_available": bool(status and status.reusable_session_available),
-            "reusable_account_id": status.reusable_account_id if status else None,
-            "token_exposed": bool(status and status.token_exposed),
+            "account_id": getattr(status, "account_id", None) if status else None,
+            "reusable_session_available": bool(
+                status and getattr(status, "reusable_session_available", False)
+            ),
+            "reusable_account_id": getattr(status, "reusable_account_id", None) if status else None,
+            "token_exposed": bool(status and getattr(status, "token_exposed", False)),
         }
     return {
         "mode": "deterministic",
