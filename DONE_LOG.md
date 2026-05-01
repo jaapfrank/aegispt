@@ -3,7 +3,7 @@
 - 2026-05-01: GitHub CI PR gate correction:
   - inspected GitHub Actions for PR `#1` with the GitHub CI-fix workflow and confirmed the failing `ci` job was running plain `pytest`
   - identified the current failure as broad CI scope drift: the workflow collected the slow/stale full UI regression monolith and failed with `129 failed, 740 passed in 2796.33s`
-  - updated `.github/workflows/ci.yml` to add concurrency cancellation, a 30-minute timeout, backlog validation, explicit API/worker/script tests, and the existing fast UI smoke lane instead of plain `pytest`
+  - updated `.github/workflows/ci.yml` to run push CI only on `main`, add concurrency cancellation, add a 30-minute timeout, run backlog validation, run explicit API/worker/script tests, and run the existing fast UI smoke lane instead of plain `pytest`
   - fixed a real AI provider-status compatibility bug where older ChatGPT OAuth status objects without `reusable_session_available`, `reusable_account_id`, or `token_exposed` could crash AI insights
   - updated stale Nuclei/Semgrep S3 tests so they assert storage is used and verify redacted artifact content through the artifact endpoint instead of assuming exactly one S3 object
   - evidence recorded in `codex/results/github-ci-pr-gate-correction-20260501.md`

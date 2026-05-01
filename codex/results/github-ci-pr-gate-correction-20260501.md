@@ -13,6 +13,7 @@ The repo already defines a fast UI lane via `ui_fast` markers and records that t
 ## Change
 
 - Added GitHub Actions `concurrency` with `cancel-in-progress: true` so repeated pushes do not stack stale CI runs.
+- Limited `push` CI to `main` while keeping PR CI for branch validation, preventing duplicate `test` checks for the same PR branch.
 - Added `timeout-minutes: 30` to prevent indefinite noisy runs.
 - Replaced plain `pytest` with an explicit CI gate:
   - `python3 scripts/validate_backlog_tasks.py`
