@@ -173,6 +173,73 @@ def test_mission_control_ai_signal_provider_badge_and_live_text(loaded_page: Pag
     expect(loaded_page.get_by_test_id("ai-signal-stream")).to_contain_text("Synthetic streamed AI Signal text")
 
 
+def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          runtimeModule.patchState({
+            selectedRunId: null,
+            selectedRun: null,
+            selectedTaskId: null,
+            selectedAiInsights: null,
+            selectedAiSignalStream: null,
+            operatorSettings: {
+              sections: [{
+                id: 'ai_provider',
+                settings: [{ key: 'ai.provider', value: 'chatgpt_oauth' }],
+              }],
+            },
+            chatgptOAuthStatus: { connected: true, status: 'connected' },
+          }, 'ui.test.aiSignalNoRunConnected');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    panel = loaded_page.get_by_test_id("mission-ai-signal-panel")
+    expect(panel).to_contain_text("ChatGPT connected")
+    expect(panel).to_contain_text("Select a run to view AI Signal")
+    expect(panel).not_to_contain_text("Connect ChatGPT in Settings")
+
+
+def test_mission_control_ai_signal_connect_chatgpt_when_provider_disconnected_without_run(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          runtimeModule.patchState({
+            selectedRunId: null,
+            selectedRun: null,
+            selectedTaskId: null,
+            selectedAiInsights: null,
+            selectedAiSignalStream: null,
+            operatorSettings: {
+              sections: [{
+                id: 'ai_provider',
+                settings: [{ key: 'ai.provider', value: 'chatgpt_oauth' }],
+              }],
+            },
+            chatgptOAuthStatus: { connected: false, status: 'not_connected' },
+          }, 'ui.test.aiSignalNoRunDisconnected');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    panel = loaded_page.get_by_test_id("mission-ai-signal-panel")
+    expect(panel).to_contain_text("Connect ChatGPT in Settings")
+    expect(loaded_page.get_by_test_id("ai-signal-open-settings")).to_be_enabled()
+
+
 def test_mission_control_phase_badges_expose_nfir_tooltips(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
     loaded_page.evaluate(

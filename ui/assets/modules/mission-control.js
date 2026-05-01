@@ -1686,7 +1686,7 @@ export function createMissionModule() {
       ? buildAutonomousAgentCards(state.selectedRun?.tasks || [], selectedRunFindingsForMission())
       : [];
     const pendingCount = countPendingAiProposals(proposals);
-    const provider = aiSignalProviderStatus({ guidance, insights, liveStream });
+    const provider = aiSignalProviderStatus({ guidance, insights, liveStream, useGlobalFallback: !state.selectedRun });
     const providerStatus = String(provider.status || "").trim().toLowerCase();
     const providerDisabled = DISABLED_PROVIDER_STATUSES.has(providerStatus);
     const providerNotConnected = providerStatus === "not_connected" || providerStatus === "not-connected" || providerStatus === "not connected";
@@ -1754,7 +1754,7 @@ export function createMissionModule() {
             ${thinking ? renderAiThinkingIndicator() : ""}
             ${
               providerDisabled && !entries.length
-                ? providerNotConnected
+                ? providerNotConnected || provider.mode === "deterministic"
                   ? emptyState("ChatGPT OAuth is not connected for AI features on this run.", {
                       label: "Connect ChatGPT in Settings",
                       screen: "settings",
@@ -1777,7 +1777,7 @@ export function createMissionModule() {
                       ? provider.connected
                         ? "ChatGPT is connected. No AI signal is stored for this run yet."
                         : "No AI signal is stored for this run yet."
-                      : "Select a run to review AI signal.",
+                      : "Select a run to view AI Signal.",
                     state.selectedRun
                       ? { label: "Open Run Dossier", screen: "explorer" }
                       : { label: "Start a mission", screen: "wizard" }
@@ -1878,7 +1878,7 @@ export function createMissionModule() {
     `;
   }
 
-  function aiSignalProviderStatus({ guidance, insights, liveStream }) {
+  function aiSignalProviderStatus({ guidance, insights, liveStream, useGlobalFallback = false }) {
     const streamProvider = liveStream?.provider || null;
     if (streamProvider) {
       return {
@@ -1898,6 +1898,10 @@ export function createMissionModule() {
         connected,
       };
     }
+    if (useGlobalFallback) {
+      const globalProvider = globalChatGptProviderStatus();
+      if (globalProvider) return globalProvider;
+    }
     const providerName = String(insights?.provider || guidance?.provider?.name || "").trim().toLowerCase();
     const guidanceStatus = String(guidance?.provider?.status || "").trim().toLowerCase();
     const connected = providerName === "chatgpt_oauth" && !DISABLED_PROVIDER_STATUSES.has(guidanceStatus);
@@ -1905,6 +1909,39 @@ export function createMissionModule() {
       mode: connected ? "chatgpt_oauth" : "deterministic",
       label: connected ? "ChatGPT connected" : "Deterministic mode",
       status: connected ? "connected" : guidanceStatus || providerName || "fallback",
+      connected,
+    };
+  }
+
+  function findOperatorSettingValue(key) {
+    const sections = Array.isArray(state.operatorSettings?.sections) ? state.operatorSettings.sections : [];
+    for (const section of sections) {
+      const settings = Array.isArray(section?.settings) ? section.settings : [];
+      const match = settings.find((setting) => String(setting?.key || "") === String(key || ""));
+      if (match) return match.value;
+    }
+    return null;
+  }
+
+  function globalChatGptProviderStatus() {
+    const configuredProvider = String(findOperatorSettingValue("ai.provider") || "disabled").trim().toLowerCase();
+    if (configuredProvider === "disabled" || configuredProvider === "off") {
+      return {
+        mode: "deterministic",
+        label: "Deterministic mode",
+        status: "disabled",
+        connected: false,
+      };
+    }
+    if (configuredProvider !== "chatgpt_oauth") return null;
+    const status = state.chatgptOAuthStatus && typeof state.chatgptOAuthStatus === "object"
+      ? state.chatgptOAuthStatus
+      : {};
+    const connected = Boolean(status.connected);
+    return {
+      mode: "chatgpt_oauth",
+      label: connected ? "ChatGPT connected" : "ChatGPT OAuth",
+      status: connected ? "connected" : "not_connected",
       connected,
     };
   }

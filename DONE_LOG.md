@@ -1,5 +1,43 @@
 # Done Log
 
+- 2026-05-01: completed backlog-161 `Fix Mission Control AI Signal showing Connect ChatGPT on initial load when ChatGPT is globally connected`:
+  - governance / reading:
+    - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-161-mission-control-ai-signal-wrong-initial-state.json`
+    - confirmed with `python3 scripts/validate_backlog_tasks.py` that backlog-161 was the single active task before implementation
+    - determined that live `http://127.0.0.1:8000` was relevant because the task affects Mission Control AI Signal operator state
+  - implementation:
+    - loaded existing engagement-scoped ChatGPT OAuth status during `refreshSelectedEngagement()` and stored it in `state.chatgptOAuthStatus`
+    - taught the AI Signal provider-state resolver to use global ChatGPT status only when no run is selected
+    - changed the connected no-run empty state to `Select a run to view AI Signal`
+    - preserved selected-run AI Signal behavior and restored the disconnected/disabled ChatGPT state to the concrete `Connect ChatGPT in Settings` action contract
+    - cache-busted `app.js` and `mission-control.js` imports so live browsers receive the fixed AI Signal module
+  - files:
+    - `ui/assets/app.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-161-ai-signal-global-chatgpt-no-run-validation-20260501.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -s -q -k "ai_signal"` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py -s -q -k "ai_signal_provider_disabled_state"` initially exposed a copy/action regression, then passed after the disconnected ChatGPT action was restored
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -s -q` passed
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - live Playwright acceptance against `http://127.0.0.1:8000/app/` passed for connected and disconnected no-run AI Signal states
+    - `git diff --check` passed before and after documentation/promotion updates
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion to backlog-162
+  - residual risk:
+    - the exact no-`-s` health command remains blocked by the local pytest capture issue
+    - this task fixes the initial/no-run AI Signal state only; it does not change OAuth authorization, AI generation, repair actions, or enrichment behavior
+  - queue / governance:
+    - promoted `codex/tasks/backlog-162-nvd-rate-limit-api-key-hint-settings.json` into `NEXT_TASK.md` as the next single active task
+
 - 2026-05-01: completed backlog-160 `Fix non-functional notifications bell placeholder in topbar`:
   - governance / reading:
     - reread `AGENTS.md`, `CURRENT_STATE.md`, `NEXT_TASK.md`, `DECISIONS.md`, `TASK_QUEUE.md`, and `codex/tasks/backlog-160-notifications-bell-non-functional-placeholder.json`

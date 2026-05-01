@@ -4,7 +4,7 @@ import { createCustomVulnerabilitiesModule } from "./modules/custom-vulnerabilit
 import { createDashboardModule } from "./modules/dashboard.js";
 import { createExplorerHistoryModule } from "./modules/explorer-history.js";
 import { createFindingsModule } from "./modules/findings.js?v=20260429-auto-enrichment-1";
-import { createMissionModule } from "./modules/mission-control.js?v=20260430-ai-workbench-1";
+import { createMissionModule } from "./modules/mission-control.js?v=20260501-ai-signal-no-run-1";
 import { createPacksModule } from "./modules/packs.js";
 import { createProblemsModule } from "./modules/problems.js";
 import { createReportsModule } from "./modules/reports.js";
@@ -845,7 +845,7 @@ async function refreshSelectedEngagement(options = {}) {
     return;
   }
 
-  const [scope, inventory, relevance, packs, runs, internalValidations, schedules, codexTasks, remediationPortfolio, exposureScore, dashboard] =
+  const [scope, inventory, relevance, packs, runs, internalValidations, schedules, codexTasks, remediationPortfolio, exposureScore, dashboard, chatgptOAuthStatus] =
     await Promise.all([
       apiOrNull(`/api/v1/engagements/${state.selectedEngagementId}/scope?optional=true`),
       api(`/api/v1/engagements/${state.selectedEngagementId}/inventory`),
@@ -858,6 +858,7 @@ async function refreshSelectedEngagement(options = {}) {
       apiOrNull(`/api/v1/engagements/${state.selectedEngagementId}/remediation/portfolio`),
       apiOrNull(`/api/v1/engagements/${state.selectedEngagementId}/exposure-score`),
       api(dashboardApiPath()),
+      apiOrNull(`/api/v1/auth/chatgpt/status?engagement_id=${encodeURIComponent(state.selectedEngagementId)}`),
     ]);
 
   const selectedRunEntry =
@@ -887,6 +888,7 @@ async function refreshSelectedEngagement(options = {}) {
   state.remediationPortfolio = remediationPortfolio;
   state.exposureScore = exposureScore;
   state.dashboard = dashboard;
+  state.chatgptOAuthStatus = chatgptOAuthStatus;
   state.dashboardError = null;
   state.dashboardLoading = false;
   state.selectedRunId = nextSelectedRunId;

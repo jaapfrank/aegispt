@@ -2,27 +2,27 @@
 
 ## Title
 
-Fix Mission Control AI Signal showing Connect ChatGPT on initial load when ChatGPT is globally connected
+Add NVD API key hint when NVD feed fails with HTTP 429 rate limit in Settings Threat Intel
 
 ## Promoted From
 
-`codex/tasks/backlog-161-mission-control-ai-signal-wrong-initial-state.json`
+`codex/tasks/backlog-162-nvd-rate-limit-api-key-hint-settings.json`
 
 ## Goal
 
-When ChatGPT OAuth is globally connected (settings `ai.provider=chatgpt_oauth` and `GET /api/v1/auth/chatgpt/status` returns connected status), the AI Signal panel initial state must show `Select a run to see AI Signal insights` instead of `Connect ChatGPT in Settings`. Check the global ChatGPT connection status in the boot sequence, store the result in state, and use it in the AI panel render when no run is selected.
+In the Settings Threat Intel section, when the NVD CVE feed status shows HTTP 429 or `reason=rate_limited`, display an actionable hint below the error text: `NVD rate-limits unauthenticated requests. Configure an NVD API key in Settings to increase your quota.` The hint must point to the existing `nvd_api_key` setting field. This task is UI-only and must not add backend endpoints.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-161-mission-control-ai-signal-wrong-initial-state.json`.
+Implement the active backlog package `codex/tasks/backlog-162-nvd-rate-limit-api-key-hint-settings.json`.
 
 Expected slice:
 
-- use the existing ChatGPT/OAuth status data already fetched by the app
-- when no run is selected and ChatGPT is globally connected, render a select-run AI Signal message
-- preserve current connected run-specific AI Signal behavior
-- preserve the Connect ChatGPT guidance when the provider is truly disconnected
-- do not add new AI provider endpoints or broad redesign
+- detect NVD provider status/error metadata containing HTTP 429 or `rate_limited`
+- render the NVD API key hint directly below the NVD error/status text in Settings Threat Intel
+- link or scroll/focus to the existing `nvd_api_key` setting field
+- avoid backend changes, new endpoints, or broad Settings redesign
+- preserve existing Threat Intel refresh/sync behavior
 
 ## Constraints
 
@@ -43,7 +43,7 @@ Expected slice:
 
 ## Acceptance
 
-- When ChatGPT is globally connected and no run is selected, the AI Signal panel shows `Select a run to view AI Signal`.
-- When ChatGPT is connected and a run is selected, the existing run-specific AI Signal behavior remains.
-- When ChatGPT is truly disconnected, the panel still shows `Connect ChatGPT in Settings`.
-- No regression in AI Signal E2E tests.
+- When NVD feed status shows HTTP 429 or `rate_limited`, an actionable hint appears below the error.
+- The hint explains NVD rate limiting and points to the NVD API key setting field.
+- No new API endpoints or backend changes are added.
+- No regression in Threat Intel Settings tests.
