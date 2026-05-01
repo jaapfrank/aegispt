@@ -16,6 +16,7 @@ The repo already defines a fast UI lane via `ui_fast` markers and records that t
 - Limited `push` CI to `main` while keeping PR CI for branch validation, preventing duplicate `test` checks for the same PR branch.
 - Added `timeout-minutes: 30` to prevent indefinite noisy runs.
 - Set `PLAYWRIGHT_BROWSERS_PATH` at workflow job scope so the Chromium install step and fast UI smoke test step use the same browser directory on GitHub runners.
+- Isolated the synthetic AI Signal provider-badge smoke test from real browser SSE by disabling `EventSource` inside that test's injected page state.
 - Replaced plain `pytest` with an explicit CI gate:
   - `python3 scripts/validate_backlog_tasks.py`
   - API, worker, and script tests: `python -m pytest -q -s api/tests workers/tests scripts/tests`
@@ -44,3 +45,5 @@ This fixes the normal GitHub PR/push CI gate. It does not claim the full stale U
 ## Follow-Up GitHub Runner Fix
 
 After the scoped CI workflow was pushed, GitHub run `25218967770` failed in the fast UI lane because the Playwright browser executable was missing under `${{ github.workspace }}/.playwright-browsers`. The workflow had installed Chromium before setting `PLAYWRIGHT_BROWSERS_PATH`, so install and test resolved different browser locations on the GitHub runner. The workflow now sets `PLAYWRIGHT_BROWSERS_PATH` at job scope before installation.
+
+GitHub run `25219458445` then passed browser installation and the backend/API lane, but failed one fast UI smoke assertion because the synthetic AI Signal test allowed a real `EventSource` connection to replace injected stream text with an unavailable-state event. The test now disables real `EventSource` only for that synthetic state injection; product SSE behavior remains unchanged.

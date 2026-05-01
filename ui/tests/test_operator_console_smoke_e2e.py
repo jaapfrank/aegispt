@@ -88,6 +88,7 @@ def test_mission_control_ai_signal_provider_badge_and_live_text(loaded_page: Pag
           const now = new Date().toISOString();
           const runId = '11111111-1111-4111-8111-111111111111';
           const taskId = '22222222-2222-4222-8222-222222222222';
+          Object.defineProperty(window, 'EventSource', { value: undefined, configurable: true });
           runtimeModule.patchState({
             selectedRunId: runId,
             selectedTaskId: taskId,
