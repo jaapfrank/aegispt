@@ -78,6 +78,22 @@ def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
     expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
 
 
+def test_wizard_heading_is_recommended_intake_not_mandatory_gate(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-wizard").click()
+
+    wizard_screen = loaded_page.get_by_test_id("screen-wizard")
+    expect(wizard_screen).to_be_visible()
+    heading = wizard_screen.locator(".screen-head h2").first
+    expect(heading).to_be_visible()
+    expect(heading).not_to_contain_text(re.compile("mandatory", re.IGNORECASE))
+
+    expect(loaded_page.get_by_test_id("nav-wizard")).to_contain_text("Intake")
+    expect(loaded_page.get_by_test_id("nav-wizard")).not_to_contain_text(
+        re.compile("mandatory", re.IGNORECASE)
+    )
+    assert not re.search(r"mandatory\s+(assessment\s+)?wizard", wizard_screen.inner_text(), re.IGNORECASE)
+
+
 def test_mission_control_header_button_intent_classes(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
 

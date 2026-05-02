@@ -8839,3 +8839,29 @@
   - remaining risks:
     - this slice does not reorder Mission Control header actions or redesign the action strip; backlog-172 remains queued for broader button ordering/intent polish
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-166 `Remove 'Mandatory' from wizard heading: wizard is no longer a mandatory gate since backlog-58`
+
+- 2026-05-02: completed backlog-166 `Remove 'Mandatory' from wizard heading: wizard is no longer a mandatory gate since backlog-58`:
+  - rationale:
+    - the wizard is now a recommended mission intake path, so product-facing copy must not describe the wizard itself as a mandatory navigation gate
+    - the current UI copy was already compliant, so the narrowest safe completion was to add regression coverage and record the repo-backed truth instead of forcing an unnecessary product copy change
+  - implementation:
+    - confirmed `ui/index.html` renders the wizard heading as `What do you want to test?`
+    - confirmed `ui/index.html`, `ui/assets/modules/wizard.js`, and `ui/assets/app.js` contain no `Mandatory Assessment Wizard` or `Mandatory Wizard` copy
+    - added focused Playwright smoke coverage proving the wizard heading and sidebar label do not call the wizard mandatory
+    - preserved ROE/authorization mandatory language and did not change wizard step logic, validation, navigation, or backend behavior
+  - files:
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-166-wizard-heading-mandatory-removal-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_wizard_heading_is_recommended_intake_not_mandatory_gate`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_mockup_port_e2e.py::test_exact_mockup_port_tiles_sidebar_stepper_and_cinema`
+    - `grep -iE 'mandatory wizard|mandatory assessment wizard' ui/index.html || true`
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/app/ | rg "What do you want to test\\?|Mandatory Assessment Wizard|Mandatory Wizard|nav-wizard|screen-wizard"`
+    - `git diff --check`
+  - not claimed green:
+    - exact normal-capture health command `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` still hit the known host-level pytest capture teardown `FileNotFoundError`; the same health tests passed with `-s`
+  - remaining risks:
+    - this slice does not redesign wizard flow or change ROE/authorization gate copy
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-167 `Shorten wizard step indicator labels to prevent wrapping and improve scannability`

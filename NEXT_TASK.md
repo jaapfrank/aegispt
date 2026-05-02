@@ -2,26 +2,26 @@
 
 ## Title
 
-Remove 'Mandatory' from wizard heading: wizard is no longer a mandatory gate since backlog-58
+Shorten wizard step indicator labels to prevent wrapping and improve scannability
 
 ## Promoted From
 
-`codex/tasks/backlog-166-wizard-heading-mandatory-removal.json`
+`codex/tasks/backlog-167-wizard-step-labels-shorten.json`
 
 ## Goal
 
-Update wizard-facing copy so the wizard is presented as the recommended mission intake path, not a mandatory gate. Since backlog-58 implemented free navigation, the wizard heading must not say `Mandatory Assessment Wizard`. The word `mandatory` should remain only where it is legitimately describing ROE or authorization requirements.
+Shorten the wizard step indicator labels so they fit cleanly on standard viewports and scan quickly. The step order, step count, validation, and wizard data model must remain unchanged.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-166-wizard-heading-mandatory-removal.json`.
+Implement the active backlog package `codex/tasks/backlog-167-wizard-step-labels-shorten.json`.
 
 Expected slice:
 
-- update the wizard screen heading in `ui/index.html` from `Mandatory Assessment Wizard` to `Assessment Wizard` or `Mission Intake`
-- verify the sidebar/nav label for the wizard does not say `Mandatory Wizard`
-- update any rendered wizard copy from `ui/assets/modules/wizard.js` or `ui/assets/app.js` that calls the wizard itself mandatory
-- preserve legitimate mandatory ROE/authorization gate language
+- update `WIZARD_STEPS` display labels in `ui/assets/modules/constants.js`
+- replace verbose labels such as `Assessment/Scope Type`, `Credentials Test / Access`, `Safety / Limits`, and `Review / Confirm`
+- use short labels such as `Type`, `Scope`, `Access`, `Profile`, `Modules`, `Safety`, and `Confirm`
+- preserve all wizard step keys, order, validation, and flow behavior
 
 ## Constraints
 
@@ -29,24 +29,24 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Do not change wizard step logic or validation.
-- Do not change navigation gating logic.
+- Do not change wizard step logic.
+- Do not change wizard step order.
+- Do not change wizard validation or launch behavior.
 - Do not change backend APIs.
-- Do not redesign the wizard flow.
-- Do not remove mandatory wording from real ROE or authorization gate contexts.
+- Do not redesign the stepper visual component.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- `grep -i 'mandatory wizard\|mandatory assessment wizard' ui/index.html`
-- Focused wizard E2E/smoke coverage proving the heading copy is clear and the wizard still opens
+- Focused wizard E2E/smoke coverage proving the short labels render and the wizard still opens/flows
+- Manual/browser check that the stepper does not wrap at a 1280px viewport
 
 ## Acceptance
 
-- Wizard screen heading does not include `Mandatory`.
-- Sidebar/nav wizard label does not say `Mandatory Wizard`.
-- Wizard rendered copy does not describe the wizard flow itself as mandatory.
-- ROE and authorization text that is genuinely mandatory remains intact.
+- No wizard step label exceeds 12 characters.
+- All wizard step labels are short, clear, and enterprise-appropriate.
+- Stepper renders without wrapping on a 1280px viewport.
+- Wizard functionality and step order are unchanged.
 - No regression in wizard E2E tests.
