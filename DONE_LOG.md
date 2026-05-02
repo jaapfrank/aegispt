@@ -8865,3 +8865,29 @@
   - remaining risks:
     - this slice does not redesign wizard flow or change ROE/authorization gate copy
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-167 `Shorten wizard step indicator labels to prevent wrapping and improve scannability`
+
+- 2026-05-02: completed backlog-167 `Shorten wizard step indicator labels to prevent wrapping and improve scannability`:
+  - rationale:
+    - wizard step labels must stay short and scan-friendly on standard operator viewports
+    - the current `WIZARD_STEPS` source was already compliant, so the narrowest safe completion was to add regression coverage and live-browser evidence rather than changing wizard logic or duplicating labels
+  - implementation:
+    - confirmed `ui/assets/modules/constants.js` defines the seven short labels `Type`, `Scope`, `Access`, `Profile`, `Modules`, `Safety`, and `Confirm`
+    - confirmed legacy long labels such as `Assessment/Scope Type`, `Credentials Test / Access`, `Safety / Limits`, and `Review / Confirm` are absent from the scoped source files
+    - added focused Playwright smoke coverage that imports `WIZARD_STEPS`, checks label length, opens Advanced Configuration at 1280px, and proves the rendered step buttons stay on one row without overflow
+    - preserved wizard step order, validation, launch behavior, backend APIs, and the separate 4-step guided intake progress component
+  - files:
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-167-wizard-step-labels-shorten-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_wizard_advanced_step_labels_are_short_and_do_not_wrap`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_mockup_port_e2e.py::test_exact_mockup_port_tiles_sidebar_stepper_and_cinema`
+    - `rg -n "Assessment/Scope Type|Credentials Test / Access|Safety / Limits|Review / Confirm" ui/assets/modules/constants.js ui/assets/modules/wizard.js ui/index.html || true`
+    - live Playwright browser check against `http://127.0.0.1:8000/app/` at `1280x900`
+    - `git diff --check`
+  - not claimed green:
+    - exact normal-capture health command `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` still hit the known host-level pytest capture teardown `FileNotFoundError`; the same health tests passed with `-s`
+  - remaining risks:
+    - this slice does not redesign the wizard stepper or change the separate 4-step guided intake progress copy
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-168 `Scope 'Complete Assessment Wizard' CTA: only show when there is no active engagement or the wizard is genuinely incomplete`

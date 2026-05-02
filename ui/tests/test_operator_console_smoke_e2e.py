@@ -94,6 +94,42 @@ def test_wizard_heading_is_recommended_intake_not_mandatory_gate(loaded_page: Pa
     assert not re.search(r"mandatory\s+(assessment\s+)?wizard", wizard_screen.inner_text(), re.IGNORECASE)
 
 
+def test_wizard_advanced_step_labels_are_short_and_do_not_wrap(loaded_page: Page) -> None:
+    loaded_page.set_viewport_size({"width": 1280, "height": 900})
+    labels = loaded_page.evaluate(
+        """
+        async () => {
+          const constants = await import('/app/assets/modules/constants.js');
+          return constants.WIZARD_STEPS;
+        }
+        """
+    )
+    assert labels == ["Type", "Scope", "Access", "Profile", "Modules", "Safety", "Confirm"]
+    assert all(len(label) <= 12 for label in labels)
+
+    loaded_page.get_by_test_id("nav-wizard").click()
+    advanced_toggle = loaded_page.get_by_test_id("wizard-advanced-toggle")
+    expect(advanced_toggle).to_be_visible()
+    advanced_toggle.click()
+
+    drawer = loaded_page.get_by_test_id("wizard-advanced-drawer")
+    expect(drawer).to_be_visible()
+    advanced_buttons = drawer.locator(".advanced-nav [data-advanced-step]")
+    expect(advanced_buttons).to_have_count(6)
+
+    first_top = None
+    for index, label in enumerate(labels[:6]):
+        button = advanced_buttons.nth(index)
+        expect(button).to_have_text(label)
+        box = button.bounding_box()
+        assert box is not None
+        if first_top is None:
+            first_top = box["y"]
+        assert abs(box["y"] - first_top) < 2, f"Wizard advanced step label wrapped onto another row: {label}"
+        overflow = button.evaluate("(node) => node.scrollWidth > node.clientWidth")
+        assert overflow is False, f"Wizard advanced step label overflows its button: {label}"
+
+
 def test_mission_control_header_button_intent_classes(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
 

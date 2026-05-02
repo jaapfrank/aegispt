@@ -2,26 +2,27 @@
 
 ## Title
 
-Shorten wizard step indicator labels to prevent wrapping and improve scannability
+Scope 'Complete Assessment Wizard' CTA: only show when there is no active engagement or the wizard is genuinely incomplete
 
 ## Promoted From
 
-`codex/tasks/backlog-167-wizard-step-labels-shorten.json`
+`codex/tasks/backlog-168-complete-assessment-wizard-cta-scoping.json`
 
 ## Goal
 
-Shorten the wizard step indicator labels so they fit cleanly on standard viewports and scan quickly. The step order, step count, validation, and wizard data model must remain unchanged.
+Make the `Complete Assessment Wizard` CTA visible only when it is useful, so operators are not pushed back to intake while a mission is already queued, running, or complete.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-167-wizard-step-labels-shorten.json`.
+Implement the active backlog package `codex/tasks/backlog-168-complete-assessment-wizard-cta-scoping.json`.
 
 Expected slice:
 
-- update `WIZARD_STEPS` display labels in `ui/assets/modules/constants.js`
-- replace verbose labels such as `Assessment/Scope Type`, `Credentials Test / Access`, `Safety / Limits`, and `Review / Confirm`
-- use short labels such as `Type`, `Scope`, `Access`, `Profile`, `Modules`, `Safety`, and `Confirm`
-- preserve all wizard step keys, order, validation, and flow behavior
+- find the render condition for the `Complete Assessment Wizard` CTA in `ui/assets/app.js`, `ui/assets/modules/runtime.js`, or `ui/index.html`
+- keep the wizard/intake path reachable through the sidebar `Intake` navigation
+- keep the CTA visible when no engagement/run exists and the operator needs to start or finish intake
+- hide the CTA on Mission Control, Findings, Reports, and History when a run is queued, running, or complete
+- avoid redesigning the topbar or navigation structure
 
 ## Constraints
 
@@ -30,23 +31,21 @@ Expected slice:
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
 - Do not change wizard step logic.
-- Do not change wizard step order.
-- Do not change wizard validation or launch behavior.
+- Do not change run dispatch or cancellation.
 - Do not change backend APIs.
-- Do not redesign the stepper visual component.
+- Do not redesign the topbar or navigation.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused wizard E2E/smoke coverage proving the short labels render and the wizard still opens/flows
-- Manual/browser check that the stepper does not wrap at a 1280px viewport
+- Focused UI/E2E coverage proving the CTA visibility is scoped correctly
+- Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- No wizard step label exceeds 12 characters.
-- All wizard step labels are short, clear, and enterprise-appropriate.
-- Stepper renders without wrapping on a 1280px viewport.
-- Wizard functionality and step order are unchanged.
-- No regression in wizard E2E tests.
+- With an active queued or running run, the CTA is hidden on Mission Control, Findings, Reports, and History.
+- With no engagements or no runs, the CTA is visible on Dashboard and the Wizard screen.
+- The wizard remains reachable via sidebar `Intake` navigation regardless of CTA visibility.
+- No regression in wizard flow tests.
