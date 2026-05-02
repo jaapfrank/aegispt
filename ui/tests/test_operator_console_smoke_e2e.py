@@ -424,6 +424,98 @@ def test_report_center_copy_is_operator_ready_and_empty_states_are_clear(loaded_
     assert not [copy for copy in banned if copy.lower() in full_text.lower()]
 
 
+def test_history_empty_single_and_two_completed_run_states_are_guided(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-history").click()
+
+    def seed_history(runs: list[dict], selected_run_id: str | None = None, baseline_run_id: str | None = None) -> None:
+        loaded_page.evaluate(
+            """
+            async ({ runs, selectedRunId, baselineRunId }) => {
+              const runtimeModule = await import('/app/assets/modules/runtime.js');
+              const historyModule = await import('/app/assets/modules/explorer-history.js');
+              const selectedRun = runs.find((run) => run.id === selectedRunId) || null;
+              runtimeModule.patchState({
+                activeScreen: 'history',
+                selectedEngagementId: 'eng-history-guidance',
+                selectedRunId,
+                selectedRun,
+                comparisonBaselineRunId: baselineRunId,
+                historyQuery: '',
+                engagements: [{
+                  id: 'eng-history-guidance',
+                  name: 'History Guidance Engagement',
+                  client: 'Example Co',
+                  roe_ref: 'ROE-HISTORY',
+                }],
+                mission: {
+                  scope: null,
+                  inventory: [],
+                  relevance: [],
+                  packs: [],
+                  runs,
+                  internalValidations: [],
+                  findingsByRun: Object.fromEntries(runs.map((run) => [run.id, []])),
+                },
+                exposureScore: { history: [] },
+              }, 'ui.test.historyGuidance');
+              historyModule.createExplorerHistoryModule().renderHistoryComparison();
+            }
+            """,
+            {"runs": runs, "selectedRunId": selected_run_id, "baselineRunId": baseline_run_id},
+        )
+
+    def run(run_id: str, name: str, created_at: str, status: str = "completed") -> dict:
+        return {
+            "id": run_id,
+            "status": status,
+            "created_at": created_at,
+            "updated_at": created_at,
+            "profile": {"name": name},
+            "configuration_json": {
+                "assessment_type": "Internal Range / LAN",
+                "targets": {"cidr_ranges": ["10.30.0.0/24"]},
+                "test_profile": "Standard",
+            },
+            "pack_binding": {"pack_version": "standard-baseline"},
+            "tasks": [],
+        }
+
+    seed_history([])
+    expect(loaded_page.get_by_test_id("history-toolbar-summary")).to_contain_text(
+        "0 of 0 completed runs visible"
+    )
+    expect(loaded_page.get_by_test_id("history-comparison-disabled")).to_contain_text(
+        "Complete a second run to compare posture changes."
+    )
+    expect(loaded_page.locator("#history-trend")).to_contain_text(
+        "Completed runs appear here after an assessment finishes."
+    )
+    loaded_page.get_by_test_id("history-empty-mission-control").click()
+    expect(loaded_page.get_by_test_id("screen-mission-control")).to_be_visible()
+
+    loaded_page.get_by_test_id("nav-history").click()
+    single_run = run("history-run-one", "First Completed Scan", "2026-04-30T10:00:00.000Z")
+    seed_history([single_run], selected_run_id=single_run["id"])
+    expect(loaded_page.get_by_test_id("history-single-run-summary")).to_contain_text(
+        "One completed run available"
+    )
+    expect(loaded_page.get_by_test_id("history-single-run-summary")).to_contain_text(
+        "First Completed Scan is ready for review"
+    )
+    comparison_disabled = loaded_page.get_by_test_id("history-comparison-disabled")
+    expect(comparison_disabled).to_contain_text("Complete a second run to compare posture changes.")
+    assert comparison_disabled.get_attribute("title") == "Complete a second run to compare posture changes."
+    expect(loaded_page.locator("#history-baseline-run")).to_be_disabled()
+    expect(loaded_page.get_by_test_id("history-run-card")).to_have_count(1)
+
+    second_run = run("history-run-two", "Second Completed Scan", "2026-05-01T10:00:00.000Z")
+    seed_history([second_run, single_run], selected_run_id=second_run["id"], baseline_run_id=single_run["id"])
+    expect(loaded_page.get_by_test_id("history-run-card")).to_have_count(2)
+    expect(loaded_page.get_by_test_id("comparison-summary")).to_contain_text("Current vs baseline")
+    expect(loaded_page.get_by_test_id("comparison-inventory-delta")).to_be_visible()
+    expect(loaded_page.get_by_test_id("history-comparison-disabled")).to_have_count(0)
+
+
 def test_pack_forge_build_lane_panels_are_gated_by_developer_mode(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-packs").click()
     expect(loaded_page.get_by_test_id("screen-pack-forge")).to_be_visible()

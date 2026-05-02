@@ -2,27 +2,27 @@
 
 ## Title
 
-History screen: add meaningful empty state when no completed runs exist
+Problems Center: replace zero-count display with a meaningful empty state and actionable guidance
 
 ## Promoted From
 
-`codex/tasks/backlog-178-history-screen-empty-state.json`
+`codex/tasks/backlog-179-problems-center-zero-state-cleanup.json`
 
 ## Goal
 
-Make the History & Comparison screen useful for new and single-run operators by showing clear guidance when there is no completed-run history yet, and by explaining why comparison is unavailable when only one completed run exists.
+Replace the Problems Center's empty zero-count display with meaningful operator guidance, and keep confirmed/suspected/discounted count summaries only when at least one category has a non-zero count.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-178-history-screen-empty-state.json`.
+Implement the active backlog package `codex/tasks/backlog-179-problems-center-zero-state-cleanup.json`.
 
 Expected slice:
 
-- update the History screen content rendering in `ui/assets/modules/explorer-history.js`
-- for zero completed runs, show a one-sentence empty state and a navigation action to Mission Control
-- for one completed run, show the single run summary and disable/explain comparison controls
-- preserve existing comparison behavior for two or more completed runs
-- do not add new data fetching or backend behavior
+- update Problems Center empty/zero-state display logic in `ui/assets/modules/problems.js`
+- when total finding count is zero, show `No open problems — findings from completed runs appear here.` and a `Go to Mission Control` action
+- when findings exist but all are resolved, show `All problems resolved. Start a new run to re-validate.`
+- only show confirmed/suspected/discounted count summary when at least one count is greater than zero
+- verify the count summary maps to actual finding status values returned by the API
 
 ## Constraints
 
@@ -30,23 +30,24 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Add empty states only.
-- Do not rebuild History comparison logic.
-- Do not add new data fetching.
-- Do not change run delta computation.
-- Do not change backend APIs.
+- Only update empty/zero-state display logic.
+- Do not rebuild the Problems Center layout.
+- Do not add new problem status types.
+- Do not change the finding status model.
+- Do not change backend findings APIs.
+- Do not change Findings Theater.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused History UI/E2E coverage for zero-run, single-run, and two-run states
+- Focused Problems Center UI/E2E coverage for zero findings, all resolved findings, and non-zero count summaries
 - Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- Zero completed runs: History shows a one-sentence explanation and a navigation action.
-- One completed run: History shows the single run summary and explains disabled comparison.
-- Two or more completed runs: History comparison behavior remains unchanged.
-- No History E2E regressions.
+- Zero findings: Problems Center shows a one-sentence empty state and a navigation action.
+- All findings resolved: Problems Center shows resolved-state guidance.
+- Count summary only appears when at least one count is non-zero.
+- No Problems Center E2E regressions.

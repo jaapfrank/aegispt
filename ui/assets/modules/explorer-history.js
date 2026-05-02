@@ -772,13 +772,54 @@ export function createExplorerHistoryModule() {
     `;
   }
 
+  function renderSingleCompletedRunSummary(run) {
+    const findings = state.mission.findingsByRun[run.id] || [];
+    const open = findings.filter((finding) =>
+      ["open", "triaged", "in_progress", "reopened"].includes(finding.status)
+    ).length;
+    const inventorySummary = summarizeInventorySnapshot(runtime.actions.inventorySnapshotForRun?.(run.id) || null);
+    const targetSummary = renderTargetSummary(run.configuration_json?.targets || {});
+    return `
+      <div data-testid="history-single-run-summary">
+        <h4>One completed run available</h4>
+        <p>${escapeHtml(`${run.profile?.name || run.id} is ready for review, but posture comparison needs a second completed run.`)}</p>
+        <div class="compact-definition-grid split-top">
+          <div><span>Status</span><strong>${escapeHtml(run.status || "completed")}</strong></div>
+          <div><span>Findings</span><strong>${escapeHtml(`${findings.length} total · ${open} open`)}</strong></div>
+          <div><span>Inventory</span><strong>${escapeHtml(`${inventorySummary.hosts} hosts · ${inventorySummary.services} services`)}</strong></div>
+          <div><span>Scope</span><strong>${escapeHtml(targetSummary || "Run scope not recorded")}</strong></div>
+        </div>
+      </div>
+      ${renderHistoryComparisonDisabled()}
+    `;
+  }
+
+  function renderHistoryComparisonDisabled() {
+    const reason = "Complete a second run to compare posture changes.";
+    return `
+      <div class="detail-surface split-top" data-testid="history-comparison-disabled" title="${escapeHtml(reason)}">
+        <h4>Comparison unavailable</h4>
+        <p>${escapeHtml(reason)}</p>
+      </div>
+    `;
+  }
+
   function renderHistoryComparison() {
     const sortedRuns = [...state.mission.runs].sort(
       (left, right) => new Date(right.created_at) - new Date(left.created_at)
     );
+    const completedRuns = sortedRuns.filter(isCompletedHistoryRun);
+    const currentHistoryRunId = completedRuns.some((run) => run.id === state.selectedRunId)
+      ? state.selectedRunId
+      : completedRuns[0]?.id || null;
+    const baselineHistoryRunId = completedRuns.some(
+      (run) => run.id === state.comparisonBaselineRunId && run.id !== currentHistoryRunId
+    )
+      ? state.comparisonBaselineRunId
+      : completedRuns.find((run) => run.id !== currentHistoryRunId)?.id || null;
     const historyQuery = String(state.historyQuery || "").trim();
     const normalizedHistoryQuery = historyQuery.toLowerCase();
-    const filteredRuns = sortedRuns.filter((run) => {
+    const filteredRuns = completedRuns.filter((run) => {
       if (!normalizedHistoryQuery) return true;
       const followUp = getFollowUpMetadata(run);
       const sourceRun = followUp?.source_run_id
@@ -789,27 +830,33 @@ export function createExplorerHistoryModule() {
     });
     const selectedDeleteRunIds = new Set(state.deleteUi?.selectedRunIds || []);
     const visibleSelectedCount = filteredRuns.filter((run) => selectedDeleteRunIds.has(String(run.id))).length;
+    const currentRunDisabled = completedRuns.length <= 1 ? "disabled" : "";
+    const baselineDisabled = completedRuns.length < 2
+      ? `disabled title="${escapeHtml("Complete a second run to compare posture changes.")}"`
+      : "";
     dom.historyToolbar.innerHTML = `
       <label class="field compact">
         <span>Current Run</span>
-        <select id="history-current-run" data-testid="history-current-run">
-          ${state.mission.runs
-            .map(
-              (run) =>
-                `<option value="${run.id}" ${run.id === state.selectedRunId ? "selected" : ""}>${escapeHtml(run.profile.name)} · ${escapeHtml(run.status)}</option>`
-            )
-            .join("")}
+        <select id="history-current-run" data-testid="history-current-run" ${currentRunDisabled}>
+          ${completedRuns.length
+            ? completedRuns
+                .map(
+                  (run) =>
+                    `<option value="${run.id}" ${run.id === currentHistoryRunId ? "selected" : ""}>${escapeHtml(run.profile?.name || run.id)} · ${escapeHtml(run.status)}</option>`
+                )
+                .join("")
+            : '<option value="">No completed runs</option>'}
         </select>
       </label>
       <label class="field compact">
         <span>Baseline Run</span>
-        <select id="history-baseline-run">
+        <select id="history-baseline-run" ${baselineDisabled}>
           <option value="">No baseline</option>
-          ${state.mission.runs
-            .filter((run) => run.id !== state.selectedRunId)
+          ${completedRuns
+            .filter((run) => run.id !== currentHistoryRunId)
             .map(
               (run) =>
-                `<option value="${run.id}" ${run.id === state.comparisonBaselineRunId ? "selected" : ""}>${escapeHtml(run.profile.name)} · ${escapeHtml(run.status)}</option>`
+                `<option value="${run.id}" ${run.id === baselineHistoryRunId ? "selected" : ""}>${escapeHtml(run.profile?.name || run.id)} · ${escapeHtml(run.status)}</option>`
             )
             .join("")}
         </select>
@@ -825,7 +872,7 @@ export function createExplorerHistoryModule() {
         />
       </label>
       <div class="section-note toolbar-note" data-testid="history-toolbar-summary">
-        <strong>${escapeHtml(`${filteredRuns.length} of ${sortedRuns.length} runs visible`)}</strong>
+        <strong>${escapeHtml(`${filteredRuns.length} of ${completedRuns.length} completed runs visible`)}</strong>
         <p>${escapeHtml("Filter the dossier history without losing direct load, compare, or surface actions.")}</p>
       </div>
     `;
@@ -846,7 +893,7 @@ export function createExplorerHistoryModule() {
       renderHistoryComparison();
     });
 
-    const comparison = compareRuns(state.selectedRunId, state.comparisonBaselineRunId);
+    const comparison = completedRuns.length >= 2 ? compareRuns(currentHistoryRunId, baselineHistoryRunId) : null;
     const exposure = state.exposureScore;
     dom.comparisonSummary.innerHTML = comparison
       ? `
@@ -873,7 +920,9 @@ export function createExplorerHistoryModule() {
           <button class="action ghost" type="button" data-nav-screen="findings-theater">Review Findings</button>
         </div>
       `
-      : renderComparisonEmptyState();
+      : completedRuns.length === 1
+        ? renderSingleCompletedRunSummary(completedRuns[0])
+        : renderHistoryComparisonDisabled();
 
     dom.historyTrend.innerHTML = filteredRuns.length
       ? [
@@ -896,7 +945,7 @@ export function createExplorerHistoryModule() {
             const percent = Math.min(100, findings.length * 12);
             const reviewHint = deriveHistoryReviewHint(run, findings, inventorySummary, followUp);
             return `
-              <div class="trend-card list-card ${run.id === state.selectedRunId ? "selected" : ""}" data-history-run-pick="${run.id}" data-testid="history-run-card">
+              <div class="trend-card list-card ${run.id === currentHistoryRunId ? "selected" : ""}" data-history-run-pick="${run.id}" data-testid="history-run-card">
                 <div class="panel-head compact-head">
                   <div>
                     <label class="delete-checkline history-run-delete-toggle" data-run-delete-control>
@@ -907,14 +956,14 @@ export function createExplorerHistoryModule() {
                         aria-label="Select run for deletion"
                       />
                       <span>
-                        <strong class="history-run-title">${escapeHtml(run.profile.name)}</strong>
-                        <small>${escapeHtml(run.id === state.selectedRunId ? "Current run loaded in the operator views." : "Click to load this run across Mission Control, Findings, Surface Map, and Reports.")}</small>
+                        <strong class="history-run-title">${escapeHtml(run.profile?.name || run.id)}</strong>
+                        <small>${escapeHtml(run.id === currentHistoryRunId ? "Current run loaded in the operator views." : "Click to load this run across Mission Control, Findings, Surface Map, and Reports.")}</small>
                       </span>
                     </label>
                   </div>
                   <div class="pill-grid">
-                    ${run.id === state.selectedRunId ? '<span class="badge">Current Run</span>' : ""}
-                    ${run.id === state.comparisonBaselineRunId ? '<span class="badge">Baseline</span>' : ""}
+                    ${run.id === currentHistoryRunId ? '<span class="badge">Current Run</span>' : ""}
+                    ${run.id === baselineHistoryRunId ? '<span class="badge">Baseline</span>' : ""}
                     ${schedule ? `<span class="badge">${escapeHtml(`Scheduled ${schedule.cadenceLabel}`)}</span>` : ""}
                     <details class="run-card-menu" data-run-delete-control>
                       <summary aria-label="Run actions">...</summary>
@@ -956,9 +1005,10 @@ export function createExplorerHistoryModule() {
       : emptyState(
           historyQuery
             ? `No runs match "${historyQuery}". Clear or widen the history search.`
-            : state.engagements.length
-              ? "Run trend history appears after multiple runs exist in the engagement."
-              : "Create a mission first. Run trend history appears after the first engagement and run exist."
+            : "Completed runs appear here after an assessment finishes.",
+          historyQuery
+            ? null
+            : { label: "Go to Mission Control", screen: "mission-control", className: "primary", testId: "history-empty-mission-control" }
         );
     dom.historyTrend.querySelectorAll("[data-history-run-pick]").forEach((item) => {
       item.addEventListener("click", async (event) => {
@@ -1348,4 +1398,9 @@ function isResolvedFindingStatus(status) {
   return ["resolved", "accepted_risk", "false_positive", "dismissed"].includes(
     String(status || "").toLowerCase()
   );
+}
+
+function isCompletedHistoryRun(run) {
+  const normalized = String(run?.status || "").toLowerCase().replace(/[\s-]+/g, "_");
+  return normalized === "complete" || normalized === "completed" || normalized.startsWith("completed_");
 }

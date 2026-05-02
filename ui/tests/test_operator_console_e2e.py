@@ -6142,6 +6142,9 @@ def test_reports_use_verified_hash_label_and_history_empty_state_is_guided(loade
         "Pick a baseline run to compare" in comparison_text
         and "Set a baseline run" in comparison_text
     ) or (
+        "Comparison unavailable" in comparison_text
+        and "Complete a second run to compare posture changes." in comparison_text
+    ) or (
         "Current vs baseline" in comparison_text
         and "Inventory Delta" in comparison_text
     )
