@@ -78,6 +78,30 @@ def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
     expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
 
 
+def test_mission_control_header_button_intent_classes(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+
+    view_agents = loaded_page.get_by_test_id("mission-view-agents")
+    expect(view_agents).to_be_visible()
+    expect(view_agents).to_have_text("View Agents ↗")
+    assert view_agents.get_attribute("data-nav-screen") == "agents"
+    view_agents_classes = view_agents.get_attribute("class") or ""
+    assert "danger" not in view_agents_classes
+    assert any(token in view_agents_classes.split() for token in ("secondary", "ghost"))
+    dangerous_nav_buttons = loaded_page.locator(".screen-head [data-nav-screen].danger").evaluate_all(
+        "(nodes) => nodes.map((node) => node.getAttribute('data-testid') || node.textContent.trim())"
+    )
+    assert dangerous_nav_buttons == []
+
+    kill_run = loaded_page.get_by_test_id("mission-kill-run")
+    expect(kill_run).to_be_visible()
+    kill_run_classes = kill_run.get_attribute("class") or ""
+    assert "danger" in kill_run_classes.split()
+
+    view_agents.click()
+    expect(loaded_page.get_by_test_id("screen-agents")).to_be_visible()
+
+
 def test_mission_control_ai_signal_provider_badge_and_live_text(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
     loaded_page.evaluate(

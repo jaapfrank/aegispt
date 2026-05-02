@@ -8814,3 +8814,28 @@
     - host-backed WiFi readiness depends on authorized wireless hardware and installed tools; fixture-backed validation proves the product flow without launching live RF actions
     - intrusive wireless work such as deauth, jamming, evil-twin, handshake capture, WPS PIN testing, credential harvesting, or cracking remains unavailable in this slice
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-165 `Fix 'View Agents' button in Mission Control: change action danger to action secondary`
+
+- 2026-05-02: completed backlog-165 `Fix 'View Agents' button in Mission Control: change action danger to action secondary`:
+  - rationale:
+    - Mission Control's Agents action is a navigation action and must not read as destructive
+    - the safest slice was to keep the existing navigation target, keep the button in the same header layout, and add a regression guard that destructive styling remains reserved for real destructive actions
+  - implementation:
+    - confirmed the `mission-view-agents` header action uses `action ghost` instead of `action danger`
+    - restored the visible label to `View Agents ↗` while preserving `data-nav-screen="agents"`
+    - added focused Playwright smoke coverage proving `View Agents` is non-danger navigation, all screen-head navigation buttons avoid `.danger`, `Kill Run` remains `.danger`, and the Agents screen still opens
+  - files:
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-165-view-agents-button-intent-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_header_button_intent_classes`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_mockup_port_e2e.py::test_exact_mockup_port_tiles_sidebar_stepper_and_cinema`
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/app/ | rg "mission-view-agents|View Agents|Live Agents|mission-kill-run"`
+    - `git diff --check`
+  - not claimed green:
+    - exact normal-capture health command `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` still hit the known host-level pytest capture teardown `FileNotFoundError`; the same health tests passed with `-s`
+  - remaining risks:
+    - this slice does not reorder Mission Control header actions or redesign the action strip; backlog-172 remains queued for broader button ordering/intent polish
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-166 `Remove 'Mandatory' from wizard heading: wizard is no longer a mandatory gate since backlog-58`
