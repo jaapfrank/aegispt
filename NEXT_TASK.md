@@ -2,27 +2,27 @@
 
 ## Title
 
-Fix topbar stats chips: label ambiguity and redundant subtitle labels
+Settings accordion: add one-line summary text to collapsed sections so operators know what each section contains
 
 ## Promoted From
 
-`codex/tasks/backlog-175-topbar-stats-chips-label-clarity.json`
+`codex/tasks/backlog-176-settings-accordion-section-summaries.json`
 
 ## Goal
 
-Simplify the topbar stats chips so each chip reads as one clear count and one noun instead of concatenated labels such as `ENGAGEMENTS · DOSSIERS`, `RUNS · MISSIONS`, or `OPEN ITEMS · BASELINE`.
+Add concise status or description text to collapsed Settings accordion headers so operators can identify configured versus unconfigured sections without opening every panel.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-175-topbar-stats-chips-label-clarity.json`.
+Implement the active backlog package `codex/tasks/backlog-176-settings-accordion-section-summaries.json`.
 
 Expected slice:
 
-- find the topbar stats chip rendering in `ui/assets/app.js`, `ui/assets/modules/runtime.js`, or the current equivalent UI module
-- simplify chip labels to the `N Noun` pattern, such as `4 Engagements`, `4 Runs`, `5 Findings`, `4 Critical`, `5 Open`
-- remove redundant mid-dot secondary descriptor words
-- remove `BASELINE` unless a real baseline comparison state is active and explicitly represented as a separate badge
-- verify chip readability stays at least 11px on the dark topbar background
+- update Settings accordion header rendering in `ui/assets/modules/settings.js`
+- show one-line section summary/status text for each collapsible Settings section
+- prefer actual configured state where it is available in existing JS settings state
+- use brief descriptive text for unconfigured sections
+- preserve expand/collapse behavior
 
 ## Constraints
 
@@ -30,22 +30,23 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Only update topbar stats chip label strings/rendering and minimal scoped styling if required for readability.
-- Do not change engagement/run/finding data fetching.
-- Do not change backend APIs, topbar layout structure, or chip navigation behavior.
+- Only add summary/status text to collapsed Settings section headers.
+- Do not redesign Settings layout.
+- Do not add new settings fields.
+- Do not change Settings data model, backend settings API, or Settings save/load logic.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused UI/E2E coverage proving simplified chip labels and absence of redundant mid-dot descriptors
+- Focused Settings UI/E2E coverage proving collapsed section summaries and expand/collapse behavior
 - Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- Each topbar chip follows the `N Noun` pattern.
-- No chip has a mid-dot separator with a redundant secondary descriptor.
-- `BASELINE` is absent unless a real baseline comparison state is active as a distinct badge.
-- Chips are readable at 11px minimum font size on the dark topbar background.
-- No E2E regressions.
+- All collapsed Settings panels show a one-line status or description.
+- Status text reflects actual configured state where available.
+- Unconfigured sections show brief control descriptions.
+- Expanding/collapsing sections still works as before.
+- No Settings E2E regressions.

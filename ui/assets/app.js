@@ -2222,15 +2222,15 @@ function renderHeader() {
     const status = String(run?.status || "").toLowerCase();
     const runStatusVisible = Boolean(run) && (queuedTasks > 0 || runningTasks > 0 || RUN_STREAM_ACTIVE_STATUSES.has(status));
     const statusLabel = runningTasks
-      ? `${runningTasks} running`
+      ? `${runningTasks} Running ${runningTasks === 1 ? "Task" : "Tasks"}`
       : queuedTasks
-        ? `${queuedTasks} queued`
-        : `${run?.profile?.name || runConfig.execution_profile || "Run"} active`;
+        ? `${queuedTasks} Queued ${queuedTasks === 1 ? "Task" : "Tasks"}`
+        : "1 Active Run";
     dom.topbarRunStatus.classList.toggle("is-hidden", !runStatusVisible);
     dom.topbarRunStatus.innerHTML = runStatusVisible
       ? `
           <span class="topbar-status-dot state-${escapeHtml(status || "idle")}"></span>
-          <span>${escapeHtml(statusLabel)}</span>
+          <span data-testid="topbar-run-status-label">${escapeHtml(statusLabel)}</span>
         `
       : "";
   }

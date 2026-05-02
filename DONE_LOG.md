@@ -1,5 +1,28 @@
 # Done Log
 
+- 2026-05-02: completed backlog-175 `Fix topbar stats chips: label ambiguity and redundant subtitle labels`:
+  - confirmed the old redundant topbar labels `ENGAGEMENTS · DOSSIERS`, `RUNS · MISSIONS`, and `OPEN ITEMS · BASELINE` are absent from product UI source
+  - simplified the active topbar run-status chip from lowercase verb phrases such as `2 running` / `1 queued` to count-plus-noun labels: `N Running Task(s)`, `N Queued Task(s)`, and `1 Active Run`
+  - added a focused label test id without changing topbar layout, chip navigation, data fetching, backend APIs, or runtime behavior
+  - added Playwright smoke coverage proving the visible chip has no mid-dot separator, no `DOSSIERS` / `MISSIONS` / `BASELINE`, follows the simple count-label pattern, and renders at least 11px
+  - evidence recorded in `codex/results/backlog-175-topbar-stats-chips-label-clarity-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `python3 -m py_compile ui/tests/test_operator_console_smoke_e2e.py` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_topbar_status_chip_labels_are_simple_and_readable` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_live_system_audit_2026_05_01.py::test_topbar_stats_chips_no_redundant_labels` passed
+    - focused topbar smoke trio covering shell subtitle, run-status chip, and actor identity passed
+    - source grep for the redundant suffix labels returned no product-source matches
+    - live Playwright browser acceptance confirmed `topbar_status_text=1 Running Task`, `font_size=12.48`, no mid-dot separator, and no redundant suffix words
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed before administration
+  - residual risk:
+    - the exact no-`-s` health pytest command still hits the local capture teardown issue, though the same health tests pass with `-s`
+    - this slice intentionally did not add a new stats-chip row or alter data sources because the current topbar exposes the run-status chip as the relevant count/status chip
+
 - 2026-05-02: completed backlog-174 `Dashboard first-run empty state: guide new operators with one actionable message instead of a blank screen`:
   - replaced the zero-engagement Dashboard's multi-card onboarding/quick-action layout with one intentional first-run empty state
   - added `Welcome to AegisPT`, one concise evidence/reporting-oriented description, and one primary `Start Your First Assessment` CTA bound to the existing Wizard navigation

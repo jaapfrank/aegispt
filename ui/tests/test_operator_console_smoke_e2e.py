@@ -126,6 +126,50 @@ def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Pag
     expect(actor_pill.locator("input")).to_have_count(0)
 
 
+def test_topbar_status_chip_labels_are_simple_and_readable(loaded_page: Page) -> None:
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const run = {
+            id: 'run-topbar-labels',
+            status: 'running',
+            profile: { name: 'passive-web-baseline' },
+            configuration_json: { execution_profile: 'passive-web-baseline' },
+            tasks: [
+              { id: 'task-running-a', status: 'running' },
+              { id: 'task-running-b', status: 'running' },
+              { id: 'task-queued-a', status: 'queued' },
+            ],
+          };
+          runtimeModule.patchState({
+            selectedRunId: run.id,
+            selectedRun: run,
+            mission: {
+              ...runtimeModule.state.mission,
+              runs: [run],
+            },
+          }, 'ui.test.topbarStatusChipLabels');
+          runtimeModule.runtime.actions.renderAll({ renderScreen: false });
+        }
+        """
+    )
+
+    status_chip = loaded_page.get_by_test_id("topbar-run-status")
+    expect(status_chip).to_be_visible()
+    expect(loaded_page.get_by_test_id("topbar-run-status-label")).to_have_text("2 Running Tasks")
+    chip_text = status_chip.inner_text()
+    assert "·" not in chip_text
+    for redundant in ("DOSSIERS", "MISSIONS", "BASELINE"):
+        assert redundant not in chip_text.upper()
+    assert re.match(r"^\d+\s+[A-Z][A-Za-z]+\s+[A-Z][A-Za-z]+$", chip_text)
+
+    font_size = loaded_page.evaluate(
+        "() => parseFloat(window.getComputedStyle(document.querySelector('[data-testid=\"topbar-run-status\"]')).fontSize)"
+    )
+    assert font_size >= 11
+
+
 def test_report_center_copy_is_operator_ready_and_empty_states_are_clear(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-reports").click()
     loaded_page.evaluate(
