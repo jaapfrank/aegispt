@@ -1,5 +1,27 @@
 # Done Log
 
+- 2026-05-02: completed backlog-176 `Settings accordion: add one-line summary text to collapsed sections so operators know what each section contains`:
+  - replaced generic collapsed Settings panel summaries such as raw setting counts with state-aware, operator-readable one-line summaries
+  - summaries now reflect existing JS setting state for AI Provider, Default Network Scope, Default Scan Profile, Runtime Execution, Remediation SLA, Integrations, Notifications, Threat Intel, Evidence Integrity, and Instance
+  - added stable summary test ids on Settings disclosure headers without changing Settings fields, backend APIs, settings persistence, save/load logic, runtime behavior, approval gates, pack registry, deployment, or runtime binding
+  - added focused Playwright coverage proving collapsed summaries render with configured/unconfigured state and that the existing expand/collapse disclosure behavior still exposes fields
+  - evidence recorded in `codex/results/backlog-176-settings-accordion-section-summaries-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - `node --input-type=module --check < ui/assets/modules/settings.js` passed
+    - `python3 -m py_compile ui/tests/test_operator_console_smoke_e2e.py` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_settings_collapsed_sections_show_status_summaries_and_still_toggle` passed
+    - focused Settings smoke coverage for actor-backed Settings, collapsed summaries, readiness, scheduled scans, Threat Intel NVD hint, and Jira fields passed
+    - live Playwright browser acceptance confirmed real Settings summaries and Default Network Scope expand/collapse behavior against `http://127.0.0.1:8000/app/`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-177
+    - `git diff --check` passed
+  - residual risk:
+    - the exact no-`-s` health pytest command still hits the local capture teardown issue, though the same health tests pass with `-s`
+    - summaries intentionally report existing loaded Settings state only and do not perform new external integration/provider verification
+
 - 2026-05-02: completed backlog-175 `Fix topbar stats chips: label ambiguity and redundant subtitle labels`:
   - confirmed the old redundant topbar labels `ENGAGEMENTS · DOSSIERS`, `RUNS · MISSIONS`, and `OPEN ITEMS · BASELINE` are absent from product UI source
   - simplified the active topbar run-status chip from lowercase verb phrases such as `2 running` / `1 queued` to count-plus-noun labels: `N Running Task(s)`, `N Queued Task(s)`, and `1 Active Run`

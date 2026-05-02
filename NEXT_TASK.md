@@ -2,27 +2,27 @@
 
 ## Title
 
-Settings accordion: add one-line summary text to collapsed sections so operators know what each section contains
+Fix topbar notifications bell: remove redundant Settings shortcut or implement a minimal notification panel
 
 ## Promoted From
 
-`codex/tasks/backlog-176-settings-accordion-section-summaries.json`
+`codex/tasks/backlog-177-notifications-bell-fix-or-implement.json`
 
 ## Goal
 
-Add concise status or description text to collapsed Settings accordion headers so operators can identify configured versus unconfigured sections without opening every panel.
+Resolve the confusing duplicate topbar actions where the bell and gear both navigate to Settings. Prefer removing the redundant bell unless a minimal notification panel can be implemented safely within this slice.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-176-settings-accordion-section-summaries.json`.
+Implement the active backlog package `codex/tasks/backlog-177-notifications-bell-fix-or-implement.json`.
 
 Expected slice:
 
-- update Settings accordion header rendering in `ui/assets/modules/settings.js`
-- show one-line section summary/status text for each collapsible Settings section
-- prefer actual configured state where it is available in existing JS settings state
-- use brief descriptive text for unconfigured sections
-- preserve expand/collapse behavior
+- inspect the current topbar bell/settings controls
+- ensure there is at most one topbar action that navigates to Settings
+- if keeping the bell, give it a lightweight event panel from existing state only
+- if removing the bell, leave Settings reachable through the gear action
+- preserve topbar density and existing navigation behavior
 
 ## Constraints
 
@@ -30,23 +30,24 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Only add summary/status text to collapsed Settings section headers.
-- Do not redesign Settings layout.
-- Do not add new settings fields.
-- Do not change Settings data model, backend settings API, or Settings save/load logic.
+- Do not build a full notification backend.
+- Do not add backend notification events.
+- Do not redesign the topbar.
+- Do not change Settings screen content.
+- Do not change navigation gating.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused Settings UI/E2E coverage proving collapsed section summaries and expand/collapse behavior
+- Focused topbar/UI coverage proving Settings remains reachable and the duplicate bell/settings destination is gone or the bell has a dedicated minimal panel
 - Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- All collapsed Settings panels show a one-line status or description.
-- Status text reflects actual configured state where available.
-- Unconfigured sections show brief control descriptions.
-- Expanding/collapsing sections still works as before.
-- No Settings E2E regressions.
+- There is at most one topbar button that navigates to Settings.
+- If a notification panel is implemented, it shows at least recent run status events from existing state.
+- If the bell is removed, the topbar has only the gear button for Settings.
+- The Settings screen remains fully reachable.
+- No topbar/navigation E2E regressions.

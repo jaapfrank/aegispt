@@ -126,6 +126,127 @@ def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Pag
     expect(actor_pill.locator("input")).to_have_count(0)
 
 
+def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-settings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const settingsModule = await import('/app/assets/modules/settings.js');
+          runtimeModule.patchState({
+            activeScreen: 'settings',
+            chatgptOAuthStatus: { connected: true, status: 'connected' },
+            settingsUi: { openPanels: {} },
+            operatorSettings: {
+              tenant_id: 'default',
+              sections: [
+                {
+                  id: 'ai_provider',
+                  title: 'AI Provider',
+                  description: 'Choose provider defaults.',
+                  settings: [
+                    { key: 'ai.provider', value: 'chatgpt_oauth', input_type: 'select', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'ai.finding_enrichment_enabled', value: true, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'ai.post_task_analysis_enabled', value: false, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
+                  ],
+                },
+                {
+                  id: 'default_network_scope',
+                  title: 'Default Network Scope',
+                  description: 'Reusable LAN defaults.',
+                  settings: [
+                    { key: 'network.default_lan_cidr', label: 'Default LAN CIDR', value: '10.0.20.0/24', input_type: 'text', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'network.default_vlan_cidrs', label: 'Additional VLAN CIDRs', value: ['10.0.30.0/24'], input_type: 'list', source: 'database', configured: true, options: [], description: '' },
+                  ],
+                },
+                {
+                  id: 'default_scan_profile',
+                  title: 'Default Scan Profile',
+                  description: 'Preferred profile.',
+                  settings: [
+                    { key: 'scan.default_profile', value: 'Deep', input_type: 'select', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'scan.default_safety_level', value: 'passive', input_type: 'select', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'scan.default_execution_lane', value: 'passive-network-discovery', input_type: 'select', source: 'database', configured: true, options: [], description: '' },
+                  ],
+                },
+                {
+                  id: 'runtime_execution',
+                  title: 'Runtime Execution',
+                  description: 'Execution limits.',
+                  settings: [
+                    { key: 'runtime.inline_task_workers', value: 6, input_type: 'number', source: 'database', configured: true, options: [], description: '' },
+                  ],
+                },
+                {
+                  id: 'integrations',
+                  title: 'Integrations',
+                  description: 'Handoff defaults.',
+                  settings: [
+                    { key: 'integrations.jira_base_url', value: null, input_type: 'url', source: 'default', configured: false, options: [], description: '' },
+                    { key: 'integrations.slack_webhook_url', value: null, input_type: 'password', source: 'default', sensitive: true, configured: false, options: [], description: '' },
+                  ],
+                },
+                {
+                  id: 'notifications',
+                  title: 'Notifications',
+                  description: 'Alert defaults.',
+                  settings: [
+                    { key: 'notifications.critical_destination', value: 'slack', input_type: 'select', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'notifications.run_completion', value: true, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
+                  ],
+                },
+                {
+                  id: 'threat_intel',
+                  title: 'Threat Intel',
+                  description: 'Feed defaults.',
+                  settings: [
+                    { key: 'threat_intel.sync_enabled', value: true, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'threat_intel.nvd_api_key', value: null, input_type: 'password', source: 'default', sensitive: true, configured: false, options: [], description: '' },
+                  ],
+                },
+                {
+                  id: 'instance',
+                  title: 'Instance',
+                  description: 'Instance identity.',
+                  settings: [
+                    { key: 'instance.operator_display_name', label: 'Operator display name', value: 'alice-reviewer', input_type: 'text', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'instance.app_public_base_url', label: 'App public base URL', value: 'https://aegispt.example.test', input_type: 'url', source: 'database', configured: true, options: [], description: '' },
+                  ],
+                },
+              ],
+            },
+          }, 'ui.test.settingsSummaries');
+          settingsModule.createSettingsModule().renderSettingsScreen();
+        }
+        """
+    )
+
+    expected_summaries = {
+        "ai_provider-summary": "AI Provider: ChatGPT connected · 1 helper on",
+        "default_network_scope-summary": "Default scope: 10.0.20.0/24 · 1 VLAN range",
+        "default_scan_profile-summary": "Profile: Deep · passive · passive-network-discovery",
+        "runtime_execution-summary": "6 parallel task workers",
+        "integrations-summary": "Configure Jira and webhook handoffs",
+        "notifications-summary": "Critical alerts: slack · completion on",
+        "threat_intel-summary": "Daily CVE sync on · NVD key not set",
+        "instance-summary": "Operator: alice-reviewer · https://aegispt.example.test",
+    }
+    for test_id, text in expected_summaries.items():
+        expect(loaded_page.get_by_test_id(test_id)).to_be_visible()
+        expect(loaded_page.get_by_test_id(test_id)).to_have_text(text)
+
+    network_panel = loaded_page.get_by_test_id("settings-default-network-scope")
+    assert network_panel.evaluate("element => element.open") is False
+    network_panel.locator("summary").evaluate("summary => summary.click()")
+    assert network_panel.evaluate("element => element.open") is True
+    expect(network_panel.locator("[data-setting-key='network.default_lan_cidr']")).to_be_visible()
+    network_panel.locator("summary").evaluate("summary => summary.click()")
+    assert network_panel.evaluate("element => element.open") is False
+    expect(loaded_page.get_by_test_id("default_network_scope-summary")).to_be_visible()
+
+
 def test_topbar_status_chip_labels_are_simple_and_readable(loaded_page: Page) -> None:
     loaded_page.evaluate(
         """

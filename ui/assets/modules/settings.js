@@ -1552,7 +1552,7 @@ function renderSettingsDisclosure({ panelId, title, summary = "", body = "", ope
       <summary class="disclosure-summary">
         <span class="disclosure-copy">
           <strong>${escapeHtml(title)}</strong>
-          ${summary ? `<small>${escapeHtml(summary)}</small>` : ""}
+          ${summary ? `<small data-testid="${escapeHtml(panelId)}-summary">${escapeHtml(summary)}</small>` : ""}
         </span>
         <span class="disclosure-caret" aria-hidden="true">Expand</span>
       </summary>
@@ -1633,13 +1633,108 @@ function formatScheduleDate(value) {
 
 function summarizeSection(section) {
   const settings = (section.settings || []).filter((setting) => !setting.ui_hidden);
-  const count = settings.length;
-  const sensitiveCount = settings.filter((setting) => setting.sensitive).length;
-  const readOnlyCount = settings.filter((setting) => setting.read_only).length;
-  const parts = [`${count} setting${count === 1 ? "" : "s"}`];
-  if (sensitiveCount) parts.push(`${sensitiveCount} encrypted`);
-  if (readOnlyCount) parts.push(`${readOnlyCount} read-only`);
-  return parts.join(" · ");
+  const settingValue = (key) => settings.find((setting) => setting.key === key)?.value;
+  const settingConfigured = (key) => {
+    const setting = settings.find((item) => item.key === key);
+    if (!setting) return false;
+    if (setting.sensitive) return Boolean(setting.configured);
+    if (Array.isArray(setting.value)) return setting.value.length > 0;
+    return setting.value !== null && setting.value !== undefined && String(setting.value).trim() !== "";
+  };
+  const boolLabel = (value) => (value ? "on" : "off");
+  const valueLabel = (value) => {
+    if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+    return String(value ?? "").trim();
+  };
+  const configuredCount = settings.filter((setting) => {
+    if (setting.sensitive) return Boolean(setting.configured);
+    if (Array.isArray(setting.value)) return setting.value.length > 0;
+    return setting.value !== null && setting.value !== undefined && String(setting.value).trim() !== "";
+  }).length;
+
+  if (section.id === "ai_provider") {
+    const provider = String(settingValue("ai.provider") || "disabled");
+    const featureCount = settings.filter((setting) => AI_FEATURE_SETTING_KEYS.has(setting.key) && Boolean(setting.value)).length;
+    if (provider === "chatgpt_oauth") {
+      const connected = state.chatgptOAuthStatus?.connected ? "ChatGPT connected" : "ChatGPT OAuth selected";
+      return `AI Provider: ${connected} · ${featureCount} helper${featureCount === 1 ? "" : "s"} on`;
+    }
+    if (provider === "http") return `AI Provider: HTTP${settingConfigured("ai.http_endpoint") ? " endpoint set" : " endpoint missing"}`;
+    return "AI Provider: disabled · helpers off";
+  }
+
+  if (section.id === "default_network_scope") {
+    const cidr = valueLabel(settingValue("network.default_lan_cidr"));
+    const domain = valueLabel(settingValue("network.default_domain"));
+    const vlanValue = settingValue("network.default_vlan_cidrs");
+    const vlans = Array.isArray(vlanValue) ? vlanValue.length : 0;
+    if (cidr) return `Default scope: ${cidr}${vlans ? ` · ${vlans} VLAN range${vlans === 1 ? "" : "s"}` : ""}`;
+    if (domain) return `Default domain: ${domain}`;
+    return "Set default scan target range";
+  }
+
+  if (section.id === "default_scan_profile") {
+    const profile = valueLabel(settingValue("scan.default_profile")) || "not set";
+    const safety = valueLabel(settingValue("scan.default_safety_level")) || "safety unset";
+    const lane = valueLabel(settingValue("scan.default_execution_lane"));
+    return `Profile: ${profile} · ${safety}${lane ? ` · ${lane}` : ""}`;
+  }
+
+  if (section.id === "runtime_execution") {
+    const workers = Number(settingValue("runtime.inline_task_workers") || 0);
+    return workers ? `${workers} parallel task worker${workers === 1 ? "" : "s"}` : "Set parallel task worker limit";
+  }
+
+  if (section.id === "remediation") {
+    const critical = settingValue("remediation.sla_days_critical");
+    const high = settingValue("remediation.sla_days_high");
+    const medium = settingValue("remediation.sla_days_medium");
+    const low = settingValue("remediation.sla_days_low");
+    if ([critical, high, medium, low].every((value) => value !== null && value !== undefined && String(value) !== "")) {
+      return `SLA days: C${critical} / H${high} / M${medium} / L${low}`;
+    }
+    return "Set default remediation SLA";
+  }
+
+  if (section.id === "integrations") {
+    const configured = [
+      "integrations.jira_base_url",
+      "integrations.jira_project_key",
+      "integrations.jira_token",
+      "integrations.slack_webhook_url",
+      "integrations.teams_webhook_url",
+      "integrations.servicenow_instance_url",
+    ].filter(settingConfigured).length;
+    return configured
+      ? `${configured} handoff default${configured === 1 ? "" : "s"} configured`
+      : "Configure Jira and webhook handoffs";
+  }
+
+  if (section.id === "notifications") {
+    const destination = valueLabel(settingValue("notifications.critical_destination")) || "none";
+    return `Critical alerts: ${destination} · completion ${boolLabel(Boolean(settingValue("notifications.run_completion")))}`;
+  }
+
+  if (section.id === "threat_intel") {
+    const syncEnabled = Boolean(settingValue("threat_intel.sync_enabled"));
+    return `Daily CVE sync ${boolLabel(syncEnabled)} · NVD key ${settingConfigured("threat_intel.nvd_api_key") ? "stored" : "not set"}`;
+  }
+
+  if (section.id === "evidence_integrity") {
+    const timestamping = Boolean(settingValue("evidence.timestamping_enabled"));
+    return `Timestamping ${boolLabel(timestamping)} · TSA ${settingConfigured("evidence.timestamp_authority_url") ? "configured" : "not set"}`;
+  }
+
+  if (section.id === "instance") {
+    const operator = valueLabel(settingValue("instance.operator_display_name")) || "operator unset";
+    const baseUrl = valueLabel(settingValue("instance.app_public_base_url"));
+    return `Operator: ${operator}${baseUrl ? ` · ${baseUrl}` : ""}`;
+  }
+
+  if (configuredCount) {
+    return `${configuredCount} configured setting${configuredCount === 1 ? "" : "s"}`;
+  }
+  return section.description || "Review section controls";
 }
 
 function renderSection(section) {
