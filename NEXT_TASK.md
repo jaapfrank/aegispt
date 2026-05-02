@@ -2,29 +2,26 @@
 
 ## Title
 
-Mission Control header: fix button order, intents, and styling for operational clarity
+Shorten or remove topbar/hero subtitle: 'Guided, evidence-first assessment...' is too verbose for enterprise use
 
 ## Promoted From
 
-`codex/tasks/backlog-172-mission-control-header-buttons-reorder.json`
+`codex/tasks/backlog-173-topbar-subtitle-too-verbose.json`
 
 ## Goal
 
-Correct Mission Control header action order and styling so destructive, primary, navigation, and secondary actions are visually clear.
+Remove or sharply shorten the long application shell subtitle so daily enterprise operators do not lose vertical space to repeated marketing copy.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-172-mission-control-header-buttons-reorder.json`.
+Implement the active backlog package `codex/tasks/backlog-173-topbar-subtitle-too-verbose.json`.
 
 Expected slice:
 
-- update Mission Control header button DOM order in `ui/index.html`
-- make `Kill Run` use `action danger`
-- keep `Start Queued Checks` as the contextual primary action
-- keep `View Findings` as a primary action
-- make `View Agents` use `action ghost` or `action secondary`, not danger
-- make `Cinema Mode` use ghost styling
-- preserve existing button handlers and behavior
+- audit `ui/index.html` and `ui/assets/styles.css`
+- remove the long subtitle `Guided, evidence-first assessment operations across wizard-driven setup, live mission control, adaptive pack governance, evidence replay, and report delivery.`
+- preferred outcome is to remove the subtitle entirely because screen headings already provide context
+- if a replacement tagline is used, it must be dashboard-only and 8 words or fewer
 
 ## Constraints
 
@@ -32,21 +29,22 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Only update button CSS classes and DOM order in `ui/index.html`.
-- Do not change button functionality, handlers, Mission Control JS modules, run cancellation logic, backend APIs, or broader Mission Control layout.
+- Only change the subtitle/tagline text or remove the subtitle element.
+- Do not redesign the topbar layout or hero area.
+- Do not change screen-level headings, eyebrows, navigation structure, backend APIs, or runtime behavior.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused Mission Control UI/E2E coverage proving button order and styling
+- Focused UI/E2E coverage proving the long subtitle is absent and shell height remains compact
 - Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- Kill Run renders as danger styling.
-- View Agents renders as ghost or secondary styling and is not danger.
-- Button visual order is: Kill Run, Start Queued Checks, View Findings, View Agents, Cinema Mode.
-- Button functionality is unchanged.
-- Mission Control E2E coverage does not regress.
+- The long subtitle is absent from all rendered screens.
+- If any tagline remains, it is 8 words or fewer and dashboard-only.
+- Screen-level headings and descriptions still provide contextual screen guidance.
+- The application shell/topbar remains compact.
+- No E2E regressions.

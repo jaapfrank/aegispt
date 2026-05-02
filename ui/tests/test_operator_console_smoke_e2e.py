@@ -427,6 +427,17 @@ def test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context(loaded_
 def test_mission_control_header_button_intent_classes(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
 
+    action_order = loaded_page.locator("#screen-mission-control .screen-head .screen-actions > button").evaluate_all(
+        "(nodes) => nodes.map((node) => node.getAttribute('data-testid') || node.id || node.textContent.trim())"
+    )
+    assert action_order == [
+        "mission-kill-run",
+        "mission-dispatch-btn",
+        "mission-view-findings",
+        "mission-view-agents",
+        "cinema-mode-open",
+    ]
+
     view_agents = loaded_page.get_by_test_id("mission-view-agents")
     expect(view_agents).to_be_visible()
     expect(view_agents).to_have_text("View Agents ↗")
@@ -443,6 +454,18 @@ def test_mission_control_header_button_intent_classes(loaded_page: Page) -> None
     expect(kill_run).to_be_visible()
     kill_run_classes = kill_run.get_attribute("class") or ""
     assert "danger" in kill_run_classes.split()
+
+    dispatch = loaded_page.locator("#mission-dispatch-btn")
+    dispatch_classes = dispatch.get_attribute("class") or ""
+    assert "primary" in dispatch_classes.split()
+
+    view_findings = loaded_page.get_by_test_id("mission-view-findings")
+    view_findings_classes = view_findings.get_attribute("class") or ""
+    assert "primary" in view_findings_classes.split()
+
+    cinema = loaded_page.get_by_test_id("cinema-mode-open")
+    cinema_classes = cinema.get_attribute("class") or ""
+    assert "ghost" in cinema_classes.split()
 
     view_agents.click()
     expect(loaded_page.get_by_test_id("screen-agents")).to_be_visible()
