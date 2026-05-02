@@ -1,5 +1,24 @@
 # Done Log
 
+- 2026-05-02: completed backlog-177 `Fix topbar notifications bell: remove redundant Settings shortcut or implement a minimal notification panel`:
+  - confirmed the product topbar already follows the preferred task option: the redundant notifications bell is absent and the gear remains the only topbar action that navigates to Settings
+  - added a stronger focused Playwright guard proving `topbar-notifications`, `aria-label="Notifications"`, and `aria-label="Open notification settings"` are absent, while the topbar contains exactly one `[data-nav-screen="settings"]` control
+  - left topbar product DOM, Settings content, navigation gating, backend APIs, notification backend, runtime behavior, approval gates, pack registry, deployment, and runtime binding unchanged
+  - evidence recorded in `codex/results/backlog-177-topbar-notifications-bell-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - `python3 -m py_compile ui/tests/test_operator_console_smoke_e2e.py` passed
+    - focused topbar/navigation smoke coverage passed for the notifications placeholder guard and fast navigation
+    - live Playwright browser acceptance confirmed `live_topbar_settings_destinations=1`, `bell_present=0`, and `settings_reachable=1`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-178
+    - `git diff --check` passed
+  - residual risk:
+    - the exact no-`-s` health pytest command still hits the local capture teardown issue, though the same health tests pass with `-s`
+    - this slice intentionally did not add a real notification event panel because the preferred safe option was already present and sufficient for the duplicate Settings shortcut defect
+
 - 2026-05-02: completed backlog-176 `Settings accordion: add one-line summary text to collapsed sections so operators know what each section contains`:
   - replaced generic collapsed Settings panel summaries such as raw setting counts with state-aware, operator-readable one-line summaries
   - summaries now reflect existing JS setting state for AI Provider, Default Network Scope, Default Scan Profile, Runtime Execution, Remediation SLA, Integrations, Notifications, Threat Intel, Evidence Integrity, and Instance

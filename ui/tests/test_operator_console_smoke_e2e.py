@@ -69,6 +69,8 @@ def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
 ) -> None:
     expect(loaded_page.get_by_test_id("topbar-notifications")).to_have_count(0)
     expect(loaded_page.locator("[aria-label='Notifications']")).to_have_count(0)
+    expect(loaded_page.locator("[aria-label='Open notification settings']")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("topbar").locator("[data-nav-screen='settings']")).to_have_count(1)
 
     settings_button = loaded_page.get_by_test_id("topbar-settings")
     expect(settings_button).to_be_visible()
