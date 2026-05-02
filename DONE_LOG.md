@@ -1,5 +1,23 @@
 # Done Log
 
+- 2026-05-02: completed backlog-173 `Shorten or remove topbar/hero subtitle: 'Guided, evidence-first assessment...' is too verbose for enterprise use`:
+  - confirmed the long repeated application-shell subtitle is already absent from `ui/index.html`, `ui/assets/styles.css`, and `ui/assets/modules`
+  - did not add a replacement tagline, redesign the topbar, change screen headings, alter navigation, or touch backend/runtime behavior
+  - added focused Playwright smoke coverage proving the long subtitle stays absent across representative rendered screens and the desktop topbar remains compact at 48-56 px
+  - evidence recorded in `codex/results/backlog-173-topbar-subtitle-removal-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - `python3 -m py_compile ui/tests/test_operator_console_smoke_e2e.py` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_application_shell_has_no_repeated_marketing_subtitle` passed
+    - source grep for the long subtitle fragments and replacement tagline returned no matches in product UI source
+    - live Playwright browser acceptance against `http://127.0.0.1:8000/app/` confirmed the subtitle is absent and measured `topbar_height=48`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+  - residual risk:
+    - the exact no-`-s` health pytest command still hits the local capture teardown issue, though the same health tests pass with `-s`
+    - this slice intentionally did not change product source because the long subtitle was already removed
+
 - 2026-05-02: completed backlog-172 `Mission Control header: fix button order, intents, and styling for operational clarity`:
   - confirmed `ui/index.html` already matched the required Mission Control action order and intent classes: `Kill Run`, `Start Queued Checks`, `View Findings`, `View Agents`, `Cinema Mode`
   - left product button handlers, Mission Control JavaScript, run cancellation behavior, backend APIs, and broader layout unchanged

@@ -78,6 +78,32 @@ def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
     expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
 
 
+def test_application_shell_has_no_repeated_marketing_subtitle(loaded_page: Page) -> None:
+    long_subtitle = (
+        "Guided, evidence-first assessment operations across wizard-driven setup, "
+        "live mission control, adaptive pack governance, evidence replay, and report delivery."
+    )
+    screens = {
+        "nav-dashboard": "screen-dashboard",
+        "nav-wizard": "screen-wizard",
+        "nav-mission-control": "screen-mission-control",
+        "bottom-nav-agents": "screen-agents",
+        "nav-findings": "screen-findings-theater",
+        "nav-reports": "screen-report-center",
+        "nav-history": "screen-history",
+        "nav-settings": "screen-settings",
+    }
+
+    for nav_test_id, screen_test_id in screens.items():
+        loaded_page.get_by_test_id(nav_test_id).click()
+        expect(loaded_page.get_by_test_id(screen_test_id)).to_be_visible()
+        expect(loaded_page.locator("body")).not_to_contain_text(long_subtitle)
+
+    topbar_box = loaded_page.get_by_test_id("topbar").bounding_box()
+    assert topbar_box is not None
+    assert 48 <= topbar_box["height"] <= 56
+
+
 def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Page) -> None:
     actor_pill = loaded_page.get_by_test_id("topbar-actor-pill")
     expect(actor_pill).to_be_visible()

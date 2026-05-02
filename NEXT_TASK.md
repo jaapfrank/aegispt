@@ -2,26 +2,28 @@
 
 ## Title
 
-Shorten or remove topbar/hero subtitle: 'Guided, evidence-first assessment...' is too verbose for enterprise use
+Dashboard first-run empty state: guide new operators with one actionable message instead of a blank screen
 
 ## Promoted From
 
-`codex/tasks/backlog-173-topbar-subtitle-too-verbose.json`
+`codex/tasks/backlog-174-dashboard-first-run-empty-state.json`
 
 ## Goal
 
-Remove or sharply shorten the long application shell subtitle so daily enterprise operators do not lose vertical space to repeated marketing copy.
+When there are no engagements, runs, or findings, make Dashboard feel intentionally empty instead of broken by showing clear first-run guidance and one primary next step.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-173-topbar-subtitle-too-verbose.json`.
+Implement the active backlog package `codex/tasks/backlog-174-dashboard-first-run-empty-state.json`.
 
 Expected slice:
 
-- audit `ui/index.html` and `ui/assets/styles.css`
-- remove the long subtitle `Guided, evidence-first assessment operations across wizard-driven setup, live mission control, adaptive pack governance, evidence replay, and report delivery.`
-- preferred outcome is to remove the subtitle entirely because screen headings already provide context
-- if a replacement tagline is used, it must be dashboard-only and 8 words or fewer
+- update the zero-engagement Dashboard empty state in `ui/assets/modules/dashboard.js`
+- show a welcome heading
+- show a one-line description of what AegisPT does
+- show one primary CTA: `Start Your First Assessment`
+- make that CTA navigate to the wizard screen
+- optionally keep muted zero-state summary tiles if they are truthful and not noisy
 
 ## Constraints
 
@@ -29,22 +31,22 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Only change the subtitle/tagline text or remove the subtitle element.
-- Do not redesign the topbar layout or hero area.
-- Do not change screen-level headings, eyebrows, navigation structure, backend APIs, or runtime behavior.
+- Only add or refine the zero-engagement Dashboard empty state.
+- Do not rebuild populated Dashboard rendering.
+- Do not change setup checklist logic, backend APIs, report generation, runtime behavior, or navigation structure.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused UI/E2E coverage proving the long subtitle is absent and shell height remains compact
+- Focused Dashboard UI/E2E coverage proving the first-run empty state and CTA navigation
 - Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- The long subtitle is absent from all rendered screens.
-- If any tagline remains, it is 8 words or fewer and dashboard-only.
-- Screen-level headings and descriptions still provide contextual screen guidance.
-- The application shell/topbar remains compact.
+- Zero-engagement Dashboard shows a welcome heading, one-line description, and `Start Your First Assessment` button.
+- The CTA opens the wizard screen.
+- Dashboard populated-state behavior remains unchanged.
+- Setup checklist behavior is not regressed.
 - No E2E regressions.
