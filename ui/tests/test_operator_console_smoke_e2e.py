@@ -100,6 +100,137 @@ def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Pag
     expect(actor_pill.locator("input")).to_have_count(0)
 
 
+def test_report_center_copy_is_operator_ready_and_empty_states_are_clear(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-reports").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const reportsModule = await import('/app/assets/modules/reports.js');
+          const runId = '77777777-7777-4777-8777-777777777777';
+          runtimeModule.patchState({
+            activeScreen: 'report-center',
+            selectedEngagementId: 'eng-report-copy',
+            selectedRunId: runId,
+            selectedRun: {
+              id: runId,
+              status: 'completed',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              profile: { name: 'passive-web-baseline' },
+              configuration_json: {
+                assessment_type: 'Website / Web App',
+                targets: { urls: ['https://app.example.test'] },
+                access: {},
+                test_profile: 'Standard',
+              },
+              tasks: [],
+            },
+            engagements: [{
+              id: 'eng-report-copy',
+              name: 'Report Copy Engagement',
+              client: 'Example Co',
+              roe_ref: 'ROE-REPORT-COPY',
+            }],
+            mission: {
+              runs: [],
+              inventory: [],
+              findingsByRun: { [runId]: [] },
+            },
+            reportVariant: 'technical',
+            reportCenterView: 'reports',
+            reportPreview: '',
+            reportHtml: '',
+            reportDraft: null,
+            reportCatalog: [{
+              variant: 'technical',
+              title: 'Technical Report',
+              description: 'Technical, evidence-backed report for operators.',
+              source_run_id: runId,
+              generated_at: new Date().toISOString(),
+              available_formats: ['markdown', 'html'],
+              methodology_references: ['PTES'],
+              source_scope_profile: {
+                run_profile: 'passive-web-baseline',
+                assessment_type: 'Website / Web App',
+                targets: { urls: ['https://app.example.test'] },
+              },
+              included_findings: { count: 0, by_severity: {}, by_status: {}, report_sections: [], test_coverage: {} },
+              included_inventory: {
+                host_count: 1,
+                service_count: 1,
+                endpoint_count: 1,
+                technology_count: 1,
+                wireless_access_point_count: 0,
+                wireless_network_count: 0,
+                confidence_score: 0.9,
+              },
+              evidence_status: { linked_findings: 0, total_findings: 0, completeness_ratio: 1 },
+              compliance_summary: {},
+              assurance_summary: {},
+              adaptive_change_summary: {},
+              ai_draft_summary: {},
+              run_narrative_summary: {},
+              version_label: 'technical-v1',
+              content_sha256: 'abc123',
+              availability_status: 'export_ready',
+              availability_label: 'Export ready',
+              availability_reason: 'Run evidence is available for export.',
+              preview_allowed: true,
+              export_allowed: true,
+              draft_allowed: true,
+              lifecycle_summary: {},
+              export_paths: {
+                markdown: '/api/v1/runs/' + runId + '/report?format=markdown&variant=technical',
+                html: '/api/v1/runs/' + runId + '/report?format=html&variant=technical',
+              },
+              download_names: { markdown: 'technical.md', html: 'technical.html' },
+            }],
+          }, 'ui.test.reportCopy');
+          reportsModule.createReportsModule().renderReportCenter();
+        }
+        """
+    )
+
+    screen = loaded_page.get_by_test_id("screen-report-center")
+    expect(screen).to_contain_text(
+        "Review and export technical, executive, and compliance reports for the selected run."
+    )
+    expect(loaded_page.get_by_test_id("report-preview")).to_have_text(
+        "Generate a markdown preview to review this report here."
+    )
+    assert (
+        "Generate an HTML preview to review the rendered report here."
+        in (loaded_page.locator("#report-frame").get_attribute("srcdoc") or "")
+    )
+    expect(loaded_page.locator("#report-compare")).to_contain_text(
+        "Select a previous run to compare findings, coverage, and risk score changes."
+    )
+
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const reportsModule = await import('/app/assets/modules/reports.js');
+          runtimeModule.patchState({ reportCenterView: 'dossier' }, 'ui.test.reportCopy.dossier');
+          reportsModule.createReportsModule().renderReportCenter();
+        }
+        """
+    )
+    expect(loaded_page.get_by_test_id("report-dossier-context")).to_contain_text("Engagement orientation")
+    full_text = screen.inner_text()
+    banned = [
+        "without a side metadata rail",
+        "History & Compared",
+        "History & Comparison",
+        "metadata rail",
+        "Prior Report Delta",
+        "Open Explorer Compatibility",
+        "now carries",
+    ]
+    assert not [copy for copy in banned if copy.lower() in full_text.lower()]
+
+
 def test_pack_forge_build_lane_panels_are_gated_by_developer_mode(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-packs").click()
     expect(loaded_page.get_by_test_id("screen-pack-forge")).to_be_visible()

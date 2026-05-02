@@ -1,5 +1,28 @@
 # Done Log
 
+- 2026-05-02: completed backlog-171 `Clean up Report Center copy: remove internal dev language and improve empty state messaging`:
+  - cleaned Report Center operator-facing strings in `ui/assets/modules/reports.js` and `ui/index.html` without changing report generation, export/download, backend APIs, or PDF behavior
+  - replaced confusing comparison guidance with `Select a previous run to compare findings, coverage, and risk score changes.`
+  - replaced reader placeholder text with one-action empty states for markdown and HTML preview generation
+  - removed internal/release-style wording from Report Center dossier copy, including `Open Explorer Compatibility` and `now carries` phrasing
+  - added focused Playwright smoke coverage proving the cleaned Report Center copy, reader empty states, comparison instruction, and banned-copy absence
+  - evidence recorded in `codex/results/backlog-171-report-center-copy-cleanup-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/reports.js` passed
+    - `python3 -m py_compile ui/tests/test_operator_console_smoke_e2e.py` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_report_center_copy_is_operator_ready_and_empty_states_are_clear` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_e2e.py::test_reports_use_verified_hash_label_and_history_empty_state_is_guided` passed
+    - source grep for the banned Report Center strings returned no matches in `ui/assets/modules/reports.js` or `ui/index.html`
+    - live static HTML at `http://127.0.0.1:8000/app/` shows the cleaned Report Center heading, `Compare with Earlier Run`, and `Run Dossier`
+    - `source .venv/bin/activate && python -m pytest -q api/tests/test_health.py` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `git diff --check` passed after promotion
+  - residual risk:
+    - broader report preview availability checks still fail outside this copy-only task: discovery/authenticated/adaptive report preview flows can leave the markdown preview button disabled or keep the reader on the placeholder
+    - this slice intentionally did not change report preview availability, report generation/export, backend report APIs, or PDF generation
+
 - 2026-05-02: completed backlog-170 `Replace editable actor text input in topbar with a proper identity display pill`:
   - removed the hidden/editable `#actor-input` from the topbar actor pill and made the topbar show a read-only operator name, role badge, and actor-derived avatar initial
   - routed operator actor changes through Settings > Instance (`instance.operator_display_name`) while preserving localStorage persistence and the existing `X-Actor` fallback API behavior

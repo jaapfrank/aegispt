@@ -162,20 +162,20 @@ export function createReportsModule() {
       dom.reportActions.innerHTML = "";
       if (!state.reportPreview) {
         dom.reportPreview.textContent = state.selectedRun
-          ? "No report preview loaded yet. Generate a markdown or HTML preview for the selected run."
-          : "No report preview is available yet. Create a mission first, then generate a preview from the selected run.";
+          ? "Select a report card, then generate a preview for this run."
+          : "Create a mission, then generate a report preview for its run.";
       }
       if (!state.reportHtml) {
         dom.reportFrame.srcdoc = reportPlaceholder(
           state.selectedRun
-            ? "No HTML report preview loaded."
-            : "Create a mission first, then generate an HTML report preview from the selected run."
+            ? "Select a report card, then generate an HTML preview here."
+            : "Create a mission, then generate an HTML report preview here."
         );
       }
       dom.reportCompare.innerHTML = emptyState(
         state.selectedRun
-          ? "Choose a current and baseline run to compare report posture."
-          : "Create at least two run dossiers before comparing report posture."
+          ? "Select a previous run to compare findings, coverage, and risk score changes."
+          : "Create a second run, then compare findings, coverage, and risk score changes."
       );
       return;
     }
@@ -371,17 +371,17 @@ export function createReportsModule() {
 
     if (state.loading.reportPreview) {
       dom.reportPreview.textContent = "Generating report preview...";
-      dom.reportFrame.srcdoc = reportPlaceholder("Generating HTML preview…", "color:#182535");
+      dom.reportFrame.srcdoc = reportPlaceholder("Generating HTML preview...", "color:#182535");
     } else if (!state.reportPreview) {
       dom.reportPreview.textContent =
-        "Generate a markdown preview to inspect the selected report variant here.";
+        "Generate a markdown preview to review this report here.";
     } else {
       dom.reportPreview.textContent = state.reportPreview;
     }
 
     if (!state.loading.reportPreview && !state.reportHtml) {
       dom.reportFrame.srcdoc = reportPlaceholder(
-        "Generate an HTML preview to render the report here.",
+        "Generate an HTML preview to review the rendered report here.",
         "color:#182535"
       );
     }
@@ -459,13 +459,13 @@ export function createReportsModule() {
       state.comparisonBaselineRunId
     );
     if (!comparison) {
-      return emptyState("Select a baseline run in History & Comparison to compare report posture.");
+      return emptyState("Select a previous run to compare findings, coverage, and risk score changes.");
     }
     return `
       <h4>${escapeHtml(selectedReport.title)}</h4>
-      <p>${escapeHtml(`${comparison.newCount} new findings · ${comparison.resolvedCount || comparison.fixedCount} resolved since the baseline run`)}</p>
+      <p>${escapeHtml(`${comparison.newCount} new findings · ${comparison.resolvedCount || comparison.fixedCount} resolved since the previous run`)}</p>
       <p>${escapeHtml(`${comparison.persistingCount} persistent · ${comparison.changedCount || 0} changed · ${comparison.worsenedCount} worsened`)}</p>
-      <p class="micro-copy">${escapeHtml(`Pack changed: ${comparison.packChanged ? "yes" : "no"} · baseline ${comparison.baselineLabel}`)}</p>
+      <p class="micro-copy">${escapeHtml(`Pack changed: ${comparison.packChanged ? "yes" : "no"} · previous run ${comparison.baselineLabel}`)}</p>
       ${renderReportContinuousTrendDelta(comparison)}
     `;
   }
@@ -526,8 +526,8 @@ export function createReportsModule() {
 
     dom.reportDossierContext.innerHTML = `
       <div class="section-note" data-testid="report-dossier-orientation">
-        <strong>Topbar + dossier tab now carry engagement orientation</strong>
-        <p>Customer, engagement, ROE, and selected-run context stay attached to this surface so operators do not need to bounce through Explorer before exporting or comparing.</p>
+        <strong>Engagement orientation</strong>
+        <p>Customer, engagement, ROE, and selected-run context are available here before export or comparison.</p>
       </div>
       ${renderBadgeList(
         [
@@ -546,7 +546,7 @@ export function createReportsModule() {
       </div>
       <div class="panel-actions split-top">
         <button class="action ghost" type="button" data-report-center-view="reports" data-testid="report-dossier-open-reports">Open Reports</button>
-        <button class="action ghost" type="button" data-nav-screen="explorer" data-testid="report-dossier-open-explorer">Open Explorer Compatibility</button>
+        <button class="action ghost" type="button" data-nav-screen="explorer" data-testid="report-dossier-open-explorer">Open Explorer</button>
         <button class="action ghost" type="button" data-nav-screen="history">Open History</button>
       </div>
     `;
@@ -703,8 +703,8 @@ function renderReportRunDossierContext(selectedReport, executionPlan, followUp, 
   return `
     <section class="detail-surface split-top" data-testid="report-run-dossier-context">
       <div class="section-note">
-        <strong>Run dossier context is consolidated here</strong>
-        <p>Report Center now carries the practical Explorer dossier summary needed before export, so operators can review scope, evidence, access context, inventory, and report readiness without switching surfaces.</p>
+        <strong>Run dossier context</strong>
+        <p>Review scope, evidence, access context, inventory, and report readiness before export.</p>
       </div>
       ${renderBadgeList([
         run.status,
