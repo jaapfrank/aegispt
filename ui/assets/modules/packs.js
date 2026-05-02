@@ -36,6 +36,31 @@ function shortId(value) {
   return value ? String(value).slice(0, 8) : "Not recorded";
 }
 
+function findOperatorSettingValue(key) {
+  const sections = Array.isArray(state.operatorSettings?.sections) ? state.operatorSettings.sections : [];
+  for (const section of sections) {
+    const settings = Array.isArray(section?.settings) ? section.settings : [];
+    const match = settings.find((setting) => String(setting?.key || "") === String(key || ""));
+    if (match) return match.value;
+  }
+  return null;
+}
+
+function buildLaneModeEnabled() {
+  const value = findOperatorSettingValue("instance.build_lane_mode");
+  if (typeof value === "boolean") return value;
+  return ["true", "1", "yes", "on"].includes(String(value || "").trim().toLowerCase());
+}
+
+function setBuildLanePanelVisibility() {
+  const enabled = buildLaneModeEnabled();
+  document.querySelectorAll(".pack-codex-panel").forEach((panel) => {
+    panel.classList.toggle("hidden", !enabled);
+    panel.setAttribute("aria-hidden", enabled ? "false" : "true");
+  });
+  return enabled;
+}
+
 function toneForStatus(status) {
   const normalized = String(status || "pending").toLowerCase();
   if (
@@ -619,8 +644,20 @@ export function createPacksModule() {
   }
 
   function renderPackForge() {
+    const buildLaneEnabled = setBuildLanePanelVisibility();
+
     renderAdaptiveForm();
-    renderCodexTaskForm();
+    if (buildLaneEnabled) {
+      renderCodexTaskForm();
+    } else {
+      dom.codexTaskForm.innerHTML = "";
+      dom.codexTaskForm.onsubmit = null;
+      dom.prepareCodexTaskBtn.disabled = true;
+      dom.codexSuggestions.innerHTML = "";
+      dom.codexPackPreview.innerHTML = "";
+      dom.codexContext.innerHTML = "";
+      dom.codexTaskResult.innerHTML = "";
+    }
 
     if (!state.selectedPackBundle) {
       dom.validatePackBtn.disabled = true;
@@ -632,17 +669,19 @@ export function createPacksModule() {
       dom.packForgeDetail.innerHTML = emptyState(
         "Pack artifacts, validations, approvals, deployments, and build-lane tasks appear here."
       );
-      dom.codexSuggestions.innerHTML = emptyState(
-        "Operator suggestions appear once a pack and optional build-lane task are linked."
-      );
-      dom.codexPackPreview.innerHTML = emptyState(
-        "Generated pack previews appear once a review bundle is available."
-      );
-      dom.codexContext.innerHTML = emptyState("Build-lane context is available once a pack is selected.");
-      dom.codexTaskResult.innerHTML = emptyState(
-        "Prepared task output appears here."
-      );
-      dom.prepareCodexTaskBtn.disabled = true;
+      if (buildLaneEnabled) {
+        dom.codexSuggestions.innerHTML = emptyState(
+          "Operator suggestions appear once a pack and optional build-lane task are linked."
+        );
+        dom.codexPackPreview.innerHTML = emptyState(
+          "Generated pack previews appear once a review bundle is available."
+        );
+        dom.codexContext.innerHTML = emptyState("Build-lane context is available once a pack is selected.");
+        dom.codexTaskResult.innerHTML = emptyState(
+          "Prepared task output appears here."
+        );
+        dom.prepareCodexTaskBtn.disabled = true;
+      }
       return;
     }
 
@@ -659,7 +698,7 @@ export function createPacksModule() {
       actionBusy || !["validated", "approved", "deployed"].includes(bundle.pack.status);
     dom.deployPackBtn.disabled =
       actionBusy || !["approved", "deployed"].includes(bundle.pack.status);
-    dom.prepareCodexTaskBtn.disabled = actionBusy || !relatedCodexTasks.length;
+    dom.prepareCodexTaskBtn.disabled = !buildLaneEnabled || actionBusy || !relatedCodexTasks.length;
 
     dom.packSummary.innerHTML = renderPackSummary(bundle, relatedCodexTasks, busyAction);
     dom.packForgeDetail.innerHTML = renderPackRegistry(bundle, relatedCodexTasks);
@@ -672,17 +711,19 @@ export function createPacksModule() {
       });
     });
 
-    renderCodexSuggestions(bundle, relatedCodexTasks);
-    renderCodexPackPreview(bundle);
-    renderCodexContext(bundle);
-    renderCodexTaskResult(bundle);
-    dom.codexTaskResult.querySelector("[data-stage-codex-reimport]")?.addEventListener("click", async () => {
-      try {
-        await stageCodexReimport(bundle);
-      } catch (error) {
-        runtime.actions.pushStatus?.(error.message || "Unable to stage build-lane reimport.", "error");
-      }
-    });
+    if (buildLaneEnabled) {
+      renderCodexSuggestions(bundle, relatedCodexTasks);
+      renderCodexPackPreview(bundle);
+      renderCodexContext(bundle);
+      renderCodexTaskResult(bundle);
+      dom.codexTaskResult.querySelector("[data-stage-codex-reimport]")?.addEventListener("click", async () => {
+        try {
+          await stageCodexReimport(bundle);
+        } catch (error) {
+          runtime.actions.pushStatus?.(error.message || "Unable to stage build-lane reimport.", "error");
+        }
+      });
+    }
   }
 
   function renderAdaptiveForm() {

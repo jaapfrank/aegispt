@@ -78,6 +78,73 @@ def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
     expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
 
 
+def test_pack_forge_build_lane_panels_are_gated_by_developer_mode(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-packs").click()
+    expect(loaded_page.get_by_test_id("screen-pack-forge")).to_be_visible()
+
+    expect(loaded_page.locator("#adaptive-form")).to_be_visible()
+    expect(loaded_page.get_by_test_id("pack-summary")).to_be_visible()
+    expect(loaded_page.get_by_test_id("validate-pack")).to_be_visible()
+    expect(loaded_page.get_by_test_id("approve-pack")).to_be_visible()
+    expect(loaded_page.get_by_test_id("deploy-pack")).to_be_visible()
+    expect(loaded_page.locator("#pack-forge-detail")).to_be_visible()
+
+    expect(loaded_page.get_by_test_id("pack-build-lane-task-planner")).not_to_be_visible()
+    expect(loaded_page.get_by_test_id("pack-build-lane-output")).not_to_be_visible()
+    expect(loaded_page.locator("#codex-task-form")).not_to_be_visible()
+    expect(loaded_page.get_by_test_id("prepare-codex-task")).not_to_be_visible()
+    expect(loaded_page.get_by_test_id("codex-suggestions")).not_to_be_visible()
+    expect(loaded_page.get_by_test_id("codex-pack-preview")).not_to_be_visible()
+    expect(loaded_page.get_by_test_id("codex-context")).not_to_be_visible()
+    expect(loaded_page.get_by_test_id("codex-task-result")).not_to_be_visible()
+
+    loaded_page.get_by_test_id("nav-settings").click()
+    instance_panel = loaded_page.get_by_test_id("settings-instance")
+    instance_panel.locator("summary").click()
+    expect(loaded_page.get_by_test_id("setting-instance-build-lane-mode")).to_be_visible()
+    expect(loaded_page.locator("[data-setting-key='instance.build_lane_mode']")).to_have_attribute(
+        "type", "checkbox"
+    )
+
+    loaded_page.get_by_test_id("nav-packs").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const packsModule = await import('/app/assets/modules/packs.js');
+          const { state, patchState } = runtimeModule;
+          const payload = state.operatorSettings || { tenant_id: 'default', sections: [] };
+          const sections = JSON.parse(JSON.stringify(payload.sections || []));
+          let instance = sections.find((section) => section.id === 'instance');
+          if (!instance) {
+            instance = { id: 'instance', title: 'Instance', description: '', settings: [] };
+            sections.push(instance);
+          }
+          let setting = (instance.settings || []).find((item) => item.key === 'instance.build_lane_mode');
+          if (!setting) {
+            setting = {
+              key: 'instance.build_lane_mode',
+              label: 'Developer build-lane mode',
+              input_type: 'checkbox',
+              value: false,
+              source: 'test',
+              description: ''
+            };
+            instance.settings = [...(instance.settings || []), setting];
+          }
+          setting.value = true;
+          patchState({ operatorSettings: { ...payload, sections } }, 'ui.test.buildLaneMode');
+          packsModule.createPacksModule().renderPackForge();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("pack-build-lane-task-planner")).to_be_visible()
+    expect(loaded_page.get_by_test_id("pack-build-lane-output")).to_be_visible()
+    expect(loaded_page.locator("#codex-task-form")).to_be_visible()
+    expect(loaded_page.get_by_test_id("prepare-codex-task")).to_be_visible()
+
+
 def test_wizard_heading_is_recommended_intake_not_mandatory_gate(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-wizard").click()
 

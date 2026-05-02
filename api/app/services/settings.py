@@ -644,6 +644,17 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
         read_only=True,
     ),
     SettingDefinition(
+        key="instance.build_lane_mode",
+        section_id="instance",
+        label="Developer build-lane mode",
+        input_type="checkbox",
+        default_value=lambda _settings, _tenant_id: False,
+        description=(
+            "Shows supervised Codex build-lane panels in Pack Forge for development and review operators. "
+            "Keep off for normal pentest operation."
+        ),
+    ),
+    SettingDefinition(
         key="instance.onboarding_completed",
         section_id="instance",
         label="Onboarding completed",

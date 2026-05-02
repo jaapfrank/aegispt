@@ -2,27 +2,27 @@
 
 ## Title
 
-Hide Pack Forge 'Build Lane / Task Planner' Codex section from default operator-facing navigation
+Replace editable actor text input in topbar with a proper identity display pill
 
 ## Promoted From
 
-`codex/tasks/backlog-169-pack-forge-codex-lane-operator-visibility.json`
+`codex/tasks/backlog-170-actor-input-identity-display.json`
 
 ## Goal
 
-Hide developer-facing Codex build-lane panels from the default operator Pack Forge experience while keeping operator pack lifecycle controls visible and functional.
+Replace the live-editable topbar actor input with a read-only identity display while keeping actor identity changes routed through Settings.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-169-pack-forge-codex-lane-operator-visibility.json`.
+Implement the active backlog package `codex/tasks/backlog-170-actor-input-identity-display.json`.
 
 Expected slice:
 
-- find the Pack Forge Codex/build-lane panel render path in `ui/index.html`, `ui/assets/modules/packs.js`, or `ui/assets/app.js`
-- hide Codex build-lane/task-planner panels by default for normal operators
-- keep Adaptive Planning, Pack Summary, Registry, validation, approval, and deployment controls visible
-- keep Codex panels accessible only when an explicit developer/build-lane mode setting is enabled
-- avoid removing Codex backend functionality or changing pack lifecycle behavior
+- find the topbar actor input/display path in `ui/index.html`, `ui/assets/app.js`, or `ui/assets/modules/settings.js`
+- replace the topbar editable actor input with read-only actor name and role display
+- make the avatar initial reflect the current actor name instead of a hardcoded value
+- preserve actor persistence and x_actor_fallback behavior
+- route operator-visible actor-name changes through Settings > Instance / shell identity
 
 ## Constraints
 
@@ -30,23 +30,25 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Do not remove Codex functionality.
-- Do not change Codex task generation backend behavior.
-- Do not change pack validation, approval, deployment, or runtime-binding logic.
-- Do not broadly redesign Pack Forge.
+- Do not implement full authentication/login or RBAC backend enforcement.
+- Do not change approval gate logic.
+- Do not remove the API actor header mechanism.
+- Do not make the topbar actor area editable.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused UI/E2E coverage proving default Pack Forge hides Codex panels and developer/build-lane mode exposes them
-- Pack lifecycle regression coverage where relevant
+- Focused UI/E2E coverage proving no topbar actor input remains and the read-only display/role badge/avatar initial render correctly
+- Settings coverage proving actor name can be changed from Settings > Instance / shell identity and the topbar updates
+- Actor-dependent approval gate regression coverage where relevant
 - Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- Default Pack Forge view shows operator-facing Adaptive Planning, Pack Summary, and Registry/lifecycle panels.
-- Codex task form, prepare button, suggestions, pack preview, context, and task result panels are hidden unless build-lane/developer mode is enabled.
-- Pack validate, approve, and deploy controls remain visible and usable for operators.
-- No regression in pack lifecycle tests.
+- No `<input>` element remains in the topbar actor area.
+- Topbar actor name and role badge are readable, non-editable, and correct.
+- Avatar initial updates from the current actor name.
+- Actor name remains changeable from Settings > Instance / shell identity.
+- x_actor_fallback and actor-dependent approval gate behavior do not regress.

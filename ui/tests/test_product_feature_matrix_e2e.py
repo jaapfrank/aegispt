@@ -1771,6 +1771,13 @@ def test_pack_forge_surfaces_codex_suggestions_preview_and_prepared_task(
     page: Page, operator_console_base_url: str
 ) -> None:
     seeded = _seed_bound_adaptive_run(operator_console_base_url)
+    _api_json(
+        operator_console_base_url,
+        "/api/v1/settings",
+        method="PATCH",
+        actor="codex-planner",
+        body={"settings": {"instance.build_lane_mode": True}},
+    )
     generation_reason = "Refine the bound adaptive pack before any future runtime promotion."
     _api_json(
         operator_console_base_url,

@@ -8923,3 +8923,35 @@
   - remaining risks:
     - this slice does not redesign topbar/navigation, wizard step logic, dispatch, cancellation, backend APIs, pack registry, approval, deployment, or runtime binding
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-169 `Hide Pack Forge 'Build Lane / Task Planner' Codex section from default operator-facing navigation`
+
+- 2026-05-02: completed backlog-169 `Hide Pack Forge 'Build Lane / Task Planner' Codex section from default operator-facing navigation`:
+  - rationale:
+    - Pack Forge should present operator-facing adaptive pack planning and lifecycle controls by default, not internal Codex build-lane infrastructure
+    - the safest slice was to add a default-off Settings gate around the existing Codex panels while preserving all pack lifecycle and Codex backend behavior
+  - implementation:
+    - added Settings > Instance `instance.build_lane_mode`, a non-hidden checkbox that defaults to false
+    - marked the Pack Forge Task Planner and Build Lane Output articles as `.pack-codex-panel`
+    - updated `renderPackForge()` to hide and clear Codex task form, prepare button, suggestions, pack preview, context, and task result by default
+    - kept Adaptive Planning, Pack Summary, Registry, and validate/approve/deploy controls outside the build-lane gate
+    - kept the existing Codex Pack Forge product test by explicitly enabling build-lane mode before asserting Codex internals
+  - files:
+    - `api/app/services/settings.py`
+    - `ui/index.html`
+    - `ui/assets/modules/packs.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `ui/tests/test_product_feature_matrix_e2e.py`
+    - `codex/results/backlog-169-pack-forge-codex-lane-operator-visibility-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_settings.py`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_pack_forge_build_lane_panels_are_gated_by_developer_mode`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_product_feature_matrix_e2e.py::test_pack_forge_surfaces_codex_suggestions_preview_and_prepared_task`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_product_feature_matrix.py::test_adaptive_pack_pipeline_binds_to_run_and_exports_reports_end_to_end`
+    - live Playwright browser check against `http://127.0.0.1:8000/app/`
+    - `git diff --check`
+  - not claimed green:
+    - exact normal-capture commands including `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` still hit the known host-level pytest capture teardown `FileNotFoundError`; equivalent checks passed with `-s`
+  - remaining risks:
+    - this slice does not redesign Pack Forge copy, remove Codex functionality, or change pack validation, approval, deployment, runtime binding, or Codex task generation
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-170 `Replace editable actor text input in topbar with a proper identity display pill`
