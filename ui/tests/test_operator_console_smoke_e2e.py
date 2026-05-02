@@ -955,24 +955,28 @@ def test_mission_control_phase_badges_expose_nfir_tooltips(loaded_page: Page) ->
                     key: 'phase-1',
                     label: 'Phase 1 · Passive Discovery',
                     status: 'completed',
+                    authorization_state: { status: 'pre_authorized', label: 'Pre-authorized at launch' },
                     steps: [{ profile_name: 'passive-network-discovery', status: 'completed' }],
                   },
                   {
                     key: 'phase-2',
                     label: 'Phase 2 · Active Enrichment',
                     status: 'active',
+                    authorization_state: { status: 'auto_advancing', label: 'Auto-advance authorized' },
                     steps: [{ profile_name: 'passive-web-nuclei-audit', tool: 'nuclei', status: 'running' }],
                   },
                   {
                     key: 'phase-3',
                     label: 'Phase 3 · Intrusive Credential Validation',
                     status: 'pending',
+                    authorization_state: { status: 'waiting_on_prerequisite', label: 'Waiting on prerequisite' },
                     steps: [{ profile_name: 'active-ad-kerberoast', tool: 'bloodhound', status: 'pending' }],
                   },
                   {
                     key: 'phase-4',
                     label: 'Phase 4 · Intrusive Exploitation',
                     status: 'pending',
+                    authorization_state: { status: 'manual_approval_required', label: 'Manual exploitation approval required' },
                     steps: [{ profile_name: 'intrusive-exploitation', tool: 'metasploit', status: 'pending' }],
                   },
                 ],
@@ -988,6 +992,10 @@ def test_mission_control_phase_badges_expose_nfir_tooltips(loaded_page: Page) ->
     expect(phase_cards.first).to_have_attribute("data-nfir-phase-label", "NFIR Phase 2 - Intelligence Gathering")
     expect(phase_cards.nth(1)).to_have_attribute("data-nfir-phase-label", "NFIR Phase 3 - Vulnerability Analysis")
     expect(phase_cards.nth(2)).to_have_attribute("data-nfir-phase-label", "NFIR Phase 5 - Post-Exploitation")
+    expect(phase_cards.first).to_have_attribute("data-phase-auth-status", "pre_authorized")
+    expect(phase_cards.nth(1)).to_have_attribute("data-phase-auth-status", "auto_advancing")
+    expect(phase_cards.nth(3)).to_have_attribute("data-phase-auth-status", "manual_approval_required")
+    expect(phase_cards.nth(3)).to_contain_text("Manual exploitation approval required")
     expect(phase_cards.nth(3)).to_have_attribute("title", re.compile("NFIR mapping: NFIR Phase 4"))
 
 

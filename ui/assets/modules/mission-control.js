@@ -373,7 +373,14 @@ export function createMissionModule() {
     const nextStep =
       steps.find((step) => !["completed", "skipped"].includes(String(step?.status || "").toLowerCase())) || null;
     const normalizedStatus = String(phase?.status || "pending").toLowerCase();
+    const authorization = phase?.authorization_state || {};
+    const authLabel = String(authorization.label || "").trim();
+    const gateReason = String(phase?.gate_reason || authorization.gate_reason || "").trim();
+    const safeNextAction = String(phase?.safe_next_action || authorization.safe_next_action || "").trim();
     if (normalizedStatus === "pending_approval") {
+      if (gateReason) {
+        return `${authLabel || "Manual approval required"}: ${gateReason}`;
+      }
       return `${plannedCount} planned runner${plannedCount === 1 ? "" : "s"} ready. Approval starts ${nextStep?.profile_name || "the next step"}.`;
     }
     if (["completed", "completed_with_gaps"].includes(normalizedStatus)) {
@@ -382,6 +389,9 @@ export function createMissionModule() {
         : "Phase completed.";
     }
     if (normalizedStatus === "active") {
+      if (authLabel && safeNextAction) {
+        return `${authLabel}. ${safeNextAction}`;
+      }
       return plannedCount
         ? `${resolvedCount} of ${plannedCount} runner${plannedCount === 1 ? "" : "s"} resolved${counts.running ? ` · ${counts.running} running` : ""}.`
         : "Phase is active.";
@@ -512,6 +522,10 @@ export function createMissionModule() {
                       progress: assessmentChainPhaseProgress(chainPhase),
                       elapsed: formatElapsedMinutes(chainPhase.started_at || chain?.created_at, 0),
                       summary: assessmentChainPhaseSummary(chainPhase),
+                      authorizationStatus: chainPhase.authorization_state?.status || "",
+                      authorizationLabel: chainPhase.authorization_state?.label || "",
+                      gateReason: chainPhase.gate_reason || chainPhase.authorization_state?.gate_reason || "",
+                      safeNextAction: chainPhase.safe_next_action || chainPhase.authorization_state?.safe_next_action || "",
                       nfirPhase: nfirPhaseForAssessmentChainPhase(chainPhase),
                     })
                   )
@@ -528,8 +542,19 @@ export function createMissionModule() {
                 <div><span>Current Phase</span><strong>${escapeHtml(phase.label || "Unknown phase")}</strong></div>
                 <div><span>Tier</span><strong>${escapeHtml(capitalizeWord(phase.tier || "unknown"))}</strong></div>
                 <div><span>Boundary</span><strong>${escapeHtml(String(phase.status || "pending").replaceAll("_", " "))}</strong></div>
+                <div><span>Authorization</span><strong>${escapeHtml(phase.authorization_state?.label || "Not classified")}</strong></div>
                 <div><span>Current Run</span><strong>${escapeHtml(chain.current_run_id || chain.last_completed_run_id || "No active run")}</strong></div>
               </div>
+              ${
+                phase.gate_reason || phase.safe_next_action
+                  ? `
+                    <div class="callout warning split-top" data-testid="assessment-chain-gate-reason">
+                      ${phase.gate_reason ? `<strong>${escapeHtml(phase.gate_reason)}</strong>` : ""}
+                      ${phase.safe_next_action ? `<span>${escapeHtml(`Safe next action: ${phase.safe_next_action}`)}</span>` : ""}
+                    </div>
+                  `
+                  : ""
+              }
               ${renderAssessmentChainPhaseDetail(phase)}
             `
             : ""
@@ -1169,7 +1194,20 @@ export function createMissionModule() {
 
   function renderPhaseCard(phase) {
     const nfirPhase = String(phase.nfirPhase || "").trim();
-    const tooltip = [phase.summary, nfirPhase ? `NFIR mapping: ${nfirPhase}` : null]
+    const authorizationStatus = String(phase.authorizationStatus || "").trim();
+    const authorizationLabel = String(phase.authorizationLabel || "").trim();
+    const detailLine = [
+      statusLabelForPhase(phase.status),
+      authorizationLabel || null,
+      `Elapsed ${phase.elapsed}`,
+    ].filter(Boolean).join(" · ");
+    const tooltip = [
+      phase.summary,
+      authorizationLabel || null,
+      phase.gateReason ? `Gate: ${phase.gateReason}` : null,
+      phase.safeNextAction ? `Safe next action: ${phase.safeNextAction}` : null,
+      nfirPhase ? `NFIR mapping: ${nfirPhase}` : null,
+    ]
       .filter(Boolean)
       .join(" | ");
     return `
@@ -1177,6 +1215,7 @@ export function createMissionModule() {
         class="mission-phase-step ${escapeHtml(phase.status)}"
         style="--phase-progress:${phase.progress}%"
         data-testid="mission-phase-card"
+        ${authorizationStatus ? `data-phase-auth-status="${escapeHtml(authorizationStatus)}"` : ""}
         ${nfirPhase ? `data-nfir-phase-label="${escapeHtml(nfirPhase)}"` : ""}
         title="${escapeHtml(tooltip)}"
       >
@@ -1185,7 +1224,7 @@ export function createMissionModule() {
         </div>
         <div class="mission-phase-step-copy">
           <strong>${escapeHtml(phase.label)}</strong>
-          <span>${escapeHtml(statusLabelForPhase(phase.status))} · ${escapeHtml(`Elapsed ${phase.elapsed}`)}</span>
+          <span>${escapeHtml(detailLine)}</span>
         </div>
       </div>
     `;
@@ -1258,14 +1297,17 @@ export function createMissionModule() {
       run?.configuration_json?.test_profile === "Internal Validation";
 
     if (assessmentChain && String(assessmentChain.status || "").toLowerCase() === "pending_phase_approval" && chainPhase) {
+      const authorization = chainPhase.authorization_state || {};
+      const gateReason = String(chainPhase.gate_reason || authorization.gate_reason || "").trim();
+      const safeNextAction = String(chainPhase.safe_next_action || authorization.safe_next_action || "").trim();
       return {
         title: `${chainPhase.label} is waiting for approval`,
         status: "blocked",
         health: "Phase boundary",
         next: "Approve, reject, or halt this tier",
-        summary: `${assessmentModeLabel(assessmentChain.assessment_mode)} stopped at a higher-tier boundary before ${chainPhase.label.toLowerCase()} can begin.`,
-        why: "Assessment Mode removes per-run launch clicks, but it still requires an explicit operator decision when the next phase becomes more intrusive or reaches an exploitation gate.",
-        expectation: "Use the chain controls below to approve the next phase, reject it, or halt the chain cleanly at this boundary.",
+        summary: gateReason || `${assessmentModeLabel(assessmentChain.assessment_mode)} stopped at a higher-tier boundary before ${chainPhase.label.toLowerCase()} can begin.`,
+        why: gateReason || "Assessment Mode removes per-run launch clicks, but it still requires an explicit operator decision when the next phase becomes more intrusive or reaches an exploitation gate.",
+        expectation: safeNextAction || "Use the chain controls below to approve the next phase, reject it, or halt the chain cleanly at this boundary.",
         primaryAction: { label: "Stay in Mission Control", screen: "mission-control" },
         secondaryAction: { label: "Open Run Dossier", screen: "explorer" },
       };

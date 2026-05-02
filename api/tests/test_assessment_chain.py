@@ -87,8 +87,15 @@ def _with_chain_authorization(
     confirmation_target: str = "10.0.20.0/24",
     typed_scope_confirmation: str | None = None,
     confirmed_scope: str = "10.0.20.0/24, 10.0.20.25, dc01.corp.example",
+    exploit_confirmation_authorized: bool = False,
 ) -> dict:
-    payload = dict(configuration)
+    payload = copy.deepcopy(configuration)
+    access = dict(payload.get("access") or {})
+    prerequisites = dict(access.get("prerequisites") or {})
+    prerequisites["intrusive_lan_authorized"] = level == "full"
+    prerequisites["exploit_confirmation_authorized"] = bool(exploit_confirmation_authorized)
+    access["prerequisites"] = prerequisites
+    payload["access"] = access
     payload["assessment_mode"] = {
         "enabled": True,
         "mode": mode,
@@ -96,6 +103,8 @@ def _with_chain_authorization(
         "confirmation_target": confirmation_target,
         "typed_scope_confirmation": typed_scope_confirmation or "",
         "confirmed_scope": confirmed_scope,
+        "intrusive_lan_authorized": prerequisites["intrusive_lan_authorized"],
+        "exploit_confirmation_authorized": prerequisites["exploit_confirmation_authorized"],
     }
     return payload
 
@@ -219,6 +228,55 @@ def test_assessment_chain_phase_approval_queues_next_phase_once(client) -> None:
     assert queued_run["status"] == "queued"
     assert queued_run["pending_approvals"] == 0
     assert queued_run["assessment_chain"]["current_run_id"] == queued_run["id"]
+
+
+def test_full_authorization_auto_advances_pre_authorized_non_exploitation_phase(client) -> None:
+    engagement_id = _create_engagement_with_assessment_chain_scope(client)
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-identity-ldap-enum",
+            "assessment_mode": "FULL-AD-ASSESSMENT",
+            "assessment_auto_advance_on_phase_complete": True,
+            "configuration_json": _with_chain_authorization(
+                _assessment_chain_configuration(),
+                level="full",
+                mode="FULL-AD-ASSESSMENT",
+                typed_scope_confirmation="10.0.20.0/24",
+            ),
+        },
+    )
+    assert create_response.status_code == 201
+    created_run = create_response.json()
+
+    with client.app.state.session_factory() as session:
+        run = session.get(Run, UUID(created_run["id"]))
+        assert run is not None
+        run.status = "completed"
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=run.id,
+            actor="runner:ldap-enum",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None
+        assert chain.status == "active"
+        assert chain.current_phase_index == 1
+        assert chain.current_run_id is not None
+        assert chain.phases_json[1]["key"] == "directory-enumeration"
+        assert chain.phases_json[1]["status"] == "active"
+        assert chain.phases_json[1]["approved_by"] == "operator"
+        queued_run = session.get(Run, chain.current_run_id)
+        assert queued_run is not None and queued_run.profile is not None
+        assert queued_run.profile.name == "active-ad-bloodhound"
+
+        serialized = assessment_chain_service.build_assessment_chain_summary(chain)
+        phase_state = serialized["phases"][1]["authorization_state"]
+        assert phase_state["status"] == "pre_authorized"
+        assert phase_state["pre_authorized"] is True
 
 
 def test_internal_lan_chain_service_enumeration_uses_discovered_hosts(client) -> None:
@@ -629,7 +687,7 @@ def test_assessment_chain_full_authorization_requires_typed_target_confirmation(
     assert response.json()["detail"] == "full authorization requires typed target confirmation"
 
 
-def test_assessment_chain_full_authorization_audits_scope_and_auto_starts_exploitation(client) -> None:
+def test_assessment_chain_full_authorization_audits_scope_and_keeps_exploitation_gated(client) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
     create_response = client.post(
         f"/api/v1/engagements/{engagement_id}/runs",
@@ -661,7 +719,86 @@ def test_assessment_chain_full_authorization_audits_scope_and_auto_starts_exploi
         assert audit_event.actor == "operator"
         assert audit_event.metadata_json["authorization_level"] == "full"
         assert audit_event.metadata_json["confirmed_scope"] == "10.0.20.0/24, 10.0.20.25, dc01.corp.example"
+        assert audit_event.metadata_json["intrusive_lan_authorized"] is True
+        assert audit_event.metadata_json["exploit_confirmation_authorized"] is False
 
+        chain = load_assessment_chain(session, chain_id)
+        assert chain is not None
+        profile = session.scalar(
+            select(RunProfile).where(RunProfile.name == "intrusive-ad-password-spray")
+        )
+        assert profile is not None
+
+        phases = copy.deepcopy(chain.phases_json or [])
+        for index in range(2):
+            phases[index]["status"] = "completed"
+            phases[index]["completed_at"] = "2026-04-24T00:00:00+00:00"
+        for step in phases[2]["steps"][:-1]:
+            step["status"] = "completed"
+            step["run_id"] = "completed-step"
+
+        run = Run(
+            engagement_id=chain.engagement_id,
+            assessment_chain_id=chain.id,
+            profile_id=profile.id,
+            requested_by="operator",
+            status="completed",
+            configuration_json=_assessment_chain_configuration(),
+        )
+        session.add(run)
+        session.flush()
+
+        phases[2]["status"] = "active"
+        phases[2]["approved_by"] = "operator"
+        phases[2]["approved_at"] = "2026-04-24T00:00:00+00:00"
+        phases[2]["steps"][-1]["status"] = "running"
+        phases[2]["steps"][-1]["run_id"] = str(run.id)
+        chain.current_phase_index = 2
+        chain.current_step_index = len(phases[2]["steps"]) - 1
+        chain.current_run_id = run.id
+        chain.phases_json = phases
+
+        advanced_chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=run.id,
+            actor="runner:credential-attacks",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert advanced_chain is not None
+        assert advanced_chain.status == "pending_phase_approval"
+        assert advanced_chain.current_phase_index == 3
+        assert advanced_chain.current_run_id is None
+        assert advanced_chain.phases_json[3]["key"] == "intrusive-exploitation"
+        assert advanced_chain.phases_json[3]["status"] == "pending_approval"
+        serialized = assessment_chain_service.build_assessment_chain_summary(advanced_chain)
+        exploitation_state = serialized["phases"][3]["authorization_state"]
+        assert exploitation_state["status"] == "manual_approval_required"
+        assert "explicit exploit-confirmation" in exploitation_state["gate_reason"]
+
+
+def test_assessment_chain_full_authorization_with_exploit_unlocker_auto_starts_exploitation(client) -> None:
+    engagement_id = _create_engagement_with_assessment_chain_scope(client)
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-network-discovery",
+            "assessment_mode": "FULL-INTERNAL-LAN",
+            "assessment_auto_advance_on_phase_complete": True,
+            "configuration_json": _with_chain_authorization(
+                _assessment_chain_configuration(),
+                level="full",
+                typed_scope_confirmation="10.0.20.0/24",
+                exploit_confirmation_authorized=True,
+            ),
+        },
+    )
+    assert create_response.status_code == 201
+    chain_id = UUID(create_response.json()["assessment_chain"]["id"])
+
+    with client.app.state.session_factory() as session:
         chain = load_assessment_chain(session, chain_id)
         assert chain is not None
         profile = session.scalar(

@@ -224,8 +224,8 @@ const AUTHORIZATION_LEVEL_OPTIONS = [
   {
     value: "full",
     label: "Full",
-    copy: "Authorize all approved phases, including Metasploit and Impacket confirmation, in one go.",
-    boundaryCopy: "Runs every planned phase automatically.",
+    copy: "Pre-authorize every non-exploitation tier; exploit confirmation also needs its own unlocker and typed scope.",
+    boundaryCopy: "Auto-runs pre-authorized phases; exploitation still shows its explicit gate unless separately unlocked.",
     tierRank: 3,
   },
 ];
@@ -2264,7 +2264,7 @@ export function createWizardModule() {
             ${fullAuth ? `
               <div class="confirm-area" data-testid="wizard-full-authorization-confirmation">
                 <div class="confirm-text">
-                  I confirm I have <strong>written authorisation</strong> from the system owner to run <strong>${escapeHtml(fullAuthCopy.confirmTools)}</strong> against <strong>${escapeHtml(target)}</strong>. AegisPT will execute every eligible runner in the authorised phases; input-dependent runners show the exact missing prerequisite if they cannot run.
+                  I confirm I have <strong>written authorisation</strong> from the system owner to run <strong>${escapeHtml(fullAuthCopy.confirmTools)}</strong> against <strong>${escapeHtml(target)}</strong>. AegisPT will execute eligible non-exploitation runners in the authorised phases; exploit confirmation still requires the explicit exploit unlocker and all evidence prerequisites.
                 </div>
                 <div class="confirm-row">
                   <input id="wizard-full-authorization-input" class="confirm-input" type="text" value="${escapeHtml(state.wizard.data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="Type target to confirm: ${escapeHtml(target)}" data-testid="wizard-full-authorization-input" />
@@ -5246,7 +5246,7 @@ function applySafetyAnswer(answer) {
               )}</p>
               <p class="micro-copy">${escapeHtml(
                 assessmentModeLabel
-                  ? "Mission Control will show the current phase boundary, auto-chain the approved steps, and ask for a fresh approval whenever the next tier becomes more intrusive."
+                  ? "Mission Control will show which phases were pre-authorized at launch, which ones auto-advance, and which gates still need credentials, evidence, scope, or exploitation approval."
                   : "After Mission Control opens, press Start Queued Checks only if the run is still queued; active runs continue automatically."
               )}</p>
             `,
@@ -6009,6 +6009,12 @@ export function buildRunConfiguration(data, estimate) {
           authorization_level: authorizationLevel,
           confirmed_scope: authorizationScopeSummary,
           confirmation_target: authorizationScopeToken || null,
+          intrusive_lan_authorized: Boolean(
+            normalizeAccessUnlockers(data.access?.prerequisites).intrusive_lan_authorized
+          ),
+          exploit_confirmation_authorized: Boolean(
+            normalizeAccessUnlockers(data.access?.prerequisites).exploit_confirmation_authorized
+          ),
           typed_scope_confirmation:
             authorizationLevel === "full"
               ? valueOrNull(data.assessment_mode?.typed_scope_confirmation)
@@ -7855,7 +7861,7 @@ function renderMissionAuthorizationSelector(data = state.wizard.data) {
           ? `
             <div class="detail-surface split-top authorization-confirm-box" data-testid="wizard-full-authorization-confirmation">
               <h4>Typed Full Authorization</h4>
-              <p>${escapeHtml(`I confirm I have written authorisation to run exploitation tools including Metasploit and Impacket against ${scopeSummary}. This will run all phases automatically.`)}</p>
+              <p>${escapeHtml(`I confirm I have written authorisation to run the full non-exploitation chain against ${scopeSummary}. Exploitation tools including Metasploit and Impacket still require the exploit unlocker, prerequisite evidence, and an explicit gate in Mission Control if that unlocker was not selected.`)}</p>
               <label class="field split-top">
                 ${fieldLabel("Type the primary approved target exactly", "This prevents accidental one-click approval of the exploitation tier.")}
                 <input id="wizard-full-authorization-input" type="text" value="${escapeHtml(data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="${escapeHtml(expectedToken || "approved target")}" data-testid="wizard-full-authorization-input" />

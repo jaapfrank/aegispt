@@ -9105,6 +9105,45 @@
     - this slice does not redesign the wizard stepper or change the separate 4-step guided intake progress copy
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-168 `Scope 'Complete Assessment Wizard' CTA: only show when there is no active engagement or the wizard is genuinely incomplete`
 
+- 2026-05-02: completed backlog-180 `Launch authorization and phase auto-advance contract`:
+  - rationale:
+    - operators should not have to approve every higher phase again when launch already recorded the intended non-exploitation depth
+    - exploitation must remain a separate explicit gate unless the launch flow recorded Full typed scope confirmation and the exploit-confirmation unlocker
+  - implementation:
+    - made assessment-chain authorization metadata durable for launch level, typed scope, intrusive LAN authorization, and exploit-confirmation authorization
+    - changed phase preauthorization so non-exploitation phases can auto-advance when already authorized, while intrusive exploitation stays blocked without the explicit exploit unlocker
+    - added serialized phase `authorization_state`, `pre_authorized`, `gate_reason`, and `safe_next_action` fields for operator-facing truth
+    - updated Mission Control phase cards and current-phase details to distinguish pre-authorized, auto-advancing, waiting-on-prerequisite, and manual-approval-required states
+    - updated Wizard authorization copy and run configuration so the exploitation boundary is clearer and carried into launch configuration
+    - updated a stale `test_list_run_profiles` expectation for the existing `passive-wifi-survey` profile so the required API validation suite can run cleanly
+  - files:
+    - `api/app/services/assessment_chain.py`
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_runs.py`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-180-launch-authorization-auto-advance-contract-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m py_compile api/app/services/assessment_chain.py api/tests/test_assessment_chain.py api/tests/test_runs.py ui/tests/test_operator_console_smoke_e2e.py`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js && node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py -s -q`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py::test_list_run_profiles -s -q`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py api/tests/test_runs.py -s -q`
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_phase_badges_expose_nfir_tooltips -s -q`
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_mission_preview_requires_typed_scope_for_full_authorization ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_phase_badges_expose_nfir_tooltips -s -q`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - live Playwright smoke against `http://127.0.0.1:8000/app/`
+    - `git diff --check`
+  - not claimed green:
+    - exact required `-q` API and UI pytest commands hit the known host-level pytest capture teardown `FileNotFoundError`; equivalent API checks and focused UI checks passed with `-s -q`
+    - the broad UI `-s -q` run was stopped after many pre-existing UI-suite failures; focused authorization/Mission Control browser checks passed
+  - remaining risks:
+    - broad UI-suite reliability remains unresolved and is not claimed fixed by this authorization slice
+    - this slice does not change pack registry, validation, deployment, runtime binding, scope enforcement, credential prerequisites, kill switch behavior, or live target behavior
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-181 `Local runtime liveness and audit harness resilience`
+
 - 2026-05-02: completed backlog-168 `Scope 'Complete Assessment Wizard' CTA: only show when there is no active engagement or the wizard is genuinely incomplete`:
   - rationale:
     - a persistent `Complete Assessment Wizard` CTA on mission review screens makes operators think they must return to intake even when a run is already queued, running, or complete

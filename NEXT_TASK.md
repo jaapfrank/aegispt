@@ -2,53 +2,51 @@
 
 ## Title
 
-Launch authorization and phase auto-advance contract
+Local runtime liveness and audit harness resilience
 
 ## Promoted From
 
-`codex/tasks/backlog-180-launch-authorization-auto-advance-contract.json`
+`codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json`
 
 ## Goal
 
-Make mission launch authorization carry through the assessment chain so operators are not forced to re-confirm every phase when they already selected and authorized the intended depth at launch.
+Make the local control plane reliable enough for enterprise acceptance testing: health checks must not hang, restart helpers must fully replace draining processes, and audit tools must write partial evidence when the app is unhealthy.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-180-launch-authorization-auto-advance-contract.json`.
+Implement the active backlog package `codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json`.
 
 Expected slice:
 
-- make Full / all-phases launch-time authorization durable and visible in chain state
-- auto-advance already-authorized non-exploitation phases when prerequisites are satisfied
-- show exact remaining gate reasons and safe next actions for missing credentials, missing evidence prerequisites, missing tools, scope expansion, intrusive exploitation, or failed runner review
-- make Wizard preview clear about which phases can auto-advance and which phase types still require manual approval
-- make Mission Control phase cards distinguish pre-authorized, auto-advancing, waiting-on-prerequisite, and manual-approval-required states
+- detect and terminate stuck draining inline hosts before restart helpers declare success
+- make `/health/live` respond or fail fast with actionable diagnostics under audit load
+- make full-system and IA audit scripts write partial evidence when health or page navigation fails
+- avoid Playwright audit dependence on perpetual `networkidle` when the app legitimately polls
+- surface healthy, degraded, shutting-down, and unreachable local runtime states where relevant
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
+- Do not bypass pack registry, validation, approval, deployment, runtime binding, scope enforcement, credential gates, or kill switch behavior.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Only fix launch-time authorization carry-through, phase auto-advance clarity, and remaining-gate explanations.
-- Do not bypass pack validation, runtime binding, scope enforcement, kill switch, credential prerequisites, or explicit exploitation authorization.
-- Do not install or execute new tools.
+- Only fix local runtime health, restart, and audit resilience.
+- Do not change assessment runner dispatch semantics.
 - Do not run live customer or intrusive targets.
-- Do not add uncontrolled autonomous execution.
-- Do not weaken explicit exploitation, credential, scope, or kill-switch gates.
+- Do not add new live-target behavior.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py api/tests/test_runs.py -q`
-- `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py ui/tests/test_operator_console_smoke_e2e.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
+- `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
+- `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live`
+- `python3 scripts/run_full_system_acceptance_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-full-system-audit.json --output-md codex/results/backlog-181-full-system-audit.md --max-seconds 180`
+- `python3 scripts/run_enterprise_ia_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-ia-audit.json --output-md codex/results/backlog-181-ia-audit.md --screenshot-dir codex/results/backlog-181-ia-screenshots`
 - `git diff --check`
-- Focused authorization/phase-chain coverage for full-depth launch, no-credentials launch, credentialed launch, and exploitation-gated launch behavior
-- Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- Full Internal LAN with launch-time authorization does not ask for redundant phase confirmations for already-authorized non-exploitation phases.
-- No-credentials missions explain credential-dependent gates instead of silently skipping or repeatedly asking for approval.
-- Intrusive exploitation remains explicitly gated unless the launch flow recorded specific exploitation authorization that satisfies the existing safety contract.
-- Mission Control shows what is authorized, what is next, and why anything is blocked.
+- A stuck old host cannot make restart report success.
+- Audit scripts leave a durable defect artifact even when health or navigation fails.
+- The local app remains reachable at `/app/` and `/health/live` after audit execution.

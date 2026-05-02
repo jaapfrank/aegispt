@@ -1028,6 +1028,34 @@ The capability factory is operational and should remain authoritative for pack g
   - queue truth:
     - `TASK_QUEUE.md` currently ends at backlog-141
     - the single active task is now an idle holding task awaiting the next approved backlog package
+- 2026-05-02 backlog-180 launch authorization truth:
+  - backlog-180 `Launch authorization and phase auto-advance contract` is complete
+  - assessment-chain launch authorization is now durable in chain metadata and summaries:
+    - authorization level
+    - typed scope confirmation context
+    - intrusive LAN authorization flag
+    - exploit-confirmation authorization flag
+  - pre-authorized non-exploitation phases can auto-advance when prerequisites are satisfied, so Full/Internal-style launch does not create redundant phase confirmations for already-authorized non-exploitation work
+  - intrusive exploitation remains manually gated unless launch configuration records both Full typed scope confirmation and the explicit exploit-confirmation unlocker
+  - serialized phase summaries now expose `authorization_state`, `pre_authorized`, `gate_reason`, and `safe_next_action`
+  - Mission Control phase cards and current-phase details now distinguish:
+    - pre-authorized at launch
+    - auto-advance authorized
+    - waiting on prerequisite
+    - manual approval required
+  - Wizard copy now explains that Full pre-authorizes eligible non-exploitation runners and that exploitation still needs its own unlocker plus evidence/scope prerequisites
+  - validation evidence is recorded in `codex/results/backlog-180-launch-authorization-auto-advance-contract-20260502.md`
+  - validation truth:
+    - focused API and browser checks for authorization, phase-chain behavior, and Mission Control state passed
+    - exact required normal-capture pytest commands still hit the host-level `_pytest/capture.py` `FileNotFoundError`; equivalent API checks and focused UI checks passed with `-s -q`
+    - the broad UI `-s -q` command was stopped after many existing UI-suite failures, so broad UI green is not claimed
+  - remaining product risks:
+    - broad UI-suite reliability and audit harness resilience remain open
+    - no live customer target or intrusive action was run
+    - pack registry, validation, deployment, runtime binding, scope enforcement, credential prerequisites, and kill-switch behavior were not changed
+  - queue truth:
+    - the single active task is now backlog-181 `Local runtime liveness and audit harness resilience`
+
 - 2026-04-30 AI Signal OAuth status truth:
   - Mission Control AI Signal must treat `/runs/{run_id}/ai-insights.provider_status` as the authoritative provider connection state for post-task AI signal
   - live validation against run `e34e69f2-be0c-4387-9372-d7699dfe172e` now returns `provider_status.status: connected`, `provider_status.label: ChatGPT connected`, and `provider_status.connected: true`

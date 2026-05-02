@@ -474,10 +474,11 @@ def test_list_run_profiles(client) -> None:
         "passive-mobile-android-static",
         "passive-network-discovery",
         "passive-network-service-enumeration",
-        "passive-web-baseline",
-        "passive-web-burp",
-        "passive-web-nuclei-audit",
-    ]
+            "passive-web-baseline",
+            "passive-web-burp",
+            "passive-web-nuclei-audit",
+            "passive-wifi-survey",
+        ]
 
 
 def test_playwright_web_passive_profile_queues_browser_task_with_session_binding(client) -> None:

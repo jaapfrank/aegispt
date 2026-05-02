@@ -355,18 +355,32 @@ def normalize_chain_authorization_level(value: object) -> str:
 def _chain_authorization_from_configuration(configuration_json: dict[str, Any] | None) -> dict[str, Any]:
     payload = configuration_json if isinstance(configuration_json, dict) else {}
     assessment_mode = payload.get("assessment_mode")
+    access = payload.get("access")
+    prerequisites = access.get("prerequisites") if isinstance(access, dict) else {}
+    if not isinstance(prerequisites, dict):
+        prerequisites = {}
     if not isinstance(assessment_mode, dict):
         return {
             "level": "passive",
             "confirmed_scope": "",
             "confirmation_target": "",
             "typed_scope_confirmation": "",
+            "intrusive_lan_authorized": False,
+            "exploit_confirmation_authorized": False,
         }
     return {
         "level": normalize_chain_authorization_level(assessment_mode.get("authorization_level")),
         "confirmed_scope": str(assessment_mode.get("confirmed_scope") or "").strip(),
         "confirmation_target": str(assessment_mode.get("confirmation_target") or "").strip(),
         "typed_scope_confirmation": str(assessment_mode.get("typed_scope_confirmation") or "").strip(),
+        "intrusive_lan_authorized": bool(
+            assessment_mode.get("intrusive_lan_authorized")
+            or prerequisites.get("intrusive_lan_authorized")
+        ),
+        "exploit_confirmation_authorized": bool(
+            assessment_mode.get("exploit_confirmation_authorized")
+            or prerequisites.get("exploit_confirmation_authorized")
+        ),
     }
 
 
@@ -400,9 +414,21 @@ def _authorized_phase_tier_rank(chain: AssessmentChain) -> int:
     )
 
 
+def _phase_exploitation_authorized(chain: AssessmentChain) -> bool:
+    metadata = dict(chain.metadata_json or {})
+    authorization = metadata.get("authorization")
+    if not isinstance(authorization, dict):
+        return False
+    if normalize_chain_authorization_level(authorization.get("level")) != "full":
+        return False
+    return bool(authorization.get("exploit_confirmation_authorized"))
+
+
 def _phase_is_pre_authorized(chain: AssessmentChain, phase: dict[str, Any] | None) -> bool:
     if not isinstance(phase, dict):
         return False
+    if str(phase.get("tier") or "").strip().lower() == "intrusive-exploitation":
+        return _phase_exploitation_authorized(chain)
     return _phase_rank(phase) <= _authorized_phase_tier_rank(chain)
 
 
@@ -421,6 +447,129 @@ def _apply_chain_phase_preapproval(chain: AssessmentChain, phase: dict[str, Any]
     phase["approved_at"] = str(authorization.get("confirmed_at") or _now().isoformat())
     phase["status"] = "active"
     return True
+
+
+def _phase_authorization_state(chain: AssessmentChain, phase: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(chain.metadata_json or {})
+    authorization = metadata.get("authorization")
+    if not isinstance(authorization, dict):
+        authorization = {}
+    level = normalize_chain_authorization_level(authorization.get("level"))
+    tier = str(phase.get("tier") or "").strip().lower()
+    requires_approval = bool(phase.get("requires_approval"))
+    status = str(phase.get("status") or "pending").strip().lower()
+    approved_at = str(phase.get("approved_at") or "").strip()
+    pre_authorized = _phase_is_pre_authorized(chain, phase)
+
+    if tier == "intrusive-exploitation" and not _phase_exploitation_authorized(chain):
+        return {
+            "status": "manual_approval_required",
+            "label": "Manual exploitation approval required",
+            "pre_authorized": False,
+            "gate_reason": (
+                "Launch authorization did not include the explicit exploit-confirmation "
+                "unlocker, so Metasploit/Impacket-style confirmation remains stopped."
+            ),
+            "safe_next_action": (
+                "Approve this phase only after an allowlisted finding, exact scope confirmation, "
+                "credential prerequisites, and the kill switch are still valid."
+            ),
+        }
+
+    if requires_approval and metadata.get("phase_preapproval_allowed") is False:
+        return {
+            "status": "manual_approval_required",
+            "label": "Manual phase approval required",
+            "pre_authorized": False,
+            "gate_reason": "This assessment mode does not allow launch-time phase preapproval.",
+            "safe_next_action": "Approve the phase only after reviewing the displayed tier, scope, and prerequisites.",
+        }
+
+    if approved_at and pre_authorized:
+        return {
+            "status": "pre_authorized",
+            "label": "Pre-authorized at launch",
+            "pre_authorized": True,
+            "gate_reason": "",
+            "safe_next_action": "AegisPT can auto-advance this phase when prerequisites are satisfied.",
+        }
+
+    if pre_authorized and status in {"pending", "active", "completed", "completed_with_gaps"}:
+        return {
+            "status": "auto_advancing",
+            "label": "Auto-advance authorized",
+            "pre_authorized": True,
+            "gate_reason": "",
+            "safe_next_action": "AegisPT will queue runnable checks automatically and mark missing prerequisites as gaps.",
+        }
+
+    if _phase_rank(phase) > _authorized_phase_tier_rank(chain):
+        return {
+            "status": "manual_approval_required",
+            "label": "Manual approval required",
+            "pre_authorized": False,
+            "gate_reason": f"Launch authorization level is {level}; this phase is {tier or 'higher tier'}.",
+            "safe_next_action": "Approve this boundary only if the higher tier still matches the authorized scope.",
+        }
+
+    if requires_approval and not approved_at:
+        return {
+            "status": "manual_approval_required",
+            "label": "Manual approval required",
+            "pre_authorized": False,
+            "gate_reason": "This phase is waiting for an explicit operator approval decision.",
+            "safe_next_action": "Approve, reject, or halt at this boundary after reviewing prerequisites.",
+        }
+
+    return {
+        "status": "waiting_on_prerequisite" if status == "pending" else "authorized",
+        "label": "Authorized",
+        "pre_authorized": pre_authorized,
+        "gate_reason": "",
+        "safe_next_action": "Continue monitoring the chain plan and runner evidence.",
+    }
+
+
+def _phase_first_gap(phase: dict[str, Any]) -> dict[str, Any] | None:
+    steps = phase.get("steps") if isinstance(phase.get("steps"), list) else []
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if step.get("safe_next_action") or step.get("skip_reason") or step.get("evidence"):
+            return {
+                "gate_reason": step.get("skip_reason") or step.get("evidence") or "",
+                "safe_next_action": step.get("safe_next_action") or "",
+                "blocker_type": step.get("blocker_type") or "",
+            }
+    return None
+
+
+def _annotate_chain_phase_operator_contract(
+    chain: AssessmentChain,
+    phases: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    annotated = copy.deepcopy(phases)
+    for phase in annotated:
+        if not isinstance(phase, dict):
+            continue
+        authorization_state = _phase_authorization_state(chain, phase)
+        first_gap = _phase_first_gap(phase)
+        if first_gap:
+            authorization_state = {
+                **authorization_state,
+                "status": "waiting_on_prerequisite",
+                "label": "Waiting on prerequisite",
+                "gate_reason": first_gap["gate_reason"],
+                "safe_next_action": first_gap["safe_next_action"],
+                "blocker_type": first_gap["blocker_type"],
+            }
+        phase["authorization_state"] = authorization_state
+        phase["pre_authorized"] = bool(authorization_state.get("pre_authorized"))
+        if authorization_state.get("gate_reason"):
+            phase["gate_reason"] = authorization_state["gate_reason"]
+        if authorization_state.get("safe_next_action"):
+            phase["safe_next_action"] = authorization_state["safe_next_action"]
+    return annotated
 
 
 def _phase_states_for_definition(definition: AssessmentChainDefinition) -> list[dict[str, Any]]:
@@ -977,8 +1126,13 @@ def _phase_step_run_configuration(
 
 
 def _serialize_assessment_chain(chain: AssessmentChain) -> dict[str, Any]:
-    phases = list(chain.phases_json or [])
+    raw_phases = list(chain.phases_json or [])
+    phases = _annotate_chain_phase_operator_contract(chain, raw_phases)
     current_phase = _current_phase(phases, chain.current_phase_index)
+    metadata = dict(chain.metadata_json or {})
+    authorization = metadata.get("authorization")
+    if not isinstance(authorization, dict):
+        authorization = {}
     completed_phases = sum(
         1 for phase in phases if phase.get("status") in {"completed", "completed_with_gaps"}
     )
@@ -996,6 +1150,7 @@ def _serialize_assessment_chain(chain: AssessmentChain) -> dict[str, Any]:
             str(chain.last_completed_run_id) if chain.last_completed_run_id else None
         ),
         "auto_advance_on_phase_complete": bool(chain.auto_advance_on_phase_complete),
+        "authorization": copy.deepcopy(authorization),
         "halt_requested": bool(chain.halt_requested),
         "completed_phase_count": completed_phases,
         "phase_count": len(phases),
@@ -1451,6 +1606,10 @@ def create_assessment_chain_launch(
                 "confirmed_at": confirmed_at,
                 "confirmed_scope": authorization["confirmed_scope"],
                 "confirmation_target": authorization["confirmation_target"],
+                "intrusive_lan_authorized": authorization["intrusive_lan_authorized"],
+                "exploit_confirmation_authorized": authorization[
+                    "exploit_confirmation_authorized"
+                ],
                 "typed_scope_confirmation": authorization["typed_scope_confirmation"]
                 if authorization["level"] == "full"
                 else "",
@@ -1485,6 +1644,10 @@ def create_assessment_chain_launch(
             "authorization_level": authorization["level"],
             "confirmed_scope": authorization["confirmed_scope"],
             "confirmation_target": authorization["confirmation_target"],
+            "intrusive_lan_authorized": authorization["intrusive_lan_authorized"],
+            "exploit_confirmation_authorized": authorization[
+                "exploit_confirmation_authorized"
+            ],
             "typed_scope_confirmation": authorization["typed_scope_confirmation"]
             if authorization["level"] == "full"
             else None,
