@@ -130,6 +130,80 @@ def test_wizard_advanced_step_labels_are_short_and_do_not_wrap(loaded_page: Page
         assert overflow is False, f"Wizard advanced step label overflows its button: {label}"
 
 
+def test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context(loaded_page: Page) -> None:
+    cta = loaded_page.get_by_test_id("complete-assessment-wizard-cta")
+
+    expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
+    expect(cta).to_be_visible()
+    expect(cta).to_have_text("Complete Assessment Wizard")
+    expect(loaded_page.get_by_test_id("nav-wizard")).to_be_visible()
+
+    loaded_page.evaluate(
+        """
+        async () => {
+          const { runtime } = await import('/app/assets/modules/runtime.js');
+          runtime.state.activeScreen = 'dashboard';
+          runtime.state.selectedRun = null;
+          runtime.state.selectedRunId = null;
+          runtime.state.dashboard = { active_run: null, open_problems: {}, risk_score: {} };
+          runtime.state.mission = {
+            scope: null,
+            inventory: [],
+            relevance: [],
+            packs: [],
+            runs: [],
+            internalValidations: [],
+            findingsByRun: {},
+          };
+          runtime.actions.renderAll();
+        }
+        """
+    )
+    expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_be_visible()
+    loaded_page.get_by_test_id("complete-assessment-wizard-cta").click()
+    expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
+
+    run = {
+        "id": "run-cta-scope",
+        "status": "running",
+        "profile": {"name": "passive-network-discovery"},
+        "configuration_json": {"execution_profile": "passive-network-discovery"},
+        "tasks": [{"id": "task-1", "status": "running", "label": "Network discovery"}],
+    }
+    hidden_screens = ["mission-control", "findings-theater", "report-center", "history"]
+    for screen in hidden_screens:
+        loaded_page.evaluate(
+            """
+            async ({ screen, run }) => {
+              const { runtime } = await import('/app/assets/modules/runtime.js');
+              runtime.state.activeScreen = screen;
+              runtime.state.selectedRun = run;
+              runtime.state.selectedRunId = run.id;
+              runtime.state.dashboard = {
+                active_run: { id: run.id, status: run.status, tasks_running: 1 },
+                open_problems: {},
+                risk_score: {},
+              };
+              runtime.state.mission = {
+                scope: null,
+                inventory: [],
+                relevance: [],
+                packs: [],
+                runs: [run],
+                internalValidations: [],
+                findingsByRun: {},
+              };
+              runtime.actions.renderAll();
+            }
+            """,
+            {"screen": screen, "run": run},
+        )
+        expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_count(0)
+
+    loaded_page.get_by_test_id("nav-wizard").click()
+    expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
+
+
 def test_mission_control_header_button_intent_classes(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
 

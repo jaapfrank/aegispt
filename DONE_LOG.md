@@ -8891,3 +8891,35 @@
   - remaining risks:
     - this slice does not redesign the wizard stepper or change the separate 4-step guided intake progress copy
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-168 `Scope 'Complete Assessment Wizard' CTA: only show when there is no active engagement or the wizard is genuinely incomplete`
+
+- 2026-05-02: completed backlog-168 `Scope 'Complete Assessment Wizard' CTA: only show when there is no active engagement or the wizard is genuinely incomplete`:
+  - rationale:
+    - a persistent `Complete Assessment Wizard` CTA on mission review screens makes operators think they must return to intake even when a run is already queued, running, or complete
+    - the safest slice was to gate only that CTA visibility while preserving the sidebar `Intake` route and all wizard/run/backend behavior
+  - implementation:
+    - added `shouldShowWizardCompletionCta()` and run-context detection in `ui/assets/app.js`
+    - rendered the CTA through the existing `topbar-nav` slot only when intake progress is useful
+    - hid the CTA on Mission Control, Findings, Reports, and History whenever selected/dashboard/mission run context exists
+    - kept the CTA visible on Wizard and on Dashboard when no run context exists
+    - added compact topbar CTA styling in `ui/assets/styles.css`
+    - added focused Playwright coverage for visible and hidden states plus sidebar `Intake` reachability
+  - task-package exception:
+    - the package wording mentioned a terminal-state gate, while its concrete acceptance criteria require hiding the CTA for queued, running, and complete run contexts
+    - this slice followed the narrower concrete acceptance criteria and treated existing run context as the reason to hide the CTA on the listed review screens
+  - files:
+    - `ui/assets/app.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-168-complete-assessment-wizard-cta-scoping-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context`
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_mockup_port_e2e.py::test_lan_wizard_routes_private_cidr_to_discovery_lane`
+    - live Playwright browser check against `http://127.0.0.1:8000/app/`
+    - `git diff --check`
+  - not claimed green:
+    - exact normal-capture health command `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` still hit the known host-level pytest capture teardown `FileNotFoundError`; the same health tests passed with `-s`
+  - remaining risks:
+    - this slice does not redesign topbar/navigation, wizard step logic, dispatch, cancellation, backend APIs, pack registry, approval, deployment, or runtime binding
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-169 `Hide Pack Forge 'Build Lane / Task Planner' Codex section from default operator-facing navigation`

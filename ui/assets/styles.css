@@ -1297,6 +1297,25 @@ body {
   color: var(--sidebar-active);
 }
 
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.topbar-wizard-cta {
+  color: #07111f;
+  background: linear-gradient(135deg, #5eb4ef, #a3ebff);
+  border-color: rgba(125, 213, 255, 0.45);
+  font-weight: 800;
+}
+
+.topbar-wizard-cta:hover {
+  color: #07111f;
+  background: linear-gradient(135deg, #7fc8f6, #c0f3ff);
+}
+
 .topbar-settings-button {
   width: 2.1rem;
   padding: 0;

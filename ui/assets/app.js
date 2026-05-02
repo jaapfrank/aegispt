@@ -108,6 +108,12 @@ const RUN_STREAM_TERMINAL_STATUSES = new Set([
   "cancelled",
   "rejected",
 ]);
+const WIZARD_COMPLETION_CTA_BLOCKED_SCREENS = new Set([
+  "mission-control",
+  "findings-theater",
+  "report-center",
+  "history",
+]);
 const TASK_STDOUT_SCREENS = new Set(["mission-control", "agents"]);
 const TASK_STDOUT_POLL_INTERVAL_MS = 3000;
 
@@ -2214,8 +2220,22 @@ function renderHeader() {
     dom.topbarEngagementContext.innerHTML = "";
   }
   if (dom.topbarNav) {
-    dom.topbarNav.innerHTML = "";
-    dom.topbarNav.classList.add("hidden");
+    if (shouldShowWizardCompletionCta()) {
+      dom.topbarNav.classList.remove("hidden");
+      dom.topbarNav.innerHTML = `
+        <button
+          class="topbar-button topbar-wizard-cta"
+          type="button"
+          data-nav-screen="wizard"
+          data-testid="complete-assessment-wizard-cta"
+        >
+          Complete Assessment Wizard
+        </button>
+      `;
+    } else {
+      dom.topbarNav.innerHTML = "";
+      dom.topbarNav.classList.add("hidden");
+    }
   }
   if (dom.refreshBtn) {
     dom.refreshBtn.classList.add("hidden");
@@ -2241,6 +2261,21 @@ function isFirstRunStartState() {
   const history = state.wizard?.intake?.history || [];
   const hasOperatorAnswer = history.some((turn) => turn.role === "user");
   return !state.engagements.length && !state.selectedEngagementId && !state.selectedRun && !hasOperatorAnswer;
+}
+
+function hasRunContextForWizardCompletionCta() {
+  return Boolean(state.selectedRun) ||
+    Boolean(state.dashboard?.active_run) ||
+    (Array.isArray(state.mission?.runs) && state.mission.runs.length > 0);
+}
+
+function shouldShowWizardCompletionCta() {
+  if (state.activeScreen === "wizard") return true;
+  if (state.activeScreen === "dashboard") return !hasRunContextForWizardCompletionCta();
+  if (WIZARD_COMPLETION_CTA_BLOCKED_SCREENS.has(state.activeScreen)) {
+    return !hasRunContextForWizardCompletionCta();
+  }
+  return false;
 }
 
 function findOperatorSettingValue(key) {
