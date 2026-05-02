@@ -240,6 +240,192 @@ def test_problems_center_renders_cross_engagement_queue_and_bulk_actions(
     assert jira_requests == ["POST"]
 
 
+def test_problems_center_empty_resolved_and_status_summary_states_are_guided(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-problems").click()
+
+    def render_payload(payload: dict) -> None:
+        loaded_page.evaluate(
+            """
+            async ({ payload }) => {
+              const runtimeModule = await import('/app/assets/modules/runtime.js');
+              const problemsModule = await import('/app/assets/modules/problems.js');
+              runtimeModule.patchState({
+                activeScreen: 'problems-center',
+                selectedEngagementId: 'problems-empty-guidance-eng',
+                problems: payload,
+                problemsLoading: false,
+                problemsError: null,
+                problemsUi: {
+                  selectedIds: [],
+                  forecastSelectedIds: [],
+                  expandedId: null,
+                  recentlyResolvedOpen: true,
+                  filters: {
+                    severity: 'critical,high',
+                    status: 'open',
+                    engagementId: 'all',
+                    assignee: 'all',
+                    age: 'all',
+                    methodology: 'all',
+                  },
+                },
+              }, 'ui.test.problemsEmptyGuidance');
+              problemsModule.createProblemsModule().renderProblemsCenter();
+            }
+            """,
+            {"payload": payload},
+        )
+
+    def payload(stats: dict, items: list[dict] | None = None, recently_resolved: list[dict] | None = None) -> dict:
+        return {
+            "generated_at": "2026-05-02T12:00:00+00:00",
+            "stats": stats,
+            "filters": {
+                "engagements": [],
+                "assignees": [],
+                "methodologies": [],
+                "severities": ["critical", "high", "medium", "low", "info", "unknown"],
+                "statuses": ["open", "in_progress", "resolved", "verified", "reoccurred"],
+                "age_buckets": [],
+            },
+            "lifecycle_summary": {
+                "total_findings": stats.get("total_findings", 0),
+                "visible_findings": stats.get("total_filtered", len(items or [])),
+                "default_scope": "open critical/high problems",
+                "count_truth": "Problems is a finding lifecycle view using actual problem_status values.",
+            },
+            "items": items or [],
+            "recently_resolved": recently_resolved or [],
+            "next_cursor": None,
+        }
+
+    zero_payload = payload(
+        {
+            "open_critical": 0,
+            "open_high": 0,
+            "avg_days_to_resolve_30d": 0,
+            "resolved_this_week": 0,
+            "total_open": 0,
+            "total_in_progress": 0,
+            "total_resolved": 0,
+            "total_verified": 0,
+            "total_false_positive": 0,
+            "total_recently_resolved": 0,
+            "total_filtered": 0,
+            "total_findings": 0,
+            "by_problem_status": {"open": 0, "in_progress": 0, "resolved": 0, "verified": 0, "reoccurred": 0},
+            "by_finding_status": {},
+        }
+    )
+    render_payload(zero_payload)
+    expect(loaded_page.get_by_test_id("problems-empty-state")).to_contain_text(
+        "No open problems — findings from completed runs appear here."
+    )
+    expect(loaded_page.get_by_test_id("problems-empty-mission-control")).to_be_visible()
+    expect(loaded_page.get_by_test_id("problems-stats")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("problems-status-summary")).to_have_count(0)
+    empty_text = loaded_page.get_by_test_id("problems-empty-state").inner_text()
+    assert not re.search(r"0\\s*[-–·]\\s*0\\s*[-–·]\\s*0", empty_text)
+    loaded_page.get_by_test_id("problems-empty-mission-control").click()
+    expect(loaded_page.get_by_test_id("screen-mission-control")).to_be_visible()
+
+    loaded_page.get_by_test_id("nav-problems").click()
+    resolved_item = {
+        "id": "resolved-problem",
+        "finding_id": "resolved-problem",
+        "run_id": "resolved-run",
+        "engagement_id": "resolved-engagement",
+        "engagement_name": "Resolved Engagement",
+        "title": "TLS header fixed",
+        "severity": "high",
+        "target_id": "https://resolved.example.test",
+        "status": "resolved",
+        "problem_status": "verified",
+        "assignee": "infra-team",
+        "days_open": 4,
+        "age_bucket": "recent",
+        "remediation_state": "verified",
+        "verification_status": "Verified",
+        "methodology_tags": ["OWASP-WSTG"],
+        "latest_retest_run_id": None,
+        "latest_retest_status": "completed",
+        "lifecycle": [],
+        "created_at": "2026-04-28T12:00:00+00:00",
+        "updated_at": "2026-05-02T12:00:00+00:00",
+    }
+    resolved_payload = payload(
+        {
+            "open_critical": 0,
+            "open_high": 0,
+            "avg_days_to_resolve_30d": 4,
+            "resolved_this_week": 2,
+            "total_open": 0,
+            "total_in_progress": 0,
+            "total_resolved": 1,
+            "total_verified": 1,
+            "total_false_positive": 0,
+            "total_recently_resolved": 1,
+            "total_filtered": 0,
+            "total_findings": 2,
+            "by_problem_status": {"open": 0, "in_progress": 0, "resolved": 1, "verified": 1, "reoccurred": 0},
+            "by_finding_status": {"resolved": 2},
+        },
+        recently_resolved=[resolved_item],
+    )
+    render_payload(resolved_payload)
+    expect(loaded_page.get_by_test_id("problems-resolved-state")).to_contain_text(
+        "All problems resolved. Start a new run to re-validate."
+    )
+    expect(loaded_page.get_by_test_id("problems-status-summary")).to_contain_text("1 Resolved")
+    expect(loaded_page.get_by_test_id("problems-status-summary")).to_contain_text("1 Verified")
+    expect(loaded_page.get_by_test_id("problems-status-summary")).not_to_contain_text("Open")
+    expect(loaded_page.get_by_test_id("problems-stats")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("problems-recently-resolved")).to_contain_text("TLS header fixed")
+
+    open_item = {
+        **resolved_item,
+        "id": "open-problem",
+        "finding_id": "open-problem",
+        "title": "Admin panel exposed",
+        "status": "open",
+        "problem_status": "open",
+        "verification_status": "Unverified",
+    }
+    active_payload = payload(
+        {
+            "open_critical": 1,
+            "open_high": 0,
+            "avg_days_to_resolve_30d": 4,
+            "resolved_this_week": 1,
+            "total_open": 1,
+            "total_in_progress": 1,
+            "total_resolved": 1,
+            "total_verified": 0,
+            "total_false_positive": 0,
+            "total_recently_resolved": 1,
+            "total_filtered": 1,
+            "total_findings": 3,
+            "by_problem_status": {"open": 1, "in_progress": 1, "resolved": 1, "verified": 0, "reoccurred": 0},
+            "by_finding_status": {"open": 2, "resolved": 1},
+        },
+        items=[open_item],
+        recently_resolved=[resolved_item],
+    )
+    render_payload(active_payload)
+    status_summary = loaded_page.get_by_test_id("problems-status-summary")
+    expect(status_summary).to_contain_text("1 Open")
+    expect(status_summary).to_contain_text("1 In Progress")
+    expect(status_summary).to_contain_text("1 Resolved")
+    summary_text = status_summary.inner_text().lower()
+    assert "confirmed" not in summary_text
+    assert "suspected" not in summary_text
+    assert "discounted" not in summary_text
+    expect(loaded_page.get_by_test_id("problems-stats")).to_contain_text("Open critical")
+    expect(loaded_page.get_by_test_id("problems-list")).to_contain_text("Admin panel exposed")
+
+
 def test_fix_forecast_updates_projection_without_status_patch(loaded_page: Page) -> None:
     payload = {
         "generated_at": "2026-04-26T12:00:00+00:00",

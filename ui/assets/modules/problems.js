@@ -219,6 +219,13 @@ const SEVERITY_WEIGHTS = {
 
 const FORECAST_SEVERITY_ORDER = ["critical", "high", "medium", "low", "info", "unknown"];
 const CLOSED_STATUSES = new Set(["resolved", "verified", "accepted_risk", "false_positive"]);
+const PROBLEM_STATUS_LABELS = {
+  open: "Open",
+  in_progress: "In Progress",
+  reoccurred: "Reoccurred",
+  resolved: "Resolved",
+  verified: "Verified",
+};
 
 function normalizeSeverity(value) {
   const severity = String(value || "unknown").toLowerCase();
@@ -482,6 +489,83 @@ function renderBulkBar() {
         </button>
         <button class="action ghost compact-action danger-action" type="button" disabled title="Finding delete is blocked until a finding soft-delete marker exists.">Delete</button>
       </div>
+    </div>
+  `;
+}
+
+function totalFindingCount(payload) {
+  const stats = payload?.stats || {};
+  const summary = payload?.lifecycle_summary || {};
+  return Number(stats.total_findings ?? summary.total_findings ?? (payload?.items || []).length);
+}
+
+function problemStatusCounts(payload) {
+  const stats = payload?.stats || {};
+  const byProblemStatus = stats.by_problem_status || {};
+  return {
+    open: Number(byProblemStatus.open ?? stats.total_open ?? 0),
+    in_progress: Number(byProblemStatus.in_progress ?? stats.total_in_progress ?? 0),
+    reoccurred: Number(byProblemStatus.reoccurred ?? 0),
+    resolved: Number(byProblemStatus.resolved ?? stats.total_resolved ?? 0),
+    verified: Number(byProblemStatus.verified ?? stats.total_verified ?? 0),
+  };
+}
+
+function openProblemCount(payload) {
+  const counts = problemStatusCounts(payload);
+  return counts.open + counts.in_progress + counts.reoccurred;
+}
+
+function renderProblemCountSummary(payload) {
+  const counts = problemStatusCounts(payload);
+  const rows = Object.entries(PROBLEM_STATUS_LABELS)
+    .map(([status, label]) => ({ status, label, count: counts[status] || 0 }))
+    .filter((item) => item.count > 0);
+  if (!rows.length) return "";
+  return `
+    <section class="problems-status-summary" data-testid="problems-status-summary" aria-label="Problem status summary">
+      ${rows
+        .map(
+          (item) =>
+            `<span class="metric-pill" data-problem-status-count="${escapeHtml(item.status)}">${escapeHtml(`${item.count} ${item.label}`)}</span>`
+        )
+        .join("")}
+    </section>
+  `;
+}
+
+function renderProblemsEmptyState() {
+  return `
+    <div class="problems-shell">
+      <article class="panel dashboard-empty" data-testid="problems-empty-state">
+        <p class="eyebrow">Problems</p>
+        <h3>No open problems</h3>
+        ${emptyState("No open problems — findings from completed runs appear here.", {
+          label: "Go to Mission Control",
+          screen: "mission-control",
+          className: "primary",
+          testId: "problems-empty-mission-control",
+        })}
+      </article>
+    </div>
+  `;
+}
+
+function renderProblemsResolvedState(payload) {
+  return `
+    <div class="problems-shell">
+      ${renderProblemCountSummary(payload)}
+      <article class="panel dashboard-empty" data-testid="problems-resolved-state">
+        <p class="eyebrow">Problems</p>
+        <h3>All problems resolved</h3>
+        ${emptyState("All problems resolved. Start a new run to re-validate.", {
+          label: "Go to Mission Control",
+          screen: "mission-control",
+          className: "primary",
+          testId: "problems-resolved-mission-control",
+        })}
+      </article>
+      ${renderRecentlyResolved(payload)}
     </div>
   `;
 }
@@ -756,9 +840,21 @@ export function createProblemsModule() {
       `;
       return;
     }
+    if (totalFindingCount(payload) <= 0) {
+      dom.problemsContent.innerHTML = renderProblemsEmptyState();
+      return;
+    }
+    if (openProblemCount(payload) <= 0) {
+      dom.problemsContent.innerHTML = renderProblemsResolvedState(payload);
+      dom.problemsContent.querySelector('[data-testid="problems-recently-resolved"]')?.addEventListener("toggle", (event) => {
+        setProblemsUi({ recentlyResolvedOpen: event.currentTarget.open }, "problems.resolved.toggle");
+      });
+      return;
+    }
     const stats = payload.stats || {};
     dom.problemsContent.innerHTML = `
       <div class="problems-shell">
+        ${renderProblemCountSummary(payload)}
         <section class="problems-stats" data-testid="problems-stats">
           ${renderStat("Open critical", stats.open_critical, "critical")}
           ${renderStat("Open high", stats.open_high, "high")}

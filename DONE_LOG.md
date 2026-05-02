@@ -1,5 +1,31 @@
 # Done Log
 
+- 2026-05-02: completed backlog-179 `Problems Center: replace zero-count display with a meaningful empty state and actionable guidance`:
+  - replaced the empty Problems Center zero-counter presentation with operator-readable states without changing backend findings APIs, finding status models, Findings Theater, pack gates, approval, deployment, or runtime binding
+  - zero findings now show `No open problems — findings from completed runs appear here.` with a `Go to Mission Control` action and no stats/count-summary block
+  - all-resolved finding lifecycle now shows `All problems resolved. Start a new run to re-validate.` plus recently resolved context
+  - active Problems Center states now render a non-zero-only status summary from actual API-backed `problem_status` values: `open`, `in_progress`, `reoccurred`, `resolved`, and `verified`
+  - task-package wording mentioned `confirmed`, `suspected`, and `discounted` as finding statuses, but repo truth shows Problems Center uses `problem_status` values from `api/app/schemas/problems.py`; this slice therefore did not invent unsupported status labels and records the narrower repo-backed interpretation
+  - evidence recorded in `codex/results/backlog-179-problems-center-zero-state-cleanup-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/problems.js` passed
+    - `python3 -m py_compile ui/tests/test_problems_center_e2e.py` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_problems_center_e2e.py::test_problems_center_empty_resolved_and_status_summary_states_are_guided` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_problems_center_e2e.py` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - live Playwright browser acceptance against `http://127.0.0.1:8000/app/` verified zero, all-resolved, and active status-summary states
+    - `python3 scripts/validate_backlog_tasks.py` passed after implementation
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+    - `git diff --check` passed before promotion
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-180
+    - `git diff --check` passed after promoting backlog-180
+  - not claimed green:
+    - exact normal-capture commands including `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` and the focused Problems Center `-q` command still hit the known local `_pytest/capture.py FileNotFoundError`; equivalent checks passed with `-s`
+  - residual risk:
+    - this slice intentionally does not redesign Problems Center, add status types, change backend false-positive/problem-status semantics, alter Findings Theater, or change finding lifecycle APIs
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-180 `Launch authorization and phase auto-advance contract`
+
 - 2026-05-02: completed backlog-178 `History screen: add meaningful empty state when no completed runs exist`:
   - made History & Comparison useful for zero- and single-run operators without adding backend fetching, changing run delta computation, or touching pack/runtime gates
   - History now filters its comparison/history controls to completed-run history, shows `Completed runs appear here after an assessment finishes.` with a `Go to Mission Control` action when none exist, and shows a single completed-run summary when only one completed run is available
