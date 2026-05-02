@@ -9,6 +9,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 
 
 PRIMARY_SCREENS = [
@@ -74,6 +77,8 @@ class AuditResult:
     duration_seconds: float
     pages: list[dict[str, Any]] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
+    health: dict[str, Any] = field(default_factory=dict)
+    failure_notes: list[str] = field(default_factory=list)
 
 
 def repo_root() -> Path:
@@ -82,6 +87,46 @@ def repo_root() -> Path:
 
 def now_slug() -> str:
     return datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+
+
+def request_json(base_url: str, path: str, *, timeout: float = 5.0) -> dict[str, Any]:
+    target = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+    request = Request(target, headers={"Accept": "application/json", "X-Actor": "ia-auditor"})
+    started = time.monotonic()
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            raw = response.read(65536).decode("utf-8", errors="replace")
+            try:
+                body: Any = json.loads(raw) if raw else None
+            except json.JSONDecodeError:
+                body = raw[:500]
+            return {
+                "path": path,
+                "url": target,
+                "status": response.status,
+                "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
+                "body": body,
+                "ok": response.status < 400,
+            }
+    except HTTPError as exc:
+        body = exc.read(2000).decode("utf-8", errors="replace")
+        return {
+            "path": path,
+            "url": target,
+            "status": exc.code,
+            "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
+            "body_excerpt": body[:500],
+            "ok": False,
+        }
+    except URLError as exc:
+        return {
+            "path": path,
+            "url": target,
+            "status": None,
+            "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
+            "error": str(exc),
+            "ok": False,
+        }
 
 
 def visible_text(value: object) -> str:
@@ -241,6 +286,7 @@ def write_markdown(result: AuditResult, output_path: Path) -> None:
         f"- Generated: `{result.generated_at}`",
         f"- Base URL: `{result.base_url}`",
         f"- Duration: `{result.duration_seconds:.2f}s`",
+        f"- `/health/live`: `{result.health.get('status')}` ok=`{result.health.get('ok')}`",
         f"- Average score: `{result.summary.get('average_score')}`",
         f"- Minimum score: `{result.summary.get('minimum_score')}`",
         "",
@@ -259,6 +305,18 @@ def write_markdown(result: AuditResult, output_path: Path) -> None:
                 issues=issues.replace("|", "\\|"),
             )
         )
+    lines.extend(
+        [
+            "",
+            "## Failure Notes",
+            "",
+        ]
+    )
+    if result.failure_notes:
+        for note in result.failure_notes:
+            lines.append(f"- {note}")
+    else:
+        lines.append("- none")
     lines.extend(
         [
             "",
@@ -281,46 +339,68 @@ def run_audit(args: argparse.Namespace) -> AuditResult:
     screenshot_dir = Path(args.screenshot_dir)
     screenshot_dir.mkdir(parents=True, exist_ok=True)
     pages: list[PageScore] = []
+    health = request_json(args.base_url, "/health/live")
+    failure_notes: list[str] = []
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        try:
-            for viewport_name, viewport in VIEWPORTS.items():
-                context = browser.new_context(viewport=viewport)
-                page = context.new_page()
-                page.goto(args.base_url.rstrip("/") + "/app/", wait_until="networkidle", timeout=args.page_timeout_ms)
-                for screen in PRIMARY_SCREENS:
-                    clicked = page.evaluate(
-                        """
-                        (screen) => {
-                          const controls = Array.from(document.querySelectorAll(`[data-nav-screen="${screen}"]`));
-                          const visible = (element) => {
-                            const style = window.getComputedStyle(element);
-                            const rect = element.getBoundingClientRect();
-                            return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
-                          };
-                          const target = controls.find(visible) || controls[0];
-                          if (!target) return false;
-                          target.click();
-                          return true;
-                        }
-                        """,
-                        screen,
-                    )
-                    if not clicked and screen != "wizard":
-                        page.evaluate(
-                            "(screen) => { document.querySelectorAll('.screen').forEach((item) => item.classList.remove('active')); document.querySelector(`#screen-${screen}`)?.classList.add('active'); }",
+    if not health.get("ok"):
+        failure_notes.append(f"Browser audit skipped because /health/live was unhealthy or unreachable: {health}")
+        return _build_audit_result(args, started, pages, health, failure_notes)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                for viewport_name, viewport in VIEWPORTS.items():
+                    context = browser.new_context(viewport=viewport)
+                    page = context.new_page()
+                    page.goto(args.base_url.rstrip("/") + "/app/", wait_until="domcontentloaded", timeout=args.page_timeout_ms)
+                    page.wait_for_timeout(args.settle_ms)
+                    for screen in PRIMARY_SCREENS:
+                        clicked = page.evaluate(
+                            """
+                            (screen) => {
+                              const controls = Array.from(document.querySelectorAll(`[data-nav-screen="${screen}"]`));
+                              const visible = (element) => {
+                                const style = window.getComputedStyle(element);
+                                const rect = element.getBoundingClientRect();
+                                return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+                              };
+                              const target = controls.find(visible) || controls[0];
+                              if (!target) return false;
+                              target.click();
+                              return true;
+                            }
+                            """,
                             screen,
                         )
-                    page.wait_for_timeout(args.settle_ms)
-                    screenshot_path = screenshot_dir / f"{screen}-{viewport_name}.png"
-                    page.screenshot(path=screenshot_path, full_page=True)
-                    snapshot = page.evaluate(js_snapshot(), screen)
-                    pages.append(score_snapshot(screen, viewport_name, snapshot, screenshot_path))
-                context.close()
-        finally:
-            browser.close()
+                        if not clicked and screen != "wizard":
+                            page.evaluate(
+                                "(screen) => { document.querySelectorAll('.screen').forEach((item) => item.classList.remove('active')); document.querySelector(`#screen-${screen}`)?.classList.add('active'); }",
+                                screen,
+                            )
+                        page.wait_for_timeout(args.settle_ms)
+                        screenshot_path = screenshot_dir / f"{screen}-{viewport_name}.png"
+                        page.screenshot(path=screenshot_path, full_page=True)
+                        snapshot = page.evaluate(js_snapshot(), screen)
+                        pages.append(score_snapshot(screen, viewport_name, snapshot, screenshot_path))
+                    context.close()
+            finally:
+                browser.close()
+    except Exception as exc:  # pragma: no cover - live audit resilience path
+        failure_notes.append(
+            f"Partial IA audit evidence was written after browser failure: {type(exc).__name__}: {exc}"
+        )
 
+    return _build_audit_result(args, started, pages, health, failure_notes)
+
+
+def _build_audit_result(
+    args: argparse.Namespace,
+    started: float,
+    pages: list[PageScore],
+    health: dict[str, Any],
+    failure_notes: list[str],
+) -> AuditResult:
     scores = [page.score for page in pages]
     return AuditResult(
         generated_at=datetime.now(UTC).isoformat(),
@@ -334,7 +414,10 @@ def run_audit(args: argparse.Namespace) -> AuditResult:
             "average_score": round(sum(scores) / len(scores), 2) if scores else 0,
             "minimum_score": min(scores) if scores else 0,
             "issue_count": sum(len(page.issues) for page in pages),
+            "partial": bool(failure_notes) or len(pages) < len(PRIMARY_SCREENS) * len(VIEWPORTS),
         },
+        health=health,
+        failure_notes=failure_notes,
     )
 
 

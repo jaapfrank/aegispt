@@ -2,27 +2,29 @@
 
 ## Title
 
-Local runtime liveness and audit harness resilience
+Enterprise SSO, session, and identity administration
 
 ## Promoted From
 
-`codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json`
+`codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json`
 
 ## Goal
 
-Make the local control plane reliable enough for enterprise acceptance testing: health checks must not hang, restart helpers must fully replace draining processes, and audit tools must write partial evidence when the app is unhealthy.
+Move AegisPT from local actor/API-key basics toward enterprise identity controls that operators can understand, configure, and audit.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-181-local-runtime-liveness-and-audit-resilience.json`.
+Implement the active backlog package `codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json`.
 
 Expected slice:
 
-- detect and terminate stuck draining inline hosts before restart helpers declare success
-- make `/health/live` respond or fail fast with actionable diagnostics under audit load
-- make full-system and IA audit scripts write partial evidence when health or page navigation fails
-- avoid Playwright audit dependence on perpetual `networkidle` when the app legitimately polls
-- surface healthy, degraded, shutting-down, and unreachable local runtime states where relevant
+- add the first governed enterprise identity administration surface
+- expose OIDC/SAML disabled, configured, and error states in Settings
+- keep local development mode working without implying actor text is enterprise authentication
+- make session timeout and logout behavior explicit
+- persist SSO configuration safely without exposing secrets
+- audit login, logout, key, and identity administration events
+- document what is supported now and what remains future work
 
 ## Constraints
 
@@ -30,23 +32,20 @@ Expected slice:
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope enforcement, credential gates, or kill switch behavior.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Only fix local runtime health, restart, and audit resilience.
-- Do not change assessment runner dispatch semantics.
+- Do not replace or remove the local development authentication fallback.
+- Do not weaken ROE, tenant isolation, API-key revocation, secret materialization, or ChatGPT OAuth provider semantics.
+- Do not change finding schema fields.
 - Do not run live customer or intrusive targets.
-- Do not add new live-target behavior.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
-- `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh`
-- `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live`
-- `python3 scripts/run_full_system_acceptance_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-full-system-audit.json --output-md codex/results/backlog-181-full-system-audit.md --max-seconds 180`
-- `python3 scripts/run_enterprise_ia_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-ia-audit.json --output-md codex/results/backlog-181-ia-audit.md --screenshot-dir codex/results/backlog-181-ia-screenshots`
+- `source .venv/bin/activate && python -m pytest api/tests/test_auth.py -q`
+- `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- A stuck old host cannot make restart report success.
-- Audit scripts leave a durable defect artifact even when health or navigation fails.
-- The local app remains reachable at `/app/` and `/health/live` after audit execution.
+- Operators can see whether enterprise SSO is disabled, configured, or failing.
+- Logout/session timeout behavior is visible and does not corrupt active run state.
+- Identity admin actions are auditable.

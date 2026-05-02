@@ -690,107 +690,144 @@ def run_audit(base_url: str, *, output_json: Path, output_md: Path, max_seconds:
     for path in ["/api/v1/dashboard", "/api/v1/settings", "/api/v1/engagements", "/api/v1/runs"]:
         result.api_checks.append(request_json(base_url, path))
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=not headed)
-        context = browser.new_context(viewport={"width": 1440, "height": 1000})
-        page = context.new_page()
-        console_errors_by_screen: dict[str, list[dict[str, str]]] = {}
-        network_errors_by_screen: dict[str, list[dict[str, Any]]] = {}
-        current_screen = {"value": "bootstrap"}
+    current_screen = {"value": "bootstrap"}
+    if not result.health.get("ok"):
+        defect = Defect(
+            "critical",
+            "local_runtime_unreachable",
+            "bootstrap",
+            "control_plane",
+            "Local runtime health check failed before browser audit",
+            json.dumps(result.health, sort_keys=True)[:800],
+            recommended_backlog_target="backlog-181",
+        )
+        result.defects.append(asdict(defect))
+        result.crawl_notes.append("Browser crawl skipped because /health/live was unhealthy or unreachable.")
+        result.duration_seconds = round(time.monotonic() - started, 2)
+        _write_result_artifacts(result, output_json, output_md)
+        return result
 
-        def console_handler(message: Any) -> None:
-            if message.type in {"error", "warning"}:
-                console_errors_by_screen.setdefault(current_screen["value"], []).append(
-                    {"type": message.type, "message": message.text[:1000]}
-                )
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=not headed)
+            context = browser.new_context(viewport={"width": 1440, "height": 1000})
+            page = context.new_page()
+            console_errors_by_screen: dict[str, list[dict[str, str]]] = {}
+            network_errors_by_screen: dict[str, list[dict[str, Any]]] = {}
 
-        def response_handler(response: Any) -> None:
-            status = response.status
-            if status >= 400:
-                request = response.request
+            def console_handler(message: Any) -> None:
+                if message.type in {"error", "warning"}:
+                    console_errors_by_screen.setdefault(current_screen["value"], []).append(
+                        {"type": message.type, "message": message.text[:1000]}
+                    )
+
+            def response_handler(response: Any) -> None:
+                status = response.status
+                if status >= 400:
+                    request = response.request
+                    network_errors_by_screen.setdefault(current_screen["value"], []).append(
+                        {
+                            "url": response.url,
+                            "status": status,
+                            "method": request.method,
+                            "resource_type": request.resource_type,
+                        }
+                    )
+
+            def request_failed_handler(request: Any) -> None:
                 network_errors_by_screen.setdefault(current_screen["value"], []).append(
                     {
-                        "url": response.url,
-                        "status": status,
+                        "url": request.url,
+                        "status": 0,
                         "method": request.method,
                         "resource_type": request.resource_type,
+                        "failure": str(request.failure),
                     }
                 )
 
-        def request_failed_handler(request: Any) -> None:
-            network_errors_by_screen.setdefault(current_screen["value"], []).append(
-                {
-                    "url": request.url,
-                    "status": 0,
-                    "method": request.method,
-                    "resource_type": request.resource_type,
-                    "failure": str(request.failure),
-                }
-            )
+            page.on("console", console_handler)
+            page.on("response", response_handler)
+            page.on("requestfailed", request_failed_handler)
+            page.goto(urljoin(base_url.rstrip("/") + "/", "app/"), wait_until="domcontentloaded", timeout=15000)
+            page.wait_for_timeout(1000)
+            screens = discover_nav_screens(page)
+            result.crawl_notes.append(f"Discovered {len(screens)} primary/navigation screens.")
 
-        page.on("console", console_handler)
-        page.on("response", response_handler)
-        page.on("requestfailed", request_failed_handler)
-        page.goto(urljoin(base_url.rstrip("/") + "/", "app/"), wait_until="domcontentloaded", timeout=15000)
-        page.wait_for_timeout(1000)
-        screens = discover_nav_screens(page)
-        result.crawl_notes.append(f"Discovered {len(screens)} primary/navigation screens.")
-
-        for screen in screens:
-            if time.monotonic() - started > max_seconds:
-                result.crawl_notes.append(f"Stopped early after max_seconds={max_seconds}.")
-                break
-            current_screen["value"] = screen
-            visited = navigate_to_screen(page, screen)
-            if not visited:
-                result.screens.append(
-                    {
-                        "screen": screen,
-                        "journey": SCREEN_JOURNEYS.get(screen, "unknown"),
-                        "visited": False,
-                        "heading": "",
-                        "text_length": 0,
-                        "control_count": 0,
-                        "field_count": 0,
-                        "controls": [],
-                        "fields": [],
-                    }
+            for screen in screens:
+                if time.monotonic() - started > max_seconds:
+                    result.crawl_notes.append(f"Stopped early after max_seconds={max_seconds}.")
+                    break
+                current_screen["value"] = screen
+                visited = navigate_to_screen(page, screen)
+                if not visited:
+                    result.screens.append(
+                        {
+                            "screen": screen,
+                            "journey": SCREEN_JOURNEYS.get(screen, "unknown"),
+                            "visited": False,
+                            "heading": "",
+                            "text_length": 0,
+                            "control_count": 0,
+                            "field_count": 0,
+                            "controls": [],
+                            "fields": [],
+                        }
+                    )
+                    defect = Defect(
+                        "high",
+                        "unreachable_primary_screen",
+                        screen,
+                        SCREEN_JOURNEYS.get(screen, "unknown"),
+                        "Primary screen is not reachable through visible navigation",
+                        f"No visible or DOM navigation control with data-nav-screen='{screen}' could be activated.",
+                    )
+                    map_defect_to_backlog(defect, queue_items)
+                    result.defects.append(asdict(defect))
+                    continue
+                if screen == "settings":
+                    expand_settings_without_saving(page, result.safe_fill_events)
+                if screen == "wizard":
+                    exercise_wizard_without_launch(page, result.safe_fill_events)
+                safe_fill_visible_fields(page, screen, result.safe_fill_events)
+                snapshot = collect_snapshot(page, screen)
+                snapshot["visited"] = True
+                result.screens.append(snapshot)
+                screen_defects = detect_screen_defects(
+                    snapshot,
+                    console_errors=console_errors_by_screen.get(screen, []),
+                    network_errors=network_errors_by_screen.get(screen, []),
+                    queue_items=queue_items,
                 )
-                defect = Defect(
-                    "high",
-                    "unreachable_primary_screen",
-                    screen,
-                    SCREEN_JOURNEYS.get(screen, "unknown"),
-                    "Primary screen is not reachable through visible navigation",
-                    f"No visible or DOM navigation control with data-nav-screen='{screen}' could be activated.",
-                )
-                map_defect_to_backlog(defect, queue_items)
-                result.defects.append(asdict(defect))
-                continue
-            if screen == "settings":
-                expand_settings_without_saving(page, result.safe_fill_events)
-            if screen == "wizard":
-                exercise_wizard_without_launch(page, result.safe_fill_events)
-            safe_fill_visible_fields(page, screen, result.safe_fill_events)
-            snapshot = collect_snapshot(page, screen)
-            snapshot["visited"] = True
-            result.screens.append(snapshot)
-            screen_defects = detect_screen_defects(
-                snapshot,
-                console_errors=console_errors_by_screen.get(screen, []),
-                network_errors=network_errors_by_screen.get(screen, []),
-                queue_items=queue_items,
-            )
-            result.defects.extend(screen_defects)
+                result.defects.extend(screen_defects)
 
-        browser.close()
+            browser.close()
+    except Exception as exc:  # pragma: no cover - live audit resilience path
+        defect = Defect(
+            "critical",
+            "audit_navigation_failed",
+            current_screen["value"],
+            SCREEN_JOURNEYS.get(current_screen["value"], "control_plane"),
+            "Browser audit stopped before completing all screens",
+            f"{type(exc).__name__}: {exc}",
+            recommended_backlog_target="backlog-181",
+        )
+        result.defects.append(asdict(defect))
+        result.crawl_notes.append(
+            f"Partial audit evidence was written after browser failure on {current_screen['value']}: {type(exc).__name__}: {exc}"
+        )
 
-    result.backlog_crosscheck = build_backlog_crosscheck(result.defects)
     result.duration_seconds = round(time.monotonic() - started, 2)
+    _write_result_artifacts(result, output_json, output_md)
+    return result
+
+
+def _write_result_artifacts(result: AuditResult, output_json: Path, output_md: Path) -> None:
+    result.backlog_crosscheck = build_backlog_crosscheck(result.defects)
+    if not result.duration_seconds:
+        result.duration_seconds = 0.0
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(json.dumps(asdict(result), indent=2, sort_keys=True), encoding="utf-8")
     write_markdown(result, output_md)
-    return result
 
 
 def build_backlog_crosscheck(defects: list[dict[str, Any]]) -> list[dict[str, Any]]:

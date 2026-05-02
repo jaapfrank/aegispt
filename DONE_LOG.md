@@ -1,5 +1,49 @@
 # Done Log
 
+- 2026-05-02: completed backlog-181 `Local runtime liveness and audit harness resilience`:
+  - rationale:
+    - enterprise acceptance validation was being blocked by a stale inline host that could stay in shutdown/drain while still holding port 8000, and by audit scripts that could time out before writing useful evidence
+    - the safest slice was to harden only local restart/health/audit behavior while leaving assessment dispatch, scope, pack registry, approval, deployment, runtime binding, credentials, and target behavior unchanged
+  - implementation:
+    - `scripts/restart_local_inline_host.sh` and `scripts/restart_local_inline_host_systemd.sh` now inspect TCP listeners, wait for port release, terminate only draining AegisPT uvicorn hosts, refuse to replace non-AegisPT listeners, and use bounded health curl timeouts with port diagnostics
+    - `/health/live` now preserves the existing healthy `status=ok` and `detail=service is running` contract while adding `runtime_state`, `checked_at`, and diagnostics
+    - app lifespan now marks `starting`, `healthy`, and `shutting_down` states, and Settings readiness exposes the runtime state vocabulary including `unreachable`
+    - `scripts/run_full_system_acceptance_audit.py` now records health failures and browser navigation failures as durable partial JSON/Markdown evidence instead of aborting silently
+    - `scripts/run_enterprise_ia_audit.py` now avoids perpetual Playwright `networkidle`, performs a health preflight, records partial failures, and writes failure notes into JSON/Markdown
+    - `pyproject.toml` now disables pytest capture by default because the local WSL/Windows temp environment caused required `-q` validation to fail at pytest capture teardown rather than on test assertions
+  - files:
+    - `api/app/main.py`
+    - `api/app/routers/health.py`
+    - `api/app/schemas/health.py`
+    - `api/app/services/settings.py`
+    - `api/tests/test_health.py`
+    - `pyproject.toml`
+    - `scripts/restart_local_inline_host.sh`
+    - `scripts/restart_local_inline_host_systemd.sh`
+    - `scripts/run_full_system_acceptance_audit.py`
+    - `scripts/run_enterprise_ia_audit.py`
+    - `codex/results/backlog-181-runtime-liveness-validation-20260502.md`
+    - `codex/results/backlog-181-full-system-audit.json`
+    - `codex/results/backlog-181-full-system-audit.md`
+    - `codex/results/backlog-181-ia-audit.json`
+    - `codex/results/backlog-181-ia-audit.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `bash -n scripts/restart_local_inline_host.sh && bash -n scripts/restart_local_inline_host_systemd.sh` passed
+    - `python3 -m py_compile scripts/run_full_system_acceptance_audit.py scripts/run_enterprise_ia_audit.py api/app/routers/health.py api/app/main.py api/app/schemas/health.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed with 5 tests
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` passed and restarted the inline host
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` passed with `runtime_state=healthy`
+    - `python3 scripts/run_full_system_acceptance_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-full-system-audit.json --output-md codex/results/backlog-181-full-system-audit.md --max-seconds 180` passed, visited 14/14 screens, and recorded 23 existing product defects
+    - `python3 scripts/run_enterprise_ia_audit.py --base-url http://127.0.0.1:8000 --output-json codex/results/backlog-181-ia-audit.json --output-md codex/results/backlog-181-ia-audit.md --screenshot-dir codex/results/backlog-181-ia-screenshots` passed with 28 page checks, minimum score 10.0, and `partial=false`
+    - post-audit `/health/live` and `/app/` checks passed
+    - `git diff --check` passed before administration updates
+  - remaining risks:
+    - full-system audit durability is fixed, but its 23 recorded product defects are existing UI/product issues for the backlog rather than backlog-181 scope
+    - restart helpers intentionally refuse to replace a non-AegisPT process on port 8000; that remains an operator/service ownership issue
+    - no live customer target, intrusive action, pack registry bypass, runtime binding bypass, or assessment runner dispatch change was performed
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-182 `Enterprise SSO, session, and identity administration`
+
 - 2026-05-02: completed backlog-179 `Problems Center: replace zero-count display with a meaningful empty state and actionable guidance`:
   - replaced the empty Problems Center zero-counter presentation with operator-readable states without changing backend findings APIs, finding status models, Findings Theater, pack gates, approval, deployment, or runtime binding
   - zero findings now show `No open problems — findings from completed runs appear here.` with a `Go to Mission Control` action and no stats/count-summary block

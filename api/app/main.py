@@ -55,14 +55,17 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        app.state.runtime_state = "starting"
         warn_if_database_unencrypted(settings)
         configure_database(app, settings)
         start_cve_feed_scheduler(app, settings)
         start_gdpr_retention_scheduler(app)
         start_scheduled_run_scheduler(app, settings)
+        app.state.runtime_state = "healthy"
         try:
             yield
         finally:
+            app.state.runtime_state = "shutting_down"
             stop_scheduled_run_scheduler(app)
             stop_gdpr_retention_scheduler(app)
             stop_cve_feed_scheduler(app)

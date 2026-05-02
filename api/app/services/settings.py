@@ -1200,13 +1200,23 @@ def _host_health_readiness(settings: Settings) -> ReadinessCapabilityRead:
         capability_id="host_health",
         title="Live app health",
         status="ready",
-        summary=f"{settings.app_name} is running in {settings.app_env}.",
+        summary=f"{settings.app_name} reports healthy runtime state in {settings.app_env}.",
         details=[
             f"Public base URL: {settings.app_public_base_url}.",
             f"API prefix: {settings.api_prefix}.",
+            "Runtime state vocabulary: healthy, degraded, shutting_down, unreachable.",
         ],
-        operator_next_step="Use /health/live for external uptime checks and this readiness export for support evidence.",
-        metadata={"app_name": settings.app_name, "app_env": settings.app_env, "public_base_url": settings.app_public_base_url},
+        operator_next_step=(
+            "Use /health/live with a short client timeout for uptime checks; restart the local host if it reports "
+            "shutting_down or becomes unreachable."
+        ),
+        metadata={
+            "app_name": settings.app_name,
+            "app_env": settings.app_env,
+            "public_base_url": settings.app_public_base_url,
+            "runtime_state": "healthy",
+            "state_vocabulary": ["healthy", "degraded", "shutting_down", "unreachable"],
+        },
     )
 
 
