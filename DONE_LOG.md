@@ -1,5 +1,26 @@
 # Done Log
 
+- 2026-05-02: completed backlog-174 `Dashboard first-run empty state: guide new operators with one actionable message instead of a blank screen`:
+  - replaced the zero-engagement Dashboard's multi-card onboarding/quick-action layout with one intentional first-run empty state
+  - added `Welcome to AegisPT`, one concise evidence/reporting-oriented description, and one primary `Start Your First Assessment` CTA bound to the existing Wizard navigation
+  - added muted truthful zero-state stats for `0 Active Runs`, `0 Open Findings`, and `0 Engagements`
+  - preserved populated Dashboard rendering, setup checklist logic, backend APIs, runtime behavior, and navigation structure
+  - evidence recorded in `codex/results/backlog-174-dashboard-first-run-empty-state-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - `node --input-type=module --check < ui/assets/modules/dashboard.js` passed
+    - `python3 -m py_compile ui/tests/test_operator_console_smoke_e2e.py` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_dashboard_zero_engagement_renders_first_run_empty_state` passed
+    - focused Dashboard smoke trio covering first-run empty state, setup checklist dismiss, and activity feed passed
+    - live Playwright browser acceptance confirmed the empty state, CTA-to-Wizard navigation, old onboarding/checklist absence in zero-engagement state, and no mobile horizontal overflow
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed before administration
+  - residual risk:
+    - the exact no-`-s` health pytest command still hits the local capture teardown issue, though the same health tests pass with `-s`
+    - this slice intentionally did not change populated Dashboard behavior or setup checklist persistence
+
 - 2026-05-02: completed backlog-173 `Shorten or remove topbar/hero subtitle: 'Guided, evidence-first assessment...' is too verbose for enterprise use`:
   - confirmed the long repeated application-shell subtitle is already absent from `ui/index.html`, `ui/assets/styles.css`, and `ui/assets/modules`
   - did not add a replacement tagline, redesign the topbar, change screen headings, alter navigation, or touch backend/runtime behavior

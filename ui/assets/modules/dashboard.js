@@ -307,6 +307,42 @@ function renderFirstRunOnboarding(dashboard) {
   `;
 }
 
+function renderFirstRunEmptyState() {
+  return `
+    <article class="panel dashboard-empty dashboard-first-run-empty" data-testid="dashboard-first-run-empty-state">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">First Assessment</p>
+          <h3>Welcome to AegisPT</h3>
+        </div>
+      </div>
+      <p class="dashboard-muted">Create a scoped assessment to collect evidence, track findings, and produce reports.</p>
+      <button
+        class="action primary dashboard-first-run-cta"
+        type="button"
+        data-nav-screen="wizard"
+        data-testid="dashboard-start-first-assessment"
+      >
+        Start Your First Assessment
+      </button>
+      <div class="dashboard-zero-stats" aria-label="Empty dashboard summary">
+        <div class="dashboard-zero-stat" data-testid="dashboard-zero-active-runs">
+          <span>Active Runs</span>
+          <strong>0</strong>
+        </div>
+        <div class="dashboard-zero-stat" data-testid="dashboard-zero-open-findings">
+          <span>Open Findings</span>
+          <strong>0</strong>
+        </div>
+        <div class="dashboard-zero-stat" data-testid="dashboard-zero-engagements">
+          <span>Engagements</span>
+          <strong>0</strong>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 function renderEngagementSummary(dashboard) {
   const engagements = dashboard.engagements || [];
   return `
@@ -403,11 +439,7 @@ function renderCommandCenterStrip(dashboard) {
 
 function renderEmptyDashboard(dashboard) {
   return `
-    ${renderCommandCenterStrip(dashboard)}
-    ${renderFirstRunOnboarding(dashboard)}
-    <div class="dashboard-grid dashboard-grid-empty">
-      ${renderQuickActions(dashboard)}
-    </div>
+    ${renderFirstRunEmptyState(dashboard)}
   `;
 }
 

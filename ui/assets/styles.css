@@ -2676,6 +2676,47 @@ button:active:not(:disabled) {
   gap: 0.85rem;
 }
 
+.dashboard-first-run-empty {
+  gap: 0.9rem;
+  max-width: 760px;
+  padding: 1.15rem;
+}
+
+.dashboard-first-run-cta {
+  justify-self: start;
+}
+
+.dashboard-zero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+}
+
+.dashboard-zero-stat {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 5rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel-soft);
+}
+
+.dashboard-zero-stat span {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dashboard-zero-stat strong {
+  color: var(--text);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
 .dashboard-first-run-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -9559,6 +9600,7 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
 
   .dashboard-active-run-grid,
   .dashboard-risk-layout,
+  .dashboard-zero-stats,
   .fix-forecast-split,
   .problems-stats,
   .problems-filter-grid {

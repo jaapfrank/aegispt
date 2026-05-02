@@ -773,7 +773,7 @@ def test_dashboard_activity_feed_renders_human_readable_audit_items(loaded_page:
     expect(loaded_page.get_by_test_id("dashboard-recent-activity")).not_to_contain_text("run.dispatched")
 
 
-def test_dashboard_zero_engagement_renders_first_run_onboarding_banner(loaded_page: Page) -> None:
+def test_dashboard_zero_engagement_renders_first_run_empty_state(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-dashboard").click()
     loaded_page.evaluate(
         """
@@ -814,9 +814,20 @@ def test_dashboard_zero_engagement_renders_first_run_onboarding_banner(loaded_pa
         """
     )
 
-    expect(loaded_page.get_by_test_id("dashboard-first-run-onboarding")).to_be_visible()
-    expect(loaded_page.get_by_test_id("dashboard-first-run-onboarding")).to_contain_text("Connect ChatGPT OAuth")
+    empty_state = loaded_page.get_by_test_id("dashboard-first-run-empty-state")
+    expect(empty_state).to_be_visible()
+    expect(empty_state).to_contain_text("Welcome to AegisPT")
+    expect(empty_state).to_contain_text("Create a scoped assessment to collect evidence, track findings, and produce reports.")
+    expect(loaded_page.get_by_test_id("dashboard-start-first-assessment")).to_have_text("Start Your First Assessment")
+    expect(loaded_page.get_by_test_id("dashboard-zero-active-runs")).to_contain_text("0")
+    expect(loaded_page.get_by_test_id("dashboard-zero-open-findings")).to_contain_text("0")
+    expect(loaded_page.get_by_test_id("dashboard-zero-engagements")).to_contain_text("0")
+    expect(loaded_page.get_by_test_id("dashboard-first-run-onboarding")).to_have_count(0)
     expect(loaded_page.get_by_test_id("dashboard-setup-checklist")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("dashboard-command-strip")).to_have_count(0)
+
+    loaded_page.get_by_test_id("dashboard-start-first-assessment").click()
+    expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
 
 
 def test_dashboard_setup_checklist_dismiss_persists_in_settings(loaded_page: Page) -> None:
