@@ -2,27 +2,28 @@
 
 ## Title
 
-Replace editable actor text input in topbar with a proper identity display pill
+Clean up Report Center copy: remove internal dev language and improve empty state messaging
 
 ## Promoted From
 
-`codex/tasks/backlog-170-actor-input-identity-display.json`
+`codex/tasks/backlog-171-report-center-copy-cleanup.json`
 
 ## Goal
 
-Replace the live-editable topbar actor input with a read-only identity display while keeping actor identity changes routed through Settings.
+Clean up user-visible Report Center copy so enterprise operators see clear product language instead of internal design or developer-facing placeholder terms.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-170-actor-input-identity-display.json`.
+Implement the active backlog package `codex/tasks/backlog-171-report-center-copy-cleanup.json`.
 
 Expected slice:
 
-- find the topbar actor input/display path in `ui/index.html`, `ui/assets/app.js`, or `ui/assets/modules/settings.js`
-- replace the topbar editable actor input with read-only actor name and role display
-- make the avatar initial reflect the current actor name instead of a hardcoded value
-- preserve actor persistence and x_actor_fallback behavior
-- route operator-visible actor-name changes through Settings > Instance / shell identity
+- audit operator-visible strings in `ui/assets/modules/reports.js` and `ui/index.html` for the Report Center screen
+- replace the screen-copy `Work from the current run strip, open the report you need, and export without a side metadata rail.` with `Review and export technical, executive, and compliance reports for the selected run.`
+- rename `Prior Report Delta` to `Compare with Earlier Run`
+- replace the confusing comparison instruction with `Select a previous run to compare findings, coverage, and risk score changes.`
+- replace Report Reader placeholder/no-selection copy with a one-sentence operator empty state
+- clean up developer-facing `reportPlaceholder` strings where they are visible to operators
 
 ## Constraints
 
@@ -30,25 +31,22 @@ Expected slice:
 - Do not bypass approval gates, pack registry, validation, deployment, or runtime binding.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Do not implement full authentication/login or RBAC backend enforcement.
-- Do not change approval gate logic.
-- Do not remove the API actor header mechanism.
-- Do not make the topbar actor area editable.
+- Only update string copy and empty state messages.
+- Do not restructure Report Center layout.
+- Do not change report generation, export/download behavior, backend report APIs, or PDF generation.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
 - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
-- Focused UI/E2E coverage proving no topbar actor input remains and the read-only display/role badge/avatar initial render correctly
-- Settings coverage proving actor name can be changed from Settings > Instance / shell identity and the topbar updates
-- Actor-dependent approval gate regression coverage where relevant
+- Focused Report Center UI/E2E coverage where available/relevant
 - Browser/safe acceptance where relevant
 
 ## Acceptance
 
-- No `<input>` element remains in the topbar actor area.
-- Topbar actor name and role badge are readable, non-editable, and correct.
-- Avatar initial updates from the current actor name.
-- Actor name remains changeable from Settings > Instance / shell identity.
-- x_actor_fallback and actor-dependent approval gate behavior do not regress.
+- Report Center screen-copy is operator-appropriate and does not mention internal design terms.
+- `Prior Report Delta` is replaced with a clearer comparison label and instruction.
+- Report Reader empty state guides the operator to select a report.
+- No internal/dev-facing strings are visible to operators in the Report Center.
+- Report Center E2E tests do not regress.

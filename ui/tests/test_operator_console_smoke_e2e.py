@@ -78,6 +78,28 @@ def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
     expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
 
 
+def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Page) -> None:
+    actor_pill = loaded_page.get_by_test_id("topbar-actor-pill")
+    expect(actor_pill).to_be_visible()
+    expect(actor_pill.locator("input")).to_have_count(0)
+    expect(loaded_page.locator("#actor-input")).to_have_count(0)
+    expect(loaded_page.locator("#actor-display")).to_contain_text("operator-ui")
+    expect(loaded_page.locator("#topbar-avatar-mark")).to_have_text("O")
+    expect(loaded_page.get_by_test_id("topbar-role-badge")).to_contain_text("admin")
+
+    loaded_page.get_by_test_id("nav-settings").click()
+    instance_panel = loaded_page.get_by_test_id("settings-instance")
+    instance_panel.locator("summary").click()
+    actor_setting = loaded_page.locator("[data-setting-key='instance.operator_display_name']")
+    expect(actor_setting).to_be_visible()
+    actor_setting.fill("alice-reviewer")
+    loaded_page.get_by_test_id("settings-save").click()
+
+    expect(loaded_page.locator("#actor-display")).to_have_text("alice-reviewer", timeout=15000)
+    expect(loaded_page.locator("#topbar-avatar-mark")).to_have_text("A")
+    expect(actor_pill.locator("input")).to_have_count(0)
+
+
 def test_pack_forge_build_lane_panels_are_gated_by_developer_mode(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-packs").click()
     expect(loaded_page.get_by_test_id("screen-pack-forge")).to_be_visible()

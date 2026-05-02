@@ -1208,8 +1208,7 @@ body {
   padding: 0.4rem 0;
 }
 
-.topbar-engagement select,
-.topbar-actor input {
+.topbar-engagement select {
   min-width: 0;
   border: 1px solid rgba(120, 177, 212, 0.18);
   outline: 0;
@@ -1338,6 +1337,16 @@ body {
   display: flex;
   align-items: center;
   width: 13.5rem;
+}
+
+.topbar-actor-name {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(226, 238, 255, 0.9);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topbar-avatar-pill {

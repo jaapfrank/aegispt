@@ -863,7 +863,31 @@ export function createSettingsModule() {
         method: "PATCH",
         body: { settings: patch },
       });
-      patchState({ operatorSettings: updated, settingsSaving: false, settingsError: null }, "settings.save.complete");
+      const submittedActorName = String(patch["instance.operator_display_name"] || "").trim();
+      const updatedActorName = String(
+        submittedActorName || findSettingValueFromPayload(updated, "instance.operator_display_name") || ""
+      ).trim();
+      let actorPatch = {};
+      if (updatedActorName) {
+        const currentActor = {
+          ...(state.currentActor || {}),
+          actor_name: updatedActorName,
+          role: String(state.currentActor?.role || "admin").trim().toLowerCase() || "admin",
+          auth_method: state.currentActor?.auth_method || "x_actor_fallback",
+        };
+        actorPatch = {
+          actor: updatedActorName,
+          currentActor,
+        };
+        window.localStorage.setItem("aegispt-actor", updatedActorName);
+      }
+      patchState(
+        { operatorSettings: updated, settingsSaving: false, settingsError: null, ...actorPatch },
+        "settings.save.complete"
+      );
+      if (updatedActorName) {
+        runtime.actions.renderAll?.({ renderScreen: false });
+      }
       await loadSettingsReadiness().catch(runtime.actions.handleError || (() => {}));
       runtime.actions.pushStatus?.("Settings saved. Sensitive values remain encrypted and masked.", "info");
     } catch (error) {
@@ -2790,6 +2814,11 @@ function siemProviderLabel(providerId) {
 
 function findSettingValue(key) {
   const found = flattenSettings(state.operatorSettings || {}).find((setting) => setting.key === key);
+  return found?.value ?? null;
+}
+
+function findSettingValueFromPayload(payload, key) {
+  const found = flattenSettings(payload || {}).find((setting) => setting.key === key);
   return found?.value ?? null;
 }
 

@@ -612,12 +612,12 @@ export function createMissionModule() {
     const actorStatusNote = actorAlreadyDecided
       ? actorApproval.decision === "approved"
         ? approvals.pending > 0
-          ? `Actor ${state.actor} already approved this gate. Change the actor in the top bar to record the remaining approval.`
+          ? `Actor ${state.actor} already approved this gate. Change the actor in Settings > Instance to record the remaining approval.`
           : `Actor ${state.actor} already approved this gate. Mission Control will queue the planned checks as soon as the approval state clears.`
         : `Actor ${state.actor} already rejected this gate. This actor cannot submit a second decision on the same gate.`
       : approvals.pending > 1
-        ? `Approval decisions are tied to the actor field in the top bar. Use a different actor for the additional required approval.`
-        : `Approval decisions are tied to the actor field in the top bar.`;
+        ? `Approval decisions are tied to the actor configured in Settings > Instance. Use a different actor for the additional required approval.`
+        : `Approval decisions are tied to the actor configured in Settings > Instance.`;
     return `
       <h4>${escapeHtml("Approval is still required before active checks can be queued")}</h4>
       <p>${escapeHtml(approvalWaitingSummary(run))}</p>
@@ -703,10 +703,10 @@ export function createMissionModule() {
                 <button
                   class="action ghost"
                   type="button"
-                  data-focus-actor-input="true"
+                  data-focus-actor-settings="true"
                   data-testid="run-approval-focus-actor"
                 >
-                  ${escapeHtml(actorAlreadyDecided ? "Change Actor" : "Review Actor")}
+                  ${escapeHtml(actorAlreadyDecided ? "Change Actor in Settings" : "Review Actor in Settings")}
                 </button>
               `
               : ""
@@ -4123,10 +4123,26 @@ export function createMissionModule() {
   }
 
   function focusActorInputForApproval() {
-    dom.actorInput?.focus();
-    dom.actorInput?.select?.();
+    patchState(
+      {
+        settingsUi: {
+          ...state.settingsUi,
+          openPanels: {
+            ...(state.settingsUi?.openPanels || {}),
+            instance: true,
+          },
+        },
+      },
+      "mission.approval.openActorSettings"
+    );
+    runtime.actions.navigateToScreen?.("settings");
+    window.setTimeout(() => {
+      const input = document.querySelector('[data-setting-key="instance.operator_display_name"]');
+      input?.focus?.();
+      input?.select?.();
+    }, 250);
     runtime.actions.pushStatus?.(
-      "Update the actor field in the top bar before recording the next approval decision.",
+      "Update the operator display name in Settings > Instance before recording the next approval decision.",
       "info"
     );
   }
@@ -4196,7 +4212,7 @@ export function createMissionModule() {
       const pending = Math.max(0, Number(updatedRun?.pending_approvals || 0));
       if (pending > 0) {
         runtime.actions.pushStatus?.(
-          `${pending} approval${pending === 1 ? "" : "s"} still remain. Change the actor in the top bar for the next approver.`,
+          `${pending} approval${pending === 1 ? "" : "s"} still remain. Change the actor in Settings > Instance for the next approver.`,
           "info"
         );
         return;

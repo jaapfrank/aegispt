@@ -440,6 +440,19 @@ def _api_json(base_url: str, path: str, *, method: str = "GET", body: dict | Non
         return json.loads(response.read().decode("utf-8"))
 
 
+def _set_operator_actor_via_settings(page: Page, actor_name: str) -> None:
+    page.get_by_test_id("topbar-settings").click()
+    expect(page.get_by_test_id("screen-settings")).to_be_visible()
+    instance_panel = page.get_by_test_id("settings-instance")
+    if not instance_panel.evaluate("(element) => Boolean(element.open)"):
+        instance_panel.locator("summary").click()
+    actor_setting = page.locator("[data-setting-key='instance.operator_display_name']")
+    expect(actor_setting).to_be_visible()
+    actor_setting.fill(actor_name)
+    page.get_by_test_id("settings-save").click()
+    expect(page.locator("#actor-display")).to_have_text(actor_name, timeout=15000)
+
+
 def _seed_single_approval_web_run(base_url: str) -> dict[str, str]:
     engagement = _api_json(
         base_url,
@@ -2302,7 +2315,7 @@ def test_pending_approval_run_can_be_approved_from_mission_control(
     _switch_phase(page, "execution")
     expect(page.get_by_test_id("pending-approval-run-activity")).to_be_visible()
     expect(page.get_by_test_id("run-approval-actor-note")).to_contain_text(
-        "Approval decisions are tied to the actor field in the top bar."
+        "Approval decisions are tied to the actor configured in Settings > Instance."
     )
 
     page.get_by_test_id("run-approval-approve").click()
@@ -2330,9 +2343,7 @@ def test_pending_approval_run_guides_actor_switch_for_second_approver(
     page.goto("/app/")
     expect(page.locator("#engagement-select")).to_have_value(seeded["engagement_id"])
 
-    actor_input = page.locator("#actor-input")
-    actor_input.fill("approver-1")
-    actor_input.dispatch_event("change")
+    _set_operator_actor_via_settings(page, "approver-1")
 
     _switch_phase(page, "execution")
     expect(page.get_by_test_id("pending-approval-run-activity")).to_be_visible()
@@ -2342,13 +2353,17 @@ def test_pending_approval_run_guides_actor_switch_for_second_approver(
     expect(page.get_by_test_id("run-approval-approve")).to_be_disabled()
 
     page.get_by_test_id("run-approval-focus-actor").click()
-    expect(actor_input).to_be_focused()
+    expect(page.get_by_test_id("screen-settings")).to_be_visible()
+    actor_setting = page.locator("[data-setting-key='instance.operator_display_name']")
+    expect(actor_setting).to_be_focused()
 
-    actor_input.fill("approver-2")
-    actor_input.dispatch_event("change")
+    actor_setting.fill("approver-2")
+    page.get_by_test_id("settings-save").click()
+    expect(page.locator("#actor-display")).to_have_text("approver-2", timeout=15000)
+    _switch_phase(page, "execution")
 
     expect(page.get_by_test_id("run-approval-actor-note")).to_contain_text(
-        "Approval decisions are tied to the actor field in the top bar."
+        "Approval decisions are tied to the actor configured in Settings > Instance."
     )
     expect(page.get_by_test_id("run-approval-approve")).to_be_enabled()
 
@@ -7235,7 +7250,8 @@ def test_first_run_onboarding_prefills_wizard_defaults(first_run_loaded_page: Pa
     expect(first_run_loaded_page.get_by_test_id("conversation-question")).to_contain_text("Internal LAN")
     first_run_loaded_page.get_by_test_id("wizard-assessment-submit-selection").click()
     expect(first_run_loaded_page.get_by_test_id("wizard-target-input")).to_have_value("10.0.0.0/8")
-    expect(first_run_loaded_page.locator("#actor-input")).to_have_value("first-run-operator")
+    expect(first_run_loaded_page.locator("#actor-input")).to_have_count(0)
+    expect(first_run_loaded_page.locator("#actor-display")).to_have_text("first-run-operator")
 
 
 def test_first_run_onboarding_can_be_rerun_from_settings(first_run_loaded_page: Page) -> None:

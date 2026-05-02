@@ -169,7 +169,6 @@ function initializeModules() {
 }
 
 function bindDom() {
-  dom.actorInput = document.getElementById("actor-input");
   dom.actorDisplay = document.getElementById("actor-display");
   dom.topbarAvatarMark = document.getElementById("topbar-avatar-mark");
   dom.actorRoleBadge = document.getElementById("actor-role-badge");
@@ -318,22 +317,18 @@ function bindRuntimeActions() {
 }
 
 function syncActorDisplay() {
-  if (dom.actorDisplay) dom.actorDisplay.textContent = state.actor || "operator-ui";
-  if (dom.topbarAvatarMark) dom.topbarAvatarMark.textContent = (state.actor || "O").charAt(0).toUpperCase();
+  const actorName = String(state.actor || state.currentActor?.actor_name || "operator-ui").trim() || "operator-ui";
+  if (dom.actorDisplay) {
+    dom.actorDisplay.textContent = actorName;
+    dom.actorDisplay.title = `Current operator: ${actorName}`;
+  }
+  if (dom.topbarAvatarMark) {
+    dom.topbarAvatarMark.textContent = actorName.slice(0, 1).toUpperCase() || "O";
+    dom.topbarAvatarMark.title = actorName;
+  }
 }
 
 function bindGlobalEvents() {
-  if (dom.actorInput) {
-    dom.actorInput.value = state.actor;
-    dom.actorInput.addEventListener("change", (event) => {
-      state.actor = event.target.value.trim() || "operator-ui";
-      state.currentActor = { actor_name: state.actor, role: "admin", auth_method: "x_actor_fallback" };
-      window.localStorage.setItem("aegispt-actor", state.actor);
-      syncActorDisplay();
-      pushStatus("Actor updated for API requests.", "info");
-      window.requestAnimationFrame(() => renderAll());
-    });
-  }
   syncActorDisplay();
 
   dom.engagementSelect.addEventListener("change", async (event) => {
@@ -558,7 +553,7 @@ function bindGlobalEvents() {
   });
 
   document.body.addEventListener("click", (event) => {
-    const target = event.target.closest("[data-focus-actor-input]");
+    const target = event.target.closest("[data-focus-actor-settings]");
     if (!target) return;
     event.preventDefault();
     missionModule.focusActorInputForApproval();
@@ -737,6 +732,30 @@ function dashboardApiPath() {
     : "/api/v1/dashboard";
 }
 
+function actorNameFromSettings(payload = state.operatorSettings) {
+  const sections = Array.isArray(payload?.sections) ? payload.sections : [];
+  for (const section of sections) {
+    const settings = Array.isArray(section?.settings) ? section.settings : [];
+    const match = settings.find((setting) => String(setting?.key || "") === "instance.operator_display_name");
+    const value = String(match?.value || "").trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function applyActorIdentity(actorName, currentActor = null) {
+  const normalized = String(actorName || "").trim() || "operator-ui";
+  state.actor = normalized;
+  state.currentActor = {
+    ...(currentActor || state.currentActor || {}),
+    actor_name: normalized,
+    role: String(currentActor?.role || state.currentActor?.role || "admin").trim().toLowerCase() || "admin",
+    auth_method: currentActor?.auth_method || state.currentActor?.auth_method || "x_actor_fallback",
+  };
+  window.localStorage.setItem("aegispt-actor", normalized);
+  syncActorDisplay();
+}
+
 async function refreshShell() {
   state.dashboardLoading = true;
   const [engagements, runProfiles, codexTasks, scenarios, operatorSettings, dashboard, currentActor] = await Promise.all([
@@ -754,7 +773,10 @@ async function refreshShell() {
   state.internalValidationScenarios = scenarios;
   state.operatorSettings = operatorSettings;
   state.dashboard = dashboard;
-  state.currentActor = currentActor || { actor_name: state.actor, role: "admin", auth_method: "x_actor_fallback" };
+  applyActorIdentity(
+    actorNameFromSettings(operatorSettings) || currentActor?.actor_name || state.actor,
+    currentActor || { actor_name: state.actor, role: "admin", auth_method: "x_actor_fallback" }
+  );
   state.dashboardLoading = false;
   state.dashboardError = null;
   if (
@@ -2240,21 +2262,13 @@ function renderHeader() {
   if (dom.refreshBtn) {
     dom.refreshBtn.classList.add("hidden");
   }
-  if (dom.actorInput) {
-    dom.actorInput.value = state.actor;
-    dom.actorInput.title = `Actor ${state.actor}`;
-  }
   if (dom.actorRoleBadge) {
     const role = String(state.currentActor?.role || "admin").trim().toLowerCase() || "admin";
     dom.actorRoleBadge.textContent = role;
     dom.actorRoleBadge.className = `topbar-role-badge role-${role}`;
     dom.actorRoleBadge.title = `Role: ${role}`;
   }
-  const avatarMark = document.querySelector(".topbar-avatar-mark");
-  if (avatarMark) {
-    const actorLabel = String(state.actor || "operator-ui").trim();
-    avatarMark.textContent = actorLabel ? actorLabel.slice(0, 1).toUpperCase() : "O";
-  }
+  syncActorDisplay();
 }
 
 function isFirstRunStartState() {

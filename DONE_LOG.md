@@ -1,5 +1,25 @@
 # Done Log
 
+- 2026-05-02: completed backlog-170 `Replace editable actor text input in topbar with a proper identity display pill`:
+  - removed the hidden/editable `#actor-input` from the topbar actor pill and made the topbar show a read-only operator name, role badge, and actor-derived avatar initial
+  - routed operator actor changes through Settings > Instance (`instance.operator_display_name`) while preserving localStorage persistence and the existing `X-Actor` fallback API behavior
+  - updated Mission Control approval guidance so multi-approval actor changes point to Settings > Instance instead of the old topbar actor field
+  - added focused Playwright coverage for the read-only topbar actor display, Settings-backed actor update, first-run onboarding display, and actor-dependent approval regression
+  - evidence recorded in `codex/results/backlog-170-actor-input-identity-display-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with `193` queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_smoke_e2e.py::test_topbar_actor_identity_is_read_only_and_settings_backed` passed
+    - `source .venv/bin/activate && python -m pytest -s -q ui/tests/test_operator_console_e2e.py::test_pending_approval_run_can_be_approved_from_mission_control ui/tests/test_operator_console_e2e.py::test_pending_approval_run_guides_actor_switch_for_second_approver ui/tests/test_operator_console_e2e.py::test_first_run_onboarding_prefills_wizard_defaults` passed
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_auth_and_roe_gate.py::test_x_actor_fallback_still_works_with_deprecation_warning` passed
+    - `source .venv/bin/activate && python -m pytest -q api/tests/test_health.py` hit the known local `_pytest/capture.py FileNotFoundError` and is not claimed green
+    - `source .venv/bin/activate && python -m pytest -s -q api/tests/test_health.py` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy JSON
+    - live HTML at `http://127.0.0.1:8000/app/` contains the actor display pill and no `actor-input`
+    - `git diff --check` passed before administration
+  - residual risk:
+    - this slice intentionally does not implement full login/auth/RBAC or change approval gate API rules
+    - mutable Settings browser acceptance used isolated Playwright app servers to avoid changing the currently running local instance
+
 - 2026-05-01: fresh-install cleanup and local runtime reset:
   - stopped/replaced the stale local inline host state and removed generated/local-only runtime data so the development install starts like a fresh instance
   - removed ignored generated artifacts and old local evidence from `.aegispt-artifacts/`, `ui/screenshots/`, `ui/test-results/`, stale ignored `codex/results/` artifacts, caches, and the local `aegispt.db`
