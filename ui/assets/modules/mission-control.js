@@ -1397,6 +1397,20 @@ export function createMissionModule() {
       };
     }
 
+    if (run?.stale_recovery?.available) {
+      return {
+        title: "Run cancellation needs governed recovery",
+        status: "blocked",
+        health: "Stale runner state",
+        next: "Recover stale task rows",
+        summary: "Mission Control sees running task rows that have no execution evidence and have not changed past the stale recovery threshold.",
+        why: "AegisPT will not silently rewrite runner state. The recovery action records an audit event and closes only task rows that meet the explicit stale-safety criteria.",
+        expectation: "Confirm no executor is still active for this run, then use the stale recovery action on the selected task focus card.",
+        primaryAction: { label: "Recover Stale Run", action: "stale-recovery" },
+        secondaryAction: { label: "Open Run Dossier", screen: "explorer" },
+      };
+    }
+
     if (dispatching && run) {
       return {
         title: "Validation is starting",
@@ -4040,6 +4054,11 @@ export function createMissionModule() {
         await draftAiRepairProposal(button.dataset.aiRepairTaskId);
       });
     });
+    dom.missionRunActivity.querySelectorAll("[data-run-stale-recovery]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await recoverSelectedStaleRun();
+      });
+    });
     dom.missionRunActivity.querySelectorAll("[data-assessment-chain-phase-decision]").forEach((button) => {
       button.addEventListener("click", async () => {
         const chainId = button.dataset.assessmentChainId;
@@ -4162,6 +4181,63 @@ export function createMissionModule() {
     patchState({ selectedAiInsights: insights }, "mission.aiRepair.drafted");
     runtime.actions.pushStatus?.("AI repair proposal is ready for review in AI Signal.", "success");
     renderMissionControl();
+  }
+
+  async function recoverSelectedStaleRun() {
+    if (!state.selectedRunId) {
+      throw new Error("Select a run before recovering stale runner state.");
+    }
+    patchState(
+      {
+        loading: {
+          ...state.loading,
+          staleRecoveryRunId: state.selectedRunId,
+        },
+      },
+      "mission.staleRecovery.start"
+    );
+    runtime.actions.pushStatus?.("Recording governed stale-run recovery. No OS process will be terminated.", "warning");
+    runtime.actions.renderAll?.();
+    try {
+      const updatedRun = await api(`/api/v1/runs/${state.selectedRunId}/stale-recovery`, {
+        method: "POST",
+        body: {
+          reason:
+            "Operator confirmed the selected runner is stale: the run is stuck in cancelling/running, no executor is active, and no task execution evidence was recorded.",
+          task_outcome: "cancelled",
+        },
+      });
+      patchState(
+        {
+          selectedRun: updatedRun,
+          selectedTaskId:
+            updatedRun.tasks?.some((task) => String(task.id || "") === String(state.selectedTaskId || ""))
+              ? state.selectedTaskId
+              : updatedRun.tasks?.[0]?.id || null,
+          mission: {
+            ...state.mission,
+            runs: (Array.isArray(state.mission.runs) ? state.mission.runs : []).map((candidate) =>
+              String(candidate.id || "") === String(updatedRun.id || "") ? updatedRun : candidate
+            ),
+          },
+        },
+        "mission.staleRecovery.updatedRun"
+      );
+      await runtime.actions.refreshSelectedEngagement?.();
+      runtime.actions.pushStatus?.("Stale run recovered with audit evidence. The run is no longer treated as active.", "success");
+      renderMissionControl();
+    } finally {
+      patchState(
+        {
+          loading: {
+            ...state.loading,
+            staleRecoveryRunId: null,
+          },
+        },
+        "mission.staleRecovery.finish"
+      );
+      runtime.actions.renderAll?.();
+    }
   }
 
   function focusActorInputForApproval() {
@@ -5786,6 +5862,10 @@ function renderActivityAction(action, buttonClass) {
       : "";
     return `<button class="action ${buttonClass} ${launchPulse}" type="button" data-run-dispatch="selected" ${dispatching ? "disabled" : ""}>${escapeHtml(dispatching ? "Dispatching..." : action.label)}</button>`;
   }
+  if (action.action === "stale-recovery") {
+    const recovering = String(state.loading.staleRecoveryRunId || "") === String(state.selectedRun?.id || "");
+    return `<button class="action ${buttonClass}" type="button" data-run-stale-recovery="selected" ${recovering ? "disabled" : ""}>${escapeHtml(recovering ? "Recovering..." : action.label)}</button>`;
+  }
   return `<button class="action ${buttonClass}" type="button" data-nav-screen="${escapeHtml(action.screen)}">${escapeHtml(action.label)}</button>`;
 }
 
@@ -6428,6 +6508,7 @@ function renderMissionTaskFocus(selectedTaskSummary, selectedTask, latestExecuti
       <h4>Selected Check Focus</h4>
       <p>${escapeHtml(`${formatToolLabel(selectedTaskSummary.tool)} · ${selectedTaskSummary.target_id}`)}</p>
       <p class="micro-copy">${escapeHtml(latestExecutionLine)}</p>
+      ${renderStaleTaskRecoveryNotice(selectedTaskSummary)}
       ${renderTaskStdoutTerminal(selectedTaskSummary)}
       ${renderAiRepairAction(selectedTaskSummary)}
       <div class="compact-definition-grid split-top">
@@ -6466,6 +6547,43 @@ function renderMissionTaskFocus(selectedTaskSummary, selectedTask, latestExecuti
         <button class="action ghost" type="button" data-nav-screen="explorer">Open Run Dossier</button>
         <button class="action ghost" type="button" data-nav-screen="history">Open History</button>
       </div>
+    </div>
+  `;
+}
+
+function renderStaleTaskRecoveryNotice(selectedTaskSummary) {
+  const recovery = selectedTaskSummary?.stale_recovery || {};
+  const runtimeRecovery = selectedTaskSummary?.params_json?.runtime_recovery || null;
+  if (runtimeRecovery) {
+    return `
+      <div class="ai-signal-callout split-top status-complete" data-testid="mission-stale-recovery-complete">
+        <strong>${escapeHtml("Stale recovery recorded")}</strong>
+        <p>${escapeHtml(`This task was marked ${runtimeRecovery.outcome || selectedTaskSummary.status || "closed"} through governed recovery by ${runtimeRecovery.recovered_by || "an operator"}.`)}</p>
+        <p class="micro-copy">${escapeHtml(runtimeRecovery.reason || "Audit metadata is stored on the run recovery event.")}</p>
+      </div>
+    `;
+  }
+  if (!recovery?.eligible && !recovery?.blocked_reasons?.length) {
+    return "";
+  }
+  if (recovery.eligible) {
+    const recovering = String(state.loading.staleRecoveryRunId || "") === String(state.selectedRun?.id || "");
+    return `
+      <div class="ai-signal-callout split-top status-blocked" data-testid="mission-stale-recovery-notice">
+        <strong>${escapeHtml("Stale running task detected")}</strong>
+        <p>${escapeHtml("This task has no execution evidence and has not changed past the stale recovery threshold. Use recovery only after confirming no executor is still active.")}</p>
+        <div class="mission-action-row split-top">
+          <button class="action warning" type="button" data-run-stale-recovery="selected" ${recovering ? "disabled" : ""}>${escapeHtml(recovering ? "Recovering..." : "Recover Stale Run")}</button>
+          <span class="micro-copy">${escapeHtml(`Threshold ${recovery.threshold_minutes || 10} min · age ${recovery.age_minutes || 0} min`)}</span>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="ai-signal-callout split-top status-review" data-testid="mission-stale-recovery-blocked">
+      <strong>${escapeHtml("Normal running task")}</strong>
+      <p>${escapeHtml("Governed stale recovery is blocked for this task, so normal cancellation or runner completion should continue.")}</p>
+      <p class="micro-copy">${escapeHtml((recovery.blocked_reasons || []).join("; ") || "No stale recovery reason is available.")}</p>
     </div>
   `;
 }

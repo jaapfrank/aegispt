@@ -24,6 +24,17 @@ const TOOL_COLORS = ["#5ecfff", "#10b981", "#fbbf24", "#8b5cf6", "#f97316", "#ef
 
 let cinemaUnsubscribe = null;
 let cinemaRefreshTimer = null;
+let cinemaPreviousFocus = null;
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "summary",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
 
 function svgEl(tag, attrs = {}) {
   const el = document.createElementNS(SVG_NS, tag);
@@ -720,25 +731,68 @@ export function closeCinemaMode() {
     cinemaRefreshTimer = null;
   }
   document.getElementById("cinema-overlay")?.remove();
+  if (cinemaPreviousFocus?.isConnected) {
+    cinemaPreviousFocus.focus();
+  }
+  cinemaPreviousFocus = null;
 }
 
 function handleCinemaKeydown(event) {
   if (event.key === "Escape") {
+    event.preventDefault();
     closeCinemaMode();
+    return;
   }
+  if (event.key !== "Tab") return;
+  const overlay = document.getElementById("cinema-overlay");
+  const focusable = focusableElements(overlay);
+  if (!focusable.length) {
+    event.preventDefault();
+    overlay?.focus();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function focusableElements(root) {
+  if (!root) return [];
+  return Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    if (element.getAttribute("aria-hidden") === "true") return false;
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
+  });
 }
 
 export function openCinemaMode() {
   closeCinemaMode();
+  cinemaPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const overlay = document.createElement("div");
   overlay.id = "cinema-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", "Cinema Mode");
+  overlay.setAttribute("tabindex", "-1");
   document.body.append(overlay);
   document.body.classList.add("cinema-open");
   renderCinemaOverlay(overlay);
   cinemaUnsubscribe = subscribe(() => renderCinemaOverlay(overlay));
   cinemaRefreshTimer = window.setInterval(() => renderCinemaOverlay(overlay), 2000);
   document.addEventListener("keydown", handleCinemaKeydown);
+  window.requestAnimationFrame(() => {
+    const closeButton = overlay.querySelector("[data-testid='cinema-mode-close']");
+    if (closeButton instanceof HTMLElement) {
+      closeButton.focus();
+    } else {
+      overlay.focus();
+    }
+  });
 }

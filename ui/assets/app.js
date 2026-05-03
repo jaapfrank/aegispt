@@ -1,5 +1,5 @@
 import { api, apiOrNull } from "./modules/api.js";
-import { openCinemaMode } from "./modules/cinema.js?v=20260428-cinema-elapsed-1";
+import { openCinemaMode } from "./modules/cinema.js?v=20260502-a11y-gate-1";
 import { createCustomVulnerabilitiesModule } from "./modules/custom-vulnerabilities.js";
 import { createDashboardModule } from "./modules/dashboard.js";
 import { createExplorerHistoryModule } from "./modules/explorer-history.js";
@@ -37,7 +37,7 @@ import {
   renderTargetSummary,
   statusPill,
 } from "./modules/shared.js";
-import { createWizardModule, estimateMission } from "./modules/wizard.js?v=20260428-full-auth-ai-signal-1";
+import { createWizardModule, estimateMission } from "./modules/wizard.js?v=20260502-a11y-gate-1";
 
 let wizardModule;
 let dashboardModule;
@@ -49,6 +49,17 @@ let problemsModule;
 let reportsModule;
 let explorerHistoryModule;
 let settingsModule;
+let deleteModalPreviousFocus = null;
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "summary",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
 
 const PHASE_DEFINITIONS = {
   home: {
@@ -341,6 +352,10 @@ function bindGlobalEvents() {
     state.selectedCodexResult = null;
     state.selectedCodexContext = null;
     state.chatgptOAuthStatus = null;
+    state.diagnostics = null;
+    state.diagnosticsLoading = false;
+    state.diagnosticsBundleLoading = false;
+    state.diagnosticsError = null;
     state.cicdTriggerSettings = null;
     state.cicdTriggerLoading = false;
     state.cicdTriggerSavingSource = null;
@@ -375,7 +390,9 @@ function bindGlobalEvents() {
     if (state.activeScreen === "settings") {
       await Promise.allSettled([
         settingsModule.loadChatGPTStatus(),
+        settingsModule.loadDiagnostics(),
         settingsModule.loadSettingsReadiness(),
+        settingsModule.loadEnterpriseIdentityStatus(),
         settingsModule.loadCicdTriggerSettings(),
         settingsModule.loadJiraIntegrationSettings(),
         settingsModule.loadSiemIntegrationSettings(),
@@ -403,6 +420,19 @@ function bindGlobalEvents() {
     }
     event.preventDefault();
     openCinemaMode();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const dialog = dom.deleteModalRoot?.querySelector(".delete-modal");
+    if (!dialog) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeDeleteModal();
+      return;
+    }
+    if (event.key === "Tab") {
+      trapFocusWithin(dialog, event);
+    }
   });
 
   document.body.addEventListener("click", (event) => {
@@ -683,6 +713,84 @@ function isEditableKeyboardTarget(target) {
   return ["input", "textarea", "select"].includes(tagName) || target.isContentEditable;
 }
 
+function focusableElements(root) {
+  if (!root) return [];
+  return Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    if (element.getAttribute("aria-hidden") === "true") return false;
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
+  });
+}
+
+function trapFocusWithin(root, event) {
+  const focusable = focusableElements(root);
+  if (!focusable.length) {
+    event.preventDefault();
+    root.focus?.();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function activeScreenElement() {
+  return document.getElementById(`screen-${state.activeScreen}`);
+}
+
+function isEditableElement(element) {
+  if (!element) return false;
+  const tagName = String(element.tagName || "").toLowerCase();
+  return Boolean(
+    element.isContentEditable ||
+      ["input", "select", "textarea"].includes(tagName) ||
+      element.closest?.("[contenteditable='true']")
+  );
+}
+
+function selectionTouchesActiveScreen(selection) {
+  if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+  const screen = activeScreenElement();
+  if (!screen) return false;
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    const range = selection.getRangeAt(index);
+    const node =
+      range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement;
+    if (node && screen.contains(node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function operatorHasActiveTextInteraction() {
+  if (state.activeScreen !== "mission-control") return false;
+  const screen = activeScreenElement();
+  const activeElement = document.activeElement;
+  if (screen && activeElement && screen.contains(activeElement) && isEditableElement(activeElement)) {
+    return true;
+  }
+  const selection = window.getSelection?.();
+  return Boolean(selection?.toString().trim() && selectionTouchesActiveScreen(selection));
+}
+
+function shouldDeferBackgroundScreenRender(options = {}) {
+  return Boolean(options.background) && operatorHasActiveTextInteraction();
+}
+
+function renderBackgroundUpdate(options = {}) {
+  renderAll({ renderScreen: true, background: true, ...options });
+}
+
 async function boot() {
   await refreshShell();
   renderAll();
@@ -715,6 +823,7 @@ function scheduleNextRefresh() {
       if (state.selectedEngagementId) {
         await refreshSelectedEngagement({
           renderScreen: shouldRenderActiveScreenDuringBackgroundRefresh(),
+          background: true,
         });
       }
     } catch (error) {
@@ -835,11 +944,12 @@ function syncDefaultLandingScreen() {
 }
 
 function shouldRenderActiveScreenDuringBackgroundRefresh() {
-  return state.activeScreen === "mission-control";
+  return state.activeScreen === "mission-control" && !operatorHasActiveTextInteraction();
 }
 
 async function refreshSelectedEngagement(options = {}) {
   const renderScreen = options.renderScreen ?? true;
+  const background = Boolean(options.background);
   populateEngagementSelect();
   if (!state.selectedEngagementId) {
     closeRunEventStream();
@@ -869,7 +979,7 @@ async function refreshSelectedEngagement(options = {}) {
     state.comparisonBaselineRunId = null;
     state.reportCatalog = [];
     state.reportDraft = null;
-    renderAll({ renderScreen });
+    renderAll({ renderScreen, background });
     return;
   }
 
@@ -940,7 +1050,7 @@ async function refreshSelectedEngagement(options = {}) {
   await Promise.all([loadSelectedRun(), loadSelectedPack()]);
   await ensureComparisonFindings();
   syncRunEventStream();
-  renderAll({ renderScreen });
+  renderAll({ renderScreen, background });
 }
 
 function preserveCachedFindingsByRun(runs) {
@@ -1107,7 +1217,7 @@ function syncRunEventStream() {
       state.runStream.status = "fallback";
       state.runStream.fallbackReason = "Run stream emitted invalid data; using polling fallback.";
       source.close();
-      renderAll();
+      renderBackgroundUpdate();
       return;
     }
 
@@ -1119,11 +1229,11 @@ function syncRunEventStream() {
     state.runStream.fallbackReason = null;
     state.runStream.lastEventAt = new Date().toISOString();
     mergeRunStreamSnapshot(snapshot);
-    renderAll();
+    renderBackgroundUpdate();
 
     if (RUN_STREAM_TERMINAL_STATUSES.has(String(snapshot.status || "").toLowerCase())) {
       closeRunEventStream("idle");
-      refreshSelectedEngagement().catch(handleError);
+      refreshSelectedEngagement({ background: true }).catch(handleError);
     }
   };
 
@@ -1143,26 +1253,26 @@ function syncRunEventStream() {
     state.runStream.fallbackReason = null;
     state.runStream.lastEventAt = new Date().toISOString();
     Promise.all([
-      refreshSelectedEngagement({ renderScreen: false }),
+      refreshSelectedEngagement({ renderScreen: false, background: true }),
       String(payload.finding_id || "") === String(state.selectedFindingId || "") ? loadSelectedFinding() : Promise.resolve(),
     ])
-      .then(() => renderAll())
+      .then(() => renderBackgroundUpdate())
       .catch(handleError);
   });
   source.addEventListener("run.missing", () => {
     closeRunEventStream("fallback", "Run stream could not find the selected run; using polling fallback.");
-    renderAll();
+    renderBackgroundUpdate();
   });
   source.onopen = () => {
     if (state.runStream.runId !== runId) return;
     state.runStream.status = "connected";
     state.runStream.fallbackReason = null;
-    renderAll();
+    renderBackgroundUpdate();
   };
   source.onerror = () => {
     if (state.runStream.runId !== runId) return;
     closeRunEventStream("fallback", "Run stream unavailable; using polling fallback.");
-    renderAll();
+    renderBackgroundUpdate();
   };
 }
 
@@ -1296,28 +1406,63 @@ function selectedTaskSummaryForPolling(taskId) {
   return state.selectedRun?.tasks?.find((task) => String(task.id || "") === String(taskId)) || null;
 }
 
+function selectedTaskAndStdoutSignature() {
+  const task = state.selectedTask || {};
+  const stream = state.taskStdoutStream || {};
+  const lines = Array.isArray(stream.lines) ? stream.lines : [];
+  return JSON.stringify({
+    task: {
+      id: task.id || null,
+      status: task.status || null,
+      updated_at: task.updated_at || null,
+      started_at: task.started_at || null,
+      finished_at: task.finished_at || null,
+      execution_count: Array.isArray(task.executions) ? task.executions.length : null,
+    },
+    stream: {
+      taskId: stream.taskId || null,
+      status: stream.status || null,
+      sourceLabel: stream.sourceLabel || null,
+      fallbackReason: stream.fallbackReason || null,
+      lineCount: Number(stream.lineCount || 0),
+      truncated: Boolean(stream.truncated),
+      terminal: Boolean(stream.terminal),
+      lines: lines.map((line) => ({
+        sequence: Number(line?.sequence || 0),
+        text: String(line?.text || ""),
+      })),
+    },
+  });
+}
+
 async function pollSelectedTaskStdout(taskId) {
   if (!taskId || runtime.taskStdoutPollInFlight) return;
   const taskSummary = selectedTaskSummaryForPolling(taskId);
   if (String(taskSummary?.status || "").toLowerCase() !== "running") return;
   runtime.taskStdoutPollInFlight = true;
   try {
+    const previousSignature = selectedTaskAndStdoutSignature();
     const task = await api(`/api/v1/tasks/${encodeURIComponent(taskId)}`);
     if (String(state.selectedTaskId || "") !== String(taskId)) return;
     state.selectedTask = task;
     if (task.stdout_snapshot) {
       applyTaskStdoutSnapshot(task.stdout_snapshot, taskId, { status: "streaming" });
     }
-    renderAll();
+    if (selectedTaskAndStdoutSignature() !== previousSignature) {
+      renderBackgroundUpdate();
+    }
   } catch (error) {
     if (String(state.selectedTaskId || "") === String(taskId)) {
+      const previousSignature = selectedTaskAndStdoutSignature();
       state.taskStdoutStream = {
         ...(state.taskStdoutStream || {}),
         taskId,
         status: "fallback",
         fallbackReason: error?.message || "Task stdout polling failed; stored execution fallback remains available.",
       };
-      renderAll();
+      if (selectedTaskAndStdoutSignature() !== previousSignature) {
+        renderBackgroundUpdate();
+      }
     }
   } finally {
     runtime.taskStdoutPollInFlight = false;
@@ -1421,7 +1566,7 @@ function syncTaskStdoutEventStream() {
       state.taskStdoutStream.status = "fallback";
       state.taskStdoutStream.fallbackReason = "Task stdout stream emitted invalid data; using stored execution fallback only.";
       source.close();
-      renderAll();
+      renderBackgroundUpdate();
       return;
     }
 
@@ -1436,7 +1581,7 @@ function syncTaskStdoutEventStream() {
     if (terminal) {
       source.close();
     }
-    renderAll();
+    renderBackgroundUpdate();
   };
 
   source.addEventListener("task.stdout.snapshot", handleTaskStdoutEvent);
@@ -1456,13 +1601,13 @@ function syncTaskStdoutEventStream() {
       lastEventAt: new Date().toISOString(),
     };
     source.close();
-    renderAll();
+    renderBackgroundUpdate();
   });
   source.onopen = () => {
     if (state.taskStdoutStream.taskId !== taskId) return;
     state.taskStdoutStream.status = "streaming";
     state.taskStdoutStream.fallbackReason = null;
-    renderAll();
+    renderBackgroundUpdate();
   };
   source.onerror = () => {
     if (state.taskStdoutStream.taskId !== taskId) return;
@@ -1470,7 +1615,7 @@ function syncTaskStdoutEventStream() {
     state.taskStdoutStream.fallbackReason = "Task stdout stream unavailable; using stored execution fallback only.";
     state.taskStdoutStream.source = null;
     source.close();
-    renderAll();
+    renderBackgroundUpdate();
   };
 }
 
@@ -1799,9 +1944,14 @@ function closeDeleteModal() {
     "delete.modal.close"
   );
   renderDeletionUi();
+  if (deleteModalPreviousFocus?.isConnected) {
+    deleteModalPreviousFocus.focus();
+  }
+  deleteModalPreviousFocus = null;
 }
 
 function openEngagementCleanup() {
+  deleteModalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   patchState(
     {
       deleteUi: {
@@ -1820,6 +1970,7 @@ async function openRunDeletePreview(runIds) {
     pushStatus("Select at least one run before deleting.", "warning");
     return;
   }
+  deleteModalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   patchState(
     {
       deleteUi: {
@@ -1888,6 +2039,7 @@ async function openEngagementDeletePreview(engagementIds) {
     pushStatus("Select at least one engagement before deleting.", "warning");
     return;
   }
+  deleteModalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   patchState(
     {
       deleteUi: {
@@ -1990,7 +2142,7 @@ function renderShellChrome() {
 }
 
 function renderAll(options = {}) {
-  const renderScreen = options.renderScreen ?? true;
+  const renderScreen = (options.renderScreen ?? true) && !shouldDeferBackgroundScreenRender(options);
   syncTaskStdoutEventStream();
   syncTaskStdoutPoller();
   renderShellChrome();
@@ -2007,37 +2159,46 @@ function renderDeletionUi() {
   if (!modal) {
     dom.deleteModalRoot.classList.remove("is-visible");
     dom.deleteModalRoot.innerHTML = "";
+    dom.deleteModalRoot.dataset.focusInitialized = "false";
     return;
   }
   dom.deleteModalRoot.classList.add("is-visible");
   if (modal.type === "engagement-cleanup") {
     renderEngagementCleanupModal();
-    return;
-  }
-  if (modal.type === "run-delete") {
+  } else if (modal.type === "run-delete") {
     renderRunDeleteModal(modal);
-    return;
-  }
-  if (modal.type === "engagement-delete") {
+  } else if (modal.type === "engagement-delete") {
     renderEngagementDeleteModal(modal);
   }
+  focusDeleteModalOnce();
 }
 
 function renderDeleteModalShell({ title, subtitle, body }) {
   dom.deleteModalRoot.innerHTML = `
     <div class="delete-modal-backdrop" data-delete-modal-close="true"></div>
-    <section class="delete-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+    <section class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title" aria-describedby="delete-modal-description" tabindex="-1">
       <div class="delete-modal-head">
         <div>
           <p class="eyebrow">Data Cleanup</p>
-          <h3>${escapeHtml(title)}</h3>
-          <p>${escapeHtml(subtitle)}</p>
+          <h3 id="delete-modal-title">${escapeHtml(title)}</h3>
+          <p id="delete-modal-description">${escapeHtml(subtitle)}</p>
         </div>
         <button class="topbar-button topbar-icon-button" type="button" data-delete-modal-close="true" aria-label="Close">×</button>
       </div>
       ${body}
     </section>
   `;
+}
+
+function focusDeleteModalOnce() {
+  if (dom.deleteModalRoot?.dataset.focusInitialized === "true") return;
+  const dialog = dom.deleteModalRoot?.querySelector(".delete-modal");
+  if (!dialog) return;
+  dom.deleteModalRoot.dataset.focusInitialized = "true";
+  window.requestAnimationFrame(() => {
+    const focusable = focusableElements(dialog);
+    (focusable[0] || dialog).focus();
+  });
 }
 
 function renderEngagementCleanupModal() {
@@ -3407,7 +3568,9 @@ function navigateToScreen(screen) {
   if (state.activeScreen === "settings") {
     Promise.allSettled([
       settingsModule.loadSettings(),
+      settingsModule.loadDiagnostics(),
       settingsModule.loadSettingsReadiness(),
+      settingsModule.loadEnterpriseIdentityStatus(),
       settingsModule.loadChatGPTStatus(),
       settingsModule.loadScheduledRuns(),
       settingsModule.loadCicdTriggerSettings(),

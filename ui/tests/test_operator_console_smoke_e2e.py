@@ -1244,6 +1244,20 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
                   affected_assessment_families: ['WiFi discovery', 'Wireless security review'],
                   metadata: { detected_adapters: ['wlan0'], safe_parallelism_limit: 1 },
                 },
+                {
+                  id: 'deployment_hardening',
+                  title: 'Production deployment hardening',
+                  status: 'blocked',
+                  summary: 'Production deployment hardening has 2 blocking gaps.',
+                  details: [
+                    'Public base URL uses HTTPS: no.',
+                    'TLS reverse proxy declared: no.',
+                    'Secure browser cookies declared: no.',
+                  ],
+                  operator_next_step: 'Resolve blocking deployment gaps before treating this host as enterprise-production ready.',
+                  affected_assessment_families: ['Enterprise deployment', 'Offline update operations'],
+                  metadata: { production_like: true, secrets_plaintext_exposed: false },
+                },
               ],
               tools: [
                 {
@@ -1292,10 +1306,92 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
     expect(panel).to_contain_text("6 inline task workers configured")
     expect(panel).to_contain_text("Wireless adapter readiness")
     expect(panel).to_contain_text("Foundation WiFi support is passive-only")
+    expect(panel).to_contain_text("Production deployment hardening")
+    expect(panel).to_contain_text("Resolve blocking deployment gaps")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Metasploit")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("WiFi analysis tools")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Exploit confirmation")
     expect(loaded_page.get_by_test_id("settings-readiness-export")).to_be_visible()
+
+
+def test_settings_diagnostics_panel_exposes_subsystems_failures_and_bundle_export(
+    loaded_page: Page,
+) -> None:
+    diagnostics = {
+        "tenant_id": "default",
+        "generated_at": "2026-05-02T08:00:00Z",
+        "overall_status": "degraded",
+        "support_bundle_endpoint": "/api/v1/diagnostics/support-bundle",
+        "subsystems": [
+            {
+                "id": "app_health",
+                "title": "App health",
+                "status": "ready",
+                "summary": "FastAPI app responds to local health checks.",
+                "details": ["/health/live is reachable."],
+                "operator_next_step": "No action required.",
+                "metadata": {},
+            },
+            {
+                "id": "worker_dispatch",
+                "title": "Worker and dispatch",
+                "status": "degraded",
+                "summary": "Inline dispatch is active; queued work depends on the web process.",
+                "details": ["TASK_DISPATCH_MODE=inline"],
+                "operator_next_step": "Use Settings > Runtime Readiness before starting long runs.",
+                "metadata": {},
+            },
+            {
+                "id": "feed_sync",
+                "title": "Threat feed sync",
+                "status": "blocked",
+                "summary": "Last feed sync was rate limited.",
+                "details": ["Retry window is visible to support."],
+                "operator_next_step": "Wait for the provider retry window or disable the feed temporarily.",
+                "metadata": {},
+            },
+            {
+                "id": "deployment_hardening",
+                "title": "Production deployment hardening",
+                "status": "blocked",
+                "summary": "Production deployment hardening has 2 blocking gaps.",
+                "details": ["Public base URL uses HTTPS: no.", "Secure browser cookies declared: no."],
+                "operator_next_step": "Resolve blocking deployment gaps before rollout.",
+                "metadata": {"secrets_plaintext_exposed": False},
+            },
+        ],
+        "recent_failures": [
+            {
+                "subsystem": "feed_sync",
+                "status": "blocked",
+                "summary": "CVE feed returned HTTP 429.",
+                "object_type": "feed_sync",
+                "object_id": "nvd",
+                "occurred_at": "2026-05-02T08:01:00Z",
+                "operator_next_step": "Retry after the provider limit resets.",
+            },
+        ],
+    }
+    loaded_page.route(
+        "**/api/v1/diagnostics",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(diagnostics),
+        ),
+    )
+    loaded_page.get_by_test_id("nav-settings").click()
+
+    panel = loaded_page.get_by_test_id("settings-diagnostics-panel")
+    expect(panel).to_contain_text("Support Diagnostics")
+    expect(panel).to_contain_text("App health")
+    expect(panel).to_contain_text("Worker and dispatch")
+    expect(panel).to_contain_text("Threat feed sync")
+    expect(panel).to_contain_text("Production deployment hardening")
+    expect(panel).to_contain_text("Resolve blocking deployment gaps")
+    expect(panel).to_contain_text("CVE feed returned HTTP 429")
+    expect(panel).to_contain_text("Retry after the provider limit resets")
+    expect(loaded_page.get_by_test_id("settings-support-bundle-export")).to_be_visible()
 
 
 def test_settings_scheduled_scans_panel_exposes_required_fields(loaded_page: Page) -> None:
@@ -1806,6 +1902,96 @@ def test_topbar_role_badge_and_settings_users_panel_render(loaded_page: Page) ->
     expect(loaded_page.get_by_test_id("settings-api-key-create-result")).to_contain_text("aegispt_visible_once")
 
 
+def test_settings_enterprise_identity_panel_shows_sso_and_session_state(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-settings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const settingsModule = await import('/app/assets/modules/settings.js');
+          runtimeModule.patchState({
+            activeScreen: 'settings',
+            currentActor: { actor_name: 'admin-ui', role: 'admin', auth_method: 'x_actor_fallback' },
+            operatorSettings: {
+              tenant_id: 'default',
+              sections: [{
+                id: 'enterprise_identity',
+                title: 'Enterprise Identity',
+                description: 'SSO settings.',
+                settings: [
+                  {
+                    key: 'identity.enterprise_sso_provider',
+                    label: 'Enterprise SSO provider',
+                    value: 'disabled',
+                    input_type: 'select',
+                    source: 'default',
+                    options: [
+                      { value: 'disabled', label: 'Disabled' },
+                      { value: 'oidc', label: 'OIDC' },
+                      { value: 'saml', label: 'SAML' },
+                    ],
+                  },
+                  {
+                    key: 'identity.session_timeout_minutes',
+                    label: 'Session timeout minutes',
+                    value: 480,
+                    input_type: 'number',
+                    source: 'default',
+                    min_value: 5,
+                    max_value: 1440,
+                    step: 1,
+                  },
+                ],
+              }],
+            },
+            enterpriseIdentityStatus: {
+              tenant_id: 'default',
+              provider: 'disabled',
+              status: 'disabled',
+              configured: false,
+              summary: 'Enterprise SSO is disabled; local development fallback and API keys remain active.',
+              operator_next_step: 'Configure OIDC or SAML when this host needs enterprise sign-in controls.',
+              missing_fields: [],
+              configured_secret_labels: [],
+              session_policy: {
+                timeout_minutes: 480,
+                logout_redirect_url: null,
+                server_session_enforced: false,
+                local_fallback_has_server_session: false,
+              },
+              local_auth: {
+                warning: 'Local X-Actor fallback is for supervised local/dev use and is not enterprise authentication.',
+              },
+              current_actor: { actor_name: 'admin-ui', role: 'admin', auth_method: 'x_actor_fallback' },
+              users: [
+                { actor_name: 'admin-ui', role: 'admin', auth_method: 'x_actor_fallback', status: 'active', source: 'current_request', last_seen_at: null },
+                { actor_name: 'integration-runner', role: 'operator', auth_method: 'api_key', status: 'active', source: 'api_key', last_seen_at: null },
+              ],
+              metadata: { full_sso_login_enabled: false },
+            },
+            enterpriseIdentityLoading: false,
+            enterpriseIdentityError: null,
+            enterpriseIdentityLogoutResult: {
+              message: 'Logout recorded. Local fallback has no server session; active runs were not changed.',
+            },
+            settingsUi: { openPanels: { enterprise_identity: true } },
+          }, 'ui.test.enterpriseIdentity');
+          settingsModule.createSettingsModule().renderSettingsScreen();
+        }
+        """
+    )
+
+    panel = loaded_page.get_by_test_id("settings-enterprise-identity-panel")
+    expect(panel).to_contain_text("Enterprise Identity")
+    expect(panel).to_contain_text("disabled")
+    expect(panel).to_contain_text("480 minute timeout")
+    expect(panel).to_contain_text("Local X-Actor fallback")
+    expect(panel).to_contain_text("integration-runner")
+    expect(loaded_page.get_by_test_id("settings-enterprise-identity")).to_be_visible()
+    expect(loaded_page.locator("[data-setting-key='identity.session_timeout_minutes']")).to_have_attribute("min", "5")
+    expect(loaded_page.get_by_test_id("settings-identity-logout-result")).to_contain_text("active runs were not changed")
+
+
 def test_mission_control_drift_summary_banner_renders(loaded_page: Page) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
     loaded_page.evaluate(
@@ -1917,6 +2103,104 @@ def test_mission_control_running_task_stdout_shows_live_indicator(loaded_page: P
 
     expect(loaded_page.get_by_test_id("mission-task-stdout-live-indicator")).to_contain_text("Live")
     expect(loaded_page.get_by_test_id("mission-task-stdout-output")).to_contain_text("nmap scan report")
+
+
+def test_mission_control_background_update_preserves_operator_text_selection(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    result = loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const now = new Date().toISOString();
+          const runId = '67676767-6767-4676-8676-676767676767';
+          const taskId = '78787878-7878-4787-8787-787878787878';
+          const staleRecovery = {
+            available: true,
+            eligible_task_ids: [taskId],
+            blocked_reasons: [],
+            threshold_minutes: 10,
+            operator_summary: 'This run has stale running task rows that can be closed with audit evidence.',
+          };
+          const staleTaskRecovery = {
+            eligible: true,
+            blocked_reasons: [],
+            age_minutes: 31,
+            threshold_minutes: 10,
+            has_execution_evidence: false,
+            operator_summary: 'This running task appears stale.',
+          };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedRunId: runId,
+            selectedTaskId: taskId,
+            selectedRun: {
+              id: runId,
+              status: 'cancelling',
+              requested_by: 'operator-ui',
+              created_at: now,
+              updated_at: now,
+              configuration_json: { targets: { cidr_ranges: ['10.0.20.0/24'] } },
+              profile: { name: 'passive-network-discovery', run_class: 'passive', limits_json: {} },
+              tasks: [{
+                id: taskId,
+                tool: 'nmap',
+                target_id: '10.0.20.0/24',
+                status: 'running',
+                params_json: { target_kind: 'cidr', profile_name: 'passive-network-discovery' },
+                stale_recovery: staleTaskRecovery,
+                created_at: now,
+                updated_at: now,
+              }],
+              findings: { finding_count: 0, findings_by_severity: {}, findings_by_status: {} },
+              ai_mission_guidance: {},
+              stale_recovery: staleRecovery,
+            },
+            selectedTask: {
+              id: taskId,
+              run_id: runId,
+              tool: 'nmap',
+              target_id: '10.0.20.0/24',
+              status: 'running',
+              params_json: { target_kind: 'cidr', profile_name: 'passive-network-discovery' },
+              created_at: now,
+              updated_at: now,
+              executions: [],
+            },
+            taskStdoutStream: {
+              source: null,
+              taskId,
+              status: 'running',
+              sourceLabel: 'runner-buffer',
+              fallbackReason: null,
+              lines: [{ sequence: 1, text: 'copyable operator evidence line' }],
+              lineCount: 1,
+              truncated: false,
+              terminal: false,
+              lastEventAt: now,
+            },
+          }, 'ui.test.selectionPreservation');
+          missionModule.createMissionModule().renderMissionControl();
+          const output = document.querySelector('[data-testid="mission-task-stdout-output"]');
+          output.dataset.selectionProbe = 'kept';
+          const range = document.createRange();
+          range.selectNodeContents(output);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          runtimeModule.runtime.actions.renderAll({ background: true });
+          return {
+            selectedText: window.getSelection().toString(),
+            probe: document.querySelector('[data-testid="mission-task-stdout-output"]')?.dataset.selectionProbe || '',
+            staleNotice: document.querySelector('[data-testid="mission-stale-recovery-notice"]')?.textContent || '',
+          };
+        }
+        """
+    )
+
+    assert "copyable operator evidence line" in result["selectedText"]
+    assert result["probe"] == "kept"
+    assert "Stale running task detected" in result["staleNotice"]
 
 
 def test_wifi_mission_control_and_report_center_surface_wireless_context(loaded_page: Page) -> None:

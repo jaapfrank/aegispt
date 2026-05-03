@@ -2173,6 +2173,7 @@ def test_wizard_preview_requires_access_prerequisite_declaration(loaded_page: Pa
 
     unlockers = loaded_page.get_by_test_id("wizard-access-unlockers")
     expect(unlockers).to_be_visible()
+    expect(unlockers.locator("[data-wizard-unlocker]")).to_have_count(6)
     expect(unlockers).to_contain_text("No credentials available")
     expect(unlockers).to_contain_text("Credential refs available")
     expect(unlockers).to_contain_text("Exploit confirmation authorized")
@@ -2181,6 +2182,51 @@ def test_wizard_preview_requires_access_prerequisite_declaration(loaded_page: Pa
     credential_refs.click()
     expect(credential_refs).to_have_attribute("aria-pressed", "true")
     expect(unlockers).to_contain_text("Access prerequisites declared before launch")
+
+
+def test_external_web_preview_filters_lan_only_access_prerequisites(loaded_page: Page) -> None:
+    _select_assessment_tile(loaded_page, "external-web")
+    loaded_page.get_by_test_id("wizard-target-input").fill("https://portal.example.com")
+    loaded_page.get_by_test_id("wizard-depth-tile-active").click()
+    loaded_page.locator("[data-wizard-preview]").click()
+
+    unlockers = loaded_page.get_by_test_id("wizard-access-unlockers")
+    expect(unlockers).to_be_visible()
+    expect(unlockers).to_contain_text("No credentials available")
+    expect(unlockers).to_contain_text("Credential refs available")
+    expect(unlockers).to_contain_text("Unauthenticated web/API checks")
+    expect(unlockers).not_to_contain_text("Unauthenticated LAN lane")
+    expect(unlockers).not_to_contain_text("Intrusive LAN checks authorized")
+    expect(unlockers).not_to_contain_text("Intrusive LAN checks authorised")
+    expect(unlockers).not_to_contain_text("AD/domain context known")
+    expect(unlockers).not_to_contain_text("Hashes or password candidates")
+    expect(unlockers.locator('[data-wizard-unlocker="intrusive_lan_authorized"]')).to_have_count(0)
+
+
+def test_wizard_preview_credential_cta_opens_access_configuration(loaded_page: Page) -> None:
+    _select_assessment_tile(loaded_page, "external-web")
+    loaded_page.get_by_test_id("wizard-target-input").fill("https://portal.example.com")
+    loaded_page.get_by_test_id("wizard-depth-tile-active").click()
+    loaded_page.locator("[data-wizard-preview]").click()
+
+    cta = loaded_page.get_by_test_id("wizard-credential-entry-cta")
+    expect(cta).to_be_visible()
+    expect(cta).to_contain_text("Add credentials in Advanced Configuration")
+    cta.get_by_role("button", name=re.compile("Add credentials")).click()
+
+    drawer = loaded_page.get_by_test_id("wizard-advanced-drawer")
+    expect(drawer).to_be_visible()
+    expect(loaded_page.locator('[data-advanced-step="2"]')).to_have_class(
+        re.compile(r"secondary")
+    )
+    expect(drawer).to_contain_text(
+        "Enter credentials for authenticated scanning. Fields left empty are skipped."
+    )
+    expect(
+        drawer.locator('[data-account-field="username"][data-account-index="0"]')
+    ).to_have_attribute("placeholder", "username or email")
+    expect(drawer).to_contain_text("Password or secret ref")
+    expect(drawer).not_to_contain_text("Password / Secret Reference")
 
 
 def test_external_infrastructure_tile_routes_to_external_infrastructure_execution_lane(

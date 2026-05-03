@@ -202,6 +202,30 @@ const ASSESSMENT_TILE_OPTIONS = [
     assessmentType: "Mixed Assessment",
     quickReply: "A mixed environment",
   },
+  {
+    key: "ssl-tls",
+    label: "SSL/TLS Only",
+    icon: "🔐",
+    badge: "TLS",
+    badgeClass: "badge-green",
+    phaseTags: [{ label: "passive", cls: "tag-p" }],
+    description: "Certificate, protocol, cipher, and transport-security posture for a specific hostname, URL, or IP.",
+    assessmentType: "SSL/TLS Only",
+    quickReply: "TLS posture review",
+    recommended: true,
+  },
+  {
+    key: "authenticated-app",
+    label: "Authenticated App",
+    icon: "🔑",
+    badge: "Access",
+    badgeClass: "badge-violet",
+    phaseTags: [{ label: "active", cls: "tag-a" }, { label: "credential", cls: "tag-c" }],
+    description: "Application testing where login, session, API token, or role context is central to the assessment.",
+    assessmentType: "Authenticated App",
+    quickReply: "Authenticated app",
+    recommended: true,
+  },
 ];
 
 const TILE_FLOW_SPECIAL_KEYS = new Set(["active-directory", "full-internal", "smart-home-lan", "wifi-wireless", "cloud", "llm-ai-app", "custom"]);
@@ -236,6 +260,10 @@ const ACCESS_UNLOCKER_OPTIONS = [
     label: "No credentials available",
     copy: "Run discovery, service enumeration, safe SMB/LDAP probes, web baseline, and infrastructure checks without secrets.",
     unlocks: "Unauthenticated LAN lane",
+    unlocksByContext: {
+      web: "Unauthenticated web/API checks",
+    },
+    appliesTo: ["all"],
     className: "passive",
   },
   {
@@ -243,6 +271,7 @@ const ACCESS_UNLOCKER_OPTIONS = [
     label: "AD/domain context known",
     copy: "Use known domain, DC, DNS, or base DN hints to make LDAP and identity mapping less blind.",
     unlocks: "LDAP/AD targeting",
+    appliesTo: ["lan-ad"],
     className: "active",
   },
   {
@@ -250,6 +279,10 @@ const ACCESS_UNLOCKER_OPTIONS = [
     label: "Credential refs available",
     copy: "Use stored secret references for authenticated SMB/LDAP/BloodHound style checks.",
     unlocks: "Credentialed validation",
+    unlocksByContext: {
+      web: "Credential/API access",
+    },
+    appliesTo: ["all"],
     className: "credential",
   },
   {
@@ -257,6 +290,7 @@ const ACCESS_UNLOCKER_OPTIONS = [
     label: "Hashes or password candidates",
     copy: "Use protected material for Kerberos/NTLM validation and controlled password-audit workflows.",
     unlocks: "Credential review",
+    appliesTo: ["lan-ad"],
     className: "credential",
   },
   {
@@ -264,6 +298,7 @@ const ACCESS_UNLOCKER_OPTIONS = [
     label: "Intrusive LAN checks authorized",
     copy: "Allow noisy LAN checks only inside the approved boundary and with the kill switch available.",
     unlocks: "Intrusive LAN phase",
+    appliesTo: ["lan-ad"],
     className: "intrusive",
   },
   {
@@ -271,9 +306,17 @@ const ACCESS_UNLOCKER_OPTIONS = [
     label: "Exploit confirmation authorized",
     copy: "Permit confirmation with exploitation tools only after Full authorization and exact scope confirmation.",
     unlocks: "Exploit confirmation",
+    appliesTo: ["all"],
     className: "intrusive",
   },
 ];
+
+const FULL_ACCESS_UNLOCKER_TILE_KEYS = new Set([
+  "internal-lan",
+  "active-directory",
+  "smart-home-lan",
+  "custom",
+]);
 
 const PHASE_TIER_STYLES = {
   passive: {
@@ -716,6 +759,22 @@ const WIZARD_TARGET_GUIDANCE = {
     hint: "AI app targets route to the LLM application probe when active validation is selected.",
     predictedGroup: "urls/domains",
   },
+  "ssl-tls": {
+    question: "What hostname, URL, or IP should receive the TLS-only review?",
+    placeholder: "e.g. portal.example.com or https://portal.example.com",
+    examples: ["portal.example.com", "https://app.example.com", "203.0.113.10"],
+    addLabel: "+ Add TLS target",
+    hint: "TLS-only scope stays limited to certificate, protocol, cipher, and transport posture.",
+    predictedGroup: "domains/urls/ip_addresses",
+  },
+  "authenticated-app": {
+    question: "What authenticated application URL should be tested?",
+    placeholder: "e.g. https://portal.example.com",
+    examples: ["https://portal.example.com", "https://app.example.com/login", "portal.example.com"],
+    addLabel: "+ Add app",
+    hint: "Credential, session, or manual auth context can be added in the preview access section.",
+    predictedGroup: "urls/domains",
+  },
   custom: {
     question: "What exact target or scope should this custom mission use?",
     placeholder: "e.g. https://app.example.com, api.example.com, or 203.0.113.10",
@@ -728,6 +787,45 @@ const WIZARD_TARGET_GUIDANCE = {
 
 function wizardDepthConfig(choice = "active") {
   return WIZARD_FLOW_DEPTH_OPTIONS[String(choice || "active").trim()] || WIZARD_FLOW_DEPTH_OPTIONS.full;
+}
+
+function guidedTilePlanningOverride(tileKey = "", depthChoice = "active") {
+  const normalizedKey = String(tileKey || "").trim();
+  const depth = wizardDepthConfig(depthChoice);
+  if (normalizedKey === "ssl-tls") {
+    return {
+      primaryGoal: depth.authorization === "passive" ? "inventory-first" : "standard-assessment",
+      testProfile: "SSL/TLS Only",
+      safetyPosture: "passive-only",
+      authStrategy: "unauthenticated",
+      modules: moduleState(["ssl_tls_analysis"]),
+      safety: profileSafetyPreset("SSL/TLS Only"),
+    };
+  }
+  if (normalizedKey === "authenticated-app") {
+    const passive = depth.authorization === "passive";
+    const testProfile = passive ? "Standard" : "Authenticated Only";
+    return {
+      primaryGoal: passive ? "inventory-first" : "authenticated-review",
+      testProfile,
+      safetyPosture: passive ? "passive-only" : "balanced",
+      authStrategy: passive ? "unauthenticated" : "advanced-details",
+      modules: profileModulePreset(testProfile),
+      safety: passive ? profileSafetyPreset("Light") : profileSafetyPreset(testProfile),
+    };
+  }
+  return null;
+}
+
+function applyGuidedTilePlanningOverride(tileKey = "", depthChoice = "active") {
+  const override = guidedTilePlanningOverride(tileKey, depthChoice);
+  if (!override) return;
+  state.wizard.data.test_profile = override.testProfile;
+  state.wizard.data.intake_preferences.primary_goal = override.primaryGoal;
+  state.wizard.data.intake_preferences.safety_posture = override.safetyPosture;
+  state.wizard.data.intake_preferences.auth_strategy = override.authStrategy;
+  Object.assign(state.wizard.data.modules, override.modules);
+  Object.assign(state.wizard.data.safety, override.safety);
 }
 
 function targetGuidanceForTile(tileKey = "") {
@@ -778,6 +876,8 @@ function wizardMatrixExecutionProfile(tileKey, depthChoice, targetValue) {
   const depth = wizardDepthConfig(depthChoice);
   const targets = buildWizardTargetsForTileValue(targetValue, tileKey);
   if (targetsContainPrivateNetwork(targets)) return "passive-network-discovery";
+  if (tileKey === "ssl-tls") return "passive-web-baseline";
+  if (tileKey === "authenticated-app") return depth.authorization === "passive" ? "passive-web-baseline" : "active-web-safe";
   if (tileKey === "api-security") return depth.authorization === "passive" ? "passive-web-baseline" : "active-api-assessment";
   if (tileKey === "llm-ai-app") return depth.authorization === "passive" ? "passive-web-baseline" : "active-llm-application-probe";
   if (tileKey === "wifi-wireless") return "passive-wifi-survey";
@@ -829,7 +929,7 @@ export function buildWizardInputPredictionMatrix() {
             assessment_mode: chain,
             expected_execution_profile: wizardMatrixExecutionProfile(tile.key, depthKey, exampleTarget),
             expected_chain_profiles: profiles,
-            prereq_visibility: ACCESS_UNLOCKER_OPTIONS.map((option) => option.key),
+            prereq_visibility: visibleAccessUnlockerOptionsForKeys([tile.key]).map((option) => option.key),
           };
         }),
       };
@@ -909,7 +1009,15 @@ function deriveAssessmentTileKey(data, intake = state.wizard?.intake || {}) {
   if (/\b(llm|ai app|ai assistant|prompt injection|agent)\b/.test(intent)) {
     return "llm-ai-app";
   }
+  if (/\b(tls|ssl|certificate|cipher|transport security)\b/.test(intent)) {
+    return "ssl-tls";
+  }
+  if (/\b(authenticated app|authenticated application|portal with login|logged[- ]in portal|role[- ]based)\b/.test(intent)) {
+    return "authenticated-app";
+  }
   if (String(data.assessment_type || "").trim() === "API") return "api-security";
+  if (String(data.assessment_type || "").trim() === "SSL/TLS Only") return "ssl-tls";
+  if (String(data.assessment_type || "").trim() === "Authenticated App") return "authenticated-app";
   if (String(data.assessment_type || "").trim() === "Internal Range / LAN") return "internal-lan";
   if (String(data.assessment_type || "").trim() === "Mixed Assessment") return "custom";
   return "external-web";
@@ -926,6 +1034,47 @@ function selectedAssessmentTile(wizard = state.wizard) {
     return null;
   }
   return assessmentTileByKey(deriveAssessmentTileKey(wizard.data, wizard.intake));
+}
+
+function activeDepthDescriptionForSelection(keys = selectedAssessmentTileKeys(state.wizard), data = state.wizard?.data || {}) {
+  const normalizedKeys = normalizeAssessmentTileKeys(keys);
+  const fallbackKeys = normalizedKeys.length
+    ? normalizedKeys
+    : normalizeAssessmentTileKeys([deriveAssessmentTileKey(data, state.wizard?.intake || {})]);
+  const primaryTile = assessmentTileByKey(primaryAssessmentTileKey(fallbackKeys));
+  const assessmentType = String(primaryTile?.assessmentType || data.assessment_type || "").trim();
+  const lanOrAdContext =
+    assessmentType === "Internal Range / LAN" ||
+    fallbackKeys.some((key) => ["internal-lan", "active-directory", "smart-home-lan"].includes(key));
+  return lanOrAdContext
+    ? "Vulnerability detection + AD mapping"
+    : "Vulnerability detection + web application analysis";
+}
+
+function accessUnlockerContextForKeys(keys = selectedAssessmentTileKeys(state.wizard), data = state.wizard?.data || {}) {
+  const normalized = normalizeAssessmentTileKeys(keys);
+  const fallback = normalized.length
+    ? normalized
+    : normalizeAssessmentTileKeys([deriveAssessmentTileKey(data, state.wizard?.intake || {})]);
+  return fallback.some((key) => FULL_ACCESS_UNLOCKER_TILE_KEYS.has(key)) ? "lan-ad" : "web";
+}
+
+function accessUnlockerApplies(option, context) {
+  const appliesTo = Array.isArray(option.appliesTo) && option.appliesTo.length ? option.appliesTo : ["all"];
+  return appliesTo.includes("all") || appliesTo.includes(context);
+}
+
+function visibleAccessUnlockerOptionsForKeys(keys = selectedAssessmentTileKeys(state.wizard), data = state.wizard?.data || {}) {
+  const context = accessUnlockerContextForKeys(keys, data);
+  return ACCESS_UNLOCKER_OPTIONS.filter((option) => accessUnlockerApplies(option, context));
+}
+
+function visibleAccessUnlockerOptions(data = state.wizard?.data || {}) {
+  return visibleAccessUnlockerOptionsForKeys(selectedAssessmentTileKeys(state.wizard), data);
+}
+
+function accessUnlockerUnlocks(option, context = accessUnlockerContextForKeys()) {
+  return option.unlocksByContext?.[context] || option.unlocks;
 }
 
 function recentMissionCandidates() {
@@ -1061,6 +1210,58 @@ function recentMissionDateLabel(value) {
   return date.toLocaleDateString();
 }
 
+function contextualTargetValuesForTile(tileKey = "", targets = {}) {
+  const normalizedKey = String(tileKey || "").trim();
+  const groupsByTile = {
+    "external-web": ["urls", "domains", "subdomains"],
+    "external-infrastructure": ["cidr_ranges", "ip_addresses", "domains", "subdomains"],
+    "internal-lan": ["cidr_ranges", "ip_addresses"],
+    "active-directory": ["domains", "subdomains", "cidr_ranges", "ip_addresses"],
+    "full-internal": ["cidr_ranges", "domains", "subdomains", "ip_addresses"],
+    "smart-home-lan": ["cidr_ranges", "ip_addresses"],
+    cloud: ["domains", "subdomains"],
+    "api-security": ["api_base_urls", "urls", "domains", "subdomains"],
+    "llm-ai-app": ["urls", "domains", "subdomains"],
+    "ssl-tls": ["domains", "urls", "ip_addresses"],
+    "authenticated-app": ["urls", "domains", "subdomains"],
+    custom: ["urls", "api_base_urls", "domains", "subdomains", "ip_addresses", "cidr_ranges"],
+  };
+  if (normalizedKey === "wifi-wireless") {
+    const sites = Array.isArray(targets.wireless_sites) ? targets.wireless_sites.filter(Boolean) : [];
+    const ssids = Array.isArray(targets.ssids) ? targets.ssids.filter(Boolean) : [];
+    const bssids = Array.isArray(targets.bssids) ? targets.bssids.filter(Boolean) : [];
+    const count = Math.max(sites.length, ssids.length, bssids.length);
+    return Array.from({ length: count }, (_, index) => [sites[index] || "", ssids[index] || "", bssids[index] || "", ""].join(" | ").trim())
+      .filter((value) => value.replaceAll("|", "").trim());
+  }
+  return (groupsByTile[normalizedKey] || groupsByTile.custom)
+    .flatMap((group) => Array.isArray(targets[group]) ? targets[group].filter(Boolean) : []);
+}
+
+function recentTargetChipsForTile(tileKey = "", limit = 3) {
+  const normalizedKey = String(tileKey || "").trim() || primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard));
+  const assessmentType = assessmentTileByKey(normalizedKey)?.assessmentType || "";
+  const seen = new Set();
+  const chips = [];
+  recentMissionCandidates().forEach((engagement) => {
+    const cached = RECENT_MISSION_SCOPE_CACHE.get(String(engagement?.id || ""));
+    if (!cached || cached.error || !cached.allowlist) return;
+    const targets = buildTargetsFromAllowlist(cached.allowlist, {}, assessmentType);
+    contextualTargetValuesForTile(normalizedKey, targets).forEach((value) => {
+      const normalizedValue = String(value || "").trim();
+      if (!normalizedValue || seen.has(normalizedValue) || chips.length >= limit) return;
+      seen.add(normalizedValue);
+      chips.push(normalizedValue);
+    });
+  });
+  return chips;
+}
+
+function targetQuickFillChipsForTile(tileKey = "", guidance = targetGuidanceForTile(tileKey)) {
+  const recentTargets = recentTargetChipsForTile(tileKey);
+  return recentTargets.length ? recentTargets : [...(guidance.examples || [])];
+}
+
 function normalizedAuthorizationLevel(value) {
   const normalized = String(value || "").trim().toLowerCase();
   return AUTHORIZATION_LEVEL_OPTIONS.some((option) => option.value === normalized) ? normalized : "passive";
@@ -1087,9 +1288,9 @@ function normalizeAccessUnlockers(value = {}) {
   return normalized;
 }
 
-function selectedAccessUnlockerKeys(data = state.wizard?.data || {}) {
+function selectedAccessUnlockerKeys(data = state.wizard?.data || {}, options = visibleAccessUnlockerOptions(data)) {
   const unlockers = normalizeAccessUnlockers(data.access?.prerequisites);
-  const selected = ACCESS_UNLOCKER_OPTIONS
+  const selected = options
     .filter((option) => unlockers[option.key])
     .map((option) => option.key);
   return selected.length ? selected : ["unauthenticated_lane"];
@@ -1851,6 +2052,7 @@ export function createWizardModule() {
     const currentTile = selectedAssessmentTile(state.wizard);
     const options = depthChoiceOptions(state.wizard.data.assessment_type, currentTile?.key || "");
     const selectedDepth = depthChoiceKeyForGoal(state.wizard.data.intake_preferences.primary_goal);
+    const activeDescription = activeDepthDescriptionForSelection(selectedAssessmentTileKeys(state.wizard), state.wizard.data);
     return `
       <div class="depth-grid" data-testid="conversation-quick-replies">
         ${options.map((option) => {
@@ -1874,7 +2076,7 @@ export function createWizardModule() {
             >
               <div class="d-icon">${escapeHtml(icon)}</div>
               <div class="d-title">${escapeHtml(option.key === "passive" ? "Passive" : option.key === "active" ? "Active Scan" : "Full Pentest")}</div>
-              <div class="d-desc">${escapeHtml(option.key === "passive" ? "Discovery and enumeration only" : option.key === "active" ? "Vulnerability detection + AD mapping" : "Credential attacks + exploitation")}</div>
+              <div class="d-desc">${escapeHtml(option.key === "passive" ? "Discovery and enumeration only" : option.key === "active" ? activeDescription : "Credential attacks + exploitation")}</div>
               <div class="d-phases">${phaseTags.map((tag) => `<span class="tag ${escapeHtml(tag.cls)}">${escapeHtml(tag.label)}</span>`).join("")}</div>
             </button>
           `;
@@ -1973,6 +2175,18 @@ export function createWizardModule() {
 
   function targetBucketForValue(value, selectedKey = primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard))) {
     return targetBucketForTileValue(value, selectedKey);
+  }
+
+  function targetBucketDisplayLabel(bucket) {
+    const labels = {
+      urls: "URL",
+      api_base_urls: "API base URL",
+      ip_addresses: "IP address",
+      cidr_ranges: "CIDR range",
+      domains: "domain",
+      wireless_sites: "wireless site",
+    };
+    return labels[String(bucket || "").trim()] || String(bucket || "target").replaceAll("_", " ");
   }
 
   function buildTargetsForFlowValue(value) {
@@ -2138,6 +2352,7 @@ export function createWizardModule() {
       state.wizard.data.safety.max_validation_depth = "light";
       state.wizard.data.test_profile = "Standard";
     }
+    applyGuidedTilePlanningOverride(primaryKey, depthChoice);
     refreshSuggestedEngagementNameIfAutomatic(snapshotEngagementNameContext(state.wizard.data), state.wizard.data);
   }
 
@@ -2162,6 +2377,10 @@ export function createWizardModule() {
     const guidance = targetGuidanceForTile(
       selectedKeys.includes("internal-lan") && selectedKeys.includes("active-directory") ? "full-internal" : selectedKey
     );
+    const targetChips = targetQuickFillChipsForTile(
+      selectedKeys.includes("internal-lan") && selectedKeys.includes("active-directory") ? "full-internal" : selectedKey,
+      guidance
+    );
     const targetBucket = targetBucketForValue(targetValue, selectedKey);
     const heading = assessmentSelectionLabel(selectedKeys) || "Selected Assessment";
     const depthChoice = state.wizard.intake.flowDepthChoice || "full";
@@ -2176,13 +2395,13 @@ export function createWizardModule() {
             <span class="q-badge">Required</span>
           </div>
           <div class="q-text">${escapeHtml(guidance.question)}</div>
-          <input id="wizard-target-input" class="q-input" type="text" value="${escapeHtml(targetValue)}" placeholder="${escapeHtml(guidance.placeholder)}" data-testid="wizard-target-input" />
+          <input id="wizard-target-input" class="q-input" type="text" value="${escapeHtml(targetValue)}" placeholder="${escapeHtml(guidance.placeholder)}" aria-label="${escapeHtml(guidance.question || "Assessment target")}" data-testid="wizard-target-input" />
           <div class="q-tags">
-            ${guidance.examples.map((value) => `<button class="q-tag" type="button" data-wizard-target-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join("")}
+            ${targetChips.map((value) => `<button class="q-tag" type="button" data-wizard-target-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join("")}
             <button class="q-tag" type="button" data-wizard-target-add="true">${escapeHtml(guidance.addLabel)}</button>
           </div>
           <div class="q-hint">${escapeHtml(guidance.hint)}</div>
-          <div class="q-hint" data-testid="wizard-target-interpretation">Predicted interpretation: ${escapeHtml(targetBucket)} target for ${escapeHtml(heading)}.</div>
+          <div class="q-hint" data-testid="wizard-target-interpretation">Predicted interpretation: ${escapeHtml(targetBucketDisplayLabel(targetBucket))} target for ${escapeHtml(heading)}.</div>
         </section>
         <section class="q-card" data-testid="wizard-depth-card">
           <div class="q-meta">
@@ -2202,9 +2421,10 @@ export function createWizardModule() {
   }
 
   function renderDepthTilesForFlow(selectedChoice = "active") {
+    const activeDescription = activeDepthDescriptionForSelection(selectedAssessmentTileKeys(state.wizard), state.wizard.data);
     const options = [
       { key: "passive", icon: "🔍", title: "Passive", desc: "Discovery and enumeration only", tags: [{ label: "Phase 1", cls: "tag-p" }] },
-      { key: "active", icon: "⚡", title: "Active Scan", desc: "Vulnerability detection + AD mapping", tags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }] },
+      { key: "active", icon: "⚡", title: "Active Scan", desc: activeDescription, tags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }] },
       { key: "full", icon: "🎯", title: "Full Pentest", desc: "Credential attacks + exploitation", tags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }, { label: "P3", cls: "tag-c" }, { label: "P4", cls: "tag-e" }] },
     ];
     return `
@@ -2250,7 +2470,7 @@ export function createWizardModule() {
           <div class="tgt-bar">
             <span class="tgt-label">Targets</span>
             <span class="tgt-node">🌐 ${escapeHtml(target)}</span>
-            <span class="tgt-note">+ hosts discovered in Phase 1 automatically included in later phases</span>
+            <span class="tgt-note">Hosts discovered in Phase 1 are automatically included in later phases.</span>
           </div>
           ${renderGuidedPhaseDiagram(state.wizard.data, depth, plan)}
           ${renderAccessUnlockerGate(state.wizard.data)}
@@ -2267,7 +2487,7 @@ export function createWizardModule() {
                   I confirm I have <strong>written authorisation</strong> from the system owner to run <strong>${escapeHtml(fullAuthCopy.confirmTools)}</strong> against <strong>${escapeHtml(target)}</strong>. AegisPT will execute eligible non-exploitation runners in the authorised phases; exploit confirmation still requires the explicit exploit unlocker and all evidence prerequisites.
                 </div>
                 <div class="confirm-row">
-                  <input id="wizard-full-authorization-input" class="confirm-input" type="text" value="${escapeHtml(state.wizard.data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="Type target to confirm: ${escapeHtml(target)}" data-testid="wizard-full-authorization-input" />
+                  <input id="wizard-full-authorization-input" class="confirm-input" type="text" value="${escapeHtml(state.wizard.data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="Type target to confirm: ${escapeHtml(target)}" aria-label="Typed scope confirmation" data-testid="wizard-full-authorization-input" />
                   <span class="confirm-status ${confirmed ? "ok" : ""}">${escapeHtml(confirmed ? "Confirmed" : "Not confirmed")}</span>
                 </div>
               </div>
@@ -2285,7 +2505,9 @@ export function createWizardModule() {
 
   function renderAccessUnlockerGate(data = state.wizard.data) {
     const unlockers = normalizeAccessUnlockers(data.access?.prerequisites);
-    const selectedLabels = selectedAccessUnlockerKeys(data).map(accessUnlockerLabel);
+    const options = visibleAccessUnlockerOptions(data);
+    const context = accessUnlockerContextForKeys(selectedAssessmentTileKeys(state.wizard), data);
+    const selectedLabels = selectedAccessUnlockerKeys(data, options).map(accessUnlockerLabel);
     return `
       <div class="access-unlocker-gate" data-testid="wizard-access-unlockers">
         <div class="access-unlocker-head">
@@ -2296,17 +2518,18 @@ export function createWizardModule() {
           <span class="q-badge">${escapeHtml(`${selectedLabels.length} selected`)}</span>
         </div>
         <div class="unlocker-grid">
-          ${ACCESS_UNLOCKER_OPTIONS.map((option) => {
+          ${options.map((option) => {
             const selected = Boolean(unlockers[option.key]);
             return `
               <button class="unlocker-card ${escapeHtml(option.className)} ${selected ? "selected" : ""}" type="button" data-wizard-unlocker="${escapeHtml(option.key)}" aria-pressed="${selected ? "true" : "false"}">
                 <span class="unlocker-label">${escapeHtml(option.label)}</span>
                 <span class="unlocker-copy">${escapeHtml(option.copy)}</span>
-                <span class="unlocker-tag">${escapeHtml(option.unlocks)}</span>
+                <span class="unlocker-tag">${escapeHtml(accessUnlockerUnlocks(option, context))}</span>
               </button>
             `;
           }).join("")}
         </div>
+        ${renderCredentialEntryCta()}
         <p class="access-unlocker-summary">${escapeHtml(buildAccessPrerequisiteLine(data))}</p>
       </div>
     `;
@@ -2849,9 +3072,9 @@ export function createWizardModule() {
                 <form id="conversation-answer-form" class="conversation-answer-form split-top">
                   ${choiceSurface ? `<label class="conversation-answer-label" for="wizard-answer-input">${escapeHtml(question.id === "scope" ? "Target" : question.id === "boundaries" ? "Optional exclusions or notes" : "Describe the mission")}</label>` : ""}
                   ${question.multiline ? `
-                    <textarea id="wizard-answer-input" rows="4" placeholder="${escapeHtml(question.placeholder)}" data-testid="conversation-answer-input">${escapeHtml(wizard.intake.draftAnswer || "")}</textarea>
+                    <textarea id="wizard-answer-input" rows="4" placeholder="${escapeHtml(question.placeholder)}" aria-label="${escapeHtml(question.prompt || "Intake answer")}" data-testid="conversation-answer-input">${escapeHtml(wizard.intake.draftAnswer || "")}</textarea>
                   ` : `
-                    <input id="wizard-answer-input" type="text" placeholder="${escapeHtml(question.placeholder)}" value="${escapeHtml(wizard.intake.draftAnswer || "")}" data-testid="conversation-answer-input" />
+                    <input id="wizard-answer-input" type="text" placeholder="${escapeHtml(question.placeholder)}" value="${escapeHtml(wizard.intake.draftAnswer || "")}" aria-label="${escapeHtml(question.prompt || "Intake answer")}" data-testid="conversation-answer-input" />
                   `}
                 </form>
               `
@@ -3079,9 +3302,9 @@ export function createWizardModule() {
         </div>
         <p class="micro-copy">These controls write into the same run configuration that the conversational intake is building.</p>
         ${renderChatGptOAuthCard()}
-        <div class="advanced-nav split-top">
+        <div class="advanced-nav split-top" role="tablist" aria-label="Advanced configuration sections">
           ${steps.map((label, index) => `
-            <button class="action ${wizard.advancedStep === index ? "secondary" : "ghost"} tiny" type="button" data-advanced-step="${index}">${escapeHtml(label)}</button>
+            <button class="action ${wizard.advancedStep === index ? "secondary" : "ghost"} tiny" type="button" role="tab" aria-selected="${wizard.advancedStep === index ? "true" : "false"}" data-advanced-step="${index}">${escapeHtml(label)}</button>
           `).join("")}
         </div>
         <div id="wizard-advanced-content" class="advanced-content split-top" data-testid="wizard-advanced-content">
@@ -3518,7 +3741,7 @@ export function createWizardModule() {
     document.querySelectorAll("[data-wizard-unlocker]").forEach((button) => {
       button.addEventListener("click", () => {
         const key = button.dataset.wizardUnlocker;
-        if (!ACCESS_UNLOCKER_OPTIONS.some((option) => option.key === key)) return;
+        if (!visibleAccessUnlockerOptions(state.wizard.data).some((option) => option.key === key)) return;
         const current = normalizeAccessUnlockers(state.wizard.data.access?.prerequisites);
         const next = { ...current, [key]: !current[key] };
         if (!Object.values(next).some(Boolean)) {
@@ -4993,8 +5216,9 @@ function applySafetyAnswer(answer) {
         <div class="stack-zone">
           <div class="detail-surface">
             <h4>What to provide here</h4>
+            <p>Enter credentials for authenticated scanning. Fields left empty are skipped.</p>
             <p>Only add the identities, tokens, sessions, or manual auth notes the run really needs. Leave fields empty if they do not apply.</p>
-            <p class="micro-copy">Direct secrets are allowed for operator practicality, but they are converted into protected secret bindings when the run is created.</p>
+            <p class="micro-copy">Direct secrets are accepted and converted to protected bindings when the run is created.</p>
           </div>
           ${data.access.accounts.map((account, index) => `
             <div class="account-card" data-account-card="${index}">
@@ -5013,7 +5237,7 @@ function applySafetyAnswer(answer) {
                 </label>
                 <label class="field">
                   ${fieldLabel("Username", "Optional if you only have a token or session. Fill it in when the operator should know which account is being used.")}
-                  <input data-account-field="username" data-account-index="${index}" type="text" value="${escapeHtml(account.username)}" placeholder="tester@example.com" />
+                  <input data-account-field="username" data-account-index="${index}" type="text" value="${escapeHtml(account.username)}" placeholder="username or email" />
                   ${fieldHelp("Optional if you are authenticating with a token or session instead of a username/password.")}
                 </label>
                 <label class="field">
@@ -5022,7 +5246,7 @@ function applySafetyAnswer(answer) {
                   ${fieldHelp("Examples: User, Analyst, Admin, Billing, Read Only API.")}
                 </label>
                 <label class="field">
-                  ${fieldLabel("Password / Secret Reference", "Use a direct password only when necessary. Prefer an external pointer such as vault:// or env:// when your workflow already has one.")}
+                  ${fieldLabel("Password or secret ref", "Use a direct password only when necessary. Prefer an external pointer such as vault:// or env:// when your workflow already has one.")}
                   <input data-account-field="secret_ref" data-account-index="${index}" type="text" value="${escapeHtml(account.secret_ref)}" placeholder="vault://prod/app/admin or direct secret" />
                   ${fieldHelp("Direct secrets are protected after creation. External references are preserved as references.")}
                 </label>
@@ -6187,6 +6411,12 @@ function resolveExecutionProfile(data) {
   }
   if (selectedTileKey === "wifi-wireless" || selectedTileKeys.includes("wifi-wireless") || data.assessment_type === "WiFi / Wireless") {
     return "passive-wifi-survey";
+  }
+  if (selectedTileKey === "ssl-tls" || selectedTileKeys.includes("ssl-tls") || data.assessment_type === "SSL/TLS Only") {
+    return "passive-web-baseline";
+  }
+  if (selectedTileKey === "authenticated-app" || selectedTileKeys.includes("authenticated-app") || data.assessment_type === "Authenticated App") {
+    return data.safety.active_checks === "passive-only" ? "passive-web-baseline" : "active-web-safe";
   }
   if (targetsContainPrivateNetwork(data.targets)) {
     return "passive-network-discovery";
@@ -7864,7 +8094,7 @@ function renderMissionAuthorizationSelector(data = state.wizard.data) {
               <p>${escapeHtml(`I confirm I have written authorisation to run the full non-exploitation chain against ${scopeSummary}. Exploitation tools including Metasploit and Impacket still require the exploit unlocker, prerequisite evidence, and an explicit gate in Mission Control if that unlocker was not selected.`)}</p>
               <label class="field split-top">
                 ${fieldLabel("Type the primary approved target exactly", "This prevents accidental one-click approval of the exploitation tier.")}
-                <input id="wizard-full-authorization-input" type="text" value="${escapeHtml(data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="${escapeHtml(expectedToken || "approved target")}" data-testid="wizard-full-authorization-input" />
+                <input id="wizard-full-authorization-input" type="text" value="${escapeHtml(data.assessment_mode?.typed_scope_confirmation || "")}" placeholder="${escapeHtml(expectedToken || "approved target")}" aria-label="Typed scope confirmation" data-testid="wizard-full-authorization-input" />
                 ${fieldHelp(expectedToken ? `Type ${expectedToken} exactly to unlock Full authorization.` : "Add scope first so Full authorization has a concrete confirmation target.")}
               </label>
             </div>
@@ -7877,6 +8107,8 @@ function renderMissionAuthorizationSelector(data = state.wizard.data) {
 
 function renderMissionAccessUnlockerGate(data = state.wizard.data) {
   const unlockers = normalizeAccessUnlockers(data.access?.prerequisites);
+  const options = visibleAccessUnlockerOptions(data);
+  const context = accessUnlockerContextForKeys(selectedAssessmentTileKeys(state.wizard), data);
   return `
     <section class="mission-preview-access split-top" data-testid="wizard-access-unlockers">
       <div class="panel-head">
@@ -7884,20 +8116,32 @@ function renderMissionAccessUnlockerGate(data = state.wizard.data) {
           <p class="eyebrow">Access Prerequisites</p>
           <h4>What can AegisPT use during the run?</h4>
         </div>
-        <span class="badge">${escapeHtml(`${selectedAccessUnlockerKeys(data).length} selected`)}</span>
+        <span class="badge">${escapeHtml(`${selectedAccessUnlockerKeys(data, options).length} selected`)}</span>
       </div>
       <p class="micro-copy">${escapeHtml("Discovery always starts without credentials. Extra context is declared here so gated checks can run when the selected authorization tier allows them.")}</p>
       <div class="unlocker-grid split-top">
-        ${ACCESS_UNLOCKER_OPTIONS.map((option) => `
+        ${options.map((option) => `
           <button class="unlocker-card ${escapeHtml(option.className)} ${unlockers[option.key] ? "selected" : ""}" type="button" data-wizard-unlocker="${escapeHtml(option.key)}" aria-pressed="${unlockers[option.key] ? "true" : "false"}">
             <span class="unlocker-label">${escapeHtml(option.label)}</span>
             <span class="unlocker-copy">${escapeHtml(option.copy)}</span>
-            <span class="unlocker-tag">${escapeHtml(option.unlocks)}</span>
+            <span class="unlocker-tag">${escapeHtml(accessUnlockerUnlocks(option, context))}</span>
           </button>
         `).join("")}
       </div>
+      ${renderCredentialEntryCta()}
       <p class="access-unlocker-summary">${escapeHtml(buildAccessPrerequisiteLine(data))}</p>
     </section>
+  `;
+}
+
+function renderCredentialEntryCta() {
+  return `
+    <div class="credential-entry-cta split-top" data-testid="wizard-credential-entry-cta">
+      <span>Need authenticated coverage?</span>
+      <button class="action secondary tiny" type="button" data-intake-advanced="true" data-intake-advanced-step="2">
+        Add credentials in Advanced Configuration -&gt;
+      </button>
+    </div>
   `;
 }
 

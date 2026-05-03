@@ -51,6 +51,8 @@ const SIEM_PROVIDERS = [
 ];
 
 const DEFAULT_SETTINGS_PANELS = Object.freeze({
+  support_diagnostics: true,
+  enterprise_identity: true,
   chatgpt_oauth: true,
   runtime_readiness: true,
   users: true,
@@ -64,6 +66,7 @@ const DEFAULT_SETTINGS_PANELS = Object.freeze({
   threat_intel_controls: true,
   scheduled_scans: true,
   data_retention: true,
+  deployment_hardening: true,
   instance: false,
   engagement_siem: false,
   engagement_jira: false,
@@ -133,6 +136,69 @@ export function createSettingsModule() {
     }
   }
 
+  async function loadDiagnostics() {
+    patchState(
+      { diagnosticsLoading: true, diagnosticsError: null },
+      "settings.diagnostics.load.start"
+    );
+    try {
+      const diagnostics = await api("/api/v1/diagnostics");
+      patchState(
+        {
+          diagnostics,
+          diagnosticsLoading: false,
+          diagnosticsError: null,
+        },
+        "settings.diagnostics.load.complete"
+      );
+      if (state.activeScreen === "settings") renderSettingsScreen();
+      return diagnostics;
+    } catch (error) {
+      patchState(
+        {
+          diagnosticsLoading: false,
+          diagnosticsError: String(error?.message || error),
+        },
+        "settings.diagnostics.load.error"
+      );
+      if (state.activeScreen === "settings") renderSettingsScreen();
+      throw error;
+    }
+  }
+
+  async function exportDiagnosticsBundle() {
+    patchState(
+      { diagnosticsBundleLoading: true, diagnosticsError: null },
+      "settings.diagnostics.bundle.start"
+    );
+    try {
+      const bundle = await api("/api/v1/diagnostics/support-bundle");
+      patchState(
+        {
+          diagnosticsBundleLoading: false,
+          diagnosticsError: null,
+        },
+        "settings.diagnostics.bundle.complete"
+      );
+      downloadJsonArtifact(
+        bundle,
+        `aegispt-support-bundle-${new Date().toISOString().replace(/[:.]/g, "-")}.json`
+      );
+      runtime.actions.pushStatus?.("Redacted support bundle exported.", "success");
+      return bundle;
+    } catch (error) {
+      patchState(
+        {
+          diagnosticsBundleLoading: false,
+          diagnosticsError: String(error?.message || error),
+        },
+        "settings.diagnostics.bundle.error"
+      );
+      if (state.activeScreen === "settings") renderSettingsScreen();
+      throw error;
+    }
+  }
+
   async function loadDataRetentionStatus() {
     if (!state.selectedEngagementId) {
       patchState({ dataRetentionStatus: null, dataRetentionError: null }, "settings.retention.noEngagement");
@@ -181,6 +247,67 @@ export function createSettingsModule() {
       );
       if (state.activeScreen === "settings") renderSettingsScreen();
       throw error;
+    }
+  }
+
+  async function loadEnterpriseIdentityStatus() {
+    patchState(
+      { enterpriseIdentityLoading: true, enterpriseIdentityError: null },
+      "settings.identity.load.start"
+    );
+    try {
+      const status = await api("/api/v1/auth/identity/status");
+      patchState(
+        {
+          enterpriseIdentityStatus: status,
+          enterpriseIdentityLoading: false,
+          enterpriseIdentityError: null,
+        },
+        "settings.identity.load.complete"
+      );
+      if (state.activeScreen === "settings") renderSettingsScreen();
+      return status;
+    } catch (error) {
+      patchState(
+        {
+          enterpriseIdentityLoading: false,
+          enterpriseIdentityError: String(error?.message || error),
+        },
+        "settings.identity.load.error"
+      );
+      if (state.activeScreen === "settings") renderSettingsScreen();
+      throw error;
+    }
+  }
+
+  async function logoutEnterpriseIdentity() {
+    patchState(
+      { enterpriseIdentityLoading: true, enterpriseIdentityError: null, enterpriseIdentityLogoutResult: null },
+      "settings.identity.logout.start"
+    );
+    renderSettingsScreen();
+    try {
+      const result = await api("/api/v1/auth/logout", { method: "POST", body: {} });
+      patchState(
+        {
+          enterpriseIdentityLogoutResult: result,
+          enterpriseIdentityLoading: false,
+          enterpriseIdentityError: null,
+        },
+        "settings.identity.logout.complete"
+      );
+      runtime.actions.pushStatus?.(result.message || "Logout recorded.", "info");
+      await loadEnterpriseIdentityStatus();
+    } catch (error) {
+      patchState(
+        {
+          enterpriseIdentityLoading: false,
+          enterpriseIdentityError: String(error?.message || error),
+        },
+        "settings.identity.logout.error"
+      );
+      runtime.actions.handleError?.(error);
+      renderSettingsScreen();
     }
   }
 
@@ -889,6 +1016,7 @@ export function createSettingsModule() {
         runtime.actions.renderAll?.({ renderScreen: false });
       }
       await loadSettingsReadiness().catch(runtime.actions.handleError || (() => {}));
+      await loadEnterpriseIdentityStatus().catch(runtime.actions.handleError || (() => {}));
       runtime.actions.pushStatus?.("Settings saved. Sensitive values remain encrypted and masked.", "info");
     } catch (error) {
       patchState({ settingsSaving: false, settingsError: String(error?.message || error) }, "settings.save.error");
@@ -1080,7 +1208,9 @@ export function createSettingsModule() {
 
     dom.settingsContent.innerHTML = `
       ${renderSettingsOverview(payload)}
+      ${renderDiagnosticsPanel()}
       ${renderSettingsReadinessPanel()}
+      ${renderEnterpriseIdentityPanel()}
       ${renderUsersPanel()}
       ${renderChatGPTOAuthPanel()}
       ${renderThreatIntelPanel()}
@@ -1134,6 +1264,12 @@ export function createSettingsModule() {
     dom.settingsContent.querySelector("[data-settings-refresh-api-keys]")?.addEventListener("click", () => {
       loadApiKeys().catch(runtime.actions.handleError || (() => {}));
     });
+    dom.settingsContent.querySelector("[data-settings-refresh-identity]")?.addEventListener("click", () => {
+      loadEnterpriseIdentityStatus().catch(runtime.actions.handleError || (() => {}));
+    });
+    dom.settingsContent.querySelector("[data-settings-logout-identity]")?.addEventListener("click", () => {
+      logoutEnterpriseIdentity().catch(runtime.actions.handleError || (() => {}));
+    });
     dom.settingsContent.querySelector("[data-api-key-create-form]")?.addEventListener("submit", (event) => {
       event.preventDefault();
       createApiKey(event.currentTarget).catch(runtime.actions.handleError || (() => {}));
@@ -1151,6 +1287,12 @@ export function createSettingsModule() {
     });
     dom.settingsContent.querySelector("[data-settings-export-readiness]")?.addEventListener("click", () => {
       exportSettingsReadiness();
+    });
+    dom.settingsContent.querySelector("[data-settings-refresh-diagnostics]")?.addEventListener("click", () => {
+      loadDiagnostics().catch(runtime.actions.handleError || (() => {}));
+    });
+    dom.settingsContent.querySelector("[data-settings-export-support-bundle]")?.addEventListener("click", () => {
+      exportDiagnosticsBundle().catch(runtime.actions.handleError || (() => {}));
     });
     dom.settingsContent.querySelector("[data-settings-refresh-siem]")?.addEventListener("click", () => {
       loadSiemIntegrationSettings().catch(runtime.actions.handleError || (() => {}));
@@ -1196,7 +1338,9 @@ export function createSettingsModule() {
       suggestThreatIntelFromInventory().catch(runtime.actions.handleError || (() => {}));
     });
     dom.settingsContent.querySelectorAll("[data-settings-focus-setting]").forEach((button) => {
-      button.addEventListener("click", () => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        button.blur?.();
         focusSettingField(button.dataset.settingsFocusSetting);
       });
     });
@@ -1251,6 +1395,7 @@ export function createSettingsModule() {
   return {
     loadApiKeys,
     loadChatGPTStatus,
+    loadEnterpriseIdentityStatus,
     loadCicdTriggerSettings,
     loadJiraIntegrationSettings,
     loadSiemIntegrationSettings,
@@ -1262,6 +1407,9 @@ export function createSettingsModule() {
     renderSettingsScreen,
     saveCicdTrigger,
     connectChatGPT,
+    exportDiagnosticsBundle,
+    logoutEnterpriseIdentity,
+    loadDiagnostics,
     saveJiraIntegration,
     saveSiemIntegration,
     saveSettings,
@@ -1319,6 +1467,94 @@ function renderSettingsOverview(payload) {
       <span class="settings-overview-pill">Role ${escapeHtml(role)}</span>
       <span class="settings-overview-pill">Secrets masked by API</span>
     </div>
+  `;
+}
+
+function renderDiagnosticsPanel() {
+  const diagnostics = state.diagnostics;
+  const loading = Boolean(state.diagnosticsLoading);
+  const bundleLoading = Boolean(state.diagnosticsBundleLoading);
+  const error = state.diagnosticsError;
+  const subsystems = Array.isArray(diagnostics?.subsystems) ? diagnostics.subsystems : [];
+  const failures = Array.isArray(diagnostics?.recent_failures) ? diagnostics.recent_failures : [];
+  const summary = diagnostics
+    ? `${diagnostics.overall_status || "unknown"} · ${subsystems.length} subsystems`
+    : loading
+      ? "checking diagnostics"
+      : "not loaded";
+  return renderSettingsDisclosure({
+    panelId: "support_diagnostics",
+    title: "Support Diagnostics",
+    summary,
+    open: isSettingsPanelOpen("support_diagnostics"),
+    testId: "settings-diagnostics-panel",
+    className: "settings-readiness-disclosure",
+    body: `
+      <div class="settings-engagement-actions">
+        <p class="settings-section-copy">
+          Redacted operational diagnostics for app health, migrations, dispatch, queue state, active runs, tools, AI, and feed sync. Bundles include IDs and status only, not raw evidence payloads or task output.
+        </p>
+        <div class="chip-row compact">
+          ${diagnostics ? readinessStatusChip(diagnostics.overall_status) : ""}
+          <button class="action ghost compact-action" type="button" data-settings-refresh-diagnostics ${loading ? "disabled" : ""}>
+            ${loading ? "Checking..." : "Refresh diagnostics"}
+          </button>
+          <button class="action primary compact-action" type="button" data-settings-export-support-bundle data-testid="settings-support-bundle-export" ${bundleLoading || !diagnostics ? "disabled" : ""}>
+            ${bundleLoading ? "Exporting..." : "Export support bundle"}
+          </button>
+        </div>
+      </div>
+      ${error ? `<p class="settings-inline-error" data-testid="settings-diagnostics-error">${escapeHtml(error)}</p>` : ""}
+      ${
+        diagnostics
+          ? `
+            <div class="settings-readiness-grid" data-testid="settings-diagnostics-subsystems">
+              ${subsystems.map(renderDiagnosticSubsystemCard).join("")}
+            </div>
+            <section class="settings-subsection" data-testid="settings-diagnostics-failures">
+              <div class="settings-subsection-head">
+                <strong>Recent Failures</strong>
+                <span>Subsystem, timestamp, object ID, and safe next action without raw logs or evidence output.</span>
+              </div>
+              ${
+                failures.length
+                  ? `<div class="settings-tool-list">${failures.map(renderDiagnosticFailureRow).join("")}</div>`
+                  : `<div class="detail-surface empty-detail-surface">No recent diagnostic failures recorded.</div>`
+              }
+            </section>
+          `
+          : `<div class="detail-surface empty-detail-surface">Diagnostics have not loaded yet.</div>`
+      }
+    `,
+  });
+}
+
+function renderDiagnosticSubsystemCard(subsystem) {
+  const details = Array.isArray(subsystem.details) ? subsystem.details : [];
+  return `
+    <article class="detail-surface settings-readiness-card" data-testid="settings-diagnostics-card" data-diagnostics-id="${escapeHtml(subsystem.id || "")}">
+      <div class="settings-label-row">
+        <strong>${escapeHtml(subsystem.title || "Diagnostic subsystem")}</strong>
+        ${readinessStatusChip(subsystem.status)}
+      </div>
+      <p>${escapeHtml(subsystem.summary || "")}</p>
+      ${details.length ? `<ul>${details.slice(0, 3).map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>` : ""}
+      <p class="settings-help">${escapeHtml(subsystem.operator_next_step || "No action required.")}</p>
+    </article>
+  `;
+}
+
+function renderDiagnosticFailureRow(failure) {
+  return `
+    <article class="threat-watchlist-row settings-tool-readiness-row" data-testid="settings-diagnostics-failure-row">
+      <span class="status-dot status-${escapeHtml(statusDotForReadiness(failure.status))}"></span>
+      <div>
+        <strong>${escapeHtml(failure.subsystem || "subsystem")} · ${escapeHtml(failure.status || "unknown")}</strong>
+        <p>${escapeHtml(failure.summary || "")}</p>
+        <p class="settings-help">${escapeHtml(failure.object_type || "object")} ${escapeHtml(failure.object_id || "n/a")} · ${escapeHtml(failure.occurred_at || "timestamp unavailable")}</p>
+      </div>
+      <p class="settings-help">${escapeHtml(failure.operator_next_step || "Review subsystem details.")}</p>
+    </article>
   `;
 }
 
@@ -1451,16 +1687,132 @@ function statusDotForReadiness(status) {
 function exportSettingsReadiness() {
   const artifact = state.settingsReadiness?.artifact || state.settingsReadiness;
   if (!artifact) return;
+  downloadJsonArtifact(
+    artifact,
+    `aegispt-settings-readiness-${new Date().toISOString().replace(/[:.]/g, "-")}.json`
+  );
+  runtime.actions.pushStatus?.("Settings readiness artifact exported.", "success");
+}
+
+function downloadJsonArtifact(artifact, filename) {
   const blob = new Blob([JSON.stringify(artifact, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `aegispt-settings-readiness-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  runtime.actions.pushStatus?.("Settings readiness artifact exported.", "success");
+}
+
+function renderEnterpriseIdentityPanel() {
+  const status = state.enterpriseIdentityStatus || null;
+  const loading = Boolean(state.enterpriseIdentityLoading);
+  const error = state.enterpriseIdentityError;
+  const provider = String(status?.provider || "disabled").toUpperCase();
+  const identityState = String(status?.status || (loading ? "loading" : "unknown")).toLowerCase();
+  const sessionPolicy = status?.session_policy || {};
+  const users = Array.isArray(status?.users) ? status.users : [];
+  const summary = status
+    ? `${identityState} · ${sessionPolicy.timeout_minutes || 480} minute timeout`
+    : loading
+      ? "checking identity"
+      : "not loaded";
+  return renderSettingsDisclosure({
+    panelId: "enterprise_identity",
+    title: "Enterprise Identity",
+    summary,
+    open: isSettingsPanelOpen("enterprise_identity"),
+    testId: "settings-enterprise-identity-panel",
+    className: "settings-users-disclosure",
+    body: `
+      <div class="settings-engagement-actions">
+        <p class="settings-section-copy">
+          OIDC/SAML settings are governed and encrypted where sensitive, but browser SSO is not enforced in this foundation slice. Local X-Actor fallback remains development-only.
+        </p>
+        <div class="chip-row compact">
+          ${identityStatusChip(identityState)}
+          <span class="status-chip info">${escapeHtml(provider)}</span>
+          <button class="action ghost compact-action" type="button" data-settings-refresh-identity ${loading ? "disabled" : ""}>
+            ${loading ? "Checking..." : "Refresh identity"}
+          </button>
+          <button class="action ghost compact-action" type="button" data-settings-logout-identity ${loading ? "disabled" : ""}>
+            Record Logout
+          </button>
+        </div>
+      </div>
+      ${error ? `<p class="settings-inline-error" data-testid="settings-identity-error">${escapeHtml(error)}</p>` : ""}
+      ${
+        status
+          ? `
+            <div class="settings-readiness-grid" data-testid="settings-identity-status">
+              <article class="detail-surface settings-readiness-card">
+                <div class="settings-label-row"><strong>SSO State</strong>${identityStatusChip(identityState)}</div>
+                <p>${escapeHtml(status.summary || "")}</p>
+                ${Array.isArray(status.missing_fields) && status.missing_fields.length ? `<p class="settings-help">Missing: ${escapeHtml(status.missing_fields.join(", "))}</p>` : ""}
+                <p class="settings-help">${escapeHtml(status.operator_next_step || "")}</p>
+              </article>
+              <article class="detail-surface settings-readiness-card">
+                <div class="settings-label-row"><strong>Session Policy</strong><span class="status-chip warning">explicit</span></div>
+                <p>${escapeHtml(String(sessionPolicy.timeout_minutes || 480))} minute timeout. Server-side session enforcement is ${sessionPolicy.server_session_enforced ? "on" : "not active"}.</p>
+                <p class="settings-help">Logout is auditable and does not alter active mission or run state.</p>
+              </article>
+              <article class="detail-surface settings-readiness-card">
+                <div class="settings-label-row"><strong>Current Actor</strong><span class="status-chip info">${escapeHtml(status.current_actor?.auth_method || "local")}</span></div>
+                <p>${escapeHtml(status.current_actor?.actor_name || "operator-ui")} · ${escapeHtml(status.current_actor?.role || "admin")}</p>
+                <p class="settings-help">${escapeHtml(status.local_auth?.warning || "Local fallback is not enterprise authentication.")}</p>
+              </article>
+            </div>
+            ${state.enterpriseIdentityLogoutResult ? `<p class="settings-subtle-note" data-testid="settings-identity-logout-result">${escapeHtml(state.enterpriseIdentityLogoutResult.message || "Logout recorded.")}</p>` : ""}
+            <section class="settings-subsection" data-testid="settings-identity-users">
+              <div class="settings-subsection-head">
+                <strong>Visible Actors</strong>
+                <span>Local fallback plus API-key actors; tenant membership and SCIM remain future work.</span>
+              </div>
+              <div class="settings-api-key-list">
+                ${
+                  users.length
+                    ? users.slice(0, 8).map(renderIdentityUserRow).join("")
+                    : `<div class="cicd-history-empty">No identity actors are visible yet.</div>`
+                }
+              </div>
+            </section>
+          `
+          : `<div class="detail-surface empty-detail-surface">Identity status has not loaded yet.</div>`
+      }
+    `,
+  });
+}
+
+function identityStatusChip(status) {
+  const normalized = String(status || "unknown").toLowerCase();
+  const theme =
+    normalized === "configured"
+      ? "success"
+      : normalized === "error"
+        ? "danger"
+        : normalized === "disabled"
+          ? "warning"
+          : "info";
+  return `<span class="status-chip ${theme}">${escapeHtml(normalized)}</span>`;
+}
+
+function renderIdentityUserRow(user) {
+  const status = String(user.status || "active").toLowerCase();
+  return `
+    <article class="threat-watchlist-row settings-api-key-row" data-testid="settings-identity-user-row">
+      <span class="status-dot status-${status === "active" ? "completed" : "failed"}"></span>
+      <div>
+        <strong>${escapeHtml(user.actor_name || "actor")}</strong>
+        <p>${escapeHtml(user.role || "operator")} · ${escapeHtml(user.auth_method || "local")} · last seen ${escapeHtml(formatTimestamp(user.last_seen_at) || "current request")}</p>
+      </div>
+      <div class="chip-row compact">
+        <span class="status-chip ${status === "active" ? "success" : "danger"}">${escapeHtml(status)}</span>
+        <span class="status-chip info">${escapeHtml(user.source || "identity")}</span>
+      </div>
+    </article>
+  `;
 }
 
 function renderUsersPanel() {
@@ -1723,6 +2075,13 @@ function summarizeSection(section) {
   if (section.id === "evidence_integrity") {
     const timestamping = Boolean(settingValue("evidence.timestamping_enabled"));
     return `Timestamping ${boolLabel(timestamping)} · TSA ${settingConfigured("evidence.timestamp_authority_url") ? "configured" : "not set"}`;
+  }
+
+  if (section.id === "deployment_hardening") {
+    const tls = Boolean(settingValue("deployment.tls_terminated_by_proxy"));
+    const secureCookies = Boolean(settingValue("deployment.secure_cookies"));
+    const offline = Boolean(settingValue("deployment.no_internet_mode"));
+    return `TLS proxy ${boolLabel(tls)} · secure cookies ${boolLabel(secureCookies)} · offline ${boolLabel(offline)}`;
   }
 
   if (section.id === "instance") {
@@ -2355,8 +2714,16 @@ function focusSettingField(key) {
     panel.open = true;
     setSettingsPanelOpen(panel.dataset.settingsPanel, true);
   }
-  input.scrollIntoView({ behavior: "smooth", block: "center" });
-  input.focus({ preventScroll: true });
+  input.scrollIntoView({ behavior: "auto", block: "center" });
+  const applyFocus = () => {
+    const currentInput = dom.settingsContent?.querySelector(`[data-setting-key="${cssEscape(normalizedKey)}"]`);
+    currentInput?.focus?.({ preventScroll: true });
+  };
+  applyFocus();
+  window.requestAnimationFrame(applyFocus);
+  window.setTimeout(applyFocus, 0);
+  window.setTimeout(applyFocus, 50);
+  window.setTimeout(applyFocus, 200);
 }
 
 function renderThreatIntelWatchlist(entries) {
