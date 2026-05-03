@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from api.app.config import Settings
 from api.app.models import InstanceSetting
-from api.app.services.settings import effective_runtime_settings
+from api.app.services.settings import effective_runtime_settings, read_settings_readiness
 
 
 def _settings_by_key(payload: dict) -> dict[str, dict]:
@@ -24,6 +24,7 @@ def test_get_settings_returns_all_sections_with_environment_defaults(client) -> 
     assert payload["sensitive_plaintext_exposed"] is False
     assert {section["id"] for section in payload["sections"]} == {
         "ai_provider",
+        "enterprise_identity",
         "default_network_scope",
         "default_scan_profile",
         "runtime_execution",
@@ -31,6 +32,7 @@ def test_get_settings_returns_all_sections_with_environment_defaults(client) -> 
         "notifications",
         "threat_intel",
         "evidence_integrity",
+        "deployment_hardening",
         "remediation",
         "instance",
     }
@@ -43,6 +45,9 @@ def test_get_settings_returns_all_sections_with_environment_defaults(client) -> 
     assert settings["ai.intake_intelligence_enabled"]["value"] is False
     assert settings["ai.autofix_enabled"]["value"] is False
     assert settings["ai.report_drafting_enabled"]["value"] is False
+    assert settings["identity.enterprise_sso_provider"]["value"] == "disabled"
+    assert settings["identity.session_timeout_minutes"]["value"] == 480
+    assert settings["identity.oidc_client_secret"]["sensitive"] is True
     assert settings["network.default_lan_cidr"]["value"] == "10.0.0.0/8"
     assert settings["network.default_lan_cidr"]["source"] == "environment"
     assert settings["runtime.inline_task_workers"]["value"] == 4
@@ -55,6 +60,10 @@ def test_get_settings_returns_all_sections_with_environment_defaults(client) -> 
     assert settings["threat_intel.sync_enabled"]["value"] is True
     assert settings["threat_intel.nvd_api_key"]["sensitive"] is True
     assert settings["threat_intel.opencve_api_token"]["value"] is None
+    assert settings["deployment.tls_terminated_by_proxy"]["read_only"] is True
+    assert settings["deployment.secure_cookies"]["read_only"] is True
+    assert settings["deployment.outbound_proxy_url"]["sensitive"] is True
+    assert settings["deployment.outbound_proxy_url"]["value"] is None
 
 
 def test_patch_settings_persists_plain_and_encrypted_sensitive_values(client) -> None:
@@ -219,6 +228,11 @@ def test_settings_readiness_reports_tools_runtime_and_export_artifact(client, mo
     assert capabilities["runtime_concurrency"]["metadata"]["max"] == 32
     assert "does not mutate active runs" in " ".join(capabilities["runtime_concurrency"]["details"])
     assert capabilities["ai_provider"]["metadata"]["provider"] == "chatgpt_oauth"
+    assert capabilities["enterprise_identity"]["metadata"]["status"] == "disabled"
+    assert capabilities["enterprise_identity"]["metadata"]["session_policy"]["timeout_minutes"] == 480
+    assert capabilities["deployment_hardening"]["status"] == "degraded"
+    assert capabilities["deployment_hardening"]["metadata"]["production_like"] is False
+    assert capabilities["deployment_hardening"]["metadata"]["secrets_plaintext_exposed"] is False
 
     tools = {item["id"]: item for item in payload["tools"]}
     assert tools["nmap"]["installed"] is True
@@ -227,6 +241,63 @@ def test_settings_readiness_reports_tools_runtime_and_export_artifact(client, mo
     assert tools["metasploit"]["installed"] is False
     assert tools["metasploit"]["status"] == "degraded"
     assert "Exploit confirmation" in tools["metasploit"]["affected_assessment_families"]
+
+
+def test_settings_readiness_simulated_production_deployment_hardening(client) -> None:
+    production_settings = Settings(
+        app_env="production",
+        app_public_base_url="https://aegispt.example.test",
+        database_url="postgresql+psycopg://aegispt:secret-db-pass@db.example.test/aegispt",
+        artifacts_storage_mode="s3",
+        artifacts_s3_enforce_sse=True,
+        deployment_tls_terminated_by_proxy=True,
+        deployment_secure_cookies=True,
+        deployment_database_encryption_confirmed=True,
+        deployment_artifact_storage_encryption_confirmed=True,
+        deployment_trusted_certificate_bundle="/etc/aegispt/enterprise-ca.pem",
+        deployment_outbound_proxy_url="http://proxy-user:proxy-pass@proxy.example.test:8080",
+        deployment_no_internet_mode=False,
+    )
+    with client.app.state.session_factory() as session:
+        readiness = read_settings_readiness(session, tenant_id=None, settings=production_settings)
+
+    capabilities = {item.id: item for item in readiness.capabilities}
+    hardening = capabilities["deployment_hardening"]
+    assert hardening.status == "ready"
+    assert hardening.metadata["production_like"] is True
+    assert hardening.metadata["https_public_base_url"] is True
+    assert hardening.metadata["outbound_proxy"] == "configured"
+    assert hardening.metadata["secrets_plaintext_exposed"] is False
+    serialized = str(hardening.model_dump())
+    assert "proxy-pass" not in serialized
+    assert "secret-db-pass" not in serialized
+
+
+def test_settings_readiness_blocks_unsafe_production_and_air_gap_gaps(client) -> None:
+    unsafe_settings = Settings(
+        app_env="production",
+        app_public_base_url="http://aegispt.example.test",
+        database_url="sqlite+pysqlite:///./aegispt.db",
+        artifacts_storage_mode="s3",
+        artifacts_s3_enforce_sse=False,
+        deployment_tls_terminated_by_proxy=False,
+        deployment_secure_cookies=False,
+        deployment_no_internet_mode=True,
+        deployment_offline_update_path="/mnt/aegispt/offline-feeds",
+        deployment_manual_tool_update_path="",
+    )
+    with client.app.state.session_factory() as session:
+        readiness = read_settings_readiness(session, tenant_id=None, settings=unsafe_settings)
+
+    capabilities = {item.id: item for item in readiness.capabilities}
+    hardening = capabilities["deployment_hardening"]
+    assert hardening.status == "blocked"
+    assert hardening.metadata["blocking_gap_count"] >= 4
+    assert hardening.metadata["database_encryption_status"] == "blocked"
+    assert hardening.metadata["artifact_encryption_status"] == "blocked"
+    assert hardening.metadata["no_internet_mode"] is True
+    assert hardening.metadata["offline_update_path_configured"] is True
+    assert hardening.metadata["manual_tool_update_path_configured"] is False
 
 
 def test_read_settings_includes_ai_feature_toggle_fields(client) -> None:

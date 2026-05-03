@@ -15,8 +15,10 @@ RUN apt-get update \
         ca-certificates \
         curl \
         git \
+        aircrack-ng \
         hashcat \
         impacket-scripts \
+        iw \
         metasploit-framework \
         netexec \
         nmap \
@@ -28,6 +30,8 @@ RUN apt-get update \
         python3-pip \
         python3-venv \
         responder \
+        snmp \
+        wireless-tools \
         zaproxy \
     && rm -rf /var/lib/apt/lists/*
 

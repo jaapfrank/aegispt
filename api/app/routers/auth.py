@@ -18,6 +18,7 @@ from api.app.auth import API_KEY_ROLES, CurrentActor, get_current_principal, has
 from api.app.config import Settings, get_settings
 from api.app.db import get_session
 from api.app.models import ApiKey
+from api.app.services.audit import write_audit_event
 from api.app.services.chatgpt_oauth import (
     ChatGPTOAuthConfigurationError,
     ChatGPTOAuthError,
@@ -26,6 +27,7 @@ from api.app.services.chatgpt_oauth import (
     reuse_existing_chatgpt_oauth_token_set,
     start_chatgpt_authorization,
 )
+from api.app.services.settings import enterprise_identity_snapshot
 from api.app.services.tenancy import get_current_tenant_id, load_engagement_for_tenant
 
 router = APIRouter(tags=["auth"])
@@ -77,6 +79,46 @@ class CurrentActorRead(BaseModel):
     auth_method: str
 
 
+class IdentityUserRead(BaseModel):
+    actor_name: str
+    role: str
+    auth_method: str
+    status: str
+    source: str
+    last_seen_at: datetime | None = None
+
+
+class SessionPolicyRead(BaseModel):
+    timeout_minutes: int
+    logout_redirect_url: str | None = None
+    server_session_enforced: bool = False
+    local_fallback_has_server_session: bool = False
+
+
+class EnterpriseIdentityStatusRead(BaseModel):
+    tenant_id: str
+    provider: str
+    status: str
+    configured: bool
+    summary: str
+    operator_next_step: str
+    missing_fields: list[str] = Field(default_factory=list)
+    configured_secret_labels: list[str] = Field(default_factory=list)
+    session_policy: SessionPolicyRead
+    local_auth: dict[str, object]
+    current_actor: CurrentActorRead
+    users: list[IdentityUserRead] = Field(default_factory=list)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class AuthEventRead(BaseModel):
+    status: str
+    actor_name: str
+    auth_method: str
+    session_cleared: bool = False
+    message: str
+
+
 @router.get("/api/v1/auth/me", response_model=CurrentActorRead)
 def get_authenticated_actor(
     principal: CurrentActor = Depends(get_current_principal),
@@ -104,6 +146,20 @@ def create_api_key(
         updated_at=now,
     )
     session.add(record)
+    session.flush()
+    write_audit_event(
+        session,
+        actor=actor,
+        action="auth.api_key.created",
+        object_type="api_key",
+        object_id=str(record.id),
+        metadata={
+            "actor_name": record.actor_name,
+            "role": record.role,
+            "token_exposed_once": True,
+            "raw_secret_material_exposed": False,
+        },
+    )
     session.commit()
     session.refresh(record)
     return ApiKeyCreateRead(
@@ -125,16 +181,111 @@ def list_api_keys(
 def revoke_api_key(
     key_id: UUID,
     session: Session = Depends(get_session),
-    _actor: str = Depends(require_roles("admin")),
+    actor: str = Depends(require_roles("admin")),
 ) -> ApiKeyRead:
     record = session.get(ApiKey, key_id)
     if record is None:
         raise HTTPException(status_code=404, detail="API key not found")
     if record.revoked_at is None:
         record.revoked_at = datetime.now(tz=UTC)
+        write_audit_event(
+            session,
+            actor=actor,
+            action="auth.api_key.revoked",
+            object_type="api_key",
+            object_id=str(record.id),
+            metadata={"actor_name": record.actor_name, "role": record.role},
+        )
     session.commit()
     session.refresh(record)
     return ApiKeyRead.model_validate(record)
+
+
+@router.post("/api/v1/auth/session/start", response_model=AuthEventRead)
+def record_login_event(
+    session: Session = Depends(get_session),
+    principal: CurrentActor = Depends(get_current_principal),
+) -> AuthEventRead:
+    write_audit_event(
+        session,
+        actor=principal.name,
+        action="auth.login",
+        object_type="auth_session",
+        object_id=principal.name,
+        metadata={"role": principal.role, "auth_method": principal.auth_method},
+    )
+    session.commit()
+    return AuthEventRead(
+        status="recorded",
+        actor_name=principal.name,
+        auth_method=principal.auth_method,
+        session_cleared=False,
+        message="Login event recorded. Local X-Actor fallback does not create a server session.",
+    )
+
+
+@router.post("/api/v1/auth/logout", response_model=AuthEventRead)
+def logout_actor(
+    session: Session = Depends(get_session),
+    principal: CurrentActor = Depends(get_current_principal),
+) -> AuthEventRead:
+    write_audit_event(
+        session,
+        actor=principal.name,
+        action="auth.logout",
+        object_type="auth_session",
+        object_id=principal.name,
+        metadata={"role": principal.role, "auth_method": principal.auth_method, "server_session_cleared": False},
+    )
+    session.commit()
+    return AuthEventRead(
+        status="logged_out",
+        actor_name=principal.name,
+        auth_method=principal.auth_method,
+        session_cleared=False,
+        message="Logout recorded. Local fallback has no server session; active runs were not changed.",
+    )
+
+
+@router.get("/api/v1/auth/identity/status", response_model=EnterpriseIdentityStatusRead)
+def get_enterprise_identity_status(
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+    principal: CurrentActor = Depends(get_current_principal),
+) -> EnterpriseIdentityStatusRead:
+    snapshot = enterprise_identity_snapshot(session, tenant_id=tenant_id, settings=settings)
+    key_records = session.scalars(select(ApiKey).order_by(ApiKey.actor_name.asc(), ApiKey.created_at.desc())).all()
+    users = [
+        IdentityUserRead(
+            actor_name=principal.name,
+            role=principal.role,
+            auth_method=principal.auth_method,
+            status="active",
+            source="current_request",
+            last_seen_at=None,
+        )
+    ]
+    users.extend(
+        IdentityUserRead(
+            actor_name=record.actor_name,
+            role=record.role,
+            auth_method="api_key",
+            status="revoked" if record.revoked_at else "active",
+            source="api_key",
+            last_seen_at=record.last_used_at,
+        )
+        for record in key_records
+    )
+    return EnterpriseIdentityStatusRead(
+        **snapshot,
+        current_actor=CurrentActorRead(
+            actor_name=principal.name,
+            role=principal.role,
+            auth_method=principal.auth_method,
+        ),
+        users=users,
+    )
 
 
 @router.get("/api/v1/auth/chatgpt/authorize")

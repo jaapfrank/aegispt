@@ -15,6 +15,7 @@ from api.app.routers.auth import router as auth_router
 from api.app.routers.codex import router as codex_router
 from api.app.routers.custom_vulnerabilities import router as custom_vulnerabilities_router
 from api.app.routers.dashboard import router as dashboard_router
+from api.app.routers.diagnostics import router as diagnostics_router
 from api.app.routers.engagements import router as engagements_router
 from api.app.routers.findings import router as findings_router
 from api.app.routers.health import router as health_router
@@ -88,6 +89,7 @@ def create_app() -> FastAPI:
     app.include_router(codex_router)
     app.include_router(custom_vulnerabilities_router)
     app.include_router(dashboard_router)
+    app.include_router(diagnostics_router)
     app.include_router(engagements_router)
     app.include_router(findings_router)
     app.include_router(integrations_router)

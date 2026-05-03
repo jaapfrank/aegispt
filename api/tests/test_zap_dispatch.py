@@ -150,6 +150,7 @@ def test_inline_dispatch_executes_zap_task(
     dispatch_payload = dispatch_response.json()
     assert dispatch_payload["dispatch_mode"] == "inline"
     assert dispatch_payload["run"]["status"] == "completed"
+    assert dispatch_payload["run"]["started_at"] is not None
     assert dispatch_payload["run"]["tasks"][0]["tool"] == "zap"
     assert dispatch_payload["run"]["tasks"][0]["status"] == "completed"
     assert dispatch_payload["run"]["findings"]["finding_count"] == 1

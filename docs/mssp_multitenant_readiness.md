@@ -19,6 +19,27 @@ The first foundation is intentionally small:
 
 This is an isolation foundation, not authentication or authorization. A real hosted deployment still needs identity, tenant membership, RBAC, session management, and operational controls before it can safely expose multiple tenants to external users.
 
+## Enterprise Identity Foundation Slice
+
+AegisPT now exposes the first governed enterprise identity administration surface in Settings and `/api/v1/auth/identity/status`.
+
+Supported now:
+
+- OIDC/SAML provider state is visible as `disabled`, `configured`, or `error`.
+- Enterprise identity settings are tenant-scoped `InstanceSetting` records.
+- OIDC client secrets and SAML signing certificate material are stored encrypted and returned only as masked configured indicators.
+- Session timeout and logout redirect policy are explicit for operators.
+- Logout, login-event recording, API-key creation/revocation, and enterprise identity settings changes write audit events.
+- Local X-Actor fallback and API-key actors stay visible and are labeled separately from enterprise authentication.
+
+Still future work:
+
+- browser SSO callback enforcement
+- tenant membership and invitation flows
+- SCIM provisioning
+- hosted-SaaS RBAC and tenant switching
+- external identity-provider metadata validation
+
 ## Tenant Boundary Map
 
 | Boundary | Current anchor | First-slice rule | Remaining gap |
@@ -30,6 +51,7 @@ This is an isolation foundation, not authentication or authorization. A real hos
 | Reports | Run report endpoints | Report catalog, report export, and report-draft endpoints reject mismatched tenant headers through the source run. | Persisted report-export storage paths still need tenant-partitioned storage policy for hosted deployments. |
 | Inventory | `inventory_snapshots.engagement_id` | Inventory list/create/read/summary/cloud-analysis APIs reject mismatched tenant headers. | Cross-tenant aggregate inventory and MSSP portfolio views are intentionally not implemented. |
 | Secrets | `secrets_refs.engagement_id` | Secret materialization remains engagement-scoped and raw values remain out of API/report/UI/MCP surfaces. | Secret administration, rotation, per-tenant KMS/vault policy, and tenant-specific broker configuration remain future work. |
+| Enterprise identity | `InstanceSetting` keys under `identity.*` | OIDC/SAML settings, session timeout, and logout redirect policy are visible and sensitive values are encrypted. | Browser SSO enforcement, SCIM, tenant membership, and hosted RBAC remain future work. |
 | Evidence artifacts | `EvidenceArtifact -> ToolExecution -> Task -> Run -> Engagement` | Artifact content download rejects mismatched tenant headers before storage retrieval. | Pack artifacts and generated export storage need complete tenant partitioning before hosted SaaS. |
 | Capability packs | `capability_packs.engagement_id` | Existing pack registry, validation, approval, deployment, and runtime binding gates remain unchanged and engagement-scoped. | This slice does not retrofit every pack endpoint with tenant-aware membership or MSSP catalog policy. |
 | Codex build lane | repo task/result files and pack context | Codex remains a supervised build-lane feature and does not execute tenant runtime changes. | Codex task/result visibility needs a tenant-aware index before external MSSP operators can share one hosted control plane. |
@@ -55,7 +77,7 @@ This slice does not add:
 - hosted SaaS launch
 - billing or licensing
 - full RBAC
-- SSO, SCIM, invitations, or tenant membership management
+- enforced browser SSO, SCIM, invitations, or tenant membership management
 - cross-tenant reporting
 - MSSP portfolio dashboards
 - tenant switching UI

@@ -105,6 +105,7 @@ class TaskRead(BaseModel):
     target_id: str
     status: str
     params_json: dict[str, Any]
+    stale_recovery: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
@@ -290,6 +291,12 @@ class RunRead(BaseModel):
     multi_agent_orchestration: dict[str, Any] = Field(default_factory=dict)
     assessment_chain: dict[str, Any] = Field(default_factory=dict)
     drift_summary: RunDriftRead | None = None
+    stale_recovery: dict[str, Any] = Field(default_factory=dict)
+
+
+class RunStaleRecoveryCreate(BaseModel):
+    reason: str = Field(min_length=8, max_length=1000)
+    task_outcome: Literal["cancelled", "failed"] = "cancelled"
 
 
 class RunCveIntelQueueTestRead(BaseModel):

@@ -197,3 +197,15 @@ It declares the current supported-combination truth for the first operational-as
 - customer or public target execution remains blocked until explicit authorization exists
 - several product recommendations are intentionally unsupported until their queued task packages are promoted
 - future work must update this matrix when support status changes
+
+## Enterprise Release-Readiness Gate
+
+The enterprise release-readiness gate is the aggregate go/no-go layer for this matrix:
+
+- script: `scripts/run_enterprise_release_readiness.py`
+- machine-readable output: `codex/results/enterprise-release-readiness.json`
+- human-readable output: `codex/results/enterprise-release-readiness.md`
+
+The gate is intentionally fail-closed. A claim can only be marked `supported` when it links to concrete repo evidence such as task completion results, validation output, lab proof, or tests. Claims with partial evidence remain `supported-with-gap`, missing critical evidence becomes `blocked`, and capabilities outside the current support boundary remain `unsupported`.
+
+The gate does not run live customer targets, change product claims to pass, install plugins, bypass runtime gates, or make external certification claims.

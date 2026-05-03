@@ -54,6 +54,7 @@ from api.app.schemas.runs import (
     RunIntakeInterpretationRead,
     RunProfileRead,
     RunRead,
+    RunStaleRecoveryCreate,
     TaskRead,
 )
 from api.app.services.assessment_chain import (
@@ -115,10 +116,13 @@ from api.app.services.runs import (
     load_run,
     pending_approvals,
     queue_run_tasks,
+    recover_stale_run_tasks,
     required_approvals,
     sorted_approvals,
     sorted_findings,
     sorted_tasks,
+    stale_run_recovery_state,
+    stale_task_recovery_state,
 )
 from api.app.services.secrets import (
     materialize_run_configuration_secrets,
@@ -166,6 +170,20 @@ def serialize_run_pack_binding(run: Run) -> RunPackBindingRead | None:
         source_inventory_snapshot_id=run.bound_pack.source_inventory_snapshot_id,
         relevance_decision_id=run.bound_pack.relevance_decision_id,
         manifest_json=dict(run.bound_pack.manifest_json or {}),
+    )
+
+
+def serialize_task(task, *, run: Run | None = None) -> TaskRead:
+    return TaskRead(
+        id=task.id,
+        source_finding_id=task.source_finding_id,
+        tool=task.tool,
+        target_id=task.target_id,
+        status=task.status,
+        params_json=dict(task.params_json or {}),
+        stale_recovery=stale_task_recovery_state(task, run=run),
+        created_at=task.created_at,
+        updated_at=task.updated_at,
     )
 
 
@@ -217,7 +235,7 @@ def serialize_run(run: Run, *, session: Session) -> RunRead:
         granted_approvals=granted,
         pending_approvals=pending,
         approvals=[ApprovalRead.model_validate(approval) for approval in sorted_approvals(run)],
-        tasks=[TaskRead.model_validate(task) for task in sorted_tasks(run)],
+        tasks=[serialize_task(task, run=run) for task in sorted_tasks(run)],
         findings=FindingSummaryRead(
             finding_count=len(findings),
             findings_by_severity=findings_by_severity,
@@ -229,6 +247,7 @@ def serialize_run(run: Run, *, session: Session) -> RunRead:
         multi_agent_orchestration=build_multi_agent_orchestration_readiness(run),
         assessment_chain=chain_summary,
         drift_summary=RunDriftRead.model_validate(run.drift_summary) if run.drift_summary is not None else None,
+        stale_recovery=stale_run_recovery_state(run),
     )
 
 
@@ -941,7 +960,7 @@ def queue_cve_intelligence_test(
     )
     return RunCveIntelQueueTestRead(
         run=serialize_run(hydrated_run, session=session),
-        task=TaskRead.model_validate(hydrated_task),
+        task=serialize_task(hydrated_task, run=hydrated_run),
         cve_intelligence=RunCveIntelRead.model_validate(result),
     )
 
@@ -1466,4 +1485,33 @@ def cancel_run(
     hydrated_run = load_run(session, run.id)
     if hydrated_run is None:
         raise HTTPException(status_code=500, detail="run could not be reloaded after cancellation")
+    return serialize_run(hydrated_run, session=session)
+
+
+@router.post("/runs/{run_id}/stale-recovery", response_model=RunRead)
+def recover_stale_run(
+    run_id: UUID,
+    payload: RunStaleRecoveryCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> RunRead:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    try:
+        recovered_task_ids = recover_stale_run_tasks(
+            session,
+            run=run,
+            actor=actor,
+            reason=payload.reason,
+            task_outcome=payload.task_outcome,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    session.commit()
+    hydrated_run = load_run(session, run.id)
+    if hydrated_run is None:
+        raise HTTPException(status_code=500, detail="run could not be reloaded after stale recovery")
+    if not recovered_task_ids:
+        raise HTTPException(status_code=409, detail="no stale tasks were recovered")
     return serialize_run(hydrated_run, session=session)

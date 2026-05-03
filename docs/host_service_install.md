@@ -79,6 +79,79 @@ Important defaults:
 
 The direct-host runner now also falls back to `TASK_DISPATCH_MODE=inline` and `ARTIFACTS_STORAGE_MODE=inline` if an older env file forgot to define them, so `Start Validation` does not silently behave like a manual no-worker queue on host installs.
 
+## Production deployment hardening
+
+The default host install is development-grade: loopback HTTP, inline artifacts, local secret encryption, and direct/local egress. Do not treat that posture as enterprise production. Settings > Runtime Readiness and Support Diagnostics now expose a read-only `Production deployment hardening` status so operators can see the gap before rollout.
+
+For production, put AegisPT behind a trusted TLS reverse proxy or ingress and set:
+
+```bash
+APP_ENV=production
+APP_PUBLIC_BASE_URL=https://aegispt.example.com
+DEPLOYMENT_TLS_TERMINATED_BY_PROXY=true
+DEPLOYMENT_SECURE_COOKIES=true
+```
+
+`APP_PUBLIC_BASE_URL` must be an `https://` URL in production. Certificate private keys stay in the reverse proxy, load balancer, or ingress, not in AegisPT Settings or support bundles. If your enterprise uses a private CA for outbound TLS validation, set only the bundle path:
+
+```bash
+DEPLOYMENT_TRUSTED_CERTIFICATE_BUNDLE=/etc/aegispt/enterprise-ca.pem
+```
+
+Do not paste certificate private keys or proxy credentials into tickets, logs, screenshots, or support bundles.
+
+For restricted egress, choose one of these modes:
+
+```bash
+# Controlled outbound proxy. Proxy URLs are treated as sensitive in Settings.
+DEPLOYMENT_OUTBOUND_PROXY_URL=http://proxy.example.com:8080
+
+# Or no-internet / air-gapped mode.
+DEPLOYMENT_NO_INTERNET_MODE=true
+DEPLOYMENT_OFFLINE_UPDATE_PATH=/srv/aegispt/offline/feeds
+DEPLOYMENT_MANUAL_TOOL_UPDATE_PATH=/srv/aegispt/offline/tools
+```
+
+In air-gapped mode, feed, template, browser, and tool updates must be staged manually through the offline paths, then verified by the operator before production use. Threat-intel feeds, Nuclei templates, Playwright browsers, OS packages, and security tools are not downloaded live from the assessment host.
+
+For encryption posture, production needs database encryption and evidence artifact encryption to be explicit:
+
+```bash
+# Direct-host SQLite encryption.
+AEGISPT_DB_KEY=<generated-secret>
+
+# If database/storage encryption is handled externally by PostgreSQL, disk, volume, KMS, or object storage,
+# record that deployment proof has been verified:
+DEPLOYMENT_DATABASE_ENCRYPTION_CONFIRMED=true
+DEPLOYMENT_ARTIFACT_STORAGE_ENCRYPTION_CONFIRMED=true
+
+# S3/MinIO artifact encryption enforcement when object storage is used:
+ARTIFACTS_STORAGE_MODE=s3
+ARTIFACTS_S3_ENFORCE_SSE=true
+```
+
+If any production hardening status is `blocked`, resolve it before using the host for enterprise customer assessments. A `degraded` production status means AegisPT is running, but a deployment owner still needs to confirm external controls such as CA trust, encrypted volumes, managed database encryption, proxy routing, or offline update handling.
+
+## Enterprise identity on a direct host
+
+Fresh direct-host installs start with enterprise SSO disabled. Settings now shows the current identity state, the local-development fallback, API-key actors, and an explicit session timeout policy.
+
+Supported in this host slice:
+
+- OIDC/SAML configuration can be recorded and audited.
+- Sensitive OIDC/SAML values are encrypted and masked.
+- logout records an audit event and does not change active mission/run state.
+- local X-Actor fallback remains available for supervised local use.
+
+Not supported yet:
+
+- enforced browser SSO login
+- SCIM provisioning
+- tenant membership administration
+- hosted enterprise RBAC
+
+Use API keys for scoped local automation until a later task enables enforced enterprise sign-in.
+
 If you want the service reachable from another host, edit:
 
 - `AEGISPT_BIND_HOST=0.0.0.0`
@@ -179,6 +252,74 @@ ARTIFACTS_S3_ENFORCE_SSE=true
 
 With MinIO, configure the deployment so the bucket accepts SSE-S3 (`x-amz-server-side-encryption: AES256`). AegisPT will add that header to artifact uploads when `ARTIFACTS_S3_ENFORCE_SSE=true`. Inline artifact storage is unaffected.
 
+## Backup, restore, upgrade, and rollback drill
+
+Before upgrading a host or Compose install, create a backup bundle and run the local restore drill. The drill is safe: it uses a seeded local fixture and does not touch live customer targets or active runs.
+
+For the direct-host SQLite lane:
+
+```bash
+cd /opt/aegispt/repo
+source .venv/bin/activate
+python scripts/backup_aegispt.py \
+  --database-url "$(grep '^DATABASE_URL=' /srv/aegispt/env/aegispt-host.env | cut -d= -f2-)" \
+  --artifacts-dir /srv/aegispt/artifacts \
+  --reports-dir /srv/aegispt/reports \
+  --env-file /srv/aegispt/env/aegispt-host.env \
+  --output-dir /srv/aegispt/backups/aegispt-$(date -u +%Y%m%dT%H%M%SZ)
+python scripts/verify_restore.py --fixture safe-local
+```
+
+The backup bundle contains:
+
+- `database/aegispt.sqlite3` for the SQLite database file
+- `artifacts/inline/` for inline evidence artifacts
+- `reports/` for generated report output when present
+- `config/*.redacted.json` for env/config recovery metadata
+- `backup-manifest.json` with file hashes and Alembic state
+
+Secret-looking env values are redacted in manifests and logs. Preserve real deployment secrets, `AEGISPT_DB_KEY`, OAuth client secrets, API keys, and vault material through an external vault or encrypted operator backup. Do not paste plaintext secrets into support bundles.
+
+To restore a bundle into a separate verification directory:
+
+```bash
+python scripts/restore_aegispt.py \
+  --backup-dir /srv/aegispt/backups/<backup-id> \
+  --restore-dir /srv/aegispt/backups/<backup-id>-restore
+DATABASE_URL="sqlite+pysqlite:////srv/aegispt/backups/<backup-id>-restore/database/aegispt.sqlite3" \
+ARTIFACTS_STORAGE_MODE=inline \
+ARTIFACTS_INLINE_DIR="/srv/aegispt/backups/<backup-id>-restore/.aegispt-artifacts" \
+AUTO_CREATE_TABLES=false \
+python -m alembic current
+```
+
+For Compose/PostgreSQL installs, use the same manifest discipline but replace the SQLite database file step with a PostgreSQL dump taken while the stack is quiesced or under a consistent snapshot:
+
+```bash
+docker compose -f infra/compose/docker-compose.yml exec -T postgres \
+  pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  > /srv/aegispt/backups/<backup-id>/database/aegispt-postgres.dump
+```
+
+Then back up the Compose env file, MinIO/S3 artifact bucket or bind mount, reports path, and the migration state (`python -m alembic current` plus `python -m alembic heads`). The restore target must run `alembic current` before service start and `alembic upgrade head` only after the backup has been verified and the rollback point is retained.
+
+Upgrade preflight:
+
+- stop or pause new assessment launches
+- confirm `/health/live` is healthy before shutdown
+- create the backup bundle
+- run `python scripts/verify_restore.py --fixture safe-local`
+- record `python -m alembic current` and `python -m alembic heads`
+- keep the previous git tag/commit, env file, artifact storage, report path, and database backup together
+
+Rollback:
+
+- stop `aegispt.service` or the Compose stack
+- restore the previous code revision and env/config
+- restore the database and artifact/report paths from the matched backup
+- run `python -m alembic current` against the restored database
+- start AegisPT and verify `/health/live`, engagement list, one restored run, one artifact download, and report catalog access
+
 ## Updating an existing host install
 
 After pulling or copying new code into the same repo path:
@@ -194,6 +335,35 @@ Operational notes:
 
 - `scripts/setup_python_dev.sh` recreates the repo-local `.venv` with `python3 -m venv --clear .venv`, so copied environments from another host are replaced instead of reused accidentally.
 - `scripts/install_host_service.sh` explicitly restarts an already-running `aegispt.service`, so updates to the repo path, UI bundle, or API code take effect immediately on the host.
+
+## Support diagnostics bundle
+
+Settings includes a **Support Diagnostics** panel for safe operator triage. Use it before reading raw shell logs when a run is stuck, a tool is missing, the feed sync is rate-limited, ChatGPT OAuth is disconnected, or the host is not behaving like the current repo revision.
+
+The panel summarizes:
+
+- app health and `/health/live` state
+- database migration head and current Alembic revision
+- worker or inline dispatch mode
+- queue depth, active runs, and stuck-run signal
+- pentest tool readiness and affected assessment families
+- AI provider and ChatGPT OAuth readiness
+- threat feed sync status
+- recent failed tasks, failed runs, feed failures, and audit harness artifacts
+
+Admins can export a redacted bundle from the same panel or from:
+
+```bash
+curl --fail --silent \
+  -H 'X-Actor: support-admin' \
+  -H 'X-Actor-Role: admin' \
+  http://127.0.0.1:8000/api/v1/diagnostics/support-bundle \
+  > /tmp/aegispt-support-bundle.json
+```
+
+The bundle is intended for support handoff and contains status snapshots, safe config shape, migration/readiness context, recent log excerpts, task IDs, run IDs, and validation artifact names. It does not include raw evidence payloads, task stdout/stderr, credential material, API tokens, passwords, secret values, or hash-looking long identifiers by default.
+
+If the support bundle points to a failing subsystem, follow the `operator_next_step` field first. If the bundle itself cannot be generated, verify `/health/live`, restart the host service, and then re-open Settings after the service is healthy.
 
 ## If port 8000 is occupied by an old ad-hoc Uvicorn process
 

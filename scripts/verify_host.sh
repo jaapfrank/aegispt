@@ -95,6 +95,10 @@ verify_command "hashcat" hashcat --version
 verify_command "Metasploit console" msfconsole -v
 verify_command "Metasploit RPC daemon" msfrpcd -h
 verify_command "ldapsearch" ldapsearch -VV
+verify_command "snmpwalk" snmpwalk --version
+verify_command "iw" iw --version
+verify_command "aircrack-ng" aircrack-ng --help
+verify_command "airodump-ng" airodump-ng --help
 verify_command "Impacket psexec" psexec.py -h
 verify_command "Impacket wmiexec" wmiexec.py -h
 verify_command "Impacket secretsdump" secretsdump.py -h

@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     metasploit_rpc_start_binary: str = "msfrpcd"
     metasploit_rpc_start_timeout_seconds: float = 15.0
     app_public_base_url: str = "http://127.0.0.1:8000"
+    deployment_tls_terminated_by_proxy: bool = False
+    deployment_secure_cookies: bool = False
+    deployment_trusted_certificate_bundle: str | None = None
+    deployment_outbound_proxy_url: str | None = None
+    deployment_no_internet_mode: bool = False
+    deployment_offline_update_path: str | None = None
+    deployment_manual_tool_update_path: str | None = None
+    deployment_database_encryption_confirmed: bool = False
+    deployment_artifact_storage_encryption_confirmed: bool = False
     local_secret_encryption_key: str = _default_local_secret_key()
     secret_materialization_mode: str = "encrypted_local"
     deployment_secret_encryption_key: str | None = None

@@ -6,10 +6,20 @@ ZAP_API_KEY="${ZAP_API_KEY:-change-me-zap-key}"
 ZAP_WAIT_SECONDS="${AEGISPT_LOCAL_ZAP_WAIT_SECONDS:-30}"
 ZAP_LOG_PATH="${AEGISPT_LOCAL_ZAP_LOG:-/tmp/aegispt-zap.log}"
 ZAP_BINARY="${AEGISPT_LOCAL_ZAP_BINARY:-/usr/local/bin/zap.sh}"
+ZAP_CURL_CONNECT_TIMEOUT="${AEGISPT_LOCAL_ZAP_CONNECT_TIMEOUT_SECONDS:-1}"
+ZAP_CURL_MAX_TIME="${AEGISPT_LOCAL_ZAP_CURL_TIMEOUT_SECONDS:-2}"
 
 version_url="${ZAP_BASE_URL%/}/JSON/core/view/version/?apikey=${ZAP_API_KEY}"
+curl_zap_version() {
+  curl \
+    --connect-timeout "${ZAP_CURL_CONNECT_TIMEOUT}" \
+    --max-time "${ZAP_CURL_MAX_TIME}" \
+    --fail \
+    --silent \
+    "${version_url}"
+}
 
-if curl --fail --silent "${version_url}" >/dev/null 2>&1; then
+if curl_zap_version >/dev/null 2>&1; then
   echo "ZAP daemon already reachable at ${ZAP_BASE_URL}."
   exit 0
 fi
@@ -49,7 +59,7 @@ else
 fi
 
 for ((i=1; i<=ZAP_WAIT_SECONDS; i+=1)); do
-  if curl --fail --silent "${version_url}" >/dev/null 2>&1; then
+  if curl_zap_version >/dev/null 2>&1; then
     echo "ZAP daemon ready at ${ZAP_BASE_URL}."
     echo "Log: ${ZAP_LOG_PATH}"
     exit 0

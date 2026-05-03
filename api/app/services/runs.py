@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address, ip_network
 from uuid import UUID
 from urllib.parse import urlparse
@@ -83,6 +84,16 @@ TARGET_KEY_MAP = {
     "bssids": "bssid",
     "approved_bssids": "bssid",
     "targets": "target",
+}
+
+STALE_RUNNING_TASK_RECOVERY_AFTER = timedelta(minutes=10)
+STALE_RECOVERY_ACTIVE_RUN_STATUSES = {"running", "cancelling"}
+STALE_RECOVERY_TERMINAL_TASK_STATUSES = {
+    "completed",
+    "completed_with_errors",
+    "failed",
+    "cancelled",
+    "skipped",
 }
 
 BIZ_LOGIC_SECRET_BINDING_KEYS = {"password", "api_key", "bearer_token", "session"}
@@ -3107,6 +3118,177 @@ def dispatch_queued_run_tasks(
         metadata={"dispatch_mode": dispatch_mode, "task_count": len(queued_tasks)},
     )
     return dispatch_mode, [task.id for task in queued_tasks]
+
+
+def _aware_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def stale_task_recovery_state(
+    task: Task,
+    *,
+    run: Run | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    now_utc = _aware_utc(now) or datetime.now(UTC)
+    updated_at = _aware_utc(task.updated_at or task.created_at)
+    age_seconds = max(0.0, (now_utc - updated_at).total_seconds()) if updated_at else 0.0
+    age_minutes = age_seconds / 60
+    run_status = str((run or task.run).status if (run or task.run) is not None else "").lower()
+    task_status = str(task.status or "").lower()
+    has_executions = bool(task.executions)
+    blocked_reasons: list[str] = []
+
+    if run_status not in STALE_RECOVERY_ACTIVE_RUN_STATUSES:
+        blocked_reasons.append("run status is not running or cancelling")
+    if task_status != "running":
+        blocked_reasons.append("task is not running")
+    if has_executions:
+        blocked_reasons.append("task already has execution evidence")
+    if age_seconds < STALE_RUNNING_TASK_RECOVERY_AFTER.total_seconds():
+        blocked_reasons.append(
+            f"task changed less than {int(STALE_RUNNING_TASK_RECOVERY_AFTER.total_seconds() // 60)} minutes ago"
+        )
+
+    return {
+        "eligible": not blocked_reasons,
+        "blocked_reasons": blocked_reasons,
+        "age_minutes": round(age_minutes, 1),
+        "threshold_minutes": int(STALE_RUNNING_TASK_RECOVERY_AFTER.total_seconds() // 60),
+        "has_execution_evidence": has_executions,
+        "operator_summary": (
+            "This running task appears stale: it has no execution evidence and has not changed past the recovery threshold."
+            if not blocked_reasons
+            else "This task is not eligible for stale recovery through the governed path."
+        ),
+    }
+
+
+def stale_run_recovery_state(run: Run, *, now: datetime | None = None) -> dict[str, Any]:
+    states = {
+        str(task.id): stale_task_recovery_state(task, run=run, now=now)
+        for task in sorted_tasks(run)
+    }
+    running_tasks = [task for task in sorted_tasks(run) if str(task.status or "").lower() == "running"]
+    queued_tasks = [task for task in sorted_tasks(run) if str(task.status or "").lower() == "queued"]
+    eligible_task_ids = [
+        str(task.id)
+        for task in running_tasks
+        if states.get(str(task.id), {}).get("eligible")
+    ]
+    blocked_running_task_ids = [
+        str(task.id)
+        for task in running_tasks
+        if not states.get(str(task.id), {}).get("eligible")
+    ]
+    blocked_reasons: list[str] = []
+    run_status = str(run.status or "").lower()
+    if run_status not in STALE_RECOVERY_ACTIVE_RUN_STATUSES:
+        blocked_reasons.append("run status is not running or cancelling")
+    if queued_tasks:
+        blocked_reasons.append("queued tasks remain; use normal dispatch or cancellation first")
+    if blocked_running_task_ids:
+        blocked_reasons.append("one or more running tasks do not meet stale safety criteria")
+        task_reasons = [
+            reason
+            for task_id in blocked_running_task_ids
+            for reason in states.get(task_id, {}).get("blocked_reasons", [])
+        ]
+        blocked_reasons.extend(reason for reason in task_reasons if reason not in blocked_reasons)
+    if not eligible_task_ids:
+        blocked_reasons.append("no running task meets stale recovery criteria")
+
+    return {
+        "available": not blocked_reasons,
+        "eligible_task_ids": eligible_task_ids,
+        "blocked_running_task_ids": blocked_running_task_ids,
+        "queued_task_ids": [str(task.id) for task in queued_tasks],
+        "blocked_reasons": blocked_reasons,
+        "threshold_minutes": int(STALE_RUNNING_TASK_RECOVERY_AFTER.total_seconds() // 60),
+        "operator_summary": (
+            "This run has stale running task rows that can be closed with audit evidence."
+            if not blocked_reasons
+            else "This run is not safe for stale recovery yet; use the listed reason before force-closing anything."
+        ),
+        "task_states": states,
+    }
+
+
+def recover_stale_run_tasks(
+    session: Session,
+    *,
+    run: Run,
+    actor: str,
+    reason: str,
+    task_outcome: str = "cancelled",
+    now: datetime | None = None,
+) -> list[UUID]:
+    normalized_reason = str(reason or "").strip()
+    if len(normalized_reason) < 8:
+        raise ValueError("recovery reason must explain why the executor is considered stale")
+    if task_outcome not in {"cancelled", "failed"}:
+        raise ValueError("task_outcome must be cancelled or failed")
+
+    now_utc = _aware_utc(now) or datetime.now(UTC)
+    recovery_state = stale_run_recovery_state(run, now=now_utc)
+    if not recovery_state["available"]:
+        raise ValueError("; ".join(recovery_state["blocked_reasons"]))
+
+    eligible_ids = {str(task_id) for task_id in recovery_state["eligible_task_ids"]}
+    recovered_tasks = [task for task in sorted_tasks(run) if str(task.id) in eligible_ids]
+    previous_task_statuses = {str(task.id): task.status for task in recovered_tasks}
+    previous_run_status = run.status
+
+    for task in recovered_tasks:
+        task.status = task_outcome
+        task.params_json = {
+            **dict(task.params_json or {}),
+            "runtime_recovery": {
+                "type": "stale_running_task",
+                "outcome": task_outcome,
+                "reason": normalized_reason,
+                "recovered_by": actor,
+                "recovered_at": now_utc.isoformat(),
+                "threshold_minutes": recovery_state["threshold_minutes"],
+                "previous_status": previous_task_statuses[str(task.id)],
+            },
+        }
+
+    remaining_statuses = {str(task.status or "").lower() for task in sorted_tasks(run)}
+    if "running" in remaining_statuses or "queued" in remaining_statuses:
+        run.status = "cancelling"
+    elif task_outcome == "failed":
+        run.status = "failed"
+    else:
+        run.status = "cancelled"
+
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="run.stale_recovered",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={
+            "reason": normalized_reason,
+            "task_outcome": task_outcome,
+            "recovered_task_ids": [str(task.id) for task in recovered_tasks],
+            "previous_task_statuses": previous_task_statuses,
+            "previous_run_status": previous_run_status,
+            "new_run_status": run.status,
+            "safety_criteria": {
+                "allowed_run_statuses": sorted(STALE_RECOVERY_ACTIVE_RUN_STATUSES),
+                "required_task_status": "running",
+                "requires_no_tool_executions": True,
+                "threshold_minutes": recovery_state["threshold_minutes"],
+                "requires_no_queued_tasks": True,
+            },
+        },
+    )
+    return [task.id for task in recovered_tasks]
 
 
 def cancel_run_tasks(run: Run) -> bool:

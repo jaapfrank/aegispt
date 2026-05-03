@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 import os
 import shlex
@@ -2720,6 +2721,7 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
 
         task.status = "running"
         task.run.status = "running"
+        task.run.started_at = task.run.started_at or datetime.now(timezone.utc)
         mark_validation_running(session=session, task=task)
         reset_task_stdout_stream(
             task.id,

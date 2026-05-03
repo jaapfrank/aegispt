@@ -5017,3 +5017,96 @@ def test_cancel_run_marks_queued_tasks_cancelled(client) -> None:
     )
 
     assert dispatch_response.status_code == 409
+
+
+def test_stale_run_recovery_marks_old_running_task_cancelled_with_audit(client) -> None:
+    from api.app.models import AuditEvent, Run
+
+    engagement_id = create_engagement_with_scope(client)
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={"profile_name": "passive-web-baseline"},
+    )
+    run_id = create_response.json()["id"]
+    task_id = create_response.json()["tasks"][0]["id"]
+
+    session_factory = client.app.state.session_factory
+    with session_factory() as session:
+        run = session.get(Run, UUID(run_id))
+        assert run is not None
+        run.status = "cancelling"
+        for index, task in enumerate(run.tasks):
+            task.status = "running" if index == 0 else "cancelled"
+            task.updated_at = datetime.now(UTC) - timedelta(minutes=30)
+        session.commit()
+
+    detail_response = client.get(f"/api/v1/runs/{run_id}", headers={"X-Actor": "operator"})
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["stale_recovery"]["available"] is True
+    assert detail_payload["tasks"][0]["stale_recovery"]["eligible"] is True
+
+    recovery_response = client.post(
+        f"/api/v1/runs/{run_id}/stale-recovery",
+        headers={"X-Actor": "operator"},
+        json={
+            "reason": "The inline executor is gone and no tool execution evidence was recorded.",
+            "task_outcome": "cancelled",
+        },
+    )
+
+    assert recovery_response.status_code == 200
+    payload = recovery_response.json()
+    assert payload["status"] == "cancelled"
+    assert payload["tasks"][0]["id"] == task_id
+    assert payload["tasks"][0]["status"] == "cancelled"
+    assert payload["tasks"][0]["params_json"]["runtime_recovery"]["type"] == "stale_running_task"
+    assert payload["tasks"][0]["params_json"]["runtime_recovery"]["reason"].startswith("The inline executor")
+
+    with session_factory() as session:
+        audit = session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.object_id == run_id,
+                AuditEvent.action == "run.stale_recovered",
+            )
+        )
+        assert audit is not None
+        assert audit.metadata_json["recovered_task_ids"] == [task_id]
+        assert audit.metadata_json["safety_criteria"]["requires_no_tool_executions"] is True
+
+
+def test_stale_run_recovery_rejects_recent_running_task(client) -> None:
+    from api.app.models import Run
+
+    engagement_id = create_engagement_with_scope(client)
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={"profile_name": "passive-web-baseline"},
+    )
+    run_id = create_response.json()["id"]
+
+    session_factory = client.app.state.session_factory
+    with session_factory() as session:
+        run = session.get(Run, UUID(run_id))
+        assert run is not None
+        run.status = "running"
+        for index, task in enumerate(run.tasks):
+            task.status = "running" if index == 0 else "cancelled"
+            task.updated_at = datetime.now(UTC)
+        session.commit()
+
+    recovery_response = client.post(
+        f"/api/v1/runs/{run_id}/stale-recovery",
+        headers={"X-Actor": "operator"},
+        json={
+            "reason": "Operator tried to recover immediately, which should be blocked.",
+            "task_outcome": "cancelled",
+        },
+    )
+
+    assert recovery_response.status_code == 409
+    assert "less than 10 minutes ago" in recovery_response.json()["detail"]

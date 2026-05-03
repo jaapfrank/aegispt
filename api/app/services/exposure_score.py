@@ -170,6 +170,7 @@ def record_exposure_score(
     session.flush()
     previous = latest_exposure_score(session, engagement_id)
     snapshot = _compute_snapshot(_load_findings(session, engagement_id))
+    timestamp = _utc(computed_at)
     exposure = ExposureScore(
         engagement_id=engagement_id,
         run_id=run_id if run_id is not None else _latest_run_id_for_engagement(session, engagement_id),
@@ -180,7 +181,9 @@ def record_exposure_score(
         remediated_count=int(snapshot["remediated_count"]),
         verified_count=int(snapshot["verified_count"]),
         trend=_trend(previous.score if previous is not None else None, float(snapshot["score"])),
-        computed_at=_utc(computed_at),
+        computed_at=timestamp,
+        created_at=timestamp,
+        updated_at=timestamp,
     )
     session.add(exposure)
     session.flush()

@@ -34,6 +34,7 @@ from api.app.schemas.settings import (
     ToolReadinessRead,
 )
 from api.app.services.secrets import direct_secret_storage_backend, encrypt_secret_value, secret_display_label
+from api.app.services.audit import write_audit_event
 
 DEFAULT_TENANT_SCOPE = "default"
 DISABLED_AI_PROVIDER_NAMES = {"", "disabled", "none", "off"}
@@ -103,7 +104,14 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
     ToolReadinessDefinition(
         id="impacket",
         title="Impacket",
-        binary_names=("impacket-secretsdump", "impacket-psexec", "impacket-wmiexec"),
+        binary_names=(
+            "impacket-secretsdump",
+            "impacket-psexec",
+            "impacket-wmiexec",
+            "secretsdump.py",
+            "psexec.py",
+            "wmiexec.py",
+        ),
         affected_assessment_families=("Remote exec confirmation", "Secretsdump", "DCSync"),
         required=False,
         missing_next_step="Install Impacket before enabling intrusive authenticated exploitation checks.",
@@ -171,6 +179,11 @@ SECTIONS: tuple[tuple[str, str, str], ...] = (
         "Choose the instance default AI provider and see the ChatGPT OAuth model used by connected engagements.",
     ),
     (
+        "enterprise_identity",
+        "Enterprise Identity",
+        "Disabled-by-default OIDC/SAML configuration, session policy, and local-development fallback clarity.",
+    ),
+    (
         "default_network_scope",
         "Default Network Scope",
         "Reusable LAN, domain, VLAN, and exclusion defaults for new mission planning.",
@@ -209,6 +222,11 @@ SECTIONS: tuple[tuple[str, str, str], ...] = (
         "evidence_integrity",
         "Evidence Integrity",
         "SHA-256 artifact verification and optional RFC 3161 trusted timestamping for stored evidence.",
+    ),
+    (
+        "deployment_hardening",
+        "Deployment Hardening",
+        "Read-only production posture for TLS, proxy, offline updates, encryption, and secure session assumptions.",
     ),
     (
         "instance",
@@ -316,6 +334,87 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
         description="Enables review-only AI-assisted report draft generation from stored run evidence.",
         settings_attr="ai_report_drafting_enabled",
         runtime_overlay=True,
+    ),
+    SettingDefinition(
+        key="identity.enterprise_sso_provider",
+        section_id="enterprise_identity",
+        label="Enterprise SSO provider",
+        input_type="select",
+        default_value=lambda _settings, _tenant_id: "disabled",
+        description="Disabled keeps local development/API-key auth active. OIDC/SAML entries only record governed configuration in this slice.",
+        options=(("disabled", "Disabled"), ("oidc", "OIDC"), ("saml", "SAML")),
+    ),
+    SettingDefinition(
+        key="identity.session_timeout_minutes",
+        section_id="enterprise_identity",
+        label="Session timeout minutes",
+        input_type="number",
+        default_value=lambda _settings, _tenant_id: 480,
+        description="Operator-visible inactivity policy for browser sessions. Local X-Actor fallback has no server session to revoke.",
+        min_value=5,
+        max_value=1440,
+        step=1,
+        placeholder="480",
+    ),
+    SettingDefinition(
+        key="identity.logout_redirect_url",
+        section_id="enterprise_identity",
+        label="Logout redirect URL",
+        input_type="url",
+        default_value=lambda _settings, _tenant_id: "",
+        description="Optional post-logout landing URL for future enterprise identity providers.",
+    ),
+    SettingDefinition(
+        key="identity.oidc_issuer_url",
+        section_id="enterprise_identity",
+        label="OIDC issuer URL",
+        input_type="url",
+        default_value=lambda _settings, _tenant_id: "",
+        description="Issuer metadata URL for a future OIDC login flow. Required only when OIDC is selected.",
+    ),
+    SettingDefinition(
+        key="identity.oidc_client_id",
+        section_id="enterprise_identity",
+        label="OIDC client ID",
+        input_type="text",
+        default_value=lambda _settings, _tenant_id: "",
+        description="Client identifier for the OIDC application registration.",
+    ),
+    SettingDefinition(
+        key="identity.oidc_client_secret",
+        section_id="enterprise_identity",
+        label="OIDC client secret",
+        input_type="password",
+        default_value=lambda _settings, _tenant_id: None,
+        description="Optional encrypted client secret. It is never returned in plaintext.",
+        sensitive=True,
+        secret_kind="client_secret",
+    ),
+    SettingDefinition(
+        key="identity.saml_entity_id",
+        section_id="enterprise_identity",
+        label="SAML entity ID",
+        input_type="text",
+        default_value=lambda _settings, _tenant_id: "",
+        description="Service-provider or relying-party entity ID for a future SAML flow.",
+    ),
+    SettingDefinition(
+        key="identity.saml_sso_url",
+        section_id="enterprise_identity",
+        label="SAML SSO URL",
+        input_type="url",
+        default_value=lambda _settings, _tenant_id: "",
+        description="Identity-provider SSO endpoint. Required only when SAML is selected.",
+    ),
+    SettingDefinition(
+        key="identity.saml_certificate",
+        section_id="enterprise_identity",
+        label="SAML signing certificate",
+        input_type="password",
+        default_value=lambda _settings, _tenant_id: None,
+        description="Encrypted IdP signing certificate or certificate reference. It is never returned in plaintext.",
+        sensitive=True,
+        secret_kind="certificate",
     ),
     SettingDefinition(
         key="network.default_lan_cidr",
@@ -619,6 +718,88 @@ SETTING_DEFINITIONS: tuple[SettingDefinition, ...] = (
         runtime_overlay=True,
     ),
     SettingDefinition(
+        key="deployment.tls_terminated_by_proxy",
+        section_id="deployment_hardening",
+        label="TLS terminated by reverse proxy",
+        input_type="checkbox",
+        default_value=lambda settings, _: settings.deployment_tls_terminated_by_proxy,
+        description="Read-only environment truth. Production installs must terminate HTTPS at a trusted reverse proxy or equivalent ingress.",
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.secure_cookies",
+        section_id="deployment_hardening",
+        label="Secure browser cookies required",
+        input_type="checkbox",
+        default_value=lambda settings, _: settings.deployment_secure_cookies,
+        description="Read-only environment truth for production browser-session assumptions. Local development can stay false.",
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.trusted_certificate_bundle",
+        section_id="deployment_hardening",
+        label="Trusted certificate bundle path",
+        input_type="text",
+        default_value=lambda settings, _: settings.deployment_trusted_certificate_bundle,
+        description="Optional path to an enterprise CA bundle for outbound TLS validation. Certificate material is not displayed here.",
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.outbound_proxy_url",
+        section_id="deployment_hardening",
+        label="Outbound proxy URL",
+        input_type="password",
+        default_value=lambda settings, _: settings.deployment_outbound_proxy_url,
+        description="Optional outbound proxy for enterprise egress. Treated as sensitive because proxy URLs can contain credentials.",
+        sensitive=True,
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.no_internet_mode",
+        section_id="deployment_hardening",
+        label="No-internet / air-gapped mode",
+        input_type="checkbox",
+        default_value=lambda settings, _: settings.deployment_no_internet_mode,
+        description="Read-only environment truth. When enabled, feed/tool/template updates must use manual offline bundles.",
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.offline_update_path",
+        section_id="deployment_hardening",
+        label="Offline feed/template update path",
+        input_type="text",
+        default_value=lambda settings, _: settings.deployment_offline_update_path,
+        description="Directory or mount where signed/offline feed and template bundles are staged.",
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.manual_tool_update_path",
+        section_id="deployment_hardening",
+        label="Manual tool update path",
+        input_type="text",
+        default_value=lambda settings, _: settings.deployment_manual_tool_update_path,
+        description="Directory or runbook path for offline tool/image updates in restricted networks.",
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.database_encryption_confirmed",
+        section_id="deployment_hardening",
+        label="Database encryption confirmed",
+        input_type="checkbox",
+        default_value=lambda settings, _: settings.deployment_database_encryption_confirmed,
+        description="Set from deployment configuration after platform/database encryption at rest has been verified.",
+        read_only=True,
+    ),
+    SettingDefinition(
+        key="deployment.artifact_storage_encryption_confirmed",
+        section_id="deployment_hardening",
+        label="Artifact storage encryption confirmed",
+        input_type="checkbox",
+        default_value=lambda settings, _: settings.deployment_artifact_storage_encryption_confirmed,
+        description="Set from deployment configuration after inline volume or object-store evidence encryption has been verified.",
+        read_only=True,
+    ),
+    SettingDefinition(
         key="instance.app_public_base_url",
         section_id="instance",
         label="App public base URL",
@@ -833,12 +1014,14 @@ def read_settings_readiness(
         _dispatch_mode_readiness(effective),
         _tool_summary_readiness(tools),
         _wireless_readiness(tools),
+        _enterprise_identity_readiness(session, tenant_key=tenant_key, settings=settings, rows=rows),
         _ai_provider_readiness(session, tenant_key=tenant_key, settings=effective),
         _scheduler_readiness(session),
         _threat_intel_readiness(session, tenant_key=tenant_key, settings=effective),
         _integrations_readiness(rows),
         _secret_storage_readiness(effective),
         _artifact_storage_readiness(effective),
+        _deployment_hardening_readiness(effective),
         _host_health_readiness(effective),
     ]
     overall_status = _worst_status([capability.status for capability in capabilities] + [tool.status for tool in tools])
@@ -901,6 +1084,142 @@ def _capability(
         operator_next_step=operator_next_step,
         affected_assessment_families=affected_assessment_families or [],
         metadata=metadata or {},
+    )
+
+
+def enterprise_identity_snapshot(
+    session: Session,
+    *,
+    tenant_id: str | None,
+    settings: Settings,
+) -> dict[str, Any]:
+    tenant_key = tenant_scope_key(tenant_id)
+    rows = _load_rows(session, tenant_key)
+    return _enterprise_identity_snapshot_from_rows(tenant_key=tenant_key, settings=settings, rows=rows)
+
+
+def _setting_value(rows: dict[str, InstanceSetting], key: str, default: Any = "") -> Any:
+    row = rows.get(key)
+    if row is None or not isinstance(row.value_json, dict):
+        return default
+    return row.value_json.get("value", default)
+
+
+def _sensitive_setting_configured(rows: dict[str, InstanceSetting], key: str) -> bool:
+    row = rows.get(key)
+    return bool(row and row.sensitive and row.encrypted_value)
+
+
+def _enterprise_identity_snapshot_from_rows(
+    *,
+    tenant_key: str,
+    settings: Settings,
+    rows: dict[str, InstanceSetting],
+) -> dict[str, Any]:
+    provider = str(_setting_value(rows, "identity.enterprise_sso_provider", "disabled") or "disabled").strip().lower()
+    session_timeout = int(_setting_value(rows, "identity.session_timeout_minutes", 480) or 480)
+    logout_redirect_url = str(_setting_value(rows, "identity.logout_redirect_url", "") or "").strip()
+    missing: list[str] = []
+    configured_secrets: list[str] = []
+
+    if provider == "oidc":
+        for key, label in (
+            ("identity.oidc_issuer_url", "OIDC issuer URL"),
+            ("identity.oidc_client_id", "OIDC client ID"),
+        ):
+            if not str(_setting_value(rows, key, "") or "").strip():
+                missing.append(label)
+        if _sensitive_setting_configured(rows, "identity.oidc_client_secret"):
+            configured_secrets.append("OIDC client secret")
+    elif provider == "saml":
+        for key, label in (
+            ("identity.saml_entity_id", "SAML entity ID"),
+            ("identity.saml_sso_url", "SAML SSO URL"),
+        ):
+            if not str(_setting_value(rows, key, "") or "").strip():
+                missing.append(label)
+        if _sensitive_setting_configured(rows, "identity.saml_certificate"):
+            configured_secrets.append("SAML signing certificate")
+
+    if provider == "disabled":
+        status = "disabled"
+        configured = False
+        summary = "Enterprise SSO is disabled; local development fallback and API keys remain active."
+        next_step = "Configure OIDC or SAML when this host needs enterprise sign-in controls."
+    elif provider not in {"oidc", "saml"}:
+        status = "error"
+        configured = False
+        summary = f"Enterprise SSO provider {provider!r} is not recognized."
+        next_step = "Select Disabled, OIDC, or SAML in Settings."
+    elif missing:
+        status = "error"
+        configured = False
+        summary = f"{provider.upper()} is selected but required configuration is incomplete."
+        next_step = "Fill the missing identity fields before treating enterprise sign-in as configured."
+    else:
+        status = "configured"
+        configured = True
+        summary = f"{provider.upper()} configuration is recorded and secrets remain masked."
+        next_step = (
+            "Use this as the governed configuration baseline; a later task must enable the actual "
+            "browser SSO callback before hosted enterprise auth can be claimed."
+        )
+
+    return {
+        "tenant_id": tenant_key,
+        "provider": provider,
+        "status": status,
+        "configured": configured,
+        "missing_fields": missing,
+        "configured_secret_labels": configured_secrets,
+        "summary": summary,
+        "operator_next_step": next_step,
+        "session_policy": {
+            "timeout_minutes": session_timeout,
+            "logout_redirect_url": logout_redirect_url or None,
+            "server_session_enforced": False,
+            "local_fallback_has_server_session": False,
+        },
+        "local_auth": {
+            "x_actor_fallback_enabled": True,
+            "api_keys_enabled": True,
+            "enterprise_auth_enforced": False,
+            "warning": "Local X-Actor fallback is for supervised local/dev use and is not enterprise authentication.",
+        },
+        "metadata": {
+            "public_base_url": settings.app_public_base_url,
+            "secrets_plaintext_exposed": False,
+            "full_sso_login_enabled": False,
+        },
+    }
+
+
+def _enterprise_identity_readiness(
+    session: Session,
+    *,
+    tenant_key: str,
+    settings: Settings,
+    rows: dict[str, InstanceSetting],
+) -> ReadinessCapabilityRead:
+    snapshot = _enterprise_identity_snapshot_from_rows(tenant_key=tenant_key, settings=settings, rows=rows)
+    if snapshot["status"] == "configured":
+        status = "ready"
+    elif snapshot["status"] == "error":
+        status = "blocked"
+    else:
+        status = "degraded"
+    return _capability(
+        capability_id="enterprise_identity",
+        title="Enterprise identity and sessions",
+        status=status,
+        summary=str(snapshot["summary"]),
+        details=[
+            f"Provider state: {snapshot['status']}.",
+            f"Session timeout: {snapshot['session_policy']['timeout_minutes']} minutes.",
+            "Local X-Actor fallback and API keys remain available; they are labeled separately from enterprise auth.",
+        ],
+        operator_next_step=str(snapshot["operator_next_step"]),
+        metadata=snapshot,
     )
 
 
@@ -1195,6 +1514,150 @@ def _artifact_storage_readiness(settings: Settings) -> ReadinessCapabilityRead:
     )
 
 
+def _is_production_like(settings: Settings) -> bool:
+    env = str(settings.app_env or "development").strip().lower()
+    return env not in {"", "dev", "development", "local", "test", "testing"}
+
+
+def _public_base_url_is_https(settings: Settings) -> bool:
+    return str(settings.app_public_base_url or "").strip().lower().startswith("https://")
+
+
+def _database_encryption_state(settings: Settings, *, production_like: bool) -> tuple[str, str]:
+    url = str(settings.database_url or "")
+    scheme = url.split(":", 1)[0].lower()
+    if scheme.startswith("sqlite"):
+        if settings.aegispt_db_key:
+            return "ready", "SQLite database encryption key is configured."
+        if production_like:
+            return "blocked", "SQLite database is not encrypted; set AEGISPT_DB_KEY or use a managed encrypted database."
+        return "degraded", "Development SQLite database encryption key is not configured."
+    if settings.deployment_database_encryption_confirmed:
+        return "ready", "External database encryption at rest is confirmed by deployment configuration."
+    if production_like:
+        return "degraded", "External database encryption is deployment-managed but not confirmed in AegisPT configuration."
+    return "degraded", "External database encryption confirmation is not set."
+
+
+def _artifact_encryption_state(settings: Settings, *, production_like: bool) -> tuple[str, str]:
+    mode = str(settings.artifacts_storage_mode or "inline").strip().lower() or "inline"
+    if mode == "s3":
+        if settings.artifacts_s3_enforce_sse or settings.deployment_artifact_storage_encryption_confirmed:
+            return "ready", "Object storage encryption is enforced or confirmed."
+        if production_like:
+            return "blocked", "Production S3/MinIO artifact storage does not enforce or confirm encryption."
+        return "degraded", "S3/MinIO artifact storage encryption is not enforced."
+    if mode == "inline":
+        if settings.deployment_artifact_storage_encryption_confirmed:
+            return "ready", "Inline artifact volume encryption is confirmed by deployment configuration."
+        if production_like:
+            return "degraded", "Inline artifact storage needs host/disk encryption confirmation for production."
+        return "degraded", "Inline artifact storage relies on local filesystem controls in development."
+    return "blocked", f"Artifact storage mode {mode!r} is not recognized."
+
+
+def _redacted_proxy_status(settings: Settings) -> str:
+    if not settings.deployment_outbound_proxy_url:
+        return "not configured"
+    return "configured"
+
+
+def _deployment_hardening_readiness(settings: Settings) -> ReadinessCapabilityRead:
+    production_like = _is_production_like(settings)
+    https_public_url = _public_base_url_is_https(settings)
+    tls_ok = https_public_url and bool(settings.deployment_tls_terminated_by_proxy)
+    secure_cookie_ok = bool(settings.deployment_secure_cookies)
+    no_internet = bool(settings.deployment_no_internet_mode)
+    offline_feed_path = bool(str(settings.deployment_offline_update_path or "").strip())
+    offline_tool_path = bool(str(settings.deployment_manual_tool_update_path or "").strip())
+    db_status, db_detail = _database_encryption_state(settings, production_like=production_like)
+    artifact_status, artifact_detail = _artifact_encryption_state(settings, production_like=production_like)
+
+    details: list[str] = [
+        f"Environment: {settings.app_env}.",
+        f"Public base URL uses HTTPS: {'yes' if https_public_url else 'no'}.",
+        f"TLS reverse proxy declared: {'yes' if settings.deployment_tls_terminated_by_proxy else 'no'}.",
+        f"Secure browser cookies declared: {'yes' if secure_cookie_ok else 'no'}.",
+        db_detail,
+        artifact_detail,
+    ]
+    if no_internet:
+        details.append(
+            "No-internet mode is enabled; offline feed/template and tool update paths are required for maintenance."
+        )
+    elif settings.deployment_outbound_proxy_url:
+        details.append("Outbound proxy is configured; proxy credentials are not exposed.")
+    else:
+        details.append("No outbound proxy or no-internet mode is configured; egress is treated as direct/local.")
+
+    blocker_reasons: list[str] = []
+    warning_reasons: list[str] = []
+    if production_like and not tls_ok:
+        blocker_reasons.append("production public access must use HTTPS behind a declared trusted reverse proxy")
+    elif not tls_ok:
+        warning_reasons.append("TLS/reverse-proxy hardening is not configured for production use")
+    if production_like and not secure_cookie_ok:
+        blocker_reasons.append("secure browser cookie/session posture is not declared")
+    elif not secure_cookie_ok:
+        warning_reasons.append("secure cookie/session posture is development-grade")
+    if db_status == "blocked":
+        blocker_reasons.append(db_detail)
+    elif db_status == "degraded":
+        warning_reasons.append(db_detail)
+    if artifact_status == "blocked":
+        blocker_reasons.append(artifact_detail)
+    elif artifact_status == "degraded":
+        warning_reasons.append(artifact_detail)
+    if no_internet and not (offline_feed_path and offline_tool_path):
+        blocker_reasons.append("air-gapped mode needs both offline feed/template and manual tool update paths")
+    if production_like and not settings.deployment_trusted_certificate_bundle:
+        warning_reasons.append("trusted enterprise CA bundle path is not declared")
+
+    if blocker_reasons:
+        status = "blocked"
+        summary = f"Production deployment hardening has {len(blocker_reasons)} blocking gap(s)."
+        next_step = "Resolve blocking deployment gaps before treating this host as enterprise-production ready."
+    elif production_like and warning_reasons:
+        status = "degraded"
+        summary = f"Production deployment hardening has {len(warning_reasons)} warning gap(s)."
+        next_step = "Confirm encryption, certificate, proxy/offline, and secure-cookie settings in deployment configuration."
+    elif production_like:
+        status = "ready"
+        summary = "Production deployment hardening assumptions are declared."
+        next_step = "Keep TLS certificates, offline bundles, feed updates, and storage encryption under change control."
+    else:
+        status = "degraded"
+        summary = "Development deployment is allowed, but production hardening is not fully declared."
+        next_step = "Before enterprise rollout, switch APP_ENV to production and configure TLS, secure cookies, encryption, proxy/offline, and update paths."
+
+    return _capability(
+        capability_id="deployment_hardening",
+        title="Production deployment hardening",
+        status=status,
+        summary=summary,
+        details=details[:8],
+        operator_next_step=next_step,
+        affected_assessment_families=["Enterprise deployment", "Support diagnostics", "Offline update operations"],
+        metadata={
+            "production_like": production_like,
+            "app_env": settings.app_env,
+            "https_public_base_url": https_public_url,
+            "tls_terminated_by_proxy": bool(settings.deployment_tls_terminated_by_proxy),
+            "secure_cookies": secure_cookie_ok,
+            "database_encryption_status": db_status,
+            "artifact_encryption_status": artifact_status,
+            "outbound_proxy": _redacted_proxy_status(settings),
+            "no_internet_mode": no_internet,
+            "offline_update_path_configured": offline_feed_path,
+            "manual_tool_update_path_configured": offline_tool_path,
+            "trusted_certificate_bundle_configured": bool(settings.deployment_trusted_certificate_bundle),
+            "blocking_gap_count": len(blocker_reasons),
+            "warning_gap_count": len(warning_reasons),
+            "secrets_plaintext_exposed": False,
+        },
+    )
+
+
 def _host_health_readiness(settings: Settings) -> ReadinessCapabilityRead:
     return _capability(
         capability_id="host_health",
@@ -1236,6 +1699,7 @@ def update_instance_settings(
 ) -> SettingsRead:
     tenant_key = tenant_scope_key(tenant_id)
     rows = _load_rows(session, tenant_key)
+    identity_keys_changed: list[str] = []
     for key, raw_value in patch.items():
         definition = SETTING_BY_KEY.get(key)
         if definition is None:
@@ -1267,7 +1731,22 @@ def update_instance_settings(
             rows.pop(key, None)
         else:
             rows[key] = row
+        if definition.section_id == "enterprise_identity":
+            identity_keys_changed.append(key)
 
+    if identity_keys_changed:
+        write_audit_event(
+            session,
+            actor=actor,
+            action="settings.enterprise_identity.updated",
+            object_type="enterprise_identity_settings",
+            object_id=tenant_key,
+            metadata={
+                "tenant_id": tenant_key,
+                "setting_keys": sorted(identity_keys_changed),
+                "sensitive_plaintext_exposed": False,
+            },
+        )
     session.flush()
     return read_instance_settings(session, tenant_id=tenant_key, settings=settings)
 
@@ -1448,6 +1927,12 @@ def _normalize_plain_value(definition: SettingDefinition, raw_value: Any) -> Any
             )
         if definition.step == 1:
             return int(value)
+        return value
+    if definition.input_type == "select":
+        value = str(raw_value or "").strip()
+        allowed = {option[0] for option in definition.options}
+        if allowed and value not in allowed:
+            raise HTTPException(status_code=400, detail=f"setting {definition.key} must be one of: {', '.join(sorted(allowed))}")
         return value
     if raw_value is None:
         return None

@@ -126,7 +126,8 @@ $SUDO apt update
 $SUDO apt install -y \
   curl unzip tar ca-certificates pipx git python3-venv python3-aioquic \
   openjdk-17-jre-headless \
-  nmap ffuf testssl.sh hashcat ssh-audit ldap-utils
+  nmap ffuf testssl.sh hashcat ssh-audit ldap-utils \
+  snmp iw aircrack-ng wireless-tools
 
 install_apt_if_available "impacket-scripts"
 install_apt_if_available "netexec"
@@ -190,6 +191,16 @@ link_owner_bin "wmiexec.py"
 link_owner_bin "secretsdump.py"
 link_owner_bin "GetUserSPNs.py"
 link_owner_bin "GetNPUsers.py"
+
+if command -v secretsdump.py >/dev/null 2>&1 && ! command -v impacket-secretsdump >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v secretsdump.py)" /usr/local/bin/impacket-secretsdump
+fi
+if command -v psexec.py >/dev/null 2>&1 && ! command -v impacket-psexec >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v psexec.py)" /usr/local/bin/impacket-psexec
+fi
+if command -v wmiexec.py >/dev/null 2>&1 && ! command -v impacket-wmiexec >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v wmiexec.py)" /usr/local/bin/impacket-wmiexec
+fi
 
 if ! command -v nxc >/dev/null 2>&1 && [[ ! -x "${OWNER_HOME}/.local/bin/nxc" ]]; then
   run_as_owner "TMPDIR=/tmp env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy python3 -m pipx install git+https://github.com/Pennyw0rth/NetExec.git"
