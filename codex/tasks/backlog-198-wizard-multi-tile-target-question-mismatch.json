@@ -1,0 +1,66 @@
+{
+  "id": "backlog-198-wizard-multi-tile-target-question-mismatch",
+  "task_file": "codex/tasks/backlog-198-wizard-multi-tile-target-question-mismatch.json",
+  "task_type": "corrective_product_slice",
+  "title": "Wizard multi-tile target question mismatch: mixed LAN+Web asks 'What is the target network?' but URL input gives wrong interpretation",
+  "goal": "When a user selects Internal LAN + External Web (multi-tile), the step 2 target question asks 'What is the target network?' — this is LAN-biased language. If the operator then types a URL (e.g. https://testphp.vulnweb.com), the interpretation shows 'CIDR range target for Internal LAN + External Web' even though a URL is not a CIDR. Fix: (1) For single-tile selections, keep the current tile-specific question ('What is the target website or app?' for web, 'What is the target network?' for LAN). (2) For multi-tile selections, use a generic question: 'What are the targets?' with a generic placeholder: 'e.g. https://app.example.com or 192.168.1.0/24'. (3) The interpretation logic must also handle the case where a URL is entered for a LAN+Web combination — show 'URL target added for External Web component' instead of incorrectly calling it a CIDR. (4) The quick-fill chips should also adapt: for multi-tile, show both URL and CIDR examples.",
+  "scope": "Visual audit 2026-05-03: screenshot 03-wizard-s2-scope-filled-depth.png shows 'What is the target network?' for Internal LAN + External Web selection, and 'Predicted interpretation: CIDR range target for Internal LAN + External Web.' when a URL was entered. URL is not a CIDR — the interpretation is factually wrong.",
+  "status": "queued",
+  "generated_by": "visual-audit-2026-05-03",
+  "generation_reason": "Visual audit 2026-05-03: Multi-tile wizard target question and interpretation are wrong — URL input labelled as CIDR, LAN-language question shown for mixed Web+LAN selection.",
+  "source_context": {
+    "queue_index": 198,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_target_question_accuracy",
+    "source_documents": ["ui/assets/modules/wizard.js"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only fix the question label, interpretation text, and quick-fill chips for multi-tile context. Do not change single-tile target questions.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Multi-tile (LAN+Web) shows 'What are the targets?' not a tile-specific question.",
+    "URL input for multi-tile shows correct interpretation (e.g. 'URL target for web component').",
+    "Quick-fill chips for multi-tile show both URL and CIDR examples.",
+    "Single-tile target questions unchanged.",
+    "No regression in wizard E2E tests."
+  ],
+  "likely_touched_files": ["ui/assets/modules/wizard.js", "CURRENT_STATE.md", "DONE_LOG.md"],
+  "must_not_touch": [
+    "Single-tile target question rendering",
+    "Backend run profile logic",
+    "Target interpretation for single-tile"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Multi-tile wizard step 2 shows generic 'What are the targets?' question.",
+      "URL input gives URL-appropriate interpretation for mixed tile.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Target validation logic", "Backend scope processing", "New target types"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

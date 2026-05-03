@@ -1,0 +1,90 @@
+{
+  "id": "backlog-225-client-state-manipulation-server-auth-bypass",
+  "task_file": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json",
+  "task_type": "product_slice",
+  "title": "Client-state manipulation and server-side authorization bypass: detect privilege escalation via parameter/cookie tampering",
+  "goal": "Gruyere's client-state manipulation is a real-world scenario where: the UI restricts admin actions via templates, but the server performs NO authorization check. Attackers manipulate request parameters to gain admin access. This is distinct from IDOR (backlog-223) — it's about parameter/cookie-based privilege escalation. Implement a client-state runner: (1) Hidden field manipulation: identify forms with hidden fields containing role/privilege/user_id values. Modify them and resubmit. If the server accepts the tampered value → finding. (2) Cookie value manipulation: identify cookies containing privilege indicators (role=user, isAdmin=0, access_level=1). Modify values and replay. If accepted → finding 'Cookie-Based Privilege Escalation'. (3) Request parameter privilege manipulation: look for POST/PUT body parameters like role, userType, accountType, isAdmin. Change values and check response. (4) Price/amount manipulation: for any order/payment flows, modify price/quantity values in requests. If server accepts → 'Business Logic: Price Manipulation'. (5) Step-skipping: in multi-step workflows (checkout, admin approval), skip steps by directly requesting step 3 URL without completing steps 1-2. (6) Gruyere-specific: the /newsnippet admin endpoint accessible when admin=True cookie set. Test for similar patterns. Active tier with configured credentials.",
+  "scope": "Gruyere client-state manipulation (confirmed gap ❌) + WebGoat bypassrestrictions and htmltampering modules. This is one of the most common real-world findings — developers forget server-side validation.",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "Gruyere's client-state manipulation and WebGoat's bypassrestrictions/htmltampering modules show a gap in server-side authorization testing — parameter/cookie privilege escalation not detected.",
+  "source_context": {
+    "queue_index": 225,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-223-idor-broken-access-control-runner.json",
+      "codex/tasks/backlog-65-business-logic-testing-runner.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "server_auth_bypass_testing",
+    "source_documents": [
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Test parameter/cookie manipulation only. Do not chain into post-exploitation. Use only in-scope credentials.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Hidden field privilege manipulation detected on vulnerable target.",
+    "Cookie-based role manipulation produces finding.",
+    "Price manipulation in order flows produces Business Logic finding.",
+    "Detects Gruyere-style client-state manipulation.",
+    "Active tier requiring approval.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing biz-logic-probe",
+    "Approval gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "client-state runner in supported tools.",
+      "Detects on Gruyere.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Mass account takeover",
+    "Post-exploitation after privilege gain"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,91 @@
+{
+  "id": "backlog-226-http-security-headers-cors-csp-clickjacking",
+  "task_file": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json",
+  "task_type": "product_slice",
+  "title": "HTTP security headers comprehensive check: CORS misconfiguration, CSP bypass, Clickjacking, HSTS, and information disclosure headers",
+  "goal": "ZAP passive scan checks some headers but many CORS and CSP issues require active probing. Implement a headers-security runner: (1) CORS misconfiguration (HIGH): send requests with Origin: https://evil.example.com. If Access-Control-Allow-Origin mirrors the attacker origin AND Access-Control-Allow-Credentials: true → critical CORS misconfiguration enabling credential theft. Also check: null origin accepted, wildcard + credentials, regex bypass (example.com.evil.com). (2) CSP analysis: parse Content-Security-Policy header and detect: unsafe-inline, unsafe-eval, wildcard (*) in script-src, missing default-src, data: URI in script-src, JSONP endpoint whitelisted. (3) Clickjacking: check for X-Frame-Options: DENY/SAMEORIGIN or frame-ancestors in CSP. If absent AND login/sensitive forms exist → Clickjacking vulnerability. (4) HSTS: check for Strict-Transport-Security header with min-age >= 31536000, includeSubDomains. Absent on HTTPS site → HSTS missing. (5) Information disclosure headers: check for Server version strings (Server: Apache/2.4.49), X-Powered-By (X-Powered-By: PHP/7.2.0), X-AspNet-Version. (6) Open redirect via CORS: check if redirects preserve CORS headers. Passive tier (header analysis) — no approval needed. Active tier for CORS origin reflection test.",
+  "scope": "WebGoat securitymisconfiguration module + real-world common findings. ZAP checks many of these passively but misses CORS credential reflection (active probe required) and detailed CSP bypass analysis.",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "CORS misconfiguration with credentials, CSP bypass patterns, and Clickjacking are partially covered by ZAP but miss credential-theft CORS variants — need active probing.",
+  "source_context": {
+    "queue_index": 226,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "http_security_headers_completeness",
+    "source_documents": [
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Header analysis and origin reflection test only. Do not exploit CORS to extract actual data.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "CORS credential reflection detected (Origin mirror + credentials).",
+    "CSP unsafe-inline/eval findings produced.",
+    "Clickjacking finding produced for missing frame protection.",
+    "HSTS missing finding produced.",
+    "Information disclosure header findings produced.",
+    "Passive tier for headers, active tier for CORS reflection.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing ZAP passive scanner",
+    "SSL/TLS runner"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "headers-security in supported tools.",
+      "CORS reflection detected correctly.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Actual CORS data extraction",
+    "CSP nonce bypass",
+    "Full clickjacking PoC creation"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

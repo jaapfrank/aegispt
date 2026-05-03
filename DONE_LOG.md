@@ -1,5 +1,440 @@
 # Done Log
 
+- 2026-05-03: completed backlog-195 `Governed stale run recovery for cancelling/running tasks`:
+  - rationale:
+    - Mission Control was flickering because stale `cancelling` runs still had `running` task rows, causing background refresh and stdout polling to rebuild the screen while the operator tried to select/copy text
+    - the product had no governed way to close old evidence-less runner rows after the local executor disappeared or a prerequisite daemon was unavailable
+    - direct database mutation remained unsafe and unaudited
+  - implementation:
+    - added backend stale recovery state to run/task API payloads
+    - added `POST /api/v1/runs/{run_id}/stale-recovery` for operator/admin governed recovery
+    - restricted recovery to `running`/`cancelling` runs with old `running` tasks, no execution evidence, no queued tasks, and a 10-minute stale threshold
+    - recorded `run.stale_recovered` audit events and task-level `params_json.runtime_recovery` provenance
+    - updated Mission Control copy/actions for normal running, stale eligible, and recovered task states
+    - guarded Mission Control background renders so operator text selection and focused fields are not destroyed by polling
+    - reduced unnecessary stdout polling renders when selected task/stdout state is unchanged
+    - recovered the three local stale runs through the new governed API after they met criteria
+  - files:
+    - `api/app/services/runs.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/tests/test_runs.py`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-195-governed-stale-run-recovery-20260503.md`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py::test_stale_run_recovery_marks_old_running_task_cancelled_with_audit api/tests/test_runs.py::test_stale_run_recovery_rejects_recent_running_task -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_background_update_preserves_operator_text_selection -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed
+    - live host restart passed via `bash scripts/restart_local_inline_host.sh`
+    - live browser acceptance confirmed text selection survives Mission Control background refresh, no console/request failures, zero running task rows after recovery, and visible `Stale recovery recorded` copy
+  - evidence:
+    - `codex/results/backlog-195-governed-stale-run-recovery-20260503.md`
+  - remaining risks:
+    - this is a governed stale-row closeout path, not a distributed worker heartbeat system
+    - no OS processes are terminated by recovery
+    - this does not prove a new successful scan result; it removes stale state that made the product look stuck
+
+- 2026-05-03: live-hotfixed empty New Mission screen caused by exposure-score API 500:
+  - rationale:
+    - the user saw only the New Mission heading plus action buttons at `localhost:8000/app/`
+    - browser acceptance reproduced the empty wizard and found a `500` on `/api/v1/engagements/{id}/exposure-score`
+    - backend logs showed `sqlite3.IntegrityError: NOT NULL constraint failed: exposure_scores.created_at`
+  - implementation:
+    - updated `record_exposure_score()` to explicitly set `computed_at`, `created_at`, and `updated_at` when creating an `ExposureScore`
+    - restarted the local inline host through the existing restart script
+  - files:
+    - `api/app/services/exposure_score.py`
+    - `codex/results/live-hotfix-exposure-score-created-at-20260503.md`
+    - `CURRENT_STATE.md`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest api/tests/test_exposure_score.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed
+    - direct exposure-score API returned `200`
+    - browser acceptance confirmed `+ New Mission` renders assessment tiles, including External Web, with no console/network errors
+  - remaining risks:
+    - stale cancelling/running rows remain from the earlier ZAP startup issue; backlog-195 remains active for the governed recovery path
+
+- 2026-05-03: completed backlog-194 `Local ZAP start and run start truth` and promoted backlog-195:
+  - rationale:
+    - the user reported that after creating a mission, approving it, and pressing Start, nothing visibly happened
+    - live diagnosis showed inline dispatch was enabled, but ZAP was not reachable on `127.0.0.1:8080`, no ZAP/java process was initially running, two ZAP tasks were stuck as `running` with no `tool_executions`, and `scripts/ensure_local_zap_daemon.sh` could hang on its first unbounded curl before starting ZAP
+    - the safest immediate product fix was bounded local ZAP readiness plus truthful `started_at` recording when an existing runner starts, without directly rewriting stale run/task rows
+  - implementation:
+    - added bounded curl checks to `scripts/ensure_local_zap_daemon.sh` with `AEGISPT_LOCAL_ZAP_CONNECT_TIMEOUT_SECONDS` and `AEGISPT_LOCAL_ZAP_CURL_TIMEOUT_SECONDS` defaults
+    - set `run.started_at` when `process_task_by_id` transitions the attached run to `running`
+    - added a dispatch-test assertion that inline ZAP runs expose `started_at`
+    - started local ZAP operationally and restarted the local inline host through the existing restart script
+    - added/promoted backlog-195 for the remaining governed stale-run recovery gap
+  - files:
+    - `scripts/ensure_local_zap_daemon.sh`
+    - `workers/orchestration/tasks.py`
+    - `api/tests/test_zap_dispatch.py`
+    - `codex/tasks/backlog-194-local-zap-start-and-run-start-truth.json`
+    - `codex/tasks/backlog-195-governed-stale-run-recovery.json`
+    - `codex/results/backlog-194-local-zap-start-and-run-start-truth-20260503.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+    - `CURRENT_STATE.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed after backlog-194 promotion
+    - `bash -n scripts/ensure_local_zap_daemon.sh` passed
+    - `ZAP_BASE_URL=http://127.0.0.1:65534 timeout 6 bash scripts/ensure_local_zap_daemon.sh` failed quickly with a clear unsupported auto-start message instead of hanging
+    - `source .venv/bin/activate && python -m pytest api/tests/test_zap_dispatch.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl --connect-timeout 1 --max-time 2 -fsS 'http://127.0.0.1:8080/JSON/core/view/version/?apikey=change-me-zap-key'` returned `{"version":"2.17.0"}`
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned `status=ok` and `runtime_state=healthy`
+    - `git diff --check` passed before task-close administration
+  - evidence:
+    - `codex/results/backlog-194-local-zap-start-and-run-start-truth-20260503.md`
+  - remaining risks:
+    - two pre-existing stale runs remain `cancelling` with `running` task rows; direct database reset was intentionally not used because the repo lacks a governed stale-run recovery action
+    - backlog-195 is now active to implement that audited recovery path next
+
+- 2026-05-03: implemented and validated backlog-193 `Wizard contextual quick-fill chips`; promotion was later unblocked by backlog-194/backlog-195 queue replenishment:
+  - rationale:
+    - the wizard target step always showed static example chips, which is noisy for repeat assessments against known customer targets
+    - the safest slice was to source compatible chips from the existing recent-mission scope cache and keep the existing examples as fallback, without adding backend calls or changing target input behavior
+  - implementation:
+    - added tile-context target extraction from cached recent engagement scope
+    - deduplicated the first 2-3 recent targets for the selected assessment tile
+    - preserved existing example chips when no usable recent cached scope exists
+    - kept the existing add-target chip, including `+ Add URL`, in place
+    - added focused Playwright coverage for fallback examples, contextual recent target chips, and the add-target chip
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `codex/results/backlog-193-add-url-quick-fill-chips-scope-20260503.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_wizard_target_quick_fill_chips_use_recent_scope_with_example_fallback -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` passed read-only with `status=ok` and `runtime_state=healthy`
+    - `git diff --check` passed before task-close administration
+    - post-administration `python3 scripts/validate_backlog_tasks.py` passed with backlog-193 still recorded as the single active task
+    - post-administration `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-193-add-url-quick-fill-chips-scope-20260503.md`
+  - promotion note:
+    - at initial closure `TASK_QUEUE.md` ended at backlog-193, so there was no next approved queue item to promote into `NEXT_TASK.md`
+    - the queue was later replenished with backlog-194 and backlog-195 after live runtime diagnosis
+  - remaining risks:
+    - this uses the existing recent-scope cache only; chips fall back to examples until that cache has loaded
+    - no backend API, run profile, approval, deployment, runtime binding, scope enforcement, credential gate, kill-switch, or live target behavior changed
+
+- 2026-05-03: completed backlog-192 `Active Scan depth description context`:
+  - rationale:
+    - External Web step 2 described Active Scan as `Vulnerability detection + AD mapping`, which is misleading because AD mapping is a LAN/identity concept and does not run for web/API scans
+    - the safest slice was to make only the Active Scan depth-card description contextual while preserving depth values, wizard behavior, backend profiles, phase definitions, approval gates, and runtime behavior
+  - implementation:
+    - added a wizard helper that classifies the selected assessment context for Active Scan copy
+    - External Web and non-LAN contexts now show `Vulnerability detection + web application analysis`
+    - Internal LAN / Active Directory style contexts still show `Vulnerability detection + AD mapping`
+    - wired the helper into both depth-card render paths
+    - added focused Playwright coverage for External Web and Internal LAN step 2 depth copy
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `codex/results/backlog-192-depth-description-ad-mapping-web-scan-20260503.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_active_scan_depth_description_matches_assessment_context -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` passed read-only with `status=ok` and `runtime_state=healthy`
+    - `git diff --check` passed before task-close administration
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with backlog-193 as the single active task
+    - post-promotion `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-192-depth-description-ad-mapping-web-scan-20260503.md`
+  - remaining risks:
+    - this is copy-only UI accuracy work; it does not prove a real web, API, LAN, or AD assessment run
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-193 `Wizard contextual quick-fill chips`
+
+- 2026-05-03: completed backlog-191 `Wizard preview copy defects`:
+  - rationale:
+    - the wizard had three operator-facing copy defects that made the preview and Advanced Configuration feel less trustworthy than the deterministic run configuration behind it
+    - the safest slice was copy-only: repair the target interpretation label, preview target note, and Access-tab typo without changing wizard flow, backend APIs, profiles, runners, approval gates, or runtime behavior
+  - implementation:
+    - changed target interpretation labels so URL scope renders as `URL target for External Web` instead of `urls target for External Web`
+    - changed the guided preview target note to `Hosts discovered in Phase 1 are automatically included in later phases.`
+    - rewrote the Advanced Configuration Access direct-secret note to `Direct secrets are accepted and converted to protected bindings when the run is created.`
+    - added focused Playwright coverage for the cleaned-up target interpretation and preview target note
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `codex/results/backlog-191-wizard-preview-copy-defects-20260503.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `grep -r 'practicity' ui/assets/ && exit 1 || exit 0` passed with no matches
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_wizard_preview_copy_defects_are_cleaned_up -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` passed read-only with `status=ok` and `runtime_state=healthy`
+    - `git diff --check` passed before task-close administration
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with backlog-192 as the single active task
+    - post-promotion `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-191-wizard-preview-copy-defects-20260503.md`
+  - remaining risks:
+    - this was copy-only cleanup; it does not change wizard flow logic, backend APIs, execution behavior, run profiles, or live target behavior
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-192 `Active Scan depth description context`
+
+- 2026-05-03: completed backlog-190 `SSL/TLS Only and Authenticated App access path`:
+  - rationale:
+    - the tile-based wizard had no discoverable direct path for TLS-only reviews or authenticated application assessments
+    - the safest implementation was to add two dedicated wizard tiles and map them onto existing planning/profile paths, without adding backend profiles, changing runners, or redesigning the tile grid
+    - repo truth has no backend execution profile named `ssl-tls-only`, and the task forbids new backend profiles; the TLS path therefore uses the existing `SSL/TLS Only` test profile with the existing `passive-web-baseline` execution lane
+  - implementation:
+    - added `ssl-tls` and `authenticated-app` entries to the wizard tile model
+    - added target guidance, examples, descriptions, icons, badges, and phase tags for both tiles
+    - mapped SSL/TLS Only previews to TLS-only modules, passive safety, profile `SSL/TLS Only`, and lane `passive-web-baseline`
+    - mapped Authenticated App active/full previews to profile `Authenticated Only` and lane `active-web-safe`
+    - updated wizard prediction matrix coverage and added preview acceptance for both new tiles
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `codex/results/backlog-190-ssl-tls-authenticated-app-access-path-20260503.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_wizard_prediction_matrix_covers_visible_tiles_and_toggle_contract ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_ssl_tls_and_authenticated_app_tiles_reach_specialized_preview -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` passed read-only with `status=ok` and `runtime_state=healthy`
+    - `git diff --check` passed after task-close administration
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with backlog-191 as the single active task
+  - evidence:
+    - `codex/results/backlog-190-ssl-tls-authenticated-app-access-path-20260503.md`
+  - remaining risks:
+    - this slice restores entry-path discoverability and deterministic preview mapping only; it does not add new backend profiles, change runners, prove a real TLS-only lab run, or prove authenticated scanning against a credentialed lab target
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-191 `Wizard preview copy defects`
+
+- 2026-05-03: completed backlog-189 `Access prerequisite checkboxes filter by tile type`:
+  - rationale:
+    - External Web/API-style previews were showing LAN-only prerequisite language, which makes the planned run look broader and noisier than it is
+    - the safest slice was to filter only the visible prerequisite cards by selected tile context, without changing the access model, backend profiles, phase gates, approval gates, or unlocker execution semantics
+  - implementation:
+    - added tile-context metadata to existing access unlocker options
+    - added a visible-options helper that keeps the full prerequisite set for LAN/AD-style contexts and filters LAN-only cards from web/API-style contexts
+    - added contextual unlock text so External Web no longer shows `Unauthenticated LAN lane`
+    - kept `No credentials available`, `Credential refs available`, and exploit confirmation visible where relevant outside LAN
+    - added focused Playwright coverage proving External Web hides LAN-only options while Internal LAN still shows all six prerequisites
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `codex/results/backlog-189-access-prerequisites-filter-by-assessment-type-20260503.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_external_web_preview_filters_lan_only_access_prerequisites ui/tests/test_operator_console_e2e.py::test_wizard_preview_requires_access_prerequisite_declaration -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_wizard_preview_credential_cta_opens_access_configuration -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_wizard_prediction_matrix_covers_visible_tiles_and_toggle_contract -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` passed read-only with `status=ok` and `runtime_state=healthy`
+    - `git diff --check` passed before task-close administration
+  - evidence:
+    - `codex/results/backlog-189-access-prerequisites-filter-by-assessment-type-20260503.md`
+  - remaining risks:
+    - this slice only filters visible prerequisite choices; it does not add missing SSL/TLS or Authenticated App entry paths, new prerequisite types, or authenticated lab-run proof
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-190 `SSL/TLS Only and Authenticated App access path`
+
+- 2026-05-03: completed backlog-188 `Credentials entry discoverability`:
+  - rationale:
+    - authenticated scans were possible through Advanced Configuration but the main preview path did not show operators where to enter credentials
+    - the safest slice was a UI-only discoverability fix that opens the existing Access tab instead of adding a new wizard step or changing credential storage
+  - implementation:
+    - added a visible `Add credentials in Advanced Configuration ->` CTA to the preview access/prerequisites section
+    - wired the CTA through the existing advanced-drawer handler so it opens directly on the Access tab
+    - added the Access-tab instruction `Enter credentials for authenticated scanning. Fields left empty are skipped.`
+    - changed the username placeholder to `username or email`
+    - changed the password/secret label to `Password or secret ref`
+    - added focused Playwright coverage for the preview CTA and Access-tab copy/placeholder/label
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `codex/results/backlog-188-credential-entry-discoverability-20260503.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_wizard_preview_credential_cta_opens_access_configuration -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_wizard_preview_requires_access_prerequisite_declaration -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` passed read-only with `status=ok` and `runtime_state=healthy`
+    - `git diff --check` passed before task-close administration
+  - evidence:
+    - `codex/results/backlog-188-credential-entry-discoverability-20260503.md`
+  - remaining risks:
+    - this slice only improves credential-entry discoverability; it does not validate real credential correctness, vault-backed materialization, or authenticated scan success against a lab target
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-189 `Access prerequisite checkboxes filter by tile type`
+
+- 2026-05-03: completed backlog-187 `Enterprise release-readiness gate and support-claim ledger`:
+  - rationale:
+    - enterprise readiness needs one truthful go/no-go surface that aggregates evidence and prevents unsupported marketing claims
+    - the safest slice was a local/CI-safe ledger generator over existing repo artifacts, without live targets, runtime mutation, or changing product claims to pass
+  - implementation:
+    - added `scripts/run_enterprise_release_readiness.py`
+    - added `api/tests/test_release_readiness.py`
+    - documented the gate in `docs/operator_product_operational_assurance.md`
+    - generated `codex/results/enterprise-release-readiness.json`
+    - generated `codex/results/enterprise-release-readiness.md`
+    - added task result evidence in `codex/results/backlog-187-enterprise-release-readiness-gate-20260503.md`
+  - gate result:
+    - status: `blocked`
+    - go/no-go: `no-go`
+    - enterprise-ready claim allowed: `false`
+    - blocking critical claims: `known_vulnerability_detection_accuracy` and `false_positive_false_negative_posture`
+    - reason: `codex/results/validation-matrix-latest.json` is currently `not_run`, so there is no executed expected-vs-actual accuracy verdict and no current false-positive/false-negative verdict
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_release_readiness.py -q` passed
+    - `python3 scripts/run_enterprise_release_readiness.py --output-json codex/results/enterprise-release-readiness.json --output-md codex/results/enterprise-release-readiness.md` passed and wrote a `blocked` / `no-go` ledger
+    - `git diff --check` passed before task-close administration
+  - evidence:
+    - `codex/results/enterprise-release-readiness.json`
+    - `codex/results/enterprise-release-readiness.md`
+    - `codex/results/backlog-187-enterprise-release-readiness-gate-20260503.md`
+  - remaining risks:
+    - this task creates the gate and ledger; it does not execute the known-vulnerability validation matrix, repair product defects, install lab dependencies, or create external certification
+    - AegisPT must not be called enterprise-ready while the gate remains `blocked`
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-188 `Credentials entry discoverability`
+
+- 2026-05-03: completed backlog-186 `Enterprise deployment hardening`:
+  - rationale:
+    - enterprise operators need explicit deployment truth before treating a local/dev host as production-hardened
+    - the safest slice was a read-only readiness/diagnostics surface plus deployment documentation and env templates, without installing infrastructure or changing runtime assessment behavior
+  - implementation:
+    - added read-only Deployment Hardening settings for TLS reverse proxy, secure cookies, trusted certificate bundle, outbound proxy, air-gapped mode, offline feed/template path, manual tool update path, database encryption confirmation, and artifact storage encryption confirmation
+    - added the `deployment_hardening` readiness capability and diagnostics subsystem with production-safe `ready`, `degraded`, and `blocked` states
+    - added URL userinfo/proxy credential redaction so support artifacts do not expose proxy, database, or certificate material
+    - documented enterprise production boundaries and manual offline update expectations in host and implementation runbooks
+    - added the new deployment knobs to env examples, Compose environment mapping, and host-env generation
+    - updated Settings UI summaries and smoke coverage so operators can see development-grade versus production-hardened posture
+  - files:
+    - `.env.example`
+    - `api/app/config.py`
+    - `api/app/services/settings.py`
+    - `api/app/services/diagnostics.py`
+    - `api/tests/test_settings.py`
+    - `api/tests/test_diagnostics.py`
+    - `docker-compose.yml`
+    - `docs/AegisPT-Implementation-Runbook.md`
+    - `docs/host_service_install.md`
+    - `infra/compose/.env.example`
+    - `infra/host/aegispt-host.env.example`
+    - `scripts/generate_host_env.sh`
+    - `ui/assets/modules/settings.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-186-enterprise-deployment-hardening-20260503.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_diagnostics.py -q` passed
+    - `node --input-type=module --check < ui/assets/modules/settings.js` passed
+    - `bash -n scripts/generate_host_env.sh` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - `curl --fail --silent --max-time 5 http://127.0.0.1:8000/health/live` passed read-only with `status=ok` and `runtime_state=healthy`
+    - final backlog validation and diff whitespace checks are recorded in the result file
+  - evidence:
+    - `codex/results/backlog-186-enterprise-deployment-hardening-20260503.md`
+    - API tests cover development, simulated production-ready, unsafe production, and air-gapped gap states
+    - diagnostics tests cover deployment subsystem surfacing and URL/proxy redaction
+    - UI smoke covers Settings readiness and diagnostics visibility for the new hardening state
+  - remaining risks:
+    - this is a readiness and documentation slice, not an automated TLS/proxy/certificate/encryption installer
+    - production TLS keys, CA bundles, database encryption, artifact encryption, and proxy policy still require external operator/platform proof
+    - the already-running `127.0.0.1:8000` host is healthy but stale and was not restarted onto this code, so live readiness does not yet expose `deployment_hardening`
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-187 `Enterprise release-readiness gate and support-claim ledger`
+
+- 2026-05-02: completed backlog-185 `Accessibility and keyboard-only enterprise UX gate`:
+  - rationale:
+    - enterprise operators must be able to run and inspect AegisPT without pointer-only workflows, invisible focus, unlabeled controls, or motion-heavy surfaces
+    - the safest slice was an operator-console accessibility gate plus targeted UI fixes only, leaving backend runtime behavior and security gates unchanged
+  - implementation:
+    - added `ui/tests/test_accessibility_e2e.py` as a dedicated Playwright accessibility acceptance gate
+    - added visible `:focus-visible` styling for links, buttons, summary controls, tab roles, custom tabindex controls, and form controls
+    - added accessible names for the engagement selector and guided wizard target, answer, and authorization controls
+    - added tab semantics to advanced configuration section buttons
+    - added focus trapping, Escape close behavior, and focus return for Cinema Mode
+    - added focus trapping, Escape close behavior, programmatic dialog naming, and focus return for cleanup/delete dialogs
+    - documented the gate and operator standard in `docs/accessibility_acceptance.md`
+  - files:
+    - `ui/index.html`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/cinema.js`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_accessibility_e2e.py`
+    - `docs/accessibility_acceptance.md`
+    - `codex/results/backlog-185-accessibility-keyboard-enterprise-ux-gate-20260502.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - initial required accessibility test command failed because `ui/tests/test_accessibility_e2e.py` did not exist yet; this was the task-owned missing gate and is now implemented
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_accessibility_e2e.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - final backlog validation, live health, and diff whitespace checks are recorded in the result file
+  - evidence:
+    - `codex/results/backlog-185-accessibility-keyboard-enterprise-ux-gate-20260502.md`
+    - DOM/browser evidence verifies keyboard activation, visible focus, accessible names, dialog focus containment/return, Escape behavior, and reduced-motion computed styles
+  - remaining risks:
+    - this is an internal product-quality gate, not an external WCAG certification
+    - future rich widgets, drawers, and feature-specific dialogs should add focused accessibility coverage when introduced
+    - the already-running `127.0.0.1:8000` host was not restarted onto this UI code during the slice; browser acceptance used the isolated pytest/Uvicorn host
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-186 `Enterprise deployment hardening`
+
+- 2026-05-02: completed backlog-182 `Enterprise SSO, session, and identity administration`:
+  - rationale:
+    - enterprise operators need to see identity state, session policy, and local fallback truth before AegisPT can be credible outside a single local operator setup
+    - the safest slice was to add governed identity administration/status/audit surfaces without claiming enforced browser SSO or changing pack/runtime/scope gates
+  - implementation:
+    - added Settings > Enterprise Identity with disabled-by-default OIDC/SAML provider state, session timeout, logout redirect, and encrypted OIDC/SAML secret fields
+    - added enterprise identity readiness/status snapshots with `disabled`, `configured`, and `error` states, missing-field details, masked secret status, and explicit local fallback warnings
+    - added `/api/v1/auth/identity/status`, `/api/v1/auth/session/start`, and `/api/v1/auth/logout`
+    - audited API-key create/revoke, login-event recording, logout, and enterprise identity settings changes
+    - kept local X-Actor fallback and API-key auth working, labeled local fallback as development-only, and avoided any run-state mutation on logout
+    - rendered an Enterprise Identity Settings panel with current actor, visible actors, SSO state, session policy, refresh, and logout recording
+    - documented supported-now versus future browser SSO, SCIM, tenant membership, and hosted RBAC gaps
+  - files:
+    - `api/app/routers/auth.py`
+    - `api/app/services/settings.py`
+    - `api/tests/test_auth.py`
+    - `api/tests/test_settings.py`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/modules/settings.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `docs/host_service_install.md`
+    - `docs/mssp_multitenant_readiness.md`
+    - `codex/results/backlog-182-enterprise-identity-session-admin-20260502.md`
+  - validation:
+    - pre-work `python3 scripts/validate_backlog_tasks.py` passed with `193` queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_auth.py api/tests/test_settings.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - `curl --max-time 5 -fsS http://127.0.0.1:8000/health/live` passed with `runtime_state=healthy`
+    - `curl --max-time 5 -fsS -H 'X-Actor: operator-ui' http://127.0.0.1:8000/api/v1/auth/identity/status` returned HTTP 404 because the already-running local host has not been restarted onto this code; browser acceptance used the isolated pytest/Uvicorn host
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion to backlog-183
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-182-enterprise-identity-session-admin-20260502.md`
+    - UI smoke validated the browser-facing Settings panel and preserved existing Settings focus behavior
+  - remaining risks:
+    - this is a governed configuration/status/audit foundation, not enforced browser SSO
+    - SCIM, tenant membership, IdP metadata validation, hosted enterprise RBAC, and tenant switching remain future work
+    - local X-Actor fallback remains available by design and is explicitly labeled development-only
+    - current-code live validation on `127.0.0.1:8000` still needs a local host restart after confirming no active mission depends on the existing process
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-183 `Backup, restore, and upgrade rollback drill`
+
 - 2026-05-02: completed backlog-181 `Local runtime liveness and audit harness resilience`:
   - rationale:
     - enterprise acceptance validation was being blocked by a stale inline host that could stay in shutdown/drain while still holding port 8000, and by audit scripts that could time out before writing useful evidence
@@ -9251,3 +9686,75 @@
   - remaining risks:
     - this slice does not redesign Pack Forge copy, remove Codex functionality, or change pack validation, approval, deployment, runtime binding, or Codex task generation
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-170 `Replace editable actor text input in topbar with a proper identity display pill`
+
+- 2026-05-02: completed backlog-183 `Backup, restore, and upgrade rollback drill`:
+  - rationale:
+    - enterprise operators need a proven recovery path before upgrades, not only install instructions
+    - the safest slice was a deterministic local fixture drill plus clear host/Compose runbook guidance, without touching active runs or live customer data
+  - implementation:
+    - added `scripts/backup_aegispt.py` to copy a file-backed SQLite database, inline artifact directory, report path, redacted env/config metadata, file hashes, and Alembic current/head state into a backup bundle
+    - added `scripts/restore_aegispt.py` to restore a bundle into a separate directory with a restore manifest and no plaintext secrets in output metadata
+    - added `scripts/verify_restore.py --fixture safe-local`, which runs Alembic to head, seeds a safe engagement/run/finding/evidence/audit/secret fixture, backs it up, restores it, validates DB integrity, validates API read paths, and verifies no fixture plaintext secret leaked into manifests or restore metadata
+    - added `api/tests/test_backup_restore.py` for the restore drill and env redaction behavior
+    - documented direct-host SQLite backup, Compose/PostgreSQL `pg_dump -Fc`, upgrade preflight, rollback, artifact/report backup paths, env/config handling, and secret boundary guidance
+  - files:
+    - `scripts/backup_aegispt.py`
+    - `scripts/restore_aegispt.py`
+    - `scripts/verify_restore.py`
+    - `api/tests/test_backup_restore.py`
+    - `docs/host_service_install.md`
+    - `docs/AegisPT-Implementation-Runbook.md`
+    - `codex/results/backlog-183-backup-restore-upgrade-rollback-drill-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_backup_restore.py -q`
+    - `python3 scripts/verify_restore.py --fixture safe-local`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `git diff --check`
+  - proof:
+    - restore drill verified Alembic `20260429_0032 (head)`
+    - restored 1 engagement, 1 run, 1 task, 1 execution, 1 artifact, 1 finding, 1 audit event, 1 secret ref, and 1 sensitive setting
+    - artifact hash, finding evidence reference, audit event, secret metadata, health API, engagement/run API reads, and artifact download all passed
+    - plaintext fixture secret exposure was false
+  - remaining risks:
+    - automated proof is local SQLite; Compose/PostgreSQL backup is documented with `pg_dump -Fc` but not executed in this safe fixture
+    - real secret recovery still depends on the operator's external vault or encrypted secret backup because manifests intentionally redact secret-looking values
+    - no active mission, customer data, live service database, or intrusive target was restored or mutated
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-184 `Observability and support diagnostics bundle`
+
+- 2026-05-02: completed backlog-184 `Observability and support diagnostics bundle`:
+  - rationale:
+    - enterprise operators need a safe first-stop diagnostics surface before reading raw shell logs or guessing whether app, database, worker, tool, feed, AI, or run state is broken
+    - the safest slice was read-only diagnostics plus a redacted support bundle, without changing dispatch, approvals, pack lifecycle, runtime binding, or live target behavior
+  - implementation:
+    - added `/api/v1/diagnostics` with app health, Alembic migration state, worker/inline dispatch mode, queue depth, active/stuck runs, tool readiness, AI provider readiness, feed-sync state, recent failures, and audit harness artifact summaries
+    - added admin-only `/api/v1/diagnostics/support-bundle` with safe config shape, health snapshots, runtime IDs, recent log excerpts, validation artifact names, and redaction flags
+    - added redaction coverage for passwords, API keys, bearer tokens, secret-looking key/value pairs, long hash-looking identifiers, raw task stdout/stderr, and raw evidence payload fields
+    - added Settings > Support Diagnostics with refresh, subsystem cards, recent failure rows, safe next actions, and redacted support-bundle export
+    - documented the support bundle in the direct-host install runbook
+  - files:
+    - `api/app/main.py`
+    - `api/app/routers/diagnostics.py`
+    - `api/app/schemas/diagnostics.py`
+    - `api/app/services/diagnostics.py`
+    - `api/tests/test_diagnostics.py`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/modules/settings.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `docs/host_service_install.md`
+    - `codex/results/backlog-184-observability-support-diagnostics-bundle-20260502.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_diagnostics.py api/tests/test_settings.py -q`
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q`
+    - `curl --fail --silent --max-time 5 http://127.0.0.1:8000/health/live`
+    - `git diff --check`
+  - proof:
+    - API tests proved diagnostics include actionable subsystem failures and that support bundles redact secrets, hashes, raw evidence payloads, task stdout, and task stderr
+    - UI smoke proved Settings surfaces Support Diagnostics, app/worker/feed subsystem state, recent failure copy, and the export action
+    - live health returned `status=ok` and `runtime_state=healthy`
+  - remaining risks:
+    - the already-running `127.0.0.1:8000` host was not restarted onto this code, so new diagnostics endpoints were validated through the isolated pytest/Uvicorn host rather than the existing live process
+    - this slice does not repair failing subsystems; it makes them visible with safe next actions and redacted support context
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-185 `Accessibility and keyboard-only enterprise UX gate`

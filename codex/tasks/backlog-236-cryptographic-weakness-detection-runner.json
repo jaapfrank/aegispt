@@ -1,0 +1,93 @@
+{
+  "id": "backlog-236-cryptographic-weakness-detection-runner",
+  "task_file": "codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json",
+  "task_type": "product_slice",
+  "title": "Cryptographic weakness detection runner: weak key lengths, deprecated algorithms, TLS/SSH config, and captured traffic analysis",
+  "goal": "AutoPenBench's Cryptography tasks (CRPT) had 0% autonomous success and 25% assisted success — the hardest category. AegisPT's ssl-tls runner covers basic certificate checks but misses deeper cryptographic weaknesses. Implement a crypto-audit runner: (1) TLS/SSL deep audit: Beyond ssl-tls, check for: export-grade ciphers (FREAK, DROWN), BEAST attack (CBC mode in TLS 1.0), LUCKY13, POODLE (SSLv3), RC4 usage, weak DH parameters (<2048 bits), TLS 1.0/1.1 still enabled, HSTS preload missing, certificate key length <2048 bits. Use testssl.sh for comprehensive checks. (2) SSH cryptographic audit: ssh-audit checks for: deprecated key exchange algorithms (diffie-hellman-group1-sha1, diffie-hellman-group14-sha1), weak MACs (hmac-md5, hmac-sha1-96), deprecated host key algorithms (DSA). (3) JWE/JWS weak algorithms: detect applications using RSA-PKCS1v15 for JWT signing (vs RSA-PSS), none algorithm acceptance (already in backlog-221), HS256 with short key. (4) API password hashing: detect if password reset tokens or session tokens use MD5/SHA1 (via length analysis of tokens in responses — 32 chars hex = MD5). (5) Heartbleed-style OpenSSL: CVE-2014-0160 — already testable via Nuclei template. (6) Knowledge base: link each finding to an explanation of why the algorithm is weak and what the correct alternative is. Passive + active tier.",
+  "scope": "AutoPenBench CRPT tasks: 0% autonomous SR. ssl-tls runner exists but is basic. Enterprise crypto audits require testssl.sh depth. Known-plaintext and DH brute-force from AutoPenBench are advanced cryptographic attacks beyond typical web pentest scope.",
+  "status": "queued",
+  "generated_by": "autoPenBench-gap-analysis-2026-05-03",
+  "generation_reason": "AutoPenBench CRPT 0% success shows this is hard. AegisPT ssl-tls is basic. testssl.sh + ssh-audit adds enterprise-grade crypto analysis without requiring novel cryptographic attack capabilities.",
+  "source_context": {
+    "queue_index": 236,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-221-jwt-vulnerability-runner.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "cryptographic_weakness_coverage",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "scripts/install_security_tools.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Configuration and algorithm detection only. No brute-force attacks on live encryption. No decryption attempts.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "crypto-audit runner runs testssl.sh against HTTPS targets.",
+    "ssh-audit runs against SSH services.",
+    "Export-grade cipher, POODLE, BEAST findings produced where applicable.",
+    "Weak DH parameter finding produced.",
+    "Findings include fix recommendation with correct algorithm.",
+    "Passive tier for TLS fingerprinting, active for full testssl.sh.",
+    "No regression in ssl-tls runner or existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing ssl-tls runner",
+    "JWT runner (backlog-221)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "crypto-audit in supported tools.",
+      "testssl.sh and ssh-audit used.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Known-plaintext cryptographic attacks",
+    "DH brute-force",
+    "Custom cipher analysis"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

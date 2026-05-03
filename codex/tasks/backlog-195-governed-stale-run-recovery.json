@@ -1,0 +1,102 @@
+{
+  "id": "backlog-195-governed-stale-run-recovery",
+  "task_file": "codex/tasks/backlog-195-governed-stale-run-recovery.json",
+  "task_type": "corrective_product_slice",
+  "title": "Governed stale run recovery for cancelling/running tasks",
+  "goal": "Add an operator-safe recovery path for runs that are stuck in running or cancelling after the executor disappeared or a prerequisite daemon was unavailable, without silently overwriting active runner output or bypassing approval, scope, kill-switch, or audit controls.",
+  "scope": "Live diagnosis 2026-05-03: two local ZAP runs were started while the ZAP daemon was unavailable. The tasks became running without tool_executions, no executor process remained, cancellation moved the runs to cancelling but left the running task rows in place. The current API has no governed way to mark such stale rows as cancelled/failed with provenance.",
+  "status": "queued",
+  "generated_by": "live-runtime-diagnosis-2026-05-03",
+  "generation_reason": "The immediate ZAP startup bug was fixed in backlog-194, but stale running/cancelling rows still need an audited recovery path instead of direct database mutation.",
+  "source_context": {
+    "queue_index": 195,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/ui_mission_control.md",
+      "docs/acceptance_runbook.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runtime_lifecycle_truth",
+    "source_documents": [
+      "api/app/routers/runs.py",
+      "api/app/services/runs.py",
+      "api/app/services/diagnostics.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only add a governed stale-run recovery path with clear audit/provenance and UI truth. Do not terminate arbitrary OS processes, invent a second dispatch lane, or mutate live target behavior.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Mission Control clearly distinguishes normal cancelling from stale cancelling/running rows.",
+    "A governed recovery action is available only for stale rows that meet explicit safety criteria.",
+    "Recovery writes an audit event and records why the stale task was marked cancelled or failed.",
+    "Existing running-task cancellation behavior for active executors is not weakened."
+  ],
+  "likely_touched_files": [
+    "api/app/routers/runs.py",
+    "api/app/services/runs.py",
+    "api/app/services/diagnostics.py",
+    "ui/assets/modules/mission-control.js",
+    "api/tests/test_runs.py",
+    "ui/tests/test_operator_console_e2e.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 or Prompt 2 foundations",
+    "Pack registry, validation, approval, deployment, or runtime binding gates",
+    "Scope enforcement or kill-switch behavior",
+    "Finding schema fields",
+    "Arbitrary OS process termination"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_runs.py -q",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A simulated stale running task can be recovered through the governed path with audit evidence.",
+      "A non-stale running task cannot be force-recovered accidentally.",
+      "Mission Control copy tells the operator what is blocked and what the safe next action is."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Retrofitting a distributed worker heartbeat system",
+    "Deleting runs or findings",
+    "Running a new external target assessment",
+    "Changing ZAP scan depth or active-web profile approvals"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

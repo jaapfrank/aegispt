@@ -1,0 +1,100 @@
+{
+  "id": "backlog-194-local-zap-start-and-run-start-truth",
+  "task_file": "codex/tasks/backlog-194-local-zap-start-and-run-start-truth.json",
+  "task_type": "corrective_product_slice",
+  "title": "Local ZAP start and run start truth",
+  "goal": "Fix the local active-web startup path where approving and starting a ZAP-backed mission can appear to do nothing because the local ZAP readiness script can hang on an unreachable daemon and started runs do not record a started_at timestamp when the runner actually begins.",
+  "scope": "Live operator report 2026-05-03: after creating a mission, approving it, and pressing Start, the run stayed in running/cancelling with no visible progress. Runtime diagnosis showed TASK_DISPATCH_MODE=inline, ZAP_BASE_URL=http://127.0.0.1:8080, no ZAP daemon initially reachable, no ZAP/java process, two ZAP tasks stuck as running without tool_executions, and scripts/ensure_local_zap_daemon.sh hanging on its initial curl because it had no bounded connect/max timeout.",
+  "status": "queued",
+  "generated_by": "live-runtime-diagnosis-2026-05-03",
+  "generation_reason": "A mission lifecycle defect made Start look inert for local ZAP-backed active web runs; the repo needs a bounded local ZAP readiness check and truthful started_at state when a runner starts.",
+  "source_context": {
+    "queue_index": 194,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "docs/host_service_install.md",
+      "docs/acceptance_runbook.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runtime_lifecycle_truth",
+    "source_documents": [
+      "scripts/ensure_local_zap_daemon.sh",
+      "workers/orchestration/tasks.py",
+      "api/tests/test_zap_dispatch.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only fix bounded local ZAP readiness and truthful run started_at state when existing runners start. Do not redesign dispatch, add new live target actions, change pack registry behavior, or bypass approval/scope gates.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "scripts/ensure_local_zap_daemon.sh does not hang indefinitely when the configured ZAP endpoint is unreachable.",
+    "A run records started_at when process_task_by_id transitions the attached run to running.",
+    "Inline ZAP dispatch tests still complete against the fake ZAP server.",
+    "The fix does not execute live customer or intrusive targets."
+  ],
+  "likely_touched_files": [
+    "scripts/ensure_local_zap_daemon.sh",
+    "workers/orchestration/tasks.py",
+    "api/tests/test_zap_dispatch.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 or Prompt 2 foundations",
+    "Pack registry, validation, approval, deployment, or runtime binding gates",
+    "Scope enforcement or kill-switch behavior",
+    "Finding schema fields",
+    "Live target execution beyond local health/readiness checks"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "bash -n scripts/ensure_local_zap_daemon.sh",
+      "source .venv/bin/activate && python -m pytest api/tests/test_zap_dispatch.py -q",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Bounded unreachable-ZAP readiness check returns quickly instead of hanging.",
+      "Inline ZAP fake-server dispatch records run.started_at and completes.",
+      "Local live ZAP daemon is reachable after operational start."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Force-cancelling already stale running tasks without an existing governed recovery path",
+    "New worker architecture",
+    "New ZAP scan modes",
+    "Changing active-web profile approvals",
+    "Running a new external target assessment"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

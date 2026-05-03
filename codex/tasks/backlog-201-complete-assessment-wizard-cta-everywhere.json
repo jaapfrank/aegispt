@@ -1,0 +1,65 @@
+{
+  "id": "backlog-201-complete-assessment-wizard-cta-everywhere",
+  "task_file": "codex/tasks/backlog-201-complete-assessment-wizard-cta-everywhere.json",
+  "task_type": "corrective_product_slice",
+  "title": "Remove 'Complete Assessment Wizard' CTA from wizard screen itself and from active-run screens",
+  "goal": "Visual audit 2026-05-03 confirms the 'Complete Assessment Wizard' CTA (cyan pill button in topbar) appears on EVERY screen — including the wizard screen itself (where it is self-referential and confusing) and on Mission Control when a run is active (where it implies the operator should leave to do intake). The CTA makes sense only when there is NO active engagement or run. Fix the visibility condition: hide the CTA when (a) the user is already on the wizard screen, (b) a run is queued or running, (c) an engagement exists with at least one run. Show it only when no engagements exist or when the dashboard checklist indicates first-run setup is needed. Implement in app.js renderTopbarCTA() or equivalent function — gate on state.engagements.length === 0 or state.selectedRun === null and no runs exist.",
+  "scope": "Visual audit 2026-05-03: screenshots 01-wizard.png and 04-mission-control.png both show the 'Complete Assessment Wizard' CTA button in the topbar. On the wizard screen it reads 'Complete Assessment Wizard' while the user is mid-wizard — contradictory. On Mission Control during an empty-run state it implies the user needs to go back to intake.",
+  "status": "queued",
+  "generated_by": "visual-audit-2026-05-03",
+  "generation_reason": "Visual audit 2026-05-03: 'Complete Assessment Wizard' CTA visible on wizard screen itself and on Mission Control — confusing and counterproductive.",
+  "source_context": {
+    "queue_index": 201,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-168-complete-assessment-wizard-cta-scoping.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "cta_intent_scoping",
+    "source_documents": ["ui/assets/app.js", "ui/assets/modules/runtime.js"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only change the visibility condition of the CTA. Do not change topbar layout or wizard navigation.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "The CTA is hidden when the active screen is 'wizard'.",
+    "The CTA is hidden when a run is queued or running.",
+    "The CTA is hidden when engagements with runs exist.",
+    "The CTA is visible on Dashboard when no engagements exist.",
+    "No regression in E2E tests."
+  ],
+  "likely_touched_files": ["ui/assets/app.js", "CURRENT_STATE.md", "DONE_LOG.md"],
+  "must_not_touch": ["Wizard navigation", "Topbar layout", "Backend API"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "CTA hidden on wizard screen.",
+      "CTA hidden with active run.",
+      "CTA visible on empty-state dashboard.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Topbar redesign", "Wizard restructure", "Backend changes"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

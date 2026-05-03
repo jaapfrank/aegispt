@@ -2,50 +2,46 @@
 
 ## Title
 
-Enterprise SSO, session, and identity administration
+Mission Control AI Signal panel: remove developer labels (DETERMINISTIC MODE, BUILD LANE, PROVIDER, SIGNALS, REPAIRS)
 
 ## Promoted From
 
-`codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json`
+`codex/tasks/backlog-196-mission-control-ai-signal-developer-labels.json`
 
 ## Goal
 
-Move AegisPT from local actor/API-key basics toward enterprise identity controls that operators can understand, configure, and audit.
+Remove developer-facing AI Signal labels from Mission Control and replace them with operator-appropriate copy and a clean empty state.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json`.
+Implement the active backlog package `codex/tasks/backlog-196-mission-control-ai-signal-developer-labels.json`.
 
 Expected slice:
 
-- add the first governed enterprise identity administration surface
-- expose OIDC/SAML disabled, configured, and error states in Settings
-- keep local development mode working without implying actor text is enterprise authentication
-- make session timeout and logout behavior explicit
-- persist SSO configuration safely without exposing secrets
-- audit login, logout, key, and identity administration events
-- document what is supported now and what remains future work
+- remove or replace `DETERMINISTIC MODE` with operator-facing language such as review/supervised context
+- remove `BUILD LANE` from the operator-facing Mission Control AI Signal panel
+- replace internal headings such as `PROVIDER`, `SIGNALS`, and `REPAIRS` with operator-appropriate copy
+- rewrite the review-only AI constraint into clear operator language
+- simplify the no-run empty state to one clean message
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not bypass pack registry, validation, approval, deployment, runtime binding, scope enforcement, credential gates, or kill switch behavior.
+- Do not change AI Signal data fetching, signal rendering logic, backend APIs, approval gates, pack lifecycle, deployment, runtime binding, scope enforcement, credential gates, or kill switch behavior.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
-- Do not replace or remove the local development authentication fallback.
-- Do not weaken ROE, tenant isolation, API-key revocation, secret materialization, or ChatGPT OAuth provider semantics.
-- Do not change finding schema fields.
-- Do not run live customer or intrusive targets.
+- Do not run live target actions.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_auth.py -q`
-- `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Operators can see whether enterprise SSO is disabled, configured, or failing.
-- Logout/session timeout behavior is visible and does not corrupt active run state.
-- Identity admin actions are auditable.
+- `DETERMINISTIC MODE` is not visible as an operator-facing Mission Control label.
+- `BUILD LANE` is not visible in Mission Control.
+- AI Signal empty state shows a single clean message when no run is selected.
+- AI panel section headings are operator-appropriate.
+- Focused Mission Control/UI validation passes.

@@ -1,0 +1,71 @@
+{
+  "id": "backlog-199-css-design-system-tokens",
+  "task_file": "codex/tasks/backlog-199-css-design-system-tokens.json",
+  "task_type": "product_slice",
+  "title": "CSS design system tokens: standardise spacing, typography, and colour to one consistent unit system",
+  "goal": "CSS audit scored 4/10 due to mixing px and rem units, inconsistent spacing values, and duplicate CSS variable definitions. This causes visual inconsistency and makes future changes expensive. Fix in one focused pass: (1) Audit styles.css for all spacing values (padding, margin, gap) and standardise to rem with a 4px base grid: 0.25rem (4px), 0.5rem (8px), 0.75rem (12px), 1rem (16px), 1.5rem (24px), 2rem (32px). Replace the non-standard px/rem values (7px, 14px, 0.65rem, 0.92rem etc.) with the nearest grid value. (2) Remove the duplicate CSS variable block (root variables appear to be defined twice — merge into one clean :root block at the top of the file). (3) Define --spacing-xs through --spacing-xl token variables and use them for the most repeated values. (4) Add one missing responsive breakpoint at 1024px for the tile grid (currently jumps from 3 columns at 900px to 1 column at 640px — add 2-column fallback at 900px). Do NOT rewrite the entire CSS — only fix the inconsistencies described. Run all E2E tests after to confirm no visual regression.",
+  "scope": "CSS code audit 2026-05-03: styles.css scored 4/10 — mixed px/rem units throughout (px at lines 62, 75, 152; rem at 1432, 1438), non-standard decimals (0.92rem, 0.85rem), duplicate :root variable block, missing tablet breakpoint for tile grid. These cause visual clunkiness across all screens.",
+  "status": "queued",
+  "generated_by": "css-audit-2026-05-03",
+  "generation_reason": "CSS audit 2026-05-03: 4/10 consistency score — mixed units, duplicate variables, missing responsive breakpoint. This is the root cause of visual clunkiness.",
+  "source_context": {
+    "queue_index": 199,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-52-ui-structural-foundation.json",
+      "codex/tasks/backlog-85-ui-quality-overhaul.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "css_design_system",
+    "source_documents": ["ui/assets/styles.css"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Standardise units and remove duplication only. Do not redesign any component, add new CSS classes, or change colours/fonts.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "No spacing value outside the 4px grid (0.25rem multiples) in the main layout sections.",
+    "One clean :root block at the top of styles.css — no duplicate variable definitions.",
+    "--spacing-xs through --spacing-xl custom properties defined and used for at least 20 repeated values.",
+    "Tile grid has a 2-column fallback at 900px breakpoint.",
+    "All existing E2E tests pass without change."
+  ],
+  "likely_touched_files": ["ui/assets/styles.css", "CURRENT_STATE.md", "DONE_LOG.md"],
+  "must_not_touch": [
+    "Component visual design",
+    "Colour definitions",
+    "Typography sizes",
+    "Any JavaScript"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No duplicate :root block in styles.css.",
+      "--spacing-* tokens defined.",
+      "Tile grid 2-column breakpoint present.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Component redesign", "Dark/light mode changes", "New CSS classes", "JavaScript changes"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

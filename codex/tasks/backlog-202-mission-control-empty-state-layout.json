@@ -1,0 +1,79 @@
+{
+  "id": "backlog-202-mission-control-empty-state-layout",
+  "task_file": "codex/tasks/backlog-202-mission-control-empty-state-layout.json",
+  "task_type": "corrective_product_slice",
+  "title": "Mission Control empty state: replace large whitespace and fragmented panels with a single focused onboarding card",
+  "goal": "When no engagement or run exists, Mission Control shows three panels (Scan Map, Tasks, AI Signal) each with small empty state messages, surrounded by a large amount of whitespace. This makes the screen feel broken or incomplete. Fix: (1) When no engagement exists, collapse the three-panel grid and show a single centred onboarding card: 'Start a new mission to see live scan activity here. → Start Mission Intake' — this matches the pattern used in the wizard and dashboard empty states. (2) When an engagement exists but no run has started, show a 'Ready' state: the three panels remain visible but with better contextual empty states (Scan Map: 'Waiting for discovery to start'; Tasks: 'Start Validation to begin'; AI Signal: 'Analysis will appear once a run is active'). (3) The bottom half of Mission Control (Phase Feed, Operational Snapshot, Status Board, Supporting Context) should be hidden when no run exists and shown progressively as a run creates data. (4) Remove the large blank whitespace area below the three panels — it is the result of empty panels and unused grid rows.",
+  "scope": "Visual audit 2026-05-03: screenshot 04-mission-control.png shows ~50% of the Mission Control screen as empty white space. Three panels each have small isolated empty state messages. The AI Signal panel shows 'PROVIDER', 'SIGNALS', 'REPAIRS', 'BUILD LANE' section labels with no content. The lower half of the screen (Phase Feed, Status Board) is completely absent.",
+  "status": "queued",
+  "generated_by": "visual-audit-2026-05-03",
+  "generation_reason": "Visual audit 2026-05-03: Mission Control empty state has large unused whitespace and fragmented mini-empty-states across 3 panels — replace with a single focused onboarding card.",
+  "source_context": {
+    "queue_index": 202,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-196-mission-control-ai-signal-developer-labels.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mission_control_empty_state",
+    "source_documents": [
+      "ui/assets/modules/mission-control.js",
+      "ui/assets/app.js",
+      "ui/index.html"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Change only the empty state rendering. Do not change Mission Control behaviour when a run is active — those states must remain exactly as they are.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "No-engagement state: single centred card with 'Start Mission Intake' CTA fills the Mission Control area.",
+    "Engagement-no-run state: three panels with contextual messages, no large whitespace.",
+    "Active-run state: unchanged from current behaviour.",
+    "Bottom panels (Phase Feed, etc.) hidden when no run data exists.",
+    "No regression in Mission Control E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/app.js",
+    "ui/index.html",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Mission Control with active run state",
+    "Run dispatch or cancellation logic",
+    "Backend API",
+    "Phase and task rendering when runs exist"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "No-engagement Mission Control shows a single focused CTA card.",
+      "No large empty whitespace below panels.",
+      "Active-run Mission Control unchanged.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Mission Control full redesign", "New panel types", "Backend changes"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

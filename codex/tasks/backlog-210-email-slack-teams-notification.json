@@ -1,0 +1,87 @@
+{
+  "id": "backlog-210-email-slack-teams-notification",
+  "task_file": "codex/tasks/backlog-210-email-slack-teams-notification.json",
+  "task_type": "product_slice",
+  "title": "Email, Slack, and Teams notifications: alert operators on critical findings, phase completions, and run results",
+  "goal": "AegisPT currently has SIEM push (Splunk/Elastic/Sentinel) and generic webhooks for findings. What is missing: (1) Email alerts via SMTP — when a Critical finding is discovered, send an email to configured addresses with: finding title, severity, target, remediation summary. Also send email on run completion and phase completion awaiting approval. (2) Slack webhook integration — post a message to a configured Slack channel with finding details and an approval link. (3) Microsoft Teams webhook — same as Slack but Teams Adaptive Card format. Implementation: Add an api/app/services/notification_delivery.py service modelled after siem_push.py. Add configuration in Settings: SMTP host/port/from/to, Slack webhook URL, Teams webhook URL. Trigger from the same location as SIEM push: workers/orchestration/tasks.py:2807-2833 after finding creation and run completion. Use encrypted credential storage (same pattern as Jira/SIEM integrations). All notification channels optional — system works if none configured.",
+  "scope": "Code audit 2026-05-03: api/app/services/siem_push.py implements SIEM delivery. Generic webhooks exist. Email and chat platform notifications are absent. Enterprise clients expect to receive a Slack/Teams ping when a critical finding is discovered — waiting until they log in to check is not acceptable for high-severity findings.",
+  "status": "queued",
+  "generated_by": "ai-code-audit-2026-05-03",
+  "generation_reason": "Email and Slack/Teams notifications absent — enterprise operators need real-time alerts on critical findings without having to poll the dashboard.",
+  "source_context": {
+    "queue_index": 210,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-38-integration-portfolio-expansion-foundation.json",
+      "codex/tasks/backlog-68-siem-integration-foundation.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "notification_delivery_expansion",
+    "source_documents": [
+      "api/app/services/siem_push.py",
+      "api/app/services/webhooks.py",
+      "workers/orchestration/tasks.py",
+      "api/app/routers/settings.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add email + Slack + Teams. Do not change SIEM push, existing webhooks, or Jira integration. Keep all notifications optional.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When a Critical finding is created, configured email recipients receive an alert within 60s.",
+    "When a Critical finding is created, configured Slack channel receives a message.",
+    "When a Critical finding is created, configured Teams channel receives an Adaptive Card.",
+    "Run completion and phase-approval-needed events also trigger configured channels.",
+    "All channels optional — system works if none configured.",
+    "Credentials stored encrypted (same pattern as Jira/SIEM).",
+    "Settings screen has email/Slack/Teams configuration panels.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/notification_delivery.py",
+    "workers/orchestration/tasks.py",
+    "api/app/routers/settings.py",
+    "api/app/routers/integrations.py",
+    "ui/assets/modules/settings.js",
+    ".env.example",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "SIEM push logic",
+    "Existing webhook format",
+    "Finding severity model"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Email alert sends on critical finding (verified with mock SMTP).",
+      "Slack webhook called on critical finding.",
+      "Teams webhook called on critical finding.",
+      "No crash if no channels configured.",
+      "All existing tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["PagerDuty/OpsGenie integration", "Two-way status sync", "Mobile push notifications"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

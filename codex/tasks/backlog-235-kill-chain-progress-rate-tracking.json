@@ -1,0 +1,95 @@
+{
+  "id": "backlog-235-kill-chain-progress-rate-tracking",
+  "task_file": "codex/tasks/backlog-235-kill-chain-progress-rate-tracking.json",
+  "task_type": "product_slice",
+  "title": "Kill chain progress rate tracking: map findings and phase completions to MITRE ATT&CK stages and show progress gauge",
+  "goal": "AutoPenBench measures Progress Rate (PR) — how far an agent progressed through the kill chain even if it didn't fully succeed. AegisPT has MITRE ATT&CK data in threat intelligence but NO kill chain progress tracking per engagement. MITRE ATT&CK records are already imported (threat_intel.py). Implement kill chain progress tracking: (1) Map each finding type to a MITRE ATT&CK tactic: nmap scan finding → Reconnaissance (TA0043), service vulnerability → Initial Access (TA0001), credential finding → Credential Access (TA0006), SUID escalation → Privilege Escalation (TA0004), lateral movement finding → Lateral Movement (TA0008), etc. This mapping is static and stored in a FINDING_ATT&CK_MAP in ai_agent.py or a new constants file. (2) Per engagement, compute a Kill Chain Progress gauge: what percentage of the ATT&CK kill chain has been reached. Example: 'Reached: Reconnaissance ✓ → Initial Access ✓ → Execution ✓ → Privilege Escalation ○ → Persistence ○ → Lateral Movement ○'. (3) Show this in Mission Control as a horizontal kill chain strip. Completed stages are green, current stage is amber, future stages are grey. (4) In the engagement dossier (Explorer), show full MITRE ATT&CK matrix view with confirmed vs tested vs untested techniques. This matches AutoPenBench's PR metric and gives operators an enterprise-grade view of assessment completeness.",
+  "scope": "AutoPenBench: Progress Rate (PR) measures kill chain advancement. AegisPT has custom phase tiers but no standardized kill chain progress. MITRE ATT&CK data already imported in threat_intel.py but not connected to findings.",
+  "status": "queued",
+  "generated_by": "autoPenBench-gap-analysis-2026-05-03",
+  "generation_reason": "AutoPenBench PR metric + MITRE ATT&CK mapping is the enterprise-standard way to communicate assessment depth. AegisPT has the data but not the connection.",
+  "source_context": {
+    "queue_index": 235,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-208-chain-phase-visibility-mission-control.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "kill_chain_progress_enterprise_reporting",
+    "source_documents": [
+      "api/app/services/threat_intel.py",
+      "api/app/models/control.py",
+      "ui/assets/modules/mission-control.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Static mapping of finding types to ATT&CK tactics. Kill chain gauge in Mission Control and dossier. Do not change finding schema.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Each finding type maps to a MITRE ATT&CK tactic.",
+    "Mission Control shows a kill chain progress strip (Recon → Initial Access → Execution → etc.).",
+    "Completed stages shown green, current amber, untested grey.",
+    "Explorer dossier shows MITRE ATT&CK matrix coverage.",
+    "Progress percentage computed and shown numerically.",
+    "No regression in Mission Control or Explorer E2E tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/threat_intel.py",
+    "ui/assets/modules/mission-control.js",
+    "ui/assets/modules/explorer-history.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Finding schema",
+    "Threat intel sync",
+    "Run dispatch logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Kill chain strip renders in Mission Control.",
+      "ATT&CK mapping present.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full ATT&CK Navigator integration",
+    "Automated technique execution",
+    "Threat actor mapping"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,93 @@
+{
+  "id": "backlog-233-ai-cross-task-working-memory",
+  "task_file": "codex/tasks/backlog-233-ai-cross-task-working-memory.json",
+  "task_type": "product_slice",
+  "title": "AI cross-task working memory: accumulate analysis context across all tasks in an engagement for compound reasoning",
+  "goal": "AutoPenBench's agent maintains working memory across all steps in a task chain. AegisPT's ai_agent.py runs per-task analysis but _build_analysis_context() only includes findings from the current run (capped at 25, line 742). Prior task analyses, proposals, and reasoning are NOT fed into subsequent task analyses. This prevents compound reasoning. Fix: Extend _build_analysis_context() to include: (1) Prior task analyses for the engagement: last 5 AgentReasoning records for the engagement (summary_text, hypotheses, confirmed_proposals). (2) Prior approved proposals and their outcomes: which proposals were approved, which found vulnerabilities. (3) Engagement-level finding summary: critical/high findings already discovered, targets already enumerated. (4) Running 'attack narrative': a short (5-sentence) rolling summary of the engagement's security story so far, updated after each task. This matches AutoPenBench's Summary procedure which 'condenses task history to reduce hallucinations'. Implementation: in ai_agent.py _build_analysis_context(), add an 'engagement_context' section. Load the last 5 AgentReasoning records for the engagement. Load the engagement-level finding count by severity. Generate attack_narrative by calling a lightweight summarization prompt. Cap total context to avoid token limits.",
+  "scope": "AutoPenBench code audit: _build_analysis_context() line 742 only passes run.findings[:25] — no prior task analysis, no approved proposals, no engagement narrative. AutoPenBench shows this working memory is what enables compound reasoning and 64% assisted agent success.",
+  "status": "queued",
+  "generated_by": "autoPenBench-gap-analysis-2026-05-03",
+  "generation_reason": "AI agent analyzes each task in isolation — no memory of prior analyses. AutoPenBench's working memory is the key enabler of compound reasoning. Must be added to reach 60%+ effective AI guidance.",
+  "source_context": {
+    "queue_index": 233,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-218-ai-attack-chain-reasoning-web-context.json",
+      "codex/tasks/backlog-237-ai-reasoning-transparency-summary-thought-action.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_working_memory_cross_task",
+    "source_documents": [
+      "api/app/services/ai_agent.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Extend _build_analysis_context() only. Do not change proposal generation, approval gates, or AI provider connections. Keep total context within 8000 tokens.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "_build_analysis_context() includes last 5 AgentReasoning summaries for the engagement.",
+    "Context includes approved proposals and their finding outcomes.",
+    "A rolling attack_narrative field is generated and updated per task analysis.",
+    "Total context capped to prevent token limit issues.",
+    "AI proposals after the change demonstrate awareness of prior task results (test on engagement with 3+ completed tasks).",
+    "No regression in AI agent tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_agent.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Approval gate logic",
+    "AgentProposal schema",
+    "UI rendering"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Context includes prior task analyses.",
+      "attack_narrative generated.",
+      "Token count stays under limit.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Infinite context window",
+    "Training data updates",
+    "Model fine-tuning"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

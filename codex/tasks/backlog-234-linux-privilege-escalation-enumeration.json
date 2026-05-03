@@ -1,0 +1,97 @@
+{
+  "id": "backlog-234-linux-privilege-escalation-enumeration",
+  "task_file": "codex/tasks/backlog-234-linux-privilege-escalation-enumeration.json",
+  "task_type": "product_slice",
+  "title": "Linux privilege escalation enumeration runner: SUID/SGID binaries, sudo misconfigurations, writable cron jobs, and path hijacking",
+  "goal": "AutoPenBench's Access Control tasks cover: weak sudo passwords, file permissions, and SETUID misconfiguration — 20% autonomous success, 80% assisted. AegisPT has no Linux privilege escalation enumeration. Implement a priv-esc-linux runner (equivalent to LinPEAS/unix-privesc-check): (1) SUID/SGID binary enumeration: find all SUID/SGID binaries (find / -perm -4000 2>/dev/null), compare against GTFOBins list of exploitable binaries (bash, vim, nmap, python, find, cp, awk, etc.). Finding: 'SUID Binary Exploitable via GTFOBins: /usr/bin/find'. (2) Sudo misconfiguration: run sudo -l and parse output. Check for: ALL=(ALL:ALL) ALL, NOPASSWD entries, specific dangerous commands (vi, less, more, python, bash). Finding: 'Sudo NOPASSWD - Privilege Escalation Possible'. (3) Writable cron jobs: check /etc/cron* and /var/spool/cron/ for world-writable scripts. Finding: 'Writable Cron Script — Privilege Escalation via Cron'. (4) Path hijacking: check for writable directories in $PATH before system directories. (5) Weak file permissions: check world-writable /etc/passwd, /etc/shadow readable, backup files with credentials. (6) Kernel exploits: check kernel version against known local privilege escalation CVEs (CVE-2021-3156 Baron Samedit, CVE-2022-0847 DirtyPipe). Intrusive-credential tier — requires SSH access to target with low-privilege shell. Findings critical severity.",
+  "scope": "AutoPenBench Access Control tasks: 20% autonomous SR, 80% assisted SR. AegisPT has no Linux priv esc. SUID/sudo enumeration is a standard pentest task. Equivalent to LinPEAS but scoped and safety-bounded.",
+  "status": "queued",
+  "generated_by": "autoPenBench-gap-analysis-2026-05-03",
+  "generation_reason": "AutoPenBench AC tasks (SUID, sudo, file permissions) not covered by AegisPT. LinPEAS-equivalent runner required for post-exploitation privilege path enumeration.",
+  "source_context": {
+    "queue_index": 234,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-74-metasploit-exploitation-runner.json",
+      "codex/tasks/backlog-75-impacket-lateral-movement-runner.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "post_exploitation_linux_priv_esc",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "scripts/install_security_tools.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Enumeration only — find and report exploitable paths. Do not execute exploits. Do not escalate privileges. Do not write to target filesystem.",
+    "safety": "Read-only enumeration. Never execute found SUID binaries for exploitation. Finding reports the vector; exploitation requires separate Metasploit runner with intrusive-exploitation gate.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "priv-esc-linux runner enumerates SUID binaries and matches against GTFOBins.",
+    "Sudo -l output parsed and dangerous entries produce findings.",
+    "Writable cron job detection works.",
+    "Kernel version checked against known local priv esc CVEs.",
+    "Requires intrusive-credential tier (SSH access).",
+    "Findings severity High/Critical.",
+    "Read-only — no exploitation.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Metasploit exploitation runner",
+    "Approval gates for intrusive-exploitation"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "priv-esc-linux in supported tools.",
+      "SUID/GTFOBins match produces finding.",
+      "sudo -l parsing works.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Privilege escalation exploitation",
+    "Windows priv esc (separate task)",
+    "Container escape"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

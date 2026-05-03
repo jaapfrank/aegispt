@@ -1,0 +1,87 @@
+{
+  "id": "backlog-193-add-url-quick-fill-chips-scope",
+  "task_file": "codex/tasks/backlog-193-add-url-quick-fill-chips-scope.json",
+  "task_type": "corrective_product_slice",
+  "title": "Wizard scope step quick-fill chips are hardcoded examples — make them contextual from recent engagements",
+  "goal": "The wizard step 2 target input shows three hardcoded quick-fill chips: 'https://app.example.com', 'portal.example.com', 'https://staging.example.com'. These are always the same example URLs regardless of the operator's previous missions. Replace with contextual chips sourced from: (1) the last 2-3 targets from recent completed engagements for the same tile type, pulled from the existing recent-missions cache (RECENT_MISSION_SCOPE_CACHE in wizard.js). (2) Fall back to the current hardcoded examples only when no recent engagement data is available. The '+ Add URL' chip for multi-URL scenarios should remain. This makes the quick-fill chips genuinely useful for repeated assessments against the same targets.",
+  "scope": "Live audit 2026-05-01: screenshot external-web-s2-target-step.png shows three hardcoded example chips (https://app.example.com, portal.example.com, https://staging.example.com) that are always identical regardless of operator history.",
+  "status": "queued",
+  "generated_by": "live-wizard-audit-2026-05-01",
+  "generation_reason": "Live audit 2026-05-01: quick-fill chips on scope step are hardcoded examples — should show recent targets from operator's engagement history.",
+  "source_context": {
+    "queue_index": 193,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "wizard_contextual_intelligence",
+    "source_documents": [
+      "ui/assets/modules/wizard.js"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only change the chip source from hardcoded to contextual. Do not change the input field itself or add new API calls not already in the wizard.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "When recent engagements exist with matching tile type, quick-fill chips show those targets.",
+    "When no recent engagements exist, hardcoded example chips show as fallback.",
+    "'+ Add URL' chip remains functional.",
+    "No regression in wizard E2E tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Target input field behaviour",
+    "Backend API",
+    "Recent mission cache loading logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "With recent engagements: chips show real previous targets.",
+      "Without history: chips show example fallback.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New API endpoints for target history",
+    "Persisting chip state",
+    "Adding new UI for target management"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

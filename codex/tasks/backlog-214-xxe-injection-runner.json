@@ -1,0 +1,68 @@
+{
+  "id": "backlog-214-xxe-injection-runner",
+  "task_file": "codex/tasks/backlog-214-xxe-injection-runner.json",
+  "task_type": "product_slice",
+  "title": "XXE injection runner: detect XML External Entity vulnerabilities in web applications and APIs",
+  "goal": "WebGoat has a dedicated XXE lesson module and XXE is OWASP Top 10 (A05:2021 - Security Misconfiguration / A03:2021 - Injection). AegisPT has no XXE testing capability. Implement an xxe-probe runner that: (1) Discovers XML-consuming endpoints by identifying Content-Type: application/xml, text/xml, or endpoints with XML payloads in ZAP/httpx baseline results. (2) Sends crafted XXE payloads to each XML endpoint: basic XXE file read (<!ENTITY xxe SYSTEM 'file:///etc/passwd'>), blind XXE using OOB callbacks (interactsh-compatible), and XXE via SVG upload if file upload endpoints exist. (3) For each response: check if the file content appears (direct), check for DNS/HTTP callback (blind). (4) Produces findings: 'XXE - File Read Possible (Direct)', 'XXE - Blind Out-of-Band Detected', 'XXE - DoS (Billion Laughs) Possible'. (5) Uses existing OOB callback infrastructure if present, or records the finding as 'potential - requires manual confirmation'. (6) Active tier tool — requires one approval. (7) ZAP active scan already has basic XXE checks (scanner ID 90023). Wire up the existing ZAP XXE scanner explicitly and add our own HTTP-layer probe as a complementary runner. Implementation follows the exact pattern of existing runners in workers/orchestration/tasks.py.",
+  "scope": "Gap analysis 2026-05-03: WebGoat xxe module exists (github.com/WebGoat/WebGoat tree main/src/main/resources/lessons/xxe). AegisPT has no xxe runner or nuclei templates for XXE detection. OWASP lists XXE as critical. Burp Suite Pro detects XXE natively. This is a high-priority gap.",
+  "status": "queued",
+  "generated_by": "benchmark-gap-analysis-2026-05-03",
+  "generation_reason": "WebGoat has dedicated XXE module. AegisPT has no XXE testing capability — high-priority gap for web app assessment completeness.",
+  "source_context": {
+    "queue_index": 214,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "web_injection_coverage_xxe",
+    "source_documents": ["workers/orchestration/tasks.py", "scripts/install_security_tools.sh"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Implement xxe-probe runner only. No payload delivery beyond file-read probes. No exploitation.",
+    "runtime_mutation": false,
+    "safety": "XXE payloads must be read-only (file:///etc/passwd style). No billion laughs payloads that could crash targets. No SSRF via XXE to internal systems outside approved scope."
+  },
+  "success_criteria": [
+    "xxe-probe runner implemented and registered in supported tools list.",
+    "Discovers XML-consuming endpoints automatically from prior scan results.",
+    "Detects direct XXE file read (verified on WebGoat lab).",
+    "Produces structured 'XXE Injection' findings with severity Critical.",
+    "ZAP XXE scanner (ID 90023) explicitly enabled in web assessment profiles.",
+    "Runner appears in Tool Library (backlog-209) under Web Testing category.",
+    "No regression in existing runner tests."
+  ],
+  "likely_touched_files": ["workers/orchestration/tasks.py", "scripts/install_security_tools.sh", "CURRENT_STATE.md", "DONE_LOG.md"],
+  "must_not_touch": ["Existing ZAP configuration", "Core dispatch logic", "Approval gates"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "xxe-probe runner listed in supported tools.",
+      "Detects XXE on local WebGoat instance.",
+      "Finding severity set to Critical.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["DoS via XXE", "XXE to SSRF chaining", "In-band vs OOB distinction beyond basic"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

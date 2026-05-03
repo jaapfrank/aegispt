@@ -1,0 +1,67 @@
+{
+  "id": "backlog-200-bottom-nav-bar-remove-or-replace-sidebar",
+  "task_file": "codex/tasks/backlog-200-bottom-nav-bar-remove-or-replace-sidebar.json",
+  "task_type": "corrective_product_slice",
+  "title": "Bottom navigation bar: remove redundant duplicate of sidebar navigation, or justify with mobile-first purpose",
+  "goal": "Every screen shows a sticky bottom navigation bar: 'Intake | Mission Control | Agents | Findings | Reports | Settings'. This exactly duplicates a subset of the sidebar navigation. Two navigation systems doing the same thing creates confusion and wastes 44px of screen space on every page. Evaluate and take one of these actions: (1) PREFERRED: Remove the bottom nav bar entirely. Desktop operators use the sidebar. If mobile is not a supported use case, the bar has no purpose. (2) ALTERNATIVE: If mobile is a target use case, repurpose the bottom bar as a mobile-ONLY nav (display:none above 640px) and make the sidebar mobile-hidden. Choose option 1 unless there is an active mobile story. The bottom nav is rendered from BOTTOM_NAV_ITEMS in app.js — remove or gate the render. Remove associated CSS from styles.css. Run E2E tests to ensure no test relies on the bottom nav.",
+  "scope": "Visual audit 2026-05-03: all screen screenshots show the bottom nav bar 'Intake | Mission Control | Agents | Findings | Reports | Settings' which duplicates the sidebar. There is no documented mobile requirement for AegisPT.",
+  "status": "queued",
+  "generated_by": "visual-audit-2026-05-03",
+  "generation_reason": "Visual audit 2026-05-03: bottom nav bar is a redundant duplicate of the sidebar — wastes 44px and creates two navigation systems.",
+  "source_context": {
+    "queue_index": 200,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "navigation_consolidation",
+    "source_documents": ["ui/assets/app.js", "ui/index.html", "ui/assets/styles.css"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only remove or gate the bottom nav bar. Do not change sidebar navigation, topbar, or any other navigation system.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Bottom navigation bar is not visible on desktop (1280px viewport).",
+    "All screens still navigable via sidebar.",
+    "If kept for mobile: bar only visible below 640px.",
+    "No E2E test relies on the bottom nav bar to pass.",
+    "44px of screen height recovered on all pages."
+  ],
+  "likely_touched_files": [
+    "ui/assets/app.js",
+    "ui/index.html",
+    "ui/assets/styles.css",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": ["Sidebar navigation", "Topbar navigation", "Screen routing logic"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_health.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Bottom nav not visible on 1280px viewport.",
+      "All sidebar nav items still work.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Sidebar redesign", "Mobile layout overhaul", "New navigation structures"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

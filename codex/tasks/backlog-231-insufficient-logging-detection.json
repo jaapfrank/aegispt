@@ -1,0 +1,91 @@
+{
+  "id": "backlog-231-insufficient-logging-detection",
+  "task_file": "codex/tasks/backlog-231-insufficient-logging-detection.json",
+  "task_type": "product_slice",
+  "title": "Insufficient logging and monitoring detection: verify security events are logged and error handling doesn't leak information",
+  "goal": "WebGoat has a dedicated logging module. OWASP A09:2021 - Security Logging and Monitoring Failures. No current runner tests this. Implement a logging-probe runner: (1) Error leakage detection: send malformed requests (invalid JSON, SQL syntax errors, stack trace triggers) and check if responses contain: stack traces, internal file paths, database error messages, framework version info, internal IP addresses. Finding: 'Error Information Disclosure - Stack Trace/Internal Path Exposed'. (2) Admin panel exposure: check common admin paths (/admin, /management, /actuator, /debug, /console, /phpinfo.php, /server-status). Spring Actuator endpoints (/actuator/env, /actuator/heapdump, /actuator/mappings) are particularly dangerous. (3) Exposed debug endpoints: check for /_debug, /debug/vars (Go), /debug/pprof, /.env, /config.json, /config.yml exposed at root. (4) Log injection probe: inject CRLF sequences (\\r\\n) and log format strings (%s, %n, ${jndi:...} — Log4Shell variant) into parameters. Check if application echoes them back unsanitized. Finding: 'Log Injection Possible' or 'Log4Shell-Style Injection Pattern Accepted'. (5) Verbose error mode: systematically trigger common errors (404, 500, auth failure) and document what information each reveals. Passive + active tier.",
+  "scope": "WebGoat logging module + OWASP A09. Not currently tested. Information leakage via error messages and admin panel exposure are consistently found in enterprise pentests.",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "OWASP A09 (Logging/Monitoring Failures) not tested — WebGoat has dedicated module, stack traces and Spring Actuator exposure are common enterprise findings.",
+  "source_context": {
+    "queue_index": 231,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "information_disclosure_completeness",
+    "source_documents": [
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Error and path probing only. JNDI probe: inject ${jndi:ldap://callback/a} as a detection-only string to check if Log4Shell-vulnerable apps attempt callbacks. Never chain to actual JNDI exploitation.",
+    "safety": "Log4Shell probe uses OOB callback detection only, NOT actual exploitation.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Stack trace exposure detected via malformed requests.",
+    "Spring Actuator endpoints detected when exposed.",
+    "Common admin/debug path exposure produces findings.",
+    "Log injection probe tests CRLF and log format strings.",
+    "Passive tier for error analysis, active for path probing.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing Nuclei runner",
+    "ZAP config"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "logging-probe in supported tools.",
+      "Detects stack trace leakage on vulnerable app.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Actual Log4Shell exploitation",
+    "JNDI callback chain exploitation",
+    "Admin panel takeover"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

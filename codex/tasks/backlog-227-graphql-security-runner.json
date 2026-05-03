@@ -1,0 +1,92 @@
+{
+  "id": "backlog-227-graphql-security-runner",
+  "task_file": "codex/tasks/backlog-227-graphql-security-runner.json",
+  "task_type": "product_slice",
+  "title": "GraphQL security runner: introspection abuse, query depth attacks, field suggestion, injection via GraphQL",
+  "goal": "GraphQL is increasingly prevalent in modern APIs. ZAP and Nuclei have limited GraphQL-specific testing. Implement a graphql-probe runner: (1) Discovery: detect GraphQL endpoints (/graphql, /api/graphql, /v1/graphql, /gql). Check for GraphQL playground/IDE exposure (/graphiql, /playground). (2) Introspection enabled: send __schema introspection query. If successful → enumerate all types, queries, mutations, fields. Finding: 'GraphQL Introspection Enabled - Full Schema Disclosed'. Generate a schema map for subsequent tests. (3) Query depth attack (DoS prevention): send deeply nested query (10+ levels). Check if server applies depth limiting. If not → 'GraphQL Missing Query Depth Limit'. (4) Field suggestion leakage: send a query with a typo (e.g., 'user' as 'usr'). If server suggests 'Did you mean user?' → field enumeration without introspection. (5) SQL/NoSQL injection via GraphQL: inject SQL payloads into string arguments (id: '1 OR 1=1'). (6) Batching attack: send array of multiple queries in one request to bypass rate limiting. (7) Authorization bypass: test if unauthenticated queries can access data restricted to authenticated users via type confusion. Active tier. Tool: graphw00f for detection, graphql-cop for security checks, or custom Python.",
+  "scope": "API security gap analysis: GraphQL is not specifically covered. As modern apps increasingly use GraphQL (GitHub, Shopify, Facebook APIs), this is a critical coverage gap for API-first assessments.",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "GraphQL security not covered — introspection, injection, depth attacks are standard GraphQL pentest checks. Critical for API security tile assessments.",
+  "source_context": {
+    "queue_index": 227,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-103-api-first-assessment-workflow.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "graphql_security_coverage",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "scripts/install_security_tools.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "GraphQL detection and probing within scope. Depth attack: max 20 levels, stop immediately. No batching attacks that could overwhelm the server.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Detects GraphQL endpoints automatically.",
+    "Introspection finding produced when enabled.",
+    "Schema enumeration used for subsequent field testing.",
+    "Injection via GraphQL argument tested.",
+    "Active tier requiring approval.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing API assessment runner",
+    "ZAP config"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "graphql-probe in supported tools.",
+      "Detects introspection on test GraphQL endpoint.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full schema exploitation",
+    "GraphQL subscription attacks",
+    "Persisted query attacks"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_prompted"
+}

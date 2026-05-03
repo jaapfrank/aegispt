@@ -1,0 +1,93 @@
+{
+  "id": "backlog-230-oauth2-oidc-misconfiguration-runner",
+  "task_file": "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json",
+  "task_type": "product_slice",
+  "title": "OAuth2/OIDC misconfiguration runner: detect redirect_uri bypass, PKCE absence, state parameter missing, and token leakage",
+  "goal": "OAuth2/OIDC is the authentication backbone of modern applications. Misconfigurations lead to account takeover. This is not covered by any current runner. Implement an oauth-probe runner: (1) Discovery: detect OAuth2 endpoints by looking for /oauth/authorize, /oauth/token, /.well-known/openid-configuration, authorization_code patterns in JavaScript, and social login buttons. (2) redirect_uri bypass: test if the authorization server accepts: wildcard subdomains (https://evil.legitimate.com), path traversal (https://legit.com/../evil), open redirect chains as redirect URIs. Finding: 'OAuth2 Redirect URI Bypass — Account Takeover Possible'. (3) State parameter CSRF: check if the state parameter is present in authorization requests. If absent → OAuth CSRF (attacker can link their account to victim). (4) PKCE absent for SPAs: check if single-page app OAuth flows use PKCE (code_challenge). Absent PKCE in SPA → authorization code interception possible. (5) Token in URL: check if access tokens appear in URL fragments or redirect parameters (visible in browser history, referrer headers). (6) Token scope over-provisioning: request minimal scope, check if returned token grants broader access. (7) Implicit flow still supported: check if implicit flow (response_type=token) is enabled (deprecated, insecure). Active tier. Tool: custom Python using requests + browser automation.",
+  "scope": "OAuth2/OIDC misconfigurations are in every major pentest standard (WSTG-SESS-10, OWASP Testing Guide). Not covered by any current runner. Critical for SaaS applications with 'Login with Google/Microsoft' or API-backed authentication.",
+  "status": "queued",
+  "generated_by": "coverage-gap-analysis-2026-05-03",
+  "generation_reason": "OAuth2/OIDC testing absent from AegisPT — redirect_uri bypass, missing PKCE, token leakage are common real-world findings in modern SaaS applications.",
+  "source_context": {
+    "queue_index": 230,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-229-password-reset-authentication-flow-runner.json",
+      "codex/tasks/backlog-221-jwt-vulnerability-runner.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "modern_auth_oauth_coverage",
+    "source_documents": [
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Test only OAuth flows of the target application. Do not interact with third-party IdP endpoints (Google, Microsoft) directly.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Detects OAuth2 endpoints automatically.",
+    "redirect_uri bypass tested and finding produced.",
+    "Missing state parameter produces CSRF finding.",
+    "Absent PKCE in SPA produces finding.",
+    "Token in URL/fragment produces finding.",
+    "Active tier requiring approval.",
+    "No regression in existing tests."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Existing auth runners",
+    "JWT runner (backlog-221)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "oauth-probe in supported tools.",
+      "Detects missing state param on test OAuth app.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Exploiting found OAuth vulnerabilities",
+    "IdP infrastructure testing",
+    "Social engineering redirect chains"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
