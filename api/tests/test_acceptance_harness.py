@@ -220,6 +220,42 @@ def test_activate_runtime_target_materializes_webgoat_fixture(monkeypatch: pytes
     assert any(call[:3] == ["docker", "rm", "-f"] for call in calls)
 
 
+def test_activate_runtime_target_materializes_gruyere_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    target = {
+        "id": "google-gruyere-local",
+        "label": "Google Gruyere Local",
+        "classification": "training_lab",
+        "enabled": True,
+        "authorized": True,
+        "scope": {"urls": ["http://127.0.0.1:8008/"]},
+        "runtime_fixture": "docker_gruyere",
+        "runtime_fixture_image": "karthequian/gruyere:latest",
+        "runtime_fixture_container_port": 8008,
+        "notes": "Training target for benchmark coverage.",
+    }
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(acceptance_harness, "_reserve_loopback_port", lambda: 48008)
+    monkeypatch.setattr(acceptance_harness, "_wait_for_http_ready", lambda *args, **kwargs: 200)
+
+    def fake_run(args, **kwargs):
+        calls.append(list(args))
+        if args[:3] == ["docker", "run", "-d"]:
+            return CompletedProcess(args=args, returncode=0, stdout="gruyere-container\n", stderr="")
+        return CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(acceptance_harness.subprocess, "run", fake_run)
+
+    with activate_runtime_target(target) as materialized:
+        assert materialized["scope"]["urls"] == ["http://127.0.0.1:48008/"]
+        assert materialized["runtime_fixture_context"]["fixture"] == "docker_gruyere"
+        assert materialized["runtime_fixture_context"]["runtime_image"] == "karthequian/gruyere:latest"
+        assert "Auto-spawned Gruyere fixture resolved to http://127.0.0.1:48008/" in materialized["notes"]
+
+    assert any(call[:3] == ["docker", "run", "-d"] for call in calls)
+    assert any(call[:3] == ["docker", "rm", "-f"] for call in calls)
+
+
 def test_assert_runtime_prerequisites_checks_active_safe_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     scenario = {"run_profile": "active-web-safe"}
     target = {

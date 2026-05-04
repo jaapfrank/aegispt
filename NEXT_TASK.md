@@ -2,51 +2,54 @@
 
 ## Title
 
-Gruyere + WebGoat gap analysis: add local benchmark targets, run existing tools against both, and produce expected-vs-actual coverage reports before adding new detection capability tasks
+Pentest depth expansion: add ffuf/gobuster directory bruteforce, nikto web scan, sqlmap SQLi detection, and Shodan/Censys passive recon
 
 ## Promoted From
 
-`codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json`
+`codex/tasks/backlog-211-pentest-depth-additional-tools.json`
 
 ## Goal
 
-Add Google Gruyere and OWASP WebGoat as official local benchmark targets, run the existing AegisPT tooling against both, and produce expected-vs-actual coverage evidence before adding new detection capability tasks.
+Add the four runner/recon gaps identified by the competitive analysis: directory/endpoint bruteforce, web server configuration scanning, SQL injection confirmation, and passive Shodan/Censys recon.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json`.
+Implement the active backlog package `codex/tasks/backlog-211-pentest-depth-additional-tools.json`.
 
 Expected slice:
 
-- add local Gruyere and WebGoat benchmark targets to the test lab
-- run existing passive and active AegisPT tools against both local lab targets
-- record which expected benchmark vulnerabilities are detected versus missed
-- produce a coverage report with vulnerability id, expected detection, actual detection, tool used, severity, and notes
-- use the benchmark gap report to inform later queued detection tasks without implementing new detection capabilities in this task
+- add an `ffuf` or `gobuster` runner for active, rate-limited directory/endpoint bruteforce that produces structured hidden-endpoint findings
+- add a `nikto` runner for web server configuration scanning that produces structured web configuration findings
+- add a constrained `sqlmap` runner for SQL injection confirmation only on explicit parameters or ZAP-flagged injectable parameters
+- add Shodan/Censys passive recon that uses configured API keys and produces structured external-exposure findings
+- expose the four new capabilities in the Tool Library
+- update the security tool installer for the new tools
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not implement new detection capabilities in this task.
-- Do not silently reprioritize later gap tasks.
-- Do not mutate production databases.
-- Do not change existing assessment packs unless the active task package explicitly requires a safe local benchmark fixture.
+- Implement the four runners only.
+- Use the same runner pattern as existing tools in `workers/orchestration/tasks.py`.
 - Do not change core dispatch logic.
+- Do not touch existing runners except where integration registration requires additive wiring.
+- Respect existing authorization tier gates.
+- `sqlmap` must require explicit parameter specification or ZAP-flagged injectable parameters and must never run unscopedly across all pages.
 - Do not bypass scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
-- Do not run external live target actions; benchmark actions must stay local/safe lab only.
+- No uncontrolled plugin installation.
+- No live target actions outside safe/local/explicitly authorized validation.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/ -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Local Gruyere instance runs in the test lab.
-- Local WebGoat instance runs in the test lab.
-- AegisPT runs existing passive and active checks against both local lab targets.
-- `coverage_report.json` documents expected-versus-actual detection per benchmark vulnerability.
-- Gruyere and WebGoat coverage percentages are documented.
-- Missed benchmark vulnerabilities are listed as gaps for later tasking.
+- Four new runners are present in the supported tools list.
+- Each runner produces structured findings in the standard format.
+- `sqlmap` cannot run without an explicit parameter target or ZAP-flagged injectable parameter.
+- Shodan/Censys recon is passive, read-only, and requires API keys.
+- All four tools appear in the Tool Library.
+- No regression in existing runner tests.

@@ -196,6 +196,39 @@ services:
       retries: 20
       start_period: 45s
 
+  aegispt-benchmark-gruyere:
+    image: karthequian/gruyere:latest
+    profiles: ["benchmark"]
+    ports:
+      - "127.0.0.1:${GRUYERE_PORT:-8008}:8008"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8008/ >/dev/null",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  aegispt-benchmark-webgoat:
+    image: webgoat/webgoat:latest
+    profiles: ["benchmark"]
+    ports:
+      - "127.0.0.1:${WEBGOAT_PORT:-18080}:8080"
+      - "127.0.0.1:${WEBWOLF_PORT:-19090}:9090"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --timeout=5 --spider http://127.0.0.1:8080/WebGoat",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
+
 volumes:
   aegispt-postgres-data:
   aegispt-redis-data:

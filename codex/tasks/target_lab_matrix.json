@@ -356,6 +356,59 @@
       "notes": "Disabled internal AD lab template for future GOAD-style validation. Never broaden this to a live network without explicit scope."
     },
     {
+      "id": "google-gruyere-local",
+      "label": "Google Gruyere Local",
+      "classification": "training_lab",
+      "enabled": true,
+      "authorized": true,
+      "surface_kind": "web_app",
+      "owner": "Training Lab",
+      "authorization_ref": "LAB-GRUYERE-LOCAL",
+      "assessment_type": "Website / Web App",
+      "runnability": "fixture_backed",
+      "scope": {
+        "urls": [
+          "http://127.0.0.1:8008/"
+        ]
+      },
+      "runtime_fixture": "docker_gruyere",
+      "runtime_fixture_image": "karthequian/gruyere:latest",
+      "runtime_fixture_container_port": 8008,
+      "runtime_fixture_startup_timeout_seconds": 90,
+      "recommended_profile": "Standard",
+      "recommended_run_profile": "active-web-zap-active",
+      "recommended_modules": [
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "zap_active_checks",
+        "benchmark_fixture_review"
+      ],
+      "benchmark_metadata": {
+        "benchmark_family": "Google Gruyere",
+        "vulnerable_families": [
+          "xss",
+          "csrf",
+          "xssi",
+          "path traversal",
+          "client-state manipulation",
+          "remote code execution",
+          "sql injection",
+          "denial of service",
+          "configuration disclosure",
+          "ajax phishing",
+          "buffer overflow"
+        ],
+        "prerequisites": [
+          "Docker runtime",
+          "local ZAP daemon for active ZAP validation"
+        ],
+        "fixture_notes": "Harness-owned Docker fixture rewrites the target to an isolated loopback port.",
+        "coverage_expectation": "Expected-vs-actual Gruyere coverage using only existing passive and active AegisPT tools."
+      },
+      "notes": "Local intentionally vulnerable Gruyere fixture for benchmark coverage analysis. Do not use the public hosted Gruyere service for automated validation."
+    },
+    {
       "id": "gruyere-reference",
       "label": "Google Gruyere Reference",
       "classification": "training_lab",
@@ -613,6 +666,40 @@
         "task_evidence",
         "reports",
         "history_entry"
+      ],
+      "minimum_reports": 4,
+      "minimum_findings": 0,
+      "dispatch": true
+    },
+    {
+      "id": "gruyere-benchmark-coverage",
+      "name": "Gruyere Benchmark Coverage",
+      "enabled": true,
+      "priority": 35,
+      "target_id": "google-gruyere-local",
+      "assessment_type": "Website / Web App",
+      "profile": "Standard",
+      "run_profile": "active-web-zap-active",
+      "modules": [
+        "web_crawling",
+        "content_discovery",
+        "nuclei_checks",
+        "zap_active_checks",
+        "benchmark_fixture_review"
+      ],
+      "safety": {
+        "active_checks": "guarded",
+        "adaptive_generation": false,
+        "max_validation_depth": "standard",
+        "time_budget_minutes": 60
+      },
+      "approval_actors": [
+        "codex-acceptance-approver-1"
+      ],
+      "expected_outputs": [
+        "task_evidence",
+        "reports",
+        "findings_surface"
       ],
       "minimum_reports": 4,
       "minimum_findings": 0,

@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "matrix_id": "gruyere_webgoat_benchmark_coverage_v1",
+  "purpose": "Expected-vs-actual coverage catalog for local Google Gruyere and OWASP WebGoat benchmark runs. The runner uses existing AegisPT tools only and records gaps without adding detection capability.",
+  "benchmarks": [
+    {
+      "id": "gruyere-local",
+      "name": "Google Gruyere Local",
+      "target": {
+        "type": "docker",
+        "image": "karthequian/gruyere:latest",
+        "container_port": 8008,
+        "health_path": "/",
+        "url_path": "/",
+        "startup_timeout_seconds": 90
+      },
+      "assessment_type": "Website / Web App",
+      "scan_profiles": ["passive-web-nuclei-audit", "active-web-zap-active"],
+      "modules": ["web_crawling", "content_discovery", "nuclei_checks", "zap_active_checks", "benchmark_fixture_review"],
+      "expected_vulnerabilities": [
+        {"id": "gruyere-xss-reflected-url", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|script injection)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "gruyere-xss-stored-snippet", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|stored)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "gruyere-xss-stored-profile", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|stored)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "gruyere-xss-file-upload-html", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|html upload|file upload)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "gruyere-xss-ajax-json", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|ajax|json)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "gruyere-xss-dom-or-template", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|dom|template)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "gruyere-csrf-profile-change", "family": "csrf", "expected_severity": "medium", "title_pattern": "(?i)(csrf|cross.?site request forgery)", "gap_task_ref": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json"},
+        {"id": "gruyere-xssi-feed-leak", "family": "xssi", "expected_severity": "medium", "title_pattern": "(?i)(xssi|cross.?site script inclusion|script inclusion)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "gruyere-path-traversal-file-read", "family": "path traversal", "expected_severity": "high", "title_pattern": "(?i)(path traversal|directory traversal|local file inclusion|\\blfi\\b)", "gap_task_ref": null},
+        {"id": "gruyere-path-traversal-code-disclosure", "family": "path traversal", "expected_severity": "high", "title_pattern": "(?i)(path traversal|directory traversal|source disclosure|file disclosure)", "gap_task_ref": null},
+        {"id": "gruyere-client-state-admin-cookie", "family": "client-state manipulation", "expected_severity": "high", "title_pattern": "(?i)(client.?state|cookie.*role|privilege|hidden field|tamper)", "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json"},
+        {"id": "gruyere-remote-code-execution-gtl", "family": "remote code execution", "expected_severity": "critical", "title_pattern": "(?i)(remote code execution|\\brce\\b|server.?side template|ssti|template injection)", "gap_task_ref": "codex/tasks/backlog-228-ssti-server-side-template-injection.json"},
+        {"id": "gruyere-sql-injection-query", "family": "sql injection", "expected_severity": "high", "title_pattern": "(?i)sql.*injection|injection.*sql", "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json"},
+        {"id": "gruyere-dos-expensive-query", "family": "denial of service", "expected_severity": "medium", "title_pattern": "(?i)(denial of service|\\bdos\\b|resource exhaustion|expensive query)", "gap_task_ref": null},
+        {"id": "gruyere-dos-large-upload", "family": "denial of service", "expected_severity": "medium", "title_pattern": "(?i)(denial of service|\\bdos\\b|large upload|resource exhaustion)", "gap_task_ref": null},
+        {"id": "gruyere-dos-storage-exhaustion", "family": "denial of service", "expected_severity": "medium", "title_pattern": "(?i)(denial of service|\\bdos\\b|storage exhaustion|resource exhaustion)", "gap_task_ref": null},
+        {"id": "gruyere-config-disclosure", "family": "configuration disclosure", "expected_severity": "medium", "title_pattern": "(?i)(configuration disclosure|information disclosure|debug|server information)", "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json"},
+        {"id": "gruyere-ajax-phishing", "family": "ajax phishing", "expected_severity": "medium", "title_pattern": "(?i)(ajax phishing|phishing|open redirect|ui redress)", "gap_task_ref": "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json"},
+        {"id": "gruyere-buffer-overflow-client", "family": "buffer overflow", "expected_severity": "medium", "title_pattern": "(?i)(buffer overflow|memory corruption)", "gap_task_ref": null},
+        {"id": "gruyere-stored-data-abuse", "family": "stored data abuse", "expected_severity": "medium", "title_pattern": "(?i)(stored data|insecure direct object|idor|data exposure)", "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json"}
+      ]
+    },
+    {
+      "id": "webgoat-local",
+      "name": "OWASP WebGoat Local",
+      "target": {
+        "type": "docker",
+        "image": "webgoat/webgoat:latest",
+        "container_port": 8080,
+        "health_path": "/WebGoat",
+        "url_path": "/WebGoat",
+        "startup_timeout_seconds": 180
+      },
+      "assessment_type": "Authenticated App",
+      "scan_profiles": ["passive-web-nuclei-audit", "active-web-zap-active"],
+      "modules": ["web_crawling", "auth_flows", "content_discovery", "nuclei_checks", "zap_active_checks", "business_logic_testing", "benchmark_fixture_review"],
+      "expected_vulnerabilities": [
+        {"id": "webgoat-auth-bypass", "family": "authentication bypass", "expected_severity": "high", "title_pattern": "(?i)(auth.*bypass|authentication bypass|missing authentication)", "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json"},
+        {"id": "webgoat-bypass-restrictions", "family": "authorization bypass", "expected_severity": "high", "title_pattern": "(?i)(bypass restriction|authorization bypass|access control)", "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json"},
+        {"id": "webgoat-client-side-filtering", "family": "client-side filtering", "expected_severity": "medium", "title_pattern": "(?i)(client.?side filtering|client.?side control|data exposure)", "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json"},
+        {"id": "webgoat-csrf", "family": "csrf", "expected_severity": "medium", "title_pattern": "(?i)(csrf|cross.?site request forgery)", "gap_task_ref": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json"},
+        {"id": "webgoat-insecure-deserialization", "family": "insecure deserialization", "expected_severity": "critical", "title_pattern": "(?i)(deserialization|deserialize|object injection)", "gap_task_ref": "codex/tasks/backlog-222-insecure-deserialization-runner.json"},
+        {"id": "webgoat-session-hijacking", "family": "session hijacking", "expected_severity": "high", "title_pattern": "(?i)(session hijack|session fixation|token replay)", "gap_task_ref": "codex/tasks/backlog-223-session-security-deep-analysis.json"},
+        {"id": "webgoat-html-tampering", "family": "html tampering", "expected_severity": "medium", "title_pattern": "(?i)(html tamper|hidden field|parameter tamper)", "gap_task_ref": "codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json"},
+        {"id": "webgoat-idor", "family": "idor", "expected_severity": "high", "title_pattern": "(?i)(idor|insecure direct object|object reference)", "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json"},
+        {"id": "webgoat-insecure-login", "family": "insecure login", "expected_severity": "medium", "title_pattern": "(?i)(insecure login|credentials.*http|password.*cleartext)", "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json"},
+        {"id": "webgoat-jwt-none", "family": "jwt", "expected_severity": "high", "title_pattern": "(?i)(jwt|json web token|none algorithm)", "gap_task_ref": "codex/tasks/backlog-216-jwt-vulnerability-runner.json"},
+        {"id": "webgoat-jwt-weak-secret", "family": "jwt", "expected_severity": "high", "title_pattern": "(?i)(jwt|weak.*secret|hmac)", "gap_task_ref": "codex/tasks/backlog-216-jwt-vulnerability-runner.json"},
+        {"id": "webgoat-missing-access-control", "family": "missing access controls", "expected_severity": "high", "title_pattern": "(?i)(missing access control|access control|authorization)", "gap_task_ref": "codex/tasks/backlog-218-idor-broken-access-control-runner.json"},
+        {"id": "webgoat-open-redirect", "family": "open redirect", "expected_severity": "medium", "title_pattern": "(?i)(open redirect|unvalidated redirect)", "gap_task_ref": "codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json"},
+        {"id": "webgoat-password-reset-predictable", "family": "password reset", "expected_severity": "high", "title_pattern": "(?i)(password reset|reset token|predictable token)", "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json"},
+        {"id": "webgoat-password-reset-host-header", "family": "password reset", "expected_severity": "high", "title_pattern": "(?i)(host header|password reset|reset link)", "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json"},
+        {"id": "webgoat-path-traversal", "family": "path traversal", "expected_severity": "high", "title_pattern": "(?i)(path traversal|directory traversal|local file inclusion|\\blfi\\b)", "gap_task_ref": null},
+        {"id": "webgoat-security-misconfiguration", "family": "security misconfiguration", "expected_severity": "medium", "title_pattern": "(?i)(security misconfiguration|misconfiguration|debug|default)", "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json"},
+        {"id": "webgoat-cookie-spoofing", "family": "cookie spoofing", "expected_severity": "high", "title_pattern": "(?i)(cookie spoof|cookie.*tamper|role.*cookie)", "gap_task_ref": "codex/tasks/backlog-223-session-security-deep-analysis.json"},
+        {"id": "webgoat-sql-injection-classic", "family": "sql injection", "expected_severity": "high", "title_pattern": "(?i)sql.*injection|injection.*sql", "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json"},
+        {"id": "webgoat-sql-injection-advanced", "family": "sql injection", "expected_severity": "high", "title_pattern": "(?i)sql.*injection|injection.*sql|advanced sql", "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json"},
+        {"id": "webgoat-sql-injection-blind", "family": "sql injection", "expected_severity": "high", "title_pattern": "(?i)(blind sql|sql.*injection|injection.*sql)", "gap_task_ref": "codex/tasks/backlog-211-pentest-depth-additional-tools.json"},
+        {"id": "webgoat-ssrf", "family": "ssrf", "expected_severity": "high", "title_pattern": "(?i)(ssrf|server.?side request forgery)", "gap_task_ref": "codex/tasks/backlog-221-ssrf-dedicated-runner.json"},
+        {"id": "webgoat-vulnerable-components", "family": "vulnerable components", "expected_severity": "medium", "title_pattern": "(?i)(vulnerable component|outdated component|dependency|cve-)", "gap_task_ref": "codex/tasks/backlog-217-vulnerable-components-dependency-check.json"},
+        {"id": "webgoat-xss-reflected", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|reflected)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "webgoat-xss-stored", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|stored)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "webgoat-xss-dom", "family": "xss", "expected_severity": "medium", "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|dom)", "gap_task_ref": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json"},
+        {"id": "webgoat-xxe", "family": "xxe", "expected_severity": "high", "title_pattern": "(?i)(xxe|xml external entity)", "gap_task_ref": "codex/tasks/backlog-214-xxe-injection-runner.json"},
+        {"id": "webgoat-cryptography", "family": "cryptography", "expected_severity": "medium", "title_pattern": "(?i)(weak crypto|cryptographic|insecure.*crypto|weak cipher)", "gap_task_ref": "codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json"},
+        {"id": "webgoat-insufficient-logging", "family": "insufficient logging", "expected_severity": "low", "title_pattern": "(?i)(insufficient logging|log injection|logging)", "gap_task_ref": "codex/tasks/backlog-231-insufficient-logging-detection.json"},
+        {"id": "webgoat-username-enumeration", "family": "authentication", "expected_severity": "medium", "title_pattern": "(?i)(username enumeration|user enumeration|different response)", "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json"},
+        {"id": "webgoat-bruteforce-protection", "family": "authentication", "expected_severity": "medium", "title_pattern": "(?i)(brute force|rate limit|account lockout)", "gap_task_ref": "codex/tasks/backlog-224-password-reset-authentication-flow-runner.json"},
+        {"id": "webgoat-cors-or-header-misconfig", "family": "security headers", "expected_severity": "medium", "title_pattern": "(?i)(cors|content security policy|x-frame-options|security header)", "gap_task_ref": "codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json"}
+      ]
+    }
+  ]
+}

@@ -371,6 +371,72 @@ def assert_runtime_prerequisites(*, scenario: dict[str, Any], target: dict[str, 
 def activate_runtime_target(target: dict[str, Any]):
     prepared = deepcopy(target)
     fixture = prepared.get("runtime_fixture")
+    if fixture == "docker_gruyere":
+        template_url = _primary_scope_url(prepared)
+        image = str(prepared.get("runtime_fixture_image") or "karthequian/gruyere:latest")
+        app_container_port = int(prepared.get("runtime_fixture_container_port") or 8008)
+        startup_timeout = float(prepared.get("runtime_fixture_startup_timeout_seconds") or 90.0)
+        container_name = f"aegispt-gruyere-{uuid4().hex[:12]}"
+        host = "127.0.0.1"
+        app_port = _reserve_loopback_port()
+
+        subprocess.run(
+            ["docker", "rm", "-f", container_name],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-p",
+                    f"{host}:{app_port}:{app_container_port}",
+                    image,
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else str(exc)
+            raise RuntimeError(f"failed to launch Gruyere runtime fixture: {stderr}") from exc
+
+        resolved_url = _rewrite_scope_url(template_url, host=host, port=app_port)
+        _wait_for_http_ready(resolved_url, timeout_seconds=startup_timeout)
+        scope = deepcopy(prepared.get("scope") or {})
+        scope["urls"] = [resolved_url]
+        prepared["scope"] = scope
+        prepared.setdefault("runtime_fixture_context", {})
+        prepared["runtime_fixture_context"].update(
+            {
+                "fixture": fixture,
+                "container_name": container_name,
+                "resolved_url": resolved_url,
+                "runtime_image": image,
+            }
+        )
+        _append_target_note(
+            prepared,
+            f"Auto-spawned Gruyere fixture resolved to {resolved_url} with an isolated loopback port.",
+        )
+
+        try:
+            yield prepared
+        finally:
+            subprocess.run(
+                ["docker", "rm", "-f", container_name],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        return
+
     if fixture == "docker_webgoat":
         template_url = _primary_scope_url(prepared)
         image = str(prepared.get("runtime_fixture_image") or "webgoat/webgoat")
