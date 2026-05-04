@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,11 +17,13 @@ from workers.runners.base.contracts import RunnerRequest
 from workers.runners.web_depth.runner import (
     CONTENT_DISCOVERY_RESULTS_ARTIFACT_NAME,
     EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME,
+    JWT_RESULTS_ARTIFACT_NAME,
     NIKTO_RESULTS_ARTIFACT_NAME,
     SQLMAP_RESULTS_ARTIFACT_NAME,
     XXE_RESULTS_ARTIFACT_NAME,
     execute_content_discovery,
     execute_external_osint_recon,
+    execute_jwt_probe,
     execute_nikto_scan,
     execute_sqlmap_confirmation,
     execute_xxe_probe,
@@ -26,9 +31,27 @@ from workers.runners.web_depth.runner import (
 
 
 def test_web_depth_tools_are_supported() -> None:
-    assert {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe"}.issubset(
-        SUPPORTED_TOOLS
-    )
+    assert {
+        "content-discovery",
+        "nikto",
+        "sqlmap",
+        "external-osint",
+        "xxe-probe",
+        "jwt-probe",
+    }.issubset(SUPPORTED_TOOLS)
+
+
+def _b64url(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
+def _test_jwt(payload: dict[str, Any], *, secret: str = "secret", alg: str = "HS256") -> str:
+    header = {"alg": alg, "typ": "JWT"}
+    encoded_header = _b64url(json.dumps(header, separators=(",", ":"), sort_keys=True).encode())
+    encoded_payload = _b64url(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode())
+    signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")
+    digest = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    return f"{encoded_header}.{encoded_payload}.{_b64url(digest)}"
 
 
 def test_content_discovery_produces_hidden_endpoint_finding(tmp_path: Path) -> None:
@@ -185,6 +208,130 @@ def test_xxe_probe_blocks_xml_endpoint_outside_scope(xxe_fixture_server: str) ->
             [endpoint],
             scope_allowlist={"urls": [f"{xxe_fixture_server}/app/"]},
             xml_endpoints=[{"url": outside, "content_type": "application/xml"}],
+        )
+
+
+@pytest.fixture
+def jwt_fixture_server() -> str:
+    captured_token = _test_jwt({"sub": "2", "role": "user", "admin": False})
+
+    class Handler(BaseHTTPRequestHandler):
+        def _read_token(self) -> str:
+            auth_header = self.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                return auth_header.removeprefix("Bearer ").strip()
+            return ""
+
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path == "/app/":
+                payload = (
+                    "<html><script src=\"/app/app.js\"></script>"
+                    f"<body data-token=\"{captured_token}\">ok</body></html>"
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            if self.path == "/app/app.js":
+                payload = f"window.jwt='{captured_token}';".encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/javascript")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            if self.path == "/app/none":
+                token = self._read_token()
+                parts = token.split(".")
+                header = json.loads(base64.urlsafe_b64decode(parts[0] + "==").decode()) if len(parts) == 3 else {}
+                if header.get("alg") == "none" and len(parts) == 3 and parts[2] == "":
+                    payload = b"jwt-accepted-none"
+                else:
+                    payload = b"jwt-rejected"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            if self.path == "/app/admin":
+                token = self._read_token()
+                parts = token.split(".")
+                payload = json.loads(base64.urlsafe_b64decode(parts[1] + "==").decode())
+                if payload.get("role") == "admin" or payload.get("admin") is True:
+                    body = b"admin-panel-ready"
+                else:
+                    body = b"not-admin"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            self.send_response(404)
+            self.end_headers()
+
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address
+    try:
+        yield f"http://{host}:{port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_jwt_probe_detects_weak_secret_none_and_claims_against_local_fixture(
+    jwt_fixture_server: str,
+) -> None:
+    execution = execute_jwt_probe(
+        [f"{jwt_fixture_server}/app/"],
+        scope_allowlist={"urls": [f"{jwt_fixture_server}/app/"]},
+        replay_contexts=[
+            {
+                "url": f"{jwt_fixture_server}/app/none",
+                "method": "GET",
+                "placement": "authorization_bearer",
+                "success_markers": ["jwt-accepted-none"],
+            },
+            {
+                "url": f"{jwt_fixture_server}/app/admin",
+                "method": "GET",
+                "placement": "authorization_bearer",
+                "success_markers": ["admin-panel-ready"],
+            },
+        ],
+    )
+
+    assert execution.tool == "jwt-probe"
+    assert execution.exit_code == 0
+    assert execution.artifacts[0].name == JWT_RESULTS_ARTIFACT_NAME
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+    titles = {finding["title"] for finding in payload["findings"]}
+    assert "JWT Weak Secret Cracked" in titles
+    assert "JWT None Algorithm Accepted" in titles
+    assert "JWT Claims Manipulation Possible" in titles
+    assert payload["summary"]["token_count"] == 1
+    assert payload["safety"]["raw_tokens_stored"] is False
+    assert payload["safety"]["replay_requires_explicit_context"] is True
+
+
+def test_jwt_probe_blocks_replay_endpoint_outside_scope(jwt_fixture_server: str) -> None:
+    with pytest.raises(ValueError, match="JWT replay endpoint outside scope"):
+        execute_jwt_probe(
+            [f"{jwt_fixture_server}/app/"],
+            scope_allowlist={"urls": [f"{jwt_fixture_server}/app/"]},
+            replay_contexts=[
+                {
+                    "url": f"{jwt_fixture_server}/admin",
+                    "success_markers": ["accepted"],
+                }
+            ],
         )
 
 

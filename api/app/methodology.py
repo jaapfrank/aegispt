@@ -75,6 +75,7 @@ TOOL_WSTG_AREAS: Final[dict[str, tuple[str, ...]]] = {
     "nikto": ("Configuration and Deployment Management Testing", "Information Gathering"),
     "sqlmap": ("Input Validation Testing",),
     "xxe-probe": ("Input Validation Testing",),
+    "jwt-probe": ("Authentication Testing", "Session Management Testing"),
     "external-osint": ("Information Gathering",),
     "zap": (
         "Information Gathering",
@@ -116,6 +117,7 @@ DEFAULT_CONTROL_FAMILY_BY_TOOL: Final[dict[str, str]] = {
     "nikto": "configuration",
     "sqlmap": "input_validation",
     "xxe-probe": "input_validation",
+    "jwt-probe": "authentication",
     "external-osint": "information_gathering",
     "zap": "configuration",
     "semgrep": "secure_code_review",
@@ -469,6 +471,7 @@ def derive_finding_methodology(
             "nikto": "web-configuration",
             "sqlmap": "sqli-confirmation",
             "xxe-probe": "xxe-validation",
+            "jwt-probe": "jwt-validation",
             "external-osint": "passive-osint",
             "zap": "dynamic-analysis",
             "semgrep": "static-analysis",

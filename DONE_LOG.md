@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-04: completed backlog-216 `JWT vulnerability runner`:
+  - rationale:
+    - benchmark coverage showed AegisPT had no first-class JWT validation lane for modern web/API authentication risks such as none-algorithm acceptance, weak HMAC secrets, key-material algorithm confusion, and authorized claims manipulation checks
+    - the active task required a bounded active runner without broadening auth testing, bypassing replay authorization, or storing raw tokens
+  - implementation:
+    - added `jwt-probe` to the shared web-depth runner module with JWT discovery from approved responses, in-scope JavaScript files, explicit evidence records, and explicit token inputs
+    - added custom Python JWT parsing/signing/checking logic so no uncontrolled `jwt_tool` installation is needed
+    - added bounded weak HMAC secret validation with a 24-candidate maximum and no raw secret/token storage in artifacts
+    - added explicit replay-context-only checks for `alg=none`, RS/PS/ES-to-HS256 algorithm confusion when public key material is supplied, and claims manipulation when a known weak HMAC secret is found
+    - added in-scope JWKS checks for private key exposure
+    - registered `jwt-probe` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI proposal allowlists, methodology mapping, an `active-web-jwt-probe` run profile, and the Tool Library
+  - files:
+    - `workers/runners/web_depth/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-216-jwt-vulnerability-runner-20260504.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_web_depth_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_list_run_profiles -q` passed
+    - `source .venv/bin/activate && python -m py_compile workers/runners/web_depth/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed during validation
+    - `git diff --check` passed before administrative updates
+    - `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "jwt-probe|JWT Probe"` confirmed the live-served Tool Library module contains the JWT entry
+  - evidence:
+    - `codex/results/backlog-216-jwt-vulnerability-runner-20260504.md`
+  - remaining risks:
+    - no external target or public WebGoat instance was actively tested during build-lane validation
+    - algorithm-confusion proof requires explicit public key material and an approved replay context
+    - none-algorithm and claims-manipulation positives require an explicit in-scope replay context
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-217 `Vulnerable components runner`
+
 - 2026-05-04: completed backlog-214 `XXE injection runner`:
   - rationale:
     - benchmark coverage showed AegisPT had no first-class XXE validation lane beyond generic ZAP coverage, leaving a material OWASP input-validation gap for web/API assessments

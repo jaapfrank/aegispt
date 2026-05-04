@@ -128,6 +128,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Injection confirmation"],
   },
   {
+    id: "jwt-probe",
+    name: "JWT Probe",
+    category: "Authentication",
+    tier: "active",
+    description: "Discovers JWT usage and validates none-algorithm, bounded weak-secret, explicit key-material algorithm-confusion, and authorized replay-only claims risks.",
+    findings: ["JWT None Algorithm Accepted", "JWT Weak Secret Cracked", "JWT Algorithm Confusion", "JWT Claims Manipulation Possible"],
+    prerequisites: ["Approved web or API target", "Active approval", "Explicit replay context for token mutation acceptance checks"],
+    chains: ["External Web", "Authenticated App", "API Security"],
+  },
+  {
     id: "external-osint",
     name: "Shodan / Censys",
     category: "Discovery",

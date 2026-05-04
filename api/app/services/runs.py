@@ -604,6 +604,35 @@ def xxe_runner_params_from_configuration(
     return result
 
 
+def jwt_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("jwt")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in (
+        "evidence_records",
+        "jwt_tokens",
+        "replay_contexts",
+        "public_key_materials",
+        "jwks_endpoints",
+        "weak_secrets",
+    ):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in ("evidence_records", "jwt_tokens", "replay_contexts", "jwks_endpoints"):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = value
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def mobile_android_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1567,6 +1596,24 @@ def validate_xxe_run_configuration(
                 raise ValueError(f"configured XML endpoint {target} is outside the approved engagement scope")
 
 
+def validate_jwt_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(scope=scope, configuration=configuration, tool="jwt-probe")
+    params = jwt_runner_params_from_configuration(configuration)
+    for endpoint in params.get("jwks_endpoints", []):
+        if endpoint and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(endpoint)):
+            raise ValueError(f"configured JWKS endpoint {endpoint} is outside the approved engagement scope")
+    for item in params.get("replay_contexts", []):
+        if not isinstance(item, dict):
+            continue
+        endpoint = item.get("url") or item.get("target") or item.get("endpoint")
+        if endpoint and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(endpoint)):
+            raise ValueError(f"configured JWT replay endpoint {endpoint} is outside the approved engagement scope")
+
+
 def validate_mobile_android_run_configuration(
     *,
     scope: Scope,
@@ -2183,7 +2230,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(url_targets)
         return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
 
-    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe"}:
+    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe", "jwt-probe"}:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
             return list(url_targets)
@@ -2407,6 +2454,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     content_discovery_params = content_discovery_runner_params_from_configuration(run_configuration)
     sqlmap_params = sqlmap_runner_params_from_configuration(run_configuration)
     xxe_params = xxe_runner_params_from_configuration(run_configuration)
+    jwt_params = jwt_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2462,6 +2510,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "xxe-probe":
             validate_xxe_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "jwt-probe":
+            validate_jwt_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -2733,6 +2786,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in xxe_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "jwt-probe":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in jwt_params.items()
                         if value not in (None, [], {})
                     }
                 )

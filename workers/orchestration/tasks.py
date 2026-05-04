@@ -151,6 +151,7 @@ from workers.runners.wifi_survey.runner import (
 from workers.runners.web_depth.runner import (
     execute_content_discovery,
     execute_external_osint_recon,
+    execute_jwt_probe,
     execute_nikto_scan,
     execute_sqlmap_confirmation,
     execute_xxe_probe,
@@ -179,6 +180,7 @@ SUPPORTED_TOOLS = {
     "impacket-lateral",
     "iot-default-creds",
     "ipv6-discovery",
+    "jwt-probe",
     "ldap-enum",
     "llm-probe",
     "metasploit",
@@ -1046,6 +1048,42 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "jwt-probe":
+        return execute_jwt_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            evidence_records=(
+                request.params.get("evidence_records")
+                if isinstance(request.params.get("evidence_records"), list)
+                else []
+            ),
+            jwt_tokens=(
+                request.params.get("jwt_tokens")
+                if isinstance(request.params.get("jwt_tokens"), list)
+                else []
+            ),
+            replay_contexts=(
+                request.params.get("replay_contexts")
+                if isinstance(request.params.get("replay_contexts"), list)
+                else []
+            ),
+            public_key_materials=(
+                request.params.get("public_key_materials")
+                if isinstance(request.params.get("public_key_materials"), list)
+                else []
+            ),
+            jwks_endpoints=(
+                request.params.get("jwks_endpoints")
+                if isinstance(request.params.get("jwks_endpoints"), list)
+                else []
+            ),
+            weak_secrets=(
+                request.params.get("weak_secrets")
+                if isinstance(request.params.get("weak_secrets"), list)
+                else []
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1682,6 +1720,14 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         return (
             "$ xxe-probe --read-only-file-uri file:///etc/passwd "
             f"--approved-endpoints {endpoint_count or len(normalized_targets)} --approved-scope {target_label}{extra}"
+        )
+    if tool == "jwt-probe":
+        context_count = len(effective_params.get("replay_contexts") or []) if isinstance(effective_params.get("replay_contexts"), list) else 0
+        token_count = len(effective_params.get("jwt_tokens") or []) if isinstance(effective_params.get("jwt_tokens"), list) else 0
+        return (
+            "$ jwt-probe --bounded-weak-secrets --no-token-storage "
+            f"--provided-tokens {token_count} --replay-contexts {context_count} "
+            f"--approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":
         sources = []

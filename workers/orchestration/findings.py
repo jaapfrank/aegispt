@@ -44,6 +44,7 @@ from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
 from workers.runners.web_depth.runner import (
     CONTENT_DISCOVERY_RESULTS_ARTIFACT_NAME,
     EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME,
+    JWT_RESULTS_ARTIFACT_NAME,
     NIKTO_RESULTS_ARTIFACT_NAME,
     SQLMAP_RESULTS_ARTIFACT_NAME,
     XXE_RESULTS_ARTIFACT_NAME,
@@ -505,7 +506,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -516,6 +517,7 @@ def extract_findings(
                 SQLMAP_RESULTS_ARTIFACT_NAME,
                 EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME,
                 XXE_RESULTS_ARTIFACT_NAME,
+                JWT_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

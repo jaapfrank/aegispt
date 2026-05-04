@@ -445,6 +445,7 @@ def test_list_run_profiles(client) -> None:
         "active-llm-application-probe",
         "active-offline-hash-crack",
         "active-web-content-discovery",
+        "active-web-jwt-probe",
         "active-web-safe",
         "active-web-sqlmap-confirmation",
         "active-web-xxe-probe",

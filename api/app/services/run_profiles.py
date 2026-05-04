@@ -890,6 +890,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-jwt-probe",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated JWT validation for approved web/API targets, covering token discovery, none algorithm acceptance, bounded weak-secret checks, explicit key-material algorithm confusion, and authorized replay-only claims manipulation.",
+            "required_approvals": 1,
+            "tools": ["jwt-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "weak_secret_bound": 24,
+            "stores_raw_tokens": False,
+            "requires_explicit_replay_context": True,
+            "unrelated_user_token_generation": False,
+        },
+    },
+    {
         "name": "passive-external-osint-recon",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {
