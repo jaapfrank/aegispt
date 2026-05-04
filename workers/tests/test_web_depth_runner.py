@@ -40,6 +40,7 @@ def test_web_depth_tools_are_supported() -> None:
         "external-osint",
         "xxe-probe",
         "jwt-probe",
+        "ssrf-probe",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 

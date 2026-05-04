@@ -141,6 +141,7 @@ from workers.runners.smart_home.runner import (
     SMART_HOME_RESULTS_ARTIFACT_NAME,
     execute_smart_home_audit,
 )
+from workers.runners.ssrf_probe.runner import execute_ssrf_probe
 from workers.runners.snmp_enum.runner import (
     SNMP_ENUM_RESULTS_ARTIFACT_NAME,
     execute_snmp_enumeration,
@@ -199,6 +200,7 @@ SUPPORTED_TOOLS = {
     "responder",
     "semgrep",
     "smart-home",
+    "ssrf-probe",
     "snmp-enum",
     "sqlmap",
     "vuln-components",
@@ -1189,6 +1191,55 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "ssrf-probe":
+        return execute_ssrf_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            request_contexts=(
+                request.params.get("request_contexts")
+                if isinstance(request.params.get("request_contexts"), list)
+                else []
+            ),
+            header_contexts=(
+                request.params.get("header_contexts")
+                if isinstance(request.params.get("header_contexts"), list)
+                else []
+            ),
+            candidate_paths=(
+                request.params.get("candidate_paths")
+                if isinstance(request.params.get("candidate_paths"), list)
+                else []
+            ),
+            oob_confirmation_refs=(
+                request.params.get("oob_confirmation_refs")
+                if isinstance(request.params.get("oob_confirmation_refs"), list)
+                else []
+            ),
+            callback_url=(
+                str(request.params.get("callback_url")).strip()
+                if request.params.get("callback_url")
+                else None
+            ),
+            callback_base_url=(
+                str(request.params.get("callback_base_url")).strip()
+                if request.params.get("callback_base_url")
+                else None
+            ),
+            callback_token=str(request.params.get("callback_token") or "aegispt-ssrf-oob"),
+            internal_service_urls=(
+                request.params.get("internal_service_urls")
+                if isinstance(request.params.get("internal_service_urls"), list)
+                else []
+            ),
+            cloud_metadata_probe_enabled=bool(request.params.get("cloud_metadata_probe_enabled")),
+            cloud_hosted=bool(request.params.get("cloud_hosted")),
+            cloud_provider=(
+                str(request.params.get("cloud_provider")).strip()
+                if request.params.get("cloud_provider")
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1856,6 +1907,18 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             "$ xss-extended --file-upload --ajax-json --xssi "
             f"--upload-contexts {upload_count} --ajax-contexts {ajax_count} "
             f"--xssi-contexts {xssi_count} --approved-scope {target_label}{extra}"
+        )
+    if tool == "ssrf-probe":
+        request_count = len(effective_params.get("request_contexts") or []) if isinstance(effective_params.get("request_contexts"), list) else 0
+        header_count = len(effective_params.get("header_contexts") or []) if isinstance(effective_params.get("header_contexts"), list) else 0
+        internal_count = len(effective_params.get("internal_service_urls") or []) if isinstance(effective_params.get("internal_service_urls"), list) else 0
+        cloud_enabled = "yes" if effective_params.get("cloud_metadata_probe_enabled") else "no"
+        return (
+            "$ ssrf-probe --url-params --forwarded-headers --governed-oob "
+            f"--request-contexts {request_count or len(normalized_targets)} "
+            f"--header-contexts {header_count or len(normalized_targets)} "
+            f"--approved-internal-urls {internal_count} --cloud-metadata {cloud_enabled} "
+            f"--approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":
         sources = []

@@ -1,5 +1,49 @@
 # Done Log
 
+- 2026-05-05: completed backlog-221 `SSRF dedicated runner: server-side request forgery detection via OOB callbacks and internal service probing`:
+  - rationale:
+    - benchmark coverage showed AegisPT needed first-class SSRF coverage beyond baseline ZAP scanner behavior: blind OOB, header-based SSRF, approved internal service checks, and cloud metadata exposure
+    - the active task required active approval, structured findings, safe local proof, and registration across operator surfaces
+  - implementation:
+    - added `ssrf-probe` as a dedicated active runner that enforces approved web-root scope before target execution
+    - implemented bounded URL-parameter probes, Host/forwarding/Referer header probes, governed OOB confirmation handling, approved internal-service payload checks, cloud metadata probes gated by explicit cloud-hosted context, and protocol payload checks
+    - emitted `ssrf-results.json` with structured findings, replay metadata, check records, summary counts, and safety metadata
+    - registered `ssrf-probe` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-ssrf-probe` run profile, and the Tool Library
+    - added queued follow-up backlog-241 for operator-authorized Google Gruyere XSS Extended validation using official codelab-derived contexts; this did not change the active task or run active Gruyere scans in this slice
+  - files:
+    - `workers/runners/ssrf_probe/runner.py`
+    - `workers/runners/ssrf_probe/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_ssrf_probe_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-221-ssrf-probe-runner-20260505.md`
+    - `codex/tasks/backlog-241-authorized-gruyere-xss-extended-validation.json`
+    - `TASK_QUEUE.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/ssrf_probe/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_ssrf_probe_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_ssrf_probe_profile_requires_approval_and_queues_task -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `git diff --check` passed
+    - `curl -sS --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -sS --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "ssrf-probe|SSRF Probe"` confirmed the live-served Tool Library module contains the SSRF Probe entry
+  - evidence:
+    - `codex/results/backlog-221-ssrf-probe-runner-20260505.md`
+  - remaining risks:
+    - no public WebGoat target was actively tested during build-lane validation; proof is from deterministic safe fixtures
+    - OOB SSRF confirmation depends on governed callback evidence or supplied interaction references
+    - cloud metadata probes remain explicitly gated by cloud-hosted context and do not imply every provider-specific path is covered
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-222 `Insecure deserialization runner`
+
 - 2026-05-04: completed backlog-220 `XSS completeness: dedicated file-upload XSS, AJAX/JSON XSS, and XSSI detection`:
   - rationale:
     - benchmark coverage showed AegisPT needed first-class coverage for three XSS variants that baseline ZAP coverage can miss: unrestricted same-origin HTML upload, AJAX/JSON response-context reflection, and XSSI-sensitive JSON exposure

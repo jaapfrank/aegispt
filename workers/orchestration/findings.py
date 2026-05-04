@@ -40,6 +40,7 @@ from workers.runners.playwright_web.runner import PLAYWRIGHT_WEB_RESULTS_ARTIFAC
 from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
 from workers.runners.semgrep.runner import normalize_semgrep_rule_id
 from workers.runners.smart_home.runner import SMART_HOME_RESULTS_ARTIFACT_NAME
+from workers.runners.ssrf_probe.runner import SSRF_RESULTS_ARTIFACT_NAME
 from workers.runners.snmp_enum.runner import SNMP_ENUM_RESULTS_ARTIFACT_NAME
 from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
 from workers.runners.xss_extended.runner import XSS_EXTENDED_RESULTS_ARTIFACT_NAME
@@ -509,7 +510,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended", "ssrf-probe"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -524,6 +525,7 @@ def extract_findings(
                 VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
                 IDOR_BAC_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
+                SSRF_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

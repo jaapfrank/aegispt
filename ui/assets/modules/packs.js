@@ -168,6 +168,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "API Security"],
   },
   {
+    id: "ssrf-probe",
+    name: "SSRF Probe",
+    category: "Web",
+    tier: "active",
+    description: "Validates server-side request forgery with URL parameters, Host and forwarding headers, governed OOB callback evidence, approved internal-service URLs, and explicitly enabled cloud metadata checks.",
+    findings: ["SSRF - Blind (OOB Confirmed)", "SSRF - Internal Service Accessible", "SSRF - Cloud Metadata Exposed"],
+    prerequisites: ["Approved web or API root", "Active approval", "Governed OOB callback context or approved internal/cloud metadata context"],
+    chains: ["External Web", "Authenticated App", "API Security"],
+  },
+  {
     id: "external-osint",
     name: "Shodan / Censys",
     category: "Discovery",

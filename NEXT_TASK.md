@@ -2,42 +2,42 @@
 
 ## Title
 
-SSRF dedicated runner: server-side request forgery detection via OOB callbacks and internal service probing
+Insecure deserialization runner: detect vulnerable Java, PHP, Python, and .NET deserialization endpoints
 
 ## Promoted From
 
-`codex/tasks/backlog-221-ssrf-dedicated-runner.json`
+`codex/tasks/backlog-222-insecure-deserialization-runner.json`
 
 ## Goal
 
-Add the queued SSRF dedicated capability described in `codex/tasks/backlog-221-ssrf-dedicated-runner.json`.
+Add the queued deserialization dedicated capability described in `codex/tasks/backlog-222-insecure-deserialization-runner.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-221-ssrf-dedicated-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-222-insecure-deserialization-runner.json`.
 
 Expected slice:
 
-- detect parameter-based SSRF in common URL-consuming parameters
-- detect header-based SSRF candidates for Host and forwarding headers
-- support blind/OOB SSRF evidence through a governed callback context
-- detect approved internal service or cloud-metadata exposure only within the task safety constraints
-- emit structured findings for blind SSRF, internal service access, and cloud metadata exposure
+- detect Java serialized-object markers in request parameters, cookies, or headers
+- support Java URLDNS-only OOB evidence without command execution payloads
+- detect PHP object injection through bounded serialized-string probes and error analysis
+- detect Python pickle acceptance signals from explicit evidence or approved request contexts
+- detect unsigned or unencrypted .NET ViewState indicators
+- emit structured findings for Java URLDNS-confirmed, PHP object-injection, Python pickle, and ViewState weaknesses
 - expose the capability through the supported execution registry and operator surfaces required by the package
 - keep validation safe and local unless an explicitly authorized target fixture is present
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Add only the SSRF capability from the task package.
-- Do not change existing ZAP scanner configuration.
+- Add only the deserialization capability from the task package.
 - Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- No SSRF-to-RCE escalation or internal pivoting.
+- Detection only: Java ysoserial payloads must be URLDNS/DNS-callback style only.
+- No CommonsCollections or other RCE gadget chains.
 - No live target actions outside safe/local/explicitly authorized validation.
-- Never use real internal IPs outside the engagement's approved CIDR.
-- Cloud metadata probes only when the target is confirmed cloud-hosted and the task safety controls allow it.
+- No exfiltration or command execution via deserialization.
 
 ## Validation
 
@@ -47,7 +47,7 @@ Expected slice:
 
 ## Acceptance
 
-- SSRF probe is registered in supported tools and requires active approval.
-- Parameter, header, OOB, internal service, and cloud metadata variants are covered by tests and safe local fixture evidence.
-- SSRF findings are structured and evidence-first.
+- Deserialization probe is registered in supported tools and requires active approval.
+- Java URLDNS, PHP object injection, Python pickle, and .NET ViewState variants are covered by tests and safe local fixture evidence.
+- Deserialization findings are structured and evidence-first.
 - Existing runner/API tests do not regress.

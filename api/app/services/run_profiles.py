@@ -936,6 +936,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-ssrf-probe",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated SSRF validation for approved web roots covering URL parameters, Host/forwarding headers, governed OOB callback evidence, approved internal service URLs, and explicitly enabled cloud metadata probes.",
+            "required_approvals": 1,
+            "tools": ["ssrf-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_governed_oob_context": True,
+            "cloud_metadata_requires_explicit_cloud_context": True,
+            "ssrf_to_rce_escalation": False,
+            "internal_pivoting": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

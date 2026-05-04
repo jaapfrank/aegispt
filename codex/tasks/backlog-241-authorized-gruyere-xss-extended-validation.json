@@ -1,0 +1,119 @@
+{
+  "id": "backlog-241-authorized-gruyere-xss-extended-validation",
+  "task_file": "codex/tasks/backlog-241-authorized-gruyere-xss-extended-validation.json",
+  "task_type": "validation_hardening",
+  "title": "Authorized Gruyere XSS Extended validation: derive contexts from official codelab and prove detection on approved instance root",
+  "goal": "Use the official Google Gruyere codelab documentation and source guidance to derive the concrete XSS/XSSI validation contexts that backlog-220 should have exercised, then run the existing xss-extended capability only against the explicitly authorized Gruyere instance root https://google-gruyere.appspot.com/482338906867472456097470474631954304306/. Produce evidence showing whether file-upload XSS, AJAX/JSON XSS, and XSSI are detected on the real lab target; if the current runner needs narrow context-discovery or parsing repair to detect those documented Gruyere cases, implement only that repair.",
+  "scope": "Follow-up to completed backlog-220. The operator explicitly authorized the hosted Gruyere instance root https://google-gruyere.appspot.com/482338906867472456097470474631954304306/ for this validation. Official Gruyere documentation confirms per-instance sandboxing, XSS challenges, File Upload XSS, Stored/Reflected XSS via AJAX, and XSSI via feed.gtl. This task exists because backlog-220 was validated with deterministic fixtures but did not use the official Gruyere documentation or the authorized hosted instance.",
+  "status": "queued",
+  "generated_by": "operator-authorized-gruyere-follow-up-2026-05-05",
+  "generation_reason": "The operator correctly noted that backlog-220 should have used https://google-gruyere.appspot.com/ as the benchmark documentation source and then validated against the explicitly authorized Gruyere instance root.",
+  "source_context": {
+    "queue_index": 241,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",
+      "codex/results/backlog-220-xss-extended-runner-20260504.md",
+      "https://google-gruyere.appspot.com/",
+      "https://google-gruyere.appspot.com/part1",
+      "https://google-gruyere.appspot.com/part2",
+      "https://google-gruyere.appspot.com/part3"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "authorized_target_root": "https://google-gruyere.appspot.com/482338906867472456097470474631954304306/",
+    "broader_theme": "benchmark_truth_and_real_lab_validation",
+    "source_documents": [
+      "workers/runners/xss_extended/runner.py",
+      "workers/orchestration/tasks.py",
+      "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
+      "codex/results/backlog-220-xss-extended-runner-20260504.md",
+      "https://google-gruyere.appspot.com/",
+      "https://google-gruyere.appspot.com/part1",
+      "https://google-gruyere.appspot.com/part2",
+      "https://google-gruyere.appspot.com/part3"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Validate only the three backlog-220 variants: file-upload XSS, AJAX/JSON XSS, and XSSI. Do not add unrelated Gruyere vulnerability coverage in this task.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "live_target_actions": "Allowed only for the explicitly authorized Gruyere instance root and only for the documented XSS/XSSI validation steps in this task.",
+    "authorized_root_only": "All requests must stay under https://google-gruyere.appspot.com/482338906867472456097470474631954304306/. Do not test https://google-gruyere.appspot.com/ outside that instance root except read-only codelab/source documentation pages.",
+    "destructive_actions": "Do not call resetbutton, quit, overload, or denial-of-service endpoints. Do not attempt code execution, path traversal, SQL injection, or account takeover in this task.",
+    "approval_and_roe": "Use the existing active approval/run safety model. Do not bypass approvals, scope, ROE, deployment, runtime binding, credential gates, or kill switch."
+  },
+  "success_criteria": [
+    "Official Gruyere documentation/source pages are cited in the evidence with the concrete contexts used for file-upload XSS, AJAX/JSON XSS, and XSSI.",
+    "A safe run or direct runner validation is executed against only https://google-gruyere.appspot.com/482338906867472456097470474631954304306/.",
+    "All outbound validation requests are logged or summarized to prove they stayed under the authorized instance root.",
+    "The evidence states whether xss-extended detects each of the three expected Gruyere variants and includes structured finding output or an honest miss reason.",
+    "If a narrow runner repair is required, focused tests are added or updated and the repair remains limited to backlog-220 variant detection.",
+    "No existing runner/API tests regress."
+  ],
+  "likely_touched_files": [
+    "workers/runners/xss_extended/runner.py",
+    "workers/tests/test_xss_extended_runner.py",
+    "api/tests/test_pentest_depth_registration.py",
+    "codex/results/backlog-241-authorized-gruyere-xss-extended-validation-20260505.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "Existing ZAP runner configuration",
+    "Approval gate bypasses",
+    "Scope/ROE enforcement",
+    "Unrelated Gruyere vulnerability families",
+    "resetbutton or DoS endpoints"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest workers/tests/test_xss_extended_runner.py api/tests/test_pentest_depth_registration.py -q",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "The authorized Gruyere instance root is the only live target root used for validation.",
+      "The evidence includes official Gruyere documentation-derived contexts and real-lab results for all three backlog-220 variants.",
+      "Any miss is recorded as product truth with a bounded next action rather than hidden behind green fixture tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Running all Gruyere vulnerabilities",
+    "Changing the active task order silently",
+    "Testing outside the authorized instance root",
+    "DoS, code execution, path traversal, SQL injection, or account takeover"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
