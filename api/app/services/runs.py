@@ -23,6 +23,7 @@ from api.app.models import (
     Scope,
     SecretRef,
     Task,
+    ThreatIntelRecord,
 )
 from api.app.policy.engine import execution_kill_switch_enabled, normalize_profile_limits
 from api.app.services.audit import write_audit_event
@@ -628,6 +629,31 @@ def jwt_runner_params_from_configuration(
         value = validation.get(field_name)
         if isinstance(value, list) and value and field_name not in result:
             result[field_name] = value
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
+def vulnerable_components_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("vulnerable_components")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+
+    result: dict[str, Any] = {}
+    if isinstance(settings.get("dependency_paths"), list):
+        result["dependency_paths"] = [
+            str(item).strip()
+            for item in settings["dependency_paths"]
+            if str(item).strip()
+        ]
+    if isinstance(settings.get("local_cve_records"), list):
+        result["local_cve_records"] = [
+            item
+            for item in settings["local_cve_records"]
+            if isinstance(item, dict)
+        ]
     if isinstance(settings.get("timeout_seconds"), (int, float)):
         result["timeout_seconds"] = float(settings["timeout_seconds"])
     return result
@@ -1614,6 +1640,38 @@ def validate_jwt_run_configuration(
             raise ValueError(f"configured JWT replay endpoint {endpoint} is outside the approved engagement scope")
 
 
+def validate_vulnerable_components_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="vuln-components",
+    )
+
+
+def local_cve_records_for_vulnerable_components(session: Session, *, limit: int = 500) -> list[dict[str, Any]]:
+    records = session.scalars(
+        select(ThreatIntelRecord).order_by(ThreatIntelRecord.advisory_updated_at.desc()).limit(limit)
+    ).all()
+    return [
+        {
+            "source": record.source,
+            "advisory_id": record.advisory_id,
+            "title": record.title,
+            "summary": record.summary,
+            "affected_products": list(record.affected_products_json or []),
+            "affected_versions": list(record.affected_versions_json or []),
+            "product_match_hints": list(record.product_match_hints_json or []),
+            "severity": record.severity,
+            "references": list(record.references_json or []),
+        }
+        for record in records
+    ]
+
+
 def validate_mobile_android_run_configuration(
     *,
     scope: Scope,
@@ -2230,7 +2288,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(url_targets)
         return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
 
-    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe", "jwt-probe"}:
+    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe", "jwt-probe", "vuln-components"}:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
             return list(url_targets)
@@ -2455,6 +2513,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     sqlmap_params = sqlmap_runner_params_from_configuration(run_configuration)
     xxe_params = xxe_runner_params_from_configuration(run_configuration)
     jwt_params = jwt_runner_params_from_configuration(run_configuration)
+    vulnerable_components_params = vulnerable_components_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2515,6 +2574,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "jwt-probe":
             validate_jwt_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "vuln-components":
+            validate_vulnerable_components_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -2797,6 +2861,18 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         if value not in (None, [], {})
                     }
                 )
+            if tool == "vuln-components":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in vulnerable_components_params.items()
+                        if key != "local_cve_records" and value not in (None, [], {})
+                    }
+                )
+                if vulnerable_components_params.get("local_cve_records"):
+                    task_params["local_cve_records"] = vulnerable_components_params["local_cve_records"]
+                else:
+                    task_params["local_cve_records"] = local_cve_records_for_vulnerable_components(session)
             if tool == "mobile-android":
                 task_params.update(
                     {

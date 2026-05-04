@@ -61,6 +61,7 @@ SUPPORTED_AI_PROPOSAL_TOOLS = {
     "nuclei",
     "semgrep",
     "sqlmap",
+    "vuln-components",
     "xxe-probe",
     "zap",
 }
@@ -101,6 +102,7 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "smart-home",
     "snmp-enum",
     "sqlmap",
+    "vuln-components",
     "wifi-survey",
     "xxe-probe",
     "zap",

@@ -1,5 +1,45 @@
 # Done Log
 
+- 2026-05-04: completed backlog-217 `Vulnerable components runner`:
+  - rationale:
+    - benchmark coverage showed AegisPT had no first-class OWASP A06 vulnerable/outdated components lane for web application libraries and exposed dependency manifests
+    - the active task required response/header/script/dependency-file fingerprinting, local CVE matching, structured findings, supported-tool registration, and Tool Library visibility without exploitation or broad source review
+  - implementation:
+    - added `vuln-components` to the shared web-depth runner module with approved-scope response header, HTML comment/body, linked JavaScript, script URL/content, and explicitly exposed dependency-file fingerprinting
+    - added safe probing for in-scope `package.json`, `package-lock.json`, `yarn.lock`, `pom.xml`, and `build.gradle` style files under the approved web root only
+    - added local-cache-only CVE matching from compact `ThreatIntelRecord` payloads plus operator-supplied fixture records; findings include CVE IDs, local-cache provenance, methodology tags, and no external lookup/exploitation flags
+    - registered `vuln-components` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI proposal allowlists, methodology mapping, an `active-web-vuln-components` run profile, and the Tool Library
+    - documented the task-package tooling exception: the package goal mentioned RetireJS/OWASP Dependency Check, but this slice used deterministic Python fingerprinting to avoid uncontrolled tool/plugin installation while still satisfying the active `NEXT_TASK.md` acceptance contract
+  - files:
+    - `workers/runners/web_depth/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-217-vulnerable-components-runner-20260504.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_web_depth_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_list_run_profiles -q` passed
+    - `python3 -m py_compile workers/runners/web_depth/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed during validation
+    - `git diff --check` passed before administrative updates
+    - `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "vuln-components|Vulnerable Components"` confirmed the live-served Tool Library module contains the vulnerable-components entry
+  - evidence:
+    - `codex/results/backlog-217-vulnerable-components-runner-20260504.md`
+  - remaining risks:
+    - no external target or public WebGoat/Gruyere instance was actively tested during build-lane validation
+    - CVE matching depends on locally cached threat-intel records or explicitly supplied local fixture records; no external CVE feed lookup is performed during runner execution
+    - RetireJS and OWASP Dependency Check were not installed or invoked in this slice because the active constraints prohibit uncontrolled plugin/tool installation
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-218 `IDOR and broken access control runner`
+
 - 2026-05-04: completed backlog-216 `JWT vulnerability runner`:
   - rationale:
     - benchmark coverage showed AegisPT had no first-class JWT validation lane for modern web/API authentication risks such as none-algorithm acceptance, weak HMAC secrets, key-material algorithm confusion, and authorized claims manipulation checks

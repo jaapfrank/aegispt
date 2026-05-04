@@ -154,6 +154,7 @@ from workers.runners.web_depth.runner import (
     execute_jwt_probe,
     execute_nikto_scan,
     execute_sqlmap_confirmation,
+    execute_vuln_components_scan,
     execute_xxe_probe,
 )
 from workers.runners.zap.runner import execute_zap_scan
@@ -197,6 +198,7 @@ SUPPORTED_TOOLS = {
     "smart-home",
     "snmp-enum",
     "sqlmap",
+    "vuln-components",
     "wifi-survey",
     "xxe-probe",
     "zap",
@@ -1084,6 +1086,22 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "vuln-components":
+        return execute_vuln_components_scan(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            local_cve_records=(
+                request.params.get("local_cve_records")
+                if isinstance(request.params.get("local_cve_records"), list)
+                else []
+            ),
+            dependency_paths=(
+                request.params.get("dependency_paths")
+                if isinstance(request.params.get("dependency_paths"), list)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1728,6 +1746,12 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             "$ jwt-probe --bounded-weak-secrets --no-token-storage "
             f"--provided-tokens {token_count} --replay-contexts {context_count} "
             f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "vuln-components":
+        record_count = len(effective_params.get("local_cve_records") or []) if isinstance(effective_params.get("local_cve_records"), list) else 0
+        return (
+            "$ vuln-components --fingerprint-responses --probe-exposed-dependency-files "
+            f"--local-cve-records {record_count} --approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":
         sources = []

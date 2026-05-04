@@ -448,6 +448,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-jwt-probe",
         "active-web-safe",
         "active-web-sqlmap-confirmation",
+        "active-web-vuln-components",
         "active-web-xxe-probe",
         "active-web-zap-active",
         "autonomous-internal",

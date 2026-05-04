@@ -905,6 +905,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-vuln-components",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated vulnerable component fingerprinting for approved web roots using response headers, comments, linked scripts, exposed dependency files, and local CVE cache matching.",
+            "required_approvals": 1,
+            "tools": ["vuln-components"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "read_only": True,
+            "dependency_file_probe": True,
+            "cve_matching": "local-cache-only",
+            "exploitation": False,
+        },
+    },
+    {
         "name": "passive-external-osint-recon",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {

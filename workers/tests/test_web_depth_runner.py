@@ -20,12 +20,14 @@ from workers.runners.web_depth.runner import (
     JWT_RESULTS_ARTIFACT_NAME,
     NIKTO_RESULTS_ARTIFACT_NAME,
     SQLMAP_RESULTS_ARTIFACT_NAME,
+    VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
     XXE_RESULTS_ARTIFACT_NAME,
     execute_content_discovery,
     execute_external_osint_recon,
     execute_jwt_probe,
     execute_nikto_scan,
     execute_sqlmap_confirmation,
+    execute_vuln_components_scan,
     execute_xxe_probe,
 )
 
@@ -38,6 +40,7 @@ def test_web_depth_tools_are_supported() -> None:
         "external-osint",
         "xxe-probe",
         "jwt-probe",
+        "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 
 
@@ -333,6 +336,121 @@ def test_jwt_probe_blocks_replay_endpoint_outside_scope(jwt_fixture_server: str)
                 }
             ],
         )
+
+
+@pytest.fixture
+def vulnerable_components_fixture_server() -> str:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            path = self.path.split("?", 1)[0]
+            if path == "/app/":
+                payload = (
+                    "<html><!-- Spring 4.3.18.RELEASE --><head>"
+                    "<script src=\"/app/static/jquery.min.js?v=1.6.4\"></script>"
+                    "</head><body>ok</body></html>"
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("X-Powered-By", "Express/4.16.0")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            if path == "/app/static/jquery.min.js":
+                payload = b"/*! jQuery v1.6.4 */ window.$ = function(){};"
+                self.send_response(200)
+                self.send_header("Content-Type", "application/javascript")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            if path == "/app/package.json":
+                payload = json.dumps({"dependencies": {"jquery": "1.6.4"}}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            if path == "/app/pom.xml":
+                payload = (
+                    "<project><dependencies><dependency>"
+                    "<artifactId>spring-web</artifactId><version>4.3.18.RELEASE</version>"
+                    "</dependency></dependencies></project>"
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/xml")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            self.send_response(404)
+            self.end_headers()
+
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address
+    try:
+        yield f"http://{host}:{port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_vulnerable_components_scan_matches_local_cve_fixture(
+    vulnerable_components_fixture_server: str,
+) -> None:
+    root = f"{vulnerable_components_fixture_server}/app/"
+    execution = execute_vuln_components_scan(
+        [root],
+        scope_allowlist={"urls": [root]},
+        local_cve_records=[
+            {
+                "source": "cve-cvss",
+                "advisory_id": "CVE-2019-11358",
+                "title": "jQuery prototype pollution",
+                "summary": "jQuery before 3.4.0 has prototype pollution risk.",
+                "affected_products": ["jquery"],
+                "affected_versions": ["1.6.4"],
+                "product_match_hints": ["jquery"],
+                "severity": "high",
+                "references": ["https://nvd.nist.gov/vuln/detail/CVE-2019-11358"],
+            },
+            {
+                "source": "cve-cvss",
+                "advisory_id": "CVE-2022-22965",
+                "title": "Spring Framework RCE",
+                "summary": "Spring Framework vulnerable versions include 4.3.18.RELEASE.",
+                "affected_products": ["spring", "spring-web"],
+                "affected_versions": ["4.3.18.RELEASE"],
+                "product_match_hints": ["spring"],
+                "severity": "critical",
+                "references": ["https://nvd.nist.gov/vuln/detail/CVE-2022-22965"],
+            },
+        ],
+    )
+
+    assert execution.tool == "vuln-components"
+    assert execution.exit_code == 0
+    assert execution.artifacts[0].name == VULN_COMPONENTS_RESULTS_ARTIFACT_NAME
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+    products = {(item["product"], item["version"]) for item in payload["components"]}
+    assert ("jquery", "1.6.4") in products
+    assert ("spring", "4.3.18.RELEASE") in products
+    cve_ids = {
+        cve_id
+        for finding in payload["findings"]
+        for cve_id in finding["evidence"]["cve_ids"]
+    }
+    assert {"CVE-2019-11358", "CVE-2022-22965"}.issubset(cve_ids)
+    assert payload["methodology"]["cve_matching"] == "local-cache-only"
+    assert payload["safety"]["read_only"] is True
+    assert payload["safety"]["exploitation"] is False
 
 
 def test_external_osint_requires_api_credentials() -> None:

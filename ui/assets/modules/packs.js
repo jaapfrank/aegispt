@@ -138,6 +138,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "API Security"],
   },
   {
+    id: "vuln-components",
+    name: "Vulnerable Components",
+    category: "Web",
+    tier: "active",
+    description: "Fingerprints exposed web framework and JavaScript dependency versions, probes approved dependency files, and matches results against the local CVE cache.",
+    findings: ["Outdated library with CVE references", "Exposed dependency manifest", "Vulnerable web component signal"],
+    prerequisites: ["Approved web root URL", "Active approval", "Local CVE cache or supplied CVE fixture records"],
+    chains: ["External Web", "Authenticated App", "Configuration review"],
+  },
+  {
     id: "external-osint",
     name: "Shodan / Censys",
     category: "Discovery",

@@ -2,34 +2,35 @@
 
 ## Title
 
-Vulnerable components runner: detect known CVEs in running web application libraries via response fingerprinting and dependency analysis
+IDOR and broken access control runner: detect insecure direct object references and horizontal/vertical privilege escalation
 
 ## Promoted From
 
-`codex/tasks/backlog-217-vulnerable-components-dependency-check.json`
+`codex/tasks/backlog-218-idor-broken-access-control-runner.json`
 
 ## Goal
 
-Add the queued `vuln-components` capability described in `codex/tasks/backlog-217-vulnerable-components-dependency-check.json`.
+Add the queued `idor-bac` capability described in `codex/tasks/backlog-218-idor-broken-access-control-runner.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-217-vulnerable-components-dependency-check.json`.
+Implement the active backlog package `codex/tasks/backlog-218-idor-broken-access-control-runner.json`.
 
 Expected slice:
 
-- fingerprint web application framework and JavaScript library versions from approved web/API responses, headers, comments, and linked scripts
-- check explicitly exposed dependency files such as `package.json`, lockfiles, and `pom.xml` only within approved scope
-- match detected products and versions against the existing local CVE/threat-intel infrastructure
-- emit structured vulnerable-component findings with CVE references and methodology metadata
+- identify numeric and UUID-like object identifiers from approved web/API endpoints and existing evidence
+- test bounded in-scope ID substitution only with configured accounts and approved authentication context
+- test role/admin parameter manipulation where explicit request context is available
+- test method-override and common admin path exposure only within approved scope
+- emit structured broken-access-control findings with clear confirmed-versus-potential evidence
 - expose the capability in the Tool Library and supported execution registry
 - keep validation safe and local unless an explicitly authorized target fixture is present
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not implement exploitation of found vulnerabilities.
-- Do not implement broad SAST/source-code review.
+- Do not brute-force identifiers beyond the package limit.
+- Do not use credentials outside engagement configuration.
 - Do not bypass local CVE/feed provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -43,8 +44,8 @@ Expected slice:
 
 ## Acceptance
 
-- `vuln-components` runner is listed in supported tools.
-- Version fingerprinting and local CVE matching are covered by tests and safe local fixture evidence.
-- Structured vulnerable-component findings include CVE references and appropriate methodology metadata.
-- Tool Library lists the vulnerable-components capability.
+- `idor-bac` runner is listed in supported tools.
+- Bounded IDOR/BAC checks are covered by tests and safe local fixture evidence.
+- Structured findings distinguish confirmed unauthorized access from potential access-control signals.
+- Tool Library lists the IDOR/BAC capability.
 - Existing runner/API tests do not regress.

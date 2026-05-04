@@ -47,6 +47,7 @@ from workers.runners.web_depth.runner import (
     JWT_RESULTS_ARTIFACT_NAME,
     NIKTO_RESULTS_ARTIFACT_NAME,
     SQLMAP_RESULTS_ARTIFACT_NAME,
+    VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
     XXE_RESULTS_ARTIFACT_NAME,
 )
 
@@ -506,7 +507,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -518,6 +519,7 @@ def extract_findings(
                 EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME,
                 XXE_RESULTS_ARTIFACT_NAME,
                 JWT_RESULTS_ARTIFACT_NAME,
+                VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

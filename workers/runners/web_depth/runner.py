@@ -24,6 +24,7 @@ SQLMAP_RESULTS_ARTIFACT_NAME = "sqlmap-results.json"
 EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME = "external-osint-results.json"
 XXE_RESULTS_ARTIFACT_NAME = "xxe-results.json"
 JWT_RESULTS_ARTIFACT_NAME = "jwt-results.json"
+VULN_COMPONENTS_RESULTS_ARTIFACT_NAME = "vuln-components-results.json"
 
 DEFAULT_CONTENT_WORDS = (
     "admin",
@@ -45,6 +46,42 @@ XXE_DIRECT_PAYLOAD = """<?xml version="1.0" encoding="UTF-8"?>
 
 JWT_PATTERN = re.compile(r"(?<![A-Za-z0-9_-])([A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*)(?![A-Za-z0-9_-])")
 SCRIPT_SRC_PATTERN = re.compile(r"<script[^>]+src=[\"']([^\"']+)[\"']", re.IGNORECASE)
+HTML_COMMENT_PATTERN = re.compile(r"<!--(?P<body>.*?)-->", re.IGNORECASE | re.DOTALL)
+VERSION_PATTERNS = {
+    "jquery": (
+        re.compile(r"\bjquery[^0-9]{0,48}(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+        re.compile(r"\bjQuery\s+v(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+    ),
+    "bootstrap": (
+        re.compile(r"\bbootstrap[^0-9]{0,48}(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+        re.compile(r"\bBootstrap\s+v(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+    ),
+    "spring": (
+        re.compile(r"\bspring[^0-9]{0,64}(?P<version>\d+\.\d+(?:\.\d+)*(?:\.RELEASE)?)", re.IGNORECASE),
+    ),
+    "apache struts": (
+        re.compile(r"\b(?:apache\s+)?struts[^0-9]{0,48}(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+    ),
+    "express": (
+        re.compile(r"\bexpress/(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+    ),
+    "apache httpd": (
+        re.compile(r"\bapache/(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+    ),
+    "nginx": (
+        re.compile(r"\bnginx/(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+    ),
+    "asp.net": (
+        re.compile(r"\b(?:asp\.net|x-aspnet-version)[:/\s]+(?P<version>\d+\.\d+(?:\.\d+)*)", re.IGNORECASE),
+    ),
+}
+DEPENDENCY_FILE_PATHS = (
+    "package.json",
+    "package-lock.json",
+    "yarn.lock",
+    "pom.xml",
+    "build.gradle",
+)
 JWT_WEAK_SECRET_CANDIDATES = (
     "secret",
     "password",
@@ -162,6 +199,301 @@ def _finding(
         "methodology_tags": list(dict.fromkeys(tags)),
         **({"evidence": extra} if extra else {}),
     }
+
+
+def _clean_component_name(value: object) -> str:
+    normalized = re.sub(r"[^a-z0-9.+#-]+", " ", str(value or "").strip().lower()).strip()
+    aliases = {
+        "jquery": "jquery",
+        "jquery js": "jquery",
+        "springframework": "spring",
+        "spring framework": "spring",
+        "spring-web": "spring",
+        "spring core": "spring",
+        "struts": "apache struts",
+        "struts2": "apache struts",
+        "apache struts": "apache struts",
+        "httpd": "apache httpd",
+        "apache": "apache httpd",
+        "apache http server": "apache httpd",
+        "x aspnet version": "asp.net",
+        "aspnet": "asp.net",
+        "asp.net": "asp.net",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _normalize_version(value: object) -> str:
+    version = str(value or "").strip().strip("\"'")
+    version = re.sub(r"^[~^<>=\s]+", "", version)
+    version = version.split(" ", 1)[0].split(",", 1)[0]
+    return version.strip()
+
+
+def _component_key(component: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        _clean_component_name(component.get("product")),
+        _normalize_version(component.get("version")),
+        str(component.get("source_url") or component.get("source") or "").strip(),
+    )
+
+
+def _add_component(
+    components: list[dict[str, Any]],
+    *,
+    product: str,
+    version: str,
+    source: str,
+    source_url: str,
+    evidence: str,
+) -> None:
+    normalized_product = _clean_component_name(product)
+    normalized_version = _normalize_version(version)
+    if not normalized_product or not normalized_version:
+        return
+    candidate = {
+        "product": normalized_product,
+        "version": normalized_version,
+        "source": source,
+        "source_url": source_url,
+        "evidence": evidence[:240],
+    }
+    candidate_key = _component_key(candidate)
+    if any(_component_key(existing) == candidate_key for existing in components):
+        return
+    components.append(candidate)
+
+
+def _detect_versions(text: str, *, source: str, source_url: str) -> list[dict[str, Any]]:
+    components: list[dict[str, Any]] = []
+    for product, patterns in VERSION_PATTERNS.items():
+        for pattern in patterns:
+            for match in pattern.finditer(text or ""):
+                _add_component(
+                    components,
+                    product=product,
+                    version=match.group("version"),
+                    source=source,
+                    source_url=source_url,
+                    evidence=match.group(0),
+                )
+    return components
+
+
+def _script_urls_from_html(html: str, *, base_url: str, scope_allowlist: dict[str, Any] | None) -> list[str]:
+    urls: list[str] = []
+    for match in SCRIPT_SRC_PATTERN.finditer(html or ""):
+        script_url = urljoin(base_url, match.group(1).strip())
+        if _target_within_scope(scope_allowlist, script_url) and script_url not in urls:
+            urls.append(script_url)
+    return urls
+
+
+def _dependency_file_urls(target: str, *, scope_allowlist: dict[str, Any] | None, paths: list[str] | None) -> list[str]:
+    base = target.rstrip("/") + "/"
+    urls: list[str] = []
+    for raw_path in paths or list(DEPENDENCY_FILE_PATHS):
+        path = str(raw_path or "").strip().lstrip("/")
+        if not path or ".." in Path(path).parts:
+            continue
+        candidate = urljoin(base, path)
+        if _target_within_scope(scope_allowlist, candidate) and candidate not in urls:
+            urls.append(candidate)
+    return urls
+
+
+def _dependencies_from_package_json(text: str, *, source_url: str) -> list[dict[str, Any]]:
+    try:
+        payload = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(payload, dict):
+        return []
+    components: list[dict[str, Any]] = []
+    for section in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
+        values = payload.get(section)
+        if isinstance(values, dict):
+            for product, version in values.items():
+                _add_component(
+                    components,
+                    product=str(product),
+                    version=str(version),
+                    source=f"exposed-{section}",
+                    source_url=source_url,
+                    evidence=f"{section}.{product}={version}",
+                )
+    lock_dependencies = payload.get("packages") or payload.get("dependencies")
+    if isinstance(lock_dependencies, dict):
+        for product, metadata in lock_dependencies.items():
+            if not isinstance(metadata, dict):
+                continue
+            version = metadata.get("version")
+            clean_product = str(product).split("node_modules/")[-1]
+            if version:
+                _add_component(
+                    components,
+                    product=clean_product,
+                    version=str(version),
+                    source="exposed-lockfile",
+                    source_url=source_url,
+                    evidence=f"{clean_product}@{version}",
+                )
+    return components
+
+
+def _dependencies_from_yarn_lock(text: str, *, source_url: str) -> list[dict[str, Any]]:
+    components: list[dict[str, Any]] = []
+    current_products: list[str] = []
+    for line in (text or "").splitlines():
+        if line and not line.startswith((" ", "\t")) and line.endswith(":"):
+            current_products = []
+            for item in line.rstrip(":").split(","):
+                product = item.strip().strip("\"'").split("@", 1)[0]
+                if product:
+                    current_products.append(product)
+            continue
+        version_match = re.search(r"\bversion\s+[\"'](?P<version>[^\"']+)", line)
+        if version_match:
+            for product in current_products:
+                _add_component(
+                    components,
+                    product=product,
+                    version=version_match.group("version"),
+                    source="exposed-yarn-lock",
+                    source_url=source_url,
+                    evidence=line.strip(),
+                )
+    return components
+
+
+def _dependencies_from_pom_xml(text: str, *, source_url: str) -> list[dict[str, Any]]:
+    components: list[dict[str, Any]] = []
+    for match in re.finditer(
+        r"<artifactId>\s*(?P<artifact>[^<]+)\s*</artifactId>\s*<version>\s*(?P<version>[^<]+)\s*</version>",
+        text or "",
+        re.IGNORECASE | re.DOTALL,
+    ):
+        _add_component(
+            components,
+            product=match.group("artifact"),
+            version=match.group("version"),
+            source="exposed-pom",
+            source_url=source_url,
+            evidence=match.group(0),
+        )
+    return components
+
+
+def _dependencies_from_build_gradle(text: str, *, source_url: str) -> list[dict[str, Any]]:
+    components: list[dict[str, Any]] = []
+    for match in re.finditer(
+        r"['\"](?P<group>[a-z0-9_.-]+):(?P<artifact>[a-z0-9_.-]+):(?P<version>[^'\"]+)['\"]",
+        text or "",
+        re.IGNORECASE,
+    ):
+        _add_component(
+            components,
+            product=match.group("artifact"),
+            version=match.group("version"),
+            source="exposed-gradle",
+            source_url=source_url,
+            evidence=match.group(0),
+        )
+    return components
+
+
+def _dependencies_from_exposed_file(text: str, *, source_url: str) -> list[dict[str, Any]]:
+    path = urlparse(source_url).path.lower()
+    if path.endswith((".json", "package-lock.json", "package.json")):
+        return _dependencies_from_package_json(text, source_url=source_url)
+    if path.endswith("yarn.lock"):
+        return _dependencies_from_yarn_lock(text, source_url=source_url)
+    if path.endswith("pom.xml"):
+        return _dependencies_from_pom_xml(text, source_url=source_url)
+    if path.endswith(("build.gradle", "build.gradle.kts")):
+        return _dependencies_from_build_gradle(text, source_url=source_url)
+    return []
+
+
+def _compact_cve_record(raw: dict[str, Any]) -> dict[str, Any]:
+    cve_id = str(raw.get("cve_id") or raw.get("advisory_id") or raw.get("id") or "").strip().upper()
+    return {
+        "cve_id": cve_id,
+        "title": str(raw.get("title") or cve_id).strip(),
+        "summary": str(raw.get("summary") or raw.get("description") or "").strip(),
+        "severity": str(raw.get("severity") or "").strip().lower() or "medium",
+        "affected_products": list(raw.get("affected_products") or raw.get("affected_products_json") or []),
+        "affected_versions": list(raw.get("affected_versions") or raw.get("affected_versions_json") or []),
+        "product_match_hints": list(raw.get("product_match_hints") or raw.get("product_match_hints_json") or []),
+        "references": list(raw.get("references") or raw.get("references_json") or []),
+        "source": str(raw.get("source") or "local-cache").strip(),
+    }
+
+
+def _version_matches(component_version: str, affected_versions: list[Any], haystack: str) -> bool:
+    version = _normalize_version(component_version).lower()
+    if not version:
+        return False
+    if not affected_versions:
+        return version in haystack
+    for raw in affected_versions:
+        affected = str(raw or "").strip().lower()
+        if not affected:
+            continue
+        if affected == version or version in affected or affected in version:
+            return True
+    return version in haystack
+
+
+def _match_local_cves(component: dict[str, Any], local_cve_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    product = _clean_component_name(component.get("product"))
+    version = _normalize_version(component.get("version"))
+    matches: list[dict[str, Any]] = []
+    for raw in local_cve_records:
+        if not isinstance(raw, dict):
+            continue
+        record = _compact_cve_record(raw)
+        if not record["cve_id"]:
+            continue
+        product_terms = [
+            _clean_component_name(item)
+            for item in [
+                *record["affected_products"],
+                *record["product_match_hints"],
+                record["title"],
+                record["summary"],
+            ]
+        ]
+        haystack = " ".join(
+            str(item or "").lower()
+            for item in [
+                record["title"],
+                record["summary"],
+                *record["affected_products"],
+                *record["product_match_hints"],
+                *record["affected_versions"],
+            ]
+        )
+        product_match = product and (
+            product in product_terms or any(product in term or term in product for term in product_terms if term)
+        )
+        if not product_match:
+            continue
+        if not _version_matches(version, record["affected_versions"], haystack):
+            continue
+        matches.append(record)
+    matches.sort(key=lambda item: (item["severity"], item["cve_id"]))
+    return matches
+
+
+def _severity_from_cves(cves: list[dict[str, Any]]) -> str:
+    order = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
+    best = "medium"
+    for cve in cves:
+        severity = str(cve.get("severity") or "").lower()
+        if order.get(severity, -1) > order.get(best, -1):
+            best = severity
+    return best
 
 
 def _base64url_decode(value: str) -> bytes:
@@ -1033,6 +1365,201 @@ def execute_jwt_probe(
             "replay_context_count": len(configured_replay_contexts),
         },
         artifacts=[_json_artifact(JWT_RESULTS_ARTIFACT_NAME, artifact_payload)],
+    )
+
+
+def execute_vuln_components_scan(
+    targets: list[str],
+    *,
+    scope_allowlist: dict[str, Any] | None = None,
+    local_cve_records: list[dict[str, Any]] | None = None,
+    dependency_paths: list[str] | None = None,
+    timeout_seconds: float = 30.0,
+    client_factory: Callable[..., Any] = httpx_client.Client,
+) -> RunnerExecution:
+    if timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+    normalized_targets = _approved_web_targets(targets, scope_allowlist=scope_allowlist)
+    compact_records = [
+        _compact_cve_record(record)
+        for record in local_cve_records or []
+        if isinstance(record, dict)
+    ]
+
+    components: list[dict[str, Any]] = []
+    fetched_resources: list[dict[str, Any]] = []
+    findings: list[dict[str, Any]] = []
+    stderr_lines: list[str] = []
+    exit_code = 0
+    headers = {"User-Agent": "AegisPT/vuln-components read-only fingerprinting"}
+
+    with client_factory(timeout=timeout_seconds, follow_redirects=True) as client:
+        for target in normalized_targets:
+            try:
+                response = client.get(target, headers=headers)
+                text = response.text or ""
+                header_text = "\n".join(
+                    f"{name}: {value}"
+                    for name, value in response.headers.items()
+                    if name.lower() in {"server", "x-powered-by", "x-aspnet-version", "x-generator"}
+                )
+                fetched_resources.append(
+                    {
+                        "url": target,
+                        "status_code": response.status_code,
+                        "content_type": response.headers.get("content-type", ""),
+                        "source_type": "target-response",
+                    }
+                )
+                components.extend(_detect_versions(header_text, source="headers", source_url=target))
+                for comment in HTML_COMMENT_PATTERN.finditer(text):
+                    components.extend(
+                        _detect_versions(comment.group("body"), source="html-comment", source_url=target)
+                    )
+                components.extend(_detect_versions(text[:200000], source="html-body", source_url=target))
+
+                for script_url in _script_urls_from_html(text, base_url=target, scope_allowlist=scope_allowlist)[:24]:
+                    try:
+                        script_response = client.get(script_url, headers=headers)
+                        script_text = script_response.text or ""
+                        fetched_resources.append(
+                            {
+                                "url": script_url,
+                                "status_code": script_response.status_code,
+                                "content_type": script_response.headers.get("content-type", ""),
+                                "source_type": "linked-script",
+                            }
+                        )
+                        components.extend(
+                            _detect_versions(script_url, source="script-url", source_url=script_url)
+                        )
+                        components.extend(
+                            _detect_versions(script_text[:200000], source="script-content", source_url=script_url)
+                        )
+                    except httpx_client.HTTPError as exc:
+                        stderr_lines.append(f"{script_url}: {exc}")
+
+                for dependency_url in _dependency_file_urls(
+                    target,
+                    scope_allowlist=scope_allowlist,
+                    paths=dependency_paths,
+                ):
+                    try:
+                        dependency_response = client.get(dependency_url, headers=headers)
+                        body = dependency_response.text or ""
+                        fetched_resources.append(
+                            {
+                                "url": dependency_url,
+                                "status_code": dependency_response.status_code,
+                                "content_type": dependency_response.headers.get("content-type", ""),
+                                "source_type": "exposed-dependency-file",
+                            }
+                        )
+                        if 200 <= dependency_response.status_code < 300 and body.strip():
+                            components.extend(
+                                _dependencies_from_exposed_file(body[:500000], source_url=dependency_url)
+                            )
+                    except httpx_client.HTTPError as exc:
+                        stderr_lines.append(f"{dependency_url}: {exc}")
+            except httpx_client.HTTPError as exc:
+                exit_code = 1
+                stderr_lines.append(f"{target}: {exc}")
+
+    deduped_components: list[dict[str, Any]] = []
+    seen_component_keys: set[tuple[str, str, str]] = set()
+    for component in components:
+        key = _component_key(component)
+        if key in seen_component_keys:
+            continue
+        seen_component_keys.add(key)
+        cve_matches = _match_local_cves(component, compact_records)
+        enriched = {**component, "cve_matches": cve_matches}
+        deduped_components.append(enriched)
+        if not cve_matches:
+            continue
+        cve_ids = [str(match["cve_id"]) for match in cve_matches]
+        first = cve_matches[0]
+        findings.append(
+            _finding(
+                title=f"Outdated Library: {component['product']} {component['version']}",
+                severity=_severity_from_cves(cve_matches),
+                target=str(component.get("source_url") or ""),
+                summary=(
+                    f"{component['product']} {component['version']} was fingerprinted from "
+                    f"{component.get('source')} evidence and matched local CVE cache record(s): "
+                    f"{', '.join(cve_ids)}. {first.get('summary') or first.get('title') or ''}".strip()
+                ),
+                tags=[
+                    "vuln-components",
+                    "vulnerable-components",
+                    "cve",
+                    "owasp-wstg",
+                    "configuration",
+                ],
+                extra={
+                    "product": component["product"],
+                    "version": component["version"],
+                    "source": component.get("source"),
+                    "source_url": component.get("source_url"),
+                    "cve_ids": cve_ids,
+                    "local_cache_only": True,
+                    "external_lookup_performed": False,
+                    "references": [
+                        reference
+                        for match in cve_matches
+                        for reference in match.get("references", [])
+                    ],
+                },
+            )
+        )
+
+    artifact_payload = {
+        "components": deduped_components,
+        "resources": fetched_resources,
+        "findings": findings,
+        "summary": {
+            "target_count": len(normalized_targets),
+            "resource_count": len(fetched_resources),
+            "component_count": len(deduped_components),
+            "local_cve_record_count": len(compact_records),
+            "matched_component_count": sum(1 for item in deduped_components if item.get("cve_matches")),
+            "finding_count": len(findings),
+        },
+        "methodology": {
+            "runner": "vuln-components",
+            "version_fingerprinting_sources": [
+                "response-headers",
+                "html-comments",
+                "html-body",
+                "linked-script-url",
+                "linked-script-content",
+                "explicitly-exposed-dependency-files",
+            ],
+            "cve_matching": "local-cache-only",
+            "external_lookup_performed": False,
+        },
+        "safety": {
+            "read_only": True,
+            "exploitation": False,
+            "dependency_file_probe": True,
+            "dependency_file_probe_scope": "approved-web-root-only",
+            "source_code_review": False,
+        },
+    }
+    return RunnerExecution(
+        tool="vuln-components",
+        exit_code=exit_code,
+        stdout=json.dumps(artifact_payload["summary"], sort_keys=True),
+        stderr="\n".join(line for line in stderr_lines if line),
+        metadata={
+            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "runner_digest": "workers.web_depth.vuln_components:v1",
+            "tool_version": "custom-python-local-cve",
+            "finding_count": len(findings),
+            "component_count": len(deduped_components),
+            "local_cve_record_count": len(compact_records),
+        },
+        artifacts=[_json_artifact(VULN_COMPONENTS_RESULTS_ARTIFACT_NAME, artifact_payload)],
     )
 
 
