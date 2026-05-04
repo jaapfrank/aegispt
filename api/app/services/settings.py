@@ -1407,14 +1407,14 @@ def _wireless_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabilityRe
         next_step = "Use passive WiFi survey only with explicit site, SSID/BSSID allowlist, adapter context, and wireless ROE."
     elif adapters:
         status = "degraded"
-        summary = f"{len(adapters)} wireless adapter(s) detected, but WiFi analysis software is incomplete."
+        summary = f"{len(adapters)} wireless adapter(s) detected, but WiFi analysis software tooling is incomplete."
         next_step = "Install WiFi software with the official tool installer; hardware is already visible to the host."
     else:
-        status = "blocked" if installed else "degraded"
+        status = "blocked"
         summary = (
             "WiFi analysis software is ready, but no wireless adapter is detected on this host."
             if installed
-            else "WiFi analysis software is incomplete and no wireless adapter is detected on this host."
+            else "No wireless adapter is detected on this host; WiFi analysis software tooling is also incomplete."
         )
         next_step = (
             "Attach authorized wireless hardware; software installation is already satisfied."
