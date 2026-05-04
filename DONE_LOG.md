@@ -1,5 +1,40 @@
 # Done Log
 
+- 2026-05-04: completed backlog-196 `Mission Control AI Signal panel: remove developer labels`:
+  - rationale:
+    - the operator-facing Mission Control AI Signal panel still exposed developer/build-lane language that made the product feel unfinished and unclear
+    - the no-run empty state showed too much internal AI connection/workbench scaffolding instead of a clean next-step message
+    - the task required UI-copy cleanup only, without touching AI dataflow, approvals, runtime binding, scope, credentials, or kill-switch behavior
+  - implementation:
+    - replaced visible AI workbench copy with `AI Review Workspace` and operator-facing labels such as `AI connection`, `Recent reviews`, `Repair suggestions`, and `Review handoff`
+    - removed the operator-facing Build Lane metric from the AI workbench panel
+    - sanitized older incoming AI provider/boundary payload copy so stale `deterministic` and build-lane wording does not leak into the UI
+    - simplified the no-run AI Signal empty state to `Select a run to see AI analysis.` with no ChatGPT settings CTA or workbench scaffold
+    - updated focused Mission Control Playwright coverage to assert the clean labels and absence of the blocked developer labels
+  - files:
+    - `ui/assets/modules/mission-control.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-196-mission-control-ai-signal-copy-20260504.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_signal_provider_badge_and_live_text ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_signal_connect_chatgpt_when_provider_disconnected_without_run -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_ai_signal_provider_disabled_state_is_static_and_readable -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl --fail --silent --max-time 5 http://127.0.0.1:8000/health/live` passed
+    - safe live Playwright acceptance against `http://127.0.0.1:8000/app/` passed for the connected/no-run AI Signal state
+    - `git diff --check` passed
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-197
+  - evidence:
+    - `codex/results/backlog-196-mission-control-ai-signal-copy-20260504.md`
+  - remaining risks:
+    - this was intentionally UI-copy only and does not change ChatGPT provider behavior, AI data generation, backend APIs, or runtime execution
+    - focused browser acceptance covered the required Mission Control states, not the full enterprise UI
+  - next active task:
+    - backlog-197 `Backend security hardening: add CORS configuration, basic rate limiting, and enforce DB encryption key at startup`
+
 - 2026-05-04: updated enterprise backlog sequencing without changing the active task:
   - rationale:
     - the user asked whether the remaining open tasks would bring AegisPT to enterprise level and then asked to create the missing tasks and put the queue in the best order

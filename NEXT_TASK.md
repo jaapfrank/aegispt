@@ -2,32 +2,38 @@
 
 ## Title
 
-Mission Control AI Signal panel: remove developer labels (DETERMINISTIC MODE, BUILD LANE, PROVIDER, SIGNALS, REPAIRS)
+Backend security hardening: add CORS configuration, basic rate limiting, and enforce DB encryption key at startup
 
 ## Promoted From
 
-`codex/tasks/backlog-196-mission-control-ai-signal-developer-labels.json`
+`codex/tasks/backlog-197-backend-cors-rate-limit-db-enforcement.json`
 
 ## Goal
 
-Remove developer-facing AI Signal labels from Mission Control and replace them with operator-appropriate copy and a clean empty state.
+Add the backend hardening slice from the active task package: explicit CORS configuration, basic rate limiting on sensitive endpoints, and production startup enforcement for the database encryption key.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-196-mission-control-ai-signal-developer-labels.json`.
+Implement the active backlog package `codex/tasks/backlog-197-backend-cors-rate-limit-db-enforcement.json`.
 
 Expected slice:
 
-- remove or replace `DETERMINISTIC MODE` with operator-facing language such as review/supervised context
-- remove `BUILD LANE` from the operator-facing Mission Control AI Signal panel
-- replace internal headings such as `PROVIDER`, `SIGNALS`, and `REPAIRS` with operator-appropriate copy
-- rewrite the review-only AI constraint into clear operator language
-- simplify the no-run empty state to one clean message
+- add FastAPI CORSMiddleware in `api/app/main.py` with allowed origins from `AEGISPT_ALLOWED_ORIGINS`
+- default allowed origins to `http://localhost:8000` and `http://127.0.0.1:8000`
+- add basic per-IP rate limiting for:
+  - `POST /api/v1/auth/keys` at 5 requests/minute
+  - `POST /api/v1/engagements/{id}/runs` at 10 requests/minute
+  - `POST /api/v1/auth/chatgpt/*` at 3 requests/minute
+- enforce `AEGISPT_DB_KEY` at startup in production-style environments while keeping development/test behavior permissive
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not change AI Signal data fetching, signal rendering logic, backend APIs, approval gates, pack lifecycle, deployment, runtime binding, scope enforcement, credential gates, or kill switch behavior.
+- Do not change authentication logic.
+- Do not change endpoint signatures or response models.
+- Do not change database schema.
+- Do not change frontend code.
+- Do not bypass approval gates, pack lifecycle, deployment, runtime binding, scope enforcement, credential gates, or kill switch behavior.
 - No runtime self-modification.
 - Do not install uncontrolled plugins.
 - Do not run live target actions.
@@ -35,13 +41,15 @@ Expected slice:
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/ -q`
 - `git diff --check`
 
 ## Acceptance
 
-- `DETERMINISTIC MODE` is not visible as an operator-facing Mission Control label.
-- `BUILD LANE` is not visible in Mission Control.
-- AI Signal empty state shows a single clean message when no run is selected.
-- AI panel section headings are operator-appropriate.
-- Focused Mission Control/UI validation passes.
+- CORSMiddleware is present in `api/app/main.py` with configurable allowed origins.
+- `POST /api/v1/auth/keys` is rate-limited to 5 requests/minute per IP.
+- `POST /api/v1/engagements/{id}/runs` is rate-limited to 10 requests/minute per IP.
+- `POST /api/v1/auth/chatgpt/*` is rate-limited to 3 requests/minute per IP.
+- Startup raises `RuntimeError` when `AEGISPT_ENV=production` and `AEGISPT_DB_KEY` is absent.
+- Existing API tests pass.
+- Development/test behavior is unchanged.

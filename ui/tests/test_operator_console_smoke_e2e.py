@@ -845,11 +845,19 @@ def test_mission_control_ai_signal_provider_badge_and_live_text(loaded_page: Pag
     )
 
     expect(loaded_page.get_by_test_id("ai-signal-provider-badge")).to_contain_text("ChatGPT connected")
-    expect(loaded_page.get_by_test_id("ai-operator-workbench")).to_contain_text("AI Operator Workbench")
+    expect(loaded_page.get_by_test_id("ai-operator-workbench")).to_contain_text("AI Review Workspace")
+    expect(loaded_page.get_by_test_id("ai-operator-workbench")).to_contain_text(
+        "AI can create review handoffs without changing the active run."
+    )
     expect(loaded_page.get_by_test_id("ai-workbench-provider-status")).to_contain_text("ChatGPT connected")
     expect(loaded_page.get_by_test_id("ai-workbench-build-lane-task")).to_contain_text("codex/tasks/")
     expect(loaded_page.get_by_test_id("ai-workbench-signal-row")).to_contain_text("Live AI signal")
     expect(loaded_page.get_by_test_id("ai-signal-stream")).to_contain_text("Synthetic streamed AI Signal text")
+    expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).not_to_contain_text("DETERMINISTIC MODE")
+    expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).not_to_contain_text("BUILD LANE")
+    expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).not_to_contain_text("PROVIDER")
+    expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).not_to_contain_text("SIGNALS")
+    expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).not_to_contain_text("REPAIRS")
 
 
 def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run(
@@ -882,8 +890,10 @@ def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run
 
     panel = loaded_page.get_by_test_id("mission-ai-signal-panel")
     expect(panel).to_contain_text("ChatGPT connected")
-    expect(panel).to_contain_text("Select a run to view AI Signal")
+    expect(panel).to_contain_text("Select a run to see AI analysis.")
     expect(panel).not_to_contain_text("Connect ChatGPT in Settings")
+    expect(panel).not_to_contain_text("AI Review Workspace")
+    expect(panel).not_to_contain_text("AI Signal Inbox")
 
 
 def test_mission_control_ai_signal_connect_chatgpt_when_provider_disconnected_without_run(
@@ -915,8 +925,9 @@ def test_mission_control_ai_signal_connect_chatgpt_when_provider_disconnected_wi
     )
 
     panel = loaded_page.get_by_test_id("mission-ai-signal-panel")
-    expect(panel).to_contain_text("Connect ChatGPT in Settings")
-    expect(loaded_page.get_by_test_id("ai-signal-open-settings")).to_be_enabled()
+    expect(panel).to_contain_text("Select a run to see AI analysis.")
+    expect(panel).not_to_contain_text("Connect ChatGPT in Settings")
+    expect(loaded_page.get_by_test_id("ai-signal-open-settings")).to_have_count(0)
 
 
 def test_mission_control_phase_badges_expose_nfir_tooltips(loaded_page: Page) -> None:

@@ -1788,6 +1788,21 @@ export function createMissionModule() {
             : "Standing by";
     const headerTone = thinking ? "running" : pendingCount ? "review" : entries.length ? "active" : "unknown";
 
+    if (!state.selectedRun) {
+      return `
+        <section class="ai-signal-panel" data-testid="ai-signal-panel" data-ai-signal-state="no-run-selected">
+          <div class="ai-signal-header">
+            <div class="inline-metrics">
+              ${renderAiProviderBadge(provider)}
+            </div>
+          </div>
+          <div class="ai-signal-stream" data-testid="ai-signal-stream">
+            ${emptyState("Select a run to see AI analysis.")}
+          </div>
+        </section>
+      `;
+    }
+
     return `
       <section class="ai-signal-panel" data-testid="ai-signal-panel" data-ai-signal-state="${escapeHtml(stateLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}">
         ${autonomousMode ? renderAutonomousAgentFeed(autonomousAgents) : ""}
@@ -1804,7 +1819,7 @@ export function createMissionModule() {
         <div class="ai-signal-review-contract" data-testid="ai-proposal-insights-card">
           <div class="ai-signal-inbox-title" data-testid="ai-signal-inbox">
             <span>AI Signal Inbox</span>
-            <small>${escapeHtml("review signals, repair actions, and coverage gaps")}</small>
+            <small>${escapeHtml("review notes, repair actions, and coverage gaps")}</small>
           </div>
           <div class="ai-signal-stream" data-testid="ai-signal-stream">
             ${thinking ? renderAiThinkingIndicator() : ""}
@@ -1829,14 +1844,10 @@ export function createMissionModule() {
                     ${hiddenEntryCount ? `<div class="ai-signal-compact-more">${escapeHtml(`${hiddenEntryCount} older AI signal ${hiddenEntryCount === 1 ? "entry" : "entries"} collapsed`)}</div>` : ""}
                   `
                 : emptyState(
-                    state.selectedRun
-                      ? provider.connected
-                        ? "ChatGPT is connected. No AI signal is stored for this run yet."
-                        : "No AI signal is stored for this run yet."
-                      : "Select a run to view AI Signal.",
-                    state.selectedRun
-                      ? { label: "Open Run Dossier", screen: "explorer" }
-                      : { label: "Start a mission", screen: "wizard" }
+                    provider.connected
+                      ? "ChatGPT is connected. No AI signal is stored for this run yet."
+                      : "No AI signal is stored for this run yet.",
+                    { label: "Open Run Dossier", screen: "explorer" }
                   )
             }
           </div>
@@ -1863,31 +1874,27 @@ export function createMissionModule() {
       ["Repair proposals", features.repair_proposals],
       ["Finding enrichment", features.finding_enrichment],
       ["Report draft", features.report_draft],
-      ["Build-lane handoff", features.build_lane_handoff],
+      ["Review handoff", features.build_lane_handoff],
     ];
     const latestBuildLaneTask = buildLaneTasks[0] || null;
     return `
       <div class="ai-operator-workbench" data-testid="ai-operator-workbench">
         <div class="ai-signal-inbox-title">
-          <span>${escapeHtml(safeWorkbench.title || "AI Operator Workbench")}</span>
-          <small>${escapeHtml(boundary.message || "AI is review-only and cannot mutate active runtime state.")}</small>
+          <span>${escapeHtml("AI Review Workspace")}</span>
+          <small>${escapeHtml(operatorAiBoundaryMessage(boundary.message))}</small>
         </div>
         <div class="compact-definition-grid split-top">
           <div data-testid="ai-workbench-provider-status">
-            <span>Provider</span>
-            <strong>${escapeHtml(provider?.label || safeWorkbench.provider?.label || "Deterministic mode")}</strong>
+            <span>AI connection</span>
+            <strong>${escapeHtml(operatorAiProviderLabel(provider?.label || safeWorkbench.provider?.label, provider?.connected))}</strong>
           </div>
           <div>
-            <span>Signals</span>
+            <span>Recent reviews</span>
             <strong>${escapeHtml(String(summary.signals ?? signals.length ?? 0))}</strong>
           </div>
           <div>
-            <span>Repairs</span>
+            <span>Repair suggestions</span>
             <strong>${escapeHtml(`${summary.pending_repair_proposals ?? 0} pending`)}</strong>
-          </div>
-          <div>
-            <span>Build Lane</span>
-            <strong>${escapeHtml(`${summary.build_lane_tasks ?? buildLaneTasks.length} tasks`)}</strong>
           </div>
         </div>
         <div class="compact-badge-list split-top">
@@ -1904,12 +1911,12 @@ export function createMissionModule() {
           latestBuildLaneTask
             ? `
               <div class="ai-repair-summary split-top" data-testid="ai-workbench-build-lane-task">
-                <p class="micro-copy success-copy">${escapeHtml("Build-lane repair task created. Active runtime was not changed.")}</p>
-                <code>${escapeHtml(latestBuildLaneTask.task_file || latestBuildLaneTask.codex_task_id || "Build-lane task recorded")}</code>
+                <p class="micro-copy success-copy">${escapeHtml("Repair handoff created. The active run was not changed.")}</p>
+                <code>${escapeHtml(latestBuildLaneTask.task_file || latestBuildLaneTask.codex_task_id || "Review handoff recorded")}</code>
               </div>
             `
             : needsConnection
-              ? `<p class="micro-copy split-top">ChatGPT OAuth is not connected. Deterministic triage still records review-only signals and build-lane handoffs.</p>`
+              ? `<p class="micro-copy split-top">ChatGPT OAuth is not connected. Local triage still records review notes and handoffs.</p>`
               : `<p class="micro-copy split-top">AI workbench is ready. Repair actions, report help, and finding enrichment stay grounded in stored evidence.</p>`
         }
         ${
@@ -1939,7 +1946,7 @@ export function createMissionModule() {
     if (streamProvider) {
       return {
         mode: streamProvider.mode || "deterministic",
-        label: streamProvider.label || (streamProvider.connected ? "ChatGPT connected" : "Deterministic mode"),
+        label: streamProvider.label || (streamProvider.connected ? "ChatGPT connected" : "Review mode"),
         status: streamProvider.status || (streamProvider.connected ? "connected" : "fallback"),
         connected: Boolean(streamProvider.connected),
       };
@@ -1949,7 +1956,7 @@ export function createMissionModule() {
       const connected = Boolean(insightProvider.connected);
       return {
         mode: insightProvider.mode || (connected ? "chatgpt_oauth" : "deterministic"),
-        label: insightProvider.label || (connected ? "ChatGPT connected" : "Deterministic mode"),
+        label: insightProvider.label || (connected ? "ChatGPT connected" : "Review mode"),
         status: insightProvider.status || (connected ? "connected" : "fallback"),
         connected,
       };
@@ -1963,7 +1970,7 @@ export function createMissionModule() {
     const connected = providerName === "chatgpt_oauth" && !DISABLED_PROVIDER_STATUSES.has(guidanceStatus);
     return {
       mode: connected ? "chatgpt_oauth" : "deterministic",
-      label: connected ? "ChatGPT connected" : "Deterministic mode",
+      label: connected ? "ChatGPT connected" : "Review mode",
       status: connected ? "connected" : guidanceStatus || providerName || "fallback",
       connected,
     };
@@ -1984,7 +1991,7 @@ export function createMissionModule() {
     if (configuredProvider === "disabled" || configuredProvider === "off") {
       return {
         mode: "deterministic",
-        label: "Deterministic mode",
+        label: "Review mode",
         status: "disabled",
         connected: false,
       };
@@ -2004,9 +2011,28 @@ export function createMissionModule() {
 
   function renderAiProviderBadge(provider) {
     const connected = Boolean(provider?.connected);
-    const label = provider?.label || (connected ? "ChatGPT connected" : "Deterministic mode");
+    const label = operatorAiProviderLabel(provider?.label, connected);
     const icon = connected ? "◆" : "◇";
     return `<span class="metric-pill ai-provider-badge ${connected ? "connected" : "deterministic"}" data-testid="ai-signal-provider-badge">${escapeHtml(`${icon} ${label}`)}</span>`;
+  }
+
+  function operatorAiProviderLabel(label, connected = false) {
+    const fallback = connected ? "ChatGPT connected" : "Review mode";
+    const rawLabel = String(label || fallback).trim() || fallback;
+    return rawLabel
+      .replace(/\bdeterministic\s+mode\b/gi, "Review mode")
+      .replace(/\bdeterministic\s+fallback\b/gi, "Review fallback");
+  }
+
+  function operatorAiBoundaryMessage(message) {
+    const fallback = "AI analyses the run and suggests next steps. All suggestions need your approval.";
+    const rawMessage = String(message || fallback).trim() || fallback;
+    return rawMessage
+      .replace(/\bbuild-lane\b/gi, "review")
+      .replace(/\bbuild lane\b/gi, "review")
+      .replace(/\bmutating active runtime\b/gi, "changing the active run")
+      .replace(/\bmutate active runtime\b/gi, "change the active run")
+      .replace(/\bactive runtime\b/gi, "active run");
   }
 
   function buildAiSignalLiveEntries(liveStream) {
@@ -2485,7 +2511,7 @@ export function createMissionModule() {
             ? "Autonomously approved and linked to a queued follow-up task under the current scope and kill-switch guardrails."
             : pending
             ? repairProposal
-              ? "Pending repair: approval alone is only a note. Pick a recovery action below so the gap is either recorded or turned into build-lane work."
+              ? "Pending repair: approval alone is only a note. Pick a recovery action below so the gap is either recorded or turned into review work."
               : "Pending review: accepting this suggestion only records approval intent. It does not create, queue, or dispatch a task."
             : status === "approved"
               ? repairProposal
@@ -6613,7 +6639,7 @@ function renderAiRepairAction(selectedTaskSummary) {
     <div class="ai-repair-action split-top" data-testid="mission-ai-repair-action">
       <div>
         <strong>${escapeHtml("AI repair lane")}</strong>
-        <p class="micro-copy">${escapeHtml("Draft a review-only repair proposal from this failed, blocked, or skipped runner outcome. No task is queued and active runtime state is not changed.")}</p>
+        <p class="micro-copy">${escapeHtml("Draft a review-only repair proposal from this failed, blocked, or skipped runner outcome. No task is queued and the active run is not changed.")}</p>
       </div>
       <button class="action secondary" type="button" data-ai-repair-task-id="${escapeHtml(String(selectedTaskSummary.id || ""))}">
         Draft Repair
