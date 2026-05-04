@@ -1,0 +1,112 @@
+{
+  "id": "backlog-238-production-deployment-proof-drill",
+  "task_file": "codex/tasks/backlog-238-production-deployment-proof-drill.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Production-like deployment proof drill: prove hardened install assumptions instead of only documenting them",
+  "goal": "Prove that AegisPT can be installed and operated in a production-like enterprise posture with TLS/proxy assumptions, database/artifact persistence, encryption, backup/restore, and offline-update boundaries evidenced rather than merely documented.",
+  "scope": "Create or use a safe local production-like fixture for deployment proof: Compose/PostgreSQL where available, reverse-proxy/TLS declaration checks, secure cookie/public URL checks, encrypted secrets and artifact storage posture, backup/restore smoke, and offline/manual update evidence. Any unavailable infrastructure must be reported as a blocker, not silently treated as ready.",
+  "status": "queued",
+  "generated_by": "enterprise-queue-review-2026-05-04",
+  "generation_reason": "Backlog-186 made deployment hardening visible, but enterprise readiness still needs proof that the hardened deployment path actually works beyond development-mode diagnostics.",
+  "source_context": {
+    "queue_index": 223,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-183-backup-restore-upgrade-rollback-drill.json",
+      "codex/tasks/backlog-186-enterprise-deployment-hardening.json",
+      "docs/host_service_install.md",
+      "docs/AegisPT-Implementation-Runbook.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "production_deployment_proof",
+    "source_documents": [
+      "infra/compose/",
+      "docs/host_service_install.md",
+      "docs/AegisPT-Implementation-Runbook.md",
+      "scripts/backup_aegispt.py",
+      "scripts/restore_aegispt.py",
+      "scripts/verify_host.sh",
+      "api/app/config.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Deployment proof only. Do not add hosted SaaS, billing, external telemetry, or production secret material. Do not mutate active assessment runs.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "live_target_actions": false
+  },
+  "success_criteria": [
+    "A production-like deployment proof command or documented fixture validates health, migration state, configured public URL/TLS assumptions, secure cookie posture, and database/artifact persistence.",
+    "Backup/restore smoke evidence covers the production-like persistence path or records exact unsupported blockers.",
+    "Offline/manual update and outbound proxy constraints are exercised in a safe fixture or reported as not proven.",
+    "Diagnostics distinguish development-ready from enterprise-production-ready without requiring shell spelunking.",
+    "No secret, certificate, token, or customer evidence material is printed in logs, UI, or support bundles."
+  ],
+  "likely_touched_files": [
+    "infra/compose/",
+    "scripts/verify_host.sh",
+    "scripts/backup_aegispt.py",
+    "scripts/restore_aegispt.py",
+    "api/tests/test_settings.py",
+    "docs/host_service_install.md",
+    "docs/AegisPT-Implementation-Runbook.md",
+    "codex/results/",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "live assessment targets",
+    "plaintext secret outputs",
+    "finding schema removals",
+    "approval gate bypasses"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q",
+      "bash scripts/verify_host.sh or documented production-like fixture equivalent",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Production-like readiness is evidenced or blocked with exact missing prerequisites.",
+      "Development-mode readiness is not confused with production hardening."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Managed SaaS rollout",
+    "Billing/licensing",
+    "Real customer production deployment",
+    "Installing unmanaged third-party plugins"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

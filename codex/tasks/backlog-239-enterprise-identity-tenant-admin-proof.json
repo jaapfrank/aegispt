@@ -1,0 +1,110 @@
+{
+  "id": "backlog-239-enterprise-identity-tenant-admin-proof",
+  "task_file": "codex/tasks/backlog-239-enterprise-identity-tenant-admin-proof.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Enterprise identity and tenant-admin proof: move SSO/RBAC/tenant boundaries from configured-state to enforceable truth",
+  "goal": "Close the gap between visible enterprise identity settings and enterprise-ready access control by proving or explicitly gating browser SSO, tenant membership, role enforcement, session expiry/logout, and SCIM/tenant-admin boundaries.",
+  "scope": "Build the next governed identity proof slice on top of the existing OIDC/SAML settings and RBAC foundations. The task should add enforceable or clearly blocked operator paths for tenant membership and role boundaries, browser-session enforcement where configured, session expiry/logout behavior, and SCIM/tenant-admin status. Local development fallback may remain for dev mode but must not be presented as enterprise authentication.",
+  "status": "queued",
+  "generated_by": "enterprise-queue-review-2026-05-04",
+  "generation_reason": "Enterprise readiness still lists OIDC/SAML browser enforcement, SCIM, tenant membership, and hosted RBAC as gaps. The product needs an explicit proof task after foundation work instead of leaving these as vague future work.",
+  "source_context": {
+    "queue_index": 224,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-120-authentication-and-roe-gate.json",
+      "codex/tasks/backlog-127-rbac.json",
+      "codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json",
+      "docs/mssp_multitenant_readiness.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_identity_enforcement_and_tenant_administration",
+    "source_documents": [
+      "api/app/auth/",
+      "api/app/routers/auth.py",
+      "api/app/models/",
+      "ui/assets/modules/settings.js",
+      "docs/mssp_multitenant_readiness.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Enterprise identity enforcement proof only. Do not weaken ROE, scope boundaries, API-key revocation, tenant isolation, or local development safety labels.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "live_target_actions": false
+  },
+  "success_criteria": [
+    "Enterprise mode clearly distinguishes dev fallback from enforced browser identity and blocks misleading enterprise-ready claims when SSO is only configured but not enforced.",
+    "Tenant membership and role boundaries are enforced or explicitly marked blocked with next actions in Settings/Diagnostics.",
+    "Session expiry/logout behavior has API and browser/UI proof and does not corrupt active missions or runs.",
+    "SCIM/invitation/tenant-admin status is surfaced honestly with configured, disabled, or unsupported states and no plaintext secrets.",
+    "Audit events capture identity/admin changes and access-boundary decisions."
+  ],
+  "likely_touched_files": [
+    "api/app/auth/",
+    "api/app/routers/auth.py",
+    "api/app/models/",
+    "api/tests/test_auth.py",
+    "ui/assets/modules/settings.js",
+    "ui/tests/test_operator_console_smoke_e2e.py",
+    "docs/mssp_multitenant_readiness.md",
+    "docs/host_service_install.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "ChatGPT OAuth provider semantics",
+    "scope enforcement bypasses",
+    "secret materialization bypasses",
+    "finding schema removals"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_auth.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Enterprise identity readiness does not imply SSO enforcement unless enforcement is proven.",
+      "Tenant/admin/RBAC limits are visible, tested, and audit-backed."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Hosted billing or licensing",
+    "Cross-tenant analytics portal",
+    "External IdP certification",
+    "Removing local development fallback without a separate migration task"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -9,7 +9,7 @@
   "generated_by": "visual-audit-2026-05-03",
   "generation_reason": "Visual audit 2026-05-03: Mission Control empty state has large unused whitespace and fragmented mini-empty-states across 3 panels — replace with a single focused onboarding card.",
   "source_context": {
-    "queue_index": 202,
+    "queue_index": 238,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-196-mission-control-ai-signal-developer-labels.json"

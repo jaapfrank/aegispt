@@ -9,7 +9,7 @@
   "generated_by": "operator-feedback-2026-05-03",
   "generation_reason": "Operators need AegisPT to be complete after install: all software tools prepared, risky features disabled/gated rather than absent, and Settings must expose actionable repair/enable controls.",
   "source_context": {
-    "queue_index": 215,
+    "queue_index": 198,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",

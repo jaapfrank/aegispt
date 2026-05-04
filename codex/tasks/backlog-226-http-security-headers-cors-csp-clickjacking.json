@@ -9,7 +9,7 @@
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "CORS misconfiguration with credentials, CSP bypass patterns, and Clickjacking are partially covered by ZAP but miss credential-theft CORS variants — need active probing.",
   "source_context": {
-    "queue_index": 226,
+    "queue_index": 213,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"

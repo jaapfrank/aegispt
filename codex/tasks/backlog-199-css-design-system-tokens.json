@@ -9,7 +9,7 @@
   "generated_by": "css-audit-2026-05-03",
   "generation_reason": "CSS audit 2026-05-03: 4/10 consistency score — mixed units, duplicate variables, missing responsive breakpoint. This is the root cause of visual clunkiness.",
   "source_context": {
-    "queue_index": 199,
+    "queue_index": 235,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-52-ui-structural-foundation.json",

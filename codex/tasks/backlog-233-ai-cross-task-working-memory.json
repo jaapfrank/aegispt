@@ -9,7 +9,7 @@
   "generated_by": "autoPenBench-gap-analysis-2026-05-03",
   "generation_reason": "AI agent analyzes each task in isolation — no memory of prior analyses. AutoPenBench's working memory is the key enabler of compound reasoning. Must be added to reach 60%+ effective AI guidance.",
   "source_context": {
-    "queue_index": 233,
+    "queue_index": 232,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-218-ai-attack-chain-reasoning-web-context.json",

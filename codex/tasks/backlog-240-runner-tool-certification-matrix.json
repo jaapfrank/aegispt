@@ -1,0 +1,109 @@
+{
+  "id": "backlog-240-runner-tool-certification-matrix",
+  "task_file": "codex/tasks/backlog-240-runner-tool-certification-matrix.json",
+  "task_type": "validation_hardening",
+  "title": "Runner and tool certification matrix: prove each supported assessment family has install, fixture, output, and report evidence",
+  "goal": "Make the supported-tool and supported-runner surface enterprise-verifiable by certifying every tracked assessment family against installation readiness, safe fixture/lab proof, normalized output contracts, evidence artifacts, report mapping, and known limitations.",
+  "scope": "Build a certification matrix after the current tool/runners expansion work. For each software tool group and custom runner, record installed/ready state, required authorization tier, safe fixture or benchmark proof, expected artifact schema, finding/report mapping, false-positive guardrails, and unsupported/hardware blockers. This task does not add new runners; it proves the ones AegisPT claims to support.",
+  "status": "queued",
+  "generated_by": "enterprise-queue-review-2026-05-04",
+  "generation_reason": "Settings/tool readiness currently says whether binaries exist, but enterprise clients need proof that each supported runner actually produces reliable evidence and report output under safe validation conditions.",
+  "source_context": {
+    "queue_index": 221,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",
+      "codex/tasks/backlog-209-tool-capability-guide-and-selection-intelligence.json",
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",
+      "codex/tasks/backlog-215-tool-install-and-enable-control-plane.json",
+      "docs/operator_product_operational_assurance.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "runner_certification_and_tool_claim_truth",
+    "source_documents": [
+      "workers/runners/",
+      "workers/orchestration/tasks.py",
+      "api/app/services/settings.py",
+      "docs/operator_product_operational_assurance.md",
+      "codex/results/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Certification and evidence matrix only. Do not implement new detection capabilities or run against live external targets in this task.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "live_target_actions": false
+  },
+  "success_criteria": [
+    "A machine-readable runner/tool certification matrix lists each tracked tool group and runner with ready state, authorization tier, safe validation fixture, output contract, report mapping, and limitations.",
+    "Every claimed supported runner links to at least one deterministic test, fixture/lab proof, or explicit supported-with-gap reason.",
+    "Hardware-only blockers such as wireless adapters are separated from software installation readiness.",
+    "Report/finding mapping is verified for certified runners so output is not stranded as raw artifacts only.",
+    "The matrix feeds or is referenced by Settings/Diagnostics and enterprise release-readiness outputs."
+  ],
+  "likely_touched_files": [
+    "workers/tests/",
+    "api/tests/test_settings.py",
+    "scripts/",
+    "docs/operator_product_operational_assurance.md",
+    "codex/results/runner-tool-certification-matrix.json",
+    "codex/results/runner-tool-certification-matrix.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "runner target execution safety boundaries",
+    "approval gate bypasses",
+    "finding schema removals",
+    "external customer targets"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest workers/tests -q",
+      "source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Every supported runner/tool claim is backed by test or fixture evidence, or marked supported-with-gap/blocked honestly.",
+      "The certification matrix can be consumed by release-readiness and operator diagnostics."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new runners",
+    "Intrusive external validation",
+    "Installing physical hardware",
+    "Changing support claims without evidence"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

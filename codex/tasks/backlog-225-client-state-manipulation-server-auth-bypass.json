@@ -9,7 +9,7 @@
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "Gruyere's client-state manipulation and WebGoat's bypassrestrictions/htmltampering modules show a gap in server-side authorization testing — parameter/cookie privilege escalation not detected.",
   "source_context": {
-    "queue_index": 225,
+    "queue_index": 212,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-223-idor-broken-access-control-runner.json",

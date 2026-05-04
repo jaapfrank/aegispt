@@ -9,7 +9,7 @@
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "OAuth2/OIDC testing absent from AegisPT — redirect_uri bypass, missing PKCE, token leakage are common real-world findings in modern SaaS applications.",
   "source_context": {
-    "queue_index": 230,
+    "queue_index": 217,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-229-password-reset-authentication-flow-runner.json",

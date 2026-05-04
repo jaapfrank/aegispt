@@ -9,7 +9,7 @@
   "generated_by": "visual-audit-2026-05-03",
   "generation_reason": "Visual audit 2026-05-03: 'Complete Assessment Wizard' CTA visible on wizard screen itself and on Mission Control — confusing and counterproductive.",
   "source_context": {
-    "queue_index": 201,
+    "queue_index": 237,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-168-complete-assessment-wizard-cta-scoping.json"

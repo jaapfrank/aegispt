@@ -9,7 +9,7 @@
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "Gruyere shows 3 XSS variants not covered by ZAP: file upload XSS, AJAX/JSON response injection, XSSI data leakage. These are needed to reach 80%+ coverage.",
   "source_context": {
-    "queue_index": 220,
+    "queue_index": 207,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"

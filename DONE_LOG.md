@@ -1,5 +1,75 @@
 # Done Log
 
+- 2026-05-04: updated enterprise backlog sequencing without changing the active task:
+  - rationale:
+    - the user asked whether the remaining open tasks would bring AegisPT to enterprise level and then asked to create the missing tasks and put the queue in the best order
+    - the existing backlog already covered many concrete runners and UI fixes, so the safest governance move was to avoid duplicates and add only the missing proof/closure slices
+    - task IDs were kept stable to preserve historical references; `TASK_QUEUE.md` order and `source_context.queue_index` are the authoritative sequence
+  - implementation:
+    - added backlog-237 `Enterprise release blocker closure`
+    - added backlog-238 `Production-like deployment proof drill`
+    - added backlog-239 `Enterprise identity and tenant-admin proof`
+    - added backlog-240 `Runner and tool certification matrix`
+    - reordered the post-196 queue so enterprise foundations, tool readiness, finding quality, benchmark proof, runner coverage, certification, and release/deployment/identity proofs run before later operator workflow, AI, and UI-polish slices
+    - synchronized `source_context.queue_index` in all affected task packages
+    - left `NEXT_TASK.md` unchanged with exactly one active task, backlog-196
+  - files:
+    - `TASK_QUEUE.md`
+    - `codex/tasks/backlog-198-wizard-multi-tile-target-question-mismatch.json`
+    - `codex/tasks/backlog-199-css-design-system-tokens.json`
+    - `codex/tasks/backlog-200-bottom-nav-bar-remove-or-replace-sidebar.json`
+    - `codex/tasks/backlog-201-complete-assessment-wizard-cta-everywhere.json`
+    - `codex/tasks/backlog-202-mission-control-empty-state-layout.json`
+    - `codex/tasks/backlog-203-settings-page-navigation-overhaul.json`
+    - `codex/tasks/backlog-204-advanced-config-drawer-operator-language.json`
+    - `codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json`
+    - `codex/tasks/backlog-206-cve-to-test-auto-queue.json`
+    - `codex/tasks/backlog-207-ai-security-research-lab-screen.json`
+    - `codex/tasks/backlog-208-chain-phase-visibility-mission-control.json`
+    - `codex/tasks/backlog-209-tool-capability-guide-and-selection-intelligence.json`
+    - `codex/tasks/backlog-210-email-slack-teams-notification.json`
+    - `codex/tasks/backlog-211-pentest-depth-additional-tools.json`
+    - `codex/tasks/backlog-212-finding-quality-enrichment-and-remediation-proof.json`
+    - `codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json`
+    - `codex/tasks/backlog-214-xxe-injection-runner.json`
+    - `codex/tasks/backlog-215-tool-install-and-enable-control-plane.json`
+    - `codex/tasks/backlog-216-jwt-vulnerability-runner.json`
+    - `codex/tasks/backlog-217-vulnerable-components-dependency-check.json`
+    - `codex/tasks/backlog-218-idor-broken-access-control-runner.json`
+    - `codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json`
+    - `codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json`
+    - `codex/tasks/backlog-221-ssrf-dedicated-runner.json`
+    - `codex/tasks/backlog-222-insecure-deserialization-runner.json`
+    - `codex/tasks/backlog-223-session-security-deep-analysis.json`
+    - `codex/tasks/backlog-224-password-reset-authentication-flow-runner.json`
+    - `codex/tasks/backlog-225-client-state-manipulation-server-auth-bypass.json`
+    - `codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json`
+    - `codex/tasks/backlog-227-graphql-security-runner.json`
+    - `codex/tasks/backlog-228-ssti-server-side-template-injection.json`
+    - `codex/tasks/backlog-229-http-request-smuggling-runner.json`
+    - `codex/tasks/backlog-230-oauth2-oidc-misconfiguration-runner.json`
+    - `codex/tasks/backlog-231-insufficient-logging-detection.json`
+    - `codex/tasks/backlog-232-ai-reasoning-transparency-summary-thought-action.json`
+    - `codex/tasks/backlog-233-ai-cross-task-working-memory.json`
+    - `codex/tasks/backlog-234-linux-privilege-escalation-enumeration.json`
+    - `codex/tasks/backlog-235-kill-chain-progress-rate-tracking.json`
+    - `codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json`
+    - `codex/tasks/backlog-237-enterprise-release-blocker-closure.json`
+    - `codex/tasks/backlog-238-production-deployment-proof-drill.json`
+    - `codex/tasks/backlog-239-enterprise-identity-tenant-admin-proof.json`
+    - `codex/tasks/backlog-240-runner-tool-certification-matrix.json`
+    - `codex/results/enterprise-queue-sequencing-20260504.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with 240 queued task packages and exactly one active task
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/enterprise-queue-sequencing-20260504.md`
+  - remaining risks:
+    - this was backlog governance only; it does not complete backlog-196 or prove enterprise-ready status
+    - the new tasks still need to be promoted and implemented one by one through the existing build-lane flow
+
 - 2026-05-03: completed backlog-195 `Governed stale run recovery for cancelling/running tasks`:
   - rationale:
     - Mission Control was flickering because stale `cancelling` runs still had `running` task rows, causing background refresh and stdout polling to rebuild the screen while the operator tried to select/copy text

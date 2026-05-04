@@ -9,7 +9,7 @@
   "generated_by": "benchmark-analysis-2026-05-03",
   "generation_reason": "Systematic comparison against Gruyere and WebGoat confirms significant detection gaps — benchmark run produces the exact priority list for tooling improvements.",
   "source_context": {
-    "queue_index": 213,
+    "queue_index": 201,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",

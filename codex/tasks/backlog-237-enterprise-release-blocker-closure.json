@@ -1,0 +1,110 @@
+{
+  "id": "backlog-237-enterprise-release-blocker-closure",
+  "task_file": "codex/tasks/backlog-237-enterprise-release-blocker-closure.json",
+  "task_type": "enterprise_readiness_slice",
+  "title": "Enterprise release blocker closure: execute accuracy evidence and close or keep blocked release claims honestly",
+  "goal": "Turn the current enterprise release-readiness no-go into current, evidence-backed truth by executing the validation matrix and updating the support-claim ledger without lowering gates or inventing proof.",
+  "scope": "Run and repair only the existing release-readiness evidence path: known-vulnerability validation matrix execution, false-positive/false-negative posture, support-claim ledger refresh, and operator-readable blocker list. This task is the closure pass after runner/tool coverage work; it must either produce current pass evidence or leave explicit blockers with next-task references.",
+  "status": "queued",
+  "generated_by": "enterprise-queue-review-2026-05-04",
+  "generation_reason": "The existing release-readiness gate is blocked because accuracy evidence is stale or not executed. Enterprise readiness needs a dedicated closure task after tool/runners work, not another broad roadmap item.",
+  "source_context": {
+    "queue_index": 222,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",
+      "codex/tasks/backlog-187-enterprise-release-readiness-gate.json",
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",
+      "codex/tasks/backlog-240-runner-tool-certification-matrix.json",
+      "docs/operator_product_operational_assurance.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_release_truth_and_accuracy_evidence",
+    "source_documents": [
+      "scripts/run_validation_matrix.py",
+      "scripts/run_enterprise_release_readiness.py",
+      "codex/results/validation-matrix-latest.json",
+      "codex/results/enterprise-release-readiness.json",
+      "codex/results/enterprise-release-readiness.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Evidence closure only. Do not fake results, relax thresholds, mark unsupported capabilities as supported, or add unrelated runners in this task.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "live_target_actions": false
+  },
+  "success_criteria": [
+    "The validation matrix is executed against safe/local benchmark targets or every blocked scenario records the exact blocker and safest next step.",
+    "codex/results/validation-matrix-latest.json contains a current expected-vs-actual verdict instead of not_run/stale status.",
+    "Enterprise release-readiness outputs are regenerated from current evidence.",
+    "The release gate remains no-go if critical evidence is missing and lists concrete next task references.",
+    "Human-readable output explains detection reliability, false-positive/false-negative posture, skipped scenarios, and unsupported claims without marketing overclaim."
+  ],
+  "likely_touched_files": [
+    "scripts/run_validation_matrix.py",
+    "scripts/run_enterprise_release_readiness.py",
+    "api/tests/test_release_readiness.py",
+    "codex/results/validation-matrix-latest.json",
+    "codex/results/enterprise-release-readiness.json",
+    "codex/results/enterprise-release-readiness.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "finding schema field removals",
+    "approval gate bypasses",
+    "pack validation bypasses",
+    "external customer targets"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_release_readiness.py -q",
+      "python3 scripts/run_validation_matrix.py",
+      "python3 scripts/run_enterprise_release_readiness.py --output-json codex/results/enterprise-release-readiness.json --output-md codex/results/enterprise-release-readiness.md",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Accuracy evidence is current and machine-readable, or blockers are explicit and fail closed.",
+      "The enterprise-ready claim is allowed only when the gate has current evidence for required claims."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "New detection capability implementation",
+    "Intrusive live target validation",
+    "External certification claims",
+    "Changing thresholds only to get a green release gate"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

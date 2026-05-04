@@ -9,7 +9,7 @@
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "Session fixation, token entropy, and post-logout replay are not currently tested — WebGoat has dedicated modules, Burp Suite tests these via session handling rules.",
   "source_context": {
-    "queue_index": 223,
+    "queue_index": 210,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
