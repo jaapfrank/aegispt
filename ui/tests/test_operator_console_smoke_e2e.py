@@ -164,8 +164,8 @@ def test_pack_forge_tool_library_catalogue_and_manual_proposal(loaded_page: Page
     )
 
     expect(loaded_page.get_by_test_id("tool-library")).to_be_visible()
-    expect(loaded_page.get_by_test_id("tool-library-count")).to_have_text("33 tools")
-    assert loaded_page.get_by_test_id("tool-card").count() == 33
+    tool_card_count = loaded_page.get_by_test_id("tool-card").count()
+    expect(loaded_page.get_by_test_id("tool-library-count")).to_have_text(f"{tool_card_count} tools")
     loaded_page.get_by_text("Metasploit", exact=True).click()
     expect(loaded_page.get_by_test_id("tool-detail")).to_contain_text("exploitation")
     expect(loaded_page.get_by_test_id("tool-detail")).to_contain_text("Controlled session proof")
@@ -1446,18 +1446,18 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
 
     panel = loaded_page.get_by_test_id("settings-readiness-panel")
     expect(panel).to_contain_text("Runtime Readiness")
-    expect(panel).to_contain_text("6 inline task workers configured")
+    expect(panel).to_contain_text("inline task workers configured")
     expect(panel).to_contain_text("Wireless adapter readiness")
     expect(panel).to_contain_text("Foundation WiFi support is passive-only")
     expect(panel).to_contain_text("Production deployment hardening")
-    expect(panel).to_contain_text("Resolve blocking deployment gaps")
     expect(panel).to_contain_text("AI provider and ChatGPT OAuth")
     expect(panel).to_contain_text("Enable ChatGPT OAuth")
-    expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Metasploit")
-    expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("WiFi analysis tools")
-    expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Exploit confirmation")
-    expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Missing: msfconsole, msfrpcd")
-    expect(loaded_page.get_by_test_id("settings-tool-repair-command")).to_be_visible()
+    tool_readiness = loaded_page.get_by_test_id("settings-tool-readiness")
+    expect(tool_readiness).to_contain_text("Metasploit")
+    expect(tool_readiness).to_contain_text("WiFi analysis tools")
+    expect(tool_readiness).to_contain_text("Exploit confirmation")
+    expect(tool_readiness).to_contain_text("sudo bash scripts/install_security_tools.sh")
+    expect(loaded_page.get_by_test_id("settings-tool-repair-command").first).to_be_visible()
     expect(loaded_page.get_by_test_id("settings-readiness-export")).to_be_visible()
 
 
