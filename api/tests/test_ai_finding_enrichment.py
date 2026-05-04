@@ -30,6 +30,7 @@ from api.app.services.ai_enrichment import (
     enrich_finding_async,
     store_ai_enrichment_for_finding,
 )
+from api.app.services.threat_intel import upsert_threat_intel_record
 from workers.orchestration.findings import store_findings
 from workers.runners.base.contracts import EvidenceArtifact as ContractEvidenceArtifact
 
@@ -327,6 +328,53 @@ def test_ai_finding_enrichment_is_disabled_by_default_and_theater_falls_back(cli
         "May enable follow-on abuse, weakened trust boundaries, or meaningful operational disruption."
     )
     assert theater["technical_details"].startswith("Target https://app.example.test produced evidence")
+
+
+def test_finding_quality_adds_cvss_owasp_and_proof_reference(client) -> None:
+    finding_id = _seed_finding(
+        client,
+        severity="medium",
+        title="CVE-2026-0001 SQL injection on login API",
+        target_id="https://app.example.test/api/login",
+        evidence_ref="artifact://zap/login-sql",
+        summary="Stored evidence references CVE-2026-0001 and CWE-89 SQL injection.",
+        methodology_tags=["api", "injection"],
+        control_family="input_validation",
+    )
+    with client.app.state.session_factory() as session:
+        upsert_threat_intel_record(
+            session,
+            {
+                "source": "nvd",
+                "advisory_id": "CVE-2026-0001",
+                "title": "Fixture CVE",
+                "severity": "critical",
+                "product_match_hints": ["CVE-2026-0001"],
+                "metadata": {
+                    "feed_type": "nvd",
+                    "cvss_score": 9.8,
+                    "cvss_severity": "critical",
+                },
+                "references": ["https://nvd.nist.gov/vuln/detail/CVE-2026-0001"],
+            },
+        )
+        session.commit()
+
+    finding_response = client.get(f"/api/v1/findings/{finding_id}")
+    assert finding_response.status_code == 200
+    finding = finding_response.json()
+    assert finding["cvss_score"] == 9.8
+    assert finding["cvss_source"] == "nvd-cache"
+    assert finding["owasp_framework"] == "OWASP API Security Top 10 2023"
+    assert finding["owasp_reference"] == "OWASP-API8"
+    assert finding["proof_reference"]["evidence_ref"] == "artifact://zap/login-sql"
+
+    theater_response = client.get(f"/api/v1/findings/{finding_id}/theater")
+    assert theater_response.status_code == 200
+    theater = theater_response.json()
+    assert theater["finding"]["cvss_score"] == 9.8
+    assert theater["methodology"]["owasp"]["category"] == "API8: Security Misconfiguration"
+    assert "owasp-api8" in theater["finding"]["methodology_tags"]
 
 
 def test_store_findings_auto_queues_background_ai_enrichment(client, monkeypatch) -> None:

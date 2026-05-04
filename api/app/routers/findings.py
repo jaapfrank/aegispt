@@ -47,6 +47,7 @@ from api.app.services.finding_retests import (
     FindingRetestRequestError,
     request_single_finding_retest,
 )
+from api.app.services.finding_quality import apply_finding_quality_defaults
 from api.app.services.finding_sla import apply_finding_sla, apply_findings_sla
 from api.app.services.finding_views import build_finding_evidence_replay, build_finding_theater
 from api.app.services.remediation import build_remediation_portfolio, build_remediation_retest_plan
@@ -255,7 +256,10 @@ def list_run_findings(
         raise HTTPException(status_code=404, detail="run not found")
     assert_run_tenant(run, tenant_id)
     findings = session.scalars(select(Finding).where(Finding.run_id == run_id)).all()
-    if apply_findings_sla(session, list(findings), settings=settings, tenant_id=tenant_id):
+    quality_changed = any(
+        apply_finding_quality_defaults(finding, session=session) for finding in findings
+    )
+    if apply_findings_sla(session, list(findings), settings=settings, tenant_id=tenant_id) or quality_changed:
         session.commit()
     return [FindingRead.model_validate(finding) for finding in sorted(findings, key=_sort_key)]
 
@@ -271,7 +275,8 @@ def get_finding(
     if finding is None:
         raise HTTPException(status_code=404, detail="finding not found")
     assert_finding_tenant(finding, tenant_id)
-    if apply_finding_sla(session, finding, settings=settings, tenant_id=tenant_id):
+    quality_changed = apply_finding_quality_defaults(finding, session=session)
+    if apply_finding_sla(session, finding, settings=settings, tenant_id=tenant_id) or quality_changed:
         session.commit()
 
     return FindingRead.model_validate(finding)
@@ -419,7 +424,8 @@ def get_finding_theater(
     if finding is None:
         raise HTTPException(status_code=404, detail="finding not found")
     assert_finding_tenant(finding, tenant_id)
-    if apply_finding_sla(session, finding, settings=settings, tenant_id=tenant_id):
+    quality_changed = apply_finding_quality_defaults(finding, session=session)
+    if apply_finding_sla(session, finding, settings=settings, tenant_id=tenant_id) or quality_changed:
         session.commit()
     effective_settings = effective_runtime_settings_for_finding(
         session,
@@ -450,6 +456,8 @@ def get_finding_evidence(
     if finding is None:
         raise HTTPException(status_code=404, detail="finding not found")
     assert_finding_tenant(finding, tenant_id)
+    if apply_finding_quality_defaults(finding, session=session):
+        session.commit()
     evidence_view = build_finding_evidence_replay(session, finding_id)
     if evidence_view is None:
         raise HTTPException(status_code=404, detail="finding not found")

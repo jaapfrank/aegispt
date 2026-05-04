@@ -43,6 +43,7 @@ from api.app.services.ai_enrichment import (
 )
 from api.app.services.autofix import autofix_view
 from api.app.services.finding_chains import build_finding_chain_context
+from api.app.services.finding_quality import apply_finding_quality_defaults, finding_quality_view
 from api.app.services.finding_validator import (
     serialize_validation_attempt,
     validation_summary_for_finding,
@@ -456,6 +457,8 @@ def build_finding_theater(
     finding = _load_finding(session, finding_id)
     if finding is None:
         return None
+    apply_finding_quality_defaults(finding, session=session)
+    quality = finding_quality_view(finding, session=session)
     remediation = _load_remediation(session, finding)
     linked_retests = _linked_retests(session, finding)
     linked_integrations = _linked_integrations(session, finding)
@@ -520,6 +523,7 @@ def build_finding_theater(
             "asvs_reference": finding.asvs_reference,
             "control_family": control_family_label(finding.control_family),
             "methodology_tags": list(finding.methodology_tags or []),
+            "owasp": quality["owasp"],
         },
         remediation=remediation_view,
         ai_enrichment=ai_enrichment,
@@ -545,6 +549,7 @@ def build_finding_evidence_replay(session: Session, finding_id: UUID | str) -> F
     finding = _load_finding(session, finding_id)
     if finding is None:
         return None
+    apply_finding_quality_defaults(finding, session=session)
 
     inventory_source: dict[str, Any] = {}
     if finding.source_inventory_snapshot is not None:

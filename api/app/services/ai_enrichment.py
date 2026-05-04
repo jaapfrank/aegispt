@@ -216,8 +216,10 @@ class DeterministicFindingEnrichmentProvider:
                 "changing finding status or remediation ownership."
             ),
             remediation_narrative=(
-                f"Address the affected control for {target}, keep remediation notes on the finding record, "
-                "and use the existing single-finding retest flow to confirm closure."
+                f"1. Reproduce the issue from stored evidence {evidence_ref}. "
+                f"2. Apply a stack-aware fix for the affected control on {target}. "
+                "3. Record owner and remediation notes on this finding. "
+                "4. Use the existing single-finding retest flow to confirm closure."
             ),
             metadata={"provider_mode": "deterministic-test"},
         )

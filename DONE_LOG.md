@@ -1,5 +1,49 @@
 # Done Log
 
+- 2026-05-04: completed backlog-212 `Finding quality`:
+  - rationale:
+    - enterprise findings need structured CVSS, OWASP mapping, business impact, remediation steps, and proof references before reports can be trusted by operators and customers
+    - the active task required additive quality metadata within existing finding/evidence/report structures, without changing severity, finding types, evidence storage, report generation, approval gates, runtime binding, scope, ROE, credentials, or kill switch behavior
+  - implementation:
+    - added `api/app/services/finding_quality.py` for NVD-cache CVSS lookup, deterministic fallback CVSS, OWASP mapping, and proof-reference extraction from existing evidence/replay fields
+    - extended finding API responses with additive CVSS source, OWASP mapping, and proof-reference fields
+    - applied quality defaults through finding list/detail/theater/evidence paths and runner extraction while preserving sparse placeholder insufficient-evidence behavior
+    - strengthened AI finding enrichment payloads and deterministic fallback remediation with business-impact and numbered remediation guidance
+    - added Finding drawer CVSS, OWASP, and Reproduce/proof reference cards with Playwright coverage
+  - files:
+    - `api/app/services/finding_quality.py`
+    - `api/app/schemas/findings.py`
+    - `api/app/routers/findings.py`
+    - `api/app/services/finding_views.py`
+    - `api/app/services/ai_enrichment.py`
+    - `api/app/services/chatgpt_oauth.py`
+    - `workers/orchestration/findings.py`
+    - `api/tests/test_ai_finding_enrichment.py`
+    - `ui/assets/modules/findings.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-212-finding-quality-20260504.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_finding_enrichment.py::test_finding_quality_adds_cvss_owasp_and_proof_reference workers/tests/test_findings_contract.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_findings_drawer_shows_quality_cvss_owasp_and_reproduce -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - read-only `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health/live` passed
+    - safe read-only browser acceptance on `http://127.0.0.1:8000/app/` confirmed CVSS gauge, OWASP badge, and Reproduce/proof UI with injected finding state
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-212-finding-quality-20260504.md`
+  - remaining risks:
+    - no live target action was run; browser acceptance used injected state plus live health
+    - NVD CVSS is limited to local threat-intel cache records and does not perform scan-time external lookups
+    - report export rendering of the new quality fields remains outside this task
+  - next active task:
+    - backlog-213 `Gruyere + WebGoat benchmark coverage gap analysis`
+
 - 2026-05-04: completed backlog-209 `Tool capability guide`:
   - rationale:
     - operators could not see the 33 implemented runner/supporting capabilities, their authorization tiers, or what each tool is expected to find

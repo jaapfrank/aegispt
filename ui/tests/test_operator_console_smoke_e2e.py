@@ -2751,6 +2751,116 @@ def test_findings_drawer_ai_enrichment_status_badge(loaded_page: Page) -> None:
     )
 
 
+def test_findings_drawer_shows_quality_cvss_owasp_and_reproduce(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-findings").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const findingsModule = await import('/app/assets/modules/findings.js?v=20260504-finding-quality-1');
+          const state = runtimeModule.state;
+          const runId = '33333333-3333-4333-8333-333333333333';
+          const finding = {
+            id: '44444444-4444-4444-8444-444444444444',
+            title: 'SQL Injection',
+            severity: 'critical',
+            target_id: 'https://portal.example.test/api/login',
+            evidence_ref: 'artifact://nuclei/sql',
+            status: 'open',
+            summary: 'SQL injection evidence is stored.',
+            finding_origin: 'standard',
+            cvss_score: 9.8,
+            cvss_vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
+            cvss_source: 'nvd-cache',
+            owasp_framework: 'OWASP API Security Top 10 2023',
+            owasp_category: 'API8: Security Misconfiguration',
+            owasp_reference: 'OWASP-API8',
+            owasp_mapping: {
+              framework: 'OWASP API Security Top 10 2023',
+              category: 'API8: Security Misconfiguration',
+              reference: 'OWASP-API8',
+              source: 'deterministic-finding-type',
+            },
+            proof_reference: {
+              label: 'Reproduce from stored evidence',
+              evidence_ref: 'artifact://nuclei/sql',
+              replay_recipe_available: true,
+              tool: 'nuclei',
+              target: 'https://portal.example.test/api/login',
+            },
+            methodology_tags: ['api', 'injection', 'owasp-api8'],
+          };
+          runtimeModule.patchState({
+            activeScreen: 'findings-theater',
+            activePhase: 'analysis',
+            selectedRunId: runId,
+            selectedRun: {
+              id: runId,
+              status: 'completed',
+              tasks: [],
+              configuration_json: {},
+              profile: { name: 'ui-test-run' },
+            },
+            mission: {
+              ...state.mission,
+              runs: [{
+                id: runId,
+                status: 'completed',
+                tasks: [],
+                configuration_json: {},
+                profile: { name: 'ui-test-run' },
+              }],
+              findingsByRun: { [runId]: [finding] },
+            },
+            selectedFindingId: finding.id,
+            selectedFindingTheater: {
+              finding,
+              severity_rank: 0,
+              confidence_label: 'high',
+              exploitability: 'operator-validated',
+              business_impact: 'The login API may expose customer account data.',
+              technical_details: 'Stored evidence supports SQL injection review.',
+              evidence_summary: 'Evidence is linked.',
+              provenance: { origin: 'standard' },
+              methodology: {
+                owasp: finding.owasp_mapping,
+                methodology_tags: finding.methodology_tags,
+              },
+              remediation: {
+                priority: 'Immediate',
+                summary: 'Use parameterized database access.',
+                detail: 'Retest the exact endpoint after remediation.',
+              },
+              ai_enrichment: {
+                status: 'succeeded',
+                available: true,
+                provider: 'chatgpt_oauth',
+                label: 'Enriched by chatgpt_oauth',
+                business_impact: 'The login API may expose customer account data.',
+                technical_context: 'Stored evidence supports SQL injection review.',
+                remediation_narrative: '1. Replace string-built SQL with parameterized queries. 2. Add regression tests. 3. Retest this endpoint.',
+              },
+              verification_status: 'evidence-linked',
+              next_steps: ['Review remediation guidance.'],
+              risk_snapshot: {},
+            },
+            selectedFindingEvidence: { related_executions: [], artifacts: [] },
+          }, 'ui.test.findingQualityDrawer');
+          runtimeModule.runtime.actions.engagementFindings = () => [finding].map((item) => ({ ...item, _runId: runId }));
+          findingsModule.createFindingsModule().renderFindingsTheater();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("finding-cvss-gauge")).to_contain_text("9.8")
+    expect(loaded_page.get_by_test_id("finding-cvss-gauge")).to_contain_text("nvd-cache")
+    expect(loaded_page.get_by_test_id("finding-owasp-badge")).to_contain_text("API8")
+    expect(loaded_page.get_by_test_id("finding-proof-reference")).to_contain_text(
+        "artifact://nuclei/sql"
+    )
+    expect(loaded_page.get_by_test_id("finding-reproduce-button")).to_be_visible()
+
+
 def test_findings_drawer_ai_enrichment_unavailable_can_be_started_when_provider_ready(
     loaded_page: Page,
 ) -> None:

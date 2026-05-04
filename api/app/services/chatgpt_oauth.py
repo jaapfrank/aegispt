@@ -589,7 +589,21 @@ class ChatGPTOAuthFindingEnrichmentProvider:
                     "asvs_reference": finding.asvs_reference,
                     "control_family": finding.control_family,
                     "finding_origin": finding.finding_origin,
-                }
+                    "cvss_score": finding.cvss_score,
+                    "cvss_vector": finding.cvss_vector,
+                },
+                "output_contract": {
+                    "business_impact": (
+                        "Short evidence-grounded business impact in customer/operator language; "
+                        "do not change severity or claim breach impact beyond stored evidence."
+                    ),
+                    "technical_context": "Reference stored evidence, target, methodology tags, and proof boundary.",
+                    "remediation_narrative": (
+                        "Concrete numbered remediation steps. Make steps stack-aware when the finding summary, "
+                        "target, evidence, or methodology identifies a product, protocol, framework, or platform. "
+                        "Do not include exploit commands, credential abuse, destructive commands, or scope expansion."
+                    ),
+                },
             },
         )
         result_payload = response.get("enrichment") if isinstance(response.get("enrichment"), dict) else response

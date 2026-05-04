@@ -2,50 +2,51 @@
 
 ## Title
 
-Finding quality: add CVSS score, OWASP mapping, business impact, step-by-step remediation, and proof-of-concept reference to every finding
+Gruyere + WebGoat gap analysis: add local benchmark targets, run existing tools against both, and produce expected-vs-actual coverage reports before adding new detection capability tasks
 
 ## Promoted From
 
-`codex/tasks/backlog-212-finding-quality-enrichment-and-remediation-proof.json`
+`codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json`
 
 ## Goal
 
-Enterprise pentest reports require structured finding quality that AegisPT only partially provides today: CVSS, OWASP mapping, business impact, concrete remediation, and reproduce/proof references.
+Add Google Gruyere and OWASP WebGoat as official local benchmark targets, run the existing AegisPT tooling against both, and produce expected-vs-actual coverage evidence before adding new detection capability tasks.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-212-finding-quality-enrichment-and-remediation-proof.json`.
+Implement the active backlog package `codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json`.
 
 Expected slice:
 
-- add CVSS score support for findings, using NVD-sourced values for CVE findings and deterministic fallback calculation for non-CVE findings
-- add deterministic OWASP category mapping by finding type and surface
-- add AI business impact and stack-aware remediation fields when ChatGPT is connected
-- show CVSS, OWASP mapping, business impact, remediation, and reproduce/proof reference in the Finding drawer
-- keep this within existing finding/evidence/report structures
+- add local Gruyere and WebGoat benchmark targets to the test lab
+- run existing passive and active AegisPT tools against both local lab targets
+- record which expected benchmark vulnerabilities are detected versus missed
+- produce a coverage report with vulnerability id, expected detection, actual detection, tool used, severity, and notes
+- use the benchmark gap report to inform later queued detection tasks without implementing new detection capabilities in this task
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not restructure finding storage.
-- Do not change the existing finding severity model.
-- Do not add new finding types.
-- Do not change evidence storage.
-- Do not change report generation in this task.
+- Do not implement new detection capabilities in this task.
+- Do not silently reprioritize later gap tasks.
+- Do not mutate production databases.
+- Do not change existing assessment packs unless the active task package explicitly requires a safe local benchmark fixture.
+- Do not change core dispatch logic.
 - Do not bypass scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
-- Do not run live target actions.
+- Do not run external live target actions; benchmark actions must stay local/safe lab only.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/ -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Every finding has a CVSS score.
-- OWASP mapping is present on findings.
-- AI business impact and remediation are available when ChatGPT is connected.
-- Finding drawer shows CVSS gauge, OWASP badge, business impact, remediation, and a reproduce/proof reference.
-- Findings E2E tests do not regress.
+- Local Gruyere instance runs in the test lab.
+- Local WebGoat instance runs in the test lab.
+- AegisPT runs existing passive and active checks against both local lab targets.
+- `coverage_report.json` documents expected-versus-actual detection per benchmark vulnerability.
+- Gruyere and WebGoat coverage percentages are documented.
+- Missed benchmark vulnerabilities are listed as gaps for later tasking.

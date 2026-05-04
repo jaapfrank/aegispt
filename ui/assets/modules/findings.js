@@ -1388,16 +1388,26 @@ function renderValidationBadge(validation) {
 function renderFindingBrief(theater, evidence) {
   const readiness = evidenceReadiness(theater, evidence);
   const integrity = theater.evidence_integrity || {};
+  const finding = theater.finding || {};
   const methodologyTags = Array.isArray(theater.methodology?.methodology_tags)
     ? theater.methodology.methodology_tags
-    : theater.finding.methodology_tags || [];
+    : finding.methodology_tags || [];
+  const owaspMapping = finding.owasp_mapping || theater.methodology?.owasp || {};
+  const proofReference = finding.proof_reference || {};
   const cvssScore =
-    theater.finding?.cvss_score !== null && theater.finding?.cvss_score !== undefined
-      ? Number(theater.finding.cvss_score).toFixed(1)
+    finding?.cvss_score !== null && finding?.cvss_score !== undefined
+      ? Number(finding.cvss_score).toFixed(1)
       : null;
   const cvssLabel = cvssScore
-    ? `${cvssScore}${theater.finding?.cvss_vector ? ` · ${theater.finding.cvss_vector}` : ""}`
+    ? `${cvssScore}${finding?.cvss_vector ? ` · ${finding.cvss_vector}` : ""}`
     : null;
+  const owaspLabel = owaspMapping.category || finding.owasp_category || "OWASP mapping pending";
+  const owaspFramework = owaspMapping.framework || finding.owasp_framework || "OWASP";
+  const proofLabel = proofReference.replay_recipe_available
+    ? "Replay recipe stored"
+    : proofReference.evidence_ref
+      ? "Evidence reference stored"
+      : "Proof reference pending";
   return `
     <section class="finding-brief" data-testid="finding-brief">
       <div class="finding-brief-hero">
@@ -1414,16 +1424,39 @@ function renderFindingBrief(theater, evidence) {
         </div>
       </div>
 
+      <div class="finding-quality-strip split-top" data-testid="finding-quality-strip">
+        <article class="finding-quality-card" data-testid="finding-cvss-gauge">
+          <p class="eyebrow">CVSS</p>
+          <div class="cvss-gauge" style="--cvss-score: ${escapeHtml(String(Math.max(0, Math.min(10, Number(cvssScore || 0))) * 10))}%">
+            <strong>${escapeHtml(cvssScore || "0.0")}</strong>
+            <span>${escapeHtml(finding.cvss_source || "deterministic")}</span>
+          </div>
+          <p class="micro-copy">${escapeHtml(finding.cvss_vector || "Deterministic CVSS fallback applied.")}</p>
+        </article>
+        <article class="finding-quality-card" data-testid="finding-owasp-badge">
+          <p class="eyebrow">OWASP</p>
+          <h5>${escapeHtml(owaspLabel)}</h5>
+          <p>${escapeHtml(owaspFramework)}</p>
+          <p class="micro-copy">${escapeHtml(owaspMapping.reference || finding.owasp_reference || "Deterministic finding-type mapping")}</p>
+        </article>
+        <article class="finding-quality-card" data-testid="finding-proof-reference">
+          <p class="eyebrow">Reproduce</p>
+          <h5>${escapeHtml(proofLabel)}</h5>
+          <p>${escapeHtml(proofReference.evidence_ref || finding.evidence_ref || "No evidence ref recorded")}</p>
+          <button class="action primary compact-action split-top" type="button" data-nav-screen="evidence-replay" data-testid="finding-reproduce-button">Reproduce</button>
+        </article>
+      </div>
+
       <div class="finding-brief-grid split-top">
         <article class="brief-card" data-testid="finding-risk-brief">
           <p class="eyebrow">Risk Posture</p>
-          <h5>${escapeHtml(humanizeValue(theater.finding.severity, "unknown"))}</h5>
+          <h5>${escapeHtml(humanizeValue(finding.severity, "unknown"))}</h5>
           ${renderSeverityMeter(theater)}
           <div class="compact-definition-grid split-top">
             ${renderBriefMetric("Exploitability", humanizeValue(theater.exploitability))}
-            ${renderBriefMetric("Status", humanizeValue(theater.finding.status))}
+            ${renderBriefMetric("Status", humanizeValue(finding.status))}
             ${renderBriefMetric("Validation", theater.validation?.label || "Pending review")}
-            ${renderBriefMetric("Target", theater.finding.target_id)}
+            ${renderBriefMetric("Target", finding.target_id)}
             ${cvssLabel ? renderBriefMetric("CVSS", cvssLabel) : ""}
             ${renderBriefMetric("Confidence", `${formatOptional(theater.confidence_label, "review")} confidence`)}
           </div>
@@ -1434,7 +1467,7 @@ function renderFindingBrief(theater, evidence) {
           <h5>${escapeHtml(readiness.label)}</h5>
           <p>${escapeHtml(readiness.detail)}</p>
           <div class="inline-metrics split-top">
-            <span class="metric-pill evidence-${escapeHtml(readiness.tone)}">${escapeHtml(formatOptional(theater.finding.evidence_ref, "No evidence ref"))}</span>
+            <span class="metric-pill evidence-${escapeHtml(readiness.tone)}">${escapeHtml(formatOptional(finding.evidence_ref, "No evidence ref"))}</span>
             <span class="metric-pill">${escapeHtml(integrity.hash_status || "hash unknown")}</span>
             <span class="metric-pill">${escapeHtml(integrity.timestamp_status || "timestamp n/a")}</span>
           </div>
@@ -1460,7 +1493,7 @@ function renderFindingBrief(theater, evidence) {
 
       <div class="section-note split-top">
         <strong>Operator Readout</strong>
-        <p>${escapeHtml(`This item is currently ${theater.finding.status} and originated from ${findingOriginLabel(theater.provenance?.origin)} coverage against ${theater.finding.target_id}.`)}</p>
+        <p>${escapeHtml(`This item is currently ${finding.status} and originated from ${findingOriginLabel(theater.provenance?.origin)} coverage against ${finding.target_id}.`)}</p>
         <p class="micro-copy">${escapeHtml(theater.technical_details)}</p>
       </div>
     </section>

@@ -10,6 +10,7 @@ from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
 from api.app.models import Finding, Task
 from api.app.services.ai_enrichment import enrich_finding_async
 from api.app.services.audit import write_audit_event
+from api.app.services.finding_quality import finding_quality_view
 from api.app.services.finding_sla import apply_finding_sla
 from workers.runners.api_assessment.runner import API_ASSESSMENT_RESULTS_ARTIFACT_NAME
 from workers.runners.base.contracts import EvidenceArtifact
@@ -228,7 +229,7 @@ def enrich_finding_with_methodology(*, finding: NormalizedFinding, task: Task) -
             first_artifact_id = _uuid_or_none(artifact_ref.get("artifact_id"))
             if first_artifact_id is not None:
                 break
-    return replace(
+    enriched = replace(
         finding,
         methodology_tags=tuple(
             dict.fromkeys([*finding.methodology_tags, *pack_tags, *derived_tags])
@@ -249,6 +250,14 @@ def enrich_finding_with_methodology(*, finding: NormalizedFinding, task: Task) -
         ),
         source_relevance_decision_id=_uuid_or_none(pack_context.get("relevance_decision_id")),
         source_pack_version=str(pack_context.get("version") or "") or None,
+    )
+    quality = finding_quality_view(enriched)
+    quality_tags = tuple(str(tag) for tag in quality["owasp"].get("tags", []) if str(tag).strip())
+    return replace(
+        enriched,
+        cvss_score=enriched.cvss_score if enriched.cvss_score is not None else quality["cvss"]["score"],
+        cvss_vector=enriched.cvss_vector or quality["cvss"].get("vector"),
+        methodology_tags=tuple(dict.fromkeys([*enriched.methodology_tags, *quality_tags])),
     )
 
 
