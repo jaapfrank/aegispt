@@ -40,6 +40,7 @@ from workers.runners.network_segmentation.runner import NETWORK_SEGMENTATION_ART
 from workers.runners.playwright_web.runner import PLAYWRIGHT_WEB_RESULTS_ARTIFACT_NAME
 from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
 from workers.runners.semgrep.runner import normalize_semgrep_rule_id
+from workers.runners.session_security.runner import SESSION_SECURITY_RESULTS_ARTIFACT_NAME
 from workers.runners.smart_home.runner import SMART_HOME_RESULTS_ARTIFACT_NAME
 from workers.runners.ssrf_probe.runner import SSRF_RESULTS_ARTIFACT_NAME
 from workers.runners.snmp_enum.runner import SNMP_ENUM_RESULTS_ARTIFACT_NAME
@@ -511,7 +512,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended", "ssrf-probe", "deserialization-probe"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -528,6 +529,7 @@ def extract_findings(
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,
+                SESSION_SECURITY_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

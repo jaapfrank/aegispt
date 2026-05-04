@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-05: completed backlog-223 `Session security deep analysis: session fixation, token entropy, cookie flags, and session invalidation after logout`:
+  - rationale:
+    - benchmark coverage showed AegisPT needed first-class session-management coverage beyond passive cookie observations: fixation, post-logout replay, entropy, and token-in-URL weaknesses require active authenticated probes
+    - the active task required configured credentials only, approved web-root scope enforcement, structured evidence-first findings, and safe local proof
+  - implementation:
+    - added `session-security` as a dedicated active runner that enforces approved web-root scope on targets and configured session endpoints
+    - implemented configured username/password login checks, pre-login/post-login token comparison for fixation, protected-resource acceptance checks, logout replay validation, cookie flag review, bounded entropy sampling capped at 10 issued tokens, and URL session-token leakage detection
+    - emitted `session-security-results.json` with structured findings, check records, replay metadata, summary counts, and safety metadata proving configured-credentials-only execution and no other-user session hijacking
+    - registered `session-security` in supported tools, worker dispatch, command previews, secret materialization, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-session-security` run profile, and the Tool Library
+  - files:
+    - `workers/runners/session_security/runner.py`
+    - `workers/runners/session_security/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_session_security_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-223-session-security-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/session_security/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_session_security_runner.py workers/tests/test_web_depth_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_active_session_security_profile_requires_approval_and_queues_authenticated_task api/tests/test_runs.py::test_list_run_profiles -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings; the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test and the command exited 0
+    - `python3 scripts/validate_backlog_tasks.py` passed during validation
+    - `git diff --check` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -fsS http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "session-security|Session Security"` confirmed the live-served Tool Library module contains the Session Security entry
+  - evidence:
+    - `codex/results/backlog-223-session-security-runner-20260505.md`
+  - remaining risks:
+    - no public WebGoat target was actively tested during build-lane validation; proof is from deterministic safe fixtures
+    - real lifecycle findings depend on correct configured test-account credentials and configured login/logout/protected endpoints
+    - entropy scoring is conservative and flags weak-looking issued samples rather than proving cryptographic RNG internals
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-224 `Password reset and authentication flow security`
+
 - 2026-05-05: completed backlog-222 `Insecure deserialization runner: detect vulnerable Java, PHP, Python, and .NET deserialization endpoints`:
   - rationale:
     - benchmark coverage showed AegisPT needed first-class OWASP A08 insecure-deserialization coverage instead of relying on generic passive scanners

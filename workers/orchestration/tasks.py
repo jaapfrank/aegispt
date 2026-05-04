@@ -138,6 +138,7 @@ from workers.runners.nuclei.runner import execute_nuclei_scan
 from workers.runners.playwright_web.runner import execute_playwright_web_validation
 from workers.runners.responder.runner import execute_responder_capture
 from workers.runners.semgrep.runner import execute_semgrep_scan
+from workers.runners.session_security.runner import execute_session_security_analysis
 from workers.runners.smart_home.runner import (
     SMART_HOME_RESULTS_ARTIFACT_NAME,
     execute_smart_home_audit,
@@ -201,6 +202,7 @@ SUPPORTED_TOOLS = {
     "playwright-web",
     "responder",
     "semgrep",
+    "session-security",
     "smart-home",
     "ssrf-probe",
     "snmp-enum",
@@ -1281,6 +1283,75 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "session-security":
+        return execute_session_security_analysis(
+            targets=request.targets,
+            auth_contexts=request.params.get("auth_contexts", []),
+            scope_allowlist=request.scope_allowlist,
+            request_contexts=(
+                request.params.get("request_contexts")
+                if isinstance(request.params.get("request_contexts"), list)
+                else []
+            ),
+            candidate_paths=(
+                request.params.get("candidate_paths")
+                if isinstance(request.params.get("candidate_paths"), list)
+                else []
+            ),
+            login_url=(
+                str(request.params.get("login_url")).strip()
+                if request.params.get("login_url")
+                else None
+            ),
+            logout_url=(
+                str(request.params.get("logout_url")).strip()
+                if request.params.get("logout_url")
+                else None
+            ),
+            protected_url=(
+                str(request.params.get("protected_url")).strip()
+                if request.params.get("protected_url")
+                else None
+            ),
+            pre_login_url=(
+                str(request.params.get("pre_login_url")).strip()
+                if request.params.get("pre_login_url")
+                else None
+            ),
+            token_sample_url=(
+                str(request.params.get("token_sample_url")).strip()
+                if request.params.get("token_sample_url")
+                else None
+            ),
+            username_field=str(request.params.get("username_field") or "username"),
+            password_field=str(request.params.get("password_field") or "password"),
+            extra_form_fields=(
+                request.params.get("extra_form_fields")
+                if isinstance(request.params.get("extra_form_fields"), dict)
+                else {}
+            ),
+            success_markers=(
+                request.params.get("success_markers")
+                if isinstance(request.params.get("success_markers"), list)
+                else []
+            ),
+            login_markers=(
+                request.params.get("login_markers")
+                if isinstance(request.params.get("login_markers"), list)
+                else []
+            ),
+            token_parameter_names=(
+                request.params.get("token_parameter_names")
+                if isinstance(request.params.get("token_parameter_names"), list)
+                else []
+            ),
+            sample_count=(
+                request.params.get("sample_count")
+                if isinstance(request.params.get("sample_count"), int)
+                else 10
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1560,6 +1631,43 @@ def _materialize_playwright_web_auth_contexts(session, task: Task) -> list[dict[
     return materialized_contexts
 
 
+def _materialize_session_security_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        username = str(raw_context.get("username") or "").strip()
+        if not username or not password_value:
+            continue
+
+        headers: dict[str, str] = {}
+        session_value = _resolve_secret_binding_value(session, dict(bindings.get("session") or {}))
+        if session_value:
+            headers["Cookie"] = session_value
+
+        materialized_contexts.append(
+            {
+                "label": str(raw_context.get("label") or username).strip() or username,
+                "username": username,
+                "password": password_value,
+                "role": str(raw_context.get("role") or "User").strip() or "User",
+                "headers": headers,
+            }
+        )
+    return materialized_contexts
+
+
 def _materialize_bloodhound_auth_contexts(session, task: Task) -> list[dict[str, object]]:
     raw_contexts = task.params_json.get("auth_contexts")
     if not isinstance(raw_contexts, list):
@@ -1821,6 +1929,8 @@ def _runner_params_for_task(session, task: Task) -> dict[str, object]:
         params["auth_contexts"] = _materialize_netexec_auth_contexts(session, task)
     if task.tool == "playwright-web":
         params["auth_contexts"] = _materialize_playwright_web_auth_contexts(session, task)
+    if task.tool == "session-security":
+        params["auth_contexts"] = _materialize_session_security_auth_contexts(session, task)
     return params
 
 
@@ -1969,6 +2079,14 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--request-contexts {request_count or len(normalized_targets)} "
             f"--evidence-records {evidence_count} --no-rce-gadgets "
             f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "session-security":
+        context_count = len(effective_params.get("auth_contexts") or []) if isinstance(effective_params.get("auth_contexts"), list) else 0
+        sample_count = int(effective_params.get("sample_count") or 10)
+        return (
+            "$ session-security --fixation --cookie-flags --entropy --logout-replay --token-url "
+            f"--auth-contexts {context_count} --samples {min(max(sample_count, 2), 10)} "
+            f"--configured-credentials-only --approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":
         sources = []

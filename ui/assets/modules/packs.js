@@ -138,6 +138,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "API Security"],
   },
   {
+    id: "session-security",
+    name: "Session Security",
+    category: "Authentication",
+    tier: "active",
+    description: "Validates session fixation, cookie flags, token entropy, logout invalidation, and session-token-in-URL exposure with configured credentials only.",
+    findings: ["Session Fixation - Token Not Rotated After Login", "Session Cookie Missing Secure/HttpOnly/SameSite", "Session Not Invalidated on Logout", "Session Token Entropy Weakness"],
+    prerequisites: ["Approved web root", "Configured username/password credential context", "Active approval", "No other-user session hijacking"],
+    chains: ["Authenticated App", "External Web", "API Security"],
+  },
+  {
     id: "vuln-components",
     name: "Vulnerable Components",
     category: "Web",

@@ -98,6 +98,7 @@ STALE_RECOVERY_TERMINAL_TASK_STATUSES = {
 BIZ_LOGIC_SECRET_BINDING_KEYS = {"password", "api_key", "bearer_token", "session"}
 BROWSER_SECRET_BINDING_KEYS = {"api_key", "bearer_token", "session"}
 API_ASSESSMENT_SECRET_BINDING_KEYS = {"password", "api_key", "bearer_token", "session"}
+SESSION_SECURITY_SECRET_BINDING_KEYS = {"password", "session"}
 IMPACKET_SECRET_BINDING_KEYS = {"password", "ntlm_hash"}
 KERBEROAST_SECRET_BINDING_KEYS = {"password"}
 METASPLOIT_SECRET_BINDING_KEYS = {"password", "ntlm_hash"}
@@ -403,6 +404,92 @@ def business_logic_runner_params_from_configuration(
     if isinstance(max_object_ids, int):
         result["max_object_ids"] = min(max(max_object_ids, 1), 100)
 
+    return result
+
+
+def session_security_auth_contexts_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    access = payload.get("access")
+    if not isinstance(access, dict):
+        return []
+
+    accounts = access.get("accounts")
+    if not isinstance(accounts, list):
+        return []
+
+    auth_contexts: list[dict[str, Any]] = []
+    for raw_account in accounts:
+        if not isinstance(raw_account, dict):
+            continue
+        secret_bindings = raw_account.get("secret_bindings")
+        if not isinstance(secret_bindings, dict):
+            continue
+
+        usable_secret_bindings = {
+            key: dict(value)
+            for key, value in secret_bindings.items()
+            if key in SESSION_SECURITY_SECRET_BINDING_KEYS and isinstance(value, dict)
+        }
+        if "password" not in usable_secret_bindings:
+            continue
+
+        username = str(raw_account.get("username") or "").strip()
+        if not username:
+            continue
+
+        auth_contexts.append(
+            {
+                "label": str(raw_account.get("label") or username).strip() or username,
+                "username": username,
+                "role": str(raw_account.get("role") or "User").strip() or "User",
+                "secret_bindings": usable_secret_bindings,
+            }
+        )
+
+    return auth_contexts
+
+
+def session_security_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("session_security")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("request_contexts", "candidate_paths", "success_markers", "login_markers", "token_parameter_names"):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in ("request_contexts", "candidate_paths"):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = value
+    for field_name in (
+        "login_url",
+        "logout_url",
+        "protected_url",
+        "pre_login_url",
+        "token_sample_url",
+        "username_field",
+        "password_field",
+    ):
+        value = settings.get(field_name)
+        if isinstance(value, str) and value.strip():
+            result[field_name] = value.strip()
+    if isinstance(settings.get("extra_form_fields"), dict):
+        result["extra_form_fields"] = {
+            str(key).strip(): str(value)
+            for key, value in settings["extra_form_fields"].items()
+            if str(key).strip()
+        }
+    if isinstance(settings.get("sample_count"), int):
+        result["sample_count"] = min(max(int(settings["sample_count"]), 2), 10)
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
     return result
 
 
@@ -1908,6 +1995,58 @@ def validate_deserialization_run_configuration(
                 )
 
 
+def validate_session_security_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="session-security",
+    )
+    if not session_security_auth_contexts_from_configuration(configuration):
+        raise ValueError(
+            "session-security requires at least one authenticated account with username and stored password binding"
+        )
+
+    params = session_security_runner_params_from_configuration(configuration)
+    for field_name in (
+        "login_url",
+        "logout_url",
+        "protected_url",
+        "pre_login_url",
+        "token_sample_url",
+    ):
+        target_value = str(params.get(field_name) or "").strip()
+        if (
+            target_value
+            and "://" in target_value
+            and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+        ):
+            raise ValueError(
+                f"configured session-security endpoint {target_value} is outside the approved engagement scope"
+            )
+    for field_name in ("request_contexts", "candidate_paths"):
+        entries = params.get(field_name)
+        for item in entries if isinstance(entries, list) else []:
+            if isinstance(item, str):
+                target = item
+            elif isinstance(item, dict):
+                target = item.get("url") or item.get("target") or item.get("endpoint")
+            else:
+                continue
+            target_value = str(target or "").strip()
+            if (
+                target_value
+                and "://" in target_value
+                and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+            ):
+                raise ValueError(
+                    f"configured session-security endpoint {target_value} is outside the approved engagement scope"
+                )
+
+
 def local_cve_records_for_vulnerable_components(session: Session, *, limit: int = 500) -> list[dict[str, Any]]:
     records = session.scalars(
         select(ThreatIntelRecord).order_by(ThreatIntelRecord.advisory_updated_at.desc()).limit(limit)
@@ -2555,6 +2694,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
+        "session-security",
     }:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
@@ -2785,6 +2925,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
+    session_security_params = session_security_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2870,6 +3011,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "deserialization-probe":
             validate_deserialization_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "session-security":
+            validate_session_security_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3199,6 +3345,19 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         key: value
                         for key, value in deserialization_params.items()
                         if value not in (None, [], {})
+                    }
+                )
+            if tool == "session-security":
+                task_params.update(
+                    {
+                        "auth_contexts": session_security_auth_contexts_from_configuration(
+                            run_configuration
+                        ),
+                        **{
+                            key: value
+                            for key, value in session_security_params.items()
+                            if value not in (None, [], {})
+                        },
                     }
                 )
             if tool == "mobile-android":

@@ -449,6 +449,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-idor-bac",
         "active-web-jwt-probe",
         "active-web-safe",
+        "active-web-session-security",
         "active-web-sqlmap-confirmation",
         "active-web-ssrf-probe",
         "active-web-vuln-components",
@@ -2165,6 +2166,79 @@ def test_active_deserialization_probe_profile_requires_approval_and_queues_task(
     assert task["params_json"]["oob_confirmation_refs"] == [
         {"token": "deser-token", "interaction_id": "dns-1"},
     ]
+
+
+def test_active_session_security_profile_requires_approval_and_queues_authenticated_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-session-security",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "access": {
+                    "accounts": [
+                        {
+                            "label": "Session User",
+                            "username": "alice@example.test",
+                            "role": "User",
+                            "secret_ref": "CorrectHorseBatteryStaple!",
+                        }
+                    ]
+                },
+                "session_security": {
+                    "login_url": "login",
+                    "logout_url": "logout",
+                    "protected_url": "account",
+                    "token_sample_url": "token",
+                    "username_field": "user",
+                    "password_field": "pass",
+                    "extra_form_fields": {"csrf": "fixture-token"},
+                    "success_markers": ["welcome alice"],
+                    "request_contexts": [
+                        {"url": "view?sessionid=fixture-token"},
+                    ],
+                    "sample_count": 4,
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "session-security"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["login_url"] == "login"
+    assert task["params_json"]["logout_url"] == "logout"
+    assert task["params_json"]["protected_url"] == "account"
+    assert task["params_json"]["token_sample_url"] == "token"
+    assert task["params_json"]["username_field"] == "user"
+    assert task["params_json"]["password_field"] == "pass"
+    assert task["params_json"]["extra_form_fields"] == {"csrf": "fixture-token"}
+    assert task["params_json"]["success_markers"] == ["welcome alice"]
+    assert task["params_json"]["sample_count"] == 4
+    assert task["params_json"]["auth_contexts"][0]["label"] == "Session User"
+    assert task["params_json"]["auth_contexts"][0]["username"] == "alice@example.test"
+    assert "password" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
+    assert "CorrectHorseBatteryStaple!" not in json.dumps(task["params_json"])
 
 
 def test_intrusive_responder_profile_requires_named_approval_gate_and_configured_interface(

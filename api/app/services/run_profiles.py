@@ -966,6 +966,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-session-security",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated authenticated session analysis for approved web roots covering session fixation, cookie flags, token entropy, post-logout replay, and session-token-in-URL exposure.",
+            "required_approvals": 1,
+            "tools": ["session-security"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_auth_context": True,
+            "credentials_from_configured_contexts": True,
+            "sample_count_limit": 10,
+            "other_user_session_hijacking": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

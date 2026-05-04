@@ -42,6 +42,7 @@ def test_web_depth_tools_are_supported() -> None:
         "jwt-probe",
         "ssrf-probe",
         "deserialization-probe",
+        "session-security",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 
