@@ -876,6 +876,20 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-xxe-probe",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated XML External Entity validation for approved web roots and XML-capable endpoints using read-only file URI probes and provided OOB evidence.",
+            "required_approvals": 1,
+            "tools": ["xxe-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "read_only_file_uri": "file:///etc/passwd",
+            "dos_payloads": False,
+            "ssrf_chaining": False,
+        },
+    },
+    {
         "name": "passive-external-osint-recon",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {
@@ -903,10 +917,11 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         "name": "active-web-zap-active",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {
-            "description": "Approval-gated ZAP spider plus active scan against allowlisted web targets.",
+            "description": "Approval-gated ZAP spider plus active scan against allowlisted web targets, including ZAP scanner 90023 for XXE where the local ZAP policy supports it.",
             "required_approvals": 1,
             "tools": ["zap"],
             "scan_mode": "spider-active-passive",
+            "zap_active_scanner_ids": ["90023"],
             "max_rps": 1,
             "max_concurrency": 1,
         },

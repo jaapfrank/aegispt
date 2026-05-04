@@ -2,39 +2,38 @@
 
 ## Title
 
-XXE injection runner: detect XML External Entity vulnerabilities in web applications and APIs
+JWT vulnerability runner: detect algorithm confusion, weak secrets, and none algorithm attacks in JWT-based applications
 
 ## Promoted From
 
-`codex/tasks/backlog-214-xxe-injection-runner.json`
+`codex/tasks/backlog-216-jwt-vulnerability-runner.json`
 
 ## Goal
 
-Add the queued `xxe-probe` capability described in `codex/tasks/backlog-214-xxe-injection-runner.json`.
+Add the queued `jwt-probe` capability described in `codex/tasks/backlog-216-jwt-vulnerability-runner.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-214-xxe-injection-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-216-jwt-vulnerability-runner.json`.
 
 Expected slice:
 
-- add an `xxe-probe` runner for approved web/API targets
-- discover XML-consuming endpoints from existing in-scope evidence where available
-- add bounded, read-only XXE probes for direct file-read style detection and blind/OOB-ready evidence handling
-- explicitly wire ZAP XXE scanner coverage where the existing ZAP flow supports it
-- emit structured XXE findings with methodology mapping and standard evidence references
-- expose the capability in the Tool Library
+- identify JWT-bearing responses and JavaScript references from approved web/API targets
+- add bounded JWT validation for none-algorithm acceptance, weak HMAC secrets, algorithm confusion where key material is explicitly available, and claims manipulation where replay context is explicitly authorized
+- emit structured JWT findings with methodology mapping and standard evidence references
+- expose the capability in the Tool Library and supported execution registry
+- keep validation safe and local unless an explicitly authorized target fixture is present
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not implement unrelated injection runners.
-- Do not change core dispatch logic beyond additive runner registration and routing.
+- Do not implement unrelated auth or API runners.
+- Do not brute-force beyond the package's bounded weak-secret list.
+- Do not replay modified tokens unless the target, endpoint, and replay context are in approved scope.
 - Do not bypass scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
 - No live target actions outside safe/local/explicitly authorized validation.
-- No denial-of-service XXE payloads, no SSRF chaining, and no internal-system probing outside approved scope.
 
 ## Validation
 
@@ -44,9 +43,8 @@ Expected slice:
 
 ## Acceptance
 
-- `xxe-probe` runner is listed in supported tools.
-- XXE direct-file-read detection is covered by tests and safe local fixture evidence.
-- Structured XXE findings use appropriate severity and methodology metadata.
-- ZAP XXE scanner wiring is explicit where applicable.
-- Tool Library lists the XXE capability.
+- `jwt-probe` runner is listed in supported tools.
+- JWT detection and bounded vulnerability checks are covered by tests and safe local fixture evidence.
+- Structured JWT findings use appropriate severity and methodology metadata.
+- Tool Library lists the JWT capability.
 - Existing runner/API tests do not regress.

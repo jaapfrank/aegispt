@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-04: completed backlog-214 `XXE injection runner`:
+  - rationale:
+    - benchmark coverage showed AegisPT had no first-class XXE validation lane beyond generic ZAP coverage, leaving a material OWASP input-validation gap for web/API assessments
+    - the safe slice was an approval-gated active runner with strict scope checks, read-only direct file-read probing, provided OOB evidence handling, and explicit ZAP scanner 90023 wiring
+  - implementation:
+    - added `xxe-probe` to the shared web-depth runner module with XML endpoint hints from configured/evidence records, path-aware approved web-root enforcement, read-only `file:///etc/passwd` direct detection, no DoS payloads, no SSRF chaining, and structured `xxe-results.json`
+    - registered `xxe-probe` in worker dispatch, command previews, supported tools, finding extraction, run target planning, run configuration validation, AI proposal allowlists, methodology mapping, run profiles, and Tool Library
+    - added `active-web-xxe-probe` as an approval-gated run profile
+    - wired ZAP active profile scanner IDs so `active-web-zap-active` explicitly enables scanner `90023` where the local ZAP policy supports it
+    - documented the task-package safety exception: the package goal referenced DoS/Billion-Laughs-style XXE, but `NEXT_TASK.md` and package constraints prohibit denial-of-service payloads, so only read-only direct file-read and provided OOB evidence were implemented
+  - files:
+    - `workers/runners/web_depth/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_zap_dispatch.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-214-xxe-injection-runner-20260504.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_web_depth_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_zap_dispatch.py::test_inline_dispatch_executes_active_zap_profile -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed during validation
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "xxe-probe|XXE Probe"` confirmed the live-served Tool Library module contains the XXE entry
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-216
+    - `git diff --check` passed after administrative updates
+  - evidence:
+    - `codex/results/backlog-214-xxe-injection-runner-20260504.md`
+  - remaining risks:
+    - no external/live target XXE probe was run during build-lane validation
+    - OOB XXE depends on operator-provided interaction evidence in this slice; AegisPT does not run an interaction server here
+    - scanner `90023` availability still depends on the local ZAP policy/version
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-216 `JWT vulnerability runner`
+
 - 2026-05-04: completed backlog-211 `Pentest depth expansion`:
   - rationale:
     - enterprise web pentests need deeper standard coverage than ZAP/httpx/nuclei alone: content discovery, web server configuration review, constrained SQLi confirmation, and passive external exposure intelligence

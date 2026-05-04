@@ -118,6 +118,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Injection confirmation"],
   },
   {
+    id: "xxe-probe",
+    name: "XXE Probe",
+    category: "Web",
+    tier: "active",
+    description: "Validates XML External Entity exposure on approved XML-capable endpoints with read-only file URI probes and provided OOB evidence.",
+    findings: ["XXE file-read exposure", "Blind out-of-band XXE evidence", "XML input validation weakness"],
+    prerequisites: ["Approved web root or XML endpoint", "Active approval", "No DoS payloads or SSRF chaining"],
+    chains: ["External Web", "Authenticated App", "Injection confirmation"],
+  },
+  {
     id: "external-osint",
     name: "Shodan / Censys",
     category: "Discovery",

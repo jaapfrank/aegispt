@@ -582,6 +582,28 @@ def sqlmap_runner_params_from_configuration(
     return result
 
 
+def xxe_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("xxe")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("xml_endpoints", "evidence_records", "oob_confirmation_refs"):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in ("xml_endpoints", "evidence_records"):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = value
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def mobile_android_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1525,6 +1547,26 @@ def validate_sqlmap_run_configuration(
             raise ValueError(f"configured target {target} is outside the approved engagement scope")
 
 
+def validate_xxe_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(scope=scope, configuration=configuration, tool="xxe-probe")
+    params = xxe_runner_params_from_configuration(configuration)
+    for field_name in ("xml_endpoints", "evidence_records"):
+        entries = params.get(field_name)
+        for item in entries if isinstance(entries, list) else []:
+            if isinstance(item, str):
+                target = item
+            elif isinstance(item, dict):
+                target = item.get("url") or item.get("target") or item.get("endpoint")
+            else:
+                continue
+            if target and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(target)):
+                raise ValueError(f"configured XML endpoint {target} is outside the approved engagement scope")
+
+
 def validate_mobile_android_run_configuration(
     *,
     scope: Scope,
@@ -2141,7 +2183,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(url_targets)
         return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
 
-    if tool in {"content-discovery", "nikto", "sqlmap"}:
+    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe"}:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
             return list(url_targets)
@@ -2276,6 +2318,51 @@ def target_value_is_allowed(target_map: dict[str, Any] | None, target_id: str) -
     )
 
 
+def _web_url_host(value: str) -> str:
+    parsed = urlparse(value if "://" in value else f"//{value}")
+    return str(parsed.hostname or "").strip().lower()
+
+
+def web_target_value_is_allowed_with_path(
+    target_map: dict[str, Any] | None,
+    target_id: str,
+) -> bool:
+    scope = target_map or {}
+    if not scope:
+        return True
+    candidate = normalize_http_target(str(target_id or "").strip())
+    candidate_host = _web_url_host(candidate)
+    if not candidate_host:
+        return False
+
+    url_constraints: list[str] = []
+    for key in ("urls", "api_base_urls", "targets"):
+        values = scope.get(key)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            raw_value = str(value or "").strip()
+            if not raw_value:
+                continue
+            allowed = normalize_http_target(raw_value)
+            if _web_url_host(allowed) == candidate_host:
+                url_constraints.append(allowed)
+    if not url_constraints:
+        return target_value_is_allowed(scope, candidate)
+
+    candidate_path = urlparse(candidate).path or "/"
+    for raw_allowed in url_constraints:
+        allowed = urlparse(raw_allowed)
+        allowed_path = allowed.path or "/"
+        if (
+            allowed_path == "/"
+            or candidate_path == allowed_path
+            or candidate_path.startswith(allowed_path.rstrip("/") + "/")
+        ):
+            return True
+    return False
+
+
 def target_is_allowed(scope: Scope, target_id: str) -> bool:
     return target_value_is_allowed(scope.allowlist_json, target_id)
 
@@ -2319,6 +2406,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     api_assessment_params = api_assessment_runner_params_from_configuration(run_configuration)
     content_discovery_params = content_discovery_runner_params_from_configuration(run_configuration)
     sqlmap_params = sqlmap_runner_params_from_configuration(run_configuration)
+    xxe_params = xxe_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2369,6 +2457,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "sqlmap":
             validate_sqlmap_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "xxe-probe":
+            validate_xxe_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -2632,6 +2725,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in sqlmap_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "xxe-probe":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in xxe_params.items()
                         if value not in (None, [], {})
                     }
                 )

@@ -153,6 +153,7 @@ from workers.runners.web_depth.runner import (
     execute_external_osint_recon,
     execute_nikto_scan,
     execute_sqlmap_confirmation,
+    execute_xxe_probe,
 )
 from workers.runners.zap.runner import execute_zap_scan
 
@@ -195,6 +196,7 @@ SUPPORTED_TOOLS = {
     "snmp-enum",
     "sqlmap",
     "wifi-survey",
+    "xxe-probe",
     "zap",
 }
 
@@ -1023,6 +1025,27 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             censys_api_secret=os.getenv("CENSYS_API_SECRET", "").strip() or None,
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "xxe-probe":
+        return execute_xxe_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            xml_endpoints=(
+                request.params.get("xml_endpoints")
+                if isinstance(request.params.get("xml_endpoints"), list)
+                else []
+            ),
+            evidence_records=(
+                request.params.get("evidence_records")
+                if isinstance(request.params.get("evidence_records"), list)
+                else []
+            ),
+            oob_confirmation_refs=(
+                request.params.get("oob_confirmation_refs")
+                if isinstance(request.params.get("oob_confirmation_refs"), list)
+                else []
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1031,6 +1054,11 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             rate_limit=rate_limit,
             timeout_seconds=timeout_seconds,
             scan_mode=str(request.params.get("limits", {}).get("scan_mode", "spider-passive")),
+            active_scanner_ids=(
+                request.params.get("active_scanner_ids")
+                if isinstance(request.params.get("active_scanner_ids"), list)
+                else limits.get("zap_active_scanner_ids", [])
+            ),
         )
 
     raise ValueError(f"unsupported tool runner: {request.tool}")
@@ -1649,6 +1677,12 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         )
     if tool == "external-osint":
         return f"$ shodan/censys-api --read-only --api-key-required --approved-scope {target_label}{extra}"
+    if tool == "xxe-probe":
+        endpoint_count = len(effective_params.get("xml_endpoints") or []) if isinstance(effective_params.get("xml_endpoints"), list) else 0
+        return (
+            "$ xxe-probe --read-only-file-uri file:///etc/passwd "
+            f"--approved-endpoints {endpoint_count or len(normalized_targets)} --approved-scope {target_label}{extra}"
+        )
     if tool == "api-assessment":
         sources = []
         if effective_params.get("openapi_spec"):

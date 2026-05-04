@@ -60,6 +60,7 @@ SUPPORTED_AI_PROPOSAL_TOOLS = {
     "nuclei",
     "semgrep",
     "sqlmap",
+    "xxe-probe",
     "zap",
 }
 
@@ -99,6 +100,7 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "snmp-enum",
     "sqlmap",
     "wifi-survey",
+    "xxe-probe",
     "zap",
 }
 

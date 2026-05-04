@@ -74,6 +74,7 @@ TOOL_WSTG_AREAS: Final[dict[str, tuple[str, ...]]] = {
     "feroxbuster": ("Information Gathering", "Configuration and Deployment Management Testing", "API Testing"),
     "nikto": ("Configuration and Deployment Management Testing", "Information Gathering"),
     "sqlmap": ("Input Validation Testing",),
+    "xxe-probe": ("Input Validation Testing",),
     "external-osint": ("Information Gathering",),
     "zap": (
         "Information Gathering",
@@ -114,6 +115,7 @@ DEFAULT_CONTROL_FAMILY_BY_TOOL: Final[dict[str, str]] = {
     "feroxbuster": "configuration",
     "nikto": "configuration",
     "sqlmap": "input_validation",
+    "xxe-probe": "input_validation",
     "external-osint": "information_gathering",
     "zap": "configuration",
     "semgrep": "secure_code_review",
@@ -466,6 +468,7 @@ def derive_finding_methodology(
             "feroxbuster": "content-discovery",
             "nikto": "web-configuration",
             "sqlmap": "sqli-confirmation",
+            "xxe-probe": "xxe-validation",
             "external-osint": "passive-osint",
             "zap": "dynamic-analysis",
             "semgrep": "static-analysis",

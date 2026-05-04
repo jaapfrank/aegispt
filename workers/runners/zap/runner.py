@@ -201,6 +201,7 @@ def execute_zap_scan(
     rate_limit: int = 1,
     timeout_seconds: float = 30.0,
     scan_mode: str = "spider-passive",
+    active_scanner_ids: list[str] | None = None,
 ) -> RunnerExecution:
     if not targets:
         raise ValueError("at least one target is required")
@@ -211,6 +212,11 @@ def execute_zap_scan(
     normalized_scan_mode = scan_mode.strip().lower() or "spider-passive"
     if normalized_scan_mode not in {"spider-passive", "spider-active-passive"}:
         raise ValueError(f"unsupported ZAP scan mode: {scan_mode}")
+    normalized_active_scanner_ids = [
+        str(scanner_id).strip()
+        for scanner_id in (active_scanner_ids or [])
+        if str(scanner_id).strip().isdigit()
+    ]
 
     normalized_targets: list[str] = []
     seen_targets: set[str] = set()
@@ -275,6 +281,16 @@ def execute_zap_scan(
                 active_scan_id = None
                 active_scan_status = None
                 if normalized_scan_mode == "spider-active-passive":
+                    if normalized_active_scanner_ids:
+                        _request_zap_json(
+                            client,
+                            base_url=base_url,
+                            component="ascan",
+                            category="action",
+                            name="enableScanners",
+                            api_key=api_key,
+                            params={"ids": ",".join(normalized_active_scanner_ids)},
+                        )
                     active_scan_payload = _request_zap_json(
                         client,
                         base_url=base_url,
@@ -333,6 +349,7 @@ def execute_zap_scan(
                         "spider_status": spider_status,
                         "active_scan_id": active_scan_id,
                         "active_scan_status": active_scan_status,
+                        "active_scanner_ids": normalized_active_scanner_ids,
                         "records_to_scan": records_to_scan,
                         "urls": urls,
                         "alerts": alerts,
@@ -386,6 +403,7 @@ def execute_zap_scan(
             "tool_version": tool_version,
             "runner_digest": "workers.zap.runner:v1",
             "scan_mode": normalized_scan_mode,
+            "active_scanner_ids": normalized_active_scanner_ids,
             "alert_count": alert_count,
             "url_count": url_count,
         },

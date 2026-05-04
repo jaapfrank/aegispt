@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import subprocess
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 from typing import Any
 
 import pytest
@@ -14,15 +16,19 @@ from workers.runners.web_depth.runner import (
     EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME,
     NIKTO_RESULTS_ARTIFACT_NAME,
     SQLMAP_RESULTS_ARTIFACT_NAME,
+    XXE_RESULTS_ARTIFACT_NAME,
     execute_content_discovery,
     execute_external_osint_recon,
     execute_nikto_scan,
     execute_sqlmap_confirmation,
+    execute_xxe_probe,
 )
 
 
 def test_web_depth_tools_are_supported() -> None:
-    assert {"content-discovery", "nikto", "sqlmap", "external-osint"}.issubset(SUPPORTED_TOOLS)
+    assert {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe"}.issubset(
+        SUPPORTED_TOOLS
+    )
 
 
 def test_content_discovery_produces_hidden_endpoint_finding(tmp_path: Path) -> None:
@@ -120,6 +126,66 @@ def test_sqlmap_confirms_only_explicit_parameter_target() -> None:
     assert execution.artifacts[0].name == SQLMAP_RESULTS_ARTIFACT_NAME
     payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
     assert payload["findings"][0]["title"] == "Confirmed SQL Injection"
+
+
+@pytest.fixture
+def xxe_fixture_server() -> str:
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            body = self.rfile.read(int(self.headers.get("Content-Length", "0") or "0"))
+            if b"file:///etc/passwd" in body and b"&xxe;" in body:
+                payload = b"<result>root:x:0:0:root:/root:/bin/bash</result>"
+            else:
+                payload = b"<result>ok</result>"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/xml")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address
+    try:
+        yield f"http://{host}:{port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_xxe_probe_detects_direct_file_read_against_local_fixture(xxe_fixture_server: str) -> None:
+    endpoint = f"{xxe_fixture_server}/app/xml"
+    execution = execute_xxe_probe(
+        [endpoint],
+        scope_allowlist={"urls": [f"{xxe_fixture_server}/app/"]},
+        xml_endpoints=[{"url": endpoint, "content_type": "application/xml"}],
+    )
+
+    assert execution.tool == "xxe-probe"
+    assert execution.exit_code == 0
+    assert execution.artifacts[0].name == XXE_RESULTS_ARTIFACT_NAME
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+    assert payload["summary"]["dos_payloads_sent"] == 0
+    assert payload["safety"]["payload_family"] == "read-only-file-uri"
+    assert payload["findings"][0]["title"] == "XXE - File Read Possible (Direct)"
+    assert payload["findings"][0]["severity"] == "critical"
+    assert payload["findings"][0]["evidence"]["file_uri"] == "file:///etc/passwd"
+
+
+def test_xxe_probe_blocks_xml_endpoint_outside_scope(xxe_fixture_server: str) -> None:
+    endpoint = f"{xxe_fixture_server}/app/xml"
+    outside = f"{xxe_fixture_server}/admin/xml"
+    with pytest.raises(ValueError, match="XML endpoint outside scope"):
+        execute_xxe_probe(
+            [endpoint],
+            scope_allowlist={"urls": [f"{xxe_fixture_server}/app/"]},
+            xml_endpoints=[{"url": outside, "content_type": "application/xml"}],
+        )
 
 
 def test_external_osint_requires_api_credentials() -> None:
