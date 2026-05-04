@@ -41,6 +41,7 @@ def test_web_depth_tools_are_supported() -> None:
         "xxe-probe",
         "jwt-probe",
         "ssrf-probe",
+        "deserialization-probe",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 

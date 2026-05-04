@@ -109,6 +109,7 @@ from workers.runners.desktop_client.runner import (
     DESKTOP_CLIENT_INVENTORY_ARTIFACT_NAME,
     execute_desktop_client_assessment,
 )
+from workers.runners.deserialization_probe.runner import execute_deserialization_probe
 from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
 from workers.runners.httpx.runner import execute_httpx_probe
@@ -176,6 +177,7 @@ SUPPORTED_TOOLS = {
     "cloud-native",
     "content-discovery",
     "desktop-client",
+    "deserialization-probe",
     "credential-attacks",
     "easm-discover",
     "external-osint",
@@ -1240,6 +1242,45 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "deserialization-probe":
+        return execute_deserialization_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            request_contexts=(
+                request.params.get("request_contexts")
+                if isinstance(request.params.get("request_contexts"), list)
+                else []
+            ),
+            evidence_records=(
+                request.params.get("evidence_records")
+                if isinstance(request.params.get("evidence_records"), list)
+                else []
+            ),
+            candidate_paths=(
+                request.params.get("candidate_paths")
+                if isinstance(request.params.get("candidate_paths"), list)
+                else []
+            ),
+            oob_confirmation_refs=(
+                request.params.get("oob_confirmation_refs")
+                if isinstance(request.params.get("oob_confirmation_refs"), list)
+                else []
+            ),
+            callback_url=(
+                str(request.params.get("callback_url")).strip()
+                if request.params.get("callback_url")
+                else None
+            ),
+            callback_base_url=(
+                str(request.params.get("callback_base_url")).strip()
+                if request.params.get("callback_base_url")
+                else None
+            ),
+            callback_token=str(
+                request.params.get("callback_token") or "aegispt-deserialization-oob"
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1918,6 +1959,15 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--request-contexts {request_count or len(normalized_targets)} "
             f"--header-contexts {header_count or len(normalized_targets)} "
             f"--approved-internal-urls {internal_count} --cloud-metadata {cloud_enabled} "
+            f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "deserialization-probe":
+        request_count = len(effective_params.get("request_contexts") or []) if isinstance(effective_params.get("request_contexts"), list) else 0
+        evidence_count = len(effective_params.get("evidence_records") or []) if isinstance(effective_params.get("evidence_records"), list) else 0
+        return (
+            "$ deserialization-probe --java-urldns-only --php-object --python-pickle --dotnet-viewstate "
+            f"--request-contexts {request_count or len(normalized_targets)} "
+            f"--evidence-records {evidence_count} --no-rce-gadgets "
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":

@@ -951,6 +951,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-deserialization-probe",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated insecure deserialization validation for approved web roots covering Java URLDNS-only OOB evidence, PHP object injection error analysis, Python pickle acceptance signals, and unprotected .NET ViewState indicators.",
+            "required_approvals": 1,
+            "tools": ["deserialization-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "java_payload_family": "ysoserial-url-dns-only",
+            "command_execution_payloads": False,
+            "rce_gadget_chains": False,
+            "commons_collections_payloads": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

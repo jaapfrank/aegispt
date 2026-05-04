@@ -758,6 +758,37 @@ def ssrf_runner_params_from_configuration(
     return result
 
 
+def deserialization_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("deserialization")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in (
+        "request_contexts",
+        "evidence_records",
+        "candidate_paths",
+        "oob_confirmation_refs",
+    ):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in ("request_contexts", "evidence_records", "oob_confirmation_refs"):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = value
+    for field_name in ("callback_url", "callback_base_url", "callback_token"):
+        value = settings.get(field_name)
+        if isinstance(value, str) and value.strip():
+            result[field_name] = value.strip()
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def mobile_android_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1846,6 +1877,37 @@ def validate_ssrf_run_configuration(
         raise ValueError("cloud metadata SSRF provider must be aws, gcp, or azure")
 
 
+def validate_deserialization_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="deserialization-probe",
+    )
+    params = deserialization_runner_params_from_configuration(configuration)
+    for field_name in ("request_contexts", "evidence_records"):
+        entries = params.get(field_name)
+        for item in entries if isinstance(entries, list) else []:
+            if isinstance(item, str):
+                target = item
+            elif isinstance(item, dict):
+                target = item.get("url") or item.get("target") or item.get("endpoint")
+            else:
+                continue
+            target_value = str(target or "").strip()
+            if (
+                target_value
+                and "://" in target_value
+                and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+            ):
+                raise ValueError(
+                    f"configured deserialization probe endpoint {target_value} is outside the approved engagement scope"
+                )
+
+
 def local_cve_records_for_vulnerable_components(session: Session, *, limit: int = 500) -> list[dict[str, Any]]:
     records = session.scalars(
         select(ThreatIntelRecord).order_by(ThreatIntelRecord.advisory_updated_at.desc()).limit(limit)
@@ -2492,6 +2554,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "idor-bac",
         "xss-extended",
         "ssrf-probe",
+        "deserialization-probe",
     }:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
@@ -2721,6 +2784,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     idor_bac_params = idor_bac_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
+    deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2801,6 +2865,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "ssrf-probe":
             validate_ssrf_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "deserialization-probe":
+            validate_deserialization_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3121,6 +3190,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in ssrf_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "deserialization-probe":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in deserialization_params.items()
                         if value not in (None, [], {})
                     }
                 )

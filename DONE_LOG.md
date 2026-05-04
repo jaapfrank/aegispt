@@ -1,5 +1,48 @@
 # Done Log
 
+- 2026-05-05: completed backlog-222 `Insecure deserialization runner: detect vulnerable Java, PHP, Python, and .NET deserialization endpoints`:
+  - rationale:
+    - benchmark coverage showed AegisPT needed first-class OWASP A08 insecure-deserialization coverage instead of relying on generic passive scanners
+    - the active task required Java URLDNS-only confirmation, PHP object-injection error analysis, Python pickle signal detection, .NET ViewState review, structured findings, active approval, and safe local proof
+  - implementation:
+    - added `deserialization-probe` as a dedicated active runner that enforces approved web-root scope before target execution
+    - implemented Java serialized-object marker detection with governed URLDNS-only OOB evidence, bounded PHP serialized object probes, Python pickle acceptance/error-signal checks from explicit evidence or approved request contexts, and .NET ViewState unsigned/unencrypted indicators
+    - recorded Node serialize usage signals as non-finding check records without active JavaScript-function execution
+    - emitted `deserialization-results.json` with structured findings, replay metadata, check records, summary counts, and safety metadata proving no command execution payloads, no CommonsCollections/RCE gadget chains, and no exfiltration
+    - registered `deserialization-probe` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-deserialization-probe` run profile, and the Tool Library
+  - files:
+    - `workers/runners/deserialization_probe/runner.py`
+    - `workers/runners/deserialization_probe/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_deserialization_probe_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-222-deserialization-probe-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/deserialization_probe/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_deserialization_probe_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_deserialization_probe_profile_requires_approval_and_queues_task -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings; the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test and the command exited 0
+    - `python3 scripts/validate_backlog_tasks.py` passed during validation
+    - `git diff --check` passed
+    - `curl -sS --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -sS --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "deserialization-probe|Deserialization Probe"` confirmed the live-served Tool Library module contains the Deserialization Probe entry
+  - evidence:
+    - `codex/results/backlog-222-deserialization-probe-runner-20260505.md`
+  - remaining risks:
+    - no public WebGoat target was actively tested during build-lane validation; proof is from deterministic safe fixtures
+    - Java URLDNS confirmation depends on governed OOB evidence or supplied interaction references
+    - Python pickle detection remains signal-based and does not execute attacker-controlled pickle gadgets
+    - ViewState detection identifies unprotected indicators, not every ASP.NET validation setting
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-223 `Session security deep analysis`
+
 - 2026-05-05: completed backlog-221 `SSRF dedicated runner: server-side request forgery detection via OOB callbacks and internal service probing`:
   - rationale:
     - benchmark coverage showed AegisPT needed first-class SSRF coverage beyond baseline ZAP scanner behavior: blind OOB, header-based SSRF, approved internal service checks, and cloud metadata exposure

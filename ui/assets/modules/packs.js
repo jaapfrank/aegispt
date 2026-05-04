@@ -178,6 +178,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "API Security"],
   },
   {
+    id: "deserialization-probe",
+    name: "Deserialization Probe",
+    category: "Web",
+    tier: "active",
+    description: "Validates insecure deserialization with Java URLDNS-only callback evidence, PHP object-injection error analysis, Python pickle signals, and unprotected .NET ViewState review.",
+    findings: ["Java Deserialization - Potential RCE (ysoserial URLDNS confirmed)", "PHP Object Injection - Serialized Object Accepted", ".NET ViewState - Unsigned or Unencrypted State"],
+    prerequisites: ["Approved web or API root", "Active approval", "Governed OOB context for Java URLDNS confirmation", "No RCE gadget chains"],
+    chains: ["External Web", "Authenticated App", "API Security"],
+  },
+  {
     id: "external-osint",
     name: "Shodan / Censys",
     category: "Discovery",

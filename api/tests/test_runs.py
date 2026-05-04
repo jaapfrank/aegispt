@@ -445,6 +445,7 @@ def test_list_run_profiles(client) -> None:
         "active-llm-application-probe",
         "active-offline-hash-crack",
         "active-web-content-discovery",
+        "active-web-deserialization-probe",
         "active-web-idor-bac",
         "active-web-jwt-probe",
         "active-web-safe",
@@ -2102,6 +2103,68 @@ def test_active_ssrf_probe_profile_requires_approval_and_queues_task(client) -> 
     assert task["params_json"]["cloud_metadata_probe_enabled"] is True
     assert task["params_json"]["cloud_hosted"] is True
     assert task["params_json"]["cloud_provider"] == "aws"
+
+
+def test_active_deserialization_probe_profile_requires_approval_and_queues_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-deserialization-probe",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "deserialization": {
+                    "request_contexts": [
+                        {
+                            "url": "deserialize?data=rO0ABXNy",
+                            "parameters": ["data"],
+                            "java_serialized_marker": True,
+                        }
+                    ],
+                    "evidence_records": [
+                        {
+                            "url": "view",
+                            "parameters": {"__VIEWSTATE": "/wFTeXN0ZW0uV2ViLlVJ"},
+                        }
+                    ],
+                    "callback_base_url": "https://callback.example.test/aegispt",
+                    "callback_token": "deser-token",
+                    "oob_confirmation_refs": [
+                        {"token": "deser-token", "interaction_id": "dns-1"},
+                    ],
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "deserialization-probe"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["request_contexts"][0]["java_serialized_marker"] is True
+    assert task["params_json"]["callback_base_url"] == "https://callback.example.test/aegispt"
+    assert task["params_json"]["callback_token"] == "deser-token"
+    assert task["params_json"]["oob_confirmation_refs"] == [
+        {"token": "deser-token", "interaction_id": "dns-1"},
+    ]
 
 
 def test_intrusive_responder_profile_requires_named_approval_gate_and_configured_interface(

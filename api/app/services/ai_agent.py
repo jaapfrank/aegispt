@@ -51,6 +51,7 @@ class AgentProposalReviewError(RuntimeError):
 SUPPORTED_AI_PROPOSAL_TOOLS = {
     "aws-inventory",
     "content-discovery",
+    "deserialization-probe",
     "external-osint",
     "httpx",
     "idor-bac",
@@ -81,6 +82,7 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "content-discovery",
     "credential-attacks",
     "desktop-client",
+    "deserialization-probe",
     "easm-discover",
     "external-osint",
     "external-infra",

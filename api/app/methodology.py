@@ -80,6 +80,7 @@ TOOL_WSTG_AREAS: Final[dict[str, tuple[str, ...]]] = {
     "vuln-components": ("Configuration and Deployment Management Testing", "Information Gathering"),
     "xss-extended": ("Input Validation Testing", "Client-side Testing", "API Testing"),
     "ssrf-probe": ("Input Validation Testing", "API Testing"),
+    "deserialization-probe": ("Input Validation Testing",),
     "external-osint": ("Information Gathering",),
     "zap": (
         "Information Gathering",
@@ -126,6 +127,7 @@ DEFAULT_CONTROL_FAMILY_BY_TOOL: Final[dict[str, str]] = {
     "vuln-components": "configuration",
     "xss-extended": "input_validation",
     "ssrf-probe": "input_validation",
+    "deserialization-probe": "input_validation",
     "external-osint": "information_gathering",
     "zap": "configuration",
     "semgrep": "secure_code_review",
@@ -484,6 +486,7 @@ def derive_finding_methodology(
             "vuln-components": "vulnerable-components",
             "xss-extended": "xss-extended-validation",
             "ssrf-probe": "ssrf-validation",
+            "deserialization-probe": "deserialization-validation",
             "external-osint": "passive-osint",
             "zap": "dynamic-analysis",
             "semgrep": "static-analysis",
