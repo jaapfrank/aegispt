@@ -10891,6 +10891,92 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
 }
 }
 
+.tool-library-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.tool-library-intro {
+  display: flex;
+  gap: 1rem;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.tool-library-summary {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tool-library-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.tool-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  max-height: 680px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.tool-card {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 160px;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tool-card:hover,
+.tool-card:focus-visible,
+.tool-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(94, 207, 255, 0.13);
+}
+
+.tool-card-kicker,
+.tool-card-meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.tool-card strong {
+  font-size: 1rem;
+}
+
+.tool-card span:not(.tool-card-kicker):not(.tool-card-meta) {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.tool-detail {
+  position: sticky;
+  top: 1rem;
+}
+
+.compact-head {
+  align-items: start;
+}
+
+.compact-field {
+  margin: 0.5rem 0;
+}
+
 .callout {
   display: grid;
   gap: 0.35rem;
@@ -10951,5 +11037,15 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
 
 .risk-molecule-card .finding-badge-chain {
     display: none;
+  }
+
+  .tool-library-intro,
+  .tool-library-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tool-detail {
+    position: static;
   }
 }

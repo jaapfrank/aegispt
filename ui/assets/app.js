@@ -253,6 +253,7 @@ function bindDom() {
   dom.deployPackBtn = document.getElementById("deploy-pack-btn");
   dom.packSummary = document.getElementById("pack-summary");
   dom.packForgeDetail = document.getElementById("pack-forge-detail");
+  dom.toolLibrary = document.getElementById("tool-library");
   dom.codexTaskForm = document.getElementById("codex-task-form");
   dom.prepareCodexTaskBtn = document.getElementById("prepare-codex-task-btn");
   dom.codexSuggestions = document.getElementById("codex-suggestions");

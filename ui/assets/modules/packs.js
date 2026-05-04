@@ -46,6 +46,351 @@ function findOperatorSettingValue(key) {
   return null;
 }
 
+const TOOL_CATALOG = Object.freeze([
+  {
+    id: "nmap",
+    name: "Nmap",
+    category: "Discovery",
+    tier: "passive",
+    description: "Discovers approved hosts and fingerprints exposed services with bounded NSE profiles.",
+    findings: ["Open service exposure", "Weak SMB/security-mode signals", "Service fingerprint evidence"],
+    prerequisites: ["Approved host, IP, or CIDR target", "Nmap available on the host", "Profile limits selected by the run"],
+    chains: ["Internal LAN", "External infrastructure", "IoT discovery"],
+  },
+  {
+    id: "nuclei",
+    name: "Nuclei",
+    category: "Web",
+    tier: "active",
+    description: "Runs curated detection templates against approved web or infrastructure targets.",
+    findings: ["Known CVE exposure", "Misconfiguration evidence", "Technology-specific detection hits"],
+    prerequisites: ["Approved URL or service target", "Curated template set", "Active approval when probes are active"],
+    chains: ["External Web", "External infrastructure", "CVE follow-up"],
+  },
+  {
+    id: "zap",
+    name: "ZAP",
+    category: "Web",
+    tier: "active",
+    description: "Performs bounded spidering and passive/active web validation through OWASP ZAP.",
+    findings: ["XSS indicators", "Security header gaps", "Web scanner alerts"],
+    prerequisites: ["Approved web root URL", "ZAP daemon or local runner readiness", "Active approval for active validation"],
+    chains: ["External Web", "Authenticated App", "Web baseline"],
+  },
+  {
+    id: "burp",
+    name: "Burp Suite",
+    category: "Web",
+    tier: "passive",
+    description: "Uses the optional Burp REST integration for lightweight approved web scans.",
+    findings: ["Burp scanner issues", "HTTP misconfiguration", "Web application exposure"],
+    prerequisites: ["Configured Burp API URL", "Approved web target", "Named scan configuration"],
+    chains: ["External Web", "Authenticated App"],
+  },
+  {
+    id: "metasploit",
+    name: "Metasploit",
+    category: "Lateral Movement",
+    tier: "exploitation",
+    description: "Executes curated, approval-gated exploit modules with loopback payload handling and immediate teardown.",
+    findings: ["Confirmed exploitability", "Controlled session proof", "Compromise validation evidence"],
+    prerequisites: ["Prior source finding", "Two-person intrusive approval", "Loopback LHOST and approved host scope"],
+    chains: ["Full Internal", "Full AD Assessment", "Intrusive exploitation"],
+  },
+  {
+    id: "netexec",
+    name: "NetExec",
+    category: "Lateral Movement",
+    tier: "intrusive",
+    description: "Validates SMB exposure, signing, share access, and bounded authenticated SMB checks.",
+    findings: ["SMB signing weakness", "Null-session exposure", "Pass-the-hash validation"],
+    prerequisites: ["Approved hosts", "Stored auth binding for intrusive mode", "Intrusive SMB approval for authenticated checks"],
+    chains: ["Internal LAN", "Full AD Assessment"],
+  },
+  {
+    id: "impacket-lateral",
+    name: "Impacket",
+    category: "Lateral Movement",
+    tier: "exploitation",
+    description: "Runs secretsdump, DCSync, or bounded remote-exec validation through protected evidence handling.",
+    findings: ["Domain compromise validation", "Protected credential material evidence", "Remote execution confirmation"],
+    prerequisites: ["Approved host/domain scope", "Stored credential or NTLM binding", "Intrusive exploitation approval"],
+    chains: ["Full AD Assessment", "Intrusive exploitation"],
+  },
+  {
+    id: "bloodhound-collect",
+    name: "BloodHound",
+    category: "Credential",
+    tier: "active",
+    description: "Collects read-only AD graph data and imports attack-path context.",
+    findings: ["AD attack paths", "Kerberoastable accounts", "Choke-point privileges"],
+    prerequisites: ["Domain-read credentials", "Approved directory target", "Active AD collection approval"],
+    chains: ["Active Directory", "Full AD Assessment"],
+  },
+  {
+    id: "responder",
+    name: "Responder",
+    category: "Credential",
+    tier: "intrusive",
+    description: "Performs time-boxed LLMNR/NBT-NS poisoning only inside approved internal CIDRs.",
+    findings: ["Captured NTLMv2 hash evidence", "Name-resolution poisoning exposure", "Credential-capture risk"],
+    prerequisites: ["Approved internal CIDR and interface", "Two-person intrusive approval", "Protected hash storage"],
+    chains: ["Internal LAN", "Full Internal"],
+  },
+  {
+    id: "ldap-enum",
+    name: "LDAP Enumeration",
+    category: "Discovery",
+    tier: "passive",
+    description: "Reads approved directory metadata for users, groups, computers, and domain policy signals.",
+    findings: ["Directory exposure", "Weak policy evidence", "Identity inventory gaps"],
+    prerequisites: ["Approved LDAP/AD target", "Read-only credentials when required", "Directory scope in ROE"],
+    chains: ["Active Directory", "Full AD Assessment"],
+  },
+  {
+    id: "snmp-enum",
+    name: "SNMP Enumeration",
+    category: "Discovery",
+    tier: "passive",
+    description: "Collects read-only SNMP identity, interface, ARP, and route evidence for approved hosts.",
+    findings: ["Default community exposure", "Network device inventory", "Routing/interface leakage"],
+    prerequisites: ["Approved LAN hosts", "Read-only community list", "SNMP UDP reachability"],
+    chains: ["Internal LAN", "IoT discovery"],
+  },
+  {
+    id: "mdns-ssdp",
+    name: "mDNS / SSDP",
+    category: "Discovery",
+    tier: "passive",
+    description: "Observes local service announcements and UPnP advertisements for approved LAN assessments.",
+    findings: ["Service broadcast exposure", "IoT discovery evidence", "UPnP surface indicators"],
+    prerequisites: ["Approved LAN segment", "Local network visibility", "Passive discovery mode"],
+    chains: ["Internal LAN", "Smart home", "IoT discovery"],
+  },
+  {
+    id: "ipv6-discovery",
+    name: "IPv6 Discovery",
+    category: "Discovery",
+    tier: "passive",
+    description: "Discovers IPv6 neighbors and routers with bounded follow-up against discovered approved addresses.",
+    findings: ["Unmanaged IPv6 exposure", "Router advertisement evidence", "IPv6 service surface"],
+    prerequisites: ["Approved LAN segment", "IPv6 local visibility", "Bounded target limit"],
+    chains: ["Internal LAN", "Network segmentation"],
+  },
+  {
+    id: "aws-inventory",
+    name: "AWS Inventory",
+    category: "Cloud",
+    tier: "passive",
+    description: "Collects read-only AWS account and resource metadata for approved cloud accounts.",
+    findings: ["Public cloud exposure", "Weak IAM/resource posture", "Inventory coverage gaps"],
+    prerequisites: ["Configured cloud credentials", "Approved account/region scope", "Read-only permissions"],
+    chains: ["Cloud", "External attack surface"],
+  },
+  {
+    id: "semgrep",
+    name: "Semgrep",
+    category: "Code",
+    tier: "passive",
+    description: "Scans allowlisted local code paths with curated static-analysis rules.",
+    findings: ["Code-level vulnerability pattern", "Secret-handling weakness", "Unsafe framework usage"],
+    prerequisites: ["Allowlisted repository path", "Curated rule set", "No live target interaction"],
+    chains: ["Repository review", "CI/CD security"],
+  },
+  {
+    id: "playwright-web",
+    name: "Playwright Web",
+    category: "Web",
+    tier: "active",
+    description: "Captures browser evidence and validates approved web workflows without destructive actions.",
+    findings: ["Browser workflow exposure", "DOM/client-side issues", "Storage and console evidence"],
+    prerequisites: ["Approved URL", "Browser automation runtime", "Auth context when testing authenticated paths"],
+    chains: ["External Web", "Authenticated App", "Business logic"],
+  },
+  {
+    id: "credential-attacks",
+    name: "Credential Attacks",
+    category: "Credential",
+    tier: "active",
+    description: "Runs approval-gated Kerberoast, AS-REP roast, offline cracking, or password-spray workflows.",
+    findings: ["Roastable account evidence", "Recovered password risk", "Password spray exposure"],
+    prerequisites: ["Inventory-backed candidates", "Protected credential material", "Lockout policy for spraying"],
+    chains: ["Active Directory", "Full AD Assessment"],
+  },
+  {
+    id: "hashcat",
+    name: "Hashcat",
+    backendTool: "credential-attacks",
+    category: "Credential",
+    tier: "active",
+    description: "Performs offline cracking only against protected hash bundles already captured by approved workflows.",
+    findings: ["Recovered password proof", "Weak password policy evidence", "Crackable hash material"],
+    prerequisites: ["Protected hash bundle", "Approved wordlist", "No online authentication attempts"],
+    chains: ["Credential Attacks", "Full AD Assessment"],
+    params: { credential_attack_mode: "hashcat" },
+  },
+  {
+    id: "llm-probe",
+    name: "LLM Probe",
+    category: "Specialized",
+    tier: "active",
+    description: "Tests approved LLM application surfaces for prompt-injection and unsafe-agent behavior.",
+    findings: ["Prompt injection", "Sensitive data leakage", "Unsafe tool-use behavior"],
+    prerequisites: ["Approved LLM app target", "Non-destructive prompt set", "Active approval"],
+    chains: ["LLM / AI App"],
+  },
+  {
+    id: "camera-test",
+    name: "Camera Test",
+    category: "Specialized",
+    tier: "active",
+    description: "Audits approved IP camera surfaces with read-only RTSP/ONVIF and bounded default-credential checks.",
+    findings: ["Unauthenticated camera exposure", "Default credential risk", "RTSP metadata leakage"],
+    prerequisites: ["Approved camera hosts", "Read-only methods", "Bounded credential attempt limit"],
+    chains: ["IoT discovery", "Internal LAN"],
+  },
+  {
+    id: "iot-default-creds",
+    name: "IoT Default Creds",
+    category: "Specialized",
+    tier: "active",
+    description: "Checks discovered management interfaces for bounded default-account exposure.",
+    findings: ["Default credential exposure", "Unauthenticated management interface", "Weak embedded-device posture"],
+    prerequisites: ["Inventory context", "Approved hosts", "Attempt limits and active approval"],
+    chains: ["IoT discovery", "Internal LAN"],
+  },
+  {
+    id: "smart-home",
+    name: "Smart Home",
+    category: "Specialized",
+    tier: "passive",
+    description: "Reviews approved smart-home hubs and protocols with read-only MQTT and HTTP checks.",
+    findings: ["MQTT anonymous access", "Home Assistant API exposure", "OpenHAB/Domoticz/Node-RED exposure"],
+    prerequisites: ["Approved LAN hosts", "Read-only mode", "No device control"],
+    chains: ["Smart home", "IoT discovery"],
+  },
+  {
+    id: "api-assessment",
+    name: "API Assessment",
+    category: "Web",
+    tier: "active",
+    description: "Runs bounded OWASP API checks against approved OpenAPI, Postman, or GraphQL inputs.",
+    findings: ["API authorization weakness", "Schema exposure", "Injection and validation issues"],
+    prerequisites: ["Approved API base URL or spec", "Rate limits", "Auth context when required"],
+    chains: ["API Security", "Authenticated App"],
+  },
+  {
+    id: "biz-logic-probe",
+    name: "Business Logic Probe",
+    category: "Web",
+    tier: "active",
+    description: "Validates IDOR, privilege, and workflow authorization assumptions in approved authenticated flows.",
+    findings: ["IDOR", "Broken access control", "Privilege escalation"],
+    prerequisites: ["Auth context", "Approved object ranges", "Active approval and low-rate limits"],
+    chains: ["Authenticated App", "API Security"],
+  },
+  {
+    id: "mobile-android",
+    name: "Mobile Android",
+    category: "Specialized",
+    tier: "passive",
+    description: "Performs static APK review for manifest, transport, storage, and embedded configuration issues.",
+    findings: ["Insecure Android manifest setting", "Cleartext transport", "Hardcoded configuration exposure"],
+    prerequisites: ["Authorized APK artifact", "Static-only assessment", "No emulator or device mutation"],
+    chains: ["Mobile app"],
+  },
+  {
+    id: "cloud-native",
+    name: "Cloud Native",
+    category: "Cloud",
+    tier: "passive",
+    description: "Reviews approved cloud-native and Kubernetes-style configuration evidence.",
+    findings: ["Container/Kubernetes misconfiguration", "Weak workload exposure", "Cloud-native inventory risk"],
+    prerequisites: ["Approved cloud-native evidence", "Read-only collection", "Configured credentials when required"],
+    chains: ["Cloud", "Kubernetes"],
+  },
+  {
+    id: "cicd-security",
+    name: "CI/CD Security",
+    category: "Code",
+    tier: "passive",
+    description: "Reviews approved pipeline configuration and repository delivery controls.",
+    findings: ["Unsafe pipeline permission", "Secret exposure risk", "Deployment control gap"],
+    prerequisites: ["Approved CI/CD configuration", "Read-only integration", "No pipeline mutation"],
+    chains: ["CI/CD", "Repository review"],
+  },
+  {
+    id: "desktop-client",
+    name: "Desktop Client",
+    category: "Specialized",
+    tier: "passive",
+    description: "Reviews approved desktop-client artifacts for configuration and packaging weaknesses.",
+    findings: ["Insecure client configuration", "Weak update channel", "Sensitive local storage pattern"],
+    prerequisites: ["Approved client artifact", "Static/offline review", "No endpoint mutation"],
+    chains: ["Desktop client"],
+  },
+  {
+    id: "network-segmentation",
+    name: "Network Segmentation",
+    category: "Discovery",
+    tier: "active",
+    description: "Checks approved network boundaries with passive reachability or bounded active segmentation probes.",
+    findings: ["Segmentation bypass", "Unexpected lateral reachability", "VLAN boundary weakness"],
+    prerequisites: ["Approved VLAN/subnet scope", "Mode-specific approval", "Raw packet capability for active mode"],
+    chains: ["Internal LAN", "Full Internal"],
+  },
+  {
+    id: "ssh-audit",
+    name: "SSH Audit",
+    backendTool: "external-infra",
+    category: "Discovery",
+    tier: "passive",
+    description: "Audits SSH service posture as part of external or internal infrastructure review.",
+    findings: ["Weak SSH algorithm", "Legacy key-exchange support", "SSH banner/configuration exposure"],
+    prerequisites: ["Approved host with SSH service", "External-infra runner path", "Passive service review"],
+    chains: ["External infrastructure", "Internal LAN"],
+    params: { focus: "ssh-audit" },
+  },
+  {
+    id: "easm-discover",
+    name: "EASM Discover",
+    category: "Discovery",
+    tier: "passive",
+    description: "Discovers passive external attack surface from approved root domains.",
+    findings: ["Discovered subdomain", "Unreviewed external asset", "Certificate/DNS exposure"],
+    prerequisites: ["Approved root domain", "Passive sources", "Operator approval before scope expansion"],
+    chains: ["External attack surface", "External Web"],
+  },
+  {
+    id: "external-infra",
+    name: "External Infrastructure",
+    category: "Discovery",
+    tier: "active",
+    description: "Reviews approved IP ranges and non-web services with service detection and infrastructure checks.",
+    findings: ["Exposed remote access service", "Database/VPN/RDP exposure", "Infrastructure CVE signal"],
+    prerequisites: ["Approved IP/CIDR/root-domain scope", "Profile limits", "Active approval for active service checks"],
+    chains: ["External infrastructure", "Full External Web"],
+  },
+  {
+    id: "httpx",
+    name: "httpx",
+    category: "Discovery",
+    tier: "passive",
+    description: "Fingerprints approved HTTP services with lightweight status, title, and technology evidence.",
+    findings: ["HTTP service inventory", "Technology fingerprint", "Reachability and title evidence"],
+    prerequisites: ["Approved URL or host target", "ProjectDiscovery httpx-toolkit or fallback runner", "Passive limits"],
+    chains: ["External Web", "Autonomous Web", "External attack surface"],
+  },
+]);
+
+const TOOL_CATEGORY_ORDER = ["Discovery", "Web", "Credential", "Lateral Movement", "Cloud", "Code", "Specialized"];
+let selectedCatalogToolId = "nmap";
+let selectedCatalogTarget = "";
+
+function toolBackendId(tool) {
+  return tool.backendTool || tool.id;
+}
+
 function buildLaneModeEnabled() {
   const value = findOperatorSettingValue("instance.build_lane_mode");
   if (typeof value === "boolean") return value;
@@ -126,6 +471,221 @@ function renderLifecycleCard(title, status, summary) {
       <small>${escapeHtml(summary)}</small>
     </div>
   `;
+}
+
+function toolTierLabel(tool) {
+  if (tool.tier === "exploitation") return "exploitation";
+  return tool.tier || "passive";
+}
+
+function toolRiskTier(tool) {
+  return tool.tier === "exploitation" ? "intrusive" : tool.tier || "passive";
+}
+
+function selectedTool() {
+  return TOOL_CATALOG.find((tool) => tool.id === selectedCatalogToolId) || TOOL_CATALOG[0];
+}
+
+function currentRunTargetOptions() {
+  const values = [];
+  const seen = new Set();
+  const add = (value) => {
+    const normalized = String(value || "").trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    values.push(normalized);
+  };
+  (state.selectedRun?.tasks || []).forEach((task) => {
+    add(task.target_id);
+    if (Array.isArray(task.params_json?.targets)) {
+      task.params_json.targets.forEach(add);
+    }
+  });
+  const targets = state.selectedRun?.configuration_json?.targets || {};
+  Object.values(targets).forEach((value) => {
+    if (Array.isArray(value)) value.forEach(add);
+    else add(value);
+  });
+  return values;
+}
+
+function renderToolLibraryTargetSelect(targets) {
+  if (!state.selectedRun?.id) {
+    return `<p class="micro-copy">Select or create a run before adding a manual proposal.</p>`;
+  }
+  if (!targets.length) {
+    return `<p class="micro-copy">The selected run has no recorded target yet, so proposals stay disabled.</p>`;
+  }
+  if (!selectedCatalogTarget || !targets.includes(selectedCatalogTarget)) {
+    selectedCatalogTarget = targets[0];
+  }
+  return `
+    <label class="field compact-field">
+      <span>Proposal target</span>
+      <select data-tool-library-target>
+        ${targets
+          .map(
+            (target) => `
+              <option value="${escapeHtml(target)}" ${target === selectedCatalogTarget ? "selected" : ""}>
+                ${escapeHtml(target)}
+              </option>
+            `
+          )
+          .join("")}
+      </select>
+    </label>
+  `;
+}
+
+function renderToolLibrary() {
+  if (!dom.toolLibrary) return;
+  const tool = selectedTool();
+  const targets = currentRunTargetOptions();
+  const categoryCounts = TOOL_CATEGORY_ORDER.map(
+    (category) => `${category}: ${TOOL_CATALOG.filter((item) => item.category === category).length}`
+  );
+  dom.toolLibrary.innerHTML = `
+    <div class="tool-library-shell">
+      <div class="tool-library-intro detail-surface">
+        <div>
+          <p class="eyebrow">Operator catalogue</p>
+          <h4>33 implemented capabilities</h4>
+          <p>
+            This catalogue explains existing runners and supporting tools. Manual proposals are review-only:
+            they do not queue tasks, dispatch tools, grant approvals, deploy packs, bind runtime packs, or expand scope.
+          </p>
+        </div>
+        <div class="tool-library-summary">
+          <span class="metric-pill" data-testid="tool-library-count">${TOOL_CATALOG.length} tools</span>
+          <span class="metric-pill">${escapeHtml(`${new Set(TOOL_CATALOG.map((item) => item.category)).size} categories`)}</span>
+        </div>
+      </div>
+      <div class="chip-row split-top">
+        ${categoryCounts.map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("")}
+      </div>
+      <div class="tool-library-layout split-top">
+        <div class="tool-card-grid" data-testid="tool-library-grid">
+          ${TOOL_CATALOG.map(
+            (item) => `
+              <button
+                class="tool-card ${item.id === tool.id ? "selected" : ""}"
+                type="button"
+                data-tool-pick="${escapeHtml(item.id)}"
+                data-testid="tool-card"
+              >
+                <span class="tool-card-kicker">${escapeHtml(item.category)}</span>
+                <strong>${escapeHtml(item.name)}</strong>
+                <span>${escapeHtml(item.description)}</span>
+                <span class="tool-card-meta">${escapeHtml(toolTierLabel(item))}</span>
+              </button>
+            `
+          ).join("")}
+        </div>
+        <div class="tool-detail detail-surface" data-testid="tool-detail">
+          <div class="panel-head compact-head">
+            <div>
+              <p class="eyebrow">${escapeHtml(tool.category)}</p>
+              <h4>${escapeHtml(tool.name)}</h4>
+            </div>
+            ${statusPill(toolTierLabel(tool))}
+          </div>
+          <p>${escapeHtml(tool.description)}</p>
+          <div class="info-pair-grid split-top">
+            <div>
+              <p class="eyebrow">Runner binding</p>
+              <p>${escapeHtml(toolBackendId(tool))}</p>
+            </div>
+            <div>
+              <p class="eyebrow">Authorization tier</p>
+              <p>${escapeHtml(toolTierLabel(tool))}</p>
+            </div>
+          </div>
+          ${renderDisclosure({
+            title: "Typical Findings",
+            summary: `${tool.findings.length} example outcome${tool.findings.length === 1 ? "" : "s"}`,
+            open: true,
+            body: `<ul>${tool.findings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
+          })}
+          ${renderDisclosure({
+            title: "Prerequisites",
+            summary: `${tool.prerequisites.length} guardrail${tool.prerequisites.length === 1 ? "" : "s"}`,
+            body: `<ul>${tool.prerequisites.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
+          })}
+          ${renderDisclosure({
+            title: "Assessment Modes",
+            summary: tool.chains.join(" · "),
+            body: `<ul>${tool.chains.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
+          })}
+          <div class="detail-surface split-top">
+            <p class="eyebrow">Manual proposal</p>
+            ${renderToolLibraryTargetSelect(targets)}
+            <p class="micro-copy">
+              Add-to-run creates an operator-review proposal only. Approval still records review intent and does not dispatch work.
+            </p>
+            <button
+              class="action secondary split-top"
+              type="button"
+              data-tool-library-add="${escapeHtml(tool.id)}"
+              data-testid="tool-add-current-run"
+              ${state.selectedRun?.id && targets.length ? "" : "disabled"}
+            >
+              Add to current run
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  dom.toolLibrary.querySelectorAll("[data-tool-pick]").forEach((item) => {
+    item.addEventListener("click", () => {
+      selectedCatalogToolId = item.dataset.toolPick || TOOL_CATALOG[0].id;
+      renderToolLibrary();
+    });
+  });
+  dom.toolLibrary.querySelector("[data-tool-library-target]")?.addEventListener("change", (event) => {
+    selectedCatalogTarget = event.target.value || "";
+  });
+  dom.toolLibrary.querySelector("[data-tool-library-add]")?.addEventListener("click", async () => {
+    await createToolLibraryProposal(tool);
+  });
+}
+
+async function createToolLibraryProposal(tool) {
+  if (!state.selectedRun?.id) {
+    throw new Error("Select a run before creating a manual tool proposal.");
+  }
+  const targets = currentRunTargetOptions();
+  const target = selectedCatalogTarget && targets.includes(selectedCatalogTarget) ? selectedCatalogTarget : targets[0];
+  if (!target) {
+    throw new Error("The selected run has no recorded target for a manual tool proposal.");
+  }
+  const proposal = await api(`/api/v1/runs/${state.selectedRun.id}/tool-proposals`, {
+    method: "POST",
+    body: {
+      tool_id: tool.id,
+      proposed_tool: toolBackendId(tool),
+      proposed_target: target,
+      proposed_params: {
+        ...(tool.params || {}),
+        title: `Manual Tool Library proposal: ${tool.name}`,
+        summary: tool.description,
+        catalog_category: tool.category,
+        authorization_tier: toolTierLabel(tool),
+        typical_findings: tool.findings,
+        prerequisites: tool.prerequisites,
+        chain_membership: tool.chains,
+      },
+      reasoning_text: `Operator selected ${tool.name} from the Tool Library for review against ${target}.`,
+      risk_tier: toolRiskTier(tool),
+    },
+  });
+  state.selectedAiInsights = await apiOrNull(`/api/v1/runs/${state.selectedRun.id}/ai-insights`);
+  runtime.actions.pushStatus?.(
+    `Manual proposal created for ${tool.name}; review it in Mission Control or Live Agents.`,
+    "success"
+  );
+  renderToolLibrary();
+  return proposal;
 }
 
 function nextLifecycleSuggestion(bundle, relatedCodexTasks) {
@@ -647,6 +1207,7 @@ export function createPacksModule() {
     const buildLaneEnabled = setBuildLanePanelVisibility();
 
     renderAdaptiveForm();
+    renderToolLibrary();
     if (buildLaneEnabled) {
       renderCodexTaskForm();
     } else {

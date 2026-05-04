@@ -2,48 +2,50 @@
 
 ## Title
 
-Tool capability guide: expose all 33 implemented tools with descriptions, when to use them, and what findings they produce
+Finding quality: add CVSS score, OWASP mapping, business impact, step-by-step remediation, and proof-of-concept reference to every finding
 
 ## Promoted From
 
-`codex/tasks/backlog-209-tool-capability-guide-and-selection-intelligence.json`
+`codex/tasks/backlog-212-finding-quality-enrichment-and-remediation-proof.json`
 
 ## Goal
 
-AegisPT operators must be able to see the implemented tool catalogue inside the product, understand what each tool is for, what authorization tier it requires, and how it fits into assessment modes, without changing runner dispatch logic.
+Enterprise pentest reports require structured finding quality that AegisPT only partially provides today: CVSS, OWASP mapping, business impact, concrete remediation, and reproduce/proof references.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-209-tool-capability-guide-and-selection-intelligence.json`.
+Implement the active backlog package `codex/tasks/backlog-212-finding-quality-enrichment-and-remediation-proof.json`.
 
 Expected slice:
 
-- add an operator-facing Tool Library view accessible from Pack Forge or Settings
-- show all 33 implemented tools with name, category, short description, typical findings, and required authorization tier
-- provide a detail view for each tool with example findings, prerequisites, and chain membership
-- add a quick-add path that creates a manual task proposal for operator approval
-- keep this as transparency/catalogue work only
+- add CVSS score support for findings, using NVD-sourced values for CVE findings and deterministic fallback calculation for non-CVE findings
+- add deterministic OWASP category mapping by finding type and surface
+- add AI business impact and stack-aware remediation fields when ChatGPT is connected
+- show CVSS, OWASP mapping, business impact, remediation, and reproduce/proof reference in the Finding drawer
+- keep this within existing finding/evidence/report structures
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Display existing tool capabilities only.
-- Do not add new tools.
-- Do not change tool dispatch logic.
-- Do not bypass authorization, approval, scope, ROE, pack validation, deployment, runtime binding, credential gates, or kill-switch controls.
+- Do not restructure finding storage.
+- Do not change the existing finding severity model.
+- Do not add new finding types.
+- Do not change evidence storage.
+- Do not change report generation in this task.
+- Do not bypass scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - Do not run live target actions.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/ -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Tool Library shows all 33 tools.
-- Each tool has description and authorization tier.
-- Clicking a tool shows detail with findings, prerequisites, and chain membership.
-- Add-to-run creates a manual task proposal for approval.
-- No runner dispatch or approval behavior is changed.
+- Every finding has a CVSS score.
+- OWASP mapping is present on findings.
+- AI business impact and remediation are available when ChatGPT is connected.
+- Finding drawer shows CVSS gauge, OWASP badge, business impact, remediation, and a reproduce/proof reference.
+- Findings E2E tests do not regress.

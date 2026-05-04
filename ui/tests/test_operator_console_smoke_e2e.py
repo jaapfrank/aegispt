@@ -80,6 +80,103 @@ def test_topbar_notifications_placeholder_is_removed_and_settings_still_opens(
     expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
 
 
+def test_pack_forge_tool_library_catalogue_and_manual_proposal(loaded_page: Page) -> None:
+    created: list[dict[str, object]] = []
+
+    def capture_proposal(route):
+        created.append(route.request.post_data_json)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "id": "33333333-3333-4333-8333-333333333333",
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "agent_reasoning_id": "44444444-4444-4444-8444-444444444444",
+                    "proposed_tool": "metasploit",
+                    "proposed_target": "10.0.0.5",
+                    "proposed_params_json": {},
+                    "reasoning_text": "Manual proposal",
+                    "risk_tier": "intrusive",
+                    "priority": 75,
+                    "confidence_score": 1.0,
+                    "status": "pending_review",
+                    "approved_by": None,
+                    "approved_at": None,
+                    "metadata_json": {"proposal_kind": "tool_library_manual_task", "dispatches_work": False},
+                    "created_at": "2026-05-04T12:00:00Z",
+                    "updated_at": "2026-05-04T12:00:00Z",
+                }
+            ),
+        )
+
+    loaded_page.route("**/api/v1/runs/*/tool-proposals", capture_proposal)
+    loaded_page.route(
+        "**/api/v1/runs/*/ai-insights",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "run_id": "11111111-1111-4111-8111-111111111111",
+                    "post_task_analysis_enabled": True,
+                    "provider": "disabled",
+                    "provider_status": {"status": "disabled"},
+                    "reasoning_records": [],
+                    "proposals": [],
+                    "review_boundary": {},
+                    "operator_workbench": {},
+                }
+            ),
+        ),
+    )
+    loaded_page.get_by_test_id("nav-packs").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const packsModule = await import('/app/assets/modules/packs.js');
+          const now = new Date().toISOString();
+          runtimeModule.patchState({
+            selectedRunId: '11111111-1111-4111-8111-111111111111',
+            selectedRun: {
+              id: '11111111-1111-4111-8111-111111111111',
+              status: 'running',
+              requested_by: 'operator-ui',
+              created_at: now,
+              updated_at: now,
+              configuration_json: { targets: { hosts: ['10.0.0.5'] } },
+              profile: { name: 'intrusive-exploitation', run_class: 'intrusive', limits_json: {} },
+              tasks: [{
+                id: '22222222-2222-4222-8222-222222222222',
+                tool: 'nmap',
+                target_id: '10.0.0.5',
+                status: 'completed',
+                params_json: {},
+                created_at: now,
+                updated_at: now,
+              }],
+            },
+          }, 'test.tool-library.state');
+          packsModule.createPacksModule().renderPackForge();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("tool-library")).to_be_visible()
+    expect(loaded_page.get_by_test_id("tool-library-count")).to_have_text("33 tools")
+    assert loaded_page.get_by_test_id("tool-card").count() == 33
+    loaded_page.get_by_text("Metasploit", exact=True).click()
+    expect(loaded_page.get_by_test_id("tool-detail")).to_contain_text("exploitation")
+    expect(loaded_page.get_by_test_id("tool-detail")).to_contain_text("Controlled session proof")
+    loaded_page.get_by_test_id("tool-add-current-run").click()
+    expect(loaded_page.get_by_test_id("status-feed-focus")).to_contain_text("Manual proposal created for Metasploit")
+    assert created
+    assert created[0]["tool_id"] == "metasploit"
+    assert created[0]["proposed_tool"] == "metasploit"
+    assert created[0]["proposed_target"] == "10.0.0.5"
+
+
 def test_application_shell_has_no_repeated_marketing_subtitle(loaded_page: Page) -> None:
     long_subtitle = (
         "Guided, evidence-first assessment operations across wizard-driven setup, "

@@ -64,13 +64,19 @@ from api.app.schemas.runs import (
     RunRead,
     RunStaleRecoveryCreate,
     TaskRead,
+    ToolLibraryProposalCreate,
 )
 from api.app.services.ai_agent import (
     AgentProposalReviewError,
+    TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS,
     build_ai_insights_for_run,
     review_agent_proposal,
 )
-from api.app.services.ai_enrichment import build_mission_guidance_for_run
+from api.app.services.ai_enrichment import (
+    build_mission_guidance_for_run,
+    store_agent_proposal_record,
+    store_agent_reasoning_record,
+)
 from api.app.services.ai_repair_lane import (
     AiRepairLaneError,
     apply_ai_repair_action,
@@ -160,6 +166,37 @@ from api.app.services.tenancy import (
 router = APIRouter(prefix="/api/v1", tags=["runs"])
 
 TERMINAL_RUN_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "rejected"}
+
+
+def _run_target_values(run: Run) -> list[str]:
+    values: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: object) -> None:
+        normalized = str(value or "").strip()
+        if not normalized or normalized in seen:
+            return
+        seen.add(normalized)
+        values.append(normalized)
+
+    for task in list(run.tasks or []):
+        add(task.target_id)
+        params = task.params_json if isinstance(task.params_json, dict) else {}
+        targets = params.get("targets")
+        if isinstance(targets, list):
+            for target in targets:
+                add(target)
+
+    configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
+    target_map = configuration.get("targets")
+    if isinstance(target_map, dict):
+        for target_value in target_map.values():
+            if isinstance(target_value, list):
+                for item in target_value:
+                    add(item)
+            else:
+                add(target_value)
+    return values
 
 
 def serialize_run_pack_binding(run: Run) -> RunPackBindingRead | None:
@@ -1040,6 +1077,125 @@ def create_run_task_ai_repair(
         proposal=outcome.proposal,
         boundary=outcome.boundary,
     )
+
+
+@router.post("/runs/{run_id}/tool-proposals", response_model=AgentProposalRead)
+def create_run_tool_library_proposal(
+    run_id: UUID,
+    payload: ToolLibraryProposalCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> AgentProposalRead:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    proposed_tool = str(payload.proposed_tool or "").strip()
+    tool_id = str(payload.tool_id or "").strip()
+    if proposed_tool not in TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS:
+        raise HTTPException(status_code=422, detail=f"Unsupported Tool Library proposal tool: {proposed_tool}")
+
+    allowed_targets = _run_target_values(run)
+    target = str(payload.proposed_target or "").strip() or (allowed_targets[0] if allowed_targets else "")
+    if not target:
+        raise HTTPException(status_code=409, detail="Current run has no recorded target for a manual tool proposal")
+    if target not in allowed_targets:
+        raise HTTPException(status_code=409, detail="Manual tool proposal target must already belong to the current run")
+
+    matched_task = next((task for task in list(run.tasks or []) if str(task.target_id or "").strip() == target), None)
+    proposed_params = dict(payload.proposed_params or {})
+    proposed_params.setdefault("proposal_source", "tool_library")
+    proposed_params.setdefault("selected_catalog_tool_id", tool_id or proposed_tool)
+
+    reasoning = store_agent_reasoning_record(
+        session=session,
+        run=run,
+        task=matched_task,
+        reasoning_type="tool_library_manual_task",
+        status="recorded",
+        context_snapshot={
+            "run_id": str(run.id),
+            "selected_catalog_tool_id": tool_id or proposed_tool,
+            "proposed_tool": proposed_tool,
+            "proposed_target": target,
+            "source": "operator_tool_library",
+            "dispatches_work": False,
+            "creates_tasks": False,
+        },
+        observations=[
+            {
+                "summary": "Operator selected an existing Tool Library capability for manual review.",
+                "tool_id": tool_id or proposed_tool,
+                "proposed_tool": proposed_tool,
+            }
+        ],
+        hypotheses=[],
+        proposals=[
+            {
+                "proposed_tool": proposed_tool,
+                "proposed_target": target,
+                "risk_tier": payload.risk_tier,
+                "source": "tool_library",
+            }
+        ],
+        provider="tool-library",
+        model=None,
+        llm_tokens_used=0,
+        confidence_score=1.0,
+        metadata={
+            "proposal_kind": "tool_library_manual_task",
+            "actor": actor,
+            "dispatches_work": False,
+            "creates_tasks": False,
+            "grants_approval": False,
+            "active_runtime_mutated": False,
+            "operator_controlled_flow_only": True,
+        },
+    )
+    proposal = store_agent_proposal_record(
+        session=session,
+        reasoning=reasoning,
+        proposed_tool=proposed_tool,
+        proposed_target=target,
+        proposed_params=proposed_params,
+        reasoning_text=(
+            payload.reasoning_text
+            or "Manual Tool Library proposal created for operator review; it does not queue or dispatch work."
+        ),
+        risk_tier=payload.risk_tier,
+        priority=75,
+        confidence_score=1.0,
+        status="pending_review",
+        metadata={
+            "proposal_kind": "tool_library_manual_task",
+            "catalog_tool_id": tool_id or proposed_tool,
+            "created_by": actor,
+            "requires_operator_review": True,
+            "dispatches_work": False,
+            "creates_tasks": False,
+            "grants_approval": False,
+            "active_runtime_mutated": False,
+            "operator_controlled_flow_only": True,
+            "review_boundary": "review_status_only",
+        },
+    )
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="tool_library.proposal_created",
+        object_type="agent_proposal",
+        object_id=str(proposal.id),
+        metadata={
+            "run_id": str(run.id),
+            "agent_reasoning_id": str(reasoning.id),
+            "catalog_tool_id": tool_id or proposed_tool,
+            "proposed_tool": proposed_tool,
+            "proposed_target": target,
+            "dispatches_work": False,
+            "creates_tasks": False,
+        },
+    )
+    session.commit()
+    session.refresh(proposal)
+    return AgentProposalRead.model_validate(proposal)
 
 
 @router.post("/runs/{run_id}/ai-proposals/{proposal_id}/review", response_model=AgentProposalRead)

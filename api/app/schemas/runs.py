@@ -159,6 +159,15 @@ class AgentProposalReviewCreate(BaseModel):
     note: str | None = None
 
 
+class ToolLibraryProposalCreate(BaseModel):
+    tool_id: str
+    proposed_tool: str
+    proposed_target: str | None = None
+    proposed_params: dict[str, Any] = Field(default_factory=dict)
+    reasoning_text: str | None = None
+    risk_tier: Literal["passive", "active", "intrusive"] = "passive"
+
+
 class AiRepairProposalCreate(BaseModel):
     note: str | None = None
 

@@ -783,3 +783,59 @@ def test_ai_proposal_approval_blocks_forbidden_action_classes(client) -> None:
             )
             == 0
         )
+
+
+def test_tool_library_manual_proposal_is_review_only_and_auditable(client) -> None:
+    with client.app.state.session_factory() as session:
+        run, task, _execution = _seed_run_with_task(session, profile_suffix="tool-library")
+        task_count_before = session.scalar(select(func.count()).select_from(Task))
+        session.commit()
+        run_id = run.id
+        target = task.target_id
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/tool-proposals",
+        json={
+            "tool_id": "metasploit",
+            "proposed_tool": "metasploit",
+            "proposed_target": target,
+            "risk_tier": "intrusive",
+            "proposed_params": {"authorization_tier": "exploitation"},
+        },
+        headers={"X-Actor": "operator-library"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "pending_review"
+    assert payload["proposed_tool"] == "metasploit"
+    assert payload["proposed_target"] == target
+    assert payload["metadata_json"]["proposal_kind"] == "tool_library_manual_task"
+    assert payload["metadata_json"]["dispatches_work"] is False
+    assert payload["metadata_json"]["creates_tasks"] is False
+
+    proposal_id = payload["id"]
+    review = client.post(
+        f"/api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review",
+        json={"decision": "approved", "note": "reviewed from Tool Library"},
+        headers={"X-Actor": "operator-library"},
+    )
+    assert review.status_code == 200
+    reviewed = review.json()
+    assert reviewed["status"] == "approved"
+    assert reviewed["metadata_json"]["dispatches_work"] is False
+    assert reviewed["metadata_json"]["creates_tasks"] is False
+
+    with client.app.state.session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
+        audit_actions = list(
+            session.scalars(
+                select(AuditEvent.action)
+                .where(
+                    AuditEvent.object_id == proposal_id,
+                    AuditEvent.action.in_(["tool_library.proposal_created", "agent_proposal.reviewed"]),
+                )
+                .order_by(AuditEvent.created_at, AuditEvent.id)
+            )
+        )
+    assert set(audit_actions) == {"tool_library.proposal_created", "agent_proposal.reviewed"}

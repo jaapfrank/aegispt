@@ -59,6 +59,41 @@ SUPPORTED_AI_PROPOSAL_TOOLS = {
     "zap",
 }
 
+TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
+    "api-assessment",
+    "aws-inventory",
+    "bloodhound-collect",
+    "biz-logic-probe",
+    "burp",
+    "camera-test",
+    "cicd-security",
+    "cloud-native",
+    "credential-attacks",
+    "desktop-client",
+    "easm-discover",
+    "external-infra",
+    "httpx",
+    "impacket-lateral",
+    "iot-default-creds",
+    "ipv6-discovery",
+    "ldap-enum",
+    "llm-probe",
+    "mdns-ssdp",
+    "metasploit",
+    "mobile-android",
+    "netexec",
+    "network-segmentation",
+    "nmap",
+    "nuclei",
+    "playwright-web",
+    "responder",
+    "semgrep",
+    "smart-home",
+    "snmp-enum",
+    "wifi-survey",
+    "zap",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class AgentProposalDraft:
@@ -849,6 +884,18 @@ def _assert_proposal_is_review_approvable(
         if not _target_allowed(target=target, allowed_targets=allowed_targets, denied_targets=denied_targets):
             raise AgentProposalReviewError(
                 f"AI repair proposal target is outside approved scope or denied: {target}",
+                reason="out_of_scope_target",
+            )
+        return
+    if metadata.get("proposal_kind") == "tool_library_manual_task":
+        if tool not in TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS:
+            raise AgentProposalReviewError(
+                f"unsupported Tool Library proposal tool cannot be approved: {tool}",
+                reason="unsupported_tool",
+            )
+        if not _target_allowed(target=target, allowed_targets=allowed_targets, denied_targets=denied_targets):
+            raise AgentProposalReviewError(
+                f"Tool Library proposal target is outside approved scope or denied: {target}",
                 reason="out_of_scope_target",
             )
         return

@@ -1,5 +1,47 @@
 # Done Log
 
+- 2026-05-04: completed backlog-209 `Tool capability guide`:
+  - rationale:
+    - operators could not see the 33 implemented runner/supporting capabilities, their authorization tiers, or what each tool is expected to find
+    - the active task required an in-app catalogue and a manual add-to-run proposal path without changing runner dispatch or bypassing approval/scope/runtime gates
+  - implementation:
+    - added a Pack Forge Tool Library panel with 33 existing capabilities, grouped by category and displayed with descriptions, typical findings, prerequisites, authorization tier, and assessment-mode membership
+    - added a detail view for each capability and preserved supporting-tool truth by routing `hashcat` through `credential-attacks` and `ssh-audit` through `external-infra`
+    - added `POST /api/v1/runs/{run_id}/tool-proposals` to create review-only `AgentReasoning` and `AgentProposal` records for the current run target
+    - allowed `tool_library_manual_task` proposals to be reviewed for existing Tool Library tools while preserving the review-only boundary: no task creation, dispatch, approval grant, pack lifecycle mutation, runtime binding, scope expansion, credential bypass, or kill-switch bypass
+    - added focused backend and Playwright coverage for catalogue count, detail visibility, and manual proposal creation
+  - files:
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/services/ai_agent.py`
+    - `api/tests/test_ai_agent_reasoning.py`
+    - `ui/index.html`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/packs.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-209-tool-capability-guide-20260504.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py::test_tool_library_manual_proposal_is_review_only_and_auditable api/tests/test_health.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_pack_forge_tool_library_catalogue_and_manual_proposal -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - read-only `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health/live` passed
+    - safe live browser acceptance on `http://127.0.0.1:8000/app/` confirmed 33 tool cards and Metasploit detail content
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-209-tool-capability-guide-20260504.md`
+  - remaining risks:
+    - this task improves operator transparency and review-only proposal capture, but it does not prove real target coverage for each tool
+    - manual proposal approval still records review intent only; it does not materialize queued work until a future task explicitly implements that through existing gates
+  - next active task:
+    - backlog-212 `Finding quality`
+
 - 2026-05-04: completed backlog-215 `Tool install and enable control plane`:
   - rationale:
     - Settings previously reported missing/degraded tool groups and disabled capabilities without concrete repair or enablement actions
