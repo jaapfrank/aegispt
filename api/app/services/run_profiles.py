@@ -842,6 +842,53 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-content-discovery",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated ffuf content discovery against approved web roots with rate limits and structured hidden-endpoint findings.",
+            "required_approvals": 1,
+            "tools": ["content-discovery"],
+            "max_rps": 2,
+            "max_concurrency": 1,
+        },
+    },
+    {
+        "name": "passive-web-nikto-scan",
+        "run_class": RunClass.PASSIVE.value,
+        "limits_json": {
+            "description": "Nikto web server configuration review for approved web targets with JSON evidence and structured web configuration findings.",
+            "required_approvals": 0,
+            "tools": ["nikto"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+        },
+    },
+    {
+        "name": "active-web-sqlmap-confirmation",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated sqlmap confirmation only for explicitly provided or ZAP-flagged injectable parameters.",
+            "required_approvals": 1,
+            "tools": ["sqlmap"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_parameter_target": True,
+        },
+    },
+    {
+        "name": "passive-external-osint-recon",
+        "run_class": RunClass.PASSIVE.value,
+        "limits_json": {
+            "description": "Read-only Shodan/Censys passive exposure lookup for approved domains, hosts, or URLs. Requires configured API credentials.",
+            "required_approvals": 0,
+            "tools": ["external-osint"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "read_only": True,
+            "requires_api_key": True,
+        },
+    },
+    {
         "name": "active-web-safe",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

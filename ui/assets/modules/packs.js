@@ -88,6 +88,46 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App"],
   },
   {
+    id: "content-discovery",
+    name: "ffuf Content Discovery",
+    category: "Web",
+    tier: "active",
+    description: "Runs approval-gated, rate-limited endpoint and directory discovery against approved web roots.",
+    findings: ["Hidden endpoint discovered", "Admin or backup path exposure", "Unexpected API surface"],
+    prerequisites: ["Approved web root URL", "ffuf/gobuster/feroxbuster installed", "Active approval and rate limits"],
+    chains: ["External Web", "Authenticated App", "Web baseline"],
+  },
+  {
+    id: "nikto",
+    name: "Nikto",
+    category: "Web",
+    tier: "passive",
+    description: "Checks approved web servers for configuration issues, dangerous files, headers, and outdated server signals.",
+    findings: ["Web server configuration finding", "Dangerous file exposure", "Outdated software signal"],
+    prerequisites: ["Approved web target", "Nikto installed", "Bounded JSON evidence capture"],
+    chains: ["External Web", "Web baseline", "Configuration review"],
+  },
+  {
+    id: "sqlmap",
+    name: "sqlmap",
+    category: "Web",
+    tier: "active",
+    description: "Confirms SQL injection only on explicitly supplied or ZAP-flagged injectable parameters.",
+    findings: ["Confirmed SQL injection", "Injectable parameter evidence", "Input validation weakness"],
+    prerequisites: ["Approved parameter URL", "Explicit parameter or ZAP injectable signal", "Active approval"],
+    chains: ["External Web", "Authenticated App", "Injection confirmation"],
+  },
+  {
+    id: "external-osint",
+    name: "Shodan / Censys",
+    category: "Discovery",
+    tier: "passive",
+    description: "Queries passive external exposure APIs for approved hosts, domains, and URLs without scanning the target.",
+    findings: ["Public service exposure", "Public vulnerability exposure", "External asset intelligence"],
+    prerequisites: ["Approved host, domain, or URL", "Configured Shodan or Censys API credentials", "Read-only API access"],
+    chains: ["External attack surface", "External Web", "OSINT recon"],
+  },
+  {
     id: "metasploit",
     name: "Metasploit",
     category: "Lateral Movement",
@@ -549,7 +589,7 @@ function renderToolLibrary() {
       <div class="tool-library-intro detail-surface">
         <div>
           <p class="eyebrow">Operator catalogue</p>
-          <h4>33 implemented capabilities</h4>
+          <h4>${TOOL_CATALOG.length} implemented capabilities</h4>
           <p>
             This catalogue explains existing runners and supporting tools. Manual proposals are review-only:
             they do not queue tasks, dispatch tools, grant approvals, deploy packs, bind runtime packs, or expand scope.

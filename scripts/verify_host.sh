@@ -130,7 +130,10 @@ verify_any_command "ZAP" "zaproxy -version -dir /tmp/aegispt-zap-verify" "zap.sh
 verify_command "nmap" nmap --version
 verify_any_command "httpx" "httpx-toolkit -version" "httpx -version"
 verify_command "ffuf" ffuf -V
+verify_any_command "gobuster" "gobuster version" "gobuster --version"
 verify_command "feroxbuster" feroxbuster --version
+verify_command "nikto" nikto -Version
+verify_command "sqlmap" sqlmap --version
 verify_testssl
 proxy_safe_semgrep
 verify_command "ssh-audit" ssh-audit -h

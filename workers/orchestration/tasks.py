@@ -148,6 +148,12 @@ from workers.runners.wifi_survey.runner import (
     WIFI_SURVEY_RESULTS_ARTIFACT_NAME,
     execute_wifi_survey,
 )
+from workers.runners.web_depth.runner import (
+    execute_content_discovery,
+    execute_external_osint_recon,
+    execute_nikto_scan,
+    execute_sqlmap_confirmation,
+)
 from workers.runners.zap.runner import execute_zap_scan
 
 redis_broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
@@ -162,9 +168,11 @@ SUPPORTED_TOOLS = {
     "camera-test",
     "cicd-security",
     "cloud-native",
+    "content-discovery",
     "desktop-client",
     "credential-attacks",
     "easm-discover",
+    "external-osint",
     "external-infra",
     "httpx",
     "impacket-lateral",
@@ -178,12 +186,14 @@ SUPPORTED_TOOLS = {
     "network-segmentation",
     "nmap",
     "netexec",
+    "nikto",
     "nuclei",
     "playwright-web",
     "responder",
     "semgrep",
     "smart-home",
     "snmp-enum",
+    "sqlmap",
     "wifi-survey",
     "zap",
 }
@@ -966,6 +976,53 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             jobs=max(rate_limit, 1),
             binary=os.getenv("SEMGREP_BINARY", "semgrep"),
         )
+    if request.tool == "content-discovery":
+        return execute_content_discovery(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            binary=os.getenv("FFUF_BINARY", "ffuf"),
+            wordlist_path=str(
+                request.params.get("wordlist_path")
+                or os.getenv("FFUF_WORDLIST_PATH", "")
+                or ""
+            )
+            or None,
+            rate_limit=rate_limit,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "nikto":
+        return execute_nikto_scan(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            binary=os.getenv("NIKTO_BINARY", "nikto"),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "sqlmap":
+        return execute_sqlmap_confirmation(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            injectable_parameters=(
+                request.params.get("injectable_parameters")
+                if isinstance(request.params.get("injectable_parameters"), list)
+                else []
+            ),
+            zap_flagged_parameters=(
+                request.params.get("zap_flagged_parameters")
+                if isinstance(request.params.get("zap_flagged_parameters"), list)
+                else []
+            ),
+            binary=os.getenv("SQLMAP_BINARY", "sqlmap"),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "external-osint":
+        return execute_external_osint_recon(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            shodan_api_key=os.getenv("SHODAN_API_KEY", "").strip() or None,
+            censys_api_id=os.getenv("CENSYS_API_ID", "").strip() or None,
+            censys_api_secret=os.getenv("CENSYS_API_SECRET", "").strip() or None,
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1573,6 +1630,25 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         mode = str(effective_params.get("mode") or "passive").strip() or "passive"
         marker = " --proof-marker" if effective_params.get("proof_marker") else ""
         return f"$ playwright chromium --{mode} --approved-scope {target_label}{extra}{marker}"
+    if tool == "content-discovery":
+        wordlist = str(effective_params.get("wordlist_path") or "default-web-content").strip()
+        return (
+            "$ ffuf -u "
+            f"{shlex.quote((normalized_targets[0] if normalized_targets else '<target>').rstrip('/') + '/FUZZ')} "
+            f"-w {shlex.quote(wordlist)} -rate {int(effective_params.get('max_rps') or 2)} "
+            f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "nikto":
+        return f"$ nikto -host {target_label}{extra} -Format json --approved-scope"
+    if tool == "sqlmap":
+        parameter_count = len(effective_params.get("injectable_parameters") or []) if isinstance(effective_params.get("injectable_parameters"), list) else 0
+        parameter_count += len(effective_params.get("zap_flagged_parameters") or []) if isinstance(effective_params.get("zap_flagged_parameters"), list) else 0
+        return (
+            "$ sqlmap --batch --smart --level 1 --risk 1 "
+            f"--approved-parameters {parameter_count} --approved-scope {target_label}{extra}"
+        )
+    if tool == "external-osint":
+        return f"$ shodan/censys-api --read-only --api-key-required --approved-scope {target_label}{extra}"
     if tool == "api-assessment":
         sources = []
         if effective_params.get("openapi_spec"):

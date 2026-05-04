@@ -1,5 +1,50 @@
 # Done Log
 
+- 2026-05-04: completed backlog-211 `Pentest depth expansion`:
+  - rationale:
+    - enterprise web pentests need deeper standard coverage than ZAP/httpx/nuclei alone: content discovery, web server configuration review, constrained SQLi confirmation, and passive external exposure intelligence
+    - the active task required adding these runners without broadening core dispatch, bypassing approval/scope/runtime controls, or running live target actions
+  - implementation:
+    - added `workers/runners/web_depth/runner.py` with `content-discovery`, `nikto`, `sqlmap`, and `external-osint` runner functions and structured JSON artifacts
+    - registered the four tools in worker dispatch, command previews, supported tools, finding extraction, run profiles, run target planning, sqlmap parameter validation, AI proposal allowlists, methodology mapping, Settings readiness, and Tool Library
+    - updated host/Docker installer and verifier coverage for gobuster/Nikto/sqlmap plus `.env.example` Shodan/Censys credential hooks
+    - added focused runner and registration tests, including the sqlmap no-parameter guard and passive OSINT API-key guard
+  - files:
+    - `workers/runners/web_depth/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/settings.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `scripts/install_security_tools.sh`
+    - `scripts/verify_host.sh`
+    - `infra/compose/Dockerfile`
+    - `.env.example`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-211-pentest-depth-additional-tools-20260504.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_web_depth_runner.py api/tests/test_pentest_depth_registration.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_web_depth_runner.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after implementation
+    - `git diff --check` passed
+    - `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+  - evidence:
+    - `codex/results/backlog-211-pentest-depth-additional-tools-20260504.md`
+  - remaining risks:
+    - no real external target scan or passive Shodan/Censys API lookup was executed in this safe build-lane validation
+    - Shodan/Censys value depends on configured API keys and provider availability
+    - sqlmap is intentionally blocked until an operator supplies an explicit parameter target or ZAP-flagged injectable parameter
+    - deeper benchmark proof against WebGoat/Gruyere remains for future dedicated runner tasks
+  - next active task:
+    - backlog-214 `XXE injection runner`
+
 - 2026-05-04: completed backlog-213 `Gruyere + WebGoat benchmark coverage gap analysis`:
   - rationale:
     - enterprise detection work needs benchmark proof before adding more runners, so this slice measured existing passive and active AegisPT coverage against local Gruyere and WebGoat targets

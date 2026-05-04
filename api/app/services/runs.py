@@ -547,6 +547,41 @@ def api_assessment_runner_params_from_configuration(
     return result
 
 
+def content_discovery_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("content_discovery")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    result: dict[str, Any] = {}
+    if isinstance(settings.get("wordlist_path"), str) and settings["wordlist_path"].strip():
+        result["wordlist_path"] = settings["wordlist_path"].strip()
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
+def sqlmap_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("sqlmap")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("injectable_parameters", "zap_flagged_parameters"):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    zap_parameters = validation.get("zap_flagged_parameters")
+    if isinstance(zap_parameters, list) and zap_parameters and "zap_flagged_parameters" not in result:
+        result["zap_flagged_parameters"] = zap_parameters
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def mobile_android_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1450,6 +1485,46 @@ def validate_api_assessment_run_configuration(
         return
 
 
+def validate_web_depth_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+    tool: str,
+) -> None:
+    targets = derive_targets_from_target_map(
+        configuration.get("targets")
+        if isinstance(configuration, dict) and isinstance(configuration.get("targets"), dict)
+        else scope.allowlist_json
+    )
+    if not planned_targets_for_tool(tool, targets):
+        raise ValueError(f"{tool} requires at least one in-scope web target")
+
+
+def validate_sqlmap_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(scope=scope, configuration=configuration, tool="sqlmap")
+    params = sqlmap_runner_params_from_configuration(configuration)
+    candidates = []
+    for field_name in ("injectable_parameters", "zap_flagged_parameters"):
+        value = params.get(field_name)
+        if isinstance(value, list):
+            candidates.extend(item for item in value if isinstance(item, dict))
+    if not candidates:
+        raise ValueError(
+            "sqlmap requires an explicit parameter target or ZAP-flagged injectable parameter"
+        )
+    for candidate in candidates:
+        target = str(candidate.get("url") or candidate.get("target") or "").strip()
+        parameter = str(candidate.get("parameter") or candidate.get("param") or "").strip()
+        if not target or not parameter:
+            raise ValueError("sqlmap parameter entries require url/target and parameter")
+        if not target_value_is_allowed(scope.allowlist_json, target):
+            raise ValueError(f"configured target {target} is outside the approved engagement scope")
+
+
 def validate_mobile_android_run_configuration(
     *,
     scope: Scope,
@@ -2066,6 +2141,19 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(url_targets)
         return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
 
+    if tool in {"content-discovery", "nikto", "sqlmap"}:
+        url_targets = [target for target in targets if target["kind"] == "url"]
+        if url_targets:
+            return list(url_targets)
+        return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
+
+    if tool == "external-osint":
+        return [
+            target
+            for target in targets
+            if target["kind"] in {"host", "domain", "url", "target"}
+        ]
+
     if tool == "ldap-enum":
         return [target for target in targets if target["kind"] in {"host", "domain"}]
 
@@ -2229,6 +2317,8 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     biz_logic_params = business_logic_runner_params_from_configuration(run_configuration)
     browser_params = browser_runner_params_from_configuration(run_configuration)
     api_assessment_params = api_assessment_runner_params_from_configuration(run_configuration)
+    content_discovery_params = content_discovery_runner_params_from_configuration(run_configuration)
+    sqlmap_params = sqlmap_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2270,6 +2360,17 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 scope=scope,
                 configuration=run_configuration,
                 profile_limits=normalized_limits,
+            )
+        if tool in {"content-discovery", "nikto", "external-osint"}:
+            validate_web_depth_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+                tool=tool,
+            )
+        if tool == "sqlmap":
+            validate_sqlmap_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
             )
         if tool == "mobile-android":
             validate_mobile_android_run_configuration(
@@ -2516,6 +2617,22 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             if key not in {"requires_auth_context"}
                             and value not in (None, [], {})
                         },
+                    }
+                )
+            if tool == "content-discovery":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in content_discovery_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "sqlmap":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in sqlmap_params.items()
+                        if value not in (None, [], {})
                     }
                 )
             if tool == "mobile-android":

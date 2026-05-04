@@ -50,12 +50,16 @@ class AgentProposalReviewError(RuntimeError):
 
 SUPPORTED_AI_PROPOSAL_TOOLS = {
     "aws-inventory",
+    "content-discovery",
+    "external-osint",
     "httpx",
     "ldap-enum",
     "llm-probe",
     "nmap",
+    "nikto",
     "nuclei",
     "semgrep",
+    "sqlmap",
     "zap",
 }
 
@@ -68,9 +72,11 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "camera-test",
     "cicd-security",
     "cloud-native",
+    "content-discovery",
     "credential-attacks",
     "desktop-client",
     "easm-discover",
+    "external-osint",
     "external-infra",
     "httpx",
     "impacket-lateral",
@@ -84,12 +90,14 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "netexec",
     "network-segmentation",
     "nmap",
+    "nikto",
     "nuclei",
     "playwright-web",
     "responder",
     "semgrep",
     "smart-home",
     "snmp-enum",
+    "sqlmap",
     "wifi-survey",
     "zap",
 }

@@ -19,6 +19,7 @@ RUN apt-get update \
         awscli \
         feroxbuster \
         ffuf \
+        gobuster \
         hashcat \
         httpx-toolkit \
         impacket-scripts \
@@ -27,6 +28,7 @@ RUN apt-get update \
         metasploit-framework \
         netexec \
         nmap \
+        nikto \
         nuclei \
         openjdk-21-jre-headless \
         procps \
@@ -37,6 +39,7 @@ RUN apt-get update \
         responder \
         ssh-audit \
         snmp \
+        sqlmap \
         subfinder \
         testssl.sh \
         wireless-tools \

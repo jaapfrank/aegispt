@@ -444,7 +444,9 @@ def test_list_run_profiles(client) -> None:
         "active-lan-segmentation-test",
         "active-llm-application-probe",
         "active-offline-hash-crack",
+        "active-web-content-discovery",
         "active-web-safe",
+        "active-web-sqlmap-confirmation",
         "active-web-zap-active",
         "autonomous-internal",
         "autonomous-web",
@@ -464,6 +466,7 @@ def test_list_run_profiles(client) -> None:
         "passive-desktop-client-static",
         "passive-easm-discovery",
         "passive-external-infrastructure",
+        "passive-external-osint-recon",
         "passive-identity-ldap-enum",
         "passive-lan-infrastructure-audit",
         "passive-lan-iot-discovery",
@@ -476,11 +479,12 @@ def test_list_run_profiles(client) -> None:
         "passive-mobile-android-static",
         "passive-network-discovery",
         "passive-network-service-enumeration",
-            "passive-web-baseline",
-            "passive-web-burp",
-            "passive-web-nuclei-audit",
-            "passive-wifi-survey",
-        ]
+        "passive-web-baseline",
+        "passive-web-burp",
+        "passive-web-nikto-scan",
+        "passive-web-nuclei-audit",
+        "passive-wifi-survey",
+    ]
 
 
 def test_playwright_web_passive_profile_queues_browser_task_with_session_binding(client) -> None:
