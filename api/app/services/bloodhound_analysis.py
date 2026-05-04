@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict, deque
 import json
+from collections import Counter, defaultdict, deque
 from io import BytesIO
 from typing import Any
 from zipfile import BadZipFile, ZipFile
-
 
 USEFUL_ACE_RIGHTS = frozenset(
     {

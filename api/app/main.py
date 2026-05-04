@@ -20,8 +20,8 @@ from api.app.routers.engagements import router as engagements_router
 from api.app.routers.findings import router as findings_router
 from api.app.routers.health import router as health_router
 from api.app.routers.integrations import router as integrations_router
-from api.app.routers.inventory import router as inventory_router
 from api.app.routers.internal_validations import router as internal_validations_router
+from api.app.routers.inventory import router as inventory_router
 from api.app.routers.mcp import router as mcp_router
 from api.app.routers.packs import router as packs_router
 from api.app.routers.problems import router as problems_router
@@ -33,8 +33,10 @@ from api.app.routers.threat_intel import router as threat_intel_router
 from api.app.routers.triggers import router as triggers_router
 from api.app.services.cve_sync_scheduler import start_cve_feed_scheduler, stop_cve_feed_scheduler
 from api.app.services.gdpr_data import start_gdpr_retention_scheduler, stop_gdpr_retention_scheduler
-from api.app.services.scheduled_runs import start_scheduled_run_scheduler, stop_scheduled_run_scheduler
-
+from api.app.services.scheduled_runs import (
+    start_scheduled_run_scheduler,
+    stop_scheduled_run_scheduler,
+)
 
 logger = logging.getLogger(__name__)
 DATABASE_UNENCRYPTED_WARNING = (

@@ -6,7 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 TriggerSource = Literal["github", "gitlab", "generic"]
 
 

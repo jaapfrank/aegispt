@@ -31,14 +31,14 @@ from api.app.models import (
     Run,
     Task,
 )
-from api.app.services.inventory import aggregate_inventory_snapshots
-from api.app.services.settings import effective_runtime_settings_for_finding
-from api.app.services.threat_intel import build_finding_threat_intel_badges
 from api.app.services.chatgpt_oauth import (
     CHATGPT_OAUTH_PROVIDER,
     ChatGPTOAuthFindingEnrichmentProvider,
     effective_ai_provider_name,
 )
+from api.app.services.inventory import aggregate_inventory_snapshots
+from api.app.services.settings import effective_runtime_settings_for_finding
+from api.app.services.threat_intel import build_finding_threat_intel_badges
 
 
 class FindingEnrichmentError(RuntimeError):

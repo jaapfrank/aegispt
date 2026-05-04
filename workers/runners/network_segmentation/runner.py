@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import ipaddress
 import json
 import os
@@ -8,6 +7,7 @@ import shutil
 import socket
 import subprocess
 import time
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
@@ -261,7 +261,7 @@ def _default_reachability_checker(host: str, port: int | None, timeout_seconds: 
 
 def _default_vlan_probe(params: dict[str, Any]) -> dict[str, Any]:
     try:
-        from scapy.all import Dot1Q, Ether, ICMP, IP, conf, sendp, sniff  # type: ignore
+        from scapy.all import ICMP, IP, Dot1Q, Ether, conf, sendp, sniff  # type: ignore
     except Exception as exc:  # pragma: no cover - depends on optional local package/capability
         return {
             "status": "capability_unavailable",

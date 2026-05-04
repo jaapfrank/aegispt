@@ -27,7 +27,18 @@ from api.app.methodology import (
     tool_wstg_areas,
     wstg_area_for_identifier,
 )
-from api.app.models import Approval, CapabilityPack, Engagement, EvidenceArtifact, Finding, FindingChain, Run, Scope, Task, ToolExecution
+from api.app.models import (
+    Approval,
+    CapabilityPack,
+    Engagement,
+    EvidenceArtifact,
+    Finding,
+    FindingChain,
+    Run,
+    Scope,
+    Task,
+    ToolExecution,
+)
 from api.app.schemas.report_center import RunReportCatalogItemRead, RunReportDraftRead
 from api.app.services.attack_paths import build_attack_path_summary_for_loaded_run
 from api.app.services.chatgpt_oauth import (
@@ -36,9 +47,9 @@ from api.app.services.chatgpt_oauth import (
     send_chatgpt_backend_streaming_json_request,
 )
 from api.app.services.codex_tasks import list_codex_tasks, load_codex_task_result
-from api.app.services.secrets import sanitize_run_configuration
 from api.app.services.inventory import aggregate_inventory_snapshots
 from api.app.services.packs import latest_validation_for_pack
+from api.app.services.secrets import sanitize_run_configuration
 
 SEVERITY_ORDER = {
     "critical": 0,
@@ -5803,7 +5814,7 @@ def render_markdown_report(run: Run, *, variant: str = "technical", framework: s
     coverage = context["coverage"]
     latest_scope = context["latest_scope"]
     remediation_counts = context["remediation_counts"]
-    inventory_summary = context["inventory_summary"]
+    _ = context["inventory_summary"]
     assert isinstance(findings, list)
     confirmed_findings = [finding for finding in findings if isinstance(finding, Finding)]
     score = _risk_score(confirmed_findings)

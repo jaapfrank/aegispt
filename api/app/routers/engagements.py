@@ -13,11 +13,11 @@ from api.app.db import get_session
 from api.app.models import Engagement, InventorySnapshot, RunProfile, ScheduledRun, Scope
 from api.app.schemas.deletion import DeleteImpactRead, EngagementDeleteCreate
 from api.app.schemas.engagements import (
+    EngagementAuthorizationConfirmRead,
     EngagementCreate,
     EngagementDataCleanupRead,
     EngagementDataRetentionRead,
     EngagementDataRetentionUpdate,
-    EngagementAuthorizationConfirmRead,
     EngagementPurgeCreate,
     EngagementPurgeRead,
     EngagementRead,
@@ -31,8 +31,8 @@ from api.app.schemas.engagements import (
     ScopeCreate,
     ScopeRead,
 )
-from api.app.services.exposure_score import ensure_exposure_score, list_exposure_score_history
 from api.app.services.audit import write_audit_event
+from api.app.services.exposure_score import ensure_exposure_score, list_exposure_score_history
 from api.app.services.gdpr_data import (
     apply_engagement_retention_policy,
     build_engagement_data_export,
@@ -49,13 +49,13 @@ from api.app.services.scheduled_runs import (
     launch_due_scheduled_runs_for_engagement,
     normalize_due_at,
 )
+from api.app.services.secrets import materialize_run_configuration_secrets
 from api.app.services.soft_delete import (
     SoftDeleteBlockedError,
     delete_impact_payload,
     engagement_delete_impact,
     soft_delete_engagement,
 )
-from api.app.services.secrets import materialize_run_configuration_secrets
 from api.app.services.tenancy import (
     engagement_query_for_tenant,
     get_current_tenant_id,

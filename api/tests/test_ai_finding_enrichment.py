@@ -12,7 +12,6 @@ from sqlalchemy import select
 from api.app.config import Settings, get_settings
 from api.app.models import (
     Engagement,
-    EvidenceArtifact as EvidenceArtifactRecord,
     Finding,
     FindingAiEnrichment,
     InventorySnapshot,
@@ -21,11 +20,14 @@ from api.app.models import (
     ThreatIntelRecord,
     ToolExecution,
 )
+from api.app.models import (
+    EvidenceArtifact as EvidenceArtifactRecord,
+)
 from api.app.services.ai_enrichment import (
     FindingEnrichmentResult,
     build_finding_enrichment_provider,
-    enrich_finding_async,
     build_mission_guidance_for_run,
+    enrich_finding_async,
     store_ai_enrichment_for_finding,
 )
 from workers.orchestration.findings import store_findings

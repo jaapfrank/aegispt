@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import ipaddress
 import json
 import time
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution

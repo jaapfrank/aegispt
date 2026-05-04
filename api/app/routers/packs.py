@@ -21,8 +21,8 @@ from api.app.schemas.packs import (
     CapabilityPackRollbackCreate,
     CapabilityPackValidationRead,
 )
-from api.app.services.audit import write_audit_event
 from api.app.services.assessment_patterns import build_assessment_pattern_library
+from api.app.services.audit import write_audit_event
 from api.app.services.packs import (
     approve_pack,
     deploy_pack,

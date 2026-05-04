@@ -11,7 +11,6 @@ from api.app.models import CapabilityPack, ThreatIntelRecord
 from api.app.services.chatgpt_oauth import store_chatgpt_oauth_token_set
 from api.app.services.threat_intel import build_finding_threat_intel_badges
 
-
 SAFE_TEMPLATE = """id: cve-2026-7777-examplecms-detection
 info:
   name: CVE-2026-7777 ExampleCMS detection

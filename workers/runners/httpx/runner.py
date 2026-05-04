@@ -4,7 +4,6 @@ import json
 from hashlib import sha256
 
 import httpx as httpx_client
-
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 

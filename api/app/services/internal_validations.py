@@ -23,7 +23,6 @@ from api.app.services.packs import bind_pack_to_run, latest_pack_deployment
 from api.app.services.runs import latest_scope_query, queue_run_tasks, required_approvals
 from api.app.services.task_dispatch import dispatch_task_batch
 
-
 FINAL_RUN_FAILURE_STATUSES = {"failed", "completed_with_errors", "rejected", "cancelled", "cancelling"}
 SUCCESSFUL_STEP_STATUSES = {"completed"}
 FINAL_STEP_STATUSES = {"completed", "failed", "rejected"}

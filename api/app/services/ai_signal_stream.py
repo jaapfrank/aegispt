@@ -20,7 +20,6 @@ from api.app.services.chatgpt_oauth import (
 )
 from api.app.services.settings import effective_runtime_settings_for_run
 
-
 LIVE_AI_SIGNAL_KIND = "live_ai_signal"
 DETERMINISTIC_PROVIDER = "deterministic"
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}

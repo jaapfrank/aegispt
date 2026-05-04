@@ -33,8 +33,12 @@ from api.app.schemas.settings import (
     SettingsSectionRead,
     ToolReadinessRead,
 )
-from api.app.services.secrets import direct_secret_storage_backend, encrypt_secret_value, secret_display_label
 from api.app.services.audit import write_audit_event
+from api.app.services.secrets import (
+    direct_secret_storage_backend,
+    encrypt_secret_value,
+    secret_display_label,
+)
 
 DEFAULT_TENANT_SCOPE = "default"
 DISABLED_AI_PROVIDER_NAMES = {"", "disabled", "none", "off"}

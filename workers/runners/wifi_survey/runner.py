@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import csv
+import json
+import re
 from collections import Counter
 from collections.abc import Iterable
 from datetime import UTC, datetime
-import csv
-import json
 from io import StringIO
-import re
 from typing import Any
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution

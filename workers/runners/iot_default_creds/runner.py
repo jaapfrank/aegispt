@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import ipaddress
+import json
+import re
+import time
 from base64 import b64encode
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from html import unescape
-import ipaddress
-import json
 from pathlib import Path
-import re
-import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlparse

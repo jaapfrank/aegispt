@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from api.app.auth import get_current_actor
 from api.app.db import get_session
-from api.app.models import Engagement, InventorySnapshot, RelevanceDecision, ThreatIntelRecord
+from api.app.models import InventorySnapshot, RelevanceDecision, ThreatIntelRecord
 from api.app.schemas.relevance import RelevanceAnalyzeCreate, RelevanceDecisionRead
 from api.app.services.audit import write_audit_event
 from api.app.services.relevance import analyze_relevance
@@ -39,7 +39,7 @@ def analyze_inventory_relevance(
     actor: str = Depends(get_current_actor),
     tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> RelevanceDecisionRead:
-    engagement = load_engagement_for_tenant(session, payload.engagement_id, tenant_id)
+    _ = load_engagement_for_tenant(session, payload.engagement_id, tenant_id)
 
     inventory_snapshot = session.scalar(
         select(InventorySnapshot).where(

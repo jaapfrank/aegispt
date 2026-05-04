@@ -13,7 +13,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from api.app.config import Settings
-from api.app.models import CicdTrigger, CicdTriggerEvent, Engagement, Run, RunProfile, Scope, SecretRef
+from api.app.models import (
+    CicdTrigger,
+    CicdTriggerEvent,
+    Engagement,
+    Run,
+    RunProfile,
+    Scope,
+    SecretRef,
+)
 from api.app.schemas.triggers import (
     CicdTriggerEventRead,
     CicdTriggerRead,

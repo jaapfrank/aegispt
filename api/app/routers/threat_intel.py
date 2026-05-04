@@ -22,21 +22,7 @@ from api.app.schemas.threat_intel import (
     ThreatIntelRecordRead,
 )
 from api.app.services.audit import write_audit_event
-from api.app.services.threat_intel import (
-    import_threat_intel_feed,
-    load_threat_intel_record,
-    search_threat_intel_records,
-    upsert_threat_intel_record,
-)
 from api.app.services.chatgpt_oauth import chatgpt_oauth_status
-from api.app.services.cve_template_generator import (
-    CveTemplateUnavailable,
-    NucleiTemplateValidationError,
-    UnsafeNucleiTemplateError,
-    existing_template_generation_payload,
-    generate_cve_nuclei_template_pack,
-    unavailable_generation_payload,
-)
 from api.app.services.cve_sync import (
     approve_product_watchlist_entry,
     delete_product_watchlist_entry,
@@ -46,8 +32,22 @@ from api.app.services.cve_sync import (
     sync_cve_feeds,
     upsert_product_watchlist_entry,
 )
+from api.app.services.cve_template_generator import (
+    CveTemplateUnavailable,
+    NucleiTemplateValidationError,
+    UnsafeNucleiTemplateError,
+    existing_template_generation_payload,
+    generate_cve_nuclei_template_pack,
+    unavailable_generation_payload,
+)
 from api.app.services.settings import effective_runtime_settings
 from api.app.services.tenancy import get_current_tenant_id, load_engagement_for_tenant
+from api.app.services.threat_intel import (
+    import_threat_intel_feed,
+    load_threat_intel_record,
+    search_threat_intel_records,
+    upsert_threat_intel_record,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["threat-intel"])
 

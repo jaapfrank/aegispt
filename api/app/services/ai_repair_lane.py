@@ -9,14 +9,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from api.app.models import AgentProposal, AgentReasoning, Run, Task, ToolExecution
-from api.app.services.audit import write_audit_event
+from api.app.schemas.codex import CodexTaskCreate, CodexTaskSourceContext
 from api.app.services.ai_enrichment import (
     store_agent_proposal_record,
     store_agent_reasoning_record,
 )
-from api.app.schemas.codex import CodexTaskCreate, CodexTaskSourceContext
+from api.app.services.audit import write_audit_event
 from api.app.services.codex_tasks import create_codex_task
-
 
 AI_REPAIR_ELIGIBLE_TASK_STATUSES = {"failed", "blocked", "skipped"}
 AI_REPAIR_BOUNDARY = {

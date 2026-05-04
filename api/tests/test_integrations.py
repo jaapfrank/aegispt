@@ -8,7 +8,13 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import select
 
-from api.app.models import AuditEvent, Finding, FindingIntegrationLink, IntegrationConfiguration, Run
+from api.app.models import (
+    AuditEvent,
+    Finding,
+    FindingIntegrationLink,
+    IntegrationConfiguration,
+    Run,
+)
 
 
 def _create_engagement(client) -> str:

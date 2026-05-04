@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 import ipaddress
 import json
 import socket
 import time
+from collections.abc import Callable, Iterable
 from typing import Any
 from urllib.parse import urljoin, urlparse
 from urllib.request import urlopen

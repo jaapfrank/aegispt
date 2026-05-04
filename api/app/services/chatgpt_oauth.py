@@ -23,7 +23,6 @@ from api.app.services.secrets import (
     encrypt_secret_value,
 )
 
-
 CHATGPT_OAUTH_PROVIDER = "chatgpt_oauth"
 CHATGPT_OAUTH_PENDING_PURPOSE = "chatgpt_oauth.pkce_state"
 CHATGPT_OAUTH_TOKEN_PURPOSE = "ai_provider.chatgpt_oauth"

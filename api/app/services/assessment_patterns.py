@@ -14,7 +14,6 @@ from api.app.models import (
     CapabilityPackValidationResult,
     Engagement,
     Finding,
-    FindingRemediation,
     Run,
 )
 

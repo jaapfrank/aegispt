@@ -4,7 +4,15 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 
-from api.app.models import AgentProposal, AuditEvent, Engagement, Run, RunProfile, Task, ToolExecution
+from api.app.models import (
+    AgentProposal,
+    AuditEvent,
+    Engagement,
+    Run,
+    RunProfile,
+    Task,
+    ToolExecution,
+)
 
 
 def _seed_run_with_repairable_task(

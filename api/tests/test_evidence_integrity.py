@@ -9,12 +9,21 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from api.app.config import get_settings
-from api.app.models import AuditEvent, Engagement, EvidenceArtifact, Finding, Run, Scope, Task, ToolExecution
+from api.app.models import (
+    AuditEvent,
+    Engagement,
+    EvidenceArtifact,
+    Finding,
+    Run,
+    Scope,
+    Task,
+    ToolExecution,
+)
+from api.app.services import evidence_integrity
 from api.app.services.artifact_storage import (
     artifact_storage_config_from_settings,
     store_artifact_bytes_with_fallback,
 )
-from api.app.services import evidence_integrity
 from workers.orchestration.findings import store_findings
 from workers.runners.base.contracts import EvidenceArtifact as ContractEvidenceArtifact
 

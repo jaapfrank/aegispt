@@ -283,13 +283,15 @@ def _attach_delete_impact_records(client, run_id: str) -> None:
     from api.app.models import (
         AgentProposal,
         AgentReasoning,
-        EvidenceArtifact as EvidenceArtifactRecord,
         Finding,
         FindingAiEnrichment,
         FindingChain,
         FindingRemediation,
         Run,
         ToolExecution,
+    )
+    from api.app.models import (
+        EvidenceArtifact as EvidenceArtifactRecord,
     )
 
     with client.app.state.session_factory() as session:
@@ -3778,8 +3780,8 @@ def test_due_scheduled_run_global_tick_launches_due_passive_schedule(inline_clie
 
 def test_run_drift_is_computed_against_previous_completed_run(client) -> None:
     from api.app.models import Finding, Run, RunDrift, RunProfile
-    from api.app.services.run_profiles import ensure_default_run_profiles
     from api.app.services.run_drift import compute_run_drift
+    from api.app.services.run_profiles import ensure_default_run_profiles
 
     engagement_id = create_engagement_with_scope(client)
     session_factory = client.app.state.session_factory

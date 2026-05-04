@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from api.app.methodology import WSTG_STABLE_VERSION, derive_finding_methodology
 from api.app.models import Finding
 from api.app.services.ai_enrichment import DeterministicFindingEnrichmentProvider
-from workers.runners.base.contracts import EvidenceArtifact
 from workers.orchestration.findings import (
     NormalizedFinding,
     extract_nuclei_findings,
@@ -15,6 +14,7 @@ from workers.orchestration.findings import (
     merge_finding,
     severity_rank,
 )
+from workers.runners.base.contracts import EvidenceArtifact
 
 
 def test_severity_rank_prefers_higher_severity() -> None:

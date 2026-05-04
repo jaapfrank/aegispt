@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 import zipfile
+from types import SimpleNamespace
 
 from workers.orchestration.findings import extract_findings
 from workers.runners.base.contracts import EvidenceArtifact

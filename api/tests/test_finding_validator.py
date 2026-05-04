@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 

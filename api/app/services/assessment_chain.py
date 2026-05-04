@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import copy
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from ipaddress import ip_network
-import subprocess
 from typing import Any
 from uuid import UUID
 
@@ -20,7 +20,6 @@ from api.app.models import (
     InventorySnapshot,
     Run,
     RunProfile,
-    Scope,
     SecretRef,
     Task,
 )

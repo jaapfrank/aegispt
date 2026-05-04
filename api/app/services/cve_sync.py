@@ -13,9 +13,16 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from api.app.config import Settings, get_settings
-from api.app.models import CveFeedSyncLog, CveProductWatchlistEntry, Engagement, InstanceSetting, InventorySnapshot, ThreatIntelRecord
+from api.app.models import (
+    CveFeedSyncLog,
+    CveProductWatchlistEntry,
+    Engagement,
+    InstanceSetting,
+    InventorySnapshot,
+    ThreatIntelRecord,
+)
 from api.app.services.secrets import decrypt_secret_value
-from api.app.services.settings import DEFAULT_TENANT_SCOPE, tenant_scope_key
+from api.app.services.settings import tenant_scope_key
 from api.app.services.threat_intel import upsert_threat_intel_record
 
 SOURCE_ORDER = ("cisa_kev", "ncsc_nl", "nvd", "opencve")

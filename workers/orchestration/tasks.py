@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import os
 import shlex
 import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from uuid import UUID
 
 import dramatiq
@@ -14,19 +14,22 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from api.app.config import get_settings
-from api.app.models import SecretRef
+from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
+from api.app.models import InventorySnapshot, Run, Scope, SecretRef, Task, ToolExecution
+from api.app.policy.engine import execution_kill_switch_enabled
+from api.app.services.ai_agent import run_post_task_analysis_for_task
 from api.app.services.artifact_storage import (
     artifact_storage_config_from_settings,
     store_artifact_bytes_with_fallback,
 )
-from api.app.services.audit import write_audit_event
-from api.app.services.ai_agent import run_post_task_analysis_for_task
 from api.app.services.assessment_chain import (
     advance_assessment_chain_for_completed_run,
     dispatch_assessment_chain_current_run,
 )
-from api.app.services.exposure_score import record_exposure_score
+from api.app.services.audit import write_audit_event
+from api.app.services.cve_sync import suggest_watchlist_from_inventory_snapshot
 from api.app.services.evidence_integrity import apply_artifact_integrity_metadata
+from api.app.services.exposure_score import record_exposure_score
 from api.app.services.finding_validator import (
     dispatch_validation_runs,
     finalize_validation_for_task,
@@ -41,8 +44,8 @@ from api.app.services.inventory import (
     camera_test_observation_from_json,
     cicd_security_observation_from_json,
     cloud_native_observation_from_json,
-    desktop_client_observation_from_json,
     create_inventory_snapshot_record,
+    desktop_client_observation_from_json,
     easm_observation_from_json,
     external_infrastructure_observation_from_json,
     httpx_observation_from_jsonl,
@@ -56,13 +59,8 @@ from api.app.services.inventory import (
     wifi_survey_observation_from_json,
 )
 from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_task
-from api.app.services.cve_sync import suggest_watchlist_from_inventory_snapshot
-from api.app.services.run_drift import compute_run_drift
-from api.app.policy.engine import execution_kill_switch_enabled
-from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
-from api.app.models import InventorySnapshot
-from api.app.models import Run, Scope, Task, ToolExecution
 from api.app.services.redaction import redact_artifact_bytes, redact_text
+from api.app.services.run_drift import compute_run_drift
 from api.app.services.runs import latest_scope_query, target_is_allowed
 from api.app.services.secrets import (
     direct_secret_storage_backend,
@@ -77,32 +75,40 @@ from api.app.services.siem_push import (
 )
 from api.app.services.soft_delete import purge_expired_soft_deleted_runs
 from api.app.services.task_dispatch import dispatch_task_batch
-from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
-from workers.runners.aws_inventory.runner import execute_aws_inventory
+from workers.orchestration.findings import store_findings
+from workers.orchestration.runtime import session_scope
 from workers.runners.api_assessment.runner import (
     API_ASSESSMENT_INVENTORY_ARTIFACT_NAME,
     execute_api_assessment,
 )
+from workers.runners.aws_inventory.runner import execute_aws_inventory
+from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
+from workers.runners.base.stdout_stream import (
+    append_task_stdout,
+    mark_task_stdout_completed,
+    mark_task_stdout_unavailable,
+    reset_task_stdout_stream,
+)
+from workers.runners.biz_logic.runner import execute_biz_logic_probe
 from workers.runners.bloodhound.runner import execute_bloodhound_collect
 from workers.runners.burp.runner import execute_burp_scan
 from workers.runners.camera_test.runner import (
     CAMERA_TEST_RESULTS_ARTIFACT_NAME,
     execute_camera_test,
 )
-from workers.runners.cloud_native.runner import (
-    CLOUD_NATIVE_INVENTORY_ARTIFACT_NAME,
-    execute_cloud_native_assessment,
-)
 from workers.runners.cicd_security.runner import (
     CICD_SECURITY_INVENTORY_ARTIFACT_NAME,
     execute_cicd_security_assessment,
 )
+from workers.runners.cloud_native.runner import (
+    CLOUD_NATIVE_INVENTORY_ARTIFACT_NAME,
+    execute_cloud_native_assessment,
+)
+from workers.runners.credential_attacks.runner import execute_credential_attacks
 from workers.runners.desktop_client.runner import (
     DESKTOP_CLIENT_INVENTORY_ARTIFACT_NAME,
     execute_desktop_client_assessment,
 )
-from workers.runners.credential_attacks.runner import execute_credential_attacks
-from workers.runners.biz_logic.runner import execute_biz_logic_probe
 from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
 from workers.runners.httpx.runner import execute_httpx_probe
@@ -114,18 +120,18 @@ from workers.runners.ipv6_discovery.runner import (
 )
 from workers.runners.ldap_enum.runner import execute_ldap_enum
 from workers.runners.llm_probe import execute_llm_probe
+from workers.runners.mdns_ssdp.runner import (
+    MDNS_SSDP_ARTIFACT_NAME,
+    execute_mdns_ssdp_discovery,
+)
 from workers.runners.metasploit.runner import execute_metasploit_exploit
 from workers.runners.mobile_android.runner import (
     MOBILE_ANDROID_INVENTORY_ARTIFACT_NAME,
     execute_mobile_android_static,
 )
-from workers.runners.mdns_ssdp.runner import (
-    MDNS_SSDP_ARTIFACT_NAME,
-    execute_mdns_ssdp_discovery,
-)
+from workers.runners.netexec.runner import execute_netexec_smb
 from workers.runners.network_segmentation.runner import execute_network_segmentation_assessment
 from workers.runners.nmap.runner import execute_nmap_scan
-from workers.runners.netexec.runner import execute_netexec_smb
 from workers.runners.nuclei.runner import execute_nuclei_scan
 from workers.runners.playwright_web.runner import execute_playwright_web_validation
 from workers.runners.responder.runner import execute_responder_capture
@@ -143,14 +149,6 @@ from workers.runners.wifi_survey.runner import (
     execute_wifi_survey,
 )
 from workers.runners.zap.runner import execute_zap_scan
-from workers.runners.base.stdout_stream import (
-    append_task_stdout,
-    mark_task_stdout_completed,
-    mark_task_stdout_unavailable,
-    reset_task_stdout_stream,
-)
-from workers.orchestration.findings import store_findings
-from workers.orchestration.runtime import session_scope
 
 redis_broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 dramatiq.set_broker(redis_broker)

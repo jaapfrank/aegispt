@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import ipaddress
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -13,17 +12,23 @@ from sqlalchemy.orm import Session
 from api.app.auth import get_current_actor, require_roles
 from api.app.config import Settings, get_settings
 from api.app.db import get_session
-from api.app.models import Engagement, Finding, FindingIntegrationLink, FindingRemediation, IntegrationConfiguration, Run
+from api.app.models import (
+    Finding,
+    FindingIntegrationLink,
+    FindingRemediation,
+    IntegrationConfiguration,
+    Run,
+)
+from api.app.schemas.evidence_integrity import (
+    EvidenceIntegrityResultRead,
+    RunEvidenceIntegrityResultRead,
+)
 from api.app.schemas.finding_views import (
     FindingEvidenceReplayRead,
     FindingTheaterRead,
     RemediationPortfolioRead,
     RemediationRetestPlanCreate,
     RemediationRetestPlanRead,
-)
-from api.app.schemas.evidence_integrity import (
-    EvidenceIntegrityResultRead,
-    RunEvidenceIntegrityResultRead,
 )
 from api.app.schemas.findings import FindingRead, FindingUpdate
 from api.app.schemas.integrations import JiraFindingLinkRead, RepositoryFixPullRequestRead
@@ -33,31 +38,30 @@ from api.app.schemas.remediation import (
     FindingRetestCreate,
     FindingRetestRead,
 )
-from api.app.services.audit import write_audit_event
 from api.app.services.ai_enrichment import enrich_finding_async, finding_ai_enrichment_view
+from api.app.services.audit import write_audit_event
 from api.app.services.autofix import ensure_autofix_for_finding
-from api.app.services.exposure_score import record_exposure_score
 from api.app.services.evidence_integrity import verify_finding_evidence, verify_run_evidence
+from api.app.services.exposure_score import record_exposure_score
+from api.app.services.finding_retests import (
+    FindingRetestRequestError,
+    request_single_finding_retest,
+)
 from api.app.services.finding_sla import apply_finding_sla, apply_findings_sla
 from api.app.services.finding_views import build_finding_evidence_replay, build_finding_theater
-from api.app.services.finding_retests import FindingRetestRequestError, request_single_finding_retest
-from api.app.services.packs import bind_pack_to_run, latest_pack_deployment
+from api.app.services.remediation import build_remediation_portfolio, build_remediation_retest_plan
 from api.app.services.repository_integration import (
     RepositoryIntegrationError,
     create_fix_pr_for_finding,
     ensure_repository_link_for_finding,
 )
-from api.app.services.remediation import build_remediation_portfolio, build_remediation_retest_plan
-from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.runs import (
-    align_run_configuration_with_engagement,
-    latest_scope_query,
     load_run,
-    queue_run_tasks,
-    required_approvals,
 )
-from api.app.services.secrets import materialize_run_configuration_secrets
-from api.app.services.settings import effective_runtime_settings_for_finding, effective_runtime_settings_for_run
+from api.app.services.settings import (
+    effective_runtime_settings_for_finding,
+    effective_runtime_settings_for_run,
+)
 from api.app.services.tenancy import (
     assert_finding_tenant,
     assert_run_tenant,

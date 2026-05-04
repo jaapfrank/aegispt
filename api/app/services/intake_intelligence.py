@@ -5,16 +5,18 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID
 
-from api.app.config import Settings
 from sqlalchemy.orm import Session
 
+from api.app.config import Settings
 from api.app.services.chatgpt_oauth import (
     CHATGPT_OAUTH_PROVIDER,
     ChatGPTOAuthIntakeInterpretationProvider,
     effective_ai_provider_name,
 )
-from api.app.services.settings import effective_runtime_settings, effective_runtime_settings_for_engagement
-
+from api.app.services.settings import (
+    effective_runtime_settings,
+    effective_runtime_settings_for_engagement,
+)
 
 INTAKE_INTELLIGENCE_BOUNDARY = {
     "mode": "operator_review_advisory",

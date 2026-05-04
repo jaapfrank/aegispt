@@ -9,7 +9,14 @@ import pytest
 from sqlalchemy import select
 
 from api.app.config import Settings
-from api.app.models import AuditEvent, Finding, FindingIntegrationLink, IntegrationConfiguration, Run, SecretRef
+from api.app.models import (
+    AuditEvent,
+    Finding,
+    FindingIntegrationLink,
+    IntegrationConfiguration,
+    Run,
+    SecretRef,
+)
 from api.app.services.siem_push import (
     deliver_critical_findings_to_configured_siems,
     deliver_run_completion_to_configured_siems,

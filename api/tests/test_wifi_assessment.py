@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 IW_SCAN_FIXTURE = """
 BSS aa:bb:cc:dd:ee:ff(on wlan0)
     signal: -42.00 dBm

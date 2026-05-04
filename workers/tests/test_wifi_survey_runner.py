@@ -11,7 +11,6 @@ from workers.runners.wifi_survey.runner import (
     parse_iw_scan,
 )
 
-
 IW_SCAN_FIXTURE = """
 BSS aa:bb:cc:dd:ee:ff(on wlan0)
     signal: -42.00 dBm

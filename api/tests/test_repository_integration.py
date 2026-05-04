@@ -11,7 +11,14 @@ from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from api.app.models import AuditEvent, Finding, FindingRepositoryLink, RepositoryIntegration, Run, SecretRef
+from api.app.models import (
+    AuditEvent,
+    Finding,
+    FindingRepositoryLink,
+    RepositoryIntegration,
+    Run,
+    SecretRef,
+)
 
 
 @contextmanager
@@ -219,20 +226,24 @@ def test_repository_callback_stores_encrypted_token_and_connected_repo_for_githu
     for provider, repository_url, purpose, repository_path, user_url, repo_url in cases:
         calls: list[dict[str, Any]] = []
 
-        def fake_post(url: str, **kwargs):
-            calls.append({"method": "POST", "url": url, **kwargs})
-            return FakeResponse({"access_token": f"{provider}-access-token", "token_type": "Bearer", "scope": "repo"})
+        def make_fakes(c, p, u_url, r_url, rep_url):
+            def _fake_post(url: str, **kwargs):
+                c.append({"method": "POST", "url": url, **kwargs})
+                return FakeResponse({"access_token": f"{p}-access-token", "token_type": "Bearer", "scope": "repo"})
 
-        def fake_get(url: str, **kwargs):
-            calls.append({"method": "GET", "url": url, **kwargs})
-            if url == user_url:
-                payload = {"login": "repo-user"} if provider == "github" else {"username": "repo-user"}
-                return FakeResponse(payload)
-            if url == repo_url:
-                if provider == "github":
-                    return FakeResponse({"id": 42, "html_url": repository_url, "default_branch": "main"})
-                return FakeResponse({"id": 77, "web_url": repository_url, "default_branch": "main"})
-            raise AssertionError(f"unexpected GET {url}")
+            def _fake_get(url: str, **kwargs):
+                c.append({"method": "GET", "url": url, **kwargs})
+                if url == u_url:
+                    payload = {"login": "repo-user"} if p == "github" else {"username": "repo-user"}
+                    return FakeResponse(payload)
+                if url == r_url:
+                    if p == "github":
+                        return FakeResponse({"id": 42, "html_url": rep_url, "default_branch": "main"})
+                    return FakeResponse({"id": 77, "web_url": rep_url, "default_branch": "main"})
+                raise AssertionError(f"unexpected GET {url}")
+            return _fake_post, _fake_get
+
+        fake_post, fake_get = make_fakes(calls, provider, user_url, repo_url, repository_url)
 
         with build_client_with_env(tmp_path, monkeypatch) as client:
             monkeypatch.setattr("api.app.services.repository_integration.httpx.post", fake_post)

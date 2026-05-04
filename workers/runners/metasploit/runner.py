@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import tempfile
 import time
+from dataclasses import dataclass
 from typing import Any, Callable
 from urllib.parse import urlparse
 
@@ -610,8 +609,7 @@ def execute_metasploit_exploit(
     protected_outputs: list[ProtectedSecretMaterial] = []
     terminated_by_kill_switch = False
 
-    with tempfile.TemporaryDirectory(prefix="aegispt-metasploit-") as temp_dir_name:
-        temp_dir = Path(temp_dir_name)
+    with tempfile.TemporaryDirectory(prefix="aegispt-metasploit-") as _:
         daemon_process: subprocess.Popen[str] | None = None
         client = rpc_client_factory(
             base_url=normalized_rpc_url,

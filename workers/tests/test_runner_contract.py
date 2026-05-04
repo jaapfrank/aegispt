@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from workers.runners.base.contracts import EvidenceArtifact
 from workers.orchestration.tasks import _runner_command_preview
+from workers.runners.base.contracts import EvidenceArtifact
 from workers.runners.burp.runner import build_burp_api_url
 from workers.runners.httpx.runner import build_httpx_command, execute_httpx_probe
 from workers.runners.nmap.runner import (
@@ -15,7 +15,11 @@ from workers.runners.nmap.runner import (
 )
 from workers.runners.nuclei.runner import build_nuclei_command
 from workers.runners.responder.runner import build_responder_command
-from workers.runners.semgrep.runner import _semgrep_env, build_semgrep_command, normalize_semgrep_rule_id
+from workers.runners.semgrep.runner import (
+    _semgrep_env,
+    build_semgrep_command,
+    normalize_semgrep_rule_id,
+)
 from workers.runners.zap.runner import build_zap_api_url
 
 

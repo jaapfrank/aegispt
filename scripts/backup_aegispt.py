@@ -15,7 +15,6 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy.engine import make_url
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SECRET_KEY_MARKERS = (
     "SECRET",

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from datetime import UTC, datetime
-import json
 from typing import Any
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET

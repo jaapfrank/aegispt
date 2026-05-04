@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from workers.orchestration.findings import extract_findings
 from workers.runners.base.contracts import EvidenceArtifact
 from workers.runners.impacket.remote_exec import (

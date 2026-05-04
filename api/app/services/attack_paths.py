@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections import Counter
 from typing import Any
-from uuid import UUID
 from urllib.parse import urlparse
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload

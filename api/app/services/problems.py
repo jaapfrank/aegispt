@@ -23,7 +23,10 @@ from api.app.schemas.problems import (
 )
 from api.app.services.audit import write_audit_event
 from api.app.services.exposure_score import record_exposure_score
-from api.app.services.finding_retests import FindingRetestRequestError, request_single_finding_retest
+from api.app.services.finding_retests import (
+    FindingRetestRequestError,
+    request_single_finding_retest,
+)
 
 SEVERITY_ORDER = ("critical", "high", "medium", "low", "info", "unknown")
 PROBLEM_STATUSES = ("open", "in_progress", "resolved", "verified", "reoccurred")

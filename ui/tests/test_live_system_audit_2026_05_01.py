@@ -9,12 +9,11 @@ Does NOT launch actual runs — stops at confirmation.
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 AUDIT_DIR = Path(__file__).resolve().parents[2] / "ui" / "test-results" / "audit-2026-05-01"
 
@@ -160,11 +159,11 @@ def test_wizard_stepper_labels_short(page: Page) -> None:
         return
     _ss(page, "wizard-stepper-labels")
     text = stepper.inner_text()
-    labels = [l.strip() for l in re.split(r"[\n\r\t]+", text) if l.strip() and not l.strip().isdigit()]
-    long = [l for l in labels if len(l) > 20]
+    labels = [label.strip() for label in re.split(r"[\n\r\t]+", text) if label.strip() and not label.strip().isdigit()]
+    long = [label for label in labels if len(label) > 20]
     assert not long, (
-        f"DEFECT: Wizard step labels too long (>20 chars), will wrap on viewport:\n"
-        + "\n".join(f"  '{l}'" for l in long)
+        "DEFECT: Wizard step labels too long (>20 chars), will wrap on viewport:\n"
+        + "\n".join(f"  '{lbl}'" for lbl in long)
     )
 
 
@@ -375,10 +374,8 @@ def test_wizard_step5_modules_are_toggleable(page: Page) -> None:
     _ss(page, "wizard-step5-toggles")
     if checkboxes.count() > 0:
         # Toggle first checkbox and check run config updates
-        before = page.locator("[data-testid='wizard-inline-context']").inner_text()
         checkboxes.first.click()
         page.wait_for_timeout(300)
-        after = page.locator("[data-testid='wizard-inline-context']").inner_text()
         _ss(page, "wizard-step5-toggled")
         # Run config should change (or at least not crash)
         panel_ok = len(page.locator("#wizard-panel").inner_text()) > 20
@@ -612,7 +609,7 @@ def test_findings_theater_empty_state_has_guidance(page: Page) -> None:
     _ss(page, "findings-theater-empty-state")
     if len(content) < 10:
         pytest.fail(
-            f"DEFECT: Findings Theater is blank with no guidance. "
+            "DEFECT: Findings Theater is blank with no guidance. "
             "Should show 'No findings yet — complete a run to see results here.'"
         )
 
@@ -824,7 +821,6 @@ def test_pack_forge_codex_build_lane_not_prominent(page: Page) -> None:
     _ss(page, "pack-forge-full")
 
     codex_form = page.locator("#codex-task-form")
-    codex_btn = page.locator("#prepare-codex-task-btn")
 
     if codex_form.count() > 0 and codex_form.is_visible():
         pytest.fail(
@@ -842,7 +838,7 @@ def test_sidebar_no_developer_section_labels(page: Page) -> None:
     text = sidebar.inner_text()
     _ss(page, "sidebar-full")
     developer_labels = ["Operator Flow", "Build Lane", "VIEWS /"]
-    found = [l for l in developer_labels if l in text]
+    found = [lbl for lbl in developer_labels if lbl in text]
     assert not found, (
         f"DEFECT: Sidebar contains developer-facing section labels: {found}. "
         f"Sidebar text: '{text[:400]}'"

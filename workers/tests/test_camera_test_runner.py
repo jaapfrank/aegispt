@@ -14,7 +14,6 @@ from workers.runners.camera_test.runner import (
     parse_onvif_probe_matches,
 )
 
-
 PROBE_MATCH = b"""<?xml version="1.0" encoding="UTF-8"?>
 <Envelope xmlns="http://www.w3.org/2003/05/soap-envelope">
   <Body>

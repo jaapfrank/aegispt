@@ -1,21 +1,22 @@
 from __future__ import annotations
 
+from subprocess import CompletedProcess
+
 import httpx
 import pytest
-from subprocess import CompletedProcess
 
 import scripts.acceptance_harness as acceptance_harness
 from scripts.acceptance_harness import (
     activate_runtime_target,
     assert_runtime_prerequisites,
+    build_allowlist_from_target,
     build_engagement_payload,
     build_inventory_seed_payload,
-    build_allowlist_from_target,
     build_run_configuration,
     load_target_catalog,
-    summarize_result,
     resolve_safe_target,
     select_next_real_run_scenario,
+    summarize_result,
     validate_target_catalog,
 )
 

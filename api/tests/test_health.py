@@ -44,7 +44,11 @@ def test_live_reports_shutting_down_state(client) -> None:
 
 
 def test_full_system_audit_partial_artifacts_include_health_failure(tmp_path) -> None:
-    from scripts.run_full_system_acceptance_audit import AuditResult, Defect, _write_result_artifacts
+    from scripts.run_full_system_acceptance_audit import (
+        AuditResult,
+        Defect,
+        _write_result_artifacts,
+    )
 
     output_json = tmp_path / "partial.json"
     output_md = tmp_path / "partial.md"

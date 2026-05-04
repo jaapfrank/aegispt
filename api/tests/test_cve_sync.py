@@ -7,7 +7,11 @@ from sqlalchemy import select
 
 from api.app.config import get_settings
 from api.app.models import CveProductWatchlistEntry, ThreatIntelRecord
-from api.app.services.cve_sync import FeedFetchResult, sync_cve_feeds, upsert_product_watchlist_entry
+from api.app.services.cve_sync import (
+    FeedFetchResult,
+    sync_cve_feeds,
+    upsert_product_watchlist_entry,
+)
 from api.app.services.threat_intel import build_finding_threat_intel_badges
 
 

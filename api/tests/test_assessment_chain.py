@@ -6,7 +6,15 @@ from uuid import UUID
 from sqlalchemy import select
 
 from api.app.config import get_settings
-from api.app.models import AgentReasoning, AuditEvent, AssessmentChain, InventorySnapshot, Run, RunProfile, Task
+from api.app.models import (
+    AgentReasoning,
+    AssessmentChain,
+    AuditEvent,
+    InventorySnapshot,
+    Run,
+    RunProfile,
+    Task,
+)
 from api.app.services import assessment_chain as assessment_chain_service
 from api.app.services.assessment_chain import (
     advance_assessment_chain_for_completed_run,

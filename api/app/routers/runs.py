@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.responses import StreamingResponse
@@ -17,23 +26,20 @@ from api.app.db import get_session
 from api.app.models import (
     Approval,
     AssessmentChain,
-    Engagement,
     Finding,
     FindingAiEnrichment,
     InventorySnapshot,
     Run,
     RunProfile,
 )
-from api.app.schemas.packs import RunPackBindCreate, RunPackBindingRead
 from api.app.schemas.deletion import DeleteImpactRead, RunBulkDeleteCreate
+from api.app.schemas.packs import RunPackBindCreate, RunPackBindingRead
 from api.app.schemas.report_center import (
     RunReportCatalogItemRead,
     RunReportDraftCreate,
     RunReportDraftRead,
 )
 from api.app.schemas.runs import (
-    AssessmentChainPhaseDecisionCreate,
-    AssessmentChainRead,
     AgentProposalRead,
     AgentProposalReviewCreate,
     AiRepairActionCreate,
@@ -42,6 +48,8 @@ from api.app.schemas.runs import (
     AiRepairProposalRead,
     ApprovalCreate,
     ApprovalRead,
+    AssessmentChainPhaseDecisionCreate,
+    AssessmentChainRead,
     FindingSummaryRead,
     RunAiInsightsRead,
     RunCreate,
@@ -57,6 +65,18 @@ from api.app.schemas.runs import (
     RunStaleRecoveryCreate,
     TaskRead,
 )
+from api.app.services.ai_agent import (
+    AgentProposalReviewError,
+    build_ai_insights_for_run,
+    review_agent_proposal,
+)
+from api.app.services.ai_enrichment import build_mission_guidance_for_run
+from api.app.services.ai_repair_lane import (
+    AiRepairLaneError,
+    apply_ai_repair_action,
+    create_ai_repair_proposal,
+)
+from api.app.services.ai_signal_stream import stream_run_ai_signal
 from api.app.services.assessment_chain import (
     approve_assessment_chain_phase,
     build_assessment_chain_summary,
@@ -67,20 +87,8 @@ from api.app.services.assessment_chain import (
     load_assessment_chain,
     normalize_assessment_mode,
 )
-from api.app.services.audit import write_audit_event
-from api.app.services.ai_agent import (
-    AgentProposalReviewError,
-    build_ai_insights_for_run,
-    review_agent_proposal,
-)
-from api.app.services.ai_repair_lane import (
-    AiRepairLaneError,
-    apply_ai_repair_action,
-    create_ai_repair_proposal,
-)
-from api.app.services.ai_enrichment import build_mission_guidance_for_run
-from api.app.services.ai_signal_stream import stream_run_ai_signal
 from api.app.services.attack_paths import build_attack_path_summary
+from api.app.services.audit import write_audit_event
 from api.app.services.intake_intelligence import (
     attach_intake_interpretation_to_configuration,
     build_intake_interpretation,
@@ -93,28 +101,24 @@ from api.app.services.on_demand_cve_intel import (
 )
 from api.app.services.packs import bind_pack_to_run, latest_pack_deployment, load_pack
 from api.app.services.report_pdf import render_pdf_report
+from api.app.services.reports import (
+    build_report_catalog,
+    build_report_draft,
+    load_run_report,
+    render_html_report,
+    render_markdown_report,
+)
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.runs import (
-    approval_step_id,
-    planned_tools,
     align_run_configuration_with_engagement,
-    validate_bloodhound_run_configuration,
-    validate_business_logic_run_configuration,
-    validate_credential_attack_run_configuration,
-    validate_impacket_lateral_run_configuration,
-    validate_metasploit_run_configuration,
-    validate_netexec_run_configuration,
-    validate_playwright_web_run_configuration,
-    validate_responder_run_configuration,
-    validate_wifi_run_configuration,
-    validate_configured_targets_within_scope,
-    validate_easm_run_configuration,
+    approval_step_id,
     cancel_run_tasks,
     dispatch_queued_run_tasks,
     granted_approvals,
     latest_scope_query,
     load_run,
     pending_approvals,
+    planned_tools,
     queue_run_tasks,
     recover_stale_run_tasks,
     required_approvals,
@@ -123,6 +127,17 @@ from api.app.services.runs import (
     sorted_tasks,
     stale_run_recovery_state,
     stale_task_recovery_state,
+    validate_bloodhound_run_configuration,
+    validate_business_logic_run_configuration,
+    validate_configured_targets_within_scope,
+    validate_credential_attack_run_configuration,
+    validate_easm_run_configuration,
+    validate_impacket_lateral_run_configuration,
+    validate_metasploit_run_configuration,
+    validate_netexec_run_configuration,
+    validate_playwright_web_run_configuration,
+    validate_responder_run_configuration,
+    validate_wifi_run_configuration,
 )
 from api.app.services.secrets import (
     materialize_run_configuration_secrets,
@@ -135,13 +150,6 @@ from api.app.services.soft_delete import (
     run_delete_blocker,
     run_delete_impact,
     soft_delete_runs,
-)
-from api.app.services.reports import (
-    build_report_draft,
-    build_report_catalog,
-    load_run_report,
-    render_html_report,
-    render_markdown_report,
 )
 from api.app.services.tenancy import (
     assert_run_tenant,
@@ -789,7 +797,7 @@ def decide_assessment_chain_phase(
 ) -> AssessmentChainRead:
     chain = _load_assessment_chain_for_tenant(session, chain_id, tenant_id)
     try:
-        updated_chain = approve_assessment_chain_phase(
+        _ = approve_assessment_chain_phase(
             session,
             chain=chain,
             phase_key=phase_key,

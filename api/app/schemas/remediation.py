@@ -6,7 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 REMEDIATION_STATES = frozenset(
     {
         "not_started",

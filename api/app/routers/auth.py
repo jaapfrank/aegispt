@@ -14,7 +14,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.app.auth import API_KEY_ROLES, CurrentActor, get_current_principal, hash_api_key, require_roles
+from api.app.auth import (
+    API_KEY_ROLES,
+    CurrentActor,
+    get_current_principal,
+    hash_api_key,
+    require_roles,
+)
 from api.app.config import Settings, get_settings
 from api.app.db import get_session
 from api.app.models import ApiKey

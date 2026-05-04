@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-
 PRIMARY_NAV_SCREENS = [
     ("nav-dashboard", "screen-dashboard"),
     ("nav-wizard", "screen-wizard"),

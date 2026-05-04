@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from io import BytesIO
 import json
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
+from pathlib import Path
 from threading import Thread
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
@@ -11,10 +12,18 @@ from uuid import UUID
 
 import pytest
 from pypdf import PdfReader
-from pathlib import Path
 from sqlalchemy import select
 
-from api.app.models import EvidenceArtifact, Finding, FindingRemediation, InventorySnapshot, Run, RunProfile, Task, ToolExecution
+from api.app.models import (
+    EvidenceArtifact,
+    Finding,
+    FindingRemediation,
+    InventorySnapshot,
+    Run,
+    RunProfile,
+    Task,
+    ToolExecution,
+)
 from api.app.services import reports as report_service
 from api.app.services.finding_chains import refresh_finding_chains_for_run
 

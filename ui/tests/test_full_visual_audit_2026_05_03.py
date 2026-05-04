@@ -4,7 +4,9 @@ Takes a clean full-page screenshot of every screen + Settings sub-sections.
 Uses reset_wizard pattern from existing tests for reliability.
 """
 from __future__ import annotations
+
 from pathlib import Path
+
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -21,7 +23,9 @@ def load(page: Page) -> None:
     for sel in ["[data-onboarding-dismiss]", "button:has-text('Skip for now')"]:
         el = page.locator(sel).first
         if el.count() > 0 and el.is_visible():
-            el.click(); page.wait_for_timeout(300); break
+            el.click()
+            page.wait_for_timeout(300)
+            break
 
 def nav(page: Page, screen: str) -> None:
     btn = page.locator(f"[data-nav-screen='{screen}'], [data-testid='nav-{screen}']").first
@@ -68,7 +72,8 @@ def test_settings_all_panels_expanded(page: Page) -> None:
         t = toggles.nth(i)
         if t.is_visible():
             try:
-                t.click(); page.wait_for_timeout(150)
+                t.click()
+                page.wait_for_timeout(150)
             except Exception:
                 pass
     page.wait_for_timeout(500)
@@ -129,7 +134,8 @@ def test_wizard_full_visual(page: Page) -> None:
     for i in range(6):
         btn = page.locator(f"[data-advanced-step='{i}']:visible").first
         if btn.count() > 0 and btn.is_visible():
-            btn.click(); page.wait_for_timeout(300)
+            btn.click()
+            page.wait_for_timeout(300)
             ss(page, f"03-wizard-advanced-step-{i}")
 
 # ── Mission Control detailed ───────────────────────────────────────────────────

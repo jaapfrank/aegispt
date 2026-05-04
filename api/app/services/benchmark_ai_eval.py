@@ -14,7 +14,6 @@ from api.app.services.chatgpt_oauth import (
     send_chatgpt_backend_streaming_json_request,
 )
 
-
 BENCHMARK_EVAL_MODE = "reference_guided_advisory"
 BENCHMARK_EVAL_VERSION = "2026-04-29"
 

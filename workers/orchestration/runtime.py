@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 from functools import lru_cache
 
 from sqlalchemy.orm import Session, sessionmaker

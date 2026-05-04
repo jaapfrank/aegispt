@@ -7,8 +7,8 @@ from workers.orchestration.findings import extract_ipv6_discovery_findings
 from workers.orchestration.tasks import SUPPORTED_TOOLS, dispatch_runner
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
 from workers.runners.ipv6_discovery.runner import (
-    CommandResult,
     IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME,
+    CommandResult,
     execute_ipv6_discovery,
     parse_ip_neigh_output,
     parse_ip_route_output,

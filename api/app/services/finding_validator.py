@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
@@ -12,13 +11,15 @@ from sqlalchemy.orm import Session, selectinload
 from api.app.config import Settings
 from api.app.models import (
     Engagement,
-    EvidenceArtifact as EvidenceArtifactRecord,
     Finding,
     FindingValidationRecord,
     Run,
     RunProfile,
     Task,
     ToolExecution,
+)
+from api.app.models import (
+    EvidenceArtifact as EvidenceArtifactRecord,
 )
 from api.app.services.audit import write_audit_event
 from api.app.services.run_profiles import ensure_default_run_profiles

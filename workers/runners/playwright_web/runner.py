@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
-import json
 from ipaddress import ip_address, ip_network
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse

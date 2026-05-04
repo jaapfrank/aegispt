@@ -13,13 +13,13 @@ from sqlalchemy.orm import Session, selectinload
 from api.app.config import Settings, get_settings
 from api.app.models import AgentProposal, AgentReasoning, Finding, Run, Scope, Task
 from api.app.policy.engine import RunClass, normalize_profile_limits
-from api.app.services.audit import write_audit_event
 from api.app.services.ai_enrichment import (
     list_agent_proposals_for_run,
     list_agent_reasoning_for_run,
     store_agent_proposal_record,
     store_agent_reasoning_record,
 )
+from api.app.services.audit import write_audit_event
 from api.app.services.chatgpt_oauth import (
     CHATGPT_OAUTH_PROVIDER,
     ChatGPTOAuthError,
@@ -27,11 +27,14 @@ from api.app.services.chatgpt_oauth import (
     chatgpt_oauth_status,
     effective_ai_provider_name,
 )
-from api.app.services.settings import effective_runtime_settings_for_run, effective_runtime_settings_for_task
 from api.app.services.runs import (
     derive_targets_for_run,
     derive_targets_from_target_map,
     latest_scope_query,
+)
+from api.app.services.settings import (
+    effective_runtime_settings_for_run,
+    effective_runtime_settings_for_task,
 )
 
 

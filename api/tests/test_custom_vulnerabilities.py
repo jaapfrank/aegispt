@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from api.app.config import get_settings
 from api.app.models import (
     AuditEvent,
     CapabilityPack,
@@ -13,7 +14,6 @@ from api.app.models import (
     CapabilityPackDeployment,
     CapabilityPackValidationResult,
 )
-from api.app.config import get_settings
 from api.app.services.chatgpt_oauth import store_chatgpt_oauth_token_set
 
 

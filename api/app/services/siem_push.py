@@ -11,7 +11,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from api.app.config import Settings
-from api.app.models import Finding, FindingIntegrationLink, IntegrationConfiguration, Run, SecretRef, Task
+from api.app.models import (
+    Finding,
+    FindingIntegrationLink,
+    IntegrationConfiguration,
+    Run,
+    SecretRef,
+    Task,
+)
 from api.app.services.ai_enrichment import build_detection_engineering_for_finding
 from api.app.services.audit import write_audit_event
 from api.app.services.secrets import (

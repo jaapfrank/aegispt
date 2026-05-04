@@ -40,7 +40,11 @@ from api.app.models import (
 )
 from api.app.services.audit import write_audit_event
 from api.app.services.secrets import sanitize_run_configuration
-from api.app.services.soft_delete import SoftDeleteBlockedError, run_delete_blocker, soft_delete_runs
+from api.app.services.soft_delete import (
+    SoftDeleteBlockedError,
+    run_delete_blocker,
+    soft_delete_runs,
+)
 
 SENSITIVE_KEY_PARTS = (
     "secret",

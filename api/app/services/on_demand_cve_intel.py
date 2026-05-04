@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
-import os
-import re
 from pathlib import Path
 from typing import Any
-from uuid import UUID
 
 import httpx
 from sqlalchemy import select
@@ -16,7 +15,7 @@ from sqlalchemy.orm import Session
 from api.app.config import Settings, get_settings
 from api.app.models import InventorySnapshot, Run, Task, ThreatIntelRecord
 from api.app.services.audit import write_audit_event
-from api.app.services.cve_sync import FeedFetchResult, FeedFetcher
+from api.app.services.cve_sync import FeedFetcher, FeedFetchResult
 
 CVE_PATTERN = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
 GENERIC_PRODUCTS = {

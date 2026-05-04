@@ -7,7 +7,11 @@ from api.app.auth import require_roles
 from api.app.config import Settings, get_settings
 from api.app.db import get_session
 from api.app.schemas.settings import SettingsPatch, SettingsRead, SettingsReadinessRead
-from api.app.services.settings import read_instance_settings, read_settings_readiness, update_instance_settings
+from api.app.services.settings import (
+    read_instance_settings,
+    read_settings_readiness,
+    update_instance_settings,
+)
 from api.app.services.tenancy import get_current_tenant_id
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])

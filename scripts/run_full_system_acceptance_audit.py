@@ -13,7 +13,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
-
 PRIMARY_SCREENS = [
     "dashboard",
     "wizard",
@@ -315,9 +314,9 @@ def detect_screen_defects(
                 )
             )
 
-    for field in fields:
-        label = str(field.get("label") or field.get("placeholder") or field.get("aria_label") or "").strip()
-        selector = _selector_from_control(field)
+    for f in fields:
+        label = str(f.get("label") or f.get("placeholder") or f.get("aria_label") or "").strip()
+        selector = _selector_from_control(f)
         if not label:
             defects.append(
                 Defect(
@@ -539,11 +538,11 @@ def safe_fill_visible_fields(page: Any, screen: str, events: list[dict[str, Any]
         events.append({"screen": screen, "action": "field_collect_failed", "error": str(exc)})
         return
     filled = 0
-    for index, field in enumerate(candidates):
+    for index, f in enumerate(candidates):
         if filled >= limit:
             break
-        value = _safe_value_for_field(field)
-        selector = _selector_from_control(field)
+        value = _safe_value_for_field(f)
+        selector = _selector_from_control(f)
         if not selector:
             events.append({"screen": screen, "field": "", "action": "skipped_no_stable_selector"})
             continue

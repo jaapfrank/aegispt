@@ -3,9 +3,9 @@ from __future__ import annotations
 import copy
 from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address, ip_network
-from uuid import UUID
-from urllib.parse import urlparse
 from typing import Any
+from urllib.parse import urlparse
+from uuid import UUID
 
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, selectinload
@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session, selectinload
 from api.app.config import Settings
 from api.app.models import (
     Approval,
-    AssessmentChain,
     CapabilityPack,
     Engagement,
     Finding,
@@ -21,14 +20,13 @@ from api.app.models import (
     InventorySnapshot,
     Run,
     RunProfile,
-    SecretRef,
     Scope,
+    SecretRef,
     Task,
 )
-from api.app.policy.engine import execution_kill_switch_enabled
-from api.app.policy.engine import normalize_profile_limits
-from api.app.services.packs import artifact_refs_for_tool
+from api.app.policy.engine import execution_kill_switch_enabled, normalize_profile_limits
 from api.app.services.audit import write_audit_event
+from api.app.services.packs import artifact_refs_for_tool
 from api.app.services.task_dispatch import dispatch_task_batch, supported_execution_tools
 from workers.runners.httpx.runner import normalize_http_target
 from workers.runners.metasploit.module_allowlist import resolve_allowlisted_module
@@ -1944,7 +1942,7 @@ def validate_credential_attack_run_configuration(
         raise ValueError(
             "intrusive-ad-password-spray requires credential_attacks.lockout_threshold_confirmed to match the source inventory lockout threshold"
         )
-    attempts_per_window = int(params.get("attempts_per_window") or DEFAULT_ATTEMPTS_PER_WINDOW)
+    attempts_per_window = int(params.get("attempts_per_window") or 3)
     if attempts_per_window >= lockout_threshold:
         raise ValueError(
             "intrusive-ad-password-spray attempts_per_window must stay below the confirmed lockout threshold"

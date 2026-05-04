@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 from api.app.auth import get_current_actor
 from api.app.config import Settings, get_settings
 from api.app.db import get_session
-from api.app.models import Engagement, Finding, FindingIntegrationLink, IntegrationConfiguration, Run
+from api.app.models import (
+    Engagement,
+    Finding,
+    FindingIntegrationLink,
+    IntegrationConfiguration,
+    Run,
+)
 from api.app.schemas.integrations import (
     IntegrationConfigurationRead,
     JiraFindingLinkRead,

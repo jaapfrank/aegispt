@@ -4,7 +4,6 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 

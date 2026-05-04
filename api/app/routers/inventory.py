@@ -8,13 +8,21 @@ from sqlalchemy.orm import Session
 
 from api.app.auth import get_current_actor
 from api.app.db import get_session
-from api.app.models import Engagement, InventorySnapshot
-from api.app.schemas.inventory import InventoryRunCreate, InventorySnapshotRead, InventorySummaryRead
+from api.app.models import InventorySnapshot
+from api.app.schemas.inventory import (
+    InventoryRunCreate,
+    InventorySnapshotRead,
+    InventorySummaryRead,
+)
 from api.app.services.audit import write_audit_event
 from api.app.services.cloud_analysis import analyze_cloud_inventory_snapshot
 from api.app.services.cve_sync import suggest_watchlist_from_inventory_snapshot
 from api.app.services.inventory import create_inventory_snapshot_record
-from api.app.services.tenancy import assert_inventory_tenant, get_current_tenant_id, load_engagement_for_tenant
+from api.app.services.tenancy import (
+    assert_inventory_tenant,
+    get_current_tenant_id,
+    load_engagement_for_tenant,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["inventory"])
 

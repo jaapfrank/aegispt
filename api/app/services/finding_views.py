@@ -20,8 +20,8 @@ from api.app.models import (
     EvidenceArtifact,
     Finding,
     FindingIntegrationLink,
-    FindingRepositoryLink,
     FindingRemediation,
+    FindingRepositoryLink,
     FindingValidationRecord,
     IntegrationConfiguration,
     Run,
@@ -36,16 +36,19 @@ from api.app.schemas.finding_views import (
     FindingValidationAttemptRead,
 )
 from api.app.schemas.findings import FindingRead
-from api.app.services.autofix import autofix_view
 from api.app.services.ai_enrichment import (
     build_detection_engineering_for_finding,
     build_threat_context_for_finding,
     finding_ai_enrichment_view,
 )
+from api.app.services.autofix import autofix_view
 from api.app.services.finding_chains import build_finding_chain_context
-from api.app.services.finding_validator import serialize_validation_attempt, validation_summary_for_finding
-from api.app.services.repository_integration import repository_context_for_finding
+from api.app.services.finding_validator import (
+    serialize_validation_attempt,
+    validation_summary_for_finding,
+)
 from api.app.services.reports import artifact_download_path, remediation_priority_for_finding
+from api.app.services.repository_integration import repository_context_for_finding
 from api.app.services.risk_scoring import calculate_risk
 from api.app.services.threat_intel import build_finding_threat_intel_badges
 

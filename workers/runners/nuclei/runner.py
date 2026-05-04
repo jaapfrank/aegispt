@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from hashlib import sha256
 import re
 import subprocess
 import tempfile
+from hashlib import sha256
 from pathlib import Path
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution

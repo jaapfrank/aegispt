@@ -4,7 +4,16 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from api.app.config import get_settings
-from api.app.models import AgentProposal, AgentReasoning, Base, Engagement, Run, RunProfile, Scope, Task
+from api.app.models import (
+    AgentProposal,
+    AgentReasoning,
+    Base,
+    Engagement,
+    Run,
+    RunProfile,
+    Scope,
+    Task,
+)
 from workers.orchestration.runtime import get_session_factory
 from workers.orchestration.tasks import _maybe_run_post_task_ai_analysis
 

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from base64 import b64encode
 import json
+from base64 import b64encode
 from urllib.parse import parse_qs
 
+from workers.orchestration.findings import extract_iot_default_credential_findings
 from workers.runners.iot_default_creds.runner import (
-    HttpResponse,
     IOT_DEFAULT_CREDS_ARTIFACT_NAME,
+    HttpResponse,
     execute_iot_default_credential_audit,
     load_default_credentials,
 )
-from workers.orchestration.findings import extract_iot_default_credential_findings
 
 
 def _artifact_payload(execution):

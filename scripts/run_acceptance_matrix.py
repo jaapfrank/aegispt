@@ -22,7 +22,6 @@ from scripts.acceptance_harness import (
     build_engagement_payload,
     build_inventory_seed_payload,
     build_run_configuration,
-    validate_target_catalog,
     default_target_catalog_path,
     list_real_run_scenarios,
     load_result_history,
@@ -31,6 +30,7 @@ from scripts.acceptance_harness import (
     select_next_real_run_scenario,
     select_real_run_scenario,
     summarize_result,
+    validate_target_catalog,
     write_result,
 )
 

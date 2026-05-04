@@ -6,7 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
 ProblemStatus = Literal["open", "in_progress", "resolved", "verified", "reoccurred"]
 ProblemBulkAction = Literal["assign", "status", "resolve", "schedule_retest", "delete"]
 

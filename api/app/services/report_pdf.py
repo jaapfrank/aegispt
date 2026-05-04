@@ -7,7 +7,11 @@ from playwright.sync_api import sync_playwright
 
 from api.app.config import Settings
 from api.app.models import Run
-from api.app.services.reports import REPORT_VARIANT_LABELS, normalize_report_variant, render_html_report
+from api.app.services.reports import (
+    REPORT_VARIANT_LABELS,
+    normalize_report_variant,
+    render_html_report,
+)
 
 
 def _inject_pdf_base_and_styles(html: str, *, base_url: str) -> str:

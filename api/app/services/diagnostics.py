@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from api.app.config import Settings
-from api.app.models import CveFeedSyncLog, Run, Task, ToolExecution
+from api.app.models import CveFeedSyncLog, Run, Task
 from api.app.schemas.diagnostics import (
     DiagnosticFailureRead,
     DiagnosticsRead,
@@ -21,7 +21,6 @@ from api.app.schemas.diagnostics import (
     SupportBundleRead,
 )
 from api.app.services.settings import read_settings_readiness, tenant_scope_key
-
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SENSITIVE_KEY_PARTS = (

@@ -6,7 +6,6 @@ import re
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASK_QUEUE_PATH = REPO_ROOT / "TASK_QUEUE.md"
 NEXT_TASK_PATH = REPO_ROOT / "NEXT_TASK.md"

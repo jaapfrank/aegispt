@@ -18,7 +18,6 @@ from api.app.models import (
     Task,
     ToolExecution,
 )
-from api.app.services.gdpr_data import apply_engagement_retention_policy
 from api.app.services.secrets import encrypt_secret_value
 
 

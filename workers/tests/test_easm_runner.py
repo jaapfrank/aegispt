@@ -5,7 +5,11 @@ import json
 import pytest
 
 from workers.runners.easm import runner as easm_runner
-from workers.runners.easm.runner import EASM_RESULTS_ARTIFACT_NAME, execute_easm_discovery, normalize_root_domain
+from workers.runners.easm.runner import (
+    EASM_RESULTS_ARTIFACT_NAME,
+    execute_easm_discovery,
+    normalize_root_domain,
+)
 
 
 def test_normalize_root_domain_accepts_url_targets() -> None:

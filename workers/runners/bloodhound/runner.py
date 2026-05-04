@@ -3,15 +3,19 @@ from __future__ import annotations
 import base64
 import json
 import os
-from pathlib import Path
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 from typing import Any
 
 from api.app.services.bloodhound_analysis import analyze_bloodhound_collection
 from api.app.services.runs import target_value_is_allowed
-from workers.runners.base.contracts import EvidenceArtifact, ProtectedSecretMaterial, RunnerExecution
+from workers.runners.base.contracts import (
+    EvidenceArtifact,
+    ProtectedSecretMaterial,
+    RunnerExecution,
+)
 
 BLOODHOUND_COLLECTION_ARTIFACT_NAME = "bloodhound-collection.zip"
 BLOODHOUND_RESULTS_ARTIFACT_NAME = "bloodhound-results.json"

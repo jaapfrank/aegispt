@@ -20,7 +20,6 @@ from api.app.schemas.internal_validations import (
     InternalValidationStepExecuteRead,
     InternalValidationStepRead,
 )
-from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.internal_validations import (
     create_internal_validation_session,
     execute_internal_validation_step,
@@ -35,6 +34,7 @@ from api.app.services.internal_validations import (
     sorted_internal_validation_steps,
     sorted_step_approvals,
 )
+from api.app.services.run_profiles import ensure_default_run_profiles
 
 router = APIRouter(prefix="/api/v1", tags=["internal-validations"])
 

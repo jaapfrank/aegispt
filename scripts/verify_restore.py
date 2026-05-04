@@ -18,7 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from api.app.config import get_settings
 from api.app.db import build_engine
@@ -41,7 +41,6 @@ from api.app.services.artifact_storage import (
 )
 from scripts.backup_aegispt import create_backup, read_sqlite_alembic_version
 from scripts.restore_aegispt import restore_backup
-
 
 FIXTURE_SECRET_VALUE = "fixture-plaintext-secret-must-not-appear"
 

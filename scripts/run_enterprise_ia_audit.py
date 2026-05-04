@@ -13,7 +13,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
-
 PRIMARY_SCREENS = [
     "dashboard",
     "wizard",
@@ -209,7 +208,6 @@ def score_snapshot(screen: str, viewport: str, snapshot: dict[str, Any], screens
         if control.get("tag") in {"button", "a", "input", "select", "textarea", "summary"}
         and not visible_text(control.get("label"))
     ]
-    hidden_focusable_nav: list[str] = []
 
     purpose_ok = bool(heading) and len(text) >= 40
     workflow_ok = bool(controls) or any(keyword in text.lower() for keyword in ["no ", "none ", "create", "open", "select"])

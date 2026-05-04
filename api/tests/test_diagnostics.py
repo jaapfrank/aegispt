@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from api.app.models import CveFeedSyncLog, Engagement, InstanceSetting, Run, SecretRef, Task, ToolExecution
+from api.app.models import (
+    CveFeedSyncLog,
+    Engagement,
+    InstanceSetting,
+    Run,
+    SecretRef,
+    Task,
+    ToolExecution,
+)
 from api.app.services.diagnostics import redact_payload, redact_text
 
 
