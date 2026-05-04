@@ -1,5 +1,50 @@
 # Done Log
 
+- 2026-05-04: completed backlog-215 `Tool install and enable control plane`:
+  - rationale:
+    - Settings previously reported missing/degraded tool groups and disabled capabilities without concrete repair or enablement actions
+    - the active task required all software-based pentest tool groups to be prepared by the official installer/image where host packages allow, while keeping risky capability execution disabled/gated
+    - the implementation had to preserve approval, scope, ROE, pack validation, deployment, runtime binding, credential gates, and the kill switch
+  - implementation:
+    - extended Settings readiness tool payloads with required binary groups, detected paths, missing binaries, copyable install/repair commands, and software/hardware metadata
+    - fixed readiness alias handling for ProjectDiscovery `httpx-toolkit`, NetExec `nxc`, Impacket `.py` commands, ZAP aliases, and multi-binary Metasploit/WiFi requirements
+    - added governed Settings actions for disabled/configurable capabilities such as ChatGPT OAuth, enterprise identity, threat intel, integrations, and scheduled scans
+    - updated the Settings UI to render copyable repair commands and Enable/Configure buttons that only write Settings values or focus existing configuration fields
+    - expanded the Compose image and host installer/verifier so the tracked tool groups and compatibility aliases are installed or validated consistently
+    - documented the repair lane and the difference between WiFi software readiness and adapter hardware readiness
+  - files:
+    - `api/app/schemas/settings.py`
+    - `api/app/services/settings.py`
+    - `api/tests/test_settings.py`
+    - `docs/host_service_install.md`
+    - `infra/compose/Dockerfile`
+    - `scripts/install_security_tools.sh`
+    - `scripts/verify_host.sh`
+    - `ui/assets/modules/settings.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-215-tool-install-enable-control-plane-20260504.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - `bash scripts/verify_host.sh` passed and verified the software tool groups without target execution
+    - `git diff --check` passed
+    - read-only `curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/health/live` passed
+    - isolated current-code localhost acceptance on port `8015` confirmed repair commands, action metadata, `httpx-toolkit`, `nxc`, and separated WiFi hardware blocker output
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-209
+  - evidence:
+    - `codex/results/backlog-215-tool-install-enable-control-plane-20260504.md`
+  - remaining risks:
+    - the already-running `127.0.0.1:8000` host was checked read-only but not restarted, so it will not show the new readiness UX until redeployed/restarted
+    - this task proves software readiness and governed Settings controls, not real target coverage or WiFi adapter lab validation
+    - WiFi hardware remains blocked on this host because no wireless adapter is detected, even though WiFi software is verified
+    - ZAP add-ons and Semgrep reported update notices during host verification; they did not block the required tool-readiness proof
+  - next active task:
+    - backlog-209 `Tool capability guide`
+
 - 2026-05-04: completed backlog-197 `Backend security hardening: add CORS configuration, basic rate limiting, and enforce DB encryption key at startup`:
   - rationale:
     - backend audit found no explicit CORS allowlist, no rate limiting on selected sensitive endpoints, and production startup only warned when the database encryption key was missing

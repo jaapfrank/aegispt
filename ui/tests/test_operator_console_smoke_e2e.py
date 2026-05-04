@@ -1269,40 +1269,75 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
                   affected_assessment_families: ['Enterprise deployment', 'Offline update operations'],
                   metadata: { production_like: true, secrets_plaintext_exposed: false },
                 },
+                {
+                  id: 'ai_provider',
+                  title: 'AI provider and ChatGPT OAuth',
+                  status: 'degraded',
+                  summary: 'AI provider is disabled.',
+                  details: ['Feature toggles enabled: no.'],
+                  operator_next_step: 'Select ChatGPT OAuth and connect an engagement-scoped account.',
+                  affected_assessment_families: [],
+                  metadata: {
+                    provider: 'disabled',
+                    actions: [
+                      {
+                        id: 'enable_chatgpt_oauth_provider',
+                        kind: 'setting_patch',
+                        label: 'Enable ChatGPT OAuth',
+                        settings_patch: { 'ai.provider': 'chatgpt_oauth' },
+                        safety_note: 'Writes provider configuration only.',
+                      },
+                    ],
+                  },
+                },
               ],
               tools: [
                 {
                   id: 'nmap',
                   title: 'Nmap',
                   binary_names: ['nmap'],
+                  required_binary_groups: [['nmap']],
+                  missing_binaries: [],
                   required: true,
                   installed: true,
                   detected_path: '/usr/bin/nmap',
+                  detected_paths: { nmap: '/usr/bin/nmap' },
                   status: 'ready',
                   affected_assessment_families: ['LAN discovery'],
                   operator_next_step: 'Ready.',
+                  repair_command: 'sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh',
                 },
                 {
                   id: 'wifi',
                   title: 'WiFi analysis tools',
                   binary_names: ['iw', 'airodump-ng', 'aircrack-ng'],
+                  required_binary_groups: [['iw'], ['airodump-ng'], ['aircrack-ng']],
+                  missing_binaries: [],
                   required: false,
                   installed: true,
                   detected_path: '/usr/bin/iw',
+                  detected_paths: { iw: '/usr/bin/iw' },
                   status: 'ready',
                   affected_assessment_families: ['WiFi discovery', 'Wireless security review'],
                   operator_next_step: 'Ready for passive fixture or authorized hardware evidence.',
+                  repair_command: 'sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh',
+                  hardware_required: true,
                 },
                 {
                   id: 'metasploit',
                   title: 'Metasploit',
-                  binary_names: ['msfconsole'],
+                  binary_names: ['msfconsole', 'msfrpcd'],
+                  required_binary_groups: [['msfconsole'], ['msfrpcd']],
+                  missing_binaries: ['msfconsole', 'msfrpcd'],
                   required: false,
                   installed: false,
                   detected_path: null,
+                  detected_paths: {},
                   status: 'degraded',
                   affected_assessment_families: ['Exploit confirmation'],
-                  operator_next_step: 'Install Metasploit before exploit confirmation.',
+                  operator_next_step: 'Install Metasploit before exploit confirmation. Missing: msfconsole, msfrpcd.',
+                  repair_command: 'sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh',
+                  repair_action_label: 'Copy Install/Repair Command',
                 },
               ],
             },
@@ -1319,9 +1354,13 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
     expect(panel).to_contain_text("Foundation WiFi support is passive-only")
     expect(panel).to_contain_text("Production deployment hardening")
     expect(panel).to_contain_text("Resolve blocking deployment gaps")
+    expect(panel).to_contain_text("AI provider and ChatGPT OAuth")
+    expect(panel).to_contain_text("Enable ChatGPT OAuth")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Metasploit")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("WiFi analysis tools")
     expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Exploit confirmation")
+    expect(loaded_page.get_by_test_id("settings-tool-readiness")).to_contain_text("Missing: msfconsole, msfrpcd")
+    expect(loaded_page.get_by_test_id("settings-tool-repair-command")).to_be_visible()
     expect(loaded_page.get_by_test_id("settings-readiness-export")).to_be_visible()
 
 

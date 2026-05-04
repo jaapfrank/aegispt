@@ -238,9 +238,69 @@ def test_settings_readiness_reports_tools_runtime_and_export_artifact(client, mo
     assert tools["nmap"]["installed"] is True
     assert tools["nmap"]["detected_path"] == "/usr/bin/nmap"
     assert "LAN discovery" in tools["nmap"]["affected_assessment_families"]
+    assert tools["httpx"]["installed"] is True
+    assert tools["httpx"]["required_binary_groups"] == [["httpx-toolkit", "httpx"]]
     assert tools["metasploit"]["installed"] is False
     assert tools["metasploit"]["status"] == "degraded"
+    assert "msfconsole" in tools["metasploit"]["missing_binaries"]
+    assert tools["metasploit"]["repair_command"] == "sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh"
     assert "Exploit confirmation" in tools["metasploit"]["affected_assessment_families"]
+    assert tools["wifi"]["hardware_required"] is True
+    assert "airodump-ng" in tools["wifi"]["missing_binaries"]
+
+    assert capabilities["tool_readiness"]["metadata"]["host_installer_command"] == "sudo bash scripts/install_security_tools.sh"
+    assert "actions" in capabilities["ai_provider"]["metadata"]
+
+
+def test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately(client, monkeypatch) -> None:
+    present = {
+        "nmap",
+        "nuclei",
+        "httpx-toolkit",
+        "zaproxy",
+        "nxc",
+        "bloodhound-python",
+        "secretsdump.py",
+        "psexec.py",
+        "wmiexec.py",
+        "GetUserSPNs.py",
+        "GetNPUsers.py",
+        "msfconsole",
+        "msfrpcd",
+        "hashcat",
+        "snmpwalk",
+        "iw",
+        "airodump-ng",
+        "aircrack-ng",
+        "responder",
+    }
+
+    def fake_which(binary: str) -> str | None:
+        if binary in present:
+            return f"/usr/local/bin/{binary}"
+        return None
+
+    monkeypatch.setattr("api.app.services.settings.shutil.which", fake_which)
+    monkeypatch.setattr("api.app.services.settings._detect_wireless_adapters", lambda: [])
+
+    response = client.get("/api/v1/settings/readiness")
+    assert response.status_code == 200
+    payload = response.json()
+    tools = {item["id"]: item for item in payload["tools"]}
+    assert tools["httpx"]["installed"] is True
+    assert tools["httpx"]["detected_path"] == "/usr/local/bin/httpx-toolkit"
+    assert tools["netexec"]["installed"] is True
+    assert tools["netexec"]["detected_path"] == "/usr/local/bin/nxc"
+    assert tools["impacket"]["installed"] is True
+    assert tools["impacket"]["missing_binaries"] == []
+    assert tools["wifi"]["installed"] is True
+
+    capabilities = {item["id"]: item for item in payload["capabilities"]}
+    wireless = capabilities["wireless_readiness"]
+    assert wireless["status"] == "blocked"
+    assert wireless["metadata"]["tool_group_installed"] is True
+    assert wireless["metadata"]["hardware_blocked"] is True
+    assert "Attach authorized wireless hardware" in wireless["operator_next_step"]
 
 
 def test_settings_readiness_simulated_production_deployment_hardening(client) -> None:

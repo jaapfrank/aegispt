@@ -1025,6 +1025,59 @@ export function createSettingsModule() {
     renderSettingsScreen();
   }
 
+  async function copySettingsCommand(command) {
+    const value = String(command || "").trim();
+    if (!value) {
+      runtime.actions.pushStatus?.("No repair command is available for this row.", "warning");
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText?.(value);
+      runtime.actions.pushStatus?.("Install/repair command copied.", "success");
+    } catch (_error) {
+      runtime.actions.pushStatus?.("Clipboard is unavailable on this host.", "warning");
+    }
+  }
+
+  async function applySettingsReadinessAction(button) {
+    let action = {};
+    try {
+      action = JSON.parse(button?.dataset?.settingsAction || "{}");
+    } catch (_error) {
+      runtime.actions.pushStatus?.("Readiness action is malformed.", "warning");
+      return;
+    }
+    const kind = String(action.kind || "");
+    if (kind === "setting_patch" && action.settings_patch && typeof action.settings_patch === "object") {
+      patchState({ settingsSaving: true, settingsError: null }, "settings.readiness.action.start");
+      renderSettingsScreen();
+      const updated = await api("/api/v1/settings", {
+        method: "PATCH",
+        body: { settings: action.settings_patch },
+      });
+      patchState({ operatorSettings: updated, settingsSaving: false, settingsError: null }, "settings.readiness.action.complete");
+      await loadSettingsReadiness().catch(runtime.actions.handleError || (() => {}));
+      runtime.actions.pushStatus?.(`${action.label || "Readiness action"} saved. Execution gates remain unchanged.`, "info");
+      renderSettingsScreen();
+      return;
+    }
+    if (kind === "focus_setting" && action.setting_key) {
+      focusSettingField(action.setting_key);
+      runtime.actions.pushStatus?.(`${action.label || "Setting"} is ready to review.`, "info");
+      return;
+    }
+    if (kind === "panel_action" && action.panel_id) {
+      setSettingsPanelOpen(action.panel_id, true);
+      renderSettingsScreen();
+      dom.settingsContent?.querySelector(`[data-settings-panel="${CSS.escape(action.panel_id)}"]`)?.scrollIntoView?.({
+        block: "start",
+        behavior: "smooth",
+      });
+      return;
+    }
+    runtime.actions.pushStatus?.(action.safety_note || "This action is documented in deployment configuration.", "info");
+  }
+
   async function saveCicdTrigger(source, form) {
     if (!state.selectedEngagementId || !form) return;
     const payload = {
@@ -1287,6 +1340,16 @@ export function createSettingsModule() {
     });
     dom.settingsContent.querySelector("[data-settings-export-readiness]")?.addEventListener("click", () => {
       exportSettingsReadiness();
+    });
+    dom.settingsContent.querySelectorAll("[data-settings-copy-command]").forEach((button) => {
+      button.addEventListener("click", () => {
+        copySettingsCommand(button.dataset.settingsCopyCommand || "");
+      });
+    });
+    dom.settingsContent.querySelectorAll("[data-settings-apply-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        applySettingsReadinessAction(button).catch(runtime.actions.handleError || (() => {}));
+      });
     });
     dom.settingsContent.querySelector("[data-settings-refresh-diagnostics]")?.addEventListener("click", () => {
       loadDiagnostics().catch(runtime.actions.handleError || (() => {}));
@@ -1631,6 +1694,7 @@ function renderSettingsReadinessPanel() {
 function renderReadinessCapabilityCard(capability) {
   const details = Array.isArray(capability.details) ? capability.details : [];
   const affected = Array.isArray(capability.affected_assessment_families) ? capability.affected_assessment_families : [];
+  const actions = Array.isArray(capability.metadata?.actions) ? capability.metadata.actions : [];
   return `
     <article class="detail-surface settings-readiness-card" data-testid="settings-readiness-card" data-readiness-id="${escapeHtml(capability.id || "")}">
       <div class="settings-label-row">
@@ -1641,6 +1705,7 @@ function renderReadinessCapabilityCard(capability) {
       ${details.length ? `<ul>${details.slice(0, 3).map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>` : ""}
       ${affected.length ? `<p class="settings-help">Affected: ${escapeHtml(affected.join(", "))}</p>` : ""}
       <p class="settings-help">${escapeHtml(capability.operator_next_step || "No action required.")}</p>
+      ${renderReadinessActions(actions)}
     </article>
   `;
 }
@@ -1648,19 +1713,53 @@ function renderReadinessCapabilityCard(capability) {
 function renderToolReadinessRow(tool) {
   const families = Array.isArray(tool.affected_assessment_families) ? tool.affected_assessment_families : [];
   const binaries = Array.isArray(tool.binary_names) ? tool.binary_names : [];
+  const missing = Array.isArray(tool.missing_binaries) ? tool.missing_binaries : [];
+  const repairCommand = String(tool.repair_command || tool.install_command || "").trim();
   return `
     <article class="threat-watchlist-row settings-tool-readiness-row" data-testid="settings-tool-readiness-row">
       <span class="status-dot status-${escapeHtml(statusDotForReadiness(tool.status))}"></span>
       <div>
         <strong>${escapeHtml(tool.title || tool.id || "Tool")}</strong>
         <p>${escapeHtml(binaries.join(" / "))} · ${escapeHtml(tool.detected_path || "not detected")}</p>
+        ${missing.length ? `<p class="settings-help">Missing: ${escapeHtml(missing.join(", "))}</p>` : ""}
         <p class="settings-help">${escapeHtml(families.join(", "))}</p>
+        <p class="settings-help">${escapeHtml(tool.operator_next_step || "")}</p>
+        ${
+          !tool.installed && repairCommand
+            ? `<code class="settings-copy-command">${escapeHtml(repairCommand)}</code>`
+            : tool.hardware_required
+              ? `<p class="settings-help">Hardware readiness is checked separately from software installation.</p>`
+              : ""
+        }
       </div>
       <div class="chip-row compact">
         ${readinessStatusChip(tool.status)}
         <span class="status-chip ${tool.required ? "warning" : "info"}">${escapeHtml(tool.required ? "required" : "optional")}</span>
+        ${
+          !tool.installed && repairCommand
+            ? `<button class="action ghost compact-action" type="button" data-settings-copy-command="${escapeHtml(repairCommand)}" data-testid="settings-tool-repair-command">${escapeHtml(tool.repair_action_label || "Copy Repair Command")}</button>`
+            : ""
+        }
       </div>
     </article>
+  `;
+}
+
+function renderReadinessActions(actions) {
+  const visible = actions.filter((action) => action && action.kind !== "configuration_note");
+  if (!visible.length) return "";
+  return `
+    <div class="chip-row compact settings-readiness-actions">
+      ${visible
+        .map(
+          (action) => `
+            <button class="action ghost compact-action" type="button" data-settings-apply-action data-settings-action="${escapeHtml(JSON.stringify(action))}" data-testid="settings-readiness-action">
+              ${escapeHtml(action.label || "Configure")}
+            </button>
+          `
+        )
+        .join("")}
+    </div>
   `;
 }
 

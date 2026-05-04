@@ -365,6 +365,31 @@ The bundle is intended for support handoff and contains status snapshots, safe c
 
 If the support bundle points to a failing subsystem, follow the `operator_next_step` field first. If the bundle itself cannot be generated, verify `/health/live`, restart the host service, and then re-open Settings after the service is healthy.
 
+## Tool readiness repair and governed enablement
+
+Fresh supported hosts should have the software pentest tool groups prepared by the official installer or the Compose image. Settings > Runtime Readiness reports each tracked software group separately and shows the exact missing command group when the host does not match the expected image.
+
+Use the official host repair lane from the repo root:
+
+```bash
+sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh
+```
+
+For Compose installs, rebuild the image after pulling the current repo:
+
+```bash
+docker compose -f infra/compose/docker-compose.yml build --no-cache
+```
+
+The readiness model separates software from hardware:
+
+- missing software groups show a copyable install/repair command and affected assessment families
+- WiFi software readiness is independent from wireless adapter hardware readiness
+- no wireless adapter remains a hardware blocker until an authorized adapter is attached or a lab fixture is used
+- risky or provider-backed capabilities can show Enable/Configure actions, but those actions only write Settings values
+
+Enable/Configure actions do not run pentest tools, do not start scans, do not grant approvals, and do not bypass scope, ROE, pack validation, deployment, runtime binding, credential gates, or the kill switch.
+
 ## If port 8000 is occupied by an old ad-hoc Uvicorn process
 
 If `http://127.0.0.1:8000/app/` is live but `systemctl status aegispt.service` says the unit does not exist, you are not using the reproducible host-service lane yet. In that case the most common symptom is:

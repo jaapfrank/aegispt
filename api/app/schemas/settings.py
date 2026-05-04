@@ -51,12 +51,21 @@ class ToolReadinessRead(BaseModel):
     id: str
     title: str
     binary_names: list[str] = Field(default_factory=list)
+    required_binary_groups: list[list[str]] = Field(default_factory=list)
+    missing_binaries: list[str] = Field(default_factory=list)
     required: bool = True
     installed: bool = False
     detected_path: str | None = None
+    detected_paths: dict[str, str] = Field(default_factory=dict)
     status: str
     affected_assessment_families: list[str] = Field(default_factory=list)
     operator_next_step: str
+    install_command: str | None = None
+    repair_command: str | None = None
+    repair_action_label: str | None = None
+    repair_action_kind: str = "copy_command"
+    software_installable: bool = True
+    hardware_required: bool = False
 
 
 class ReadinessCapabilityRead(BaseModel):

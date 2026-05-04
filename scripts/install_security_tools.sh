@@ -201,6 +201,18 @@ fi
 if command -v wmiexec.py >/dev/null 2>&1 && ! command -v impacket-wmiexec >/dev/null 2>&1; then
   $SUDO ln -sf "$(command -v wmiexec.py)" /usr/local/bin/impacket-wmiexec
 fi
+if command -v GetUserSPNs.py >/dev/null 2>&1 && ! command -v impacket-GetUserSPNs >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v GetUserSPNs.py)" /usr/local/bin/impacket-GetUserSPNs
+fi
+if command -v GetNPUsers.py >/dev/null 2>&1 && ! command -v impacket-GetNPUsers >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v GetNPUsers.py)" /usr/local/bin/impacket-GetNPUsers
+fi
+if command -v impacket-GetUserSPNs >/dev/null 2>&1 && ! command -v GetUserSPNs.py >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v impacket-GetUserSPNs)" /usr/local/bin/GetUserSPNs.py
+fi
+if command -v impacket-GetNPUsers >/dev/null 2>&1 && ! command -v GetNPUsers.py >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v impacket-GetNPUsers)" /usr/local/bin/GetNPUsers.py
+fi
 
 if ! command -v nxc >/dev/null 2>&1 && [[ ! -x "${OWNER_HOME}/.local/bin/nxc" ]]; then
   run_as_owner "TMPDIR=/tmp env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy python3 -m pipx install git+https://github.com/Pennyw0rth/NetExec.git"
@@ -209,6 +221,9 @@ link_owner_bin "nxc"
 link_owner_bin "netexec"
 link_owner_bin "NetExec"
 link_owner_bin "nxcdb"
+if command -v nxc >/dev/null 2>&1 && ! command -v netexec >/dev/null 2>&1; then
+  $SUDO ln -sf "$(command -v nxc)" /usr/local/bin/netexec
+fi
 
 install_responder_if_missing
 

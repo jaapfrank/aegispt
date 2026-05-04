@@ -52,6 +52,12 @@ class ToolReadinessDefinition:
     affected_assessment_families: tuple[str, ...]
     required: bool = True
     missing_next_step: str = "Install the binary in the runtime image or disable the related assessment family."
+    required_binary_groups: tuple[tuple[str, ...], ...] = ()
+    install_command: str = "sudo bash scripts/install_security_tools.sh"
+    repair_command: str = "sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh"
+    repair_action_label: str = "Copy Install/Repair Command"
+    software_installable: bool = True
+    hardware_required: bool = False
 
 
 TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
@@ -70,16 +76,18 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
     ToolReadinessDefinition(
         id="httpx",
         title="httpx",
-        binary_names=("httpx",),
+        binary_names=("httpx-toolkit", "httpx"),
         affected_assessment_families=("Web baseline", "External surface"),
+        required_binary_groups=(("httpx-toolkit", "httpx"),),
     ),
     ToolReadinessDefinition(
         id="zap",
         title="OWASP ZAP",
-        binary_names=("zap-baseline.py", "zap.sh"),
+        binary_names=("zaproxy", "zap.sh", "zap-baseline.py"),
         affected_assessment_families=("Web baseline", "Active web validation"),
         required=False,
         missing_next_step="Install OWASP ZAP or keep ZAP-backed checks disabled for web assessments.",
+        required_binary_groups=(("zaproxy", "zap.sh", "zap-baseline.py"),),
     ),
     ToolReadinessDefinition(
         id="responder",
@@ -92,10 +100,11 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
     ToolReadinessDefinition(
         id="netexec",
         title="NetExec / CrackMapExec",
-        binary_names=("netexec", "crackmapexec"),
+        binary_names=("nxc", "netexec", "crackmapexec"),
         affected_assessment_families=("SMB review", "Credentialed LAN validation"),
         required=False,
         missing_next_step="Install NetExec or CrackMapExec before credentialed SMB validation.",
+        required_binary_groups=(("nxc", "netexec", "crackmapexec"),),
     ),
     ToolReadinessDefinition(
         id="bloodhound",
@@ -115,10 +124,19 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
             "secretsdump.py",
             "psexec.py",
             "wmiexec.py",
+            "GetUserSPNs.py",
+            "GetNPUsers.py",
         ),
         affected_assessment_families=("Remote exec confirmation", "Secretsdump", "DCSync"),
         required=False,
         missing_next_step="Install Impacket before enabling intrusive authenticated exploitation checks.",
+        required_binary_groups=(
+            ("secretsdump.py", "impacket-secretsdump"),
+            ("psexec.py", "impacket-psexec"),
+            ("wmiexec.py", "impacket-wmiexec"),
+            ("GetUserSPNs.py",),
+            ("GetNPUsers.py",),
+        ),
     ),
     ToolReadinessDefinition(
         id="metasploit",
@@ -127,6 +145,7 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
         affected_assessment_families=("Exploit confirmation", "Metasploit RPC"),
         required=False,
         missing_next_step="Install Metasploit and configure RPC before exploit confirmation.",
+        required_binary_groups=(("msfconsole",), ("msfrpcd",)),
     ),
     ToolReadinessDefinition(
         id="hashcat",
@@ -150,7 +169,9 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
         binary_names=("iw", "airodump-ng", "aircrack-ng"),
         affected_assessment_families=("WiFi discovery", "Wireless security review"),
         required=False,
-        missing_next_step="Install wireless tooling and use authorized hardware before future WiFi assessments.",
+        missing_next_step="Install WiFi analysis software; adapter hardware readiness is reported separately.",
+        required_binary_groups=(("iw",), ("airodump-ng",), ("aircrack-ng",)),
+        hardware_required=True,
     ),
 )
 
@@ -1048,23 +1069,38 @@ def read_settings_readiness(
 
 
 def _render_tool_readiness(definition: ToolReadinessDefinition) -> ToolReadinessRead:
-    detected_path = None
-    for binary in definition.binary_names:
-        detected_path = shutil.which(binary)
-        if detected_path:
-            break
-    installed = detected_path is not None
+    detected_paths = {
+        binary: detected
+        for binary in definition.binary_names
+        if (detected := shutil.which(binary))
+    }
+    detected_path = next(iter(detected_paths.values()), None)
+    binary_groups = definition.required_binary_groups or tuple((binary,) for binary in definition.binary_names)
+    missing_groups = ["/".join(group) for group in binary_groups if not any(binary in detected_paths for binary in group)]
+    installed = not missing_groups
     status = "ready" if installed else ("missing" if definition.required else "degraded")
     return ToolReadinessRead(
         id=definition.id,
         title=definition.title,
         binary_names=list(definition.binary_names),
+        required_binary_groups=[list(group) for group in binary_groups],
+        missing_binaries=missing_groups,
         required=definition.required,
         installed=installed,
         detected_path=detected_path,
+        detected_paths=detected_paths,
         status=status,
         affected_assessment_families=list(definition.affected_assessment_families),
-        operator_next_step="Ready for mapped assessment families." if installed else definition.missing_next_step,
+        operator_next_step=(
+            "Software ready for mapped assessment families."
+            if installed
+            else f"{definition.missing_next_step} Missing: {', '.join(missing_groups)}."
+        ),
+        install_command=definition.install_command,
+        repair_command=definition.repair_command,
+        repair_action_label=definition.repair_action_label,
+        software_installable=definition.software_installable,
+        hardware_required=definition.hardware_required,
     )
 
 
@@ -1089,6 +1125,38 @@ def _capability(
         affected_assessment_families=affected_assessment_families or [],
         metadata=metadata or {},
     )
+
+
+def _setting_patch_action(
+    *,
+    action_id: str,
+    label: str,
+    settings_patch: dict[str, Any],
+    safety_note: str,
+) -> dict[str, Any]:
+    return {
+        "id": action_id,
+        "kind": "setting_patch",
+        "label": label,
+        "settings_patch": settings_patch,
+        "safety_note": safety_note,
+    }
+
+
+def _focus_setting_action(
+    *,
+    action_id: str,
+    label: str,
+    setting_key: str,
+    safety_note: str,
+) -> dict[str, Any]:
+    return {
+        "id": action_id,
+        "kind": "focus_setting",
+        "label": label,
+        "setting_key": setting_key,
+        "safety_note": safety_note,
+    }
 
 
 def enterprise_identity_snapshot(
@@ -1223,7 +1291,17 @@ def _enterprise_identity_readiness(
             "Local X-Actor fallback and API keys remain available; they are labeled separately from enterprise auth.",
         ],
         operator_next_step=str(snapshot["operator_next_step"]),
-        metadata=snapshot,
+        metadata={
+            **snapshot,
+            "actions": [
+                _focus_setting_action(
+                    action_id="configure_enterprise_identity",
+                    label="Configure SSO",
+                    setting_key="identity.enterprise_sso_provider",
+                    safety_note="Records identity configuration only; it does not disable local fallback or enable hosted SSO callbacks.",
+                )
+            ],
+        },
     )
 
 
@@ -1258,7 +1336,18 @@ def _dispatch_mode_readiness(settings: Settings) -> ReadinessCapabilityRead:
             "Manual mode can leave queued work waiting for explicit operator action.",
         ],
         operator_next_step="Switch task dispatch mode through deployment configuration if this host should auto-dispatch queued work.",
-        metadata={"task_dispatch_mode": mode, "inline_dispatch_background": background},
+        metadata={
+            "task_dispatch_mode": mode,
+            "inline_dispatch_background": background,
+            "actions": [
+                {
+                    "id": "document_dispatch_mode",
+                    "kind": "configuration_note",
+                    "label": "Deployment Config Required",
+                    "safety_note": "Dispatch mode is controlled by deployment environment; Settings does not bypass approval-aware run dispatch.",
+                }
+            ],
+        },
     )
 
 
@@ -1282,14 +1371,16 @@ def _tool_summary_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabili
         summary=summary,
         details=[
             f"{sum(1 for tool in tools if tool.installed)} of {len(tools)} tracked tool groups detected.",
-            "Missing optional tools keep their assessment families visible as degraded instead of silently disappearing.",
+            "Missing software tool groups expose exact binaries and a copyable official repair command.",
         ],
-        operator_next_step="Use the missing tool rows below as the installer or image-build checklist.",
+        operator_next_step="Run the official installer or rebuild the Compose image; hardware-only blockers are reported separately.",
         affected_assessment_families=affected,
         metadata={
             "ready_count": sum(1 for tool in tools if tool.status == "ready"),
             "degraded_count": len(degraded),
             "missing_count": len(missing_required),
+            "host_installer_command": "sudo bash scripts/install_security_tools.sh",
+            "container_rebuild_command": "docker compose -f infra/compose/docker-compose.yml build --no-cache",
         },
     )
 
@@ -1316,12 +1407,20 @@ def _wireless_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabilityRe
         next_step = "Use passive WiFi survey only with explicit site, SSID/BSSID allowlist, adapter context, and wireless ROE."
     elif adapters:
         status = "degraded"
-        summary = f"{len(adapters)} wireless adapter(s) detected, but optional WiFi tooling is incomplete."
-        next_step = "Install iw/aircrack-ng tooling before relying on host-backed WiFi readiness."
+        summary = f"{len(adapters)} wireless adapter(s) detected, but WiFi analysis software is incomplete."
+        next_step = "Install WiFi software with the official tool installer; hardware is already visible to the host."
     else:
-        status = "blocked"
-        summary = "No wireless adapter is detected on this host."
-        next_step = "Attach authorized wireless hardware or use fixture/lab evidence for the passive foundation runner."
+        status = "blocked" if installed else "degraded"
+        summary = (
+            "WiFi analysis software is ready, but no wireless adapter is detected on this host."
+            if installed
+            else "WiFi analysis software is incomplete and no wireless adapter is detected on this host."
+        )
+        next_step = (
+            "Attach authorized wireless hardware; software installation is already satisfied."
+            if installed
+            else "Run the official tool installer, then attach authorized wireless hardware for host-backed WiFi readiness."
+        )
     return _capability(
         capability_id="wireless_readiness",
         title="Wireless adapter readiness",
@@ -1338,6 +1437,9 @@ def _wireless_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabilityRe
             "detected_adapters": adapters,
             "required_binaries": required_binaries,
             "tool_group_installed": installed,
+            "software_missing_binaries": wifi_tool.missing_binaries if wifi_tool is not None else required_binaries,
+            "hardware_required": True,
+            "hardware_blocked": not bool(adapters),
             "monitor_mode_capability": "unknown",
             "channel_support": "unknown",
             "safe_parallelism_limit": 1,
@@ -1365,14 +1467,38 @@ def _ai_provider_readiness(session: Session, *, tenant_key: str, settings: Setti
         status = "blocked" if feature_enabled else "degraded"
         summary = "AI provider is disabled."
         next_step = "Select ChatGPT OAuth and connect an engagement-scoped account before expecting AI Signal or repair support."
+        actions = [
+            _setting_patch_action(
+                action_id="enable_chatgpt_oauth_provider",
+                label="Enable ChatGPT OAuth",
+                settings_patch={"ai.provider": "chatgpt_oauth"},
+                safety_note="Writes provider configuration only; AI calls still require an OAuth session and enabled feature toggles.",
+            )
+        ]
     elif provider == "chatgpt_oauth":
         status = "ready" if reusable_sessions else "degraded"
         summary = f"ChatGPT OAuth selected; {reusable_sessions} reusable token set(s) stored."
         next_step = "Use the ChatGPT OAuth panel to connect or reuse a session for the active engagement."
+        actions = [
+            _focus_setting_action(
+                action_id="review_ai_feature_toggles",
+                label="Review AI Toggles",
+                setting_key="ai.post_task_analysis_enabled",
+                safety_note="Toggles only enable review features; runtime calls still follow provider, scope, run path, and evidence gates.",
+            )
+        ]
     else:
         status = "degraded"
         summary = f"Provider {provider} is selected; verify its endpoint and credentials before relying on AI features."
         next_step = "Store provider endpoint and key in AI Provider settings, then validate with an engagement run."
+        actions = [
+            _focus_setting_action(
+                action_id="configure_http_ai_provider",
+                label="Configure Provider",
+                setting_key="ai.http_endpoint",
+                safety_note="Stores endpoint configuration only; it does not execute AI calls.",
+            )
+        ]
     return _capability(
         capability_id="ai_provider",
         title="AI provider and ChatGPT OAuth",
@@ -1384,7 +1510,12 @@ def _ai_provider_readiness(session: Session, *, tenant_key: str, settings: Setti
             "Runtime AI calls remain disabled unless both the provider and feature toggle are enabled for the run path.",
         ],
         operator_next_step=next_step,
-        metadata={"provider": provider, "feature_enabled": feature_enabled, "reusable_chatgpt_sessions": reusable_sessions},
+        metadata={
+            "provider": provider,
+            "feature_enabled": feature_enabled,
+            "reusable_chatgpt_sessions": reusable_sessions,
+            "actions": actions,
+        },
     )
 
 
@@ -1398,7 +1529,19 @@ def _scheduler_readiness(session: Session) -> ReadinessCapabilityRead:
         summary=f"{enabled} enabled scheduled scan(s), {paused} paused or inactive.",
         details=["Schedules dispatch through the existing approval-aware run creation path."],
         operator_next_step="Create a scheduled scan in Settings after selecting an engagement if recurring baselines are needed.",
-        metadata={"enabled": enabled, "inactive": paused},
+        metadata={
+            "enabled": enabled,
+            "inactive": paused,
+            "actions": [
+                {
+                    "id": "configure_scheduled_scan",
+                    "kind": "panel_action",
+                    "label": "Configure Schedule",
+                    "panel_id": "scheduled_scans",
+                    "safety_note": "Schedules only create future approval-aware runs; intrusive profiles remain unavailable for schedules.",
+                }
+            ],
+        },
     )
 
 
@@ -1416,6 +1559,24 @@ def _threat_intel_readiness(session: Session, *, tenant_key: str, settings: Sett
     status = "ready" if settings.cve_feed_sync_enabled else "degraded"
     if latest_sync is not None and latest_sync.status == "failed":
         status = "degraded"
+    actions = [
+        _focus_setting_action(
+            action_id="configure_threat_intel",
+            label="Configure Feeds",
+            setting_key="threat_intel.nvd_api_key",
+            safety_note="Stores feed configuration only; finding analysis remains local-cache scoped.",
+        )
+    ]
+    if not settings.cve_feed_sync_enabled:
+        actions.insert(
+            0,
+            _setting_patch_action(
+                action_id="enable_threat_intel_sync",
+                label="Enable Daily CVE Sync",
+                settings_patch={"threat_intel.sync_enabled": True},
+                safety_note="Enables scheduled cache maintenance only; it does not call feeds during active runner execution.",
+            ),
+        )
     return _capability(
         capability_id="threat_intel_cache",
         title="Threat intel cache",
@@ -1430,6 +1591,7 @@ def _threat_intel_readiness(session: Session, *, tenant_key: str, settings: Sett
             "cached_records": record_count,
             "approved_watchlist": approved_watchlist,
             "latest_sync_status": getattr(latest_sync, "status", None),
+            "actions": actions,
         },
     )
 
@@ -1455,7 +1617,17 @@ def _integrations_readiness(rows: dict[str, InstanceSetting]) -> ReadinessCapabi
             "Unconfigured integrations do not block local assessment execution.",
         ],
         operator_next_step="Configure only the handoff channels this tenant uses; empty integrations stay safely inactive.",
-        metadata={"configured_setting_keys": configured},
+        metadata={
+            "configured_setting_keys": configured,
+            "actions": [
+                _focus_setting_action(
+                    action_id="configure_integrations",
+                    label="Configure Handoff",
+                    setting_key="integrations.jira_base_url",
+                    safety_note="Stores encrypted handoff settings only; no finding or run is pushed until existing handoff flows are used.",
+                )
+            ],
+        },
     )
 
 

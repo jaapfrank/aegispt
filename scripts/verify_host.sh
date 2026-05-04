@@ -64,6 +64,52 @@ verify_command_allow_nonzero() {
   set -o pipefail
 }
 
+verify_any_command() {
+  local label="$1"
+  shift
+  echo "Verifying ${label}"
+  local candidate
+  local last_status=1
+  for candidate in "$@"; do
+    local binary="${candidate%% *}"
+    local args="${candidate#* }"
+    if [[ "${binary}" == "${args}" ]]; then
+      args=""
+    fi
+    if command -v "${binary}" >/dev/null 2>&1; then
+      set +o pipefail
+      timeout 30s bash -lc "${candidate}" 2>&1 | sed -n '1,12p'
+      local status="${PIPESTATUS[0]}"
+      set -o pipefail
+      if [[ "${status}" -eq 0 ]]; then
+        return 0
+      fi
+      echo "${label} probe ${candidate} exited with ${status}" >&2
+      last_status="${status}"
+    fi
+  done
+  echo "${label} is not installed; tried: $*" >&2
+  return "${last_status}"
+}
+
+verify_any_command_allow_nonzero() {
+  local label="$1"
+  shift
+  echo "Verifying ${label}"
+  local candidate
+  for candidate in "$@"; do
+    local binary="${candidate%% *}"
+    if command -v "${binary}" >/dev/null 2>&1; then
+      set +o pipefail
+      timeout 30s bash -lc "${candidate}" 2>&1 | sed -n '1,12p'
+      set -o pipefail
+      return 0
+    fi
+  done
+  echo "${label} is not installed; tried: $*" >&2
+  return 1
+}
+
 echo "Verifying Docker"
 docker --version
 if command -v docker-compose >/dev/null 2>&1; then
@@ -80,9 +126,9 @@ echo "venv support: ok"
 
 echo "Verifying security tools"
 verify_command "nuclei" nuclei -version
-verify_command "ZAP" zaproxy -version -dir /tmp/aegispt-zap-verify
+verify_any_command "ZAP" "zaproxy -version -dir /tmp/aegispt-zap-verify" "zap.sh -version -dir /tmp/aegispt-zap-verify" "zap-baseline.py -h"
 verify_command "nmap" nmap --version
-verify_command "httpx-toolkit" httpx-toolkit -version
+verify_any_command "httpx" "httpx-toolkit -version" "httpx -version"
 verify_command "ffuf" ffuf -V
 verify_command "feroxbuster" feroxbuster --version
 verify_testssl
@@ -90,7 +136,7 @@ proxy_safe_semgrep
 verify_command "ssh-audit" ssh-audit -h
 verify_command "AWS CLI" aws --version
 verify_command "Responder" responder --version
-verify_command_allow_nonzero "NetExec" nxc --version
+verify_any_command_allow_nonzero "NetExec" "nxc --version" "netexec --version" "crackmapexec --version"
 verify_command "hashcat" hashcat --version
 verify_command "Metasploit console" msfconsole -v
 verify_command "Metasploit RPC daemon" msfrpcd -h
@@ -99,11 +145,11 @@ verify_command "snmpwalk" snmpwalk --version
 verify_command "iw" iw --version
 verify_command "aircrack-ng" aircrack-ng --help
 verify_command "airodump-ng" airodump-ng --help
-verify_command "Impacket psexec" psexec.py -h
-verify_command "Impacket wmiexec" wmiexec.py -h
-verify_command "Impacket secretsdump" secretsdump.py -h
-verify_command "Impacket GetUserSPNs" GetUserSPNs.py -h
-verify_command "Impacket GetNPUsers" GetNPUsers.py -h
+verify_any_command "Impacket psexec" "psexec.py -h" "impacket-psexec -h"
+verify_any_command "Impacket wmiexec" "wmiexec.py -h" "impacket-wmiexec -h"
+verify_any_command "Impacket secretsdump" "secretsdump.py -h" "impacket-secretsdump -h"
+verify_any_command "Impacket GetUserSPNs" "GetUserSPNs.py -h" "impacket-GetUserSPNs -h"
+verify_any_command "Impacket GetNPUsers" "GetNPUsers.py -h" "impacket-GetNPUsers -h"
 verify_command "BloodHound Python" bloodhound-python --help
 verify_command "kerbrute" kerbrute version
 verify_command "subfinder" subfinder -version
