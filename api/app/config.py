@@ -17,7 +17,9 @@ class Settings(BaseSettings):
 
     app_name: str = "AegisPT"
     app_env: str = "development"
+    aegispt_env: str | None = None
     api_prefix: str = "/api/v1"
+    aegispt_allowed_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
     task_dispatch_mode: str = "manual"
     database_url: str = "sqlite+pysqlite:///./aegispt.db"
     aegispt_db_key: str | None = None

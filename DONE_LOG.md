@@ -1,5 +1,47 @@
 # Done Log
 
+- 2026-05-04: completed backlog-197 `Backend security hardening: add CORS configuration, basic rate limiting, and enforce DB encryption key at startup`:
+  - rationale:
+    - backend audit found no explicit CORS allowlist, no rate limiting on selected sensitive endpoints, and production startup only warned when the database encryption key was missing
+    - the task required hardening without changing authentication logic, endpoint signatures, database schema, frontend behavior, approvals, scope, pack lifecycle, deployment, runtime binding, credentials, or kill-switch behavior
+  - implementation:
+    - added `AEGISPT_ALLOWED_ORIGINS` setting and CORS middleware defaults for localhost origins
+    - added `AEGISPT_ENV` as a production-hardening alias while keeping `APP_ENV` compatibility
+    - added a process-local in-memory per-IP limiter for `POST /api/v1/auth/keys`, `POST /api/v1/engagements/{id}/runs`, and the literal `POST /api/v1/auth/chatgpt/*` prefix
+    - added production-style startup enforcement for missing `AEGISPT_DB_KEY`
+    - updated DB encryption tests to expect production-style startup failure instead of warning-only behavior
+    - adjusted safe-local restore API verification to run in testing mode with `AUTO_CREATE_TABLES=true`, avoiding a fake SQLCipher key for a plaintext restored fixture database
+  - documented task-package exception:
+    - the package names `POST /api/v1/auth/chatgpt/*`, but the current repo ChatGPT OAuth endpoints are `GET`; the implemented limiter follows the literal POST prefix and does not change existing GET OAuth endpoint signatures or flow behavior
+  - files:
+    - `.env.example`
+    - `api/app/config.py`
+    - `api/app/main.py`
+    - `api/app/services/rate_limit.py`
+    - `api/tests/test_backend_security_hardening.py`
+    - `api/tests/test_database_encryption.py`
+    - `scripts/verify_restore.py`
+    - `codex/results/backlog-197-backend-security-hardening-20260504.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_backend_security_hardening.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_backup_restore.py::test_safe_local_restore_drill_preserves_evidence_and_audit api/tests/test_database_encryption.py api/tests/test_backend_security_hardening.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after implementation and after promotion
+    - `git diff --check` passed
+    - `curl --fail --silent --max-time 5 http://127.0.0.1:8000/health/live` passed
+  - evidence:
+    - `codex/results/backlog-197-backend-security-hardening-20260504.md`
+  - remaining risks:
+    - rate limiting is process-local memory and is not a distributed/load-balanced control
+    - the live localhost service was checked read-only for health but not restarted onto this code during the build-lane task
+    - existing ChatGPT OAuth GET routes are unchanged because endpoint signature changes were out of scope
+  - next active task:
+    - backlog-215 `Tool install and enable control plane`
+
 - 2026-05-04: completed backlog-196 `Mission Control AI Signal panel: remove developer labels`:
   - rationale:
     - the operator-facing Mission Control AI Signal panel still exposed developer/build-lane language that made the product feel unfinished and unclear

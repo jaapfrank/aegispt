@@ -274,11 +274,13 @@ def verify_api_read_paths(restore_manifest: dict[str, Any], expected: dict[str, 
         "AUTO_CREATE_TABLES": os.environ.get("AUTO_CREATE_TABLES"),
         "ARTIFACTS_INLINE_DIR": os.environ.get("ARTIFACTS_INLINE_DIR"),
         "ARTIFACTS_STORAGE_MODE": os.environ.get("ARTIFACTS_STORAGE_MODE"),
+        "APP_ENV": os.environ.get("APP_ENV"),
     }
     os.environ["DATABASE_URL"] = restore_manifest["database_url"]
-    os.environ["AUTO_CREATE_TABLES"] = "false"
+    os.environ["AUTO_CREATE_TABLES"] = "true"
     os.environ["ARTIFACTS_INLINE_DIR"] = restore_manifest["artifacts_dir"]
     os.environ["ARTIFACTS_STORAGE_MODE"] = "inline"
+    os.environ["APP_ENV"] = "testing"
     get_settings.cache_clear()
 
     try:

@@ -6,7 +6,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
 
 from api.app.config import Settings, get_settings
 from api.app.db import configure_database, shutdown_database
@@ -33,6 +35,7 @@ from api.app.routers.threat_intel import router as threat_intel_router
 from api.app.routers.triggers import router as triggers_router
 from api.app.services.cve_sync_scheduler import start_cve_feed_scheduler, stop_cve_feed_scheduler
 from api.app.services.gdpr_data import start_gdpr_retention_scheduler, stop_gdpr_retention_scheduler
+from api.app.services.rate_limit import InMemoryRateLimiter, client_identifier
 from api.app.services.scheduled_runs import (
     start_scheduled_run_scheduler,
     stop_scheduled_run_scheduler,
@@ -43,12 +46,42 @@ DATABASE_UNENCRYPTED_WARNING = (
     "Database is NOT encrypted. Set AEGISPT_DB_KEY environment variable to enable encryption at rest."
 )
 DEVELOPMENT_ENVS = {"development", "dev", "local", "test", "testing"}
+DEFAULT_ALLOWED_ORIGINS = ("http://localhost:8000", "http://127.0.0.1:8000")
+
+
+def effective_app_env(settings: Settings) -> str:
+    return str(settings.aegispt_env or settings.app_env or "development").strip().lower()
+
+
+def parse_allowed_origins(raw_origins: str | None) -> list[str]:
+    raw = str(raw_origins or "").replace("\n", ",").replace(";", ",")
+    origins = [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    return origins or list(DEFAULT_ALLOWED_ORIGINS)
+
+
+def database_key_required(settings: Settings) -> bool:
+    env = effective_app_env(settings)
+    return env not in DEVELOPMENT_ENVS or not bool(settings.auto_create_tables)
+
+
+def enforce_database_encryption_key(settings: Settings) -> None:
+    if settings.aegispt_db_key:
+        return
+    if not database_key_required(settings):
+        return
+    raise RuntimeError(
+        "AEGISPT_DB_KEY is required for production-style startup. "
+        "Set AEGISPT_DB_KEY, or run only in development/test mode with AUTO_CREATE_TABLES=true."
+    )
 
 
 def warn_if_database_unencrypted(settings: Settings) -> None:
     if settings.aegispt_db_key:
         return
-    if settings.app_env.strip().lower() in DEVELOPMENT_ENVS:
+    env = effective_app_env(settings)
+    if env in DEVELOPMENT_ENVS:
+        return
+    if database_key_required(settings):
         return
     logger.warning(DATABASE_UNENCRYPTED_WARNING)
 
@@ -59,6 +92,7 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.runtime_state = "starting"
+        enforce_database_encryption_key(settings)
         warn_if_database_unencrypted(settings)
         configure_database(app, settings)
         start_cve_feed_scheduler(app, settings)
@@ -75,10 +109,47 @@ def create_app() -> FastAPI:
             shutdown_database(app)
 
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+    app.state.rate_limiter = InMemoryRateLimiter()
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=parse_allowed_origins(settings.aegispt_allowed_origins),
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
     @app.middleware("http")
     async def add_security_headers(request, call_next):
+        limiter = getattr(request.app.state, "rate_limiter", None)
+        rule = limiter.rule_for_request(request) if limiter is not None else None
+        if rule is not None:
+            allowed, retry_after, remaining = limiter.check(
+                rule=rule,
+                client_id=client_identifier(request),
+            )
+            if not allowed:
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": "Rate limit exceeded. Retry after the indicated number of seconds.",
+                        "rate_limit": {
+                            "scope": rule.name,
+                            "limit": rule.max_requests,
+                            "window_seconds": rule.window_seconds,
+                        },
+                    },
+                    headers={
+                        "Retry-After": str(retry_after),
+                        "X-RateLimit-Limit": str(rule.max_requests),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": str(retry_after),
+                    },
+                )
         response = await call_next(request)
+        if rule is not None:
+            response.headers.setdefault("X-RateLimit-Limit", str(rule.max_requests))
+            response.headers.setdefault("X-RateLimit-Remaining", str(remaining))
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")

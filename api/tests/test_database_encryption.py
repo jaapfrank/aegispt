@@ -63,12 +63,12 @@ def test_plain_sqlite_still_reads_and_writes_without_key(tmp_path) -> None:
     assert rows == [("ok",)]
 
 
-def test_production_startup_warns_when_database_key_missing(caplog) -> None:
+def test_production_startup_raises_when_database_key_missing() -> None:
+    from api.app.main import enforce_database_encryption_key
     settings = Settings(app_env="production", aegispt_db_key=None)
 
-    warn_if_database_unencrypted(settings)
-
-    assert DATABASE_UNENCRYPTED_WARNING in caplog.text
+    with pytest.raises(RuntimeError, match="AEGISPT_DB_KEY is required"):
+        enforce_database_encryption_key(settings)
 
 
 def test_development_startup_does_not_warn_when_database_key_missing(caplog) -> None:
