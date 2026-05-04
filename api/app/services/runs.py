@@ -691,6 +691,38 @@ def idor_bac_runner_params_from_configuration(
     return result
 
 
+def xss_extended_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("xss_extended")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in (
+        "upload_contexts",
+        "ajax_contexts",
+        "xssi_contexts",
+        "evidence_records",
+        "candidate_paths",
+    ):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in ("upload_contexts", "ajax_contexts", "xssi_contexts", "evidence_records"):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = value
+    for field_name in ("xss_payload", "ajax_payload"):
+        value = settings.get(field_name)
+        if isinstance(value, str) and value.strip():
+            result[field_name] = value.strip()
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def mobile_android_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1712,6 +1744,39 @@ def validate_idor_bac_run_configuration(
                 raise ValueError(f"configured IDOR/BAC endpoint {target} is outside the approved engagement scope")
 
 
+def validate_xss_extended_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="xss-extended",
+    )
+    params = xss_extended_runner_params_from_configuration(configuration)
+    for field_name in ("upload_contexts", "ajax_contexts", "xssi_contexts", "evidence_records"):
+        entries = params.get(field_name)
+        for item in entries if isinstance(entries, list) else []:
+            if isinstance(item, str):
+                targets = [item]
+            elif isinstance(item, dict):
+                targets = [
+                    item.get("url") or item.get("target") or item.get("endpoint") or item.get("upload_url"),
+                    item.get("uploaded_url"),
+                ]
+            else:
+                continue
+            for target in targets:
+                target_value = str(target or "").strip()
+                if (
+                    target_value
+                    and "://" in target_value
+                    and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+                ):
+                    raise ValueError(f"configured XSS endpoint {target} is outside the approved engagement scope")
+
+
 def local_cve_records_for_vulnerable_components(session: Session, *, limit: int = 500) -> list[dict[str, Any]]:
     records = session.scalars(
         select(ThreatIntelRecord).order_by(ThreatIntelRecord.advisory_updated_at.desc()).limit(limit)
@@ -2348,7 +2413,16 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(url_targets)
         return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
 
-    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac"}:
+    if tool in {
+        "content-discovery",
+        "nikto",
+        "sqlmap",
+        "xxe-probe",
+        "jwt-probe",
+        "vuln-components",
+        "idor-bac",
+        "xss-extended",
+    }:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
             return list(url_targets)
@@ -2575,6 +2649,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     jwt_params = jwt_runner_params_from_configuration(run_configuration)
     vulnerable_components_params = vulnerable_components_runner_params_from_configuration(run_configuration)
     idor_bac_params = idor_bac_runner_params_from_configuration(run_configuration)
+    xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2645,6 +2720,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "idor-bac":
             validate_idor_bac_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "xss-extended":
+            validate_xss_extended_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -2950,6 +3030,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             for key, value in idor_bac_params.items()
                             if value not in (None, [], {})
                         },
+                    }
+                )
+            if tool == "xss-extended":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in xss_extended_params.items()
+                        if value not in (None, [], {})
                     }
                 )
             if tool == "mobile-android":

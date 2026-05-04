@@ -920,6 +920,22 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-xss-extended",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated XSS completeness checks for approved web roots covering unrestricted same-origin HTML upload, AJAX/JSON response contexts, and XSSI-sensitive JSON exposure.",
+            "required_approvals": 1,
+            "tools": ["xss-extended"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "file_upload_probe": True,
+            "ajax_json_probe": True,
+            "xssi_probe": True,
+            "zap_configuration_changed": False,
+            "requires_explicit_context": True,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

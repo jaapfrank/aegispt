@@ -63,6 +63,7 @@ SUPPORTED_AI_PROPOSAL_TOOLS = {
     "semgrep",
     "sqlmap",
     "vuln-components",
+    "xss-extended",
     "xxe-probe",
     "zap",
 }
@@ -106,6 +107,7 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "sqlmap",
     "vuln-components",
     "wifi-survey",
+    "xss-extended",
     "xxe-probe",
     "zap",
 }

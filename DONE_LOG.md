@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-04: completed backlog-220 `XSS completeness: dedicated file-upload XSS, AJAX/JSON XSS, and XSSI detection`:
+  - rationale:
+    - benchmark coverage showed AegisPT needed first-class coverage for three XSS variants that baseline ZAP coverage can miss: unrestricted same-origin HTML upload, AJAX/JSON response-context reflection, and XSSI-sensitive JSON exposure
+    - the active task required structured findings, supported-tool registration, operator visibility, approval-gated execution, and safe local validation
+  - implementation:
+    - added `xss-extended` as a dedicated active runner that enforces approved web-root path scope before target execution
+    - implemented bounded same-origin HTML upload checks, AJAX/JSON reflected payload checks in browser-executable contexts, and sensitive JSON/XSSI response-protection checks
+    - emitted `xss-extended-results.json` with structured findings, replay metadata, per-variant summary counts, safety metadata, and `zap_configuration_changed=false`
+    - registered `xss-extended` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI proposal allowlists, methodology mapping, an `active-web-xss-extended` run profile, and the Tool Library
+    - documented the package exception: the package goal mentioned extending existing ZAP coverage, but the package constraints and `NEXT_TASK.md` prohibit changing existing ZAP runner configuration, so this slice implements the three variants as a standalone runner
+  - files:
+    - `workers/runners/xss_extended/runner.py`
+    - `workers/runners/xss_extended/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_xss_extended_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-220-xss-extended-runner-20260504.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m py_compile workers/runners/xss_extended/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_xss_extended_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_xss_extended_profile_requires_approval_and_queues_task -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed during validation
+    - `git diff --check` passed during validation
+    - `curl -sS http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -sS http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "xss-extended|XSS Extended"` confirmed the live-served Tool Library module contains the XSS Extended entry
+  - evidence:
+    - `codex/results/backlog-220-xss-extended-runner-20260504.md`
+  - remaining risks:
+    - no public Gruyere or WebGoat target was actively tested during build-lane validation; proof is from deterministic safe fixtures
+    - candidate discovery is context/evidence driven and does not replace a full application crawler
+    - XSSI detection is heuristic and flags sensitive JSON plus missing protections, not every possible inclusion behavior
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-221 `SSRF dedicated runner`
+
 - 2026-05-04: completed backlog-218 `IDOR and broken access control runner`:
   - rationale:
     - OWASP A01 broken access control and benchmark IDOR/missing-access modules needed a first-class runner rather than relying on the older, narrower `biz-logic-probe`

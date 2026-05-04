@@ -158,6 +158,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["Authenticated App", "API Security", "External Web"],
   },
   {
+    id: "xss-extended",
+    name: "XSS Extended",
+    category: "Web",
+    tier: "active",
+    description: "Completes XSS coverage beyond baseline crawling with same-origin HTML upload checks, AJAX/JSON response-context probes, and sensitive JSON XSSI review.",
+    findings: ["Stored XSS via Unrestricted HTML Upload", "AJAX/JSON XSS in Response Context", "Cross-Site Script Inclusion data leakage"],
+    prerequisites: ["Approved web or API root", "Active approval", "Explicit upload, AJAX, JSON, or evidence contexts"],
+    chains: ["External Web", "Authenticated App", "API Security"],
+  },
+  {
     id: "external-osint",
     name: "Shodan / Censys",
     category: "Discovery",

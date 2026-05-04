@@ -149,6 +149,7 @@ from workers.runners.wifi_survey.runner import (
     WIFI_SURVEY_RESULTS_ARTIFACT_NAME,
     execute_wifi_survey,
 )
+from workers.runners.xss_extended.runner import execute_xss_extended_scan
 from workers.runners.web_depth.runner import (
     execute_content_discovery,
     execute_external_osint_recon,
@@ -202,6 +203,7 @@ SUPPORTED_TOOLS = {
     "sqlmap",
     "vuln-components",
     "wifi-survey",
+    "xss-extended",
     "xxe-probe",
     "zap",
 }
@@ -1146,6 +1148,47 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "xss-extended":
+        return execute_xss_extended_scan(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            upload_contexts=(
+                request.params.get("upload_contexts")
+                if isinstance(request.params.get("upload_contexts"), list)
+                else []
+            ),
+            ajax_contexts=(
+                request.params.get("ajax_contexts")
+                if isinstance(request.params.get("ajax_contexts"), list)
+                else []
+            ),
+            xssi_contexts=(
+                request.params.get("xssi_contexts")
+                if isinstance(request.params.get("xssi_contexts"), list)
+                else []
+            ),
+            evidence_records=(
+                request.params.get("evidence_records")
+                if isinstance(request.params.get("evidence_records"), list)
+                else []
+            ),
+            candidate_paths=(
+                request.params.get("candidate_paths")
+                if isinstance(request.params.get("candidate_paths"), list)
+                else []
+            ),
+            xss_payload=(
+                str(request.params.get("xss_payload"))
+                if isinstance(request.params.get("xss_payload"), str)
+                else "<html><script>alert('aegispt-xss')</script></html>"
+            ),
+            ajax_payload=(
+                str(request.params.get("ajax_payload"))
+                if isinstance(request.params.get("ajax_payload"), str)
+                else "<script>alert('aegispt-json-xss')</script>"
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1804,6 +1847,15 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         return (
             "$ idor-bac --bounded-id-substitution --max-id-delta 20 "
             f"--auth-contexts {context_count} --approved-scope {target_label}{extra}"
+        )
+    if tool == "xss-extended":
+        upload_count = len(effective_params.get("upload_contexts") or []) if isinstance(effective_params.get("upload_contexts"), list) else 0
+        ajax_count = len(effective_params.get("ajax_contexts") or []) if isinstance(effective_params.get("ajax_contexts"), list) else 0
+        xssi_count = len(effective_params.get("xssi_contexts") or []) if isinstance(effective_params.get("xssi_contexts"), list) else 0
+        return (
+            "$ xss-extended --file-upload --ajax-json --xssi "
+            f"--upload-contexts {upload_count} --ajax-contexts {ajax_count} "
+            f"--xssi-contexts {xssi_count} --approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":
         sources = []

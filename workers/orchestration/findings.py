@@ -42,6 +42,7 @@ from workers.runners.semgrep.runner import normalize_semgrep_rule_id
 from workers.runners.smart_home.runner import SMART_HOME_RESULTS_ARTIFACT_NAME
 from workers.runners.snmp_enum.runner import SNMP_ENUM_RESULTS_ARTIFACT_NAME
 from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
+from workers.runners.xss_extended.runner import XSS_EXTENDED_RESULTS_ARTIFACT_NAME
 from workers.runners.web_depth.runner import (
     CONTENT_DISCOVERY_RESULTS_ARTIFACT_NAME,
     EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME,
@@ -508,7 +509,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -522,6 +523,7 @@ def extract_findings(
                 JWT_RESULTS_ARTIFACT_NAME,
                 VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
                 IDOR_BAC_ARTIFACT_NAME,
+                XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

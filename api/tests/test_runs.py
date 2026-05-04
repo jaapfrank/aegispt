@@ -450,6 +450,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-safe",
         "active-web-sqlmap-confirmation",
         "active-web-vuln-components",
+        "active-web-xss-extended",
         "active-web-xxe-probe",
         "active-web-zap-active",
         "autonomous-internal",
@@ -1981,6 +1982,62 @@ def test_active_idor_bac_profile_requires_approval_and_queues_authenticated_task
     assert task["params_json"]["max_id_delta"] == 20
     assert task["params_json"]["auth_contexts"][0]["label"] == "Standard User"
     assert "bearer_token" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
+
+
+def test_active_xss_extended_profile_requires_approval_and_queues_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-xss-extended",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "xss_extended": {
+                    "upload_contexts": [
+                        {"url": "upload", "uploaded_url": "uploads/aegispt-xss.html"},
+                    ],
+                    "ajax_contexts": [
+                        {"url": "api/search?q=baseline", "parameters": ["q"]},
+                    ],
+                    "xssi_contexts": [
+                        {"url": "api/profile.json"},
+                    ],
+                    "candidate_paths": ["api/profile.json"],
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "xss-extended"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["upload_contexts"] == [
+        {"url": "upload", "uploaded_url": "uploads/aegispt-xss.html"},
+    ]
+    assert task["params_json"]["ajax_contexts"] == [
+        {"url": "api/search?q=baseline", "parameters": ["q"]},
+    ]
+    assert task["params_json"]["xssi_contexts"] == [{"url": "api/profile.json"}]
+    assert task["params_json"]["candidate_paths"] == ["api/profile.json"]
 
 
 def test_intrusive_responder_profile_requires_named_approval_gate_and_configured_interface(
