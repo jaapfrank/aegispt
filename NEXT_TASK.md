@@ -2,36 +2,35 @@
 
 ## Title
 
-IDOR and broken access control runner: detect insecure direct object references and horizontal/vertical privilege escalation
+XSS completeness: dedicated file-upload XSS, AJAX/JSON XSS, and XSSI detection
 
 ## Promoted From
 
-`codex/tasks/backlog-218-idor-broken-access-control-runner.json`
+`codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json`
 
 ## Goal
 
-Add the queued `idor-bac` capability described in `codex/tasks/backlog-218-idor-broken-access-control-runner.json`.
+Add the queued XSS completeness capability described in `codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-218-idor-broken-access-control-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json`.
 
 Expected slice:
 
-- identify numeric and UUID-like object identifiers from approved web/API endpoints and existing evidence
-- test bounded in-scope ID substitution only with configured accounts and approved authentication context
-- test role/admin parameter manipulation where explicit request context is available
-- test method-override and common admin path exposure only within approved scope
-- emit structured broken-access-control findings with clear confirmed-versus-potential evidence
-- expose the capability in the Tool Library and supported execution registry
+- detect stored XSS via unrestricted same-domain HTML file upload
+- detect AJAX/JSON XSS response contexts that basic ZAP coverage may miss
+- detect XSSI/data-leakage exposure for unprotected sensitive JSON endpoints
+- emit structured findings for all three variants
+- expose the capability through the supported execution registry and operator surfaces required by the package
 - keep validation safe and local unless an explicitly authorized target fixture is present
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Do not brute-force identifiers beyond the package limit.
-- Do not use credentials outside engagement configuration.
-- Do not bypass local CVE/feed provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
+- Add only the three specific XSS variants from the task package.
+- Do not change existing ZAP runner configuration unless the package and repo-truth require it through the existing registry path.
+- Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
 - No live target actions outside safe/local/explicitly authorized validation.
@@ -44,8 +43,7 @@ Expected slice:
 
 ## Acceptance
 
-- `idor-bac` runner is listed in supported tools.
-- Bounded IDOR/BAC checks are covered by tests and safe local fixture evidence.
-- Structured findings distinguish confirmed unauthorized access from potential access-control signals.
-- Tool Library lists the IDOR/BAC capability.
+- File upload XSS, AJAX/JSON XSS, and XSSI checks are covered by tests and safe local fixture evidence.
+- All three variants produce structured findings.
+- The active capability requires one approval.
 - Existing runner/API tests do not regress.

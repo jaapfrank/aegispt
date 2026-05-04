@@ -1,5 +1,45 @@
 # Done Log
 
+- 2026-05-04: completed backlog-218 `IDOR and broken access control runner`:
+  - rationale:
+    - OWASP A01 broken access control and benchmark IDOR/missing-access modules needed a first-class runner rather than relying on the older, narrower `biz-logic-probe`
+    - the active task required bounded identifier substitution, role/admin manipulation, method override checks, common admin path exposure review, structured confirmed-vs-potential evidence, supported-tool registration, and Tool Library visibility
+  - implementation:
+    - added `idor-bac` as a dedicated runner with path-aware approved web-root enforcement, configured-account credential use through existing secret-binding materialization, bounded numeric ID substitution capped at `±20`, UUID replacement from known configured/evidence IDs, authenticated link/evidence/candidate-path endpoint discovery, role/admin query and JSON-body mutation from explicit request contexts, method override checks, and unauthenticated scoped admin-path exposure review
+    - emitted `idor-bac-results.json` with structured findings, replay context, safety metadata, and confirmed/potential finding counts
+    - registered `idor-bac` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI proposal allowlists, methodology mapping, an `active-web-idor-bac` run profile, and the Tool Library
+    - added safe fixture tests proving confirmed horizontal IDOR, parameter privilege escalation, method override acceptance, and admin path exposure without using an external target
+  - files:
+    - `workers/runners/idor_bac/runner.py`
+    - `workers/runners/idor_bac/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_idor_bac_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-218-idor-bac-runner-20260504.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m py_compile workers/runners/idor_bac/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_idor_bac_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_idor_bac_profile_requires_approval_and_queues_authenticated_task -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed during validation
+    - `git diff --check` passed during validation
+    - `curl -sS http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -sS http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "idor-bac|IDOR / Broken Access Control"` confirmed the live-served Tool Library module contains the IDOR/BAC entry
+  - evidence:
+    - `codex/results/backlog-218-idor-bac-runner-20260504.md`
+  - remaining risks:
+    - no public WebGoat/Gruyere target was actively tested during build-lane validation; proof is from a deterministic safe fixture
+    - the running `127.0.0.1:8000` API process appears older than the current code because `/api/v1/run-profiles` did not expose the new profile during read-only checking; a normal service restart/redeploy is needed before that live API reflects the new default profile
+    - confirmed IDOR depends on configured foreign ownership markers or explicit evidence; otherwise successful substitutions are reported as potential High signals
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-220 `XSS completeness`
+
 - 2026-05-04: completed backlog-217 `Vulnerable components runner`:
   - rationale:
     - benchmark coverage showed AegisPT had no first-class OWASP A06 vulnerable/outdated components lane for web application libraries and exposed dependency manifests

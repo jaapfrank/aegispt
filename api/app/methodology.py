@@ -76,6 +76,7 @@ TOOL_WSTG_AREAS: Final[dict[str, tuple[str, ...]]] = {
     "sqlmap": ("Input Validation Testing",),
     "xxe-probe": ("Input Validation Testing",),
     "jwt-probe": ("Authentication Testing", "Session Management Testing"),
+    "idor-bac": ("Authorization Testing", "API Testing"),
     "vuln-components": ("Configuration and Deployment Management Testing", "Information Gathering"),
     "external-osint": ("Information Gathering",),
     "zap": (
@@ -119,6 +120,7 @@ DEFAULT_CONTROL_FAMILY_BY_TOOL: Final[dict[str, str]] = {
     "sqlmap": "input_validation",
     "xxe-probe": "input_validation",
     "jwt-probe": "authentication",
+    "idor-bac": "business_logic",
     "vuln-components": "configuration",
     "external-osint": "information_gathering",
     "zap": "configuration",
@@ -474,6 +476,7 @@ def derive_finding_methodology(
             "sqlmap": "sqli-confirmation",
             "xxe-probe": "xxe-validation",
             "jwt-probe": "jwt-validation",
+            "idor-bac": "idor-bac-validation",
             "vuln-components": "vulnerable-components",
             "external-osint": "passive-osint",
             "zap": "dynamic-analysis",

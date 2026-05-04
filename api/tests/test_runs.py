@@ -445,6 +445,7 @@ def test_list_run_profiles(client) -> None:
         "active-llm-application-probe",
         "active-offline-hash-crack",
         "active-web-content-discovery",
+        "active-web-idor-bac",
         "active-web-jwt-probe",
         "active-web-safe",
         "active-web-sqlmap-confirmation",
@@ -1902,6 +1903,82 @@ def test_active_business_logic_profile_requires_approval_and_queues_authenticate
     assert task["params_json"]["idor_paths"] == ["/api/orders/{id}"]
     assert task["params_json"]["admin_paths"] == ["/admin/users"]
     assert task["params_json"]["candidate_object_ids"] == ["101", "202"]
+    assert task["params_json"]["auth_contexts"][0]["label"] == "Standard User"
+    assert "bearer_token" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
+
+
+def test_active_idor_bac_profile_requires_approval_and_queues_authenticated_task(
+    client,
+) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-idor-bac",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "access": {
+                    "accounts": [
+                        {
+                            "label": "Standard User",
+                            "username": "alice@example.test",
+                            "role": "User",
+                            "bearer_token_ref": "idor-token",
+                            "marker_tokens": ["alice@example.test"],
+                            "owned_object_ids": ["100"],
+                        },
+                        {
+                            "label": "Peer User",
+                            "username": "bob@example.test",
+                            "role": "User",
+                            "bearer_token_ref": "idor-peer-token",
+                            "marker_tokens": ["bob@example.test"],
+                            "owned_object_ids": ["120"],
+                        },
+                    ]
+                },
+                "idor_bac": {
+                    "candidate_paths": ["api/users/100"],
+                    "request_contexts": [
+                        {
+                            "url": "https://portal.example.test/app/settings?role=user",
+                            "success_markers": ["admin-panel-ready"],
+                        }
+                    ],
+                    "method_override_paths": ["api/users/100"],
+                    "admin_paths": ["admin"],
+                    "max_id_delta": 20,
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "idor-bac"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["candidate_paths"] == ["api/users/100"]
+    assert task["params_json"]["method_override_paths"] == ["api/users/100"]
+    assert task["params_json"]["admin_paths"] == ["admin"]
+    assert task["params_json"]["max_id_delta"] == 20
     assert task["params_json"]["auth_contexts"][0]["label"] == "Standard User"
     assert "bearer_token" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
 

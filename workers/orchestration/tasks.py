@@ -112,6 +112,7 @@ from workers.runners.desktop_client.runner import (
 from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
 from workers.runners.httpx.runner import execute_httpx_probe
+from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
 from workers.runners.iot_default_creds.runner import execute_iot_default_credential_audit
 from workers.runners.ipv6_discovery.runner import (
@@ -178,6 +179,7 @@ SUPPORTED_TOOLS = {
     "external-osint",
     "external-infra",
     "httpx",
+    "idor-bac",
     "impacket-lateral",
     "iot-default-creds",
     "ipv6-discovery",
@@ -361,6 +363,48 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 request.params.get("max_object_ids")
                 if isinstance(request.params.get("max_object_ids"), int)
                 else 25
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "idor-bac":
+        return execute_idor_bac_probe(
+            targets=request.targets,
+            auth_contexts=request.params.get("auth_contexts", []),
+            scope_allowlist=request.scope_allowlist,
+            evidence_records=(
+                request.params.get("evidence_records")
+                if isinstance(request.params.get("evidence_records"), list)
+                else []
+            ),
+            request_contexts=(
+                request.params.get("request_contexts")
+                if isinstance(request.params.get("request_contexts"), list)
+                else []
+            ),
+            admin_paths=(
+                request.params.get("admin_paths")
+                if isinstance(request.params.get("admin_paths"), list)
+                else None
+            ),
+            candidate_paths=(
+                request.params.get("candidate_paths")
+                if isinstance(request.params.get("candidate_paths"), list)
+                else []
+            ),
+            candidate_object_ids=(
+                request.params.get("candidate_object_ids")
+                if isinstance(request.params.get("candidate_object_ids"), list)
+                else []
+            ),
+            method_override_paths=(
+                request.params.get("method_override_paths")
+                if isinstance(request.params.get("method_override_paths"), list)
+                else []
+            ),
+            max_id_delta=(
+                request.params.get("max_id_delta")
+                if isinstance(request.params.get("max_id_delta"), int)
+                else 20
             ),
             timeout_seconds=timeout_seconds,
         )
@@ -1623,6 +1667,8 @@ def _runner_params_for_task(session, task: Task) -> dict[str, object]:
         params["auth_contexts"] = _materialize_api_assessment_auth_contexts(session, task)
     if task.tool == "biz-logic-probe":
         params["auth_contexts"] = _materialize_biz_logic_auth_contexts(session, task)
+    if task.tool == "idor-bac":
+        params["auth_contexts"] = _materialize_biz_logic_auth_contexts(session, task)
     if task.tool == "bloodhound-collect":
         params["auth_contexts"] = _materialize_bloodhound_auth_contexts(session, task)
     if task.tool == "credential-attacks":
@@ -1752,6 +1798,12 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         return (
             "$ vuln-components --fingerprint-responses --probe-exposed-dependency-files "
             f"--local-cve-records {record_count} --approved-scope {target_label}{extra}"
+        )
+    if tool == "idor-bac":
+        context_count = len(effective_params.get("auth_contexts") or []) if isinstance(effective_params.get("auth_contexts"), list) else 0
+        return (
+            "$ idor-bac --bounded-id-substitution --max-id-delta 20 "
+            f"--auth-contexts {context_count} --approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":
         sources = []

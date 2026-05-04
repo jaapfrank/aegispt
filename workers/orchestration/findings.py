@@ -25,6 +25,7 @@ from workers.runners.credential_attacks.runner import (
 )
 from workers.runners.desktop_client.runner import DESKTOP_CLIENT_RESULTS_ARTIFACT_NAME
 from workers.runners.external_infra.runner import EXTERNAL_INFRA_RESULTS_ARTIFACT_NAME
+from workers.runners.idor_bac.runner import IDOR_BAC_ARTIFACT_NAME
 from workers.runners.impacket.runner import IMPACKET_RESULTS_ARTIFACT_NAME
 from workers.runners.iot_default_creds.runner import IOT_DEFAULT_CREDS_ARTIFACT_NAME
 from workers.runners.ipv6_discovery.runner import IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME
@@ -507,7 +508,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -520,6 +521,7 @@ def extract_findings(
                 XXE_RESULTS_ARTIFACT_NAME,
                 JWT_RESULTS_ARTIFACT_NAME,
                 VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
+                IDOR_BAC_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

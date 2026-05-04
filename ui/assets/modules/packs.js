@@ -148,6 +148,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Configuration review"],
   },
   {
+    id: "idor-bac",
+    name: "IDOR / Broken Access Control",
+    category: "Authentication",
+    tier: "active",
+    description: "Validates horizontal and vertical access-control failures with bounded identifier substitution, configured accounts, explicit role-parameter contexts, method override checks, and scoped admin path exposure review.",
+    findings: ["IDOR - Horizontal Privilege Escalation", "Privilege escalation via role/admin parameter", "Admin path exposed without authentication"],
+    prerequisites: ["Approved web or API root", "Configured authenticated accounts", "Active approval and bounded ±20 identifier checks"],
+    chains: ["Authenticated App", "API Security", "External Web"],
+  },
+  {
     id: "external-osint",
     name: "Shodan / Censys",
     category: "Discovery",

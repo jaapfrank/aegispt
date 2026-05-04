@@ -659,6 +659,38 @@ def vulnerable_components_runner_params_from_configuration(
     return result
 
 
+def idor_bac_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("idor_bac")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in (
+        "evidence_records",
+        "request_contexts",
+        "admin_paths",
+        "candidate_paths",
+        "candidate_object_ids",
+        "method_override_paths",
+    ):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in ("evidence_records", "request_contexts"):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = value
+    max_id_delta = settings.get("max_id_delta")
+    if isinstance(max_id_delta, int):
+        result["max_id_delta"] = min(max(max_id_delta, 1), 20)
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def mobile_android_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1652,6 +1684,34 @@ def validate_vulnerable_components_run_configuration(
     )
 
 
+def validate_idor_bac_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="idor-bac",
+    )
+    if not business_logic_auth_contexts_from_configuration(configuration):
+        raise ValueError(
+            "idor-bac requires at least one authenticated access account with stored secret bindings"
+        )
+    params = idor_bac_runner_params_from_configuration(configuration)
+    for field_name in ("evidence_records", "request_contexts"):
+        entries = params.get(field_name)
+        for item in entries if isinstance(entries, list) else []:
+            if isinstance(item, str):
+                target = item
+            elif isinstance(item, dict):
+                target = item.get("url") or item.get("target") or item.get("request_url") or item.get("endpoint")
+            else:
+                continue
+            if target and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(target)):
+                raise ValueError(f"configured IDOR/BAC endpoint {target} is outside the approved engagement scope")
+
+
 def local_cve_records_for_vulnerable_components(session: Session, *, limit: int = 500) -> list[dict[str, Any]]:
     records = session.scalars(
         select(ThreatIntelRecord).order_by(ThreatIntelRecord.advisory_updated_at.desc()).limit(limit)
@@ -2288,7 +2348,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(url_targets)
         return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
 
-    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe", "jwt-probe", "vuln-components"}:
+    if tool in {"content-discovery", "nikto", "sqlmap", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac"}:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
             return list(url_targets)
@@ -2514,6 +2574,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     xxe_params = xxe_runner_params_from_configuration(run_configuration)
     jwt_params = jwt_runner_params_from_configuration(run_configuration)
     vulnerable_components_params = vulnerable_components_runner_params_from_configuration(run_configuration)
+    idor_bac_params = idor_bac_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -2579,6 +2640,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "vuln-components":
             validate_vulnerable_components_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "idor-bac":
+            validate_idor_bac_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -2873,6 +2939,19 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     task_params["local_cve_records"] = vulnerable_components_params["local_cve_records"]
                 else:
                     task_params["local_cve_records"] = local_cve_records_for_vulnerable_components(session)
+            if tool == "idor-bac":
+                task_params.update(
+                    {
+                        "auth_contexts": business_logic_auth_contexts_from_configuration(
+                            run_configuration
+                        ),
+                        **{
+                            key: value
+                            for key, value in idor_bac_params.items()
+                            if value not in (None, [], {})
+                        },
+                    }
+                )
             if tool == "mobile-android":
                 task_params.update(
                     {

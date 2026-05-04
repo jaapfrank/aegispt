@@ -920,6 +920,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-idor-bac",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated IDOR and broken access-control validation for approved web/API roots using configured accounts, bounded identifier substitution, explicit role-parameter contexts, method override checks, and scoped admin-path exposure review.",
+            "required_approvals": 1,
+            "tools": ["idor-bac"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_auth_context": True,
+            "max_id_delta": 20,
+            "bruteforce": False,
+            "credentials_from_configured_contexts": True,
+        },
+    },
+    {
         "name": "passive-external-osint-recon",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {
