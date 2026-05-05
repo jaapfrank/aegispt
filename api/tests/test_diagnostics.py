@@ -74,6 +74,7 @@ def test_diagnostics_surfaces_subsystems_and_actionable_failures(client, monkeyp
     assert subsystems["queue_state"]["metadata"]["task_status_counts"]["failed"] == 1
     assert subsystems["run_stuck"]["metadata"]["stuck_run_ids"]
     assert subsystems["tool_readiness"]["metadata"]["missing_tools"]
+    assert subsystems["runner_tool_certification"]["metadata"]["path"] == "codex/results/runner-tool-certification-matrix.json"
     assert subsystems["ai_provider"]["operator_next_step"]
     assert subsystems["deployment_hardening"]["operator_next_step"]
     assert subsystems["deployment_hardening"]["metadata"]["secrets_plaintext_exposed"] is False

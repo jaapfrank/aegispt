@@ -264,6 +264,7 @@ def _readiness_subsystems(
     readiness = read_settings_readiness(session, tenant_id=tenant_id, settings=settings)
     capabilities = {item.id: item for item in readiness.capabilities}
     tool_summary = capabilities.get("tool_readiness")
+    certification = capabilities.get("runner_tool_certification")
     ai = capabilities.get("ai_provider")
     deployment = capabilities.get("deployment_hardening")
     subsystems: list[DiagnosticSubsystemRead] = []
@@ -284,6 +285,18 @@ def _readiness_subsystems(
                         if tool.status in {"missing", "degraded"}
                     ],
                 },
+            )
+        )
+    if certification is not None:
+        subsystems.append(
+            _subsystem(
+                subsystem_id="runner_tool_certification",
+                title="Runner/tool certification",
+                status=certification.status,
+                summary=certification.summary,
+                details=certification.details,
+                operator_next_step=certification.operator_next_step,
+                metadata=certification.metadata,
             )
         )
     if ai is not None:

@@ -159,17 +159,41 @@ def _product_matrix_summary(payload: dict[str, Any]) -> dict[str, Any]:
     return {"enabled_scenario_count": sum(lanes.values()), "enabled_lanes": lanes}
 
 
+def _runner_tool_matrix_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    tools = payload.get("tools") if isinstance(payload.get("tools"), list) else []
+    statuses: dict[str, int] = {}
+    software_states: dict[str, int] = {}
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        status = str(tool.get("certification_status") or "unknown")
+        statuses[status] = statuses.get(status, 0) + 1
+        readiness = tool.get("software_readiness") if isinstance(tool.get("software_readiness"), dict) else {}
+        software_state = str(readiness.get("state") or "unknown")
+        software_states[software_state] = software_states.get(software_state, 0) + 1
+    return {
+        "tool_count": len(tools),
+        "status_counts": statuses,
+        "software_ready_state_counts": software_states,
+        "blocked_tool_count": statuses.get("blocked", 0),
+        "supported_with_gap_tool_count": statuses.get("supported-with-gap", 0),
+        "certified_tool_count": statuses.get("certified", 0),
+    }
+
+
 def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, Any]:
     root = repo_root or REPO_ROOT
     product_matrix = _read_json(root, "codex/tasks/product_acceptance_matrix.json")
     target_catalog = _read_json(root, "codex/tasks/target_lab_matrix.json")
     validation_matrix = _read_json(root, "codex/results/validation-matrix-latest.json")
+    runner_tool_matrix = _read_json(root, "codex/results/runner-tool-certification-matrix.json")
     full_audit = _read_json(root, "codex/results/backlog-181-full-system-audit.json")
     ia_audit = _read_json(root, "codex/results/backlog-181-ia-audit.json")
 
     product_metrics = _product_matrix_summary(product_matrix)
     target_metrics = _target_catalog_summary(target_catalog)
     validation_metrics = _validation_matrix_summary(validation_matrix)
+    runner_tool_metrics = _runner_tool_matrix_summary(runner_tool_matrix)
     full_audit_metrics = _count_full_system_defects(full_audit)
     ia_metrics = {
         "page_count": len(ia_audit.get("pages") or []) if isinstance(ia_audit.get("pages"), list) else 0,
@@ -231,22 +255,42 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
         root,
         [
             EvidenceRule("api/tests/test_settings.py", "Settings/readiness API coverage", ("tool", "readiness")),
+            EvidenceRule(
+                "codex/results/runner-tool-certification-matrix.json",
+                "Runner/tool certification matrix",
+                ("aegispt.runner_tool_certification_matrix", "certification_status"),
+            ),
+            EvidenceRule(
+                "codex/results/runner-tool-certification-matrix.md",
+                "Runner/tool certification matrix summary",
+                ("Runner and Tool Certification Matrix",),
+            ),
             EvidenceRule("codex/results/backlog-184-observability-support-diagnostics-bundle-20260502.md", "Diagnostics evidence", ("tool readiness",)),
             EvidenceRule("codex/results/backlog-164-wifi-readiness-20260501.md", "WiFi readiness evidence"),
         ],
     )
+    tool_gaps = ["Tool availability depends on installed host binaries, adapters, and worker/inline mode."]
+    if runner_tool_metrics["tool_count"] == 0:
+        tool_gaps.append("Runner/tool certification matrix is missing or empty.")
+    else:
+        if runner_tool_metrics["supported_with_gap_tool_count"]:
+            tool_gaps.append(
+                f"Certification matrix records {runner_tool_metrics['supported_with_gap_tool_count']} supported-with-gap runner(s)."
+            )
+        if runner_tool_metrics["blocked_tool_count"]:
+            tool_gaps.append(f"Certification matrix records {runner_tool_metrics['blocked_tool_count']} blocked runner(s).")
     claims.append(
         _claim(
             claim_id="runner_tool_readiness",
             title="Runner and tool readiness",
-            status="supported-with-gap" if _any_evidence(tool_evidence) else "blocked",
+            status="supported-with-gap" if _any_evidence(tool_evidence) and runner_tool_metrics["tool_count"] else "blocked",
             category="runtime_readiness",
             critical=True,
             summary="Readiness surfaces expose tool availability, but actual enterprise hosts remain environment-dependent.",
             evidence=tool_evidence,
-            gaps=["Tool availability depends on installed host binaries, adapters, and worker/inline mode."],
+            gaps=tool_gaps,
             next_task_refs=["codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json"],
-            metrics={},
+            metrics={"runner_tool_certification_matrix": runner_tool_metrics},
         )
     )
 
@@ -569,6 +613,7 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
             "product_acceptance_matrix": "codex/tasks/product_acceptance_matrix.json",
             "target_lab_matrix": "codex/tasks/target_lab_matrix.json",
             "validation_matrix": "codex/results/validation-matrix-latest.json",
+            "runner_tool_certification_matrix": "codex/results/runner-tool-certification-matrix.json",
             "operator_assurance_matrix": "docs/operator_product_operational_assurance.md",
         },
     }

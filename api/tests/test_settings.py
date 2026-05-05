@@ -233,6 +233,10 @@ def test_settings_readiness_reports_tools_runtime_and_export_artifact(client, mo
     assert capabilities["deployment_hardening"]["status"] == "degraded"
     assert capabilities["deployment_hardening"]["metadata"]["production_like"] is False
     assert capabilities["deployment_hardening"]["metadata"]["secrets_plaintext_exposed"] is False
+    certification = capabilities["runner_tool_certification"]
+    assert certification["metadata"]["path"] == "codex/results/runner-tool-certification-matrix.json"
+    assert certification["metadata"]["tool_count"] >= 1
+    assert certification["metadata"]["raw_matrix_available"] is True
 
     tools = {item["id"]: item for item in payload["tools"]}
     assert tools["nmap"]["installed"] is True
@@ -245,6 +249,8 @@ def test_settings_readiness_reports_tools_runtime_and_export_artifact(client, mo
     assert "msfconsole" in tools["metasploit"]["missing_binaries"]
     assert tools["metasploit"]["repair_command"] == "sudo bash scripts/install_security_tools.sh && bash scripts/verify_host.sh"
     assert "Exploit confirmation" in tools["metasploit"]["affected_assessment_families"]
+    assert tools["crypto-audit"]["required_binary_groups"] == [["testssl.sh", "testssl"], ["ssh-audit"]]
+    assert "ssh-audit" in tools["crypto-audit"]["missing_binaries"]
     assert tools["wifi"]["hardware_required"] is True
     assert "airodump-ng" in tools["wifi"]["missing_binaries"]
 

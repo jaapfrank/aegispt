@@ -39,6 +39,7 @@ from api.app.services.secrets import (
     encrypt_secret_value,
     secret_display_label,
 )
+from api.app.services.tool_certification import summarize_runner_tool_certification_matrix
 
 DEFAULT_TENANT_SCOPE = "default"
 DISABLED_AI_PROVIDER_NAMES = {"", "disabled", "none", "off"}
@@ -112,6 +113,23 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
         affected_assessment_families=("SQL injection confirmation", "Input validation testing"),
         required=False,
         missing_next_step="Install sqlmap before enabling approved parameter-only SQLi confirmation.",
+    ),
+    ToolReadinessDefinition(
+        id="semgrep",
+        title="Semgrep",
+        binary_names=("semgrep",),
+        affected_assessment_families=("Code security audit", "Static analysis"),
+        required=False,
+        missing_next_step="Install Semgrep before enabling local code security audits.",
+    ),
+    ToolReadinessDefinition(
+        id="crypto-audit",
+        title="Cryptographic audit tools",
+        binary_names=("testssl.sh", "testssl", "ssh-audit"),
+        affected_assessment_families=("TLS/SSH cryptographic configuration review", "Cryptographic weakness audit"),
+        required=False,
+        missing_next_step="Install testssl.sh and ssh-audit before enabling host-backed cryptographic audits.",
+        required_binary_groups=(("testssl.sh", "testssl"), ("ssh-audit",)),
     ),
     ToolReadinessDefinition(
         id="responder",
@@ -1063,6 +1081,7 @@ def read_settings_readiness(
         _dispatch_mode_readiness(effective),
         _tool_summary_readiness(tools),
         _wireless_readiness(tools),
+        _runner_tool_certification_readiness(),
         _enterprise_identity_readiness(session, tenant_key=tenant_key, settings=settings, rows=rows),
         _ai_provider_readiness(session, tenant_key=tenant_key, settings=effective),
         _scheduler_readiness(session),
@@ -1406,6 +1425,37 @@ def _tool_summary_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabili
             "host_installer_command": "sudo bash scripts/install_security_tools.sh",
             "container_rebuild_command": "docker compose -f infra/compose/docker-compose.yml build --no-cache",
         },
+    )
+
+
+def _runner_tool_certification_readiness() -> ReadinessCapabilityRead:
+    summary = summarize_runner_tool_certification_matrix()
+    status = str(summary["readiness_status"])
+    if status == "ready":
+        headline = "Runner/tool certification matrix has no recorded certification gaps."
+    elif status == "missing":
+        headline = "Runner/tool certification matrix is not available."
+    else:
+        headline = (
+            f"Runner/tool certification matrix records {summary['supported_with_gap_tool_count']} gap(s) "
+            f"and {summary['blocked_tool_count']} blocker(s)."
+        )
+    return _capability(
+        capability_id="runner_tool_certification",
+        title="Runner/tool certification",
+        status=status,
+        summary=headline,
+        details=[
+            f"Matrix path: {summary['path']}.",
+            f"{summary['certified_tool_count']} of {summary['tool_count']} tracked runners are certified by deterministic evidence.",
+            "Gaps and hardware blockers are evidence records only; they do not install tools or authorize execution.",
+        ],
+        operator_next_step=(
+            "Run python3 scripts/build_runner_tool_certification_matrix.py and review codex/results/runner-tool-certification-matrix.md."
+            if status == "missing"
+            else "Review certification gaps before making support claims; use Settings tool readiness for current host binary state."
+        ),
+        metadata=summary,
     )
 
 

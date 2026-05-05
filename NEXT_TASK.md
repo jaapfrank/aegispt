@@ -2,28 +2,28 @@
 
 ## Title
 
-Runner and tool certification matrix: prove each supported assessment family has install, fixture, output, and report evidence
+Enterprise release blocker closure: execute accuracy evidence and close or keep blocked release claims honestly
 
 ## Promoted From
 
-`codex/tasks/backlog-240-runner-tool-certification-matrix.json`
+`codex/tasks/backlog-237-enterprise-release-blocker-closure.json`
 
 ## Goal
 
-Make the supported-tool and supported-runner surface enterprise-verifiable by certifying every tracked assessment family against installation readiness, safe fixture/lab proof, normalized output contracts, evidence artifacts, report mapping, and known limitations.
+Turn the current enterprise release-readiness no-go into current, evidence-backed truth by executing the validation matrix and updating the support-claim ledger without lowering gates or inventing proof.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-240-runner-tool-certification-matrix.json`.
+Implement the active backlog package `codex/tasks/backlog-237-enterprise-release-blocker-closure.json`.
 
 Expected slice:
 
-- create a machine-readable runner/tool certification matrix for tracked tool groups and custom runners
-- record installed/ready state, required authorization tier, safe fixture or benchmark proof, expected artifact schema, finding/report mapping, false-positive guardrails, and unsupported/hardware blockers
-- separate software readiness from hardware-only blockers such as wireless adapters
-- link each supported runner claim to deterministic tests, fixture/lab evidence, or an honest supported-with-gap/blocked reason
-- feed or reference the matrix from Settings/Diagnostics and enterprise release-readiness outputs where the task package requires it
-- keep this slice to certification evidence only; do not add new runners or new detection capabilities
+- run and repair only the existing release-readiness evidence path
+- execute the known-vulnerability validation matrix against safe/local benchmark targets, or record exact blockers and safest next steps for any blocked scenario
+- refresh enterprise release-readiness outputs from current evidence
+- keep the release gate fail-closed when critical evidence is missing
+- produce operator-readable blocker and reliability truth for detection accuracy, false-positive posture, skipped scenarios, and unsupported claims
+- do not add unrelated runners or new detection capability in this task
 
 ## Constraints
 
@@ -31,20 +31,22 @@ Expected slice:
 - Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- Certification and evidence matrix only.
-- Do not implement new detection capabilities.
-- Do not run against live external targets.
-- Do not change runner target execution safety boundaries.
+- Evidence closure only.
+- Do not fake results.
+- Do not relax thresholds to get a green release gate.
+- Do not mark unsupported capabilities as supported without evidence.
+- Do not run against live external/customer targets.
 - Do not remove finding schema fields.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest workers/tests -q`
-- `source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_release_readiness.py -q`
+- `python3 scripts/run_validation_matrix.py`
+- `python3 scripts/run_enterprise_release_readiness.py --output-json codex/results/enterprise-release-readiness.json --output-md codex/results/enterprise-release-readiness.md`
 - `git diff --check`
 
 ## Acceptance
 
-- Every supported runner/tool claim is backed by test or fixture evidence, or marked supported-with-gap/blocked honestly.
-- The certification matrix can be consumed by release-readiness and operator diagnostics.
+- Accuracy evidence is current and machine-readable, or blockers are explicit and fail closed.
+- The enterprise-ready claim is allowed only when the gate has current evidence for required claims.

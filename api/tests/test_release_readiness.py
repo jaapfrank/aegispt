@@ -50,6 +50,25 @@ def _seed_minimal_repo(root: Path, *, validation_status: str = "not_run") -> Non
         },
     )
     _write_json(
+        root / "codex/results/runner-tool-certification-matrix.json",
+        {
+            "kind": "aegispt.runner_tool_certification_matrix",
+            "tools": [
+                {
+                    "id": "nmap",
+                    "certification_status": "certified",
+                    "software_readiness": {"state": "ready"},
+                },
+                {
+                    "id": "wifi-survey",
+                    "certification_status": "blocked",
+                    "software_readiness": {"state": "missing"},
+                },
+            ],
+        },
+    )
+    _write(root / "codex/results/runner-tool-certification-matrix.md", "Runner and Tool Certification Matrix\n")
+    _write_json(
         root / "codex/results/backlog-181-full-system-audit.json",
         {"defects": [{"severity": "medium"}]},
     )

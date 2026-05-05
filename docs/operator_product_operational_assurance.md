@@ -27,6 +27,8 @@ It exists to prevent overclaiming. AegisPT can only claim a path is supported wh
 | `docs/acceptance_runbook.md` | Safe real-run acceptance procedure and reference result files. |
 | `docs/operator_console_phase7_checklist.md` | Phase 7 supported-path signoff summary and non-blocking follow-up notes. |
 | `docs/operational_truth_signoff.md` | Release-truth rules, completion language, and combination coverage requirements. |
+| `codex/results/runner-tool-certification-matrix.json` | Machine-readable runner/tool certification matrix covering supported tools, software readiness, evidence, output contracts, report mapping, and limitations. |
+| `codex/results/runner-tool-certification-matrix.md` | Human-readable runner/tool certification matrix summary for operator/release review. |
 
 ## Route Signoff Rule
 
@@ -129,6 +131,15 @@ Arbitrary public internet targets are not the default validation method.
 | Executive, technical, evidence, retest, SOC 2 reports | `supported-and-tested` | Current state and report tests record these variants as implemented. | SOC 2 is not a CPA attestation; ISO/PCI are not implemented. | `backlog-20`, `backlog-29`. |
 | ISO 27001 / PCI DSS packages | `intentionally-unsupported` | Current state lists them as future work. | Not implemented yet. | `backlog-29`. |
 | Evidence-backed assurance package | `supported-with-gap` | Assurance boundary is documented, but package output is future work. | Not implemented yet. | `backlog-20`. |
+
+## Runner and Tool Certification
+
+| Certification surface | Status | Current evidence | Known gap or limit | Next task candidate |
+| --- | --- | --- | --- | --- |
+| Supported runner/tool claim ledger | `supported-with-gap` | `codex/results/runner-tool-certification-matrix.json` lists each `SUPPORTED_TOOLS` entry with default profiles, authorization tier, software readiness, evidence links, artifact contract, report/finding or inventory mapping, false-positive guardrails, and limitations. | Some runners remain `supported-with-gap` or `blocked` until deterministic lab proof, host binary readiness, or hardware proof exists. | Keep updated whenever runner support claims change. |
+| Settings readiness reference | `supported-and-tested` | `/api/v1/settings/readiness` exposes `runner_tool_certification` capability metadata pointing to the matrix path and status counts. | It reads the repo artifact; it does not install tools or certify the current host by itself. | Normal settings regression lane. |
+| Diagnostics reference | `supported-and-tested` | `/api/v1/diagnostics` exposes a `runner_tool_certification` subsystem through the existing readiness flow. | Existing live processes may need restart before new diagnostics metadata appears. | Normal diagnostics regression lane. |
+| Wireless hardware blocker separation | `blocked` | Matrix marks `wifi-survey` hardware requirements separately from installable WiFi software readiness. | No deterministic wireless hardware lab or monitor-mode adapter proof is recorded. | Future explicit wireless lab validation only with authorized hardware and ROE. |
 
 ## Real-Run Safe Target Coverage
 
