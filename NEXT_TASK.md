@@ -2,58 +2,49 @@
 
 ## Title
 
-Cryptographic weakness detection runner: weak key lengths, deprecated algorithms, TLS/SSH config, and captured traffic analysis
+Runner and tool certification matrix: prove each supported assessment family has install, fixture, output, and report evidence
 
 ## Promoted From
 
-`codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json`
+`codex/tasks/backlog-240-runner-tool-certification-matrix.json`
 
 ## Goal
 
-Add the queued cryptographic weakness detection capability described in `codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json`.
+Make the supported-tool and supported-runner surface enterprise-verifiable by certifying every tracked assessment family against installation readiness, safe fixture/lab proof, normalized output contracts, evidence artifacts, report mapping, and known limitations.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-240-runner-tool-certification-matrix.json`.
 
 Expected slice:
 
-- add a `crypto-audit` runner for approved web, TLS, and SSH targets
-- use `testssl.sh` for HTTPS/TLS/SSL weakness checks beyond the existing basic `ssl-tls` runner
-- use `ssh-audit` for SSH cryptographic configuration checks
-- detect and normalize signals for export-grade ciphers, POODLE, BEAST, RC4, weak DH parameters, TLS 1.0/1.1, missing HSTS preload, and short certificate keys where applicable
-- represent JWE/JWS weak-algorithm and token-hash-length signals only where safe and without duplicating the queued JWT runner scope
-- include fix recommendations that explain why each weak algorithm/configuration is risky and name safer alternatives
-- add the `passive-crypto-audit` run profile with `tools=["crypto-audit"]` and zero required approvals where the task package requires it
-- wire the profile into web and TLS assessment Phase 1 paths and wizard surfaces for External Web and SSL/TLS tiles at any depth
-- keep evidence, findings, methodology tags, provenance, reports, approvals, scope, runtime binding, and kill switch aligned with existing models and flows
+- create a machine-readable runner/tool certification matrix for tracked tool groups and custom runners
+- record installed/ready state, required authorization tier, safe fixture or benchmark proof, expected artifact schema, finding/report mapping, false-positive guardrails, and unsupported/hardware blockers
+- separate software readiness from hardware-only blockers such as wireless adapters
+- link each supported runner claim to deterministic tests, fixture/lab evidence, or an honest supported-with-gap/blocked reason
+- feed or reference the matrix from Settings/Diagnostics and enterprise release-readiness outputs where the task package requires it
+- keep this slice to certification evidence only; do not add new runners or new detection capabilities
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Add only the cryptographic weakness detection capability from the task package.
 - Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- Configuration and algorithm detection only.
-- No brute-force attacks on live encryption.
-- No decryption attempts.
-- No custom cipher analysis.
-- Do not change the existing `ssl-tls` runner unless strictly necessary for registration compatibility.
-- Do not change the queued JWT runner.
-- No live target actions outside safe/local/expliciet geautoriseerde validatie.
+- Certification and evidence matrix only.
+- Do not implement new detection capabilities.
+- Do not run against live external targets.
+- Do not change runner target execution safety boundaries.
+- Do not remove finding schema fields.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/ -q`
+- `source .venv/bin/activate && python -m pytest workers/tests -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- `crypto-audit` is registered in supported tools.
-- `testssl.sh` and `ssh-audit` are used by the runner where applicable.
-- Export-grade cipher, POODLE, BEAST, RC4, TLS 1.0/1.1, weak DH, short certificate key, and weak SSH algorithm findings are represented safely.
-- Findings include remediation guidance with safer algorithm/configuration alternatives.
-- `passive-crypto-audit` exists and is reachable through External Web and SSL/TLS wizard paths at any depth.
-- Existing `ssl-tls`, JWT, runner, API, and assessment-chain tests do not regress.
+- Every supported runner/tool claim is backed by test or fixture evidence, or marked supported-with-gap/blocked honestly.
+- The certification matrix can be consumed by release-readiness and operator diagnostics.

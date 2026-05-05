@@ -287,6 +287,20 @@ def test_smart_home_command_preview_is_read_only() -> None:
     assert "10.0.20.44" in preview
 
 
+def test_crypto_audit_command_preview_names_safe_tooling() -> None:
+    preview = _runner_command_preview(
+        "crypto-audit",
+        ["https://portal.example.test"],
+        {"limits": {"mode": "passive"}},
+    )
+
+    assert "testssl.sh" in preview
+    assert "ssh-audit" in preview
+    assert "--no-bruteforce" in preview
+    assert "--no-decryption" in preview
+    assert "https://portal.example.test" in preview
+
+
 def test_camera_test_command_preview_is_read_only() -> None:
     preview = _runner_command_preview(
         "camera-test",
@@ -432,7 +446,10 @@ def test_semgrep_command_is_structured(tmp_path: Path) -> None:
 
 
 def test_semgrep_rule_id_is_normalized() -> None:
-    assert normalize_semgrep_rule_id("aegispt.python.hardcoded-secret") == "aegispt.python.hardcoded-secret"
+    assert (
+        normalize_semgrep_rule_id("aegispt.python.hardcoded-secret")
+        == "aegispt.python.hardcoded-secret"
+    )
     assert (
         normalize_semgrep_rule_id("tmp.aegispt-semgrep-rule.aegispt.python.hardcoded-secret")
         == "aegispt.python.hardcoded-secret"

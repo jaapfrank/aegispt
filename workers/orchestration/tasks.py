@@ -107,6 +107,7 @@ from workers.runners.cloud_native.runner import (
     execute_cloud_native_assessment,
 )
 from workers.runners.credential_attacks.runner import execute_credential_attacks
+from workers.runners.crypto_audit.runner import execute_crypto_audit
 from workers.runners.desktop_client.runner import (
     DESKTOP_CLIENT_INVENTORY_ARTIFACT_NAME,
     execute_desktop_client_assessment,
@@ -191,6 +192,7 @@ SUPPORTED_TOOLS = {
     "desktop-client",
     "deserialization-probe",
     "credential-attacks",
+    "crypto-audit",
     "easm-discover",
     "external-osint",
     "external-infra",
@@ -735,6 +737,41 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             crtsh_base_url=os.getenv("EASM_CRTSH_BASE_URL", "https://crt.sh/"),
             dns_wordlist_path=os.getenv("EASM_DNS_WORDLIST_PATH") or None,
             timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "crypto-audit":
+        return execute_crypto_audit(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else limits.get("mode", "passive")
+            ),
+            timeout_seconds=timeout_seconds,
+            testssl_binary=os.getenv("TESTSSL_BINARY", "testssl.sh"),
+            ssh_audit_binary=os.getenv("SSH_AUDIT_BINARY", "ssh-audit"),
+            tls_targets=(
+                request.params.get("tls_targets")
+                if isinstance(request.params.get("tls_targets"), list)
+                else None
+            ),
+            ssh_targets=(
+                request.params.get("ssh_targets")
+                if isinstance(request.params.get("ssh_targets"), list)
+                else None
+            ),
+            token_evidence=(
+                request.params.get("token_evidence")
+                if isinstance(request.params.get("token_evidence"), list)
+                else None
+            ),
+            testssl_results=request.params.get("testssl_results"),
+            ssh_audit_results=request.params.get("ssh_audit_results"),
+            http_headers_by_target=(
+                request.params.get("http_headers_by_target")
+                if isinstance(request.params.get("http_headers_by_target"), dict)
+                else None
+            ),
         )
     if request.tool == "external-infra":
         return execute_external_infra_assessment(
@@ -2341,6 +2378,15 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         mode = str(effective_params.get("mode") or "passive").strip() or "passive"
         marker = " --proof-marker" if effective_params.get("proof_marker") else ""
         return f"$ playwright chromium --{mode} --approved-scope {target_label}{extra}{marker}"
+    if tool == "crypto-audit":
+        mode = str(effective_params.get("mode") or "passive").strip() or "passive"
+        testssl_binary = os.getenv("TESTSSL_BINARY", "testssl.sh")
+        ssh_audit_binary = os.getenv("SSH_AUDIT_BINARY", "ssh-audit")
+        return (
+            f"$ crypto-audit --mode {mode} --testssl-binary {shlex.quote(testssl_binary)} "
+            f"--ssh-audit-binary {shlex.quote(ssh_audit_binary)} "
+            f"--approved-scope {target_label}{extra} --no-bruteforce --no-decryption"
+        )
     if tool == "content-discovery":
         wordlist = str(effective_params.get("wordlist_path") or "default-web-content").strip()
         return (

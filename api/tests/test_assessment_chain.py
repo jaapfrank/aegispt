@@ -163,10 +163,11 @@ def test_full_lan_iot_chain_definition_matches_required_phase_contract() -> None
     assert definition.phases[-1].never_auto_start is True
 
 
-def test_full_external_web_chain_includes_logging_probe_and_oauth_probe() -> None:
+def test_full_external_web_chain_includes_crypto_logging_and_oauth_probe() -> None:
     definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-EXTERNAL-WEB"]
 
     assert definition.phases[0].key == "passive-surface"
+    assert "passive-crypto-audit" in definition.phases[0].profiles
     assert "passive-web-logging-probe" in definition.phases[0].profiles
     assert definition.phases[1].key == "active-web-validation"
     assert "active-web-oauth-probe" in definition.phases[1].profiles
@@ -306,6 +307,23 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
             session,
             run_id=baseline_run.id,
             actor="runner:httpx",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        crypto_run = session.get(Run, chain.current_run_id)
+        assert crypto_run is not None
+        assert crypto_run.profile is not None
+        assert crypto_run.profile.name == "passive-crypto-audit"
+        assert crypto_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
+
+        crypto_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=crypto_run.id,
+            actor="runner:crypto-audit",
             settings=get_settings(),
         )
         session.commit()

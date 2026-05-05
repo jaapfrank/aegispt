@@ -362,7 +362,7 @@ def test_wizard_prediction_matrix_covers_visible_tiles_and_toggle_contract(loade
 def test_ssl_tls_and_authenticated_app_tiles_reach_specialized_preview(loaded_page: Page) -> None:
     matrix = _wizard_matrix(loaded_page)
     tile_lookup = {tile["key"]: tile for tile in matrix["assessment_tiles"]}
-    assert tile_lookup["ssl-tls"]["depths"][1]["expected_execution_profile"] == "passive-web-baseline"
+    assert tile_lookup["ssl-tls"]["depths"][1]["expected_execution_profile"] == "passive-crypto-audit"
     assert tile_lookup["authenticated-app"]["depths"][1]["expected_execution_profile"] == "active-web-safe"
 
     _reset_wizard(loaded_page)
@@ -376,7 +376,7 @@ def test_ssl_tls_and_authenticated_app_tiles_reach_specialized_preview(loaded_pa
     preview = loaded_page.locator('[data-testid="wizard-mission-preview"]:visible')
     expect(preview).to_be_visible()
     expect(preview).to_contain_text("SSL/TLS Only")
-    expect(loaded_page.get_by_test_id("wizard-preview-execution-lane")).to_contain_text("passive-web-baseline")
+    expect(loaded_page.get_by_test_id("wizard-preview-execution-lane")).to_contain_text("passive-crypto-audit")
 
     _reset_wizard(loaded_page)
     _select_tile(loaded_page, "authenticated-app")

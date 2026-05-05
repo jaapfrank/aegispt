@@ -355,6 +355,7 @@ const TOOL_ICON_LABELS = {
   "ldap-enum": "LDAP",
   "easm": "EASM",
   "httpx": "HTTPX",
+  "crypto-audit": "CRYP",
   "nuclei": "NUCL",
   "zap": "ZAP",
   "burp": "BURP",
@@ -381,6 +382,7 @@ const PROFILE_TARGET_GROUPS = {
   "passive-easm-discovery": ["domain", "web"],
   "passive-network-service-enumeration": ["network"],
   "passive-web-baseline": ["web", "api"],
+  "passive-crypto-audit": ["web", "api", "network", "domain"],
   "passive-web-logging-probe": ["web", "api"],
   "passive-web-nuclei-audit": ["web", "api"],
   "active-external-infrastructure": ["network", "domain", "web"],
@@ -417,6 +419,7 @@ const PROFILE_EXPECTATION_COPY = {
   "passive-easm-discovery": "Surface inventory, DNS truth, and discovered entry points.",
   "passive-network-service-enumeration": "Service banners, ports, and protocol fingerprints.",
   "passive-web-baseline": "HTTP stack inventory, routes, and response fingerprints.",
+  "passive-crypto-audit": "TLS, SSH, HSTS, certificate, and token cryptography posture.",
   "passive-web-logging-probe": "Verbose errors, stack traces, admin/debug exposure, actuator paths, and reflected log-injection markers.",
   "passive-web-nuclei-audit": "Safe CVE and exposure validation from curated templates.",
   "active-external-infrastructure": "Infrastructure-focused nuclei validation after the passive external baseline.",
@@ -581,8 +584,8 @@ const MISSION_PREVIEW_DEFINITIONS = {
         tier: "passive",
         icon: "SURF",
         estimatedMinutes: 16,
-        findingCopy: "Surface inventory, baseline web responses, verbose-error leakage, and discovered entry points.",
-        profiles: ["passive-easm-discovery", "passive-web-baseline", "passive-web-logging-probe"],
+        findingCopy: "Surface inventory, baseline web responses, cryptographic posture, verbose-error leakage, and discovered entry points.",
+        profiles: ["passive-easm-discovery", "passive-web-baseline", "passive-crypto-audit", "passive-web-logging-probe"],
       },
       {
         key: "active-web-validation",
@@ -886,7 +889,7 @@ function wizardMatrixExecutionProfile(tileKey, depthChoice, targetValue) {
   const depth = wizardDepthConfig(depthChoice);
   const targets = buildWizardTargetsForTileValue(targetValue, tileKey);
   if (targetsContainPrivateNetwork(targets)) return "passive-network-discovery";
-  if (tileKey === "ssl-tls") return "passive-web-baseline";
+  if (tileKey === "ssl-tls") return "passive-crypto-audit";
   if (tileKey === "authenticated-app") return depth.authorization === "passive" ? "passive-web-baseline" : "active-web-safe";
   if (tileKey === "api-security") return depth.authorization === "passive" ? "passive-web-baseline" : "active-api-assessment";
   if (tileKey === "llm-ai-app") return depth.authorization === "passive" ? "passive-web-baseline" : "active-llm-application-probe";
@@ -6434,7 +6437,7 @@ function resolveExecutionProfile(data) {
     return "passive-wifi-survey";
   }
   if (selectedTileKey === "ssl-tls" || selectedTileKeys.includes("ssl-tls") || data.assessment_type === "SSL/TLS Only") {
-    return "passive-web-baseline";
+    return "passive-crypto-audit";
   }
   if (selectedTileKey === "authenticated-app" || selectedTileKeys.includes("authenticated-app") || data.assessment_type === "Authenticated App") {
     return data.safety.active_checks === "passive-only" ? "passive-web-baseline" : "active-web-safe";
@@ -6476,7 +6479,7 @@ function resolveExecutionProfile(data) {
   ) {
     return "active-web-safe";
   }
-  if (data.test_profile === "SSL/TLS Only") return "passive-web-baseline";
+  if (data.test_profile === "SSL/TLS Only") return "passive-crypto-audit";
   if (data.test_profile === "Standard" && data.modules.nuclei_checks) return "passive-web-nuclei-audit";
   if (data.test_profile === "Light" || data.test_profile === "External Surface Only") return "passive-web-baseline";
   return "passive-web-baseline";

@@ -136,6 +136,7 @@ from api.app.services.runs import (
     validate_bloodhound_run_configuration,
     validate_business_logic_run_configuration,
     validate_configured_targets_within_scope,
+    validate_crypto_audit_run_configuration,
     validate_credential_attack_run_configuration,
     validate_easm_run_configuration,
     validate_impacket_lateral_run_configuration,
@@ -178,6 +179,7 @@ AUTO_DISPATCH_BLOCKED_TOOLS = {
 LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
     "biz-logic-probe",
     "burp",
+    "crypto-audit",
     "headers-security",
     "httpx",
     "logging-probe",
@@ -647,6 +649,11 @@ def create_run(
     try:
         if "biz-logic-probe" in planned_tools(profile):
             validate_business_logic_run_configuration(
+                scope=scope,
+                configuration=sanitized_configuration,
+            )
+        if "crypto-audit" in planned_tools(profile):
+            validate_crypto_audit_run_configuration(
                 scope=scope,
                 configuration=sanitized_configuration,
             )

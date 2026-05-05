@@ -484,6 +484,7 @@ def test_list_run_profiles(client) -> None:
         "passive-cloud-aws-inventory",
         "passive-cloud-native-assessment",
         "passive-code-semgrep-audit",
+        "passive-crypto-audit",
         "passive-desktop-client-static",
         "passive-easm-discovery",
         "passive-external-infrastructure",

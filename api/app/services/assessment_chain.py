@@ -85,6 +85,7 @@ HOST_FOLLOW_UP_PROFILES = {
 
 WEB_FOLLOW_UP_PROFILES = {
     "passive-web-baseline",
+    "passive-crypto-audit",
     "passive-web-logging-probe",
     "passive-web-nuclei-audit",
     "active-web-safe",
@@ -257,6 +258,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 profiles=(
                     "passive-easm-discovery",
                     "passive-web-baseline",
+                    "passive-crypto-audit",
                     "passive-web-logging-probe",
                 ),
             ),

@@ -1089,6 +1089,78 @@ def logging_probe_runner_params_from_configuration(
     return result
 
 
+def crypto_audit_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("crypto_audit")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("tls_targets",):
+        for source in (settings, validation):
+            if field_name in result:
+                continue
+            value = _normalized_string_list(source.get(field_name), limit=64)
+            if value:
+                result[field_name] = value
+
+    for source in (settings, validation):
+        if "ssh_targets" in result:
+            continue
+        value = source.get("ssh_targets")
+        if isinstance(value, list) and value:
+            ssh_targets: list[Any] = []
+            for item in value[:64]:
+                if isinstance(item, dict):
+                    host = str(item.get("host") or item.get("target") or "").strip()
+                    port = item.get("port")
+                    if host:
+                        ssh_targets.append(
+                            {"host": host, "port": int(port) if isinstance(port, int) else 22}
+                        )
+                elif isinstance(item, str) and item.strip():
+                    ssh_targets.append(item.strip())
+            if ssh_targets:
+                result["ssh_targets"] = ssh_targets
+
+    for source in (settings, validation):
+        if "token_evidence" in result:
+            continue
+        value = source.get("token_evidence")
+        if isinstance(value, list) and value:
+            result["token_evidence"] = [
+                dict(item) if isinstance(item, dict) else str(item)
+                for item in value[:50]
+                if isinstance(item, (dict, str)) and str(item).strip()
+            ]
+
+    for fixture_name in ("testssl_results", "ssh_audit_results"):
+        for source in (settings, validation):
+            if fixture_name in result:
+                continue
+            value = source.get(fixture_name)
+            if isinstance(value, (dict, list, str)):
+                result[fixture_name] = value
+    for source in (settings, validation):
+        if "http_headers_by_target" in result:
+            continue
+        value = source.get("http_headers_by_target")
+        if isinstance(value, dict):
+            result["http_headers_by_target"] = value
+
+    mode = str(settings.get("mode") or validation.get("crypto_audit_mode") or "").strip().lower()
+    if mode in {"passive", "active"}:
+        result["mode"] = mode
+    for source in (settings, validation):
+        if "timeout_seconds" not in result and isinstance(
+            source.get("timeout_seconds"), (int, float)
+        ):
+            result["timeout_seconds"] = min(max(float(source["timeout_seconds"]), 1.0), 60.0)
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2582,6 +2654,70 @@ def validate_logging_probe_run_configuration(
                 )
 
 
+def validate_crypto_audit_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    targets = derive_targets_from_target_map(
+        configuration.get("targets")
+        if isinstance(configuration, dict) and isinstance(configuration.get("targets"), dict)
+        else scope.allowlist_json
+    )
+    params = crypto_audit_runner_params_from_configuration(configuration)
+    if (
+        not planned_targets_for_tool("crypto-audit", targets)
+        and not params.get("tls_targets")
+        and not params.get("ssh_targets")
+        and not params.get("token_evidence")
+    ):
+        raise ValueError("crypto-audit requires at least one in-scope TLS, SSH, or token target")
+
+    timeout_value = params.get("timeout_seconds")
+    if isinstance(timeout_value, (int, float)) and not 0 < float(timeout_value) <= 60:
+        raise ValueError(
+            "crypto-audit timeout_seconds must be greater than zero and capped at 60 seconds"
+        )
+
+    for raw_value in params.get("tls_targets", []):
+        value = str(raw_value or "").strip()
+        if not value:
+            continue
+        allowed = (
+            web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+            if "://" in value
+            else target_value_is_allowed(scope.allowlist_json, value)
+        )
+        if not allowed:
+            raise ValueError(
+                f"configured crypto-audit TLS target {value} is outside the approved engagement scope"
+            )
+
+    for raw_value in params.get("ssh_targets", []):
+        if isinstance(raw_value, dict):
+            value = str(raw_value.get("host") or raw_value.get("target") or "").strip()
+        else:
+            value = str(raw_value or "").strip().split(":", 1)[0]
+        if value and not target_value_is_allowed(scope.allowlist_json, value):
+            raise ValueError(
+                f"configured crypto-audit SSH target {value} is outside the approved engagement scope"
+            )
+
+    for item in params.get("token_evidence", []):
+        if not isinstance(item, dict):
+            continue
+        for field_name in ("source_url", "target", "url", "token_endpoint"):
+            value = str(item.get(field_name) or "").strip()
+            if (
+                value
+                and "://" in value
+                and not web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+            ):
+                raise ValueError(
+                    f"configured crypto-audit token evidence target {value} is outside the approved engagement scope"
+                )
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -3454,6 +3590,12 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(url_targets)
         return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
 
+    if tool == "crypto-audit":
+        url_targets = [target for target in targets if target["kind"] == "url"]
+        if url_targets:
+            return list(url_targets)
+        return [target for target in targets if target["kind"] in {"host", "domain", "target"}]
+
     if tool in {
         "content-discovery",
         "nikto",
@@ -3709,6 +3851,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     http_smuggling_params = http_smuggling_runner_params_from_configuration(run_configuration)
     oauth_probe_params = oauth_probe_runner_params_from_configuration(run_configuration)
     logging_probe_params = logging_probe_runner_params_from_configuration(run_configuration)
+    crypto_audit_params = crypto_audit_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3820,6 +3963,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "logging-probe":
             validate_logging_probe_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "crypto-audit":
+            validate_crypto_audit_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -4213,6 +4361,24 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         if value not in (None, [], {})
                     }
                 )
+            if tool == "crypto-audit":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in crypto_audit_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+                task_params["mode"] = (
+                    str(
+                        task_params.get("mode") or normalized_limits.get("mode") or "passive"
+                    ).strip()
+                    or "passive"
+                )
+                if "ssh_targets" not in task_params:
+                    task_params["ssh_targets"] = (
+                        [target["value"]] if target["kind"] in {"host", "target"} else []
+                    )
             if tool == "xss-extended":
                 task_params.update(
                     {

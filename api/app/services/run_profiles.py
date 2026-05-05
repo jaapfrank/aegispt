@@ -721,6 +721,22 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "passive-crypto-audit",
+        "run_class": RunClass.PASSIVE.value,
+        "limits_json": {
+            "description": "Passive-safe cryptographic configuration review for approved TLS, SSH, and token evidence using testssl.sh and ssh-audit without brute force, decryption, or custom cipher analysis.",
+            "required_approvals": 0,
+            "tools": ["crypto-audit"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "mode": "passive",
+            "configuration_and_algorithm_detection_only": True,
+            "bruteforce_attempted": False,
+            "decryption_attempted": False,
+            "custom_cipher_analysis": False,
+        },
+    },
+    {
         "name": "passive-web-logging-probe",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {

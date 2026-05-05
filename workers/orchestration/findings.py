@@ -25,6 +25,7 @@ from workers.runners.cloud_native.runner import CLOUD_NATIVE_RESULTS_ARTIFACT_NA
 from workers.runners.credential_attacks.runner import (
     CREDENTIAL_ATTACK_RESULTS_ARTIFACT_NAME,
 )
+from workers.runners.crypto_audit.runner import CRYPTO_AUDIT_RESULTS_ARTIFACT_NAME
 from workers.runners.desktop_client.runner import DESKTOP_CLIENT_RESULTS_ARTIFACT_NAME
 from workers.runners.deserialization_probe.runner import DESERIALIZATION_RESULTS_ARTIFACT_NAME
 from workers.runners.external_infra.runner import EXTERNAL_INFRA_RESULTS_ARTIFACT_NAME
@@ -545,6 +546,7 @@ def extract_findings(
         "session-security",
         "auth-flow",
         "priv-esc-linux",
+        "crypto-audit",
     }:
         return extract_standard_json_findings(
             target_id=task.target_id,
@@ -572,6 +574,7 @@ def extract_findings(
                 SESSION_SECURITY_RESULTS_ARTIFACT_NAME,
                 AUTH_FLOW_RESULTS_ARTIFACT_NAME,
                 PRIV_ESC_LINUX_RESULTS_ARTIFACT_NAME,
+                CRYPTO_AUDIT_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

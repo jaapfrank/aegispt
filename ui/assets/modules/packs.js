@@ -562,6 +562,16 @@ const TOOL_CATALOG = Object.freeze([
     params: { focus: "ssh-audit" },
   },
   {
+    id: "crypto-audit",
+    name: "Crypto Audit",
+    category: "Discovery",
+    tier: "passive",
+    description: "Reviews approved TLS, SSH, and token cryptographic configuration using testssl.sh and ssh-audit.",
+    findings: ["Weak TLS protocol", "Weak SSH algorithm", "Deprecated token algorithm"],
+    prerequisites: ["Approved TLS/SSH target", "testssl.sh and ssh-audit available", "No brute force or decryption"],
+    chains: ["External Web", "SSL/TLS Only", "External infrastructure"],
+  },
+  {
     id: "easm-discover",
     name: "EASM Discover",
     category: "Discovery",
