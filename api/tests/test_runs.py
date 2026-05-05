@@ -448,6 +448,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-client-state",
         "active-web-content-discovery",
         "active-web-deserialization-probe",
+        "active-web-headers-security",
         "active-web-idor-bac",
         "active-web-jwt-probe",
         "active-web-safe",
@@ -2410,6 +2411,53 @@ def test_active_client_state_profile_requires_approval_and_queues_authenticated_
     assert task["params_json"]["auth_contexts"][0]["label"] == "Client State User"
     assert "session" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
     assert "session=alice" not in json.dumps(task["params_json"])
+
+
+def test_active_headers_security_profile_requires_approval_and_queues_header_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-headers-security",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "headers_security": {
+                    "attacker_origin": "https://evil.example.com",
+                    "additional_origins": ["null", "https://portal.example.test.evil.example.com"],
+                    "redirect_paths": ["redirect"],
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "headers-security"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["attacker_origin"] == "https://evil.example.com"
+    assert task["params_json"]["additional_origins"] == [
+        "null",
+        "https://portal.example.test.evil.example.com",
+    ]
+    assert task["params_json"]["redirect_paths"] == ["redirect"]
 
 
 def test_intrusive_responder_profile_requires_named_approval_gate_and_configured_interface(

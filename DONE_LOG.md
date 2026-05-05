@@ -1,5 +1,45 @@
 # Done Log
 
+- 2026-05-05: completed backlog-226 `HTTP security headers comprehensive check: CORS misconfiguration, CSP bypass, Clickjacking, HSTS, and information disclosure headers`:
+  - rationale:
+    - benchmark coverage showed AegisPT lacked a first-class runner for credentialed CORS reflection, detailed CSP policy risks, clickjacking exposure, HSTS completeness, and disclosure headers beyond existing ZAP passive behavior
+    - the active task required header analysis plus bounded Origin probes, structured evidence-first findings, and no CORS data extraction, CSP nonce bypass, clickjacking PoC, ZAP passive scanner change, or SSL/TLS runner change
+  - implementation:
+    - added `headers-security` as a dedicated runner that enforces approved web-root scope and emits `headers-security-results.json`
+    - implemented baseline header fetch, attacker/null/regex-bypass Origin probes, optional configured Origin/redirect probes, CSP directive analysis, clickjacking protection checks on sensitive/form pages, HSTS checks on HTTPS targets, and information-disclosure header checks
+    - recorded safety metadata proving passive header analysis, active Origin reflection probes, no cross-origin data extraction, no CSP nonce bypass, no clickjacking PoC, no ZAP configuration change, and no SSL/TLS runner change
+    - registered `headers-security` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-headers-security` run profile, and the Tool Library
+  - files:
+    - `workers/runners/headers_security/runner.py`
+    - `workers/runners/headers_security/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_headers_security_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-226-headers-security-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/headers_security/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py workers/tests/test_headers_security_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_headers_security_runner.py api/tests/test_pentest_depth_registration.py workers/tests/test_web_depth_runner.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_headers_security_profile_requires_approval_and_queues_header_task -q` passed after aligning the runner test with the existing title+target finding-import dedupe contract
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings; the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test and the command exited 0
+    - `python3 scripts/validate_backlog_tasks.py` passed after implementation
+    - `git diff --check` passed
+    - `curl -fsS --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -fsS --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "headers-security|HTTP Headers Security"` confirmed the live-served Tool Library module contains the HTTP Headers Security entry
+  - evidence:
+    - `codex/results/backlog-226-headers-security-runner-20260505.md`
+  - remaining risks:
+    - no public WebGoat/Gruyere or internet target was actively scanned during build-lane validation; proof is from deterministic safe fixtures and read-only local UI asset acceptance
+    - CORS findings intentionally stop at header reflection evidence and do not extract cross-origin data
+    - CSP JSONP allowlist detection is a conservative policy-risk signal, not full CSP bypass proof
+
 - 2026-05-05: completed backlog-225 `Client-state manipulation and server-side authorization bypass: detect privilege escalation via parameter/cookie tampering`:
   - rationale:
     - benchmark coverage showed AegisPT lacked a first-class runner for client-controlled hidden fields, role/admin cookies, privilege parameters, price manipulation, and workflow step-skipping

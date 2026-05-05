@@ -2,42 +2,43 @@
 
 ## Title
 
-HTTP security headers comprehensive check: CORS misconfiguration, CSP bypass, Clickjacking, HSTS, and information disclosure headers
+GraphQL security runner: introspection abuse, query depth attacks, field suggestion, injection via GraphQL
 
 ## Promoted From
 
-`codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json`
+`codex/tasks/backlog-227-graphql-security-runner.json`
 
 ## Goal
 
-Add the queued HTTP security headers capability described in `codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json`.
+Add the queued GraphQL security capability described in `codex/tasks/backlog-227-graphql-security-runner.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-226-http-security-headers-cors-csp-clickjacking.json`.
+Implement the active backlog package `codex/tasks/backlog-227-graphql-security-runner.json`.
 
 Expected slice:
 
-- detect CORS credential reflection with active Origin probes
-- detect null-origin acceptance, wildcard plus credentials, and regex-style Origin bypass patterns
-- parse CSP and report unsafe-inline, unsafe-eval, wildcard script sources, missing default-src, data: script sources, and JSONP-style allowlist risks
-- detect clickjacking exposure when frame protections are missing on sensitive/login/form pages
-- detect missing or incomplete HSTS on HTTPS targets
-- detect information-disclosure headers such as Server version strings, X-Powered-By, and X-AspNet-Version
-- check redirect/CORS header preservation without extracting actual cross-origin data
+- detect GraphQL endpoints such as `/graphql`, `/api/graphql`, `/v1/graphql`, and `/gql`
+- detect GraphQL playground or IDE exposure such as `/graphiql` and `/playground`
+- detect successful introspection and produce schema-disclosure findings
+- use schema enumeration for subsequent bounded field testing
+- detect missing query depth limiting with a bounded depth probe
+- detect field suggestion leakage
+- test injection payloads in GraphQL string arguments
+- represent batching and authorization-bypass checks safely within the package constraints
 - expose the capability through the supported execution registry and operator surfaces required by the package
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Add only the headers-security capability from the task package.
+- Add only the GraphQL security capability from the task package.
 - Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- Header analysis and Origin reflection probes only.
-- Do not exploit CORS to extract actual data.
-- Do not implement CSP nonce bypasses or full clickjacking PoC creation.
-- Do not change the existing ZAP passive scanner or SSL/TLS runner.
+- GraphQL detection and probing must stay within approved scope.
+- Depth attack probe is capped at max 20 levels and must stop immediately.
+- No batching attacks that could overwhelm the server.
+- Do not change the existing API assessment runner or ZAP config.
 - No live target actions outside safe/local/explicitly authorized validation.
 
 ## Validation
@@ -48,8 +49,9 @@ Expected slice:
 
 ## Acceptance
 
-- `headers-security` is registered in supported tools.
-- CORS credential reflection is detected correctly.
-- CSP, clickjacking, HSTS, and information-disclosure header findings are structured and evidence-first.
-- Passive header analysis and active CORS reflection behavior are represented without actual data extraction.
+- `graphql-probe` is registered in supported tools.
+- GraphQL endpoints are detected automatically.
+- Introspection findings are produced on a test GraphQL endpoint.
+- Schema enumeration is used for subsequent field testing.
+- GraphQL argument injection is tested in a bounded active tier requiring approval.
 - Existing runner/API tests do not regress.

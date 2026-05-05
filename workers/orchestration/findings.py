@@ -28,6 +28,7 @@ from workers.runners.credential_attacks.runner import (
 from workers.runners.desktop_client.runner import DESKTOP_CLIENT_RESULTS_ARTIFACT_NAME
 from workers.runners.deserialization_probe.runner import DESERIALIZATION_RESULTS_ARTIFACT_NAME
 from workers.runners.external_infra.runner import EXTERNAL_INFRA_RESULTS_ARTIFACT_NAME
+from workers.runners.headers_security.runner import HEADERS_SECURITY_RESULTS_ARTIFACT_NAME
 from workers.runners.idor_bac.runner import IDOR_BAC_ARTIFACT_NAME
 from workers.runners.impacket.runner import IMPACKET_RESULTS_ARTIFACT_NAME
 from workers.runners.iot_default_creds.runner import IOT_DEFAULT_CREDS_ARTIFACT_NAME
@@ -514,7 +515,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -529,6 +530,7 @@ def extract_findings(
                 VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
                 IDOR_BAC_ARTIFACT_NAME,
                 CLIENT_STATE_RESULTS_ARTIFACT_NAME,
+                HEADERS_SECURITY_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,

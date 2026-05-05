@@ -118,6 +118,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Injection confirmation"],
   },
   {
+    id: "headers-security",
+    name: "HTTP Headers Security",
+    category: "Web",
+    tier: "active",
+    description: "Analyzes CORS, CSP, clickjacking, HSTS, and disclosure headers with bounded Origin reflection probes and no cross-origin data extraction.",
+    findings: ["CORS credential reflection", "CSP unsafe source policy", "Clickjacking exposure", "Missing or incomplete HSTS", "Information disclosure header"],
+    prerequisites: ["Approved web root", "Active approval for Origin probes", "No CORS data extraction or clickjacking PoC creation"],
+    chains: ["External Web", "Authenticated App", "Configuration review"],
+  },
+  {
     id: "xxe-probe",
     name: "XXE Probe",
     category: "Web",

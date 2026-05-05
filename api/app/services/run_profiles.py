@@ -1012,6 +1012,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-headers-security",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated HTTP security-header validation for approved web roots covering CORS credential reflection probes, CSP policy risks, clickjacking exposure, HSTS completeness, and information-disclosure headers.",
+            "required_approvals": 1,
+            "tools": ["headers-security"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "passive_header_analysis": True,
+            "active_origin_reflection_probes": True,
+            "cors_data_extraction": False,
+            "clickjacking_poc": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

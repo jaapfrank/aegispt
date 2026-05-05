@@ -45,6 +45,7 @@ def test_web_depth_tools_are_supported() -> None:
         "session-security",
         "auth-flow",
         "client-state",
+        "headers-security",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 

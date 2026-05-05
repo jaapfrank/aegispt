@@ -114,6 +114,7 @@ from workers.runners.desktop_client.runner import (
 from workers.runners.deserialization_probe.runner import execute_deserialization_probe
 from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
+from workers.runners.headers_security.runner import execute_headers_security_analysis
 from workers.runners.httpx.runner import execute_httpx_probe
 from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
@@ -187,6 +188,7 @@ SUPPORTED_TOOLS = {
     "easm-discover",
     "external-osint",
     "external-infra",
+    "headers-security",
     "httpx",
     "idor-bac",
     "impacket-lateral",
@@ -453,6 +455,27 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             gruyere_contexts=(
                 request.params.get("gruyere_contexts")
                 if isinstance(request.params.get("gruyere_contexts"), list)
+                else []
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "headers-security":
+        return execute_headers_security_analysis(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            attacker_origin=(
+                request.params.get("attacker_origin")
+                if isinstance(request.params.get("attacker_origin"), str)
+                else "https://evil.example.com"
+            ),
+            additional_origins=(
+                request.params.get("additional_origins")
+                if isinstance(request.params.get("additional_origins"), list)
+                else []
+            ),
+            redirect_paths=(
+                request.params.get("redirect_paths")
+                if isinstance(request.params.get("redirect_paths"), list)
                 else []
             ),
             timeout_seconds=timeout_seconds,
@@ -2164,6 +2187,14 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--auth-contexts {context_count} --form-contexts {form_count} "
             f"--cookie-contexts {cookie_count} --request-contexts {request_count} "
             f"--configured-credentials-only --approved-scope {target_label}{extra}"
+        )
+    if tool == "headers-security":
+        origin_count = len(effective_params.get("additional_origins") or []) if isinstance(effective_params.get("additional_origins"), list) else 0
+        redirect_count = len(effective_params.get("redirect_paths") or []) if isinstance(effective_params.get("redirect_paths"), list) else 0
+        return (
+            "$ headers-security --passive-headers --cors-origin-reflection "
+            f"--additional-origins {origin_count} --redirect-probes {redirect_count} "
+            f"--no-cors-data-extraction --approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":
         upload_count = len(effective_params.get("upload_contexts") or []) if isinstance(effective_params.get("upload_contexts"), list) else 0

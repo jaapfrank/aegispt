@@ -913,6 +913,30 @@ def client_state_runner_params_from_configuration(
     return result
 
 
+def headers_security_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("headers_security")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("additional_origins", "redirect_paths"):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    value = validation.get("redirect_paths")
+    if isinstance(value, list) and value and "redirect_paths" not in result:
+        result["redirect_paths"] = value
+    attacker_origin = str(settings.get("attacker_origin") or "").strip()
+    if attacker_origin:
+        result["attacker_origin"] = attacker_origin
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2080,6 +2104,41 @@ def validate_client_state_run_configuration(
                     )
 
 
+def validate_headers_security_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="headers-security",
+    )
+    params = headers_security_runner_params_from_configuration(configuration)
+    attacker_origin = params.get("attacker_origin")
+    if attacker_origin is not None:
+        parsed_origin = urlparse(str(attacker_origin))
+        if parsed_origin.scheme not in {"http", "https"} or not parsed_origin.netloc:
+            raise ValueError("headers-security attacker_origin must be an absolute HTTP(S) origin")
+    for origin in params.get("additional_origins", []):
+        origin_value = str(origin or "").strip()
+        if origin_value == "null":
+            continue
+        parsed_origin = urlparse(origin_value)
+        if parsed_origin.scheme not in {"http", "https"} or not parsed_origin.netloc:
+            raise ValueError("headers-security additional_origins must be HTTP(S) origins or null")
+    for raw_path in params.get("redirect_paths", []):
+        value = str(raw_path or "").strip()
+        if (
+            value
+            and "://" in value
+            and not web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+        ):
+            raise ValueError(
+                f"configured headers-security redirect target {value} is outside the approved engagement scope"
+            )
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -2906,6 +2965,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "vuln-components",
         "idor-bac",
         "client-state",
+        "headers-security",
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
@@ -3139,6 +3199,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     vulnerable_components_params = vulnerable_components_runner_params_from_configuration(run_configuration)
     idor_bac_params = idor_bac_runner_params_from_configuration(run_configuration)
     client_state_params = client_state_runner_params_from_configuration(run_configuration)
+    headers_security_params = headers_security_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3219,6 +3280,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "client-state":
             validate_client_state_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "headers-security":
+            validate_headers_security_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3562,6 +3628,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             for key, value in client_state_params.items()
                             if value not in (None, [], {})
                         },
+                    }
+                )
+            if tool == "headers-security":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in headers_security_params.items()
+                        if value not in (None, [], {})
                     }
                 )
             if tool == "xss-extended":
