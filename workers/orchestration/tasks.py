@@ -140,6 +140,7 @@ from workers.runners.netexec.runner import execute_netexec_smb
 from workers.runners.network_segmentation.runner import execute_network_segmentation_assessment
 from workers.runners.nmap.runner import execute_nmap_scan
 from workers.runners.nuclei.runner import execute_nuclei_scan
+from workers.runners.oauth_probe.runner import execute_oauth_probe
 from workers.runners.playwright_web.runner import execute_playwright_web_validation
 from workers.runners.responder.runner import execute_responder_capture
 from workers.runners.semgrep.runner import execute_semgrep_scan
@@ -210,6 +211,7 @@ SUPPORTED_TOOLS = {
     "netexec",
     "nikto",
     "nuclei",
+    "oauth-probe",
     "playwright-web",
     "responder",
     "semgrep",
@@ -556,6 +558,42 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 float(request.params.get("timing_threshold_seconds"))
                 if isinstance(request.params.get("timing_threshold_seconds"), (int, float))
                 else 4.5
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "oauth-probe":
+        return execute_oauth_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            authorization_urls=(
+                request.params.get("authorization_urls")
+                if isinstance(request.params.get("authorization_urls"), list)
+                else []
+            ),
+            login_paths=(
+                request.params.get("login_paths")
+                if isinstance(request.params.get("login_paths"), list)
+                else []
+            ),
+            well_known_paths=(
+                request.params.get("well_known_paths")
+                if isinstance(request.params.get("well_known_paths"), list)
+                else []
+            ),
+            script_paths=(
+                request.params.get("script_paths")
+                if isinstance(request.params.get("script_paths"), list)
+                else []
+            ),
+            token_evidence=(
+                request.params.get("token_evidence")
+                if isinstance(request.params.get("token_evidence"), list)
+                else []
+            ),
+            client_id=(
+                request.params.get("client_id")
+                if isinstance(request.params.get("client_id"), str)
+                else None
             ),
             timeout_seconds=timeout_seconds,
         )
@@ -2307,6 +2345,24 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--proxy-evidence-required --configured-proxy-evidence {evidence_count} "
             f"--timeout {timeout_value:g}s --no-confirming-request "
             f"--no-hijacking --no-cache-poisoning --approved-scope {target_label}{extra}"
+        )
+    if tool == "oauth-probe":
+        authorization_count = (
+            len(effective_params.get("authorization_urls") or [])
+            if isinstance(effective_params.get("authorization_urls"), list)
+            else 0
+        )
+        token_evidence_count = (
+            len(effective_params.get("token_evidence") or [])
+            if isinstance(effective_params.get("token_evidence"), list)
+            else 0
+        )
+        return (
+            "$ oauth-probe --discover-openid-configuration --discover-js-auth-requests "
+            f"--configured-authorization-urls {authorization_count} "
+            f"--token-evidence {token_evidence_count} --redirects-not-followed "
+            "--no-third-party-idp-requests --no-token-exchange "
+            f"--approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":
         upload_count = len(effective_params.get("upload_contexts") or []) if isinstance(effective_params.get("upload_contexts"), list) else 0

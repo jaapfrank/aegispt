@@ -179,6 +179,7 @@ LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
     "headers-security",
     "httpx",
     "nuclei",
+    "oauth-probe",
     "playwright-web",
     "zap",
 }

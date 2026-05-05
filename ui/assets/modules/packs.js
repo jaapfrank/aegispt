@@ -178,6 +178,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "API Security"],
   },
   {
+    id: "oauth-probe",
+    name: "OAuth/OIDC Probe",
+    category: "Authentication",
+    tier: "active",
+    description: "Discovers OAuth2 and OIDC authorization flows, then checks redirect_uri acceptance, missing state, absent PKCE, token-in-URL leakage, scope over-grant evidence, and implicit-flow support without third-party IdP interaction.",
+    findings: ["OAuth2 Redirect URI Bypass - Account Takeover Possible", "OAuth2 State Parameter Missing", "OAuth2 Authorization Code Flow Without PKCE", "OAuth2/OIDC Token Leaked in URL"],
+    prerequisites: ["Approved web or API target", "Active approval", "Same-origin OAuth endpoints or configured token evidence", "No third-party IdP requests or token exchange"],
+    chains: ["External Web", "Authenticated App", "API Security"],
+  },
+  {
     id: "session-security",
     name: "Session Security",
     category: "Authentication",

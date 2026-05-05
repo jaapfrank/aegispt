@@ -42,6 +42,7 @@ from workers.runners.metasploit.runner import METASPLOIT_RESULTS_ARTIFACT_NAME
 from workers.runners.mobile_android.runner import MOBILE_ANDROID_RESULTS_ARTIFACT_NAME
 from workers.runners.netexec.runner import NETEXEC_RESULTS_ARTIFACT_NAME
 from workers.runners.network_segmentation.runner import NETWORK_SEGMENTATION_ARTIFACT_NAME
+from workers.runners.oauth_probe.runner import OAUTH_PROBE_RESULTS_ARTIFACT_NAME
 from workers.runners.playwright_web.runner import PLAYWRIGHT_WEB_RESULTS_ARTIFACT_NAME
 from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
 from workers.runners.semgrep.runner import normalize_semgrep_rule_id
@@ -518,7 +519,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "graphql-probe", "ssti-probe", "http-smuggling", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "graphql-probe", "ssti-probe", "http-smuggling", "oauth-probe", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -537,6 +538,7 @@ def extract_findings(
                 GRAPHQL_RESULTS_ARTIFACT_NAME,
                 SSTI_RESULTS_ARTIFACT_NAME,
                 HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME,
+                OAUTH_PROBE_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,

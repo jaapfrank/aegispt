@@ -1079,6 +1079,23 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-oauth-probe",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated OAuth2/OIDC misconfiguration discovery for redirect_uri acceptance, missing state, absent PKCE on SPA code flows, token-in-URL leakage, over-broad scope evidence, and implicit-flow support without third-party IdP interaction or token exchange.",
+            "required_approvals": 1,
+            "approval_step_id": "active-web-oauth-probe",
+            "tools": ["oauth-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "max_probe_timeout_seconds": 5,
+            "follow_redirects": False,
+            "third_party_idp_requests": False,
+            "token_exchange": False,
+            "raw_tokens_stored": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

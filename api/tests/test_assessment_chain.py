@@ -163,6 +163,13 @@ def test_full_lan_iot_chain_definition_matches_required_phase_contract() -> None
     assert definition.phases[-1].never_auto_start is True
 
 
+def test_full_external_web_chain_includes_oauth_probe_in_active_phase() -> None:
+    definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-EXTERNAL-WEB"]
+
+    assert definition.phases[1].key == "active-web-validation"
+    assert "active-web-oauth-probe" in definition.phases[1].profiles
+
+
 def test_full_internal_lan_assessment_chain_creates_queued_passive_run(client) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
 

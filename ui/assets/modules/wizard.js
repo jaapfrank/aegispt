@@ -369,6 +369,7 @@ const TOOL_ICON_LABELS = {
   "llm-probe": "LLM",
   "biz-logic": "BIZ",
   "aws-inventory": "AWS",
+  "oauth-probe": "OAUTH",
 };
 
 const PROFILE_TARGET_GROUPS = {
@@ -383,6 +384,7 @@ const PROFILE_TARGET_GROUPS = {
   "active-web-safe": ["web", "api"],
   "passive-web-burp": ["web", "api"],
   "active-business-logic": ["web", "api"],
+  "active-web-oauth-probe": ["web", "api"],
   "active-ad-bloodhound": ["directory", "network"],
   "passive-lan-smb-enum": ["network"],
   "intrusive-lan-credential-capture": ["network"],
@@ -416,6 +418,7 @@ const PROFILE_EXPECTATION_COPY = {
   "active-web-safe": "Guarded web validation with proof-backed application signals.",
   "passive-web-burp": "Proxy-driven request mapping and normalized web issues.",
   "active-business-logic": "IDOR, privilege, and workflow authorization weaknesses.",
+  "active-web-oauth-probe": "OAuth/OIDC redirect, state, PKCE, token leakage, scope, and implicit-flow evidence.",
   "active-ad-bloodhound": "AD path analysis, roastable accounts, and graph-backed exposure.",
   "passive-lan-smb-enum": "SMB signing, shares, and null-session posture.",
   "intrusive-lan-credential-capture": "Captured NTLM challenge-response material in scope.",
@@ -580,8 +583,8 @@ const MISSION_PREVIEW_DEFINITIONS = {
         tier: "active",
         icon: "WEB",
         estimatedMinutes: 26,
-        findingCopy: "Safe web validation, business logic issues, and normalized evidence.",
-        profiles: ["passive-web-nuclei-audit", "active-web-safe", "passive-web-burp", "active-business-logic"],
+        findingCopy: "Safe web validation, business logic issues, OAuth/OIDC posture, and normalized evidence.",
+        profiles: ["passive-web-nuclei-audit", "active-web-safe", "passive-web-burp", "active-business-logic", "active-web-oauth-probe"],
       },
       {
         key: "intrusive-confirmation",
@@ -665,7 +668,7 @@ const WIZARD_FLOW_DEPTH_OPTIONS = {
     profile: "Standard",
     title: "Phases 1-2",
     eta: "~60-90 min",
-    phases: "2 phases · 6 tools",
+    phases: "2 phases · 7 tools",
   },
   full: {
     goal: "deep-assessment",
@@ -674,7 +677,7 @@ const WIZARD_FLOW_DEPTH_OPTIONS = {
     profile: "Deep",
     title: "Full - all 4 phases",
     eta: "~2-3 hours",
-    phases: "4 phases · 18 conditional runners",
+    phases: "4 phases · 19 conditional runners",
   },
 };
 
@@ -1365,6 +1368,14 @@ function compatibleAssessmentModesForSelection(keys = selectedAssessmentTileKeys
     selectedTile?.assessmentType === "Internal Range / LAN"
   ) {
     return ["FULL-INTERNAL-LAN"];
+  }
+  if (
+    normalizedKeys.includes("external-web") ||
+    normalizedKeys.includes("api-security") ||
+    selectedTile?.assessmentType === "Website / Web App" ||
+    selectedTile?.assessmentType === "API"
+  ) {
+    return ["FULL-EXTERNAL-WEB"];
   }
   return [];
 }

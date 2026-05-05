@@ -453,6 +453,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-http-smuggling",
         "active-web-idor-bac",
         "active-web-jwt-probe",
+        "active-web-oauth-probe",
         "active-web-safe",
         "active-web-session-security",
         "active-web-sqlmap-confirmation",
@@ -2616,6 +2617,71 @@ def test_active_http_smuggling_profile_requires_approval_and_queues_smuggling_ta
     assert task["params_json"]["proxy_evidence"][0]["headers"]["Via"] == "1.1 lab-proxy"
     assert task["params_json"]["timeout_seconds"] == 5.0
     assert task["params_json"]["timing_threshold_seconds"] == 4.5
+
+
+def test_active_oauth_probe_profile_requires_named_approval_and_queues_oauth_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-oauth-probe",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "oauth_probe": {
+                    "authorization_urls": [
+                        "https://portal.example.test/app/oauth/authorize?client_id=spa&response_type=code"
+                    ],
+                    "script_paths": ["https://portal.example.test/app/app.js"],
+                    "token_evidence": [
+                        {
+                            "source_url": "https://portal.example.test/app/callback",
+                            "requested_scope": "openid",
+                            "granted_scope": "openid profile",
+                        }
+                    ],
+                    "timeout_seconds": 5,
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    wrong_approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert wrong_approval_response.status_code == 409
+    assert "active-web-oauth-probe" in wrong_approval_response.json()["detail"]
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "active-web-oauth-probe", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "oauth-probe"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["authorization_urls"] == [
+        "https://portal.example.test/app/oauth/authorize?client_id=spa&response_type=code"
+    ]
+    assert task["params_json"]["script_paths"] == ["https://portal.example.test/app/app.js"]
+    assert task["params_json"]["token_evidence"][0]["granted_scope"] == "openid profile"
+    assert task["params_json"]["timeout_seconds"] == 5.0
 
 
 def test_intrusive_responder_profile_requires_named_approval_gate_and_configured_interface(

@@ -1041,6 +1041,41 @@ def http_smuggling_runner_params_from_configuration(
     return result
 
 
+def oauth_probe_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("oauth_probe")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("authorization_urls", "login_paths", "well_known_paths", "script_paths"):
+        for source in (settings, validation):
+            if field_name in result:
+                continue
+            value = _normalized_string_list(source.get(field_name), limit=40)
+            if value:
+                result[field_name] = value
+    for source in (settings, validation):
+        if "token_evidence" in result:
+            continue
+        value = source.get("token_evidence")
+        if isinstance(value, list) and value:
+            result["token_evidence"] = [
+                dict(item)
+                for item in value[:20]
+                if isinstance(item, dict)
+            ]
+    client_id = str(settings.get("client_id") or validation.get("client_id") or "").strip()
+    if client_id:
+        result["client_id"] = client_id
+    for source in (settings, validation):
+        if "timeout_seconds" not in result and isinstance(source.get("timeout_seconds"), (int, float)):
+            result["timeout_seconds"] = float(source["timeout_seconds"])
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2367,6 +2402,49 @@ def validate_http_smuggling_run_configuration(
             )
 
 
+def validate_oauth_probe_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="oauth-probe",
+    )
+    params = oauth_probe_runner_params_from_configuration(configuration)
+    timeout_value = params.get("timeout_seconds")
+    if isinstance(timeout_value, (int, float)) and not 0 < float(timeout_value) <= 5:
+        raise ValueError("oauth-probe timeout_seconds must be greater than zero and capped at 5 seconds")
+
+    for field_name in ("authorization_urls", "login_paths", "well_known_paths", "script_paths"):
+        for raw_value in params.get(field_name, []):
+            value = str(raw_value or "").strip()
+            if (
+                value
+                and "://" in value
+                and not web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+            ):
+                raise ValueError(
+                    f"configured OAuth probe target {value} is outside the approved engagement scope"
+                )
+
+    token_evidence = params.get("token_evidence")
+    for item in token_evidence if isinstance(token_evidence, list) else []:
+        if not isinstance(item, dict):
+            continue
+        for field_name in ("source_url", "target", "url", "token_endpoint"):
+            value = str(item.get(field_name) or "").strip()
+            if (
+                value
+                and "://" in value
+                and not web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+            ):
+                raise ValueError(
+                    f"configured OAuth token evidence target {value} is outside the approved engagement scope"
+                )
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -3197,6 +3275,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "graphql-probe",
         "ssti-probe",
         "http-smuggling",
+        "oauth-probe",
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
@@ -3434,6 +3513,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     graphql_probe_params = graphql_probe_runner_params_from_configuration(run_configuration)
     ssti_params = ssti_runner_params_from_configuration(run_configuration)
     http_smuggling_params = http_smuggling_runner_params_from_configuration(run_configuration)
+    oauth_probe_params = oauth_probe_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3534,6 +3614,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "http-smuggling":
             validate_http_smuggling_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "oauth-probe":
+            validate_oauth_probe_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3908,6 +3993,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in http_smuggling_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "oauth-probe":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in oauth_probe_params.items()
                         if value not in (None, [], {})
                     }
                 )

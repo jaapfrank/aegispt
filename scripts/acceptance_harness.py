@@ -62,6 +62,7 @@ RUN_PROFILE_TOOL_HINTS = {
     "passive-mobile-android-static": ["mobile-android"],
     "active-web-safe": ["zap"],
     "active-web-zap-active": ["zap"],
+    "active-web-oauth-probe": ["oauth-probe"],
     "active-api-assessment": ["api-assessment"],
     "active-llm-application-probe": ["llm-probe"],
     "intrusive-validation": ["zap", "nuclei"],

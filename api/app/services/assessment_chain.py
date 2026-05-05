@@ -88,6 +88,7 @@ WEB_FOLLOW_UP_PROFILES = {
     "active-web-safe",
     "passive-web-burp",
     "active-business-logic",
+    "active-web-oauth-probe",
 }
 
 CHAIN_CRITICAL_FAILURE_PROFILES = {
@@ -265,6 +266,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                     "active-web-safe",
                     "passive-web-burp",
                     "active-business-logic",
+                    "active-web-oauth-probe",
                 ),
             ),
             AssessmentChainPhaseDefinition(

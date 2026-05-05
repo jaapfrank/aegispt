@@ -1,5 +1,54 @@
 # Done Log
 
+- 2026-05-05: completed backlog-230 `OAuth2/OIDC misconfiguration runner: redirect_uri bypass, PKCE absence, state parameter missing, and token leakage`:
+  - rationale:
+    - AegisPT had no first-class OAuth2/OIDC flow validation even though redirect URI bypass, missing state, absent PKCE, implicit flow, token-in-URL leakage, and over-broad token scopes are high-impact modern web/API risks
+    - the active task required approval-gated safe detection on approved application targets only, with no direct third-party IdP interaction, no token exchange, no account takeover, and no bypass of scope/ROE/runtime gates
+  - implementation:
+    - added `oauth-probe` as a dedicated approval-gated runner for approved web/API roots that emits `oauth-probe-results.json`
+    - the runner discovers OAuth/OIDC authorization requests from same-origin HTML, login links, JavaScript, configured paths, and `/.well-known/openid-configuration`
+    - findings cover redirect URI acceptance, missing `state`, SPA-style authorization-code flow without PKCE, token-bearing query/fragment/redirect URLs with raw token redaction, implicit-flow support, and configured token-evidence scope over-provisioning
+    - registered `oauth-probe` in supported worker tools, dispatch, command preview, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-oauth-probe` run profile, Tool Library, acceptance harness hints, and Full External Web/API wizard and assessment-chain surfaces
+  - package exception:
+    - the package suggested browser automation, but the safe build-lane and IdP constraints make static same-origin httpx discovery/probing the safer local pattern; this slice records `browser_automation_performed=false` and does not contact third-party IdP endpoints
+  - operator complaint boundary:
+    - this slice wires the new OAuth/OIDC runner into the Full External Web/API chain path, but it does not claim to solve the broader Gruyere full-pentest issue where all runners must be cohesively selected, approved, and started; that remains queued under backlog-250
+  - files:
+    - `workers/runners/oauth_probe/runner.py`
+    - `workers/runners/oauth_probe/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/assessment_chain.py`
+    - `api/app/routers/runs.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `ui/assets/modules/wizard.js`
+    - `scripts/acceptance_harness.py`
+    - `workers/tests/test_oauth_probe_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `api/tests/test_assessment_chain.py`
+    - `codex/results/backlog-230-oauth-probe-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - focused worker/API/UI tests passed for the new runner, supported-tools registration, run profile approval/queueing, assessment-chain profile inclusion, Tool Library/wizard source wiring, and wizard preview smoke
+    - required full API gate passed: `source .venv/bin/activate && python -m pytest api/tests/ -q`; existing Alembic warnings appeared and the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test
+    - extra wizard launch matrix was attempted but is not claimed green because the existing `run_create` rate limit blocked the 11th run in a test that creates 11 runs against a 10-per-minute limit
+    - read-only live acceptance passed after restarting the local inline host with `AEGISPT_LOCAL_ENSURE_ZAP=0`: `/health/live` was healthy, `/api/v1/run-profiles` exposed `active-web-oauth-probe` with `tools=["oauth-probe"]`, and `/app/assets/modules/wizard.js` exposed the Full External Web/API chain wiring
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-231 into `NEXT_TASK.md`
+    - final `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-230-oauth-probe-runner-20260505.md`
+  - remaining risks:
+    - no third-party IdP, Gruyere, WebGoat, or public internet target was actively scanned during this build-lane slice
+    - redirect URI bypass evidence is safe no-follow redirect acceptance proof and should be human-reviewed before report wording implies completed account takeover
+    - token scope over-provisioning depends on configured token-evidence records; the runner does not perform token exchange
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-231 `Insufficient logging and monitoring detection`
+
 - 2026-05-05: completed backlog-229 `HTTP request smuggling runner: CL.TE, TE.CL, and TE.TE timing validation`:
   - rationale:
     - AegisPT had no first-class HTTP request smuggling coverage even though proxy-backed CL/TE desync is a critical web/API risk that default ZAP coverage does not reliably prove
