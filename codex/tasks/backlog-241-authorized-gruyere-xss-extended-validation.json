@@ -9,7 +9,7 @@
   "generated_by": "operator-authorized-gruyere-follow-up-2026-05-05",
   "generation_reason": "The operator correctly noted that backlog-220 should have used https://google-gruyere.appspot.com/ as the benchmark documentation source and then validated against the explicitly authorized Gruyere instance root.",
   "source_context": {
-    "queue_index": 241,
+    "queue_index": 242,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",

@@ -1,5 +1,25 @@
 # Done Log
 
+- 2026-05-05: queued and reprioritized backlog-243 `Mission launch auto-dispatch unified flow`:
+  - rationale:
+    - the operator reported that External Web missions still require a scattered sequence: `Approve Run` in Mission Control, `Start Queued Checks`, and then profiling activation from Attack Map instead of Mission Control
+    - this is an enterprise-blocking operator-flow defect rather than a normal future enhancement, so the new package was inserted directly after the current active SSTI task
+    - existing backlog items already cover pieces of the problem, especially backlog-180, backlog-208, and backlog-150; the new task explicitly consolidates the end-to-end launch/approval/dispatch/profiling contract without deleting those source references or weakening approval gates
+  - files:
+    - `codex/tasks/backlog-243-mission-launch-auto-dispatch-unified-flow.json`
+    - `TASK_QUEUE.md`
+    - shifted `source_context.queue_index` values for the packages now after queue item 216
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with 243 queued task packages mapped one-to-one and exactly one active task
+    - `git diff --check` passed
+  - evidence:
+    - no runtime evidence file was required because this slice only creates and prioritizes a task package; product validation belongs to backlog-243 when promoted
+  - remaining risks:
+    - the app behavior is not fixed yet; the task is queued immediately after backlog-228
+    - the future implementation must preserve explicit gates for exploitation, credentials, scope expansion, failed-runner recovery, pack validation, runtime binding, and kill switch
+
 - 2026-05-05: queued backlog-242 `Authorized DVGA GraphQL live-lab validation`:
   - rationale:
     - the operator correctly challenged fixture-only GraphQL proof for a pentesting product

@@ -9,7 +9,7 @@
   "generated_by": "ai-code-audit-2026-05-03",
   "generation_reason": "Email and Slack/Teams notifications absent — enterprise operators need real-time alerts on critical findings without having to poll the dashboard.",
   "source_context": {
-    "queue_index": 226,
+    "queue_index": 227,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-38-integration-portfolio-expansion-foundation.json",

@@ -9,7 +9,7 @@
   "generated_by": "visual-audit-2026-05-03",
   "generation_reason": "Visual audit 2026-05-03: Multi-tile wizard target question and interpretation are wrong — URL input labelled as CIDR, LAN-language question shown for mixed Web+LAN selection.",
   "source_context": {
-    "queue_index": 234,
+    "queue_index": 235,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,

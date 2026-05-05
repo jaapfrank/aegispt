@@ -9,7 +9,7 @@
   "generated_by": "ai-code-audit-2026-05-03",
   "generation_reason": "421-line CVE template generator with full safety validation exists but has no accessible UI workflow — operators cannot use AI to create new tests.",
   "source_context": {
-    "queue_index": 229,
+    "queue_index": 230,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-91-ai-nuclei-template-generation.json",

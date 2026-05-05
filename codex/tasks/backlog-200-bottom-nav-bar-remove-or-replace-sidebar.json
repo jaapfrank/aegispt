@@ -9,7 +9,7 @@
   "generated_by": "visual-audit-2026-05-03",
   "generation_reason": "Visual audit 2026-05-03: bottom nav bar is a redundant duplicate of the sidebar — wastes 44px and creates two navigation systems.",
   "source_context": {
-    "queue_index": 236,
+    "queue_index": 237,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,

@@ -9,7 +9,7 @@
   "generated_by": "autoPenBench-gap-analysis-2026-05-03",
   "generation_reason": "AutoPenBench AC tasks (SUID, sudo, file permissions) not covered by AegisPT. LinPEAS-equivalent runner required for post-exploitation privilege path enumeration.",
   "source_context": {
-    "queue_index": 219,
+    "queue_index": 220,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-74-metasploit-exploitation-runner.json",

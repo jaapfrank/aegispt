@@ -9,7 +9,7 @@
   "generated_by": "autoPenBench-gap-analysis-2026-05-03",
   "generation_reason": "AutoPenBench CRPT 0% success shows this is hard. AegisPT ssl-tls is basic. testssl.sh + ssh-audit adds enterprise-grade crypto analysis without requiring novel cryptographic attack capabilities.",
   "source_context": {
-    "queue_index": 220,
+    "queue_index": 221,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-221-jwt-vulnerability-runner.json"

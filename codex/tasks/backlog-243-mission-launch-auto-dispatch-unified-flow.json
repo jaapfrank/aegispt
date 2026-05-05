@@ -1,0 +1,131 @@
+{
+  "id": "backlog-243-mission-launch-auto-dispatch-unified-flow",
+  "task_file": "codex/tasks/backlog-243-mission-launch-auto-dispatch-unified-flow.json",
+  "task_type": "operator_flow_repair",
+  "title": "Mission launch auto-dispatch unified flow: one authorization, visible profiling, and Mission Control-owned next actions",
+  "goal": "Fix the operator flow where an External Web mission requires separate manual approval, separate Start Queued Checks, and then hidden profiling activation outside Mission Control. A normal safe/active web mission should move from Create Mission into authorized non-exploit execution without repeated clicks when launch authorization already covers the phase, while Mission Control clearly shows every planned, queued, running, completed, skipped, and blocked step including profiling.",
+  "scope": "Consolidate and prioritize the user-facing pain currently split across backlog-180 launch authorization auto-advance, backlog-208 chain phase visibility, and backlog-150 lifecycle dispatch clarity. The slice is specifically about the end-to-end operator contract after mission creation: launch-time authorization, approval gate state, queued task dispatch, profiling/discovery visibility, and Mission Control next-action ownership. It must not remove approval gates; it must make existing authorization carry through eligible non-exploitation phases and make any still-required gate explicit in one place.",
+  "status": "queued",
+  "generated_by": "operator-mission-flow-blocker-2026-05-05",
+  "generation_reason": "The operator reported that External Web missions still require pressing Approve Run, then Start Queued Checks, then starting profiling from Attack Map instead of Mission Control. This makes the app feel unusable and blocks enterprise-ready operation.",
+  "source_context": {
+    "queue_index": 216,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-180-launch-authorization-auto-advance-contract.json",
+      "codex/tasks/backlog-208-chain-phase-visibility-mission-control.json",
+      "codex/tasks/backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth.json",
+      "codex/tasks/backlog-76-assessment-mode-automated-chain.json",
+      "NEXT_TASK.md",
+      "CURRENT_STATE.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "reported_flow": "External Web mission requires Approve Run, then Start Queued Checks, then profiling must be started from Attack Map instead of Mission Control.",
+    "broader_theme": "enterprise_operator_flow_and_safe_autorun",
+    "source_documents": [
+      "api/app/services/runs.py",
+      "api/app/services/assessment_chain.py",
+      "ui/assets/app.js",
+      "ui/assets/modules/missionControl.js",
+      "ui/assets/modules/attackMap.js",
+      "ui/tests/test_operator_console_e2e.py",
+      "api/tests/test_assessment_chain.py",
+      "api/tests/test_runs.py",
+      "codex/tasks/backlog-180-launch-authorization-auto-advance-contract.json",
+      "codex/tasks/backlog-208-chain-phase-visibility-mission-control.json",
+      "codex/tasks/backlog-150-run-lifecycle-dispatch-and-chain-recovery-truth.json"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Repair the mission launch, approval, dispatch, profiling visibility, and Mission Control next-action contract only. Do not implement unrelated runner capability, AI autonomy, intrusive exploitation automation, or broad UI redesign.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "approval_and_roe": "Do not bypass approval gates. Reuse the existing launch authorization, ROE, approval, deployment, runtime binding, credential, and kill-switch models. Auto-dispatch is allowed only for already-authorized non-exploitation work inside approved scope.",
+    "intrusive_boundaries": "Exploitation, credential attacks, intrusive network poisoning, out-of-scope expansion, missing credentials, missing prerequisites, failed-runner recovery, and any scope-changing action still require explicit operator confirmation.",
+    "mission_control_ownership": "Mission Control must be the single place where the operator can see and trigger any required next action for the selected run. Attack Map may still visualize profiling results, but it must not be the only place to start or understand profiling.",
+    "live_target_actions": "Validation may use only safe/local or explicitly authorized targets. If using a live target, record the exact root and prove requests stayed under scope."
+  },
+  "success_criteria": [
+    "Creating an External Web mission with launch authorization records the approval decision once and does not require a second Approve Run click for the same non-exploitation launch gate.",
+    "Eligible queued non-exploitation checks start automatically after mission creation or after the single launch approval, without requiring a separate Start Queued Checks click.",
+    "Mission Control shows profiling/discovery as a first-class planned or running task with status, target, tool, and next action; profiling is not hidden only in Attack Map.",
+    "If a gate still blocks execution, Mission Control explains exactly why and shows the one safe action needed, not a scattered sequence across pages.",
+    "The flow preserves explicit gates for exploitation, credentials, scope expansion, failed-runner recovery, kill switch, pack validation, deployment, and runtime binding.",
+    "Operator-facing copy uses clear product language: no duplicate approve/start wording, no hidden profiling state, and no developer-only lifecycle text.",
+    "Focused API and browser tests cover the External Web launch path from mission creation through auto-dispatch/profiling visibility and any remaining gated state.",
+    "No existing run lifecycle, approval, assessment-chain, or Mission Control tests regress."
+  ],
+  "likely_touched_files": [
+    "api/app/services/runs.py",
+    "api/app/services/assessment_chain.py",
+    "api/tests/test_runs.py",
+    "api/tests/test_assessment_chain.py",
+    "ui/assets/modules/missionControl.js",
+    "ui/assets/modules/attackMap.js",
+    "ui/tests/test_operator_console_e2e.py",
+    "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "Scope/ROE enforcement",
+    "Approval gate security model",
+    "Kill switch behavior",
+    "Credential gates",
+    "Intrusive exploitation automation",
+    "Capability pack validation/deployment/runtime binding bypasses"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/test_runs.py api/tests/test_assessment_chain.py -q",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py -q",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A safe External Web launch can be validated from the UI without duplicate Approve Run and Start Queued Checks actions for the same already-authorized non-exploit work.",
+      "Mission Control displays profiling/discovery status and required next actions for the selected run.",
+      "Any remaining manual approval is justified by an explicit safety boundary and is visible in Mission Control."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Removing approval gates globally",
+    "Making exploitation phases auto-run without explicit authorization",
+    "Changing scope interpretation or allowing out-of-scope targets",
+    "Adding new pentest runners",
+    "Moving all Attack Map functionality into Mission Control",
+    "Runtime self-modification or uncontrolled tool installation"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

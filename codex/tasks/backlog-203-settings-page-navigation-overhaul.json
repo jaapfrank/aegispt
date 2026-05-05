@@ -9,7 +9,7 @@
   "generated_by": "visual-audit-2026-05-03",
   "generation_reason": "Visual audit 2026-05-03: 28 flat panels in settings is overwhelming — add tab navigation and search.",
   "source_context": {
-    "queue_index": 239,
+    "queue_index": 240,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",

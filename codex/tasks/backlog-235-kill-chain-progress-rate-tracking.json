@@ -9,7 +9,7 @@
   "generated_by": "autoPenBench-gap-analysis-2026-05-03",
   "generation_reason": "AutoPenBench PR metric + MITRE ATT&CK mapping is the enterprise-standard way to communicate assessment depth. AegisPT has the data but not the connection.",
   "source_context": {
-    "queue_index": 233,
+    "queue_index": 234,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-208-chain-phase-visibility-mission-control.json"

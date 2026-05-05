@@ -9,7 +9,7 @@
   "generated_by": "ai-code-audit-2026-05-03",
   "generation_reason": "Chain phase progression is fully implemented in 1,854-line assessment_chain.py but completely invisible in the UI — operators don't know what phase they're in.",
   "source_context": {
-    "queue_index": 225,
+    "queue_index": 226,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-76-assessment-mode-automated-chain.json",
