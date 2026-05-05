@@ -981,6 +981,22 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-auth-flow",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated authentication-flow validation for approved web roots covering password reset token predictability, reset-token reuse, host-header reset poisoning, username enumeration, brute-force protection, and insecure credential submission.",
+            "required_approvals": 1,
+            "tools": ["auth-flow"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_auth_context": True,
+            "credentials_from_configured_contexts": True,
+            "reset_token_sample_limit": 5,
+            "failed_login_attempt_limit": 10,
+            "actual_account_takeover": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

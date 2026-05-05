@@ -43,6 +43,7 @@ def test_web_depth_tools_are_supported() -> None:
         "ssrf-probe",
         "deserialization-probe",
         "session-security",
+        "auth-flow",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 

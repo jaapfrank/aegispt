@@ -89,6 +89,7 @@ from workers.runners.base.stdout_stream import (
     mark_task_stdout_unavailable,
     reset_task_stdout_stream,
 )
+from workers.runners.auth_flow.runner import execute_auth_flow_analysis
 from workers.runners.biz_logic.runner import execute_biz_logic_probe
 from workers.runners.bloodhound.runner import execute_bloodhound_collect
 from workers.runners.burp.runner import execute_burp_scan
@@ -169,6 +170,7 @@ dramatiq.set_broker(redis_broker)
 
 SUPPORTED_TOOLS = {
     "api-assessment",
+    "auth-flow",
     "aws-inventory",
     "bloodhound-collect",
     "biz-logic-probe",
@@ -1352,6 +1354,65 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    if request.tool == "auth-flow":
+        return execute_auth_flow_analysis(
+            targets=request.targets,
+            auth_contexts=request.params.get("auth_contexts", []),
+            scope_allowlist=request.scope_allowlist,
+            login_url=(
+                str(request.params.get("login_url")).strip()
+                if request.params.get("login_url")
+                else None
+            ),
+            password_reset_url=(
+                str(request.params.get("password_reset_url")).strip()
+                if request.params.get("password_reset_url")
+                else None
+            ),
+            reset_consume_url=(
+                str(request.params.get("reset_consume_url")).strip()
+                if request.params.get("reset_consume_url")
+                else None
+            ),
+            login_method=str(request.params.get("login_method") or "POST"),
+            reset_method=str(request.params.get("reset_method") or "POST"),
+            username_field=str(request.params.get("username_field") or "username"),
+            password_field=str(request.params.get("password_field") or "password"),
+            reset_username_field=str(request.params.get("reset_username_field") or "username"),
+            reset_token_field=str(request.params.get("reset_token_field") or "token"),
+            new_password_field=str(request.params.get("new_password_field") or "new_password"),
+            extra_login_fields=(
+                request.params.get("extra_login_fields")
+                if isinstance(request.params.get("extra_login_fields"), dict)
+                else None
+            ),
+            extra_reset_fields=(
+                request.params.get("extra_reset_fields")
+                if isinstance(request.params.get("extra_reset_fields"), dict)
+                else None
+            ),
+            invalid_usernames=(
+                request.params.get("invalid_usernames")
+                if isinstance(request.params.get("invalid_usernames"), list)
+                else []
+            ),
+            reset_token_samples=int(request.params.get("reset_token_samples") or 5),
+            failed_login_attempts=int(request.params.get("failed_login_attempts") or 10),
+            invalid_password=str(
+                request.params.get("invalid_password") or "AegisPT-invalid-password-000!"
+            ),
+            reset_poison_host=(
+                str(request.params.get("reset_poison_host")).strip()
+                if request.params.get("reset_poison_host")
+                else None
+            ),
+            lockout_markers=(
+                request.params.get("lockout_markers")
+                if isinstance(request.params.get("lockout_markers"), list)
+                else []
+            ),
+            timeout_seconds=timeout_seconds,
+        )
     if request.tool == "zap":
         return execute_zap_scan(
             targets=request.targets,
@@ -1931,6 +1992,8 @@ def _runner_params_for_task(session, task: Task) -> dict[str, object]:
         params["auth_contexts"] = _materialize_playwright_web_auth_contexts(session, task)
     if task.tool == "session-security":
         params["auth_contexts"] = _materialize_session_security_auth_contexts(session, task)
+    if task.tool == "auth-flow":
+        params["auth_contexts"] = _materialize_session_security_auth_contexts(session, task)
     return params
 
 
@@ -2087,6 +2150,16 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             "$ session-security --fixation --cookie-flags --entropy --logout-replay --token-url "
             f"--auth-contexts {context_count} --samples {min(max(sample_count, 2), 10)} "
             f"--configured-credentials-only --approved-scope {target_label}{extra}"
+        )
+    if tool == "auth-flow":
+        context_count = len(effective_params.get("auth_contexts") or []) if isinstance(effective_params.get("auth_contexts"), list) else 0
+        failed_attempts = int(effective_params.get("failed_login_attempts") or 10)
+        reset_samples = int(effective_params.get("reset_token_samples") or 5)
+        return (
+            "$ auth-flow --password-reset --username-enumeration --bruteforce-protection "
+            f"--auth-contexts {context_count} --reset-samples {min(max(reset_samples, 2), 5)} "
+            f"--failed-login-attempts {min(max(failed_attempts, 1), 10)} "
+            f"--configured-test-accounts-only --approved-scope {target_label}{extra}"
         )
     if tool == "api-assessment":
         sources = []

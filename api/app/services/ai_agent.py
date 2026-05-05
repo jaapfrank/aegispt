@@ -49,6 +49,7 @@ class AgentProposalReviewError(RuntimeError):
 
 
 SUPPORTED_AI_PROPOSAL_TOOLS = {
+    "auth-flow",
     "aws-inventory",
     "content-discovery",
     "deserialization-probe",
@@ -73,6 +74,7 @@ SUPPORTED_AI_PROPOSAL_TOOLS = {
 
 TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "api-assessment",
+    "auth-flow",
     "aws-inventory",
     "bloodhound-collect",
     "biz-logic-probe",

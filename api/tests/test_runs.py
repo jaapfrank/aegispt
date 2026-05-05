@@ -444,6 +444,7 @@ def test_list_run_profiles(client) -> None:
         "active-lan-segmentation-test",
         "active-llm-application-probe",
         "active-offline-hash-crack",
+        "active-web-auth-flow",
         "active-web-content-discovery",
         "active-web-deserialization-probe",
         "active-web-idor-bac",
@@ -2236,6 +2237,86 @@ def test_active_session_security_profile_requires_approval_and_queues_authentica
     assert task["params_json"]["success_markers"] == ["welcome alice"]
     assert task["params_json"]["sample_count"] == 4
     assert task["params_json"]["auth_contexts"][0]["label"] == "Session User"
+    assert task["params_json"]["auth_contexts"][0]["username"] == "alice@example.test"
+    assert "password" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
+    assert "CorrectHorseBatteryStaple!" not in json.dumps(task["params_json"])
+
+
+def test_active_auth_flow_profile_requires_approval_and_queues_authenticated_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-auth-flow",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "access": {
+                    "accounts": [
+                        {
+                            "label": "Auth Flow User",
+                            "username": "alice@example.test",
+                            "role": "User",
+                            "secret_ref": "CorrectHorseBatteryStaple!",
+                        }
+                    ]
+                },
+                "auth_flow": {
+                    "login_url": "login",
+                    "password_reset_url": "reset",
+                    "reset_consume_url": "reset/consume",
+                    "username_field": "user",
+                    "password_field": "pass",
+                    "reset_username_field": "email",
+                    "reset_token_field": "token",
+                    "new_password_field": "new_password",
+                    "extra_login_fields": {"csrf": "login-token"},
+                    "extra_reset_fields": {"csrf": "reset-token"},
+                    "invalid_usernames": ["missing@example.test"],
+                    "reset_token_samples": 5,
+                    "failed_login_attempts": 10,
+                    "reset_poison_host": "evil.example.test",
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "auth-flow"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["login_url"] == "login"
+    assert task["params_json"]["password_reset_url"] == "reset"
+    assert task["params_json"]["reset_consume_url"] == "reset/consume"
+    assert task["params_json"]["username_field"] == "user"
+    assert task["params_json"]["password_field"] == "pass"
+    assert task["params_json"]["reset_username_field"] == "email"
+    assert task["params_json"]["reset_token_field"] == "token"
+    assert task["params_json"]["new_password_field"] == "new_password"
+    assert task["params_json"]["extra_login_fields"] == {"csrf": "login-token"}
+    assert task["params_json"]["extra_reset_fields"] == {"csrf": "reset-token"}
+    assert task["params_json"]["invalid_usernames"] == ["missing@example.test"]
+    assert task["params_json"]["reset_token_samples"] == 5
+    assert task["params_json"]["failed_login_attempts"] == 10
+    assert task["params_json"]["reset_poison_host"] == "evil.example.test"
+    assert task["params_json"]["auth_contexts"][0]["label"] == "Auth Flow User"
     assert task["params_json"]["auth_contexts"][0]["username"] == "alice@example.test"
     assert "password" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
     assert "CorrectHorseBatteryStaple!" not in json.dumps(task["params_json"])

@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-05: completed backlog-224 `Password reset and authentication flow security: detect predictable tokens, token reuse, and reset poisoning`:
+  - rationale:
+    - benchmark coverage showed AegisPT lacked first-class authentication-flow checks for password reset, username enumeration, brute-force protection, and insecure credential submission
+    - the active task required configured test accounts, active approval, bounded failed-login attempts, evidence-first findings, and safe fixture proof
+  - implementation:
+    - added `auth-flow` as a dedicated active runner that enforces approved web-root scope for the target, login endpoint, reset endpoint, and reset-consume endpoint
+    - implemented bounded password-reset token sampling capped at 5 reset requests, token predictability scoring, reset-token reuse validation, Host-header reset poisoning evidence checks, username enumeration comparison, brute-force protection checks capped at 10 failed login attempts, and HTTP/GET credential submission detection
+    - emitted `auth-flow-results.json` with structured findings, check records, replay metadata, summary counts, and safety metadata proving configured-test-account-only execution, no account takeover, no raw credentials in artifacts, and no raw reset-token values in artifacts
+    - registered `auth-flow` in supported tools, worker dispatch, command previews, secret materialization reuse, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-auth-flow` run profile, and the Tool Library
+  - files:
+    - `workers/runners/auth_flow/runner.py`
+    - `workers/runners/auth_flow/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_auth_flow_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-224-auth-flow-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/auth_flow/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_auth_flow_runner.py api/tests/test_pentest_depth_registration.py::test_new_depth_profiles_are_declared api/tests/test_pentest_depth_registration.py::test_new_depth_tools_plan_expected_targets api/tests/test_pentest_depth_registration.py::test_tool_library_lists_all_depth_tools api/tests/test_pentest_depth_registration.py::test_auth_flow_validation_requires_credentials_and_scope api/tests/test_runs.py::test_active_auth_flow_profile_requires_approval_and_queues_authenticated_task api/tests/test_runs.py::test_list_run_profiles -q` passed after correcting expected run-profile sort order
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings; the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test and the command exited 0
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `git diff --check` passed
+    - `curl -fsS http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -fsS http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "auth-flow|Auth Flow"` confirmed the live-served Tool Library module contains the Auth Flow entry
+  - evidence:
+    - `codex/results/backlog-224-auth-flow-runner-20260505.md`
+  - remaining risks:
+    - no public WebGoat passwordreset/insecurelogin target was actively tested during build-lane validation; proof is from deterministic safe fixtures
+    - real reset-token reuse validation depends on configured safe test-account credentials and explicit reset endpoints
+    - username-enumeration timing remains signal-based and most reliable under stable local test conditions
+    - brute-force validation is intentionally capped at 10 failed attempts and stops on lockout/rate-limit signals
+
 - 2026-05-05: completed backlog-223 `Session security deep analysis: session fixation, token entropy, cookie flags, and session invalidation after logout`:
   - rationale:
     - benchmark coverage showed AegisPT needed first-class session-management coverage beyond passive cookie observations: fixation, post-logout replay, entropy, and token-in-URL weaknesses require active authenticated probes

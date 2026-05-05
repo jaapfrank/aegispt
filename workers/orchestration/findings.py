@@ -13,6 +13,7 @@ from api.app.services.audit import write_audit_event
 from api.app.services.finding_quality import finding_quality_view
 from api.app.services.finding_sla import apply_finding_sla
 from workers.runners.api_assessment.runner import API_ASSESSMENT_RESULTS_ARTIFACT_NAME
+from workers.runners.auth_flow.runner import AUTH_FLOW_RESULTS_ARTIFACT_NAME
 from workers.runners.base.contracts import EvidenceArtifact
 from workers.runners.biz_logic.runner import BIZ_LOGIC_ARTIFACT_NAME
 from workers.runners.bloodhound.runner import BLOODHOUND_RESULTS_ARTIFACT_NAME
@@ -512,7 +513,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -530,6 +531,7 @@ def extract_findings(
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,
                 SESSION_SECURITY_RESULTS_ARTIFACT_NAME,
+                AUTH_FLOW_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

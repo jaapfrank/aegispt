@@ -148,6 +148,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["Authenticated App", "External Web", "API Security"],
   },
   {
+    id: "auth-flow",
+    name: "Auth Flow Security",
+    category: "Authentication",
+    tier: "active",
+    description: "Validates password reset token quality, reset-token reuse, host-header poisoning, username enumeration, brute-force protection, and insecure credential submission with configured test accounts only.",
+    findings: ["Predictable Password Reset Token", "Password Reset Token Reuse Accepted", "Password Reset Host Header Injection", "Username Enumeration", "Missing Brute Force Protection"],
+    prerequisites: ["Approved web root", "Configured test-account credentials", "Active approval", "Failed-login attempts capped at 10"],
+    chains: ["Authenticated App", "External Web", "API Security"],
+  },
+  {
     id: "vuln-components",
     name: "Vulnerable Components",
     category: "Web",

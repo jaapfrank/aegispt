@@ -99,6 +99,7 @@ BIZ_LOGIC_SECRET_BINDING_KEYS = {"password", "api_key", "bearer_token", "session
 BROWSER_SECRET_BINDING_KEYS = {"api_key", "bearer_token", "session"}
 API_ASSESSMENT_SECRET_BINDING_KEYS = {"password", "api_key", "bearer_token", "session"}
 SESSION_SECURITY_SECRET_BINDING_KEYS = {"password", "session"}
+AUTH_FLOW_SECRET_BINDING_KEYS = {"password", "session"}
 IMPACKET_SECRET_BINDING_KEYS = {"password", "ntlm_hash"}
 KERBEROAST_SECRET_BINDING_KEYS = {"password"}
 METASPLOIT_SECRET_BINDING_KEYS = {"password", "ntlm_hash"}
@@ -488,6 +489,98 @@ def session_security_runner_params_from_configuration(
         }
     if isinstance(settings.get("sample_count"), int):
         result["sample_count"] = min(max(int(settings["sample_count"]), 2), 10)
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
+def auth_flow_auth_contexts_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    access = payload.get("access")
+    if not isinstance(access, dict):
+        return []
+
+    accounts = access.get("accounts")
+    if not isinstance(accounts, list):
+        return []
+
+    auth_contexts: list[dict[str, Any]] = []
+    for raw_account in accounts:
+        if not isinstance(raw_account, dict):
+            continue
+        secret_bindings = raw_account.get("secret_bindings")
+        if not isinstance(secret_bindings, dict):
+            continue
+
+        usable_secret_bindings = {
+            key: dict(value)
+            for key, value in secret_bindings.items()
+            if key in AUTH_FLOW_SECRET_BINDING_KEYS and isinstance(value, dict)
+        }
+        if "password" not in usable_secret_bindings:
+            continue
+
+        username = str(raw_account.get("username") or "").strip()
+        if not username:
+            continue
+
+        auth_contexts.append(
+            {
+                "label": str(raw_account.get("label") or username).strip() or username,
+                "username": username,
+                "role": str(raw_account.get("role") or "User").strip() or "User",
+                "secret_bindings": usable_secret_bindings,
+            }
+        )
+
+    return auth_contexts
+
+
+def auth_flow_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("auth_flow")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("invalid_usernames", "lockout_markers"):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in (
+        "login_url",
+        "password_reset_url",
+        "reset_consume_url",
+        "login_method",
+        "reset_method",
+        "username_field",
+        "password_field",
+        "reset_username_field",
+        "reset_token_field",
+        "new_password_field",
+        "invalid_password",
+        "reset_poison_host",
+    ):
+        value = settings.get(field_name)
+        if isinstance(value, str) and value.strip():
+            result[field_name] = value.strip()
+    for field_name in ("extra_login_fields", "extra_reset_fields"):
+        value = settings.get(field_name)
+        if isinstance(value, dict):
+            normalized = {
+                str(key).strip(): str(raw_value)
+                for key, raw_value in value.items()
+                if str(key).strip()
+            }
+            if normalized:
+                result[field_name] = normalized
+    if isinstance(settings.get("reset_token_samples"), int):
+        result["reset_token_samples"] = min(max(int(settings["reset_token_samples"]), 2), 5)
+    if isinstance(settings.get("failed_login_attempts"), int):
+        result["failed_login_attempts"] = min(max(int(settings["failed_login_attempts"]), 1), 10)
     if isinstance(settings.get("timeout_seconds"), (int, float)):
         result["timeout_seconds"] = float(settings["timeout_seconds"])
     return result
@@ -2047,6 +2140,37 @@ def validate_session_security_run_configuration(
                 )
 
 
+def validate_auth_flow_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="auth-flow",
+    )
+    if not auth_flow_auth_contexts_from_configuration(configuration):
+        raise ValueError(
+            "auth-flow requires at least one authenticated test account with username and stored password binding"
+        )
+
+    params = auth_flow_runner_params_from_configuration(configuration)
+    for field_name in ("login_url", "password_reset_url", "reset_consume_url"):
+        target_value = str(params.get(field_name) or "").strip()
+        if (
+            target_value
+            and "://" in target_value
+            and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+        ):
+            raise ValueError(
+                f"configured auth-flow endpoint {target_value} is outside the approved engagement scope"
+            )
+    reset_poison_host = str(params.get("reset_poison_host") or "").strip()
+    if reset_poison_host and "://" in reset_poison_host:
+        raise ValueError("auth-flow reset_poison_host must be a hostname, not a URL")
+
+
 def local_cve_records_for_vulnerable_components(session: Session, *, limit: int = 500) -> list[dict[str, Any]]:
     records = session.scalars(
         select(ThreatIntelRecord).order_by(ThreatIntelRecord.advisory_updated_at.desc()).limit(limit)
@@ -2695,6 +2819,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "ssrf-probe",
         "deserialization-probe",
         "session-security",
+        "auth-flow",
     }:
         url_targets = [target for target in targets if target["kind"] == "url"]
         if url_targets:
@@ -2926,6 +3051,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
     session_security_params = session_security_runner_params_from_configuration(run_configuration)
+    auth_flow_params = auth_flow_runner_params_from_configuration(run_configuration)
     mobile_android_params = mobile_android_runner_params_from_configuration(run_configuration)
     desktop_client_params = desktop_client_runner_params_from_configuration(run_configuration)
     cloud_native_params = cloud_native_runner_params_from_configuration(run_configuration)
@@ -3016,6 +3142,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "session-security":
             validate_session_security_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "auth-flow":
+            validate_auth_flow_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3356,6 +3487,19 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         **{
                             key: value
                             for key, value in session_security_params.items()
+                            if value not in (None, [], {})
+                        },
+                    }
+                )
+            if tool == "auth-flow":
+                task_params.update(
+                    {
+                        "auth_contexts": auth_flow_auth_contexts_from_configuration(
+                            run_configuration
+                        ),
+                        **{
+                            key: value
+                            for key, value in auth_flow_params.items()
                             if value not in (None, [], {})
                         },
                     }
