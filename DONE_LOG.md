@@ -1,5 +1,48 @@
 # Done Log
 
+- 2026-05-06: completed backlog-219 `AI attack chain reasoning: teach the AI agent to chain web vulnerabilities across tools and recognize compound attack paths`:
+  - rationale:
+    - the AI agent already persisted post-task reasoning and proposals, and AegisPT already had additive finding-chain records, but post-task analysis only reasoned over the selected task/run output
+    - the active task required current-engagement web chain reasoning so operators get the next logical review-gated chain test when separate findings combine into a plausible compound path
+  - implementation:
+    - extended finding-chain signal detection for file upload, stored XSS, path traversal, writable filesystem, and code-execution prerequisite evidence
+    - added deterministic web chain patterns for `web-file-upload-plus-stored-xss` and `path-traversal-plus-writable-execution-signal`
+    - changed chain refresh during post-task analysis to read non-deleted findings from the current engagement, not only the current run
+    - stored additive `FindingChain` metadata with `chain_record_type=compound_attack_chain` and `source_scope=engagement_findings` without mutating component findings or auto-escalating severity
+    - extended the AI analysis context with `engagement_findings`, `finding_chains`, autonomous-mode state, and guardrails showing proposals do not execute tools, auto-approve, mutate findings, or expand scope
+    - added deterministic review-gated compound-chain `AgentProposal` drafts that appear through the existing AI Proposals inbox data path, with safe boundaries for no session hijacking, credential theft, file writes, code execution, payload placement, or autonomous exploit chaining
+    - tightened ChatGPT OAuth post-task instructions so provider output must keep chain reasoning current-engagement scoped and review-only
+  - files:
+    - `api/app/services/finding_chains.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/services/chatgpt_oauth.py`
+    - `api/tests/test_ai_agent_reasoning.py`
+    - `codex/results/backlog-219-ai-attack-chain-reasoning-web-context-20260506.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - Python compile checks passed for `api/app/services/ai_agent.py`, `api/app/services/finding_chains.py`, `api/app/services/chatgpt_oauth.py`, and `api/tests/test_ai_agent_reasoning.py`
+    - focused compound-chain tests passed for stored-XSS plus upload and path-traversal plus writable/code-execution prerequisite proposals
+    - focused existing chain-detection tests passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py api/tests/test_ai_chain_detection.py api/tests/test_chatgpt_oauth.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings only
+    - current-code safe API acceptance on `http://127.0.0.1:8000` passed for a synthetic current-engagement stored-XSS plus file-upload chain proposal returned by `/api/v1/runs/{run_id}/ai-insights`
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with exactly one active task, backlog-232, and `source_context.queue_index=232` matching `TASK_QUEUE.md`
+    - final `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-219-ai-attack-chain-reasoning-web-context-20260506.md`
+  - exceptions and boundaries:
+    - `http://127.0.0.1:8000` was relevant; it initially served stale code, the stale service was stopped, and current-code acceptance was performed after starting the edited repo on `127.0.0.1:8000`
+    - out-of-scope Codex/planner-generated untracked `codex/tasks/task-20260505...pack-refinement...json` files were removed because they were not the active task and were not queue-backed `backlog-*.json` packages
+    - a malformed curl/heredoc acceptance attempt failed locally with a broken pipe/JSON decode error and was not claimed green; the corrected API acceptance passed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; acceptance used synthetic local evidence for `https://backlog-219.local`
+    - pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, kill switch, autonomous dispatch, and proposal approval gates were not bypassed
+  - remaining risks:
+    - compound-chain recognition is template-based for the requested web patterns, not a full attack graph engine
+    - real provider output still depends on ChatGPT OAuth/session availability and quality, while deterministic tests cover the local fallback path
+    - approved follow-up proposals still require explicit operator review and dispatch through existing gates
+    - the broader operator-reported Gruyere wizard/all-tools issue remains outside this active task
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-232 `AI reasoning transparency`
+
 - 2026-05-06: completed backlog-207 `AI Security Research Lab screen: let AI invent new Nuclei templates, scripts, and test ideas from CVEs and findings`:
   - rationale:
     - AegisPT already had CVE-to-template generation and Pack Forge staging primitives, but no dedicated operator-facing Research surface for AI-assisted capability creation

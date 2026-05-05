@@ -69,6 +69,45 @@ SIGNAL_TOKENS: dict[str, tuple[str, ...]] = {
         "data exposure",
         "credentials exposed",
     ),
+    "web_file_upload": (
+        "file upload",
+        "upload endpoint",
+        "unrestricted file upload",
+        "arbitrary file upload",
+        "uploaded html",
+        "filename traversal",
+        "wstg-busl",
+    ),
+    "stored_xss": (
+        "stored xss",
+        "xss_stored",
+        "persistent xss",
+        "stored cross-site scripting",
+        "cross-site scripting stored",
+        "uploaded html executes",
+        "admin panel visited",
+        "admin visit",
+        "wstg-clnt-02",
+    ),
+    "path_traversal": (
+        "path traversal",
+        "directory traversal",
+        "file path traversal",
+        "lfi",
+        "../",
+        "wstg-athz-01",
+    ),
+    "writable_filesystem_or_code_execution": (
+        "writable filesystem",
+        "writable file system",
+        "file write",
+        "arbitrary file write",
+        "write primitive",
+        "code execution",
+        "remote code execution",
+        "rce",
+        "web shell",
+    ),
 }
 
 
@@ -102,6 +141,34 @@ CHAIN_PATTERNS: tuple[ChainPattern, ...] = (
         ),
         operator_note="Confirm shared target context and stored evidence before using this in a report narrative.",
     ),
+    ChainPattern(
+        pattern_id="web-file-upload-plus-stored-xss",
+        title="Unrestricted file upload plus stored XSS execution path",
+        required_signals=("web_file_upload", "stored_xss"),
+        combined_impact=(
+            "File-upload evidence combined with stored XSS evidence can indicate a compound web path where "
+            "uploaded HTML or script-bearing content may execute in a privileged review surface. This remains "
+            "an operator-reviewed hypothesis until a safe validation task confirms the prerequisites."
+        ),
+        operator_note=(
+            "Validate only with explicit authorization, benign proof markers, and existing approval gates; "
+            "do not claim session theft or account takeover without separately stored evidence."
+        ),
+    ),
+    ChainPattern(
+        pattern_id="path-traversal-plus-writable-execution-signal",
+        title="Path traversal plus writable execution prerequisite",
+        required_signals=("path_traversal", "writable_filesystem_or_code_execution"),
+        combined_impact=(
+            "Path-traversal evidence combined with file-write or code-execution prerequisites can indicate a "
+            "possible route toward executable content placement. The chain record is explanatory and must not "
+            "perform file writes or execute payloads automatically."
+        ),
+        operator_note=(
+            "Review traversal reachability and write/execution prerequisites with detection-only checks first; "
+            "active exploitation remains outside automatic reasoning."
+        ),
+    ),
 )
 
 
@@ -110,7 +177,7 @@ def refresh_finding_chains_for_run(*, session: Session, run_id: UUID) -> list[Fi
     if run is None:
         return []
 
-    findings = [finding for finding in list(run.findings or []) if finding.run_id == run.id]
+    findings = _engagement_findings_for_chain_refresh(session=session, run=run)
     detected: list[FindingChain] = []
     for pattern in CHAIN_PATTERNS:
         component_findings = _select_components_for_pattern(findings=findings, pattern=pattern)
@@ -120,6 +187,20 @@ def refresh_finding_chains_for_run(*, session: Session, run_id: UUID) -> list[Fi
 
     session.flush()
     return _list_chains_for_run(session=session, run_id=run.id)
+
+
+def _engagement_findings_for_chain_refresh(*, session: Session, run: Run) -> list[Finding]:
+    return list(
+        session.scalars(
+            select(Finding)
+            .join(Run, Finding.run_id == Run.id)
+            .where(
+                Run.engagement_id == run.engagement_id,
+                Run.deleted_at.is_(None),
+            )
+            .order_by(Finding.created_at.desc(), Finding.id.desc())
+        ).all()
+    )
 
 
 def build_finding_chain_context(
@@ -250,6 +331,8 @@ def _upsert_chain(*, session: Session, run: Run, pattern: ChainPattern, findings
         for finding in findings
     ]
     metadata = {
+        "chain_record_type": "compound_attack_chain",
+        "source_scope": "engagement_findings",
         "mutates_component_findings": False,
         "auto_escalates_severity": False,
         "executes_exploits": False,

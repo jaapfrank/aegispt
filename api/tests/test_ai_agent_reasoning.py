@@ -13,6 +13,7 @@ from api.app.models import (
     AuditEvent,
     Engagement,
     Finding,
+    FindingChain,
     Run,
     RunProfile,
     Task,
@@ -79,6 +80,138 @@ def _seed_run_with_task(
     session.add_all([engagement, profile, run, task, execution])
     session.flush()
     return run, task, execution
+
+
+def _seed_web_chain_run(
+    session,
+    *,
+    chain_kind: str,
+    cross_task: bool = False,
+) -> tuple[Run, Task, list[Finding]]:
+    suffix = str(uuid4())
+    target = "https://gruyere.local"
+    engagement = Engagement(
+        name=f"AI Web Chain {suffix}",
+        client="Acme Corp",
+        roe_ref=f"ROE-WEB-CHAIN-{suffix}",
+        status="active",
+    )
+    profile = RunProfile(
+        name=f"web-chain-profile-{suffix}",
+        run_class="active",
+        limits_json={"tools": ["httpx", "xss-extended", "nuclei"], "approval_required": True},
+    )
+    run = Run(
+        engagement=engagement,
+        profile=profile,
+        requested_by="web-chain-operator",
+        status="running",
+        configuration_json={
+            "assessment_type": "Website / Web App",
+            "targets": {"urls": [target]},
+            "safety": {"active_checks": "reviewed"},
+        },
+    )
+    task = Task(
+        run=run,
+        tool="httpx",
+        target_id=target,
+        params_json={"profile": "web-baseline"},
+        status="completed",
+    )
+    execution = ToolExecution(
+        task=task,
+        runner_digest="sha256:web-chain-fixture",
+        tool_version="httpx fixture",
+        exit_code=0,
+        stdout_text="web baseline completed",
+        stderr_text="",
+    )
+    findings_run = run
+    if cross_task:
+        findings_run = Run(
+            engagement=engagement,
+            profile=profile,
+            requested_by="web-chain-operator",
+            status="completed",
+            configuration_json={
+                "assessment_type": "Website / Web App",
+                "targets": {"urls": [target]},
+            },
+        )
+        session.add(findings_run)
+    session.add_all([engagement, profile, run, task, execution])
+    session.flush()
+
+    if chain_kind == "upload_xss":
+        specs = [
+            (
+                findings_run,
+                {
+                    "title": "Unrestricted file upload endpoint",
+                    "severity": "high",
+                    "evidence_ref": "artifact://web/upload-endpoint",
+                    "summary": "The scoped application exposes an upload endpoint that accepts HTML content.",
+                    "methodology_tags": ["file upload", "unrestricted file upload"],
+                    "wstg_id": "WSTG-BUSL-09",
+                },
+            ),
+            (
+                run,
+                {
+                    "title": "Stored XSS executes during admin panel visit",
+                    "severity": "high",
+                    "evidence_ref": "artifact://web/stored-xss-admin",
+                    "summary": "Stored cross-site scripting evidence was observed when an admin panel visited content.",
+                    "methodology_tags": ["stored xss", "admin panel visited"],
+                    "wstg_id": "WSTG-CLNT-02",
+                },
+            ),
+        ]
+    elif chain_kind == "path_traversal_execution":
+        specs = [
+            (
+                run,
+                {
+                    "title": "Path traversal reads files",
+                    "severity": "high",
+                    "evidence_ref": "artifact://web/path-traversal",
+                    "summary": "Directory traversal evidence is stored for the scoped application.",
+                    "methodology_tags": ["path traversal", "directory traversal"],
+                    "wstg_id": "WSTG-ATHZ-01",
+                },
+            ),
+            (
+                run,
+                {
+                    "title": "Writable filesystem code execution prerequisite",
+                    "severity": "medium",
+                    "evidence_ref": "artifact://web/writable-path",
+                    "summary": "A writable filesystem path and code execution prerequisite were recorded.",
+                    "methodology_tags": ["writable filesystem", "code execution"],
+                },
+            ),
+        ]
+    else:
+        raise ValueError(f"unsupported chain fixture: {chain_kind}")
+
+    findings: list[Finding] = []
+    for finding_run, spec in specs:
+        finding = Finding(
+            run=finding_run,
+            title=spec["title"],
+            severity=spec["severity"],
+            target_id=target,
+            evidence_ref=spec["evidence_ref"],
+            status="open",
+            summary=spec["summary"],
+            methodology_tags=spec["methodology_tags"],
+            wstg_id=spec.get("wstg_id"),
+        )
+        session.add(finding)
+        findings.append(finding)
+    session.flush()
+    return run, task, findings
 
 
 def test_agent_reasoning_and_proposal_records_are_additive_and_auditable(client) -> None:
@@ -391,6 +524,96 @@ def test_post_task_analysis_stores_pending_review_proposal_without_execution(cli
         assert proposals[0].metadata_json["dispatches_work"] is False
         assert proposals[0].metadata_json["requires_operator_review"] is True
         assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
+
+
+def test_post_task_analysis_creates_engagement_scoped_upload_xss_chain_proposal(client) -> None:
+    with client.app.state.session_factory() as session:
+        run, task, findings = _seed_web_chain_run(session, chain_kind="upload_xss", cross_task=True)
+        component_ids = {str(finding.id) for finding in findings}
+        task_count_before = session.scalar(select(func.count()).select_from(Task))
+
+        outcome = run_post_task_analysis_for_task(
+            session=session,
+            task_id=task.id,
+            settings=Settings(
+                ai_agent_post_task_analysis_enabled=True,
+                ai_agent_post_task_analysis_provider="deterministic",
+            ),
+        )
+        session.commit()
+
+        proposals = list_agent_proposals_for_run(session=session, run_id=run.id)
+        chains = session.scalars(select(FindingChain).where(FindingChain.run_id == run.id)).all()
+        reasoning_records = list_agent_reasoning_for_run(session=session, run_id=run.id)
+
+        assert outcome.status == "succeeded"
+        assert outcome.stored_proposal_count == 1
+        assert len(chains) == 1
+        assert chains[0].pattern_id == "web-file-upload-plus-stored-xss"
+        assert chains[0].metadata_json["chain_record_type"] == "compound_attack_chain"
+        assert chains[0].metadata_json["source_scope"] == "engagement_findings"
+        assert set(chains[0].component_finding_ids_json) == component_ids
+        assert len(proposals) == 1
+        proposal = proposals[0]
+        assert proposal.status == "pending_review"
+        assert proposal.proposed_tool == "xss-extended"
+        assert proposal.proposed_target == "https://gruyere.local"
+        assert proposal.metadata_json["proposal_kind"] == "compound_attack_chain"
+        assert proposal.metadata_json["dispatches_work"] is False
+        assert proposal.metadata_json["requires_operator_review"] is True
+        assert proposal.metadata_json["autonomous_chain_dispatch_allowed"] is False
+        chain_params = proposal.proposed_params_json["compound_attack_chain"]
+        assert chain_params["pattern_id"] == "web-file-upload-plus-stored-xss"
+        assert set(chain_params["component_finding_ids"]) == component_ids
+        assert chain_params["safe_boundaries"]["credential_theft"] is False
+        assert chain_params["safe_boundaries"]["exploit_chaining"] is False
+        assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
+        assert reasoning_records[0].context_snapshot_json["run"]["engagement_id"] == str(run.engagement_id)
+        assert len(reasoning_records[0].context_snapshot_json["engagement_findings"]) == 2
+        assert reasoning_records[0].context_snapshot_json["finding_chains"][0]["pattern_id"] == (
+            "web-file-upload-plus-stored-xss"
+        )
+
+    response = client.get(f"/api/v1/runs/{run.id}/ai-insights")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["proposals"][0]["metadata_json"]["proposal_kind"] == "compound_attack_chain"
+    assert payload["proposals"][0]["status"] == "pending_review"
+
+
+def test_post_task_analysis_creates_path_traversal_execution_chain_proposal(client) -> None:
+    with client.app.state.session_factory() as session:
+        run, task, findings = _seed_web_chain_run(session, chain_kind="path_traversal_execution")
+        component_ids = {str(finding.id) for finding in findings}
+
+        outcome = run_post_task_analysis_for_task(
+            session=session,
+            task_id=task.id,
+            settings=Settings(
+                ai_agent_post_task_analysis_enabled=True,
+                ai_agent_post_task_analysis_provider="deterministic",
+            ),
+        )
+        session.commit()
+
+        proposals = list_agent_proposals_for_run(session=session, run_id=run.id)
+        chain = session.scalar(select(FindingChain).where(FindingChain.run_id == run.id))
+
+        assert outcome.status == "succeeded"
+        assert chain is not None
+        assert chain.pattern_id == "path-traversal-plus-writable-execution-signal"
+        assert set(chain.component_finding_ids_json) == component_ids
+        assert len(proposals) == 1
+        proposal = proposals[0]
+        assert proposal.proposed_tool == "nuclei"
+        assert proposal.metadata_json["proposal_kind"] == "compound_attack_chain"
+        assert proposal.proposed_params_json["compound_attack_chain"]["pattern_id"] == (
+            "path-traversal-plus-writable-execution-signal"
+        )
+        safe_boundaries = proposal.proposed_params_json["compound_attack_chain"]["safe_boundaries"]
+        assert safe_boundaries["file_write"] is False
+        assert safe_boundaries["code_execution"] is False
+        assert safe_boundaries["exploit_chaining"] is False
 
 
 def test_post_task_analysis_autonomous_mode_queues_approved_follow_up_task(client) -> None:

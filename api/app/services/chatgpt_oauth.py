@@ -650,6 +650,10 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
                 "analysis.hypotheses must be arrays of objects. analysis.proposals must be an array of "
                 "bounded follow-up suggestions only, each with proposed_tool, proposed_target, "
                 "proposed_params, reasoning_text, risk_tier, priority, confidence_score, and metadata. "
+                "When task_context includes engagement_findings or finding_chains, reason only across "
+                "findings from the current engagement and keep compound attack-chain proposals review-gated. "
+                "Never propose session theft, credential theft, file writes, code execution, or autonomous "
+                "exploit chaining as an AI action. "
                 "Use an empty proposals array when no safe useful follow-up exists."
             ),
             input_items=[

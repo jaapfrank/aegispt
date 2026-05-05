@@ -2,37 +2,39 @@
 
 ## Title
 
-AI attack chain reasoning: teach the AI agent to chain web vulnerabilities across tools and recognize compound attack paths
+AI reasoning transparency: restructure post-task analysis into Summary→Thought→Action and show each step to operators
 
 ## Promoted From
 
-`codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json`
+`codex/tasks/backlog-232-ai-reasoning-transparency-summary-thought-action.json`
 
 ## Goal
 
-Implement cross-task web attack-chain reasoning for the AI agent. After web scan tasks, the AI should analyze all findings so far for the current engagement, recognize compound paths such as file upload plus stored XSS or path traversal plus writable filesystem/code execution signals, and propose the next logical review-gated chain test.
+Implement explicit Summary→Thought→Action post-task AI reasoning transparency. The backend should store separate summary, thought, and action text for each analysis, and Mission Control should show that reasoning to operators before they approve or reject suggested actions.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json`.
+Implement the active backlog package `codex/tasks/backlog-232-ai-reasoning-transparency-summary-thought-action.json`.
 
 Expected slice:
 
-- extend the AI agent with an engagement-scoped cross-task context window that reads all in-scope findings, not only the current task output
-- add deterministic web-specific chain templates for compound patterns such as stored XSS plus file upload, unrestricted file upload plus uploaded HTML execution checks, and path traversal plus writable filesystem/code execution signals
-- create and store a compound attack-chain finding type or equivalent finding record for multi-step paths
-- surface generated chain proposals through the existing Mission Control AI Proposals inbox
+- update post-task AI analysis so `AgentReasoning` records store `summary_text`, `thought_text`, and `action_text` separately, either as model fields or in `metadata_json`
+- map the existing observations, hypotheses, and proposals output into Summary, Thought, and Action sections
+- update ChatGPT OAuth post-task analysis output handling to preserve the same three-part structure
+- show a collapsible `AI Analysis` card in Mission Control under tasks that have AI analysis
+- show Summary, Reasoning, Suggested Actions, and each proposal's `reasoning_text`
+- hide the card when no AI analysis exists for a task
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
+- Do not change proposal generation logic beyond reasoning-field structure.
+- Do not change proposal approval gates.
 - Do not change autonomous dispatch logic.
-- Do not bypass intrusive approval gates.
-- Do not change finding schema behavior for non-chain findings.
+- Do not introduce a new reasoning model.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- No autonomous exploit chaining or full attack graph implementation.
 
 ## Validation
 
@@ -42,9 +44,9 @@ Expected slice:
 
 ## Acceptance
 
-- AI proposes a compound chain when stored XSS and file upload evidence co-exist in the same engagement.
-- AI proposes a code-execution chain when path traversal and writable filesystem/code execution signals co-exist in the same engagement.
-- A compound attack-chain finding type or equivalent stored chain finding exists.
-- Chain proposals appear in the Mission Control AI Proposals inbox.
-- Chain reasoning uses only in-scope findings from the current engagement.
-- No AI agent test regressions.
+- `AgentReasoning` records store summary, thought, and action text separately.
+- Mission Control task list shows a collapsible AI Analysis card per completed task when analysis exists.
+- The card shows Summary, Reasoning, Suggested Actions, and approve/reject controls for proposals.
+- `AgentProposal.reasoning_text` is shown per proposal.
+- The card is hidden when no analysis exists for a task.
+- No AI agent or Mission Control E2E test regressions.

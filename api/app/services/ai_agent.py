@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from api.app.config import Settings, get_settings
-from api.app.models import AgentProposal, AgentReasoning, Finding, Run, Scope, Task
+from api.app.models import AgentProposal, AgentReasoning, Finding, FindingChain, Run, Scope, Task
 from api.app.policy.engine import RunClass, normalize_profile_limits
 from api.app.services.ai_enrichment import (
     list_agent_proposals_for_run,
@@ -27,6 +27,7 @@ from api.app.services.chatgpt_oauth import (
     chatgpt_oauth_status,
     effective_ai_provider_name,
 )
+from api.app.services.finding_chains import refresh_finding_chains_for_run
 from api.app.services.runs import (
     derive_targets_for_run,
     derive_targets_from_target_map,
@@ -219,6 +220,51 @@ AI_PROPOSAL_AUTONOMOUS_BOUNDARY = {
     "kill_switch_halts_queued_autonomous_tasks": True,
 }
 
+COMPOUND_CHAIN_PROPOSAL_TEMPLATES: dict[str, dict[str, Any]] = {
+    "web-file-upload-plus-stored-xss": {
+        "proposed_tool": "xss-extended",
+        "risk_tier": "active",
+        "priority": 12,
+        "title": "Validate uploaded-content stored XSS chain",
+        "summary": (
+            "Review whether file-upload evidence and stored-XSS evidence combine into an "
+            "uploaded-content execution path in an authorized review or admin surface."
+        ),
+        "verification_goal": (
+            "Confirm prerequisites with benign proof markers only: uploaded content renders in the "
+            "same scoped application context and stored XSS evidence remains observable."
+        ),
+        "safe_boundaries": {
+            "credential_theft": False,
+            "session_hijacking": False,
+            "admin_impersonation": False,
+            "exploit_chaining": False,
+            "operator_review_required": True,
+        },
+    },
+    "path-traversal-plus-writable-execution-signal": {
+        "proposed_tool": "nuclei",
+        "risk_tier": "active",
+        "priority": 14,
+        "title": "Review traversal-to-execution prerequisites",
+        "summary": (
+            "Review whether path-traversal evidence and writable/executable-path evidence combine "
+            "into a plausible code-execution prerequisite chain."
+        ),
+        "verification_goal": (
+            "Confirm reachability and prerequisite evidence with detection-only checks; do not write "
+            "files, place payloads, or execute code from the AI proposal."
+        ),
+        "safe_boundaries": {
+            "file_write": False,
+            "code_execution": False,
+            "payload_placement": False,
+            "exploit_chaining": False,
+            "operator_review_required": True,
+        },
+    },
+}
+
 
 class PostTaskAnalysisProvider(Protocol):
     name: str
@@ -244,6 +290,42 @@ class DeterministicPostTaskAnalysisProvider:
             proposed_tool = "unsupported-ai-tool"
         elif fixture_mode == "out-of-scope":
             proposed_target = "203.0.113.250"
+
+        chain_proposals = _compound_chain_proposal_drafts(context=context, task_target=task_target)
+        if chain_proposals:
+            chain_count = len(context.get("finding_chains") if isinstance(context.get("finding_chains"), list) else [])
+            return PostTaskAnalysisResult(
+                observations=[
+                    {
+                        "summary": (
+                            f"Task {task.get('id')} completed and engagement context contains "
+                            f"{chain_count} compound attack-chain signal(s)."
+                        ),
+                        "evidence_ref": "finding_chains",
+                    }
+                ],
+                hypotheses=[
+                    {
+                        "summary": "A compound web path may exist and should be validated only through operator-reviewed follow-up.",
+                        "confidence": max(
+                            [draft.confidence_score or 0.0 for draft in chain_proposals],
+                            default=0.72,
+                        ),
+                    }
+                ],
+                proposals=chain_proposals,
+                model="deterministic",
+                llm_tokens_used=0,
+                confidence_score=max(
+                    [draft.confidence_score or 0.0 for draft in chain_proposals],
+                    default=0.72,
+                ),
+                metadata={
+                    "provider_mode": "deterministic-test",
+                    "compound_attack_chain_reasoning": True,
+                    "engagement_context_window": True,
+                },
+            )
 
         proposal = AgentProposalDraft(
             proposed_tool=proposed_tool,
@@ -348,7 +430,13 @@ def run_post_task_analysis_for_task(
         return PostTaskAnalysisOutcome(status="skipped", reason="task_not_completed")
 
     scope = session.scalar(latest_scope_query(task.run.engagement_id))
-    context = _build_analysis_context(task=task, scope=scope)
+    chain_records = refresh_finding_chains_for_run(session=session, run_id=task.run.id)
+    context = _build_analysis_context(
+        session=session,
+        task=task,
+        scope=scope,
+        finding_chains=chain_records,
+    )
     provider_name = effective_ai_provider_name(
         settings, settings.ai_agent_post_task_analysis_provider
     )
@@ -859,7 +947,13 @@ def _load_task(*, session: Session, task_id: UUID) -> Task | None:
     )
 
 
-def _build_analysis_context(*, task: Task, scope: Scope | None) -> dict[str, Any]:
+def _build_analysis_context(
+    *,
+    session: Session,
+    task: Task,
+    scope: Scope | None,
+    finding_chains: list[FindingChain] | None = None,
+) -> dict[str, Any]:
     run = task.run
     if run is None:
         return {}
@@ -878,6 +972,7 @@ def _build_analysis_context(*, task: Task, scope: Scope | None) -> dict[str, Any
             "source_inventory_snapshot_id": (
                 str(run.source_inventory_snapshot_id) if run.source_inventory_snapshot_id else None
             ),
+            "autonomous_mode": bool(run.autonomous_mode),
         },
         "task": {
             "id": str(task.id),
@@ -887,6 +982,18 @@ def _build_analysis_context(*, task: Task, scope: Scope | None) -> dict[str, Any
             "params_json": _safe_json_object(task.params_json),
         },
         "findings": [_finding_context(finding) for finding in list(run.findings or [])[:25]],
+        "engagement_findings": [
+            _finding_context(finding)
+            for finding in _engagement_findings_for_analysis(session=session, run=run)
+        ],
+        "finding_chains": [
+            _finding_chain_context(chain)
+            for chain in sorted(
+                finding_chains or [],
+                key=lambda item: (item.confidence_score, str(item.id)),
+                reverse=True,
+            )[:10]
+        ],
         "inventory": _inventory_context(run),
         "scope": {
             "allowed_targets": allowed_targets,
@@ -897,6 +1004,7 @@ def _build_analysis_context(*, task: Task, scope: Scope | None) -> dict[str, Any
             "executes_tools": False,
             "auto_approves": False,
             "mutates_findings": False,
+            "stores_additive_chain_records": True,
             "scope_expansion_allowed": False,
         },
     }
@@ -1533,6 +1641,110 @@ def _target_kind_for_value(value: str) -> str:
         return "domain" if "." in host_or_value else "target"
 
 
+def _compound_chain_proposal_drafts(
+    *,
+    context: dict[str, Any],
+    task_target: str,
+) -> list[AgentProposalDraft]:
+    run_context = context.get("run") if isinstance(context.get("run"), dict) else {}
+    if run_context.get("autonomous_mode") is True:
+        return []
+
+    chains = context.get("finding_chains") if isinstance(context.get("finding_chains"), list) else []
+    drafts: list[AgentProposalDraft] = []
+    for chain in chains:
+        if not isinstance(chain, dict):
+            continue
+        pattern_id = str(chain.get("pattern_id") or "").strip()
+        template = COMPOUND_CHAIN_PROPOSAL_TEMPLATES.get(pattern_id)
+        if template is None:
+            continue
+        target = _chain_proposal_target(chain=chain, fallback_target=task_target)
+        component_ids = [str(item) for item in list(chain.get("component_finding_ids") or []) if str(item).strip()]
+        evidence_refs = [str(item) for item in list(chain.get("evidence_refs") or []) if str(item).strip()]
+        confidence = _chain_confidence(chain)
+        title = str(template["title"])
+        summary = str(template["summary"])
+        safe_boundaries = dict(template.get("safe_boundaries") or {})
+        drafts.append(
+            AgentProposalDraft(
+                proposed_tool=str(template["proposed_tool"]),
+                proposed_target=target,
+                proposed_params={
+                    "title": title,
+                    "summary": summary,
+                    "review_required": True,
+                    "source_task_id": context.get("task", {}).get("id")
+                    if isinstance(context.get("task"), dict)
+                    else None,
+                    "compound_attack_chain": {
+                        "chain_id": chain.get("id"),
+                        "pattern_id": pattern_id,
+                        "title": chain.get("title"),
+                        "status": chain.get("status"),
+                        "component_finding_ids": component_ids,
+                        "evidence_refs": evidence_refs,
+                        "combined_impact": chain.get("combined_impact"),
+                        "verification_goal": template["verification_goal"],
+                        "safe_boundaries": safe_boundaries,
+                    },
+                    "boundary": {
+                        "operator_review_required": True,
+                        "automatic_execution": False,
+                        "automatic_approval": False,
+                        "no_autonomous_exploit_chaining": True,
+                        "scope_expansion_allowed": False,
+                    },
+                },
+                reasoning_text=(
+                    f"{summary} This is a review-gated compound-chain proposal derived from "
+                    "stored engagement findings; it does not execute tools, steal sessions, write files, "
+                    "or bypass approval gates."
+                ),
+                risk_tier=str(template["risk_tier"]),
+                priority=int(template["priority"]),
+                confidence_score=confidence,
+                metadata={
+                    "proposal_kind": "compound_attack_chain",
+                    "compound_attack_chain": True,
+                    "chain_id": str(chain.get("id") or ""),
+                    "chain_pattern_id": pattern_id,
+                    "component_finding_ids": component_ids,
+                    "evidence_refs": evidence_refs,
+                    "dispatches_work": False,
+                    "requires_operator_review": True,
+                    "autonomous_chain_dispatch_allowed": False,
+                    "active_runtime_mutated": False,
+                },
+            )
+        )
+        if len(drafts) >= 3:
+            break
+    return drafts
+
+
+def _chain_proposal_target(*, chain: dict[str, Any], fallback_target: str) -> str:
+    components = chain.get("component_findings") if isinstance(chain.get("component_findings"), list) else []
+    targets = [
+        str(component.get("target_id") or "").strip()
+        for component in components
+        if isinstance(component, dict) and str(component.get("target_id") or "").strip()
+    ]
+    unique_targets = list(dict.fromkeys(targets))
+    if len(unique_targets) == 1:
+        return unique_targets[0]
+    if str(fallback_target or "").strip():
+        return str(fallback_target).strip()
+    return unique_targets[0] if unique_targets else ""
+
+
+def _chain_confidence(chain: dict[str, Any]) -> float:
+    try:
+        return round(float(chain.get("confidence_score")), 2)
+    except (TypeError, ValueError):
+        return 0.72
+
+
 def _proposal_record_payload(proposal: AgentProposal) -> dict[str, Any]:
     return {
         "id": str(proposal.id),
@@ -1569,6 +1781,8 @@ def _cancel_queued_autonomous_tasks(*, run: Run) -> int:
 def _finding_context(finding: Finding) -> dict[str, Any]:
     return {
         "id": str(finding.id),
+        "run_id": str(finding.run_id) if finding.run_id else None,
+        "finding_origin": finding.finding_origin,
         "title": finding.title,
         "severity": finding.severity,
         "target_id": finding.target_id,
@@ -1576,6 +1790,47 @@ def _finding_context(finding: Finding) -> dict[str, Any]:
         "status": finding.status,
         "summary": finding.summary,
         "methodology_tags": list(finding.methodology_tags or []),
+        "wstg_id": finding.wstg_id,
+        "asvs_reference": finding.asvs_reference,
+        "control_family": finding.control_family,
+    }
+
+
+def _engagement_findings_for_analysis(*, session: Session, run: Run) -> list[Finding]:
+    return list(
+        session.scalars(
+            select(Finding)
+            .join(Run, Finding.run_id == Run.id)
+            .where(Run.engagement_id == run.engagement_id, Run.deleted_at.is_(None))
+            .order_by(Finding.created_at.desc(), Finding.id.desc())
+            .limit(50)
+        ).all()
+    )
+
+
+def _finding_chain_context(chain: FindingChain) -> dict[str, Any]:
+    component_findings = [
+        {
+            "finding_id": str(item.get("finding_id") or ""),
+            "title": item.get("title"),
+            "severity": item.get("severity"),
+            "target_id": item.get("target_id"),
+            "evidence_ref": item.get("evidence_ref"),
+        }
+        for item in list(chain.rationale_json or [])
+        if isinstance(item, dict)
+    ]
+    return {
+        "id": str(chain.id),
+        "pattern_id": chain.pattern_id,
+        "title": chain.title,
+        "status": chain.status,
+        "component_finding_ids": [str(item) for item in list(chain.component_finding_ids_json or [])],
+        "component_findings": component_findings,
+        "confidence_score": chain.confidence_score,
+        "combined_impact": chain.combined_impact_text,
+        "evidence_refs": list(chain.evidence_refs_json or []),
+        "metadata": _safe_json_object(chain.metadata_json),
     }
 
 
