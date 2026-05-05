@@ -172,6 +172,13 @@ def test_full_external_web_chain_includes_logging_probe_and_oauth_probe() -> Non
     assert "active-web-oauth-probe" in definition.phases[1].profiles
 
 
+def test_full_internal_lan_chain_includes_linux_privilege_escalation_enumeration() -> None:
+    definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-INTERNAL-LAN"]
+
+    assert definition.phases[2].key == "intrusive-credential"
+    assert "intrusive-credential-priv-esc-linux" in definition.phases[2].profiles
+
+
 def test_full_internal_lan_assessment_chain_creates_queued_passive_run(client) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
 
@@ -272,10 +279,7 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
     assert create_response.status_code == 201
     created_run = create_response.json()
     assert created_run["profile"]["name"] == "passive-easm-discovery"
-    assert (
-        created_run["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"]
-        == "manual"
-    )
+    assert created_run["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"] == "manual"
 
     with client.app.state.session_factory() as session:
         first_run = session.get(Run, UUID(created_run["id"]))
@@ -294,9 +298,7 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         assert baseline_run is not None
         assert baseline_run.profile is not None
         assert baseline_run.profile.name == "passive-web-baseline"
-        assert baseline_run.configuration_json["targets"]["urls"] == [
-            "https://portal.example.test"
-        ]
+        assert baseline_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
 
         baseline_run.status = "completed"
         session.flush()
@@ -313,9 +315,7 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         assert logging_run is not None
         assert logging_run.profile is not None
         assert logging_run.profile.name == "passive-web-logging-probe"
-        assert logging_run.configuration_json["targets"]["urls"] == [
-            "https://portal.example.test"
-        ]
+        assert logging_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
 
         logging_run.status = "completed"
         session.flush()
@@ -332,9 +332,7 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         assert nuclei_run is not None
         assert nuclei_run.profile is not None
         assert nuclei_run.profile.name == "passive-web-nuclei-audit"
-        assert nuclei_run.configuration_json["targets"]["urls"] == [
-            "https://portal.example.test"
-        ]
+        assert nuclei_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
 
         nuclei_run.status = "completed"
         session.flush()
@@ -351,9 +349,8 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         assert active_run is not None
         assert active_run.profile is not None
         assert active_run.profile.name == "active-web-safe"
-        assert active_run.configuration_json["targets"]["urls"] == [
-            "https://portal.example.test"
-        ]
+        assert active_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
+
 
 def test_full_authorization_auto_advances_pre_authorized_non_exploitation_phase(client) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
@@ -556,7 +553,9 @@ def test_full_lan_iot_follow_up_profiles_use_discovered_hosts() -> None:
     }.issubset(assessment_chain_service.HOST_FOLLOW_UP_PROFILES)
 
 
-def test_internal_lan_chain_web_follow_up_aggregates_all_service_inventory_snapshots(client) -> None:
+def test_internal_lan_chain_web_follow_up_aggregates_all_service_inventory_snapshots(
+    client,
+) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
     configuration = _assessment_chain_configuration()
     configuration["targets"] = {
@@ -812,7 +811,9 @@ def test_assessment_chain_full_authorization_requires_typed_target_confirmation(
     assert response.json()["detail"] == "full authorization requires typed target confirmation"
 
 
-def test_assessment_chain_full_authorization_audits_scope_and_keeps_exploitation_gated(client) -> None:
+def test_assessment_chain_full_authorization_audits_scope_and_keeps_exploitation_gated(
+    client,
+) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
     create_response = client.post(
         f"/api/v1/engagements/{engagement_id}/runs",
@@ -843,7 +844,10 @@ def test_assessment_chain_full_authorization_audits_scope_and_keeps_exploitation
         assert audit_event is not None
         assert audit_event.actor == "operator"
         assert audit_event.metadata_json["authorization_level"] == "full"
-        assert audit_event.metadata_json["confirmed_scope"] == "10.0.20.0/24, 10.0.20.25, dc01.corp.example"
+        assert (
+            audit_event.metadata_json["confirmed_scope"]
+            == "10.0.20.0/24, 10.0.20.25, dc01.corp.example"
+        )
         assert audit_event.metadata_json["intrusive_lan_authorized"] is True
         assert audit_event.metadata_json["exploit_confirmation_authorized"] is False
 
@@ -903,7 +907,9 @@ def test_assessment_chain_full_authorization_audits_scope_and_keeps_exploitation
         assert "explicit exploit-confirmation" in exploitation_state["gate_reason"]
 
 
-def test_assessment_chain_full_authorization_with_exploit_unlocker_auto_starts_exploitation(client) -> None:
+def test_assessment_chain_full_authorization_with_exploit_unlocker_auto_starts_exploitation(
+    client,
+) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
     create_response = client.post(
         f"/api/v1/engagements/{engagement_id}/runs",
@@ -978,7 +984,9 @@ def test_assessment_chain_full_authorization_with_exploit_unlocker_auto_starts_e
         assert advanced_chain.phases_json[3]["approved_at"] is not None
 
 
-def test_assessment_chain_reports_completed_with_gaps_when_only_skipped_steps_remain(client) -> None:
+def test_assessment_chain_reports_completed_with_gaps_when_only_skipped_steps_remain(
+    client,
+) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
     create_response = client.post(
         f"/api/v1/engagements/{engagement_id}/runs",
@@ -1044,7 +1052,9 @@ def test_assessment_chain_reports_completed_with_gaps_when_only_skipped_steps_re
         assert advanced_chain.phases_json[3]["status"] == "completed_with_gaps"
 
 
-def test_full_lan_chain_auto_detects_responder_interface_for_cidr_targets(client, monkeypatch) -> None:
+def test_full_lan_chain_auto_detects_responder_interface_for_cidr_targets(
+    client, monkeypatch
+) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
     configuration = _assessment_chain_configuration()
     configuration.pop("responder", None)
@@ -1196,7 +1206,9 @@ def test_assessment_chain_continue_endpoint_reviews_failed_runner(client) -> Non
     with client.app.state.session_factory() as session:
         chain = load_assessment_chain(session, chain_id)
         assert chain is not None
-        profile = session.scalar(select(RunProfile).where(RunProfile.name == "passive-web-baseline"))
+        profile = session.scalar(
+            select(RunProfile).where(RunProfile.name == "passive-web-baseline")
+        )
         assert profile is not None
         failed_run = Run(
             engagement_id=chain.engagement_id,
@@ -1263,7 +1275,9 @@ def test_assessment_chain_auto_continues_recoverable_runner_failure(client) -> N
     with client.app.state.session_factory() as session:
         chain = load_assessment_chain(session, chain_id)
         assert chain is not None
-        profile = session.scalar(select(RunProfile).where(RunProfile.name == "passive-web-baseline"))
+        profile = session.scalar(
+            select(RunProfile).where(RunProfile.name == "passive-web-baseline")
+        )
         assert profile is not None
         failed_run = Run(
             engagement_id=chain.engagement_id,
@@ -1380,7 +1394,9 @@ def test_auto_continue_recoverable_blocked_chain_repairs_existing_blocked_state(
     with client.app.state.session_factory() as session:
         chain = load_assessment_chain(session, chain_id)
         assert chain is not None
-        profile = session.scalar(select(RunProfile).where(RunProfile.name == "passive-web-baseline"))
+        profile = session.scalar(
+            select(RunProfile).where(RunProfile.name == "passive-web-baseline")
+        )
         assert profile is not None
         failed_run = Run(
             engagement_id=chain.engagement_id,

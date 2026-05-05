@@ -142,6 +142,7 @@ from api.app.services.runs import (
     validate_metasploit_run_configuration,
     validate_netexec_run_configuration,
     validate_playwright_web_run_configuration,
+    validate_priv_esc_linux_run_configuration,
     validate_responder_run_configuration,
     validate_wifi_run_configuration,
 )
@@ -171,6 +172,7 @@ AUTO_DISPATCH_BLOCKED_TOOLS = {
     "impacket-lateral",
     "metasploit",
     "netexec",
+    "priv-esc-linux",
     "responder",
 }
 LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
@@ -192,7 +194,10 @@ def _eligible_for_launch_auto_dispatch(run: Run) -> bool:
         return False
     configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
     runtime_launch = configuration.get("runtime_launch")
-    if not isinstance(runtime_launch, dict) or runtime_launch.get("dispatch_after_approval") is not True:
+    if (
+        not isinstance(runtime_launch, dict)
+        or runtime_launch.get("dispatch_after_approval") is not True
+    ):
         return False
     if str(profile.run_class or "").lower() not in {"passive", "active"}:
         return False
@@ -327,7 +332,11 @@ def serialize_run(run: Run, *, session: Session) -> RunRead:
         ai_mission_guidance=build_mission_guidance_for_run(session=session, run=run),
         multi_agent_orchestration=build_multi_agent_orchestration_readiness(run),
         assessment_chain=chain_summary,
-        drift_summary=RunDriftRead.model_validate(run.drift_summary) if run.drift_summary is not None else None,
+        drift_summary=(
+            RunDriftRead.model_validate(run.drift_summary)
+            if run.drift_summary is not None
+            else None
+        ),
         stale_recovery=stale_run_recovery_state(run),
     )
 
@@ -674,6 +683,11 @@ def create_run(
                 configuration=sanitized_configuration,
                 intrusive=profile.run_class == "intrusive",
             )
+        if "priv-esc-linux" in planned_tools(profile):
+            validate_priv_esc_linux_run_configuration(
+                scope=scope,
+                configuration=sanitized_configuration,
+            )
         if "responder" in planned_tools(profile):
             validate_responder_run_configuration(
                 scope=scope,
@@ -772,7 +786,9 @@ def create_run(
                 run=hydrated_for_dispatch,
                 settings=settings,
             )
-            inline_background_tasks = background_tasks if effective_settings.inline_dispatch_background else None
+            inline_background_tasks = (
+                background_tasks if effective_settings.inline_dispatch_background else None
+            )
             try:
                 dispatch_queued_run_tasks(
                     session,
@@ -801,7 +817,9 @@ def delete_runs_bulk(
 ) -> DeleteImpactRead:
     unique_run_ids = list(dict.fromkeys(payload.run_ids))
     runs = [_load_run_for_tenant(session, run_id, tenant_id) for run_id in unique_run_ids]
-    blocked_reason = next((run_delete_blocker(run) for run in runs if run_delete_blocker(run)), None)
+    blocked_reason = next(
+        (run_delete_blocker(run) for run in runs if run_delete_blocker(run)), None
+    )
     counts = run_delete_impact(session, unique_run_ids)
     if dry_run:
         return DeleteImpactRead.model_validate(
@@ -1020,7 +1038,9 @@ def refresh_cve_intelligence_for_run(
     return RunCveIntelRead.model_validate(result)
 
 
-@router.post("/runs/{run_id}/cve-intelligence/{cve_id}/queue-test", response_model=RunCveIntelQueueTestRead)
+@router.post(
+    "/runs/{run_id}/cve-intelligence/{cve_id}/queue-test", response_model=RunCveIntelQueueTestRead
+)
 def queue_cve_intelligence_test(
     run_id: UUID,
     cve_id: str,
@@ -1042,7 +1062,9 @@ def queue_cve_intelligence_test(
     session.commit()
     hydrated_run = load_run(session, run.id)
     if hydrated_run is None:
-        raise HTTPException(status_code=500, detail="run could not be reloaded after CVE test queueing")
+        raise HTTPException(
+            status_code=500, detail="run could not be reloaded after CVE test queueing"
+        )
     hydrated_task = next(
         (candidate for candidate in hydrated_run.tasks if str(candidate.id) == str(task.id)),
         task,
@@ -1078,7 +1100,9 @@ def stream_run_ai_signal_endpoint(
     run = _load_run_for_tenant(session, run_id, tenant_id)
 
     def event_stream():
-        for message in stream_run_ai_signal(session=session, run=run, settings=settings, task_id=task_id):
+        for message in stream_run_ai_signal(
+            session=session, run=run, settings=settings, task_id=task_id
+        ):
             yield _format_sse_event(str(message["event"]), dict(message["data"]))
 
     return StreamingResponse(
@@ -1135,16 +1159,28 @@ def create_run_tool_library_proposal(
     proposed_tool = str(payload.proposed_tool or "").strip()
     tool_id = str(payload.tool_id or "").strip()
     if proposed_tool not in TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS:
-        raise HTTPException(status_code=422, detail=f"Unsupported Tool Library proposal tool: {proposed_tool}")
+        raise HTTPException(
+            status_code=422, detail=f"Unsupported Tool Library proposal tool: {proposed_tool}"
+        )
 
     allowed_targets = _run_target_values(run)
-    target = str(payload.proposed_target or "").strip() or (allowed_targets[0] if allowed_targets else "")
+    target = str(payload.proposed_target or "").strip() or (
+        allowed_targets[0] if allowed_targets else ""
+    )
     if not target:
-        raise HTTPException(status_code=409, detail="Current run has no recorded target for a manual tool proposal")
+        raise HTTPException(
+            status_code=409, detail="Current run has no recorded target for a manual tool proposal"
+        )
     if target not in allowed_targets:
-        raise HTTPException(status_code=409, detail="Manual tool proposal target must already belong to the current run")
+        raise HTTPException(
+            status_code=409,
+            detail="Manual tool proposal target must already belong to the current run",
+        )
 
-    matched_task = next((task for task in list(run.tasks or []) if str(task.target_id or "").strip() == target), None)
+    matched_task = next(
+        (task for task in list(run.tasks or []) if str(task.target_id or "").strip() == target),
+        None,
+    )
     proposed_params = dict(payload.proposed_params or {})
     proposed_params.setdefault("proposal_source", "tool_library")
     proposed_params.setdefault("selected_catalog_tool_id", tool_id or proposed_tool)
@@ -1271,7 +1307,9 @@ def review_run_ai_proposal(
     return AgentProposalRead.model_validate(proposal)
 
 
-@router.post("/runs/{run_id}/ai-proposals/{proposal_id}/repair-action", response_model=AiRepairActionRead)
+@router.post(
+    "/runs/{run_id}/ai-proposals/{proposal_id}/repair-action", response_model=AiRepairActionRead
+)
 def record_run_ai_repair_action(
     run_id: UUID,
     proposal_id: UUID,
@@ -1491,7 +1529,9 @@ def export_run_report(
         extension = "html"
     elif format == "pdf":
         try:
-            content = render_pdf_report(run, variant=variant, framework=framework, settings=settings)
+            content = render_pdf_report(
+                run, variant=variant, framework=framework, settings=settings
+            )
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         media_type = "application/pdf"
@@ -1629,9 +1669,7 @@ def record_run_approval(
                     settings=settings,
                 )
                 inline_background_tasks = (
-                    background_tasks
-                    if effective_settings.inline_dispatch_background
-                    else None
+                    background_tasks if effective_settings.inline_dispatch_background else None
                 )
                 try:
                     dispatch_queued_run_tasks(
@@ -1666,7 +1704,9 @@ def dispatch_run(
 ) -> RunDispatchRead:
     run = _load_run_for_tenant(session, run_id, tenant_id)
     effective_settings = effective_runtime_settings_for_run(session, run=run, settings=settings)
-    inline_background_tasks = background_tasks if effective_settings.inline_dispatch_background else None
+    inline_background_tasks = (
+        background_tasks if effective_settings.inline_dispatch_background else None
+    )
     try:
         dispatch_mode, dispatched_task_ids = dispatch_queued_run_tasks(
             session,
@@ -1743,7 +1783,9 @@ def recover_stale_run(
     session.commit()
     hydrated_run = load_run(session, run.id)
     if hydrated_run is None:
-        raise HTTPException(status_code=500, detail="run could not be reloaded after stale recovery")
+        raise HTTPException(
+            status_code=500, detail="run could not be reloaded after stale recovery"
+        )
     if not recovered_task_ids:
         raise HTTPException(status_code=409, detail="no stale tasks were recovered")
     return serialize_run(hydrated_run, session=session)

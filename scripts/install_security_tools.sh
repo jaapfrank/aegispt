@@ -126,7 +126,7 @@ $SUDO apt update
 $SUDO apt install -y \
   curl unzip tar ca-certificates pipx git python3-venv python3-aioquic \
   openjdk-17-jre-headless \
-  nmap ffuf gobuster nikto sqlmap testssl.sh hashcat ssh-audit ldap-utils \
+  nmap ffuf gobuster nikto sqlmap testssl.sh hashcat ssh-audit sshpass ldap-utils \
   snmp iw aircrack-ng wireless-tools
 
 install_apt_if_available "impacket-scripts"

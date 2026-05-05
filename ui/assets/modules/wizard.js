@@ -371,6 +371,7 @@ const TOOL_ICON_LABELS = {
   "aws-inventory": "AWS",
   "oauth-probe": "OAUTH",
   "logging-probe": "LOG",
+  "priv-esc-linux": "PRIV",
 };
 
 const PROFILE_TARGET_GROUPS = {
@@ -394,6 +395,7 @@ const PROFILE_TARGET_GROUPS = {
   "active-ad-asreproast": ["directory"],
   "active-offline-hash-crack": ["directory"],
   "intrusive-lan-smb-auth": ["network"],
+  "intrusive-credential-priv-esc-linux": ["network"],
   "intrusive-ad-password-spray": ["directory", "network"],
   "intrusive-exploitation": ["network", "web"],
   "intrusive-impacket-remote-exec": ["network", "directory"],
@@ -429,6 +431,7 @@ const PROFILE_EXPECTATION_COPY = {
   "active-ad-asreproast": "AS-REP roastable users and crack-ready hashes.",
   "active-offline-hash-crack": "Offline crack attempts against approved protected bundles.",
   "intrusive-lan-smb-auth": "Authenticated SMB access, share proof, and pass-the-hash validation.",
+  "intrusive-credential-priv-esc-linux": "Read-only Linux local privilege-escalation signals over SSH.",
   "intrusive-ad-password-spray": "Bounded spray outcomes under confirmed lockout policy.",
   "intrusive-exploitation": "Controlled exploit confirmation with immediate evidence only.",
   "intrusive-impacket-remote-exec": "Remote whoami/hostname confirmation without persistence.",
@@ -481,12 +484,13 @@ const MISSION_PREVIEW_DEFINITIONS = {
         tier: "intrusive-credential",
         icon: "CREDS",
         estimatedMinutes: 24,
-        findingCopy: "Credential capture, roast paths, spray proof, and SMB auth validation.",
+        findingCopy: "Credential capture, roast paths, Linux local escalation signals, spray proof, and SMB auth validation.",
         profiles: [
           "intrusive-lan-credential-capture",
           "active-ad-kerberoast",
           "active-ad-asreproast",
           "active-offline-hash-crack",
+          "intrusive-credential-priv-esc-linux",
           "intrusive-lan-smb-auth",
           "intrusive-ad-password-spray",
         ],
@@ -2643,7 +2647,7 @@ export function createWizardModule() {
       internal: [
         { cls: "ph-p", num: "Phase 1 · Auto", name: "🟢 Discovery", tools: ["🔍 nmap host discovery", "🩺 Service fingerprint", "📋 Inventory snapshot"], dur: "⏱ ~15 min · no approval" },
         { cls: "ph-a", num: "Phase 2 · 1x approval", name: "🔵 Analysis", tools: ["🎯 nuclei CVE scan", "🖧 SMB/LDAP review", "🗺️ Exposure mapping"], dur: "⏱ ~30 min · 1 approval" },
-        { cls: "ph-c", num: "Phase 3 · full auth", name: "🟠 Credential Review", tools: ["📡 Responder on LAN route", "🔑 Kerberos/NTLM if evidence exists", "📦 Protected evidence only"], dur: "⏱ ~45 min · prerequisites shown" },
+        { cls: "ph-c", num: "Phase 3 · full auth", name: "🟠 Credential Review", tools: ["📡 Responder on LAN route", "🖥️ Linux local escalation signals", "🔑 Kerberos/NTLM if evidence exists"], dur: "⏱ ~45 min · prerequisites shown" },
         { cls: "ph-e", num: "Phase 4 · full auth", name: "🔴 Exploitation", tools: ["💥 Metasploit for allowlisted findings", "🔗 Impacket with credentials", "🛑 Kill switch enforced"], dur: "⏱ ~30 min · prerequisites shown" },
       ],
       "external-infrastructure": [

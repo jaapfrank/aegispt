@@ -119,6 +119,7 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "nuclei",
     "oauth-probe",
     "playwright-web",
+    "priv-esc-linux",
     "responder",
     "semgrep",
     "session-security",
@@ -288,14 +289,18 @@ def build_post_task_analysis_provider(
     if not settings.ai_agent_post_task_analysis_enabled:
         return None
 
-    provider_name = effective_ai_provider_name(settings, settings.ai_agent_post_task_analysis_provider)
+    provider_name = effective_ai_provider_name(
+        settings, settings.ai_agent_post_task_analysis_provider
+    )
     if provider_name in {"", "disabled", "none", "off"}:
         return None
     if provider_name in {"deterministic", "mock", "test"}:
         return DeterministicPostTaskAnalysisProvider()
     if provider_name == CHATGPT_OAUTH_PROVIDER:
         if session is None:
-            raise PostTaskAnalysisError("chatgpt_oauth post-task analysis requires a database session")
+            raise PostTaskAnalysisError(
+                "chatgpt_oauth post-task analysis requires a database session"
+            )
         return ChatGPTOAuthPostTaskAnalysisProvider(session=session, settings=settings)
 
     raise PostTaskAnalysisError(f"unsupported post-task AI analysis provider: {provider_name}")
@@ -338,7 +343,9 @@ def run_post_task_analysis_for_task(
 
     scope = session.scalar(latest_scope_query(task.run.engagement_id))
     context = _build_analysis_context(task=task, scope=scope)
-    provider_name = effective_ai_provider_name(settings, settings.ai_agent_post_task_analysis_provider)
+    provider_name = effective_ai_provider_name(
+        settings, settings.ai_agent_post_task_analysis_provider
+    )
 
     try:
         active_provider = provider or build_post_task_analysis_provider(settings, session=session)
@@ -467,7 +474,9 @@ def build_ai_insights_for_run(
     )
     reasoning_records = list_agent_reasoning_for_run(session=session, run_id=run.id)
     proposals = list_agent_proposals_for_run(session=session, run_id=run.id)
-    provider_name = effective_ai_provider_name(settings, settings.ai_agent_post_task_analysis_provider)
+    provider_name = effective_ai_provider_name(
+        settings, settings.ai_agent_post_task_analysis_provider
+    )
     provider_status = _ai_insights_provider_status(
         session=session,
         run=run,
@@ -510,7 +519,9 @@ def _ai_insights_provider_status(
         }
     if provider_name == CHATGPT_OAUTH_PROVIDER:
         try:
-            status = chatgpt_oauth_status(session=session, engagement_id=run.engagement_id, settings=settings)
+            status = chatgpt_oauth_status(
+                session=session, engagement_id=run.engagement_id, settings=settings
+            )
         except ChatGPTOAuthError:
             status = None
         connected = bool(status and status.connected)
@@ -519,7 +530,11 @@ def _ai_insights_provider_status(
             "label": "ChatGPT connected" if connected else "Deterministic mode",
             "status": "connected" if connected else "not_connected",
             "connected": connected,
-            "model": str(settings.chatgpt_oauth_model or settings.ai_agent_post_task_analysis_model or "gpt-5.4"),
+            "model": str(
+                settings.chatgpt_oauth_model
+                or settings.ai_agent_post_task_analysis_model
+                or "gpt-5.4"
+            ),
             "account_id": getattr(status, "account_id", None) if status else None,
             "reusable_session_available": bool(
                 status and getattr(status, "reusable_session_available", False)
@@ -545,9 +560,13 @@ def _build_operator_workbench(
     post_task_analysis_enabled: bool,
 ) -> dict[str, Any]:
     repair_proposals = [
-        proposal for proposal in proposals if _safe_json_object(proposal.metadata_json).get("proposal_kind") == "ai_repair"
+        proposal
+        for proposal in proposals
+        if _safe_json_object(proposal.metadata_json).get("proposal_kind") == "ai_repair"
     ]
-    pending_repair = [proposal for proposal in repair_proposals if proposal.status == "pending_review"]
+    pending_repair = [
+        proposal for proposal in repair_proposals if proposal.status == "pending_review"
+    ]
     build_lane_tasks = [
         summary
         for proposal in repair_proposals
@@ -581,7 +600,9 @@ def _build_operator_workbench(
             "description": "AI can create Codex build-lane task files for reviewed repairs without mutating active runtime.",
         },
     }
-    provider_ready = bool(provider_status.get("connected")) or provider_status.get("status") not in {"disabled", "not_connected"}
+    provider_ready = bool(provider_status.get("connected")) or provider_status.get(
+        "status"
+    ) not in {"disabled", "not_connected"}
     return {
         "title": "AI Operator Workbench",
         "run_id": str(run.id),
@@ -637,25 +658,35 @@ def _operator_signal_rows(
     for proposal in proposals:
         metadata = _safe_json_object(proposal.metadata_json)
         params = _safe_json_object(proposal.proposed_params_json)
-        actions = metadata.get("available_actions") if isinstance(metadata.get("available_actions"), list) else []
+        actions = (
+            metadata.get("available_actions")
+            if isinstance(metadata.get("available_actions"), list)
+            else []
+        )
         rows.append(
             {
                 "id": str(proposal.id),
                 "kind": metadata.get("proposal_kind") or "proposal",
                 "status": proposal.status,
                 "title": params.get("title") or proposal.proposed_tool,
-                "summary": params.get("summary") or proposal.reasoning_text or "AI proposal is available for review.",
+                "summary": params.get("summary")
+                or proposal.reasoning_text
+                or "AI proposal is available for review.",
                 "provider": "proposal",
                 "proposal_id": str(proposal.id),
                 "task_id": metadata.get("source_task_id") or params.get("source_task_id"),
-                "available_action_count": len([action for action in actions if action.get("available")]),
+                "available_action_count": len(
+                    [action for action in actions if action.get("available")]
+                ),
                 "available_actions": actions,
                 "build_lane_task": _build_lane_task_summary(proposal),
                 "created_at": proposal.created_at.isoformat() if proposal.created_at else None,
                 "updated_at": proposal.updated_at.isoformat() if proposal.updated_at else None,
             }
         )
-    return sorted(rows, key=lambda row: row.get("updated_at") or row.get("created_at") or "", reverse=True)[:25]
+    return sorted(
+        rows, key=lambda row: row.get("updated_at") or row.get("created_at") or "", reverse=True
+    )[:25]
 
 
 def _reasoning_title(record: AgentReasoning) -> str:
@@ -674,7 +705,12 @@ def _reasoning_summary(record: AgentReasoning) -> str:
     observations = record.observations_json if isinstance(record.observations_json, list) else []
     first = next((item for item in observations if isinstance(item, dict)), None)
     if first:
-        return str(first.get("summary") or first.get("message") or first.get("title") or "Stored AI signal.")
+        return str(
+            first.get("summary")
+            or first.get("message")
+            or first.get("title")
+            or "Stored AI signal."
+        )
     metadata = _safe_json_object(record.metadata_json)
     return str(metadata.get("analysis_text") or "Stored AI signal.")
 
@@ -711,7 +747,9 @@ def review_agent_proposal(
 ) -> AgentProposal:
     normalized_decision = str(decision or "").strip().lower()
     if normalized_decision not in {"approved", "rejected"}:
-        raise AgentProposalReviewError("proposal decision must be approved or rejected", reason="invalid_decision")
+        raise AgentProposalReviewError(
+            "proposal decision must be approved or rejected", reason="invalid_decision"
+        )
 
     proposal = session.scalar(
         select(AgentProposal)
@@ -721,7 +759,9 @@ def review_agent_proposal(
     if proposal is None:
         raise AgentProposalReviewError("agent proposal not found for run", reason="not_found")
     if proposal.status != "pending_review":
-        raise AgentProposalReviewError("agent proposal has already been reviewed", reason="already_reviewed")
+        raise AgentProposalReviewError(
+            "agent proposal has already been reviewed", reason="already_reviewed"
+        )
 
     if normalized_decision == "approved":
         scope = session.scalar(latest_scope_query(run.engagement_id))
@@ -798,7 +838,9 @@ def _build_analysis_context(*, task: Task, scope: Scope | None) -> dict[str, Any
         return {}
 
     allowed_targets = _allowed_targets(run=run, task=task, scope=scope)
-    denied_targets = derive_targets_from_target_map(scope.denylist_json) if scope is not None else []
+    denied_targets = (
+        derive_targets_from_target_map(scope.denylist_json) if scope is not None else []
+    )
     return {
         "run": {
             "id": str(run.id),
@@ -848,7 +890,9 @@ def _allowed_targets(*, run: Run, task: Task, scope: Scope | None) -> list[dict[
         targets.append({"kind": kind, "value": normalized})
 
     add("task-target", task.target_id)
-    configured_targets = task.params_json.get("targets") if isinstance(task.params_json, dict) else None
+    configured_targets = (
+        task.params_json.get("targets") if isinstance(task.params_json, dict) else None
+    )
     if isinstance(configured_targets, list):
         for target in configured_targets:
             if isinstance(target, str):
@@ -866,9 +910,13 @@ def _allowed_targets(*, run: Run, task: Task, scope: Scope | None) -> list[dict[
     return targets
 
 
-def _review_targets_for_run(*, run: Run, scope: Scope | None) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+def _review_targets_for_run(
+    *, run: Run, scope: Scope | None
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     allowed_targets: list[dict[str, str]] = []
-    denied_targets = derive_targets_from_target_map(scope.denylist_json) if scope is not None else []
+    denied_targets = (
+        derive_targets_from_target_map(scope.denylist_json) if scope is not None else []
+    )
     seen: set[tuple[str, str]] = set()
 
     def add(kind: str, value: str | None) -> None:
@@ -883,7 +931,9 @@ def _review_targets_for_run(*, run: Run, scope: Scope | None) -> tuple[list[dict
 
     for task in list(run.tasks or []):
         add("task-target", task.target_id)
-        configured_targets = task.params_json.get("targets") if isinstance(task.params_json, dict) else None
+        configured_targets = (
+            task.params_json.get("targets") if isinstance(task.params_json, dict) else None
+        )
         if isinstance(configured_targets, list):
             for target in configured_targets:
                 if isinstance(target, str):
@@ -911,7 +961,10 @@ def _assert_proposal_is_review_approvable(
     target = str(proposal.proposed_target or "").strip()
     metadata = _safe_json_object(proposal.metadata_json)
     if metadata.get("proposal_kind") == "ai_repair":
-        if metadata.get("dispatches_work") is not False or metadata.get("active_runtime_mutated") is not False:
+        if (
+            metadata.get("dispatches_work") is not False
+            or metadata.get("active_runtime_mutated") is not False
+        ):
             raise AgentProposalReviewError(
                 "AI repair proposals must be isolated review-only drafts",
                 reason="repair_boundary_violation",
@@ -921,7 +974,9 @@ def _assert_proposal_is_review_approvable(
                 "AI repair proposal is missing its isolated draft boundary",
                 reason="repair_boundary_violation",
             )
-        if not _target_allowed(target=target, allowed_targets=allowed_targets, denied_targets=denied_targets):
+        if not _target_allowed(
+            target=target, allowed_targets=allowed_targets, denied_targets=denied_targets
+        ):
             raise AgentProposalReviewError(
                 f"AI repair proposal target is outside approved scope or denied: {target}",
                 reason="out_of_scope_target",
@@ -933,7 +988,9 @@ def _assert_proposal_is_review_approvable(
                 f"unsupported Tool Library proposal tool cannot be approved: {tool}",
                 reason="unsupported_tool",
             )
-        if not _target_allowed(target=target, allowed_targets=allowed_targets, denied_targets=denied_targets):
+        if not _target_allowed(
+            target=target, allowed_targets=allowed_targets, denied_targets=denied_targets
+        ):
             raise AgentProposalReviewError(
                 f"Tool Library proposal target is outside approved scope or denied: {target}",
                 reason="out_of_scope_target",
@@ -944,7 +1001,9 @@ def _assert_proposal_is_review_approvable(
             f"unsupported AI proposal tool cannot be approved: {tool}",
             reason="unsupported_tool",
         )
-    if not _target_allowed(target=target, allowed_targets=allowed_targets, denied_targets=denied_targets):
+    if not _target_allowed(
+        target=target, allowed_targets=allowed_targets, denied_targets=denied_targets
+    ):
         raise AgentProposalReviewError(
             f"AI proposal target is outside approved scope or denied: {target}",
             reason="out_of_scope_target",
@@ -959,8 +1018,12 @@ def _filter_proposal_drafts(
     accepted: list[AgentProposalDraft] = []
     blocked: list[dict[str, Any]] = []
     scope = context.get("scope") if isinstance(context.get("scope"), dict) else {}
-    allowed_targets = scope.get("allowed_targets") if isinstance(scope.get("allowed_targets"), list) else []
-    denied_targets = scope.get("denied_targets") if isinstance(scope.get("denied_targets"), list) else []
+    allowed_targets = (
+        scope.get("allowed_targets") if isinstance(scope.get("allowed_targets"), list) else []
+    )
+    denied_targets = (
+        scope.get("denied_targets") if isinstance(scope.get("denied_targets"), list) else []
+    )
 
     for draft in drafts:
         tool = str(draft.proposed_tool or "").strip()
@@ -974,7 +1037,9 @@ def _filter_proposal_drafts(
                 }
             )
             continue
-        if not _target_allowed(target=target, allowed_targets=allowed_targets, denied_targets=denied_targets):
+        if not _target_allowed(
+            target=target, allowed_targets=allowed_targets, denied_targets=denied_targets
+        ):
             blocked.append(
                 {
                     "reason": "out_of_scope_target",
@@ -1301,7 +1366,11 @@ def _cancel_queued_autonomous_tasks(*, run: Run) -> int:
     cancelled = 0
     for task in list(run.tasks or []):
         params = task.params_json if isinstance(task.params_json, dict) else {}
-        autonomous = params.get("autonomous_agent") if isinstance(params.get("autonomous_agent"), dict) else {}
+        autonomous = (
+            params.get("autonomous_agent")
+            if isinstance(params.get("autonomous_agent"), dict)
+            else {}
+        )
         if not autonomous.get("enabled") or task.status != "queued":
             continue
         task.status = "cancelled"

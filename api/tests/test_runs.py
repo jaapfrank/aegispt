@@ -328,7 +328,12 @@ def _attach_delete_impact_records(client, run_id: str) -> None:
         session.flush()
         session.add_all(
             [
-                FindingRemediation(finding_id=finding.id, state="not_started", created_by="tester", updated_by="tester"),
+                FindingRemediation(
+                    finding_id=finding.id,
+                    state="not_started",
+                    created_by="tester",
+                    updated_by="tester",
+                ),
                 FindingAiEnrichment(
                     finding_id=finding.id,
                     status="succeeded",
@@ -466,6 +471,7 @@ def test_list_run_profiles(client) -> None:
         "autonomous-internal",
         "autonomous-web",
         "intrusive-ad-password-spray",
+        "intrusive-credential-priv-esc-linux",
         "intrusive-exploitation",
         "intrusive-impacket-dcsync",
         "intrusive-impacket-remote-exec",
@@ -533,9 +539,10 @@ def test_playwright_web_passive_profile_queues_browser_task_with_session_binding
     assert task["tool"] == "playwright-web"
     assert task["target_id"] == "https://app.example.test"
     assert task["params_json"]["mode"] == "passive"
-    assert task["params_json"]["auth_contexts"][0]["secret_bindings"]["session"][
-        "secret_kind"
-    ] == "session"
+    assert (
+        task["params_json"]["auth_contexts"][0]["secret_bindings"]["session"]["secret_kind"]
+        == "session"
+    )
     assert "test-browser-session" not in json.dumps(task["params_json"])
 
 
@@ -590,9 +597,10 @@ def test_api_assessment_profile_uses_approval_gate_and_queues_api_task(client) -
     assert task["tool"] == "api-assessment"
     assert task["target_id"] == "https://api.example.test"
     assert task["params_json"]["openapi_spec"]["openapi"] == "3.0.3"
-    assert task["params_json"]["auth_contexts"][0]["secret_bindings"]["bearer_token"][
-        "secret_kind"
-    ] == "bearer_token"
+    assert (
+        task["params_json"]["auth_contexts"][0]["secret_bindings"]["bearer_token"]["secret_kind"]
+        == "bearer_token"
+    )
     assert "api-token-secret" not in json.dumps(task["params_json"])
 
 
@@ -1461,7 +1469,10 @@ def test_network_segmentation_profiles_pass_inventory_and_authorization_boundari
     assert passive_task["tool"] == "network-segmentation"
     assert passive_task["params_json"]["mode"] == "passive"
     assert passive_task["params_json"]["source_inventory_snapshot_id"] == inventory_id
-    assert passive_task["params_json"]["inventory"]["routes"][0]["destination_cidr"] == "192.168.10.0/24"
+    assert (
+        passive_task["params_json"]["inventory"]["routes"][0]["destination_cidr"]
+        == "192.168.10.0/24"
+    )
 
     active_response = client.post(
         f"/api/v1/engagements/{engagement_id}/runs",
@@ -1857,6 +1868,67 @@ def test_intrusive_netexec_profile_requires_named_approval_gate_and_auth_context
     assert task["params_json"]["auth_contexts"][0]["local_auth"] is True
 
 
+def test_priv_esc_linux_profile_requires_named_approval_gate_and_ssh_auth_context(
+    client,
+) -> None:
+    engagement_id = create_engagement_with_host_scope(client, ["10.0.20.35"])
+
+    missing_auth = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={"profile_name": "intrusive-credential-priv-esc-linux"},
+    )
+
+    assert missing_auth.status_code == 409
+    assert "stored password binding" in missing_auth.json()["detail"]
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "intrusive-credential-priv-esc-linux",
+            "configuration_json": {
+                "targets": {"hosts": ["10.0.20.35"]},
+                "access": {
+                    "accounts": [
+                        {
+                            "label": "lowpriv-linux",
+                            "username": "alice",
+                            "secret_ref": "CorrectHorseBatteryStaple!",
+                        }
+                    ]
+                },
+                "priv_esc_linux": {"ssh_port": 2222},
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["required_approvals"] == 1
+    assert created_payload["approval_step_id"] == "intrusive-credential-priv-esc-linux"
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver-1"},
+        json={"step_id": "intrusive-credential-priv-esc-linux", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "priv-esc-linux"
+    assert task["target_id"] == "10.0.20.35"
+    assert task["params_json"]["ssh_port"] == 2222
+    assert "CorrectHorseBatteryStaple!" not in json.dumps(task["params_json"])
+    assert (
+        task["params_json"]["auth_contexts"][0]["secret_bindings"]["password"]["secret_kind"]
+        == "password"
+    )
+
+
 def test_active_business_logic_profile_requires_approval_and_queues_authenticated_task(
     client,
 ) -> None:
@@ -2176,7 +2248,9 @@ def test_active_deserialization_probe_profile_requires_approval_and_queues_task(
     ]
 
 
-def test_active_session_security_profile_requires_approval_and_queues_authenticated_task(client) -> None:
+def test_active_session_security_profile_requires_approval_and_queues_authenticated_task(
+    client,
+) -> None:
     engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
 
     create_response = client.post(
@@ -2329,7 +2403,9 @@ def test_active_auth_flow_profile_requires_approval_and_queues_authenticated_tas
     assert "CorrectHorseBatteryStaple!" not in json.dumps(task["params_json"])
 
 
-def test_active_client_state_profile_requires_approval_and_queues_authenticated_task(client) -> None:
+def test_active_client_state_profile_requires_approval_and_queues_authenticated_task(
+    client,
+) -> None:
     engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
 
     create_response = client.post(
@@ -4566,7 +4642,9 @@ def test_scheduled_run_rejects_non_passive_profiles(client) -> None:
     assert "passive" in create_response.json()["detail"]
 
 
-def test_due_scheduled_run_global_tick_launches_due_passive_schedule(inline_client, probe_server: str) -> None:
+def test_due_scheduled_run_global_tick_launches_due_passive_schedule(
+    inline_client, probe_server: str
+) -> None:
     from api.app.config import get_settings
     from api.app.services.scheduled_runs import launch_due_scheduled_runs_for_all_engagements
 
@@ -4607,7 +4685,9 @@ def test_run_drift_is_computed_against_previous_completed_run(client) -> None:
     session_factory = client.app.state.session_factory
     with session_factory() as session:
         ensure_default_run_profiles(session)
-        profile = session.scalar(select(RunProfile).where(RunProfile.name == "passive-web-baseline"))
+        profile = session.scalar(
+            select(RunProfile).where(RunProfile.name == "passive-web-baseline")
+        )
         assert profile is not None
         previous = Run(
             engagement_id=UUID(engagement_id),
@@ -5766,7 +5846,9 @@ def test_active_run_requires_approval_before_queueing(client) -> None:
     assert len(approval_payload["tasks"]) == 1
     assert {task["tool"] for task in approval_payload["tasks"]} == {"zap"}
     assert approval_payload["tasks"][0]["params_json"]["targets"] == ["https://example.com"]
-    assert approval_payload["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"] == "manual"
+    assert (
+        approval_payload["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"] == "manual"
+    )
     assert approval_payload["configuration_json"]["runtime_dispatch"]["queued_task_count"] == 1
     assert approval_payload["findings"]["finding_count"] == 0
 
@@ -5887,7 +5969,9 @@ def test_stale_run_recovery_marks_old_running_task_cancelled_with_audit(client) 
     assert payload["tasks"][0]["id"] == task_id
     assert payload["tasks"][0]["status"] == "cancelled"
     assert payload["tasks"][0]["params_json"]["runtime_recovery"]["type"] == "stale_running_task"
-    assert payload["tasks"][0]["params_json"]["runtime_recovery"]["reason"].startswith("The inline executor")
+    assert payload["tasks"][0]["params_json"]["runtime_recovery"]["reason"].startswith(
+        "The inline executor"
+    )
 
     with session_factory() as session:
         audit = session.scalar(

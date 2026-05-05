@@ -69,9 +69,21 @@ TOOL_WSTG_AREAS: Final[dict[str, tuple[str, ...]]] = {
     "httpx": ("Information Gathering",),
     "nmap": ("Information Gathering", "Configuration and Deployment Management Testing"),
     "nuclei": ("Configuration and Deployment Management Testing", "Input Validation Testing"),
-    "content-discovery": ("Information Gathering", "Configuration and Deployment Management Testing", "API Testing"),
-    "ffuf": ("Information Gathering", "Configuration and Deployment Management Testing", "API Testing"),
-    "feroxbuster": ("Information Gathering", "Configuration and Deployment Management Testing", "API Testing"),
+    "content-discovery": (
+        "Information Gathering",
+        "Configuration and Deployment Management Testing",
+        "API Testing",
+    ),
+    "ffuf": (
+        "Information Gathering",
+        "Configuration and Deployment Management Testing",
+        "API Testing",
+    ),
+    "feroxbuster": (
+        "Information Gathering",
+        "Configuration and Deployment Management Testing",
+        "API Testing",
+    ),
     "nikto": ("Configuration and Deployment Management Testing", "Information Gathering"),
     "sqlmap": ("Input Validation Testing",),
     "xxe-probe": ("Input Validation Testing",),
@@ -84,8 +96,12 @@ TOOL_WSTG_AREAS: Final[dict[str, tuple[str, ...]]] = {
     "headers-security": ("Configuration and Deployment Management Testing", "Client-side Testing"),
     "graphql-probe": ("API Testing", "Input Validation Testing", "Authorization Testing"),
     "ssti-probe": ("Input Validation Testing",),
-    "http-smuggling": ("Input Validation Testing", "Configuration and Deployment Management Testing"),
+    "http-smuggling": (
+        "Input Validation Testing",
+        "Configuration and Deployment Management Testing",
+    ),
     "logging-probe": ("Error Handling", "Configuration and Deployment Management Testing"),
+    "priv-esc-linux": ("Authorization Testing", "Configuration and Deployment Management Testing"),
     "vuln-components": ("Configuration and Deployment Management Testing", "Information Gathering"),
     "xss-extended": ("Input Validation Testing", "Client-side Testing", "API Testing"),
     "ssrf-probe": ("Input Validation Testing", "API Testing"),
@@ -142,6 +158,7 @@ DEFAULT_CONTROL_FAMILY_BY_TOOL: Final[dict[str, str]] = {
     "ssti-probe": "input_validation",
     "http-smuggling": "input_validation",
     "logging-probe": "error_handling",
+    "priv-esc-linux": "authorization",
     "vuln-components": "configuration",
     "xss-extended": "input_validation",
     "ssrf-probe": "input_validation",
@@ -157,6 +174,7 @@ NON_ALNUM_PATTERN: Final[re.Pattern[str]] = re.compile(r"[^a-z0-9]+")
 
 def _normalize_match_text(value: str) -> str:
     return NON_ALNUM_PATTERN.sub(" ", value.strip().lower()).strip()
+
 
 METHODOLOGY_RULES: Final[tuple[dict[str, str | tuple[str, ...]], ...]] = (
     {
@@ -330,7 +348,12 @@ METHODOLOGY_RULES: Final[tuple[dict[str, str | tuple[str, ...]], ...]] = (
         "wstg_id": "WSTG-CRYP-04",
     },
     {
-        "terms": ("workflow bypass", "business logic", "process timing", "circumvention of work flows"),
+        "terms": (
+            "workflow bypass",
+            "business logic",
+            "process timing",
+            "circumvention of work flows",
+        ),
         "control_family": "business_logic",
         "wstg_id": "WSTG-BUSL-06",
     },
@@ -382,7 +405,9 @@ def default_nist_phase_for_run_class(run_class: str | None) -> str:
 
 def operator_workflow_stage_for_run_class(run_class: str | None) -> str:
     normalized = (run_class or "").strip().lower()
-    return RUN_CLASS_TO_OPERATOR_STAGE.get(normalized, OPERATOR_WORKFLOW_STAGES["analysis_validation"])
+    return RUN_CLASS_TO_OPERATOR_STAGE.get(
+        normalized, OPERATOR_WORKFLOW_STAGES["analysis_validation"]
+    )
 
 
 def wstg_area_for_identifier(wstg_id: str | None) -> str | None:
@@ -516,6 +541,7 @@ def derive_finding_methodology(
             "ssti-probe": "ssti-probe-validation",
             "http-smuggling": "http-smuggling-validation",
             "logging-probe": "logging-probe-validation",
+            "priv-esc-linux": "priv-esc-linux-validation",
             "vuln-components": "vulnerable-components",
             "xss-extended": "xss-extended-validation",
             "ssrf-probe": "ssrf-validation",

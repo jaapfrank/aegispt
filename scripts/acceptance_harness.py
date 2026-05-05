@@ -66,6 +66,7 @@ RUN_PROFILE_TOOL_HINTS = {
     "active-web-oauth-probe": ["oauth-probe"],
     "active-api-assessment": ["api-assessment"],
     "active-llm-application-probe": ["llm-probe"],
+    "intrusive-credential-priv-esc-linux": ["priv-esc-linux"],
     "intrusive-validation": ["zap", "nuclei"],
 }
 TERMINAL_RUN_STATUSES = {
@@ -190,7 +191,9 @@ def validate_target_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"Target {target_id} has unsupported runnability: {runnability}")
         runnable_counts[runnability] += 1
         if target.get("enabled", True) is True and runnability == "documentation_only":
-            raise ValueError(f"Documentation-only target {target_id} must not be enabled for execution.")
+            raise ValueError(
+                f"Documentation-only target {target_id} must not be enabled for execution."
+            )
         if target.get("surface_kind"):
             surface_kinds.add(str(target["surface_kind"]))
 
@@ -201,9 +204,13 @@ def validate_target_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
             vulnerable_families = benchmark_metadata.get("vulnerable_families")
             prerequisites = benchmark_metadata.get("prerequisites")
             if not isinstance(vulnerable_families, list):
-                raise ValueError(f"Target {target_id} benchmark_metadata.vulnerable_families must be a list")
+                raise ValueError(
+                    f"Target {target_id} benchmark_metadata.vulnerable_families must be a list"
+                )
             if prerequisites is not None and not isinstance(prerequisites, list):
-                raise ValueError(f"Target {target_id} benchmark_metadata.prerequisites must be a list")
+                raise ValueError(
+                    f"Target {target_id} benchmark_metadata.prerequisites must be a list"
+                )
 
     seen_scenarios: set[str] = set()
     scenario_count = 0
@@ -219,7 +226,9 @@ def validate_target_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
         scenario_count += 1
         target_id = str(scenario.get("target_id") or "").strip()
         if target_id not in seen_targets:
-            raise ValueError(f"real-run scenario {scenario_id} references unknown target {target_id}")
+            raise ValueError(
+                f"real-run scenario {scenario_id} references unknown target {target_id}"
+            )
 
     return {
         "target_count": len(targets),
@@ -229,7 +238,9 @@ def validate_target_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def list_enabled_scenarios(matrix: dict[str, Any], *, lane: str | None = None) -> list[dict[str, Any]]:
+def list_enabled_scenarios(
+    matrix: dict[str, Any], *, lane: str | None = None
+) -> list[dict[str, Any]]:
     scenarios = [
         deepcopy(item)
         for item in matrix.get("scenarios", [])
@@ -317,7 +328,9 @@ def _wait_for_http_ready(
                 last_error = str(exc)
             time.sleep(1.0)
 
-    raise RuntimeError(f"runtime target {url} did not become ready within {timeout_seconds:.0f}s ({last_error})")
+    raise RuntimeError(
+        f"runtime target {url} did not become ready within {timeout_seconds:.0f}s ({last_error})"
+    )
 
 
 def _verify_zap_daemon() -> dict[str, str]:
@@ -343,8 +356,14 @@ def _verify_zap_daemon() -> dict[str, str]:
     return {"zap_base_url": base_url, "zap_version": version}
 
 
-def assert_runtime_prerequisites(*, scenario: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
-    run_profile = scenario.get("run_profile") or target.get("recommended_run_profile") or "passive-web-baseline"
+def assert_runtime_prerequisites(
+    *, scenario: dict[str, Any], target: dict[str, Any]
+) -> dict[str, Any]:
+    run_profile = (
+        scenario.get("run_profile")
+        or target.get("recommended_run_profile")
+        or "passive-web-baseline"
+    )
     tool_hints = RUN_PROFILE_TOOL_HINTS.get(run_profile, [])
     context: dict[str, Any] = {"run_profile": run_profile, "tool_hints": list(tool_hints)}
 
@@ -584,11 +603,7 @@ def select_next_real_run_scenario(
     scenarios = list_real_run_scenarios(catalog)
     if not scenarios:
         raise ValueError("No enabled real-run scenarios are available.")
-    passed = {
-        item.get("scenario_id")
-        for item in history or []
-        if item.get("status") == "passed"
-    }
+    passed = {item.get("scenario_id") for item in history or [] if item.get("status") == "passed"}
     for scenario in scenarios:
         if scenario.get("id") not in passed:
             return scenario
@@ -694,13 +709,15 @@ def build_run_configuration(
     scenario: dict[str, Any],
     target: dict[str, Any],
 ) -> dict[str, Any]:
-    run_profile = scenario.get("run_profile") or target.get("recommended_run_profile") or "passive-web-baseline"
+    run_profile = (
+        scenario.get("run_profile")
+        or target.get("recommended_run_profile")
+        or "passive-web-baseline"
+    )
     safety = merge_safety(scenario.get("safety") or target.get("recommended_safety"))
     target_inputs = build_target_inputs(target)
     modules = build_module_state(
-        scenario.get("modules")
-        or target.get("recommended_modules")
-        or ["discovery"]
+        scenario.get("modules") or target.get("recommended_modules") or ["discovery"]
     )
     eta = deepcopy(scenario.get("eta") or {})
     eta.setdefault("estimated_total_minutes", scenario.get("estimated_total_minutes", 45))
@@ -717,13 +734,17 @@ def build_run_configuration(
         "expected_outputs": list(scenario.get("expected_outputs", [])),
     }
     return {
-        "assessment_type": scenario.get("assessment_type") or target.get("assessment_type") or "Website / Web App",
+        "assessment_type": scenario.get("assessment_type")
+        or target.get("assessment_type")
+        or "Website / Web App",
         "test_profile": scenario.get("profile") or target.get("recommended_profile") or "Standard",
         "execution_profile": run_profile,
         "execution_plan": {
             "profile_name": run_profile,
             "planned_tools": RUN_PROFILE_TOOL_HINTS.get(run_profile, []),
-            "description": scenario.get("description") or target.get("notes") or "Acceptance harness run.",
+            "description": scenario.get("description")
+            or target.get("notes")
+            or "Acceptance harness run.",
         },
         "targets": target_inputs,
         "modules": modules,
@@ -738,7 +759,9 @@ def build_engagement_payload(*, scenario: dict[str, Any], target: dict[str, Any]
     return {
         "name": f"Acceptance · {scenario.get('name', scenario.get('id', 'scenario'))} · {suffix}",
         "client": target.get("owner") or "Safe Target Catalog",
-        "roe_ref": scenario.get("roe_ref") or target.get("authorization_ref") or "SAFE-LAB-ACCEPTANCE",
+        "roe_ref": scenario.get("roe_ref")
+        or target.get("authorization_ref")
+        or "SAFE-LAB-ACCEPTANCE",
     }
 
 
@@ -765,13 +788,20 @@ def summarize_result(
     )
     checks = {
         "run_created": bool(run.get("id")),
-        "run_terminal": run.get("status") in TERMINAL_RUN_STATUSES if scenario.get("dispatch", True) else True,
+        "run_terminal": (
+            run.get("status") in TERMINAL_RUN_STATUSES if scenario.get("dispatch", True) else True
+        ),
         "findings_surface_available": isinstance(findings, list),
-        "report_catalog_available": isinstance(reports, list) and len(report_variants) >= scenario.get("minimum_reports", 1),
-        "inventory_available": not expected_outputs.intersection({"inventory", "inventory_snapshot"}) or bool(inventory),
+        "report_catalog_available": isinstance(reports, list)
+        and len(report_variants) >= scenario.get("minimum_reports", 1),
+        "inventory_available": not expected_outputs.intersection(
+            {"inventory", "inventory_snapshot"}
+        )
+        or bool(inventory),
         "task_execution_available": "task_evidence" not in expected_outputs or any_execution,
         "artifact_available": "task_evidence" not in expected_outputs or any_artifact,
-        "pack_visibility_available": "pack_state" not in expected_outputs or isinstance(packs, list),
+        "pack_visibility_available": "pack_state" not in expected_outputs
+        or isinstance(packs, list),
         "minimum_findings_met": len(findings) >= scenario.get("minimum_findings", 0),
     }
     passed = all(checks.values())
@@ -795,8 +825,16 @@ def summarize_result(
         },
         "links": {
             "operator_console": f"{base_url.rstrip('/')}/app/",
-            "run_report_html": f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=html&variant=technical" if run_id else None,
-            "run_report_pdf": f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=pdf&variant=technical" if run_id else None,
+            "run_report_html": (
+                f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=html&variant=technical"
+                if run_id
+                else None
+            ),
+            "run_report_pdf": (
+                f"{base_url.rstrip('/')}/api/v1/runs/{run_id}/report?format=pdf&variant=technical"
+                if run_id
+                else None
+            ),
         },
         "created_at": datetime.now(tz=UTC).isoformat(),
     }
@@ -804,6 +842,10 @@ def summarize_result(
 
 def write_result(payload: dict[str, Any], *, output_path: str | Path | None = None) -> Path:
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
-    path = Path(output_path) if output_path else results_dir() / f"acceptance-{payload['scenario_id']}-{timestamp}.json"
+    path = (
+        Path(output_path)
+        if output_path
+        else results_dir() / f"acceptance-{payload['scenario_id']}-{timestamp}.json"
+    )
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path

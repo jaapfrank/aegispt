@@ -104,6 +104,7 @@ IMPACKET_SECRET_BINDING_KEYS = {"password", "ntlm_hash"}
 KERBEROAST_SECRET_BINDING_KEYS = {"password"}
 METASPLOIT_SECRET_BINDING_KEYS = {"password", "ntlm_hash"}
 NETEXEC_SECRET_BINDING_KEYS = {"password", "ntlm_hash"}
+PRIV_ESC_LINUX_SECRET_BINDING_KEYS = {"password"}
 HASHCAT_SOURCE_SECRET_KINDS = {
     "ntlmv2_hash_bundle",
     "kerberoast_tgs_hash_bundle",
@@ -461,7 +462,13 @@ def session_security_runner_params_from_configuration(
     validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
 
     result: dict[str, Any] = {}
-    for field_name in ("request_contexts", "candidate_paths", "success_markers", "login_markers", "token_parameter_names"):
+    for field_name in (
+        "request_contexts",
+        "candidate_paths",
+        "success_markers",
+        "login_markers",
+        "token_parameter_names",
+    ):
         value = settings.get(field_name)
         if isinstance(value, list) and value:
             result[field_name] = value
@@ -756,7 +763,11 @@ def sqlmap_runner_params_from_configuration(
         if isinstance(value, list) and value:
             result[field_name] = value
     zap_parameters = validation.get("zap_flagged_parameters")
-    if isinstance(zap_parameters, list) and zap_parameters and "zap_flagged_parameters" not in result:
+    if (
+        isinstance(zap_parameters, list)
+        and zap_parameters
+        and "zap_flagged_parameters" not in result
+    ):
         result["zap_flagged_parameters"] = zap_parameters
     if isinstance(settings.get("timeout_seconds"), (int, float)):
         result["timeout_seconds"] = float(settings["timeout_seconds"])
@@ -824,15 +835,11 @@ def vulnerable_components_runner_params_from_configuration(
     result: dict[str, Any] = {}
     if isinstance(settings.get("dependency_paths"), list):
         result["dependency_paths"] = [
-            str(item).strip()
-            for item in settings["dependency_paths"]
-            if str(item).strip()
+            str(item).strip() for item in settings["dependency_paths"] if str(item).strip()
         ]
     if isinstance(settings.get("local_cve_records"), list):
         result["local_cve_records"] = [
-            item
-            for item in settings["local_cve_records"]
-            if isinstance(item, dict)
+            item for item in settings["local_cve_records"] if isinstance(item, dict)
         ]
     if isinstance(settings.get("timeout_seconds"), (int, float)):
         result["timeout_seconds"] = float(settings["timeout_seconds"])
@@ -950,17 +957,13 @@ def graphql_probe_runner_params_from_configuration(
         value = settings.get(field_name)
         if isinstance(value, list) and value:
             result[field_name] = [
-                str(item).strip()
-                for item in value
-                if isinstance(item, str) and str(item).strip()
+                str(item).strip() for item in value if isinstance(item, str) and str(item).strip()
             ]
     for field_name in ("endpoint_paths", "ide_paths"):
         value = validation.get(field_name)
         if isinstance(value, list) and value and field_name not in result:
             result[field_name] = [
-                str(item).strip()
-                for item in value
-                if isinstance(item, str) and str(item).strip()
+                str(item).strip() for item in value if isinstance(item, str) and str(item).strip()
             ]
     if isinstance(settings.get("max_depth"), int):
         result["max_depth"] = min(max(int(settings["max_depth"]), 2), 20)
@@ -993,21 +996,13 @@ def ssti_runner_params_from_configuration(
     for field_name in ("stored_form_contexts", "gruyere_contexts"):
         value = settings.get(field_name)
         if isinstance(value, list) and value:
-            result[field_name] = [
-                dict(item)
-                for item in value[:20]
-                if isinstance(item, dict)
-            ]
+            result[field_name] = [dict(item) for item in value[:20] if isinstance(item, dict)]
     for field_name in ("stored_form_contexts", "gruyere_contexts"):
         if field_name in result:
             continue
         value = validation.get(field_name)
         if isinstance(value, list) and value:
-            result[field_name] = [
-                dict(item)
-                for item in value[:20]
-                if isinstance(item, dict)
-            ]
+            result[field_name] = [dict(item) for item in value[:20] if isinstance(item, dict)]
     if isinstance(settings.get("max_parameters"), int):
         result["max_parameters"] = min(max(int(settings["max_parameters"]), 1), 20)
     if isinstance(settings.get("timeout_seconds"), (int, float)):
@@ -1029,11 +1024,7 @@ def http_smuggling_runner_params_from_configuration(
             continue
         value = source.get("proxy_evidence")
         if isinstance(value, list) and value:
-            result["proxy_evidence"] = [
-                dict(item)
-                for item in value[:20]
-                if isinstance(item, dict)
-            ]
+            result["proxy_evidence"] = [dict(item) for item in value[:20] if isinstance(item, dict)]
     for source in (settings, validation):
         for field_name in ("timeout_seconds", "timing_threshold_seconds"):
             if field_name not in result and isinstance(source.get(field_name), (int, float)):
@@ -1062,16 +1053,14 @@ def oauth_probe_runner_params_from_configuration(
             continue
         value = source.get("token_evidence")
         if isinstance(value, list) and value:
-            result["token_evidence"] = [
-                dict(item)
-                for item in value[:20]
-                if isinstance(item, dict)
-            ]
+            result["token_evidence"] = [dict(item) for item in value[:20] if isinstance(item, dict)]
     client_id = str(settings.get("client_id") or validation.get("client_id") or "").strip()
     if client_id:
         result["client_id"] = client_id
     for source in (settings, validation):
-        if "timeout_seconds" not in result and isinstance(source.get("timeout_seconds"), (int, float)):
+        if "timeout_seconds" not in result and isinstance(
+            source.get("timeout_seconds"), (int, float)
+        ):
             result["timeout_seconds"] = float(source["timeout_seconds"])
     return result
 
@@ -1093,7 +1082,9 @@ def logging_probe_runner_params_from_configuration(
             if value:
                 result[field_name] = value
     for source in (settings, validation):
-        if "timeout_seconds" not in result and isinstance(source.get("timeout_seconds"), (int, float)):
+        if "timeout_seconds" not in result and isinstance(
+            source.get("timeout_seconds"), (int, float)
+        ):
             result["timeout_seconds"] = float(source["timeout_seconds"])
     return result
 
@@ -1727,6 +1718,65 @@ def netexec_auth_contexts_from_configuration(
     return auth_contexts
 
 
+def priv_esc_linux_auth_contexts_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    access = payload.get("access")
+    if not isinstance(access, dict):
+        return []
+
+    accounts = access.get("accounts")
+    if not isinstance(accounts, list):
+        return []
+
+    auth_contexts: list[dict[str, Any]] = []
+    for raw_account in accounts:
+        if not isinstance(raw_account, dict):
+            continue
+        secret_bindings = raw_account.get("secret_bindings")
+        if not isinstance(secret_bindings, dict):
+            continue
+
+        usable_secret_bindings = {
+            key: dict(value)
+            for key, value in secret_bindings.items()
+            if key in PRIV_ESC_LINUX_SECRET_BINDING_KEYS and isinstance(value, dict)
+        }
+        if not usable_secret_bindings:
+            continue
+
+        username = str(raw_account.get("username") or "").strip()
+        if not username:
+            continue
+
+        auth_context: dict[str, Any] = {
+            "label": str(raw_account.get("label") or username).strip() or username,
+            "username": username,
+            "secret_bindings": usable_secret_bindings,
+        }
+        ssh_port = raw_account.get("ssh_port") or raw_account.get("port")
+        if isinstance(ssh_port, int) and 1 <= ssh_port <= 65535:
+            auth_context["ssh_port"] = ssh_port
+        auth_contexts.append(auth_context)
+
+    return auth_contexts
+
+
+def priv_esc_linux_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("priv_esc_linux")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+
+    result: dict[str, Any] = {}
+    ssh_port = settings.get("ssh_port")
+    if isinstance(ssh_port, int) and 1 <= ssh_port <= 65535:
+        result["ssh_port"] = ssh_port
+    return result
+
+
 def metasploit_auth_contexts_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
@@ -1994,9 +2044,15 @@ def wifi_runner_params_from_configuration(
     approved_ssids = _normalized_string_list(settings.get("approved_ssids"), limit=256)
     if not approved_ssids:
         approved_ssids = _normalized_string_list(targets.get("ssids"), limit=256)
-    approved_bssids = [_normalized_bssid(value) for value in _normalized_string_list(settings.get("approved_bssids"), limit=512)]
+    approved_bssids = [
+        _normalized_bssid(value)
+        for value in _normalized_string_list(settings.get("approved_bssids"), limit=512)
+    ]
     if not approved_bssids:
-        approved_bssids = [_normalized_bssid(value) for value in _normalized_string_list(targets.get("bssids"), limit=512)]
+        approved_bssids = [
+            _normalized_bssid(value)
+            for value in _normalized_string_list(targets.get("bssids"), limit=512)
+        ]
 
     result: dict[str, Any] = {
         "site": str(
@@ -2019,7 +2075,9 @@ def wifi_runner_params_from_configuration(
             )
             if _normalized_bssid(value)
         ],
-        "roe_acknowledged": bool(settings.get("roe_acknowledged") or settings.get("wireless_roe_acknowledged")),
+        "roe_acknowledged": bool(
+            settings.get("roe_acknowledged") or settings.get("wireless_roe_acknowledged")
+        ),
         "passive_only": True,
         "rf_disruptive_actions": False,
         "handshake_capture": False,
@@ -2155,8 +2213,12 @@ def validate_xxe_run_configuration(
                 target = item.get("url") or item.get("target") or item.get("endpoint")
             else:
                 continue
-            if target and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(target)):
-                raise ValueError(f"configured XML endpoint {target} is outside the approved engagement scope")
+            if target and not web_target_value_is_allowed_with_path(
+                scope.allowlist_json, str(target)
+            ):
+                raise ValueError(
+                    f"configured XML endpoint {target} is outside the approved engagement scope"
+                )
 
 
 def validate_jwt_run_configuration(
@@ -2167,14 +2229,22 @@ def validate_jwt_run_configuration(
     validate_web_depth_run_configuration(scope=scope, configuration=configuration, tool="jwt-probe")
     params = jwt_runner_params_from_configuration(configuration)
     for endpoint in params.get("jwks_endpoints", []):
-        if endpoint and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(endpoint)):
-            raise ValueError(f"configured JWKS endpoint {endpoint} is outside the approved engagement scope")
+        if endpoint and not web_target_value_is_allowed_with_path(
+            scope.allowlist_json, str(endpoint)
+        ):
+            raise ValueError(
+                f"configured JWKS endpoint {endpoint} is outside the approved engagement scope"
+            )
     for item in params.get("replay_contexts", []):
         if not isinstance(item, dict):
             continue
         endpoint = item.get("url") or item.get("target") or item.get("endpoint")
-        if endpoint and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(endpoint)):
-            raise ValueError(f"configured JWT replay endpoint {endpoint} is outside the approved engagement scope")
+        if endpoint and not web_target_value_is_allowed_with_path(
+            scope.allowlist_json, str(endpoint)
+        ):
+            raise ValueError(
+                f"configured JWT replay endpoint {endpoint} is outside the approved engagement scope"
+            )
 
 
 def validate_vulnerable_components_run_configuration(
@@ -2210,11 +2280,20 @@ def validate_idor_bac_run_configuration(
             if isinstance(item, str):
                 target = item
             elif isinstance(item, dict):
-                target = item.get("url") or item.get("target") or item.get("request_url") or item.get("endpoint")
+                target = (
+                    item.get("url")
+                    or item.get("target")
+                    or item.get("request_url")
+                    or item.get("endpoint")
+                )
             else:
                 continue
-            if target and not web_target_value_is_allowed_with_path(scope.allowlist_json, str(target)):
-                raise ValueError(f"configured IDOR/BAC endpoint {target} is outside the approved engagement scope")
+            if target and not web_target_value_is_allowed_with_path(
+                scope.allowlist_json, str(target)
+            ):
+                raise ValueError(
+                    f"configured IDOR/BAC endpoint {target} is outside the approved engagement scope"
+                )
 
 
 def validate_client_state_run_configuration(
@@ -2258,7 +2337,9 @@ def validate_client_state_run_configuration(
                 if (
                     target_value
                     and "://" in target_value
-                    and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+                    and not web_target_value_is_allowed_with_path(
+                        scope.allowlist_json, target_value
+                    )
                 ):
                     raise ValueError(
                         f"configured client-state endpoint {target_value} is outside the approved engagement scope"
@@ -2372,7 +2453,9 @@ def validate_ssti_probe_run_configuration(
                 if (
                     target_value
                     and "://" in target_value
-                    and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+                    and not web_target_value_is_allowed_with_path(
+                        scope.allowlist_json, target_value
+                    )
                 ):
                     raise ValueError(
                         f"configured SSTI probe target {target_value} is outside the approved engagement scope"
@@ -2437,7 +2520,9 @@ def validate_oauth_probe_run_configuration(
     params = oauth_probe_runner_params_from_configuration(configuration)
     timeout_value = params.get("timeout_seconds")
     if isinstance(timeout_value, (int, float)) and not 0 < float(timeout_value) <= 5:
-        raise ValueError("oauth-probe timeout_seconds must be greater than zero and capped at 5 seconds")
+        raise ValueError(
+            "oauth-probe timeout_seconds must be greater than zero and capped at 5 seconds"
+        )
 
     for field_name in ("authorization_urls", "login_paths", "well_known_paths", "script_paths"):
         for raw_value in params.get(field_name, []):
@@ -2480,7 +2565,9 @@ def validate_logging_probe_run_configuration(
     params = logging_probe_runner_params_from_configuration(configuration)
     timeout_value = params.get("timeout_seconds")
     if isinstance(timeout_value, (int, float)) and not 0 < float(timeout_value) <= 5:
-        raise ValueError("logging-probe timeout_seconds must be greater than zero and capped at 5 seconds")
+        raise ValueError(
+            "logging-probe timeout_seconds must be greater than zero and capped at 5 seconds"
+        )
 
     for field_name in ("admin_paths", "actuator_paths", "debug_paths", "error_paths"):
         for raw_value in params.get(field_name, []):
@@ -2513,7 +2600,10 @@ def validate_xss_extended_run_configuration(
                 targets = [item]
             elif isinstance(item, dict):
                 targets = [
-                    item.get("url") or item.get("target") or item.get("endpoint") or item.get("upload_url"),
+                    item.get("url")
+                    or item.get("target")
+                    or item.get("endpoint")
+                    or item.get("upload_url"),
                     item.get("uploaded_url"),
                 ]
             else:
@@ -2523,9 +2613,13 @@ def validate_xss_extended_run_configuration(
                 if (
                     target_value
                     and "://" in target_value
-                    and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+                    and not web_target_value_is_allowed_with_path(
+                        scope.allowlist_json, target_value
+                    )
                 ):
-                    raise ValueError(f"configured XSS endpoint {target} is outside the approved engagement scope")
+                    raise ValueError(
+                        f"configured XSS endpoint {target} is outside the approved engagement scope"
+                    )
 
 
 def validate_ssrf_run_configuration(
@@ -2554,7 +2648,9 @@ def validate_ssrf_run_configuration(
                 and "://" in target_value
                 and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
             ):
-                raise ValueError(f"configured SSRF probe endpoint {target_value} is outside the approved engagement scope")
+                raise ValueError(
+                    f"configured SSRF probe endpoint {target_value} is outside the approved engagement scope"
+                )
     if params.get("cloud_metadata_probe_enabled") and not params.get("cloud_hosted"):
         raise ValueError("cloud metadata SSRF probes require explicit cloud_hosted=true context")
     cloud_provider = str(params.get("cloud_provider") or "").strip().lower()
@@ -2676,9 +2772,13 @@ def validate_auth_flow_run_configuration(
         raise ValueError("auth-flow reset_poison_host must be a hostname, not a URL")
 
 
-def local_cve_records_for_vulnerable_components(session: Session, *, limit: int = 500) -> list[dict[str, Any]]:
+def local_cve_records_for_vulnerable_components(
+    session: Session, *, limit: int = 500
+) -> list[dict[str, Any]]:
     records = session.scalars(
-        select(ThreatIntelRecord).order_by(ThreatIntelRecord.advisory_updated_at.desc()).limit(limit)
+        select(ThreatIntelRecord)
+        .order_by(ThreatIntelRecord.advisory_updated_at.desc())
+        .limit(limit)
     ).all()
     return [
         {
@@ -2712,7 +2812,7 @@ def validate_mobile_android_run_configuration(
     params = mobile_android_runner_params_from_configuration(configuration)
     apk_path = str(params.get("apk_path") or "").strip()
     if apk_path and not target_value_is_allowed(scope.allowlist_json, apk_path):
-            raise ValueError(f"configured target {apk_path} is outside the approved engagement scope")
+        raise ValueError(f"configured target {apk_path} is outside the approved engagement scope")
 
 
 def validate_desktop_client_run_configuration(
@@ -2775,9 +2875,13 @@ def validate_cloud_native_run_configuration(
     manifest_paths = params.get("manifest_paths")
     if isinstance(manifest_paths, list):
         for manifest_path in manifest_paths:
-            if isinstance(manifest_path, str) and manifest_path.strip() and not target_value_is_allowed(
-                scope.allowlist_json,
-                manifest_path.strip(),
+            if (
+                isinstance(manifest_path, str)
+                and manifest_path.strip()
+                and not target_value_is_allowed(
+                    scope.allowlist_json,
+                    manifest_path.strip(),
+                )
             ):
                 raise ValueError(
                     f"configured target {manifest_path.strip()} is outside the approved engagement scope"
@@ -2790,7 +2894,9 @@ def validate_cloud_native_run_configuration(
                 continue
             image = str(item.get("image") or item.get("name") or item.get("ref") or "").strip()
             if image and not target_value_is_allowed(scope.allowlist_json, image):
-                raise ValueError(f"configured target {image} is outside the approved engagement scope")
+                raise ValueError(
+                    f"configured target {image} is outside the approved engagement scope"
+                )
 
 
 def validate_cicd_security_run_configuration(
@@ -2826,14 +2932,18 @@ def validate_cicd_security_run_configuration(
     repository_items = (
         [repository_metadata]
         if isinstance(repository_metadata, dict)
-        else [item for item in repository_metadata if isinstance(item, dict)]
-        if isinstance(repository_metadata, list)
-        else []
+        else (
+            [item for item in repository_metadata if isinstance(item, dict)]
+            if isinstance(repository_metadata, list)
+            else []
+        )
     )
     for item in repository_items:
         repository = str(item.get("repository") or item.get("name") or "").strip()
         if repository and not target_value_is_allowed(scope.allowlist_json, repository):
-            raise ValueError(f"configured target {repository} is outside the approved engagement scope")
+            raise ValueError(
+                f"configured target {repository} is outside the approved engagement scope"
+            )
 
 
 def validate_bloodhound_run_configuration(
@@ -2956,7 +3066,9 @@ def validate_wifi_run_configuration(
         "wps_bruteforce",
     ):
         if wireless_settings.get(forbidden) is True:
-            raise ValueError(f"passive-wifi-survey does not allow {forbidden} in the foundation slice")
+            raise ValueError(
+                f"passive-wifi-survey does not allow {forbidden} in the foundation slice"
+            )
 
     for value in [
         params["site"],
@@ -2964,7 +3076,9 @@ def validate_wifi_run_configuration(
         *list(params.get("approved_bssids") or []),
     ]:
         if value and not target_value_is_allowed(scope.allowlist_json, str(value)):
-            raise ValueError(f"configured wireless target {value} is outside the approved engagement scope")
+            raise ValueError(
+                f"configured wireless target {value} is outside the approved engagement scope"
+            )
 
 
 def validate_netexec_run_configuration(
@@ -2987,6 +3101,28 @@ def validate_netexec_run_configuration(
     if intrusive and not netexec_auth_contexts_from_configuration(configuration):
         raise ValueError(
             "intrusive-lan-smb-auth requires at least one access account with username and stored password or NTLM hash binding"
+        )
+
+
+def validate_priv_esc_linux_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    targets = derive_targets_from_target_map(
+        configuration.get("targets")
+        if isinstance(configuration, dict) and isinstance(configuration.get("targets"), dict)
+        else scope.allowlist_json
+    )
+    planned_targets = planned_targets_for_tool("priv-esc-linux", targets)
+    if not planned_targets:
+        raise ValueError(
+            "priv-esc-linux requires at least one approved Linux host or directory-host target"
+        )
+
+    if not priv_esc_linux_auth_contexts_from_configuration(configuration):
+        raise ValueError(
+            "priv-esc-linux requires at least one low-privileged SSH account with username and stored password binding"
         )
 
 
@@ -3247,6 +3383,12 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(host_targets)
         return [target for target in targets if target["kind"] in {"domain", "target"}]
 
+    if tool == "priv-esc-linux":
+        host_targets = [target for target in targets if target["kind"] == "host"]
+        if host_targets:
+            return list(host_targets)
+        return [target for target in targets if target["kind"] in {"domain", "target"}]
+
     if tool == "credential-attacks":
         domain_targets = [target for target in targets if target["kind"] == "domain"]
         if domain_targets:
@@ -3340,9 +3482,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
 
     if tool == "external-osint":
         return [
-            target
-            for target in targets
-            if target["kind"] in {"host", "domain", "url", "target"}
+            target for target in targets if target["kind"] in {"host", "domain", "url", "target"}
         ]
 
     if tool == "ldap-enum":
@@ -3359,9 +3499,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
 
     if tool == "api-assessment":
         api_targets = [
-            target
-            for target in targets
-            if target["kind"] in {"url", "host", "domain", "target"}
+            target for target in targets if target["kind"] in {"url", "host", "domain", "target"}
         ]
         return list(api_targets)
 
@@ -3384,9 +3522,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
 
     if tool == "cicd-security":
         return [
-            target
-            for target in targets
-            if target["kind"] in {"cicd-pipeline-config", "repository"}
+            target for target in targets if target["kind"] in {"cicd-pipeline-config", "repository"}
         ]
 
     if tool == "playwright-web":
@@ -3423,13 +3559,18 @@ def target_value_is_allowed(target_map: dict[str, Any] | None, target_id: str) -
         return True
     normalized_wireless_target = str(target_id or "").strip().lower()
     wireless_allowed_values = {
-        _normalized_bssid(target["value"])
-        if target["kind"] == "bssid"
-        else str(target["value"]).strip().lower()
+        (
+            _normalized_bssid(target["value"])
+            if target["kind"] == "bssid"
+            else str(target["value"]).strip().lower()
+        )
         for target in allowed_targets
         if target["kind"] in {"wireless-site", "ssid", "bssid"}
     }
-    if normalized_wireless_target in wireless_allowed_values or _normalized_bssid(target_id) in wireless_allowed_values:
+    if (
+        normalized_wireless_target in wireless_allowed_values
+        or _normalized_bssid(target_id) in wireless_allowed_values
+    ):
         return True
 
     cidr_ranges = []
@@ -3557,7 +3698,9 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     sqlmap_params = sqlmap_runner_params_from_configuration(run_configuration)
     xxe_params = xxe_runner_params_from_configuration(run_configuration)
     jwt_params = jwt_runner_params_from_configuration(run_configuration)
-    vulnerable_components_params = vulnerable_components_runner_params_from_configuration(run_configuration)
+    vulnerable_components_params = vulnerable_components_runner_params_from_configuration(
+        run_configuration
+    )
     idor_bac_params = idor_bac_runner_params_from_configuration(run_configuration)
     client_state_params = client_state_runner_params_from_configuration(run_configuration)
     headers_security_params = headers_security_runner_params_from_configuration(run_configuration)
@@ -3580,6 +3723,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     metasploit_params = metasploit_runner_params_from_configuration(run_configuration)
     nmap_params = nmap_runner_params_from_configuration(run_configuration)
     netexec_params = netexec_runner_params_from_configuration(run_configuration)
+    priv_esc_linux_params = priv_esc_linux_runner_params_from_configuration(run_configuration)
     responder_params = responder_runner_params_from_configuration(run_configuration)
     wifi_params = wifi_runner_params_from_configuration(run_configuration)
     validation_configuration = run_configuration.get("validation")
@@ -3747,6 +3891,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 scope=scope,
                 configuration=run_configuration,
                 intrusive=profile.run_class == "intrusive",
+            )
+        if tool == "priv-esc-linux":
+            validate_priv_esc_linux_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
             )
         if tool == "credential-attacks":
             validate_credential_attack_run_configuration(
@@ -3946,8 +4095,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         **{
                             key: value
                             for key, value in api_assessment_params.items()
-                            if key not in {"requires_auth_context"}
-                            and value not in (None, [], {})
+                            if key not in {"requires_auth_context"} and value not in (None, [], {})
                         },
                     }
                 )
@@ -3969,19 +4117,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 )
             if tool == "xxe-probe":
                 task_params.update(
-                    {
-                        key: value
-                        for key, value in xxe_params.items()
-                        if value not in (None, [], {})
-                    }
+                    {key: value for key, value in xxe_params.items() if value not in (None, [], {})}
                 )
             if tool == "jwt-probe":
                 task_params.update(
-                    {
-                        key: value
-                        for key, value in jwt_params.items()
-                        if value not in (None, [], {})
-                    }
+                    {key: value for key, value in jwt_params.items() if value not in (None, [], {})}
                 )
             if tool == "vuln-components":
                 task_params.update(
@@ -3992,9 +4132,13 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     }
                 )
                 if vulnerable_components_params.get("local_cve_records"):
-                    task_params["local_cve_records"] = vulnerable_components_params["local_cve_records"]
+                    task_params["local_cve_records"] = vulnerable_components_params[
+                        "local_cve_records"
+                    ]
                 else:
-                    task_params["local_cve_records"] = local_cve_records_for_vulnerable_components(session)
+                    task_params["local_cve_records"] = local_cve_records_for_vulnerable_components(
+                        session
+                    )
             if tool == "idor-bac":
                 task_params.update(
                     {
@@ -4167,7 +4311,10 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     else []
                 )
                 image_metadata = cloud_native_params.get("image_metadata")
-                if target["kind"] == "cloud-native-artifact" and target["value"] not in manifest_paths:
+                if (
+                    target["kind"] == "cloud-native-artifact"
+                    and target["value"] not in manifest_paths
+                ):
                     manifest_paths = [*manifest_paths, target["value"]]
                 if target["kind"] == "container-image" and not image_metadata:
                     image_metadata = [{"image": target["value"]}]
@@ -4346,6 +4493,19 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     task_params["auth_contexts"] = netexec_auth_contexts_from_configuration(
                         run_configuration
                     )
+            if tool == "priv-esc-linux":
+                task_params.update(
+                    {
+                        "auth_contexts": priv_esc_linux_auth_contexts_from_configuration(
+                            run_configuration
+                        ),
+                        **{
+                            key: value
+                            for key, value in priv_esc_linux_params.items()
+                            if value not in (None, [], {})
+                        },
+                    }
+                )
             if tool == "responder":
                 task_params.update(
                     {
@@ -4390,8 +4550,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 )
                 inventory = (
                     dict(snapshot.normalized_inventory_json)
-                    if snapshot is not None
-                    and isinstance(snapshot.normalized_inventory_json, dict)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
                     else {}
                 )
                 task_params.update(
@@ -4418,8 +4577,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 )
                 inventory = (
                     dict(snapshot.normalized_inventory_json)
-                    if snapshot is not None
-                    and isinstance(snapshot.normalized_inventory_json, dict)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
                     else {}
                 )
                 reachability_ports = normalized_limits.get("reachability_ports")
@@ -4434,17 +4592,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         "mode": str(normalized_limits.get("mode") or "passive").strip()
                         or "passive",
                         "reachability_ports": (
-                            [
-                                int(port)
-                                for port in reachability_ports
-                                if isinstance(port, int)
-                            ]
+                            [int(port) for port in reachability_ports if isinstance(port, int)]
                             if isinstance(reachability_ports, list)
                             else [22, 80, 443, 8080, 8123]
                         ),
-                        "vlan_probe_count": int(
-                            normalized_limits.get("vlan_probe_count") or 10
-                        ),
+                        "vlan_probe_count": int(normalized_limits.get("vlan_probe_count") or 10),
                         "native_vlan": int(
                             run_configuration.get("native_vlan")
                             or normalized_limits.get("native_vlan")
@@ -4470,8 +4622,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 )
                 inventory = (
                     dict(snapshot.normalized_inventory_json)
-                    if snapshot is not None
-                    and isinstance(snapshot.normalized_inventory_json, dict)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
                     else {}
                 )
                 community_strings = normalized_limits.get("community_strings")
@@ -4493,9 +4644,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             if isinstance(community_strings, list)
                             else []
                         ),
-                        "max_target_hosts": int(
-                            normalized_limits.get("max_target_hosts") or 256
-                        ),
+                        "max_target_hosts": int(normalized_limits.get("max_target_hosts") or 256),
                     }
                 )
             if tool == "smart-home":
@@ -4506,8 +4655,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 )
                 inventory = (
                     dict(snapshot.normalized_inventory_json)
-                    if snapshot is not None
-                    and isinstance(snapshot.normalized_inventory_json, dict)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
                     else {}
                 )
                 task_params.update(
@@ -4527,9 +4675,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             normalized_limits.get("mqtt_listen_seconds") or 30
                         ),
                         "timeout_seconds": normalized_limits.get("timeout_seconds", 5),
-                        "max_target_hosts": int(
-                            normalized_limits.get("max_target_hosts") or 128
-                        ),
+                        "max_target_hosts": int(normalized_limits.get("max_target_hosts") or 128),
                     }
                 )
             if tool == "camera-test":
@@ -4540,8 +4686,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 )
                 inventory = (
                     dict(snapshot.normalized_inventory_json)
-                    if snapshot is not None
-                    and isinstance(snapshot.normalized_inventory_json, dict)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
                     else {}
                 )
                 task_params.update(
@@ -4565,9 +4710,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             normalized_limits.get("max_default_credential_attempts") or 10
                         ),
                         "timeout_seconds": normalized_limits.get("timeout_seconds", 5),
-                        "max_target_hosts": int(
-                            normalized_limits.get("max_target_hosts") or 128
-                        ),
+                        "max_target_hosts": int(normalized_limits.get("max_target_hosts") or 128),
                     }
                 )
             if tool == "ipv6-discovery":
@@ -4578,8 +4721,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 )
                 inventory = (
                     dict(snapshot.normalized_inventory_json)
-                    if snapshot is not None
-                    and isinstance(snapshot.normalized_inventory_json, dict)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
                     else {}
                 )
                 ports = normalized_limits.get("ports")
@@ -4602,15 +4744,9 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         ),
                         "run_nmap": bool(normalized_limits.get("run_nmap", True)),
                         "ports": (
-                            [
-                                str(port).strip()
-                                for port in ports
-                                if str(port).strip()
-                            ]
+                            [str(port).strip() for port in ports if str(port).strip()]
                             if isinstance(ports, list)
-                            else ports
-                            if isinstance(ports, str)
-                            else None
+                            else ports if isinstance(ports, str) else None
                         ),
                     }
                 )
@@ -4782,17 +4918,17 @@ def stale_run_recovery_state(run: Run, *, now: datetime | None = None) -> dict[s
         str(task.id): stale_task_recovery_state(task, run=run, now=now)
         for task in sorted_tasks(run)
     }
-    running_tasks = [task for task in sorted_tasks(run) if str(task.status or "").lower() == "running"]
-    queued_tasks = [task for task in sorted_tasks(run) if str(task.status or "").lower() == "queued"]
+    running_tasks = [
+        task for task in sorted_tasks(run) if str(task.status or "").lower() == "running"
+    ]
+    queued_tasks = [
+        task for task in sorted_tasks(run) if str(task.status or "").lower() == "queued"
+    ]
     eligible_task_ids = [
-        str(task.id)
-        for task in running_tasks
-        if states.get(str(task.id), {}).get("eligible")
+        str(task.id) for task in running_tasks if states.get(str(task.id), {}).get("eligible")
     ]
     blocked_running_task_ids = [
-        str(task.id)
-        for task in running_tasks
-        if not states.get(str(task.id), {}).get("eligible")
+        str(task.id) for task in running_tasks if not states.get(str(task.id), {}).get("eligible")
     ]
     blocked_reasons: list[str] = []
     run_status = str(run.status or "").lower()

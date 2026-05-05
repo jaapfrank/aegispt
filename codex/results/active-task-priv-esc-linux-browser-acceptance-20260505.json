@@ -1,0 +1,36 @@
+{
+  "base_url": "http://127.0.0.1:8000/app/",
+  "checks": {
+    "full_internal_full_depth_chain_has_priv_esc_profile": true,
+    "http_127_0_0_1_8000_relevant": true,
+    "wizard_preview_mentions_linux_priv_esc": true
+  },
+  "matrix": {
+    "assessmentMode": "FULL-INTERNAL-LAN",
+    "authorizationLevel": "full",
+    "expectedChainProfiles": [
+      "passive-network-discovery",
+      "passive-identity-ldap-enum",
+      "passive-easm-discovery",
+      "passive-network-service-enumeration",
+      "passive-web-baseline",
+      "passive-web-nuclei-audit",
+      "active-ad-bloodhound",
+      "passive-lan-smb-enum",
+      "intrusive-lan-credential-capture",
+      "active-ad-kerberoast",
+      "active-ad-asreproast",
+      "active-offline-hash-crack",
+      "intrusive-credential-priv-esc-linux",
+      "intrusive-lan-smb-auth",
+      "intrusive-ad-password-spray",
+      "intrusive-exploitation",
+      "intrusive-impacket-remote-exec",
+      "intrusive-impacket-secretsdump",
+      "intrusive-impacket-dcsync"
+    ],
+    "expectedExecutionProfile": "passive-network-discovery"
+  },
+  "preview_excerpt": "Internal LAN + Active Directory\n\ud83c\udfaf 10.0.20.0/24\n\u23f1 ~2-3 hours\n4 phases \u00b7 19 conditional runners\npassive-network-discovery \u00b7 nmap\nTARGETS\n\ud83c\udf10 10.0.20.0/24\nHosts discovered in Phase 1 are automatically included in later phases.\nPHASE 1 \u00b7 AUTO\n\ud83d\udfe2 Discovery\n\ud83d\udd0d nmap host discovery\n\ud83e\ude7a Service fingerprint\n\ud83d\udccb Inventory snapshot\n\u23f1 ~15 min \u00b7 no approval\n\u2192\nPHASE 2 \u00b7 1X APPROVAL\n\ud83d\udd35 Analysis\n\ud83c\udfaf nuclei CVE scan\n\ud83d\udda7 SMB/LDAP review\n\ud83d\uddfa\ufe0f Exposure mapping\n\u23f1 ~30 min \u00b7 1 approval\n\u2192\nPHASE 3 \u00b7 FULL AUTH\n\ud83d\udfe0 Credential Review\n\ud83d\udce1 Responder on LAN route\n\ud83d\udda5\ufe0f Linux local escalation signals\n\ud83d\udd11 Kerberos/NTLM if evidence exists\n\u23f1 ~45 min \u00b7 prerequisites shown\n\u2192\nPHASE 4 \u00b7 FULL AUTH\n\ud83d\udd34 Exploitation\n\ud83d\udca5 Metasploit for allowlisted findings\n\ud83d\udd17 Impacket with credentials\n\ud83d\uded1 Kill switch enforced\n\u23f1 ~30 min \u00b7 prerequisites shown\nAegisPT stores evidence after each phase, keeps approvals explicit, and the kill switch remains available.\nWhat access or prerequisites do you already have?\n\nDiscovery always starts without credentials. Select extra unlockers now so gated tools can run automatically when their phase is reached.\n\n1 selected\nNo credentials available\nRun discovery, service enumeration, safe SMB/LDAP probes, web baseline, and infrastructure checks without secrets.\nUnauthenticated LAN lane\nAD/domain context known\nUse known domain, DC, DNS, or base DN hints to make LDAP and identity mapping less blind.\nLDAP/AD targeting\nCredential refs available\nUse stored secret references for authenticated SMB/LDAP/BloodHound style checks.\nCredentialed validation\nHashes or password candidates\nUse protected material for Kerberos/NTLM validation and controlled password-audit workflows.\nCredential review\nIntrusive LAN checks authorized\nAllow noisy LAN checks only inside the approved boundary and with the kill switch available.\nIntrusive LAN phase\n",
+  "screenshot": "codex/results/active-task-priv-esc-linux-wizard-preview-20260505.png"
+}

@@ -45,6 +45,7 @@ from workers.runners.netexec.runner import NETEXEC_RESULTS_ARTIFACT_NAME
 from workers.runners.network_segmentation.runner import NETWORK_SEGMENTATION_ARTIFACT_NAME
 from workers.runners.oauth_probe.runner import OAUTH_PROBE_RESULTS_ARTIFACT_NAME
 from workers.runners.playwright_web.runner import PLAYWRIGHT_WEB_RESULTS_ARTIFACT_NAME
+from workers.runners.priv_esc_linux.runner import PRIV_ESC_LINUX_RESULTS_ARTIFACT_NAME
 from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
 from workers.runners.semgrep.runner import normalize_semgrep_rule_id
 from workers.runners.session_security.runner import SESSION_SECURITY_RESULTS_ARTIFACT_NAME
@@ -277,7 +278,9 @@ def enrich_finding_with_methodology(*, finding: NormalizedFinding, task: Task) -
     quality_tags = tuple(str(tag) for tag in quality["owasp"].get("tags", []) if str(tag).strip())
     return replace(
         enriched,
-        cvss_score=enriched.cvss_score if enriched.cvss_score is not None else quality["cvss"]["score"],
+        cvss_score=(
+            enriched.cvss_score if enriched.cvss_score is not None else quality["cvss"]["score"]
+        ),
         cvss_vector=enriched.cvss_vector or quality["cvss"].get("vector"),
         methodology_tags=tuple(dict.fromkeys([*enriched.methodology_tags, *quality_tags])),
     )
@@ -520,7 +523,29 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "graphql-probe", "ssti-probe", "http-smuggling", "oauth-probe", "logging-probe", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
+    if task.tool in {
+        "content-discovery",
+        "nikto",
+        "sqlmap",
+        "external-osint",
+        "xxe-probe",
+        "jwt-probe",
+        "vuln-components",
+        "idor-bac",
+        "client-state",
+        "headers-security",
+        "graphql-probe",
+        "ssti-probe",
+        "http-smuggling",
+        "oauth-probe",
+        "logging-probe",
+        "xss-extended",
+        "ssrf-probe",
+        "deserialization-probe",
+        "session-security",
+        "auth-flow",
+        "priv-esc-linux",
+    }:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -546,6 +571,7 @@ def extract_findings(
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,
                 SESSION_SECURITY_RESULTS_ARTIFACT_NAME,
                 AUTH_FLOW_RESULTS_ARTIFACT_NAME,
+                PRIV_ESC_LINUX_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )
@@ -898,12 +924,15 @@ def extract_playwright_web_findings(
 
     findings: list[NormalizedFinding] = []
     seen_keys: set[tuple[str, str]] = set()
-    for target_result in payload.get("targets", []) if isinstance(payload.get("targets"), list) else []:
+    for target_result in (
+        payload.get("targets", []) if isinstance(payload.get("targets"), list) else []
+    ):
         if not isinstance(target_result, dict):
             continue
-        matched_target = str(
-            target_result.get("final_url") or target_result.get("url") or target_id
-        ).strip() or target_id
+        matched_target = (
+            str(target_result.get("final_url") or target_result.get("url") or target_id).strip()
+            or target_id
+        )
         for raw_finding in (
             target_result.get("findings", [])
             if isinstance(target_result.get("findings"), list)
@@ -1653,8 +1682,8 @@ def extract_credential_attack_findings(
                         for tag in item.get("methodology_tags", [])
                         if isinstance(tag, str) and tag.strip()
                     ),
+                )
             )
-        )
     return findings
 
 
@@ -1829,8 +1858,7 @@ def extract_smart_home_findings(
             continue
         title = str(item.get("title") or "Smart-home exposure signal").strip()
         matched_target = (
-            str(item.get("target") or item.get("target_id") or target_id).strip()
-            or target_id
+            str(item.get("target") or item.get("target_id") or target_id).strip() or target_id
         )
         dedupe_key = (title.lower(), matched_target.lower())
         if dedupe_key in seen_keys:
@@ -1855,12 +1883,10 @@ def extract_smart_home_findings(
                         ]
                     )
                 ),
-                ptes_phase=str(item.get("ptes_phase") or "intelligence_gathering").strip()
-                or None,
+                ptes_phase=str(item.get("ptes_phase") or "intelligence_gathering").strip() or None,
                 nist_phase=str(item.get("nist_phase") or "Discovery").strip() or None,
                 wstg_id=str(item.get("wstg_id") or "").strip() or None,
-                control_family=str(item.get("control_family") or "iot-smart-home").strip()
-                or None,
+                control_family=str(item.get("control_family") or "iot-smart-home").strip() or None,
             )
         )
     return findings
@@ -1890,8 +1916,7 @@ def extract_camera_test_findings(
             continue
         title = str(item.get("title") or "Camera audit exposure signal").strip()
         matched_target = (
-            str(item.get("target") or item.get("target_id") or target_id).strip()
-            or target_id
+            str(item.get("target") or item.get("target_id") or target_id).strip() or target_id
         )
         dedupe_key = (title.lower(), matched_target.lower())
         if dedupe_key in seen_keys:
@@ -1916,12 +1941,10 @@ def extract_camera_test_findings(
                         ]
                     )
                 ),
-                ptes_phase=str(item.get("ptes_phase") or "intelligence_gathering").strip()
-                or None,
+                ptes_phase=str(item.get("ptes_phase") or "intelligence_gathering").strip() or None,
                 nist_phase=str(item.get("nist_phase") or "Discovery").strip() or None,
                 wstg_id=str(item.get("wstg_id") or "").strip() or None,
-                control_family=str(item.get("control_family") or "iot-camera").strip()
-                or None,
+                control_family=str(item.get("control_family") or "iot-camera").strip() or None,
             )
         )
     return findings
@@ -1950,7 +1973,9 @@ def extract_ipv6_discovery_findings(
         if not isinstance(item, dict):
             continue
         title = str(item.get("title") or "IPv6 discovery signal").strip()
-        matched_target = str(item.get("target") or item.get("target_id") or target_id).strip() or target_id
+        matched_target = (
+            str(item.get("target") or item.get("target_id") or target_id).strip() or target_id
+        )
         dedupe_key = (title.lower(), matched_target.lower())
         if dedupe_key in seen_keys:
             continue

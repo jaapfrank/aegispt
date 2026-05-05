@@ -308,6 +308,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["Internal LAN", "Full AD Assessment"],
   },
   {
+    id: "priv-esc-linux",
+    name: "Linux Privilege Escalation Enumeration",
+    category: "Lateral Movement",
+    tier: "intrusive",
+    description: "Enumerates Linux local privilege-escalation signals over SSH without executing exploits or changing target files.",
+    findings: ["SUID/SGID GTFOBins exposure", "Sudo NOPASSWD risk", "Writable cron or PATH hijack risk"],
+    prerequisites: ["Approved Linux host scope", "Low-privileged SSH credential binding", "Intrusive credential approval"],
+    chains: ["Internal LAN", "Full Internal", "Host post-exploitation enumeration"],
+  },
+  {
     id: "impacket-lateral",
     name: "Impacket",
     category: "Lateral Movement",

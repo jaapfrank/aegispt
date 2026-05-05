@@ -2,43 +2,45 @@
 
 ## Title
 
-Linux privilege escalation enumeration runner: SUID/SGID binaries, sudo misconfigurations, writable cron jobs, and path hijacking
+Cryptographic weakness detection runner: weak key lengths, deprecated algorithms, TLS/SSH config, and captured traffic analysis
 
 ## Promoted From
 
-`codex/tasks/backlog-234-linux-privilege-escalation-enumeration.json`
+`codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json`
 
 ## Goal
 
-Add the queued Linux privilege escalation enumeration capability described in `codex/tasks/backlog-234-linux-privilege-escalation-enumeration.json`.
+Add the queued cryptographic weakness detection capability described in `codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-234-linux-privilege-escalation-enumeration.json`.
+Implement the active backlog package `codex/tasks/backlog-236-cryptographic-weakness-detection-runner.json`.
 
 Expected slice:
 
-- add a `priv-esc-linux` runner for approved credentialed Linux targets
-- enumerate SUID/SGID binaries and match dangerous entries against a GTFOBins-style list
-- parse `sudo -l` output for dangerous `NOPASSWD`, broad `ALL=(ALL:ALL) ALL`, and risky command entries
-- detect writable cron scripts, weak file permissions, writable early `$PATH` directories, and known kernel local privilege escalation CVE signals
-- require the intrusive-credential profile tier, configured SSH/low-privilege access context, approval, scope, ROE, credentials, runtime binding, and kill switch
-- add the `intrusive-credential-priv-esc-linux` run profile and required operator surfaces
-- wire the profile into Full Internal LAN Phase 3 and wizard surfaces required by the task package
-- keep evidence, findings, methodology tags, provenance, reports, approvals, scope, credential materialization, and runtime dispatch paths aligned with existing models and flows
+- add a `crypto-audit` runner for approved web, TLS, and SSH targets
+- use `testssl.sh` for HTTPS/TLS/SSL weakness checks beyond the existing basic `ssl-tls` runner
+- use `ssh-audit` for SSH cryptographic configuration checks
+- detect and normalize signals for export-grade ciphers, POODLE, BEAST, RC4, weak DH parameters, TLS 1.0/1.1, missing HSTS preload, and short certificate keys where applicable
+- represent JWE/JWS weak-algorithm and token-hash-length signals only where safe and without duplicating the queued JWT runner scope
+- include fix recommendations that explain why each weak algorithm/configuration is risky and name safer alternatives
+- add the `passive-crypto-audit` run profile with `tools=["crypto-audit"]` and zero required approvals where the task package requires it
+- wire the profile into web and TLS assessment Phase 1 paths and wizard surfaces for External Web and SSL/TLS tiles at any depth
+- keep evidence, findings, methodology tags, provenance, reports, approvals, scope, runtime binding, and kill switch aligned with existing models and flows
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Add only the Linux privilege escalation enumeration capability from the task package.
+- Add only the cryptographic weakness detection capability from the task package.
 - Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- Enumeration only.
-- Do not execute found SUID/SGID binaries for exploitation.
-- Do not escalate privileges.
-- Do not write to the target filesystem.
-- Do not change the Metasploit exploitation runner or intrusive-exploitation approval gates.
+- Configuration and algorithm detection only.
+- No brute-force attacks on live encryption.
+- No decryption attempts.
+- No custom cipher analysis.
+- Do not change the existing `ssl-tls` runner unless strictly necessary for registration compatibility.
+- Do not change the queued JWT runner.
 - No live target actions outside safe/local/expliciet geautoriseerde validatie.
 
 ## Validation
@@ -49,11 +51,9 @@ Expected slice:
 
 ## Acceptance
 
-- `priv-esc-linux` is registered in supported tools.
-- SUID/GTFOBins matching produces a deterministic finding.
-- `sudo -l` parsing detects dangerous entries.
-- Writable cron and weak-permission checks are represented safely.
-- Kernel local privilege escalation CVE signal matching is represented without exploitation.
-- `intrusive-credential-priv-esc-linux` exists and requires approval plus credential context.
-- Runner is reachable through the wizard for Internal LAN / Full Internal full-depth with credential context.
-- Existing runner/API tests do not regress.
+- `crypto-audit` is registered in supported tools.
+- `testssl.sh` and `ssh-audit` are used by the runner where applicable.
+- Export-grade cipher, POODLE, BEAST, RC4, TLS 1.0/1.1, weak DH, short certificate key, and weak SSH algorithm findings are represented safely.
+- Findings include remediation guidance with safer algorithm/configuration alternatives.
+- `passive-crypto-audit` exists and is reachable through External Web and SSL/TLS wizard paths at any depth.
+- Existing `ssl-tls`, JWT, runner, API, and assessment-chain tests do not regress.

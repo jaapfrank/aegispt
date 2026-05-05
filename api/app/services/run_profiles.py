@@ -390,6 +390,23 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "intrusive-credential-priv-esc-linux",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated read-only Linux privilege escalation enumeration over SSH for approved hosts with low-privileged credential context.",
+            "required_approvals": 1,
+            "approval_step_id": "intrusive-credential-priv-esc-linux",
+            "tools": ["priv-esc-linux"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_auth_context": True,
+            "read_only_enumeration": True,
+            "exploitation_attempted": False,
+            "privilege_escalation_attempted": False,
+            "target_filesystem_write_attempted": False,
+        },
+    },
+    {
         "name": "intrusive-exploitation",
         "run_class": RunClass.INTRUSIVE.value,
         "limits_json": {

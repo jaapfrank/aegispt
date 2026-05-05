@@ -143,6 +143,7 @@ from workers.runners.nmap.runner import execute_nmap_scan
 from workers.runners.nuclei.runner import execute_nuclei_scan
 from workers.runners.oauth_probe.runner import execute_oauth_probe
 from workers.runners.playwright_web.runner import execute_playwright_web_validation
+from workers.runners.priv_esc_linux.runner import execute_priv_esc_linux
 from workers.runners.responder.runner import execute_responder_capture
 from workers.runners.semgrep.runner import execute_semgrep_scan
 from workers.runners.session_security.runner import execute_session_security_analysis
@@ -215,6 +216,7 @@ SUPPORTED_TOOLS = {
     "nuclei",
     "oauth-probe",
     "playwright-web",
+    "priv-esc-linux",
     "responder",
     "semgrep",
     "session-security",
@@ -769,9 +771,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             site=(
-                request.params.get("site")
-                if isinstance(request.params.get("site"), str)
-                else None
+                request.params.get("site") if isinstance(request.params.get("site"), str) else None
             ),
             adapter=(
                 request.params.get("adapter")
@@ -990,43 +990,51 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             top_ports=(
                 request.params.get("top_ports")
                 if isinstance(request.params.get("top_ports"), int)
-                else limits.get("top_ports")
-                if "ports" not in request.params
-                and isinstance(limits.get("top_ports"), int)
-                and request.params.get("top_ports") is None
-                else None
+                else (
+                    limits.get("top_ports")
+                    if "ports" not in request.params
+                    and isinstance(limits.get("top_ports"), int)
+                    and request.params.get("top_ports") is None
+                    else None
+                )
             ),
             ports=(
                 request.params.get("ports")
                 if isinstance(request.params.get("ports"), (list, str, tuple))
-                else limits.get("ports")
-                if request.params.get("top_ports") is None
-                and not bool(request.params.get("full_port_scan", False))
-                and isinstance(limits.get("ports"), (list, str, tuple))
-                else None
+                else (
+                    limits.get("ports")
+                    if request.params.get("top_ports") is None
+                    and not bool(request.params.get("full_port_scan", False))
+                    and isinstance(limits.get("ports"), (list, str, tuple))
+                    else None
+                )
             ),
             scripts=(
                 request.params.get("scripts")
                 if isinstance(request.params.get("scripts"), list)
-                else limits.get("scripts")
-                if isinstance(limits.get("scripts"), list)
-                else None
+                else limits.get("scripts") if isinstance(limits.get("scripts"), list) else None
             ),
             script_args=(
                 request.params.get("script_args")
                 if isinstance(request.params.get("script_args"), dict)
-                else limits.get("script_args")
-                if isinstance(limits.get("script_args"), dict)
-                else None
+                else (
+                    limits.get("script_args")
+                    if isinstance(limits.get("script_args"), dict)
+                    else None
+                )
             ),
             version_intensity=(
                 request.params.get("version_intensity", limits.get("version_intensity"))
-                if isinstance(request.params.get("version_intensity", limits.get("version_intensity")), int)
+                if isinstance(
+                    request.params.get("version_intensity", limits.get("version_intensity")), int
+                )
                 else None
             ),
             timing_template=(
                 request.params.get("timing_template", limits.get("timing_template"))
-                if isinstance(request.params.get("timing_template", limits.get("timing_template")), str)
+                if isinstance(
+                    request.params.get("timing_template", limits.get("timing_template")), str
+                )
                 else None
             ),
             max_retries=(
@@ -1036,7 +1044,10 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             host_timeout_seconds=(
                 request.params.get("host_timeout_seconds", limits.get("host_timeout_seconds"))
-                if isinstance(request.params.get("host_timeout_seconds", limits.get("host_timeout_seconds")), (int, float))
+                if isinstance(
+                    request.params.get("host_timeout_seconds", limits.get("host_timeout_seconds")),
+                    (int, float),
+                )
                 else None
             ),
             ipv6=bool(request.params.get("ipv6", limits.get("ipv6", False))),
@@ -1061,6 +1072,21 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             timeout_seconds=timeout_seconds,
             kill_switch_check=execution_kill_switch_enabled,
         )
+    if request.tool == "priv-esc-linux":
+        return execute_priv_esc_linux(
+            targets=request.targets,
+            auth_contexts=request.params.get("auth_contexts", []),
+            scope_allowlist=request.scope_allowlist,
+            ssh_binary=os.getenv("PRIV_ESC_LINUX_SSH_BINARY", "ssh"),
+            sshpass_binary=os.getenv("PRIV_ESC_LINUX_SSHPASS_BINARY", "sshpass"),
+            ssh_port=(
+                request.params.get("ssh_port")
+                if isinstance(request.params.get("ssh_port"), int)
+                else 22
+            ),
+            timeout_seconds=timeout_seconds,
+            kill_switch_check=execution_kill_switch_enabled,
+        )
     if request.tool == "nuclei":
         return execute_nuclei_scan(
             targets=request.targets,
@@ -1071,22 +1097,26 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 request.params.get("template_body")
                 if isinstance(request.params.get("template_body"), str)
                 else None
-            ) or None,
+            )
+            or None,
             template_id=(
                 request.params.get("template_id")
                 if isinstance(request.params.get("template_id"), str)
                 else None
-            ) or None,
+            )
+            or None,
             template_source=(
                 request.params.get("template_source")
                 if isinstance(request.params.get("template_source"), str)
                 else None
-            ) or None,
+            )
+            or None,
             template_filename=(
                 request.params.get("template_filename")
                 if isinstance(request.params.get("template_filename"), str)
                 else None
-            ) or None,
+            )
+            or None,
         )
     if request.tool == "playwright-web":
         return execute_playwright_web_validation(
@@ -1249,9 +1279,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             scope_allowlist=request.scope_allowlist,
             binary=os.getenv("FFUF_BINARY", "ffuf"),
             wordlist_path=str(
-                request.params.get("wordlist_path")
-                or os.getenv("FFUF_WORDLIST_PATH", "")
-                or ""
+                request.params.get("wordlist_path") or os.getenv("FFUF_WORDLIST_PATH", "") or ""
             )
             or None,
             rate_limit=rate_limit,
@@ -2005,6 +2033,41 @@ def _materialize_netexec_auth_contexts(session, task: Task) -> list[dict[str, ob
     return materialized_contexts
 
 
+def _materialize_priv_esc_linux_auth_contexts(session, task: Task) -> list[dict[str, object]]:
+    raw_contexts = task.params_json.get("auth_contexts")
+    if not isinstance(raw_contexts, list):
+        return []
+
+    materialized_contexts: list[dict[str, object]] = []
+    for raw_context in raw_contexts:
+        if not isinstance(raw_context, dict):
+            continue
+        bindings = raw_context.get("secret_bindings")
+        if not isinstance(bindings, dict):
+            continue
+
+        username = str(raw_context.get("username") or "").strip()
+        if not username:
+            continue
+        password_value = _resolve_secret_binding_value(
+            session, dict(bindings.get("password") or {})
+        )
+        if not password_value:
+            continue
+
+        materialized_context: dict[str, object] = {
+            "label": str(raw_context.get("label") or username).strip() or username,
+            "username": username,
+            "password": password_value,
+        }
+        ssh_port = raw_context.get("ssh_port") or raw_context.get("port")
+        if isinstance(ssh_port, int) and 1 <= ssh_port <= 65535:
+            materialized_context["ssh_port"] = ssh_port
+        materialized_contexts.append(materialized_context)
+
+    return materialized_contexts
+
+
 def _materialize_metasploit_auth_contexts(session, task: Task) -> list[dict[str, object]]:
     raw_contexts = task.params_json.get("auth_contexts")
     if not isinstance(raw_contexts, list):
@@ -2197,6 +2260,8 @@ def _runner_params_for_task(session, task: Task) -> dict[str, object]:
         params["auth_contexts"] = _materialize_metasploit_auth_contexts(session, task)
     if task.tool == "netexec":
         params["auth_contexts"] = _materialize_netexec_auth_contexts(session, task)
+    if task.tool == "priv-esc-linux":
+        params["auth_contexts"] = _materialize_priv_esc_linux_auth_contexts(session, task)
     if task.tool == "playwright-web":
         params["auth_contexts"] = _materialize_playwright_web_auth_contexts(session, task)
     if task.tool == "session-security":
@@ -2240,9 +2305,8 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
                     command.extend(["-p", ",".join(str(port) for port in ports_value)])
                 else:
                     command.extend(["-p", str(ports_value)])
-            elif (
-                isinstance(effective_params.get("top_ports"), int)
-                and effective_params.get("top_ports")
+            elif isinstance(effective_params.get("top_ports"), int) and effective_params.get(
+                "top_ports"
             ):
                 command.extend(["--top-ports", str(effective_params["top_ports"])])
             scripts_value = effective_params.get("scripts")
@@ -2288,8 +2352,16 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
     if tool == "nikto":
         return f"$ nikto -host {target_label}{extra} -Format json --approved-scope"
     if tool == "sqlmap":
-        parameter_count = len(effective_params.get("injectable_parameters") or []) if isinstance(effective_params.get("injectable_parameters"), list) else 0
-        parameter_count += len(effective_params.get("zap_flagged_parameters") or []) if isinstance(effective_params.get("zap_flagged_parameters"), list) else 0
+        parameter_count = (
+            len(effective_params.get("injectable_parameters") or [])
+            if isinstance(effective_params.get("injectable_parameters"), list)
+            else 0
+        )
+        parameter_count += (
+            len(effective_params.get("zap_flagged_parameters") or [])
+            if isinstance(effective_params.get("zap_flagged_parameters"), list)
+            else 0
+        )
         return (
             "$ sqlmap --batch --smart --level 1 --risk 1 "
             f"--approved-parameters {parameter_count} --approved-scope {target_label}{extra}"
@@ -2297,36 +2369,72 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
     if tool == "external-osint":
         return f"$ shodan/censys-api --read-only --api-key-required --approved-scope {target_label}{extra}"
     if tool == "xxe-probe":
-        endpoint_count = len(effective_params.get("xml_endpoints") or []) if isinstance(effective_params.get("xml_endpoints"), list) else 0
+        endpoint_count = (
+            len(effective_params.get("xml_endpoints") or [])
+            if isinstance(effective_params.get("xml_endpoints"), list)
+            else 0
+        )
         return (
             "$ xxe-probe --read-only-file-uri file:///etc/passwd "
             f"--approved-endpoints {endpoint_count or len(normalized_targets)} --approved-scope {target_label}{extra}"
         )
     if tool == "jwt-probe":
-        context_count = len(effective_params.get("replay_contexts") or []) if isinstance(effective_params.get("replay_contexts"), list) else 0
-        token_count = len(effective_params.get("jwt_tokens") or []) if isinstance(effective_params.get("jwt_tokens"), list) else 0
+        context_count = (
+            len(effective_params.get("replay_contexts") or [])
+            if isinstance(effective_params.get("replay_contexts"), list)
+            else 0
+        )
+        token_count = (
+            len(effective_params.get("jwt_tokens") or [])
+            if isinstance(effective_params.get("jwt_tokens"), list)
+            else 0
+        )
         return (
             "$ jwt-probe --bounded-weak-secrets --no-token-storage "
             f"--provided-tokens {token_count} --replay-contexts {context_count} "
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "vuln-components":
-        record_count = len(effective_params.get("local_cve_records") or []) if isinstance(effective_params.get("local_cve_records"), list) else 0
+        record_count = (
+            len(effective_params.get("local_cve_records") or [])
+            if isinstance(effective_params.get("local_cve_records"), list)
+            else 0
+        )
         return (
             "$ vuln-components --fingerprint-responses --probe-exposed-dependency-files "
             f"--local-cve-records {record_count} --approved-scope {target_label}{extra}"
         )
     if tool == "idor-bac":
-        context_count = len(effective_params.get("auth_contexts") or []) if isinstance(effective_params.get("auth_contexts"), list) else 0
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
         return (
             "$ idor-bac --bounded-id-substitution --max-id-delta 20 "
             f"--auth-contexts {context_count} --approved-scope {target_label}{extra}"
         )
     if tool == "client-state":
-        context_count = len(effective_params.get("auth_contexts") or []) if isinstance(effective_params.get("auth_contexts"), list) else 0
-        form_count = len(effective_params.get("form_contexts") or []) if isinstance(effective_params.get("form_contexts"), list) else 0
-        cookie_count = len(effective_params.get("cookie_contexts") or []) if isinstance(effective_params.get("cookie_contexts"), list) else 0
-        request_count = len(effective_params.get("request_contexts") or []) if isinstance(effective_params.get("request_contexts"), list) else 0
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
+        form_count = (
+            len(effective_params.get("form_contexts") or [])
+            if isinstance(effective_params.get("form_contexts"), list)
+            else 0
+        )
+        cookie_count = (
+            len(effective_params.get("cookie_contexts") or [])
+            if isinstance(effective_params.get("cookie_contexts"), list)
+            else 0
+        )
+        request_count = (
+            len(effective_params.get("request_contexts") or [])
+            if isinstance(effective_params.get("request_contexts"), list)
+            else 0
+        )
         return (
             "$ client-state --hidden-fields --cookies --request-params --price --workflow "
             f"--auth-contexts {context_count} --form-contexts {form_count} "
@@ -2334,16 +2442,32 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--configured-credentials-only --approved-scope {target_label}{extra}"
         )
     if tool == "headers-security":
-        origin_count = len(effective_params.get("additional_origins") or []) if isinstance(effective_params.get("additional_origins"), list) else 0
-        redirect_count = len(effective_params.get("redirect_paths") or []) if isinstance(effective_params.get("redirect_paths"), list) else 0
+        origin_count = (
+            len(effective_params.get("additional_origins") or [])
+            if isinstance(effective_params.get("additional_origins"), list)
+            else 0
+        )
+        redirect_count = (
+            len(effective_params.get("redirect_paths") or [])
+            if isinstance(effective_params.get("redirect_paths"), list)
+            else 0
+        )
         return (
             "$ headers-security --passive-headers --cors-origin-reflection "
             f"--additional-origins {origin_count} --redirect-probes {redirect_count} "
             f"--no-cors-data-extraction --approved-scope {target_label}{extra}"
         )
     if tool == "graphql-probe":
-        endpoint_count = len(effective_params.get("endpoint_paths") or []) if isinstance(effective_params.get("endpoint_paths"), list) else 4
-        ide_count = len(effective_params.get("ide_paths") or []) if isinstance(effective_params.get("ide_paths"), list) else 2
+        endpoint_count = (
+            len(effective_params.get("endpoint_paths") or [])
+            if isinstance(effective_params.get("endpoint_paths"), list)
+            else 4
+        )
+        ide_count = (
+            len(effective_params.get("ide_paths") or [])
+            if isinstance(effective_params.get("ide_paths"), list)
+            else 2
+        )
         max_depth = min(max(int(effective_params.get("max_depth") or 20), 2), 20)
         return (
             "$ graphql-probe --discover-endpoints "
@@ -2352,9 +2476,21 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "ssti-probe":
-        parameter_count = len(effective_params.get("parameter_names") or []) if isinstance(effective_params.get("parameter_names"), list) else 10
-        stored_count = len(effective_params.get("stored_form_contexts") or []) if isinstance(effective_params.get("stored_form_contexts"), list) else 0
-        gruyere_count = len(effective_params.get("gruyere_contexts") or []) if isinstance(effective_params.get("gruyere_contexts"), list) else 0
+        parameter_count = (
+            len(effective_params.get("parameter_names") or [])
+            if isinstance(effective_params.get("parameter_names"), list)
+            else 10
+        )
+        stored_count = (
+            len(effective_params.get("stored_form_contexts") or [])
+            if isinstance(effective_params.get("stored_form_contexts"), list)
+            else 0
+        )
+        gruyere_count = (
+            len(effective_params.get("gruyere_contexts") or [])
+            if isinstance(effective_params.get("gruyere_contexts"), list)
+            else 0
+        )
         return (
             "$ ssti-probe --math-expressions-only --reflected-parameters "
             f"{parameter_count} --stored-contexts {stored_count} "
@@ -2393,9 +2529,21 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "logging-probe":
-        admin_count = len(effective_params.get("admin_paths") or []) if isinstance(effective_params.get("admin_paths"), list) else 7
-        debug_count = len(effective_params.get("debug_paths") or []) if isinstance(effective_params.get("debug_paths"), list) else 6
-        error_count = len(effective_params.get("error_paths") or []) if isinstance(effective_params.get("error_paths"), list) else 1
+        admin_count = (
+            len(effective_params.get("admin_paths") or [])
+            if isinstance(effective_params.get("admin_paths"), list)
+            else 7
+        )
+        debug_count = (
+            len(effective_params.get("debug_paths") or [])
+            if isinstance(effective_params.get("debug_paths"), list)
+            else 6
+        )
+        error_count = (
+            len(effective_params.get("error_paths") or [])
+            if isinstance(effective_params.get("error_paths"), list)
+            else 1
+        )
         return (
             "$ logging-probe --error-leakage --admin-debug-paths "
             f"{admin_count + debug_count} --error-paths {error_count} "
@@ -2404,18 +2552,42 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":
-        upload_count = len(effective_params.get("upload_contexts") or []) if isinstance(effective_params.get("upload_contexts"), list) else 0
-        ajax_count = len(effective_params.get("ajax_contexts") or []) if isinstance(effective_params.get("ajax_contexts"), list) else 0
-        xssi_count = len(effective_params.get("xssi_contexts") or []) if isinstance(effective_params.get("xssi_contexts"), list) else 0
+        upload_count = (
+            len(effective_params.get("upload_contexts") or [])
+            if isinstance(effective_params.get("upload_contexts"), list)
+            else 0
+        )
+        ajax_count = (
+            len(effective_params.get("ajax_contexts") or [])
+            if isinstance(effective_params.get("ajax_contexts"), list)
+            else 0
+        )
+        xssi_count = (
+            len(effective_params.get("xssi_contexts") or [])
+            if isinstance(effective_params.get("xssi_contexts"), list)
+            else 0
+        )
         return (
             "$ xss-extended --file-upload --ajax-json --xssi "
             f"--upload-contexts {upload_count} --ajax-contexts {ajax_count} "
             f"--xssi-contexts {xssi_count} --approved-scope {target_label}{extra}"
         )
     if tool == "ssrf-probe":
-        request_count = len(effective_params.get("request_contexts") or []) if isinstance(effective_params.get("request_contexts"), list) else 0
-        header_count = len(effective_params.get("header_contexts") or []) if isinstance(effective_params.get("header_contexts"), list) else 0
-        internal_count = len(effective_params.get("internal_service_urls") or []) if isinstance(effective_params.get("internal_service_urls"), list) else 0
+        request_count = (
+            len(effective_params.get("request_contexts") or [])
+            if isinstance(effective_params.get("request_contexts"), list)
+            else 0
+        )
+        header_count = (
+            len(effective_params.get("header_contexts") or [])
+            if isinstance(effective_params.get("header_contexts"), list)
+            else 0
+        )
+        internal_count = (
+            len(effective_params.get("internal_service_urls") or [])
+            if isinstance(effective_params.get("internal_service_urls"), list)
+            else 0
+        )
         cloud_enabled = "yes" if effective_params.get("cloud_metadata_probe_enabled") else "no"
         return (
             "$ ssrf-probe --url-params --forwarded-headers --governed-oob "
@@ -2425,8 +2597,16 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "deserialization-probe":
-        request_count = len(effective_params.get("request_contexts") or []) if isinstance(effective_params.get("request_contexts"), list) else 0
-        evidence_count = len(effective_params.get("evidence_records") or []) if isinstance(effective_params.get("evidence_records"), list) else 0
+        request_count = (
+            len(effective_params.get("request_contexts") or [])
+            if isinstance(effective_params.get("request_contexts"), list)
+            else 0
+        )
+        evidence_count = (
+            len(effective_params.get("evidence_records") or [])
+            if isinstance(effective_params.get("evidence_records"), list)
+            else 0
+        )
         return (
             "$ deserialization-probe --java-urldns-only --php-object --python-pickle --dotnet-viewstate "
             f"--request-contexts {request_count or len(normalized_targets)} "
@@ -2434,7 +2614,11 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "session-security":
-        context_count = len(effective_params.get("auth_contexts") or []) if isinstance(effective_params.get("auth_contexts"), list) else 0
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
         sample_count = int(effective_params.get("sample_count") or 10)
         return (
             "$ session-security --fixation --cookie-flags --entropy --logout-replay --token-url "
@@ -2442,7 +2626,11 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--configured-credentials-only --approved-scope {target_label}{extra}"
         )
     if tool == "auth-flow":
-        context_count = len(effective_params.get("auth_contexts") or []) if isinstance(effective_params.get("auth_contexts"), list) else 0
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
         failed_attempts = int(effective_params.get("failed_login_attempts") or 10)
         reset_samples = int(effective_params.get("reset_token_samples") or 5)
         return (
@@ -2536,10 +2724,22 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         )
     if tool == "ipv6-discovery":
         interface = str(effective_params.get("interface") or "").strip()
-        interface_flag = f" --interface {shlex.quote(interface)}" if interface else " --no-multicast"
+        interface_flag = (
+            f" --interface {shlex.quote(interface)}" if interface else " --no-multicast"
+        )
         return (
             "$ ipv6-discovery --neighbor-solicit ff02::1 --router-solicit ff02::2"
             f"{interface_flag} --nmap -6 --approved-scope {target_label}{extra}"
+        )
+    if tool == "priv-esc-linux":
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
+        return (
+            "$ priv-esc-linux --ssh --read-only --sudo-list --suid-sgid --cron --path --weak-perms "
+            f"--auth-contexts {context_count} --no-exploit --approved-scope {target_label}{extra}"
         )
     return f"$ {tool} --approved-scope {target_label}{extra}"
 

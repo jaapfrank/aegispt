@@ -75,6 +75,7 @@ HOST_FOLLOW_UP_PROFILES = {
     "active-ad-bloodhound",
     "active-ad-kerberoast",
     "active-ad-asreproast",
+    "intrusive-credential-priv-esc-linux",
     "intrusive-ad-password-spray",
     "intrusive-lan-smb-auth",
     "intrusive-impacket-remote-exec",
@@ -155,6 +156,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                     "active-ad-kerberoast",
                     "active-ad-asreproast",
                     "active-offline-hash-crack",
+                    "intrusive-credential-priv-esc-linux",
                     "intrusive-lan-smb-auth",
                     "intrusive-ad-password-spray",
                 ),
@@ -293,18 +295,14 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 label="Phase 1 · Directory Baseline",
                 tier="passive",
                 requires_approval=False,
-                profiles=(
-                    "passive-identity-ldap-enum",
-                ),
+                profiles=("passive-identity-ldap-enum",),
             ),
             AssessmentChainPhaseDefinition(
                 key="directory-enumeration",
                 label="Phase 2 · Directory Enumeration",
                 tier="active",
                 requires_approval=True,
-                profiles=(
-                    "active-ad-bloodhound",
-                ),
+                profiles=("active-ad-bloodhound",),
             ),
             AssessmentChainPhaseDefinition(
                 key="credential-impact",
@@ -363,7 +361,9 @@ def normalize_chain_authorization_level(value: object) -> str:
     return normalized
 
 
-def _chain_authorization_from_configuration(configuration_json: dict[str, Any] | None) -> dict[str, Any]:
+def _chain_authorization_from_configuration(
+    configuration_json: dict[str, Any] | None
+) -> dict[str, Any]:
     payload = configuration_json if isinstance(configuration_json, dict) else {}
     assessment_mode = payload.get("assessment_mode")
     access = payload.get("access")
@@ -383,7 +383,9 @@ def _chain_authorization_from_configuration(configuration_json: dict[str, Any] |
         "level": normalize_chain_authorization_level(assessment_mode.get("authorization_level")),
         "confirmed_scope": str(assessment_mode.get("confirmed_scope") or "").strip(),
         "confirmation_target": str(assessment_mode.get("confirmation_target") or "").strip(),
-        "typed_scope_confirmation": str(assessment_mode.get("typed_scope_confirmation") or "").strip(),
+        "typed_scope_confirmation": str(
+            assessment_mode.get("typed_scope_confirmation") or ""
+        ).strip(),
         "intrusive_lan_authorized": bool(
             assessment_mode.get("intrusive_lan_authorized")
             or prerequisites.get("intrusive_lan_authorized")
@@ -1237,13 +1239,23 @@ def _chain_blocker_type(reason: str, *, default: str = "runtime_gap") -> str:
         return "profile_unavailable"
     if "no in-scope targets" in normalized or "no eligible target" in normalized:
         return "no_in_scope_targets"
-    if "credential" in normalized or "password" in normalized or "hash" in normalized or "access account" in normalized:
+    if (
+        "credential" in normalized
+        or "password" in normalized
+        or "hash" in normalized
+        or "access account" in normalized
+    ):
         return "missing_credentials"
     if "allowlisted finding" in normalized or "exploitation confirmation" in normalized:
         return "missing_exploitation_evidence"
     if "domain" in normalized or "ldap" in normalized or "ad_" in normalized or "ad " in normalized:
         return "missing_identity_context"
-    if "inventory" in normalized or "discovered" in normalized or "service" in normalized or "web target" in normalized:
+    if (
+        "inventory" in normalized
+        or "discovered" in normalized
+        or "service" in normalized
+        or "web target" in normalized
+    ):
         return "missing_inventory_evidence"
     if "failed" in normalized or "did not complete" in normalized:
         return "runner_failure"
@@ -1305,7 +1317,9 @@ def _assessment_chain_operator_state(
 ) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for phase_index, phase in enumerate(phases):
-        for step_index, step in enumerate(phase.get("steps") if isinstance(phase.get("steps"), list) else []):
+        for step_index, step in enumerate(
+            phase.get("steps") if isinstance(phase.get("steps"), list) else []
+        ):
             if not isinstance(step, dict):
                 continue
             status = str(step.get("status") or "pending").lower()
@@ -1420,7 +1434,9 @@ def _record_recoverable_chain_failure_triage(
     actor: str,
     reason: str,
 ) -> None:
-    task = next((item for item in run.tasks or [] if str(item.status or "").lower() == "failed"), None)
+    task = next(
+        (item for item in run.tasks or [] if str(item.status or "").lower() == "failed"), None
+    )
     failure_text = _latest_run_failure_text(run)
     fallback_profile = run.profile.name if run.profile is not None else ""
     profile_name = str(step.get("profile_name") or fallback_profile).strip()
@@ -1478,7 +1494,9 @@ def _launch_next_chain_run(
     while True:
         phase = _current_phase(phases, chain.current_phase_index)
         if phase is None:
-            chain.status = "completed_with_gaps" if _chain_has_skipped_steps(phases) else "completed"
+            chain.status = (
+                "completed_with_gaps" if _chain_has_skipped_steps(phases) else "completed"
+            )
             chain.current_run_id = None
             _store_chain_phases(chain, phases)
             return None
@@ -1653,12 +1671,12 @@ def create_assessment_chain_launch(
                 "confirmed_scope": authorization["confirmed_scope"],
                 "confirmation_target": authorization["confirmation_target"],
                 "intrusive_lan_authorized": authorization["intrusive_lan_authorized"],
-                "exploit_confirmation_authorized": authorization[
-                    "exploit_confirmation_authorized"
-                ],
-                "typed_scope_confirmation": authorization["typed_scope_confirmation"]
-                if authorization["level"] == "full"
-                else "",
+                "exploit_confirmation_authorized": authorization["exploit_confirmation_authorized"],
+                "typed_scope_confirmation": (
+                    authorization["typed_scope_confirmation"]
+                    if authorization["level"] == "full"
+                    else ""
+                ),
             },
         },
     )
@@ -1691,12 +1709,12 @@ def create_assessment_chain_launch(
             "confirmed_scope": authorization["confirmed_scope"],
             "confirmation_target": authorization["confirmation_target"],
             "intrusive_lan_authorized": authorization["intrusive_lan_authorized"],
-            "exploit_confirmation_authorized": authorization[
-                "exploit_confirmation_authorized"
-            ],
-            "typed_scope_confirmation": authorization["typed_scope_confirmation"]
-            if authorization["level"] == "full"
-            else None,
+            "exploit_confirmation_authorized": authorization["exploit_confirmation_authorized"],
+            "typed_scope_confirmation": (
+                authorization["typed_scope_confirmation"]
+                if authorization["level"] == "full"
+                else None
+            ),
         },
     )
 
@@ -2054,7 +2072,9 @@ def advance_assessment_chain_for_completed_run(
         _store_chain_phases(chain, phases)
         return chain
     else:
-        profile_name = str(step.get("profile_name") or (run.profile.name if run.profile else "")).strip()
+        profile_name = str(
+            step.get("profile_name") or (run.profile.name if run.profile else "")
+        ).strip()
         if _failed_chain_run_is_recoverable(phase=phase, profile_name=profile_name):
             reason = (
                 f"{profile_name or 'Runner'} did not complete cleanly; AegisPT recorded this "
@@ -2103,7 +2123,9 @@ def advance_assessment_chain_for_completed_run(
         next_phase_index = chain.current_phase_index + 1
         next_phase = _current_phase(phases, next_phase_index)
         if next_phase is None:
-            chain.status = "completed_with_gaps" if _chain_has_skipped_steps(phases) else "completed"
+            chain.status = (
+                "completed_with_gaps" if _chain_has_skipped_steps(phases) else "completed"
+            )
             chain.current_phase_index = next_phase_index
             chain.current_step_index = 0
             _store_chain_phases(chain, phases)
