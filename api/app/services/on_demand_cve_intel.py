@@ -7,13 +7,25 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.app.config import Settings, get_settings
-from api.app.models import InventorySnapshot, Run, Task, ThreatIntelRecord
+from api.app.models import (
+    AgentProposal,
+    CapabilityPackArtifact,
+    InventorySnapshot,
+    Run,
+    Task,
+    ThreatIntelRecord,
+)
+from api.app.services.ai_enrichment import (
+    store_agent_proposal_record,
+    store_agent_reasoning_record,
+)
 from api.app.services.audit import write_audit_event
 from api.app.services.cve_sync import FeedFetcher, FeedFetchResult
 
@@ -134,6 +146,7 @@ def refresh_run_cve_intelligence(
     settings: Settings | None = None,
     allow_live_nvd: bool = False,
     fetcher: FeedFetcher | None = None,
+    source_task: Task | None = None,
 ) -> dict[str, Any]:
     payload = build_run_cve_intelligence(
         session,
@@ -142,6 +155,18 @@ def refresh_run_cve_intelligence(
         allow_live_nvd=allow_live_nvd,
         fetcher=fetcher,
     )
+    created_proposals = create_cve_test_agent_proposals(
+        session=session,
+        run=run,
+        payload=payload,
+        actor=actor,
+        source_task=source_task,
+    )
+    payload["boundary"] = {
+        **dict(payload.get("boundary") or {}),
+        "agent_proposals_created": len(created_proposals),
+        "agent_proposal_ids": [str(proposal.id) for proposal in created_proposals],
+    }
     configuration = dict(run.configuration_json or {})
     configuration["on_demand_cve_intelligence"] = payload
     run.configuration_json = configuration
@@ -156,6 +181,7 @@ def refresh_run_cve_intelligence(
             "cve_count": payload["cve_count"],
             "live_nvd_lookup_performed": allow_live_nvd,
             "automatic_tests_started": False,
+            "agent_proposals_created": len(created_proposals),
         },
     )
     session.flush()
@@ -177,9 +203,156 @@ def maybe_refresh_after_discovery_task(
             actor=f"runner:{task.tool}",
             settings=settings,
             allow_live_nvd=False,
+            source_task=task,
         )
     except Exception:
         return None
+
+
+def create_cve_test_agent_proposals(
+    *,
+    session: Session,
+    run: Run,
+    payload: dict[str, Any],
+    actor: str,
+    source_task: Task | None = None,
+) -> list[AgentProposal]:
+    """Create review-gated Nuclei proposals for ready CVE rows without dispatching tests."""
+
+    rows = [row for row in payload.get("rows", []) if isinstance(row, dict)]
+    proposal_inputs: list[dict[str, Any]] = []
+    for row in rows:
+        if str(row.get("test_status") or "").lower() != "ready":
+            continue
+        proposal_input = _cve_test_proposal_input(session=session, run=run, row=row)
+        if proposal_input is None:
+            continue
+        if _existing_cve_test_task(run=run, cve_id=proposal_input["cve_id"], target=proposal_input["target"]):
+            continue
+        if _existing_cve_test_proposal(
+            session=session,
+            run=run,
+            cve_id=proposal_input["cve_id"],
+            target=proposal_input["target"],
+        ):
+            continue
+        proposal_inputs.append(proposal_input)
+
+    if not proposal_inputs:
+        return []
+
+    created_at = datetime.now(UTC)
+    reasoning = store_agent_reasoning_record(
+        session=session,
+        run=run,
+        task=source_task,
+        reasoning_type="cve_to_test_proposal",
+        status="succeeded",
+        context_snapshot={
+            "run_id": str(run.id),
+            "source_task_id": str(source_task.id) if source_task is not None else None,
+            "product_count": payload.get("product_count"),
+            "cve_count": payload.get("cve_count"),
+            "automatic_tests_started": False,
+            "operator_action_required_for_testing": True,
+        },
+        observations=[
+            {
+                "summary": (
+                    f"{item['cve_id']} matched {item['product_label']} on {item['target']} "
+                    "and has a ready Nuclei template."
+                ),
+                "evidence_ref": "run.configuration_json.on_demand_cve_intelligence",
+                "cve_id": item["cve_id"],
+                "target": item["target"],
+            }
+            for item in proposal_inputs
+        ],
+        hypotheses=[
+            {
+                "summary": (
+                    f"A targeted Nuclei detection for {item['cve_id']} can confirm whether "
+                    f"{item['product_label']} is actually exposed on {item['target']}."
+                ),
+                "confidence": item["confidence_score"],
+                "cve_id": item["cve_id"],
+            }
+            for item in proposal_inputs
+        ],
+        proposals=[
+            {
+                "proposed_tool": "nuclei",
+                "proposed_target": item["target"],
+                "cve_id": item["cve_id"],
+                "template_id": item["proposed_params"].get("template_id"),
+                "risk_tier": "active",
+                "requires_operator_review": True,
+                "dispatches_work": False,
+            }
+            for item in proposal_inputs
+        ],
+        provider="deterministic-cve-intelligence",
+        model="local-cve-template-cache",
+        llm_tokens_used=0,
+        confidence_score=max(item["confidence_score"] for item in proposal_inputs),
+        metadata={
+            "proposal_kind": "cve_to_test_auto_queue",
+            "created_by": actor,
+            "created_at": created_at.isoformat(),
+            "automatic_tests_started": False,
+            "operator_action_required_for_testing": True,
+            "local_template_cache_only": True,
+        },
+    )
+
+    created: list[AgentProposal] = []
+    for item in proposal_inputs:
+        proposal = store_agent_proposal_record(
+            session=session,
+            reasoning=reasoning,
+            proposed_tool="nuclei",
+            proposed_target=item["target"],
+            proposed_params=item["proposed_params"],
+            reasoning_text=item["reasoning_text"],
+            risk_tier="active",
+            priority=item["priority"],
+            confidence_score=item["confidence_score"],
+            status="pending_review",
+            metadata={
+                "proposal_kind": "cve_to_test_auto_queue",
+                "requires_operator_review": True,
+                "dispatches_work": False,
+                "creates_tasks": False,
+                "automatic_tests_started": False,
+                "operator_action_required_for_testing": True,
+                "cve_id": item["cve_id"],
+                "record_id": item["record_id"],
+                "template_id": item["proposed_params"].get("template_id"),
+                "template_source": item["proposed_params"].get("template_source"),
+                "target": item["target"],
+                "affected_product": item["affected_product"],
+                "source_task_id": str(source_task.id) if source_task is not None else None,
+            },
+        )
+        created.append(proposal)
+
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="run.cve_intelligence.agent_proposals_created",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={
+            "run_id": str(run.id),
+            "agent_reasoning_id": str(reasoning.id),
+            "agent_proposal_ids": [str(proposal.id) for proposal in created],
+            "cve_ids": [item["cve_id"] for item in proposal_inputs],
+            "proposal_count": len(created),
+            "automatic_tests_started": False,
+            "operator_action_required_for_testing": True,
+        },
+    )
+    return created
 
 
 def extract_detected_products_for_run(
@@ -205,6 +378,162 @@ def extract_detected_products_for_run(
         if len(unique) >= limit:
             break
     return list(unique.values())
+
+
+def _cve_test_proposal_input(
+    *,
+    session: Session,
+    run: Run,
+    row: dict[str, Any],
+) -> dict[str, Any] | None:
+    product = row.get("affected_product") if isinstance(row.get("affected_product"), dict) else {}
+    target = str(product.get("host") or _first_run_target(run) or "").strip()
+    if not target:
+        return None
+    template_params = _template_execution_params_for_row(session=session, row=row)
+    if template_params is None:
+        return None
+
+    cve_id = str(row.get("cve_id") or "").strip().upper()
+    if not cve_id:
+        return None
+    product_label = " ".join(
+        str(value or "").strip()
+        for value in (product.get("vendor"), product.get("product"), product.get("version"))
+        if str(value or "").strip()
+    ) or str(product.get("query") or "detected product")
+    confidence = _bounded_float(product.get("confidence"), default=0.75)
+    cvss_score = row.get("cvss_score")
+    priority = 10 if row.get("kev") else 20 if isinstance(cvss_score, (int, float)) and float(cvss_score) >= 9.0 else 30
+    reasoning = f"CVE {cve_id} matched {product_label} on {target}; a ready Nuclei template is available for an operator-approved targeted detection."
+    proposed_params = {
+        "target_kind": "host" if product.get("host") else "target",
+        "profile_name": "active-web-safe",
+        "run_class": "active",
+        "limits": {"max_rps": 1, "max_concurrency": 1, "tools": ["nuclei"]},
+        "on_demand_cve_intelligence": {
+            "cve_id": cve_id,
+            "record_id": row.get("record_id"),
+            "title": row.get("title"),
+            "severity": row.get("severity"),
+            "cvss_score": cvss_score,
+            "kev": bool(row.get("kev")),
+            "affected_product": product,
+            "matched_terms": list(row.get("matched_terms") or []),
+            "sources": list(row.get("sources") or []),
+            "operator_approved": False,
+            "operator_action_required_for_testing": True,
+            "automatic_tests_started": False,
+            "proposal_source": "cve_to_test_auto_queue",
+        },
+        **template_params,
+    }
+    return {
+        "cve_id": cve_id,
+        "record_id": row.get("record_id"),
+        "target": target,
+        "affected_product": product,
+        "product_label": product_label,
+        "reasoning_text": reasoning,
+        "priority": priority,
+        "confidence_score": confidence,
+        "proposed_params": proposed_params,
+    }
+
+
+def _template_execution_params_for_row(
+    *,
+    session: Session,
+    row: dict[str, Any],
+) -> dict[str, Any] | None:
+    cve_id = str(row.get("cve_id") or "").strip().upper()
+    template = row.get("template") if isinstance(row.get("template"), dict) else None
+    if template is not None:
+        template_path = str(template.get("path") or "").strip()
+        if not template_path:
+            return None
+        path = Path(template_path)
+        if not path.exists() or not path.is_file():
+            return None
+        return {
+            "template_body": path.read_text(encoding="utf-8", errors="replace"),
+            "template_id": str(template.get("template_id") or cve_id.lower()).strip(),
+            "template_source": str(template.get("source") or "local-nuclei-template-cache").strip(),
+            "template_filename": path.name,
+            "template_path": str(path),
+        }
+
+    generated_template = (
+        row.get("generated_template") if isinstance(row.get("generated_template"), dict) else None
+    )
+    if generated_template is None:
+        return None
+    if str(generated_template.get("status") or "").lower() != "deployed":
+        return None
+    if not generated_template.get("deployment_id"):
+        return None
+    artifact_id = generated_template.get("artifact_id")
+    try:
+        parsed_artifact_id = UUID(str(artifact_id))
+    except (TypeError, ValueError):
+        return None
+    artifact = session.get(CapabilityPackArtifact, parsed_artifact_id)
+    if artifact is None or artifact.artifact_type != "nuclei_template" or not artifact.content_text:
+        return None
+    return {
+        "template_body": artifact.content_text,
+        "template_id": str(generated_template.get("template_id") or cve_id.lower()).strip(),
+        "template_source": "generated-nuclei-template-pack",
+        "template_filename": artifact.logical_name,
+        "pack_id": generated_template.get("pack_id"),
+        "pack_version": generated_template.get("pack_version"),
+        "pack_artifact_id": str(artifact.id),
+        "pack_deployment_id": generated_template.get("deployment_id"),
+    }
+
+
+def _existing_cve_test_proposal(
+    *,
+    session: Session,
+    run: Run,
+    cve_id: str,
+    target: str,
+) -> bool:
+    proposals = session.scalars(
+        select(AgentProposal).where(
+            AgentProposal.run_id == run.id,
+            AgentProposal.proposed_tool == "nuclei",
+            AgentProposal.proposed_target == target,
+        )
+    ).all()
+    normalized_cve = cve_id.upper()
+    for proposal in proposals:
+        metadata = proposal.metadata_json if isinstance(proposal.metadata_json, dict) else {}
+        params = proposal.proposed_params_json if isinstance(proposal.proposed_params_json, dict) else {}
+        cve_context = (
+            params.get("on_demand_cve_intelligence")
+            if isinstance(params.get("on_demand_cve_intelligence"), dict)
+            else {}
+        )
+        if str(metadata.get("cve_id") or cve_context.get("cve_id") or "").upper() == normalized_cve:
+            return True
+    return False
+
+
+def _existing_cve_test_task(*, run: Run, cve_id: str, target: str) -> bool:
+    normalized_cve = cve_id.upper()
+    for task in list(run.tasks or []):
+        if task.tool != "nuclei" or task.target_id != target or task.status == "cancelled":
+            continue
+        params = task.params_json if isinstance(task.params_json, dict) else {}
+        cve_context = (
+            params.get("on_demand_cve_intelligence")
+            if isinstance(params.get("on_demand_cve_intelligence"), dict)
+            else {}
+        )
+        if str(cve_context.get("cve_id") or "").upper() == normalized_cve:
+            return True
+    return False
 
 
 def match_local_cve_records(

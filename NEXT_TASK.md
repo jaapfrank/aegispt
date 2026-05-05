@@ -2,53 +2,51 @@
 
 ## Title
 
-CVE-to-Test auto-queue: when discovery matches a CVE, automatically queue a Nuclei test proposal for operator approval
+AI Security Research Lab screen: let AI invent new Nuclei templates, scripts, and test ideas from CVEs and findings
 
 ## Promoted From
 
-`codex/tasks/backlog-206-cve-to-test-auto-queue.json`
+`codex/tasks/backlog-207-ai-security-research-lab-screen.json`
 
 ## Goal
 
-The system already runs discovery, extracts product versions, matches local CVE intelligence, and stores matched CVEs, but matched CVEs still do not create actionable test proposals. Implement the missing bridge so matched CVEs with available Nuclei templates create run-scoped pending `AgentProposal` records that appear in the AI Proposals Inbox.
+Create a dedicated `Research` screen accessible from the BUILD section of the sidebar. The screen exposes AegisPT's AI-driven capability creation without bypassing safety validation or Pack Forge approval/deployment gates.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-206-cve-to-test-auto-queue.json`.
+Implement the active backlog package `codex/tasks/backlog-207-ai-security-research-lab-screen.json`.
 
 Expected slice:
 
-- when discovery/CVE refresh finds a CVE with an existing Nuclei template, create a pending run-scoped `AgentProposal`
-- set `proposed_tool` to `nuclei`
-- set `proposed_target` to the matched host/target
-- include the matching template identifier/path in proposal params
-- set risk tier to `active`
-- include reasoning that names the CVE, matched product/version, and target
-- proposals must appear in the backlog-205 Mission Control AI Proposals Inbox
-- do not create proposals when no matching Nuclei template exists
+- add a Research screen entry under BUILD navigation
+- expose a CVE-to-template workflow where an operator selects a CVE from threat intelligence and requests a detection-only Nuclei YAML through the existing `cve_template_generator.py` flow
+- show generated template output with preview and safety summary
+- allow reviewed generated templates to be submitted into Pack Forge staging/review rather than deployed directly
+- add a Custom Script Ideas panel for plain-language detection ideas using the same safety posture
+- show a Research Proposals log with generated templates/ideas and statuses
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Do not auto-dispatch tests.
-- Do not modify CVE matching logic.
-- Do not weaken Nuclei template safety validation.
-- Do not bypass approval gates for intrusive tools.
-- Do not bypass scope, ROE, approval, validation, deployment, runtime binding, credentials, or kill switch.
+- Do not change safety validation in `cve_template_generator.py`.
+- Do not bypass Pack Forge approval gates.
+- Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
+- No active exploit generation or external template downloads.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/ -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- CVE match with an existing template creates a pending `AgentProposal`.
-- CVE match without a template creates no proposal.
-- Proposal is run-scoped and visible only for the run that triggered discovery.
-- Proposal never auto-dispatches before operator approval.
-- Operator approval queues the targeted Nuclei task through the existing backlog-205 approval path.
+- Research screen is accessible from the sidebar.
+- CVE template generation flow works end-to-end.
+- Generated templates show YAML preview with safety summary.
+- Generated templates go to Pack Forge staging/review, not direct deployment.
+- Custom script idea input returns a detection script or safe blocked state.
+- Research Proposals log shows generated templates/ideas with status.
 - E2E tests pass.

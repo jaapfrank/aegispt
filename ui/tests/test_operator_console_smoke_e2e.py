@@ -1430,6 +1430,166 @@ def test_mission_control_ai_proposals_inbox_badge_and_review_actions(loaded_page
     ]
 
 
+def test_mission_control_cve_refresh_surfaces_ai_proposal_inbox(loaded_page: Page) -> None:
+    refresh_requests: list[dict[str, object]] = []
+    now = "2026-05-05T21:50:00Z"
+    run_id = "run-cve-proposals"
+
+    def cve_payload() -> dict[str, object]:
+        return {
+            "run_id": run_id,
+            "engagement_id": "eng-cve-proposals",
+            "status": "ready",
+            "generated_at": now,
+            "product_count": 1,
+            "cve_count": 1,
+            "products": [
+                {
+                    "query": "nginx 1.18.0",
+                    "vendor": "nginx",
+                    "product": "nginx",
+                    "version": "1.18.0",
+                    "host": "10.0.20.14",
+                    "confidence": 0.9,
+                }
+            ],
+            "rows": [
+                {
+                    "cve_id": "CVE-2026-9999",
+                    "record_id": "record-cve-proposal",
+                    "title": "Synthetic nginx exposure",
+                    "severity": "critical",
+                    "cvss_score": 9.8,
+                    "kev": False,
+                    "affected_product": {"query": "nginx 1.18.0", "product": "nginx", "version": "1.18.0", "host": "10.0.20.14"},
+                    "test_status": "ready",
+                    "actions": [{"id": "run_test"}],
+                }
+            ],
+            "failures": [],
+            "boundary": {
+                "automatic_tests_started": False,
+                "operator_action_required_for_testing": True,
+                "agent_proposals_created": 1,
+                "agent_proposal_ids": ["proposal-cve-nuclei"],
+            },
+        }
+
+    def insights_payload() -> dict[str, object]:
+        return {
+            "run_id": run_id,
+            "post_task_analysis_enabled": True,
+            "provider": "deterministic",
+            "provider_status": {"mode": "deterministic", "label": "Review mode", "status": "fallback", "connected": False},
+            "reasoning_records": [],
+            "proposals": [
+                {
+                    "id": "proposal-cve-nuclei",
+                    "run_id": run_id,
+                    "agent_reasoning_id": "reasoning-cve-nuclei",
+                    "proposed_tool": "nuclei",
+                    "proposed_target": "10.0.20.14",
+                    "proposed_params_json": {
+                        "template_id": "CVE-2026-9999",
+                        "on_demand_cve_intelligence": {
+                            "cve_id": "CVE-2026-9999",
+                            "operator_approved": False,
+                            "automatic_tests_started": False,
+                        },
+                    },
+                    "reasoning_text": "CVE CVE-2026-9999 matched nginx 1.18.0 on 10.0.20.14; a ready Nuclei template is available.",
+                    "risk_tier": "active",
+                    "priority": 10,
+                    "confidence_score": 0.9,
+                    "status": "pending_review",
+                    "approved_by": None,
+                    "approved_at": None,
+                    "metadata_json": {
+                        "proposal_kind": "cve_to_test_auto_queue",
+                        "requires_operator_review": True,
+                        "dispatches_work": False,
+                        "creates_tasks": False,
+                    },
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ],
+            "review_boundary": {"message": "Approved follow-ups become queued tasks; dispatch stays explicit."},
+            "operator_workbench": {},
+        }
+
+    def capture_cve_refresh(route):
+        refresh_requests.append(route.request.post_data_json)
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(cve_payload()))
+
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-cve-proposals/cve-intelligence/refresh$"),
+        capture_cve_refresh,
+    )
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-cve-proposals/ai-insights$"),
+        lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(insights_payload())),
+    )
+
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        f"""
+        async () => {{
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          runtimeModule.patchState({{
+            activeScreen: 'mission-control',
+            selectedEngagementId: 'eng-cve-proposals',
+            selectedRunId: '{run_id}',
+            selectedTaskId: 'task-cve-source',
+            selectedAiInsights: {{ run_id: '{run_id}', proposals: [], reasoning_records: [] }},
+            selectedCveIntelligence: {{
+              run_id: '{run_id}',
+              engagement_id: 'eng-cve-proposals',
+              status: 'no_high_risk_cves',
+              generated_at: '{now}',
+              product_count: 1,
+              cve_count: 0,
+              products: [{{ query: 'nginx 1.18.0', product: 'nginx', version: '1.18.0', host: '10.0.20.14' }}],
+              rows: [],
+              failures: [],
+              boundary: {{ automatic_tests_started: false, operator_action_required_for_testing: true }},
+            }},
+            selectedRun: {{
+              id: '{run_id}',
+              engagement_id: 'eng-cve-proposals',
+              status: 'running',
+              requested_by: 'operator-ui',
+              created_at: '{now}',
+              updated_at: '{now}',
+              configuration_json: {{ targets: {{ ip_addresses: ['10.0.20.14'] }} }},
+              profile: {{ id: 'profile-cve', name: 'active-web', run_class: 'active', limits_json: {{}} }},
+              tasks: [{{
+                id: 'task-cve-source',
+                tool: 'nmap',
+                target_id: '10.0.20.14',
+                status: 'completed',
+                params_json: {{}},
+                created_at: '{now}',
+                updated_at: '{now}',
+              }}],
+              findings: {{ finding_count: 0, findings_by_severity: {{}}, findings_by_status: {{}} }},
+            }},
+          }}, 'ui.test.cveProposalRefresh');
+          missionModule.createMissionModule().renderMissionControl();
+        }}
+        """
+    )
+
+    loaded_page.locator("[data-cve-intel-refresh='local']").click()
+
+    expect(loaded_page.get_by_test_id("status-feed-focus")).to_contain_text("1 pending AI proposal")
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("Suggested Next Steps")
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("10.0.20.14")
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("CVE CVE-2026-9999 matched")
+    assert refresh_requests == [{"live_nvd_lookup": False}]
+
+
 def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run(
     loaded_page: Page,
 ) -> None:

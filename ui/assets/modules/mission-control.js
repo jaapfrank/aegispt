@@ -3021,6 +3021,19 @@ export function createMissionModule() {
       .catch((error) => runtime.actions.handleError?.(error));
   }
 
+  async function refreshAiInsightsForCveIntel(reason) {
+    if (!state.selectedRunId) return null;
+    try {
+      const insights = await api(`/api/v1/runs/${state.selectedRunId}/ai-insights`);
+      patchState({ selectedAiInsights: insights }, reason);
+      runtime.actions.renderFlowOverview?.();
+      return insights;
+    } catch (error) {
+      console.warn("CVE intelligence refreshed but AI insights refresh failed", error);
+      return null;
+    }
+  }
+
   async function reviewAiProposal(proposalId, decision) {
     if (!state.selectedRunId || !proposalId || !decision) {
       throw new Error("Select a run and proposal before recording AI proposal review.");
@@ -4408,8 +4421,10 @@ export function createMissionModule() {
           body: { live_nvd_lookup: liveNvd },
         });
         patchState({ selectedCveIntelligence: payload }, "mission.cveIntel.refresh");
+        const insights = await refreshAiInsightsForCveIntel("mission.cveIntel.aiInsightsRefreshed");
+        const pendingProposalCount = countPendingAiProposals(insights?.proposals || null);
         runtime.actions.pushStatus?.(
-          `CVE intelligence refreshed: ${payload.cve_count || 0} high-risk item${payload.cve_count === 1 ? "" : "s"}.`,
+          `CVE intelligence refreshed: ${payload.cve_count || 0} high-risk item${payload.cve_count === 1 ? "" : "s"}${pendingProposalCount ? `, ${pendingProposalCount} pending AI proposal${pendingProposalCount === 1 ? "" : "s"}` : ""}.`,
           "success"
         );
         renderMissionControl();
@@ -4450,6 +4465,7 @@ export function createMissionModule() {
           body: { live_nvd_lookup: false },
         });
         patchState({ selectedCveIntelligence: refreshed }, "mission.cveIntel.generateTemplate");
+        await refreshAiInsightsForCveIntel("mission.cveIntel.generateTemplateAiInsightsRefreshed");
         renderMissionControl();
       });
     });

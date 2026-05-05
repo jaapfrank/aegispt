@@ -1183,6 +1183,15 @@ def _approved_proposal_task_params(
             "approval_effect": "operator_approved_queued_task",
         },
     }
+    cve_context = params.get("on_demand_cve_intelligence")
+    if isinstance(cve_context, dict):
+        params["on_demand_cve_intelligence"] = {
+            **cve_context,
+            "operator_approved": True,
+            "queued_by": actor,
+            "queued_at": queued_at.isoformat(),
+            "automatic_tests_started": False,
+        }
     params.pop("review_required", None)
     if proposal.proposed_tool == "zap":
         params["targets"] = [proposal.proposed_target]
