@@ -126,6 +126,36 @@ def _seed_minimal_repo(root: Path, *, validation_status: str = "not_run") -> Non
         root / "codex/results/backlog-186-enterprise-deployment-hardening-20260503.md",
         "Deployment Hardening\nRemaining Risk\n",
     )
+    _write_json(
+        root / "codex/results/production-deployment-proof-latest.json",
+        {
+            "kind": "aegispt.production_deployment_proof",
+            "proof_summary": {
+                "overall_status": "degraded",
+                "enterprise_production_ready_claim_allowed": False,
+                "development_mode_not_enterprise_production": True,
+                "production_like_fixtures_ready": True,
+                "safe_local_backup_restore_ready": True,
+                "compose_static_declarations_ready": True,
+                "compose_postgres_runtime_restore_proven": False,
+            },
+            "current_environment": {
+                "deployment_hardening": {
+                    "status": "degraded",
+                    "metadata": {"readiness_boundary": "development_ready_not_enterprise_production"},
+                }
+            },
+            "compose_postgres_runtime_restore": {
+                "status": "blocked",
+                "reason": "No live Compose/PostgreSQL runtime was started by this safe build-lane proof.",
+                "operator_next_step": "Run an approved local Compose fixture.",
+            },
+        },
+    )
+    _write(
+        root / "codex/results/production-deployment-proof-latest.md",
+        "Production-Like Deployment Proof\nCompose/PostgreSQL runtime restore\n",
+    )
     _write(root / "docs/host_service_install.md", "Production deployment hardening\n")
     _write(root / "scripts/verify_restore.py", "safe-local\n")
     _write(
@@ -168,6 +198,19 @@ def test_release_readiness_surfaces_validation_scenario_blockers(tmp_path: Path)
     ]
     assert "docker_image_missing" in " ".join(accuracy["gaps"])
     assert "docker_image_missing" in markdown
+
+
+def test_release_readiness_consumes_production_deployment_proof(tmp_path: Path) -> None:
+    _seed_minimal_repo(tmp_path, validation_status="passed")
+
+    report = build_release_readiness_report(tmp_path)
+    ledger = {claim["id"]: claim for claim in report["support_claim_ledger"]}
+    deployment = ledger["enterprise_deployment_hardening"]
+
+    assert deployment["status"] == "supported-with-gap"
+    assert deployment["metrics"]["production_deployment_proof"]["safe_local_backup_restore_ready"] is True
+    assert deployment["metrics"]["production_deployment_proof"]["compose_postgres_runtime_restore_proven"] is False
+    assert any("Compose/PostgreSQL runtime restore remains unproven" in gap for gap in deployment["gaps"])
 
 
 def test_supported_claims_have_evidence_and_marketing_boundary_is_explicit(tmp_path: Path) -> None:

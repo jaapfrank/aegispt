@@ -232,6 +232,11 @@ def test_settings_readiness_reports_tools_runtime_and_export_artifact(client, mo
     assert capabilities["enterprise_identity"]["metadata"]["session_policy"]["timeout_minutes"] == 480
     assert capabilities["deployment_hardening"]["status"] == "degraded"
     assert capabilities["deployment_hardening"]["metadata"]["production_like"] is False
+    assert capabilities["deployment_hardening"]["metadata"]["enterprise_production_ready"] is False
+    assert (
+        capabilities["deployment_hardening"]["metadata"]["readiness_boundary"]
+        == "development_ready_not_enterprise_production"
+    )
     assert capabilities["deployment_hardening"]["metadata"]["secrets_plaintext_exposed"] is False
     certification = capabilities["runner_tool_certification"]
     assert certification["metadata"]["path"] == "codex/results/runner-tool-certification-matrix.json"
@@ -331,6 +336,8 @@ def test_settings_readiness_simulated_production_deployment_hardening(client) ->
     hardening = capabilities["deployment_hardening"]
     assert hardening.status == "ready"
     assert hardening.metadata["production_like"] is True
+    assert hardening.metadata["enterprise_production_ready"] is True
+    assert hardening.metadata["readiness_boundary"] == "enterprise_production_ready"
     assert hardening.metadata["https_public_base_url"] is True
     assert hardening.metadata["outbound_proxy"] == "configured"
     assert hardening.metadata["secrets_plaintext_exposed"] is False
@@ -361,6 +368,9 @@ def test_settings_readiness_blocks_unsafe_production_and_air_gap_gaps(client) ->
     assert hardening.metadata["blocking_gap_count"] >= 4
     assert hardening.metadata["database_encryption_status"] == "blocked"
     assert hardening.metadata["artifact_encryption_status"] == "blocked"
+    assert hardening.metadata["enterprise_production_ready"] is False
+    assert hardening.metadata["readiness_boundary"] == "production_like_blocked"
+    assert hardening.metadata["blocking_reasons"]
     assert hardening.metadata["no_internet_mode"] is True
     assert hardening.metadata["offline_update_path_configured"] is True
     assert hardening.metadata["manual_tool_update_path_configured"] is False

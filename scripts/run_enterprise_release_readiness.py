@@ -194,12 +194,43 @@ def _runner_tool_matrix_summary(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _production_deployment_proof_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    summary = payload.get("proof_summary") if isinstance(payload.get("proof_summary"), dict) else {}
+    current = payload.get("current_environment") if isinstance(payload.get("current_environment"), dict) else {}
+    current_hardening = (
+        current.get("deployment_hardening") if isinstance(current.get("deployment_hardening"), dict) else {}
+    )
+    current_metadata = (
+        current_hardening.get("metadata") if isinstance(current_hardening.get("metadata"), dict) else {}
+    )
+    compose_runtime = (
+        payload.get("compose_postgres_runtime_restore")
+        if isinstance(payload.get("compose_postgres_runtime_restore"), dict)
+        else {}
+    )
+    return {
+        "status": str(summary.get("overall_status") or "missing"),
+        "enterprise_production_ready_claim_allowed": bool(summary.get("enterprise_production_ready_claim_allowed", False)),
+        "development_mode_not_enterprise_production": bool(summary.get("development_mode_not_enterprise_production", False)),
+        "production_like_fixtures_ready": bool(summary.get("production_like_fixtures_ready", False)),
+        "safe_local_backup_restore_ready": bool(summary.get("safe_local_backup_restore_ready", False)),
+        "compose_static_declarations_ready": bool(summary.get("compose_static_declarations_ready", False)),
+        "compose_postgres_runtime_restore_proven": bool(summary.get("compose_postgres_runtime_restore_proven", False)),
+        "current_host_status": str(current_hardening.get("status") or "missing"),
+        "current_readiness_boundary": str(current_metadata.get("readiness_boundary") or "missing"),
+        "compose_runtime_status": str(compose_runtime.get("status") or "missing"),
+        "compose_runtime_reason": str(compose_runtime.get("reason") or ""),
+        "compose_runtime_next_step": str(compose_runtime.get("operator_next_step") or ""),
+    }
+
+
 def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, Any]:
     root = repo_root or REPO_ROOT
     product_matrix = _read_json(root, "codex/tasks/product_acceptance_matrix.json")
     target_catalog = _read_json(root, "codex/tasks/target_lab_matrix.json")
     validation_matrix = _read_json(root, "codex/results/validation-matrix-latest.json")
     runner_tool_matrix = _read_json(root, "codex/results/runner-tool-certification-matrix.json")
+    production_deployment_proof = _read_json(root, "codex/results/production-deployment-proof-latest.json")
     full_audit = _read_json(root, "codex/results/backlog-181-full-system-audit.json")
     ia_audit = _read_json(root, "codex/results/backlog-181-ia-audit.json")
 
@@ -207,6 +238,7 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
     target_metrics = _target_catalog_summary(target_catalog)
     validation_metrics = _validation_matrix_summary(validation_matrix)
     runner_tool_metrics = _runner_tool_matrix_summary(runner_tool_matrix)
+    deployment_proof_metrics = _production_deployment_proof_summary(production_deployment_proof)
     full_audit_metrics = _count_full_system_defects(full_audit)
     ia_metrics = {
         "page_count": len(ia_audit.get("pages") or []) if isinstance(ia_audit.get("pages"), list) else 0,
@@ -504,9 +536,31 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
         root,
         [
             EvidenceRule("codex/results/backlog-186-enterprise-deployment-hardening-20260503.md", "Deployment hardening result", ("Deployment Hardening", "Remaining Risk")),
+            EvidenceRule(
+                "codex/results/production-deployment-proof-latest.json",
+                "Production-like deployment proof",
+                ("aegispt.production_deployment_proof", "compose_postgres_runtime_restore"),
+            ),
+            EvidenceRule(
+                "codex/results/production-deployment-proof-latest.md",
+                "Production-like deployment proof summary",
+                ("Production-Like Deployment Proof", "Compose/PostgreSQL runtime restore"),
+            ),
             EvidenceRule("docs/host_service_install.md", "Host deployment hardening runbook", ("Production deployment hardening",)),
         ],
     )
+    deployment_gaps = []
+    if deployment_proof_metrics["status"] == "missing":
+        deployment_gaps.append("Production-like deployment proof evidence is missing.")
+    if not deployment_proof_metrics["enterprise_production_ready_claim_allowed"]:
+        deployment_gaps.append(
+            f"Current host readiness boundary is `{deployment_proof_metrics['current_readiness_boundary']}`, so it must not be called enterprise-production ready."
+        )
+    if not deployment_proof_metrics["compose_postgres_runtime_restore_proven"]:
+        runtime_reason = deployment_proof_metrics["compose_runtime_reason"] or "No Compose/PostgreSQL runtime restore proof is recorded."
+        deployment_gaps.append(f"Compose/PostgreSQL runtime restore remains unproven: {runtime_reason}")
+    if not deployment_proof_metrics["safe_local_backup_restore_ready"]:
+        deployment_gaps.append("Safe local backup/restore drill is not ready in the latest deployment proof.")
     claims.append(
         _claim(
             claim_id="enterprise_deployment_hardening",
@@ -514,11 +568,11 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
             status="supported-with-gap" if _any_evidence(deployment_evidence) else "blocked",
             category="deployment",
             critical=True,
-            summary="Deployment readiness is explicit, but external TLS/proxy/certificate/encryption proof remains operator-managed.",
+            summary="Deployment readiness is explicit, with safe-local production-like proof and remaining runtime blockers recorded.",
             evidence=deployment_evidence,
-            gaps=["The readiness surface does not install or verify external TLS, proxy, certificate, database, or object-store infrastructure."],
-            next_task_refs=["codex/tasks/backlog-186-enterprise-deployment-hardening.json"],
-            metrics={},
+            gaps=deployment_gaps or ["Production deployment proof is present, but external infrastructure remains operator-managed."],
+            next_task_refs=["codex/tasks/backlog-238-production-deployment-proof-drill.json"],
+            metrics={"production_deployment_proof": deployment_proof_metrics},
         )
     )
 
@@ -644,6 +698,7 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
             "target_lab_matrix": "codex/tasks/target_lab_matrix.json",
             "validation_matrix": "codex/results/validation-matrix-latest.json",
             "runner_tool_certification_matrix": "codex/results/runner-tool-certification-matrix.json",
+            "production_deployment_proof": "codex/results/production-deployment-proof-latest.json",
             "operator_assurance_matrix": "docs/operator_product_operational_assurance.md",
         },
     }

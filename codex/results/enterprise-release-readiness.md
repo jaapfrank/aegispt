@@ -1,6 +1,6 @@
 # AegisPT Enterprise Release Readiness
 
-- Generated: `2026-05-05T18:14:52.271339+00:00`
+- Generated: `2026-05-05T18:39:56.147072+00:00`
 - Gate status: `blocked`
 - Go/no-go: `no-go`
 - Enterprise-ready claim allowed: `false`
@@ -21,7 +21,7 @@
 | AI feature availability | `supported-with-gap` | false | `api/tests/test_settings.py`<br>`codex/results/backlog-161-ai-signal-global-chatgpt-no-run-validation-20260501.md`<br>`DECISIONS.md` | AI value, repair actions, and signal inbox remain partially implemented and provider-dependent.<br>Next: `codex/tasks/backlog-152-ai-value-and-operator-signal-workbench.json` |
 | Security self-test | `supported-with-gap` | true | `docs/security_self_assessment.md`<br>`api/tests/test_input_validation_security.py` | Dependency audit recorded tool_unavailable until pip-audit or safety is provided.<br>Next: `docs/security_self_assessment.md` |
 | Accessibility and keyboard enterprise UX | `supported` | true | `codex/results/backlog-185-accessibility-keyboard-enterprise-ux-gate-20260502.md`<br>`docs/accessibility_acceptance.md`<br>`ui/tests/test_accessibility_e2e.py` | No recorded gap. |
-| Enterprise deployment hardening | `supported-with-gap` | true | `codex/results/backlog-186-enterprise-deployment-hardening-20260503.md`<br>`docs/host_service_install.md` | The readiness surface does not install or verify external TLS, proxy, certificate, database, or object-store infrastructure.<br>Next: `codex/tasks/backlog-186-enterprise-deployment-hardening.json` |
+| Enterprise deployment hardening | `supported-with-gap` | true | `codex/results/backlog-186-enterprise-deployment-hardening-20260503.md`<br>`codex/results/production-deployment-proof-latest.json`<br>`codex/results/production-deployment-proof-latest.md`<br>`docs/host_service_install.md` | Current host readiness boundary is `development_ready_not_enterprise_production`, so it must not be called enterprise-production ready.<br>Compose/PostgreSQL runtime restore remains unproven: No live Compose/PostgreSQL runtime was started by this safe build-lane proof; the current evidence is static Compose declaration plus the safe local backup/restore drill.<br>Next: `codex/tasks/backlog-238-production-deployment-proof-drill.json` |
 | Backup, restore, upgrade, and rollback | `supported-with-gap` | true | `codex/results/backlog-183-backup-restore-upgrade-rollback-drill-20260502.md`<br>`scripts/verify_restore.py` | Automated proof is SQLite/local; Compose/PostgreSQL and production secret recovery require operator drills.<br>Next: `codex/tasks/backlog-183-backup-restore-upgrade-rollback-drill.json` |
 | Observability and support diagnostics | `supported-with-gap` | true | `codex/results/backlog-184-observability-support-diagnostics-bundle-20260502.md`<br>`api/tests/test_diagnostics.py` | Existing live processes may need restart before new diagnostics routes are visible.<br>Next: `codex/tasks/backlog-184-observability-support-diagnostics-bundle.json` |
 | Enterprise identity and sessions | `supported-with-gap` | true | `codex/results/backlog-182-enterprise-identity-session-admin-20260502.md`<br>`api/tests/test_auth.py` | OIDC/SAML browser enforcement, SCIM, tenant membership, and hosted RBAC remain future work.<br>Next: `codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json`, `codex/tasks/backlog-127-rbac.json` |

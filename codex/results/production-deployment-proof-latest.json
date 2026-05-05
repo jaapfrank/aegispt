@@ -1,0 +1,268 @@
+{
+  "compose_postgres_runtime_restore": {
+    "operator_next_step": "Run an explicitly approved local Compose fixture, capture pg_dump/restore and MinIO artifact restore evidence, then attach that output under codex/results/.",
+    "reason": "No live Compose/PostgreSQL runtime was started by this safe build-lane proof; the current evidence is static Compose declaration plus the safe local backup/restore drill.",
+    "status": "blocked"
+  },
+  "compose_static_proof": {
+    "blocking_reasons": [],
+    "compose_file": "infra/compose/docker-compose.yml",
+    "env_example": "infra/compose/.env.example",
+    "env_keys_present": {
+      "AEGISPT_DB_KEY": true,
+      "APP_ENV": true,
+      "APP_PUBLIC_BASE_URL": true,
+      "ARTIFACTS_S3_ENFORCE_SSE": true,
+      "ARTIFACTS_STORAGE_MODE": true,
+      "DATABASE_URL": true,
+      "DEPLOYMENT_MANUAL_TOOL_UPDATE_PATH": true,
+      "DEPLOYMENT_NO_INTERNET_MODE": true,
+      "DEPLOYMENT_OFFLINE_UPDATE_PATH": true,
+      "DEPLOYMENT_SECURE_COOKIES": true,
+      "DEPLOYMENT_TLS_TERMINATED_BY_PROXY": true
+    },
+    "minio_persistence_declared": true,
+    "operator_next_step": "Start the approved Compose fixture and capture pg_dump/MinIO restore evidence before claiming a live production runtime.",
+    "postgres_persistence_declared": true,
+    "s3_artifact_storage_declared": true,
+    "services_present": {
+      "api": true,
+      "minio": true,
+      "postgres": true,
+      "redis": true,
+      "worker": true,
+      "zapd": true
+    },
+    "status": "ready"
+  },
+  "current_environment": {
+    "deployment_hardening": {
+      "metadata": {
+        "artifact_encryption_status": "degraded",
+        "blocking_gap_count": 0,
+        "blocking_reasons": [],
+        "database_encryption_status": "degraded",
+        "enterprise_production_ready": false,
+        "https_public_base_url": false,
+        "manual_tool_update_path_configured": false,
+        "no_internet_mode": false,
+        "offline_update_path_configured": false,
+        "outbound_proxy": "not configured",
+        "production_like": false,
+        "readiness_boundary": "development_ready_not_enterprise_production",
+        "secrets_plaintext_exposed": false,
+        "secure_cookies": false,
+        "tls_terminated_by_proxy": false,
+        "trusted_certificate_bundle_configured": false,
+        "warning_gap_count": 4,
+        "warning_reasons": [
+          "TLS/reverse-proxy hardening is not configured for production use",
+          "secure cookie/session posture is development-grade",
+          "Development SQLite database encryption key is not configured.",
+          "Inline artifact storage relies on local filesystem controls in development."
+        ]
+      },
+      "operator_next_step": "Before enterprise rollout, switch APP_ENV to production and configure TLS, secure cookies, encryption, proxy/offline, and update paths.",
+      "status": "degraded",
+      "summary": "Development deployment is allowed, but production hardening is not fully declared."
+    },
+    "name": "current_environment"
+  },
+  "generated_at": "2026-05-05T18:39:50+00:00",
+  "kind": "aegispt.production_deployment_proof",
+  "live_api_acceptance": {
+    "base_url": "http://127.0.0.1:8000",
+    "blocking_reasons": [],
+    "diagnostics": {
+      "metadata": {
+        "artifact_encryption_status": "degraded",
+        "blocking_gap_count": 0,
+        "blocking_reasons": [],
+        "database_encryption_status": "degraded",
+        "enterprise_production_ready": false,
+        "https_public_base_url": false,
+        "manual_tool_update_path_configured": false,
+        "no_internet_mode": false,
+        "offline_update_path_configured": false,
+        "outbound_proxy": "not configured",
+        "production_like": false,
+        "readiness_boundary": "development_ready_not_enterprise_production",
+        "secrets_plaintext_exposed": false,
+        "secure_cookies": false,
+        "tls_terminated_by_proxy": false,
+        "trusted_certificate_bundle_configured": false,
+        "warning_gap_count": 4,
+        "warning_reasons": []
+      },
+      "operator_next_step": "Before enterprise rollout, switch APP_ENV to production and configure TLS, secure cookies, encryption, proxy/offline, and update paths.",
+      "status": "degraded",
+      "summary": "Development deployment is allowed, but production hardening is not fully declared."
+    },
+    "health_status": 200,
+    "runtime_state": "healthy",
+    "settings_readiness": {
+      "metadata": {
+        "artifact_encryption_status": "degraded",
+        "blocking_gap_count": 0,
+        "blocking_reasons": [],
+        "database_encryption_status": "degraded",
+        "enterprise_production_ready": false,
+        "https_public_base_url": false,
+        "manual_tool_update_path_configured": false,
+        "no_internet_mode": false,
+        "offline_update_path_configured": false,
+        "outbound_proxy": "not configured",
+        "production_like": false,
+        "readiness_boundary": "development_ready_not_enterprise_production",
+        "secrets_plaintext_exposed": false,
+        "secure_cookies": false,
+        "tls_terminated_by_proxy": false,
+        "trusted_certificate_bundle_configured": false,
+        "warning_gap_count": 4,
+        "warning_reasons": []
+      },
+      "operator_next_step": "Before enterprise rollout, switch APP_ENV to production and configure TLS, secure cookies, encryption, proxy/offline, and update paths.",
+      "status": "degraded",
+      "summary": "Development deployment is allowed, but production hardening is not fully declared."
+    },
+    "status": "ready"
+  },
+  "production_like_fixtures": [
+    {
+      "deployment_hardening": {
+        "metadata": {
+          "artifact_encryption_status": "ready",
+          "blocking_gap_count": 0,
+          "blocking_reasons": [],
+          "database_encryption_status": "ready",
+          "enterprise_production_ready": true,
+          "https_public_base_url": true,
+          "manual_tool_update_path_configured": false,
+          "no_internet_mode": false,
+          "offline_update_path_configured": false,
+          "outbound_proxy": "configured",
+          "production_like": true,
+          "readiness_boundary": "enterprise_production_ready",
+          "secrets_plaintext_exposed": false,
+          "secure_cookies": true,
+          "tls_terminated_by_proxy": true,
+          "trusted_certificate_bundle_configured": true,
+          "warning_gap_count": 0,
+          "warning_reasons": []
+        },
+        "operator_next_step": "Keep TLS certificates, offline bundles, feed updates, and storage encryption under change control.",
+        "status": "ready",
+        "summary": "Production deployment hardening assumptions are declared."
+      },
+      "name": "production_tls_proxy_s3_postgres"
+    },
+    {
+      "deployment_hardening": {
+        "metadata": {
+          "artifact_encryption_status": "ready",
+          "blocking_gap_count": 0,
+          "blocking_reasons": [],
+          "database_encryption_status": "ready",
+          "enterprise_production_ready": true,
+          "https_public_base_url": true,
+          "manual_tool_update_path_configured": true,
+          "no_internet_mode": true,
+          "offline_update_path_configured": true,
+          "outbound_proxy": "not configured",
+          "production_like": true,
+          "readiness_boundary": "enterprise_production_ready",
+          "secrets_plaintext_exposed": false,
+          "secure_cookies": true,
+          "tls_terminated_by_proxy": true,
+          "trusted_certificate_bundle_configured": true,
+          "warning_gap_count": 0,
+          "warning_reasons": []
+        },
+        "operator_next_step": "Keep TLS certificates, offline bundles, feed updates, and storage encryption under change control.",
+        "status": "ready",
+        "summary": "Production deployment hardening assumptions are declared."
+      },
+      "name": "production_airgapped_offline_updates"
+    },
+    {
+      "deployment_hardening": {
+        "metadata": {
+          "artifact_encryption_status": "blocked",
+          "blocking_gap_count": 5,
+          "blocking_reasons": [
+            "production public access must use HTTPS behind a declared trusted reverse proxy",
+            "secure browser cookie/session posture is not declared",
+            "SQLite database is not encrypted; set AEGISPT_DB_KEY or use a managed encrypted database.",
+            "Production S3/MinIO artifact storage does not enforce or confirm encryption.",
+            "air-gapped mode needs both offline feed/template and manual tool update paths"
+          ],
+          "database_encryption_status": "blocked",
+          "enterprise_production_ready": false,
+          "https_public_base_url": false,
+          "manual_tool_update_path_configured": false,
+          "no_internet_mode": true,
+          "offline_update_path_configured": true,
+          "outbound_proxy": "not configured",
+          "production_like": true,
+          "readiness_boundary": "production_like_blocked",
+          "secrets_plaintext_exposed": false,
+          "secure_cookies": false,
+          "tls_terminated_by_proxy": false,
+          "trusted_certificate_bundle_configured": false,
+          "warning_gap_count": 1,
+          "warning_reasons": [
+            "trusted enterprise CA bundle path is not declared"
+          ]
+        },
+        "operator_next_step": "Resolve blocking deployment gaps before treating this host as enterprise-production ready.",
+        "status": "blocked",
+        "summary": "Production deployment hardening has 5 blocking gap(s)."
+      },
+      "name": "unsafe_production_blocks"
+    }
+  ],
+  "proof_summary": {
+    "compose_postgres_runtime_restore_proven": false,
+    "compose_static_declarations_ready": true,
+    "development_mode_not_enterprise_production": true,
+    "enterprise_production_ready_claim_allowed": false,
+    "overall_status": "degraded",
+    "production_like_fixtures_ready": true,
+    "safe_local_backup_restore_ready": true,
+    "secrets_plaintext_exposed": false,
+    "unsafe_production_fails_closed": true
+  },
+  "safe_local_backup_restore": {
+    "alembic_current": "20260429_0032",
+    "api_checks": {
+      "artifact_status": 200,
+      "engagements_status": 200,
+      "health_status": 200,
+      "run_status": 200
+    },
+    "artifact_hash_verified": true,
+    "audit_event_verified": true,
+    "database_counts": {
+      "artifacts": 1,
+      "audit_events": 1,
+      "engagements": 1,
+      "findings": 1,
+      "runs": 1,
+      "secret_refs": 1,
+      "sensitive_settings": 1,
+      "tasks": 1
+    },
+    "finding_evidence_ref_verified": true,
+    "fixture": "safe-local",
+    "plaintext_secrets_exposed": false,
+    "secret_metadata_verified": true,
+    "status": "ready"
+  },
+  "safety": {
+    "live_targets_touched": false,
+    "plaintext_secret_material_written": false,
+    "runtime_self_modification": false,
+    "uncontrolled_plugin_installation": false
+  },
+  "schema_version": 1
+}

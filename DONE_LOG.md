@@ -11076,3 +11076,53 @@
     - detection accuracy and FP/FN posture remain release-blocking until approved local fixtures are present or explicit registry access is authorized and the matrix passes
     - the operator-reported Gruyere wizard/all-tools complaint is outside this active task and remains queued under backlog-250
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-238 `Production-like deployment proof drill`
+
+- 2026-05-05: completed backlog-238 `Production-like deployment proof drill: prove hardened install assumptions instead of only documenting them`:
+  - rationale:
+    - backlog-186 made deployment hardening visible, but enterprise-readiness still needed current proof that production-like assumptions are either evidenced or blocked with exact next actions
+    - the active task required a safe local proof without installing infrastructure, pulling images, mutating active runs, exposing secrets, or treating development mode as enterprise production
+  - implementation:
+    - added `scripts/run_production_deployment_proof.py`, which writes machine-readable and Markdown deployment proof evidence
+    - added explicit deployment-hardening metadata for `enterprise_production_ready`, `readiness_boundary`, `blocking_reasons`, and `warning_reasons` in Settings readiness and Diagnostics
+    - the proof command evaluates the current environment, a ready TLS/reverse-proxy/PostgreSQL/S3 production fixture, a ready air-gapped/offline-update fixture, an unsafe production fixture that must block, static Compose declarations, safe local backup/restore, and live local API readiness
+    - updated enterprise release-readiness so `enterprise_deployment_hardening` consumes the production proof and records the current-host and Compose/PostgreSQL runtime blockers
+    - documented the proof command in `docs/host_service_install.md`
+  - files:
+    - `scripts/run_production_deployment_proof.py`
+    - `scripts/tests/test_production_deployment_proof.py`
+    - `api/app/services/settings.py`
+    - `api/tests/test_settings.py`
+    - `api/tests/test_release_readiness.py`
+    - `scripts/run_enterprise_release_readiness.py`
+    - `docs/host_service_install.md`
+    - `codex/results/production-deployment-proof-latest.json`
+    - `codex/results/production-deployment-proof-latest.md`
+    - `codex/results/enterprise-release-readiness.json`
+    - `codex/results/enterprise-release-readiness.md`
+    - `codex/results/backlog-238-production-deployment-proof-drill-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_settings.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_release_readiness.py scripts/tests/test_production_deployment_proof.py -q` passed as focused extra coverage
+    - `python3 scripts/run_production_deployment_proof.py --output-json codex/results/production-deployment-proof-latest.json --output-md codex/results/production-deployment-proof-latest.md` passed as the documented production-like fixture equivalent to the broad host-tool `verify_host.sh` command
+    - `python3 scripts/run_enterprise_release_readiness.py --output-json codex/results/enterprise-release-readiness.json --output-md codex/results/enterprise-release-readiness.md` passed and kept enterprise release-readiness `blocked`/`no-go`
+    - safe local acceptance confirmed `http://127.0.0.1:8000/health/live` healthy
+    - current-code temporary Uvicorn acceptance on `http://127.0.0.1:8020` proved `/api/v1/settings/readiness` and `/api/v1/diagnostics` expose `deployment_hardening.metadata.readiness_boundary=development_ready_not_enterprise_production` and `enterprise_production_ready=false`
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-238-production-deployment-proof-drill-20260505.md`
+    - `codex/results/production-deployment-proof-latest.json`
+    - `codex/results/production-deployment-proof-latest.md`
+    - `codex/results/enterprise-release-readiness.json`
+    - `codex/results/enterprise-release-readiness.md`
+  - proof:
+    - production-like fixture proof is `degraded` overall because the current host is development-grade and Compose/PostgreSQL runtime restore is not proven
+    - ready proof exists for TLS reverse-proxy, secure cookies, confirmed PostgreSQL/S3 encryption posture, controlled outbound proxy, and air-gapped/offline update paths
+    - unsafe production blocks with exact reasons for HTTP public URL, missing secure cookies, unencrypted SQLite, unencrypted S3/MinIO, and incomplete air-gapped update paths
+    - safe local backup/restore verified Alembic state, artifact hash, finding evidence reference, audit event, secret metadata, API read paths, and no plaintext secret exposure
+    - enterprise release-readiness now records deployment proof metrics while still disallowing the enterprise-ready claim
+  - remaining risks:
+    - current local host is not enterprise-production-ready and must remain described as development-grade
+    - no live Compose/PostgreSQL/MinIO restore was run because this build-lane slice did not start or pull infrastructure; that remains a recorded blocker requiring an explicitly approved local Compose fixture
+    - external TLS certificates, proxy policy, database encryption, object-store encryption, and offline bundle custody require operator/platform evidence outside this safe-local proof
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-239 `Enterprise identity and tenant-admin proof`

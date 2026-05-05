@@ -132,6 +132,31 @@ ARTIFACTS_S3_ENFORCE_SSE=true
 
 If any production hardening status is `blocked`, resolve it before using the host for enterprise customer assessments. A `degraded` production status means AegisPT is running, but a deployment owner still needs to confirm external controls such as CA trust, encrypted volumes, managed database encryption, proxy routing, or offline update handling.
 
+## Production-like deployment proof drill
+
+Use the proof drill when you need evidence that production assumptions are declared and fail closed before an enterprise rollout. The drill is safe-local: it does not install infrastructure, pull images, run customer targets, mutate active assessments, or expose secret material.
+
+From the repository root:
+
+```bash
+source .venv/bin/activate
+python scripts/run_production_deployment_proof.py \
+  --output-json codex/results/production-deployment-proof-latest.json \
+  --output-md codex/results/production-deployment-proof-latest.md
+```
+
+The proof output records:
+
+- the current host deployment boundary, including whether it is only development-ready
+- a production TLS/reverse-proxy/PostgreSQL/S3 fixture that must report ready
+- an air-gapped/offline-update fixture that must report ready when both offline paths are configured
+- an unsafe production fixture that must report blocked with exact reasons
+- static Compose declarations for PostgreSQL, Redis, MinIO, ZAP, API, worker, persistence paths, and hardening env keys
+- the safe local backup/restore drill with artifact hash, finding evidence reference, audit event, and secret-metadata verification
+- a blocker for live Compose/PostgreSQL restore proof until an approved local Compose runtime is started and `pg_dump`/MinIO restore evidence is captured
+
+Treat this proof as a gate input, not as a hosted production certification. If `enterprise_production_ready_claim_allowed` is `false`, the current host must not be called enterprise-production ready even when the fixture checks prove the configuration shape.
+
 ## Enterprise identity on a direct host
 
 Fresh direct-host installs start with enterprise SSO disabled. Settings now shows the current identity state, the local-development fallback, API-key actors, and an explicit session timeout policy.

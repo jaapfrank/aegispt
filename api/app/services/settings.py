@@ -1903,6 +1903,18 @@ def _deployment_hardening_readiness(settings: Settings) -> ReadinessCapabilityRe
             "trusted_certificate_bundle_configured": bool(settings.deployment_trusted_certificate_bundle),
             "blocking_gap_count": len(blocker_reasons),
             "warning_gap_count": len(warning_reasons),
+            "blocking_reasons": blocker_reasons,
+            "warning_reasons": warning_reasons,
+            "enterprise_production_ready": production_like and status == "ready",
+            "readiness_boundary": (
+                "enterprise_production_ready"
+                if production_like and status == "ready"
+                else "production_like_blocked"
+                if production_like and status == "blocked"
+                else "production_like_degraded"
+                if production_like
+                else "development_ready_not_enterprise_production"
+            ),
             "secrets_plaintext_exposed": False,
         },
     )

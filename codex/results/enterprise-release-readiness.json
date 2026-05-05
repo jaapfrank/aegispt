@@ -5,10 +5,11 @@
     "supported-with-gap": 11,
     "unsupported": 1
   },
-  "generated_at": "2026-05-05T18:14:52.271339+00:00",
+  "generated_at": "2026-05-05T18:39:56.147072+00:00",
   "inputs": {
     "operator_assurance_matrix": "docs/operator_product_operational_assurance.md",
     "product_acceptance_matrix": "codex/tasks/product_acceptance_matrix.json",
+    "production_deployment_proof": "codex/results/production-deployment-proof-latest.json",
     "runner_tool_certification_matrix": "codex/results/runner-tool-certification-matrix.json",
     "target_lab_matrix": "codex/tasks/target_lab_matrix.json",
     "validation_matrix": "codex/results/validation-matrix-latest.json"
@@ -663,6 +664,28 @@
         },
         {
           "exists": true,
+          "label": "Production-like deployment proof",
+          "missing_signals": [],
+          "path": "codex/results/production-deployment-proof-latest.json",
+          "required_signals": [
+            "aegispt.production_deployment_proof",
+            "compose_postgres_runtime_restore"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Production-like deployment proof summary",
+          "missing_signals": [],
+          "path": "codex/results/production-deployment-proof-latest.md",
+          "required_signals": [
+            "Production-Like Deployment Proof",
+            "Compose/PostgreSQL runtime restore"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
           "label": "Host deployment hardening runbook",
           "missing_signals": [],
           "path": "docs/host_service_install.md",
@@ -673,16 +696,32 @@
         }
       ],
       "gaps": [
-        "The readiness surface does not install or verify external TLS, proxy, certificate, database, or object-store infrastructure."
+        "Current host readiness boundary is `development_ready_not_enterprise_production`, so it must not be called enterprise-production ready.",
+        "Compose/PostgreSQL runtime restore remains unproven: No live Compose/PostgreSQL runtime was started by this safe build-lane proof; the current evidence is static Compose declaration plus the safe local backup/restore drill."
       ],
       "id": "enterprise_deployment_hardening",
-      "metrics": {},
+      "metrics": {
+        "production_deployment_proof": {
+          "compose_postgres_runtime_restore_proven": false,
+          "compose_runtime_next_step": "Run an explicitly approved local Compose fixture, capture pg_dump/restore and MinIO artifact restore evidence, then attach that output under codex/results/.",
+          "compose_runtime_reason": "No live Compose/PostgreSQL runtime was started by this safe build-lane proof; the current evidence is static Compose declaration plus the safe local backup/restore drill.",
+          "compose_runtime_status": "blocked",
+          "compose_static_declarations_ready": true,
+          "current_host_status": "degraded",
+          "current_readiness_boundary": "development_ready_not_enterprise_production",
+          "development_mode_not_enterprise_production": true,
+          "enterprise_production_ready_claim_allowed": false,
+          "production_like_fixtures_ready": true,
+          "safe_local_backup_restore_ready": true,
+          "status": "degraded"
+        }
+      },
       "next_task_refs": [
-        "codex/tasks/backlog-186-enterprise-deployment-hardening.json"
+        "codex/tasks/backlog-238-production-deployment-proof-drill.json"
       ],
       "status": "supported-with-gap",
-      "summary": "Deployment readiness is explicit, but external TLS/proxy/certificate/encryption proof remains operator-managed.",
-      "support_boundary": "Deployment readiness is explicit, but external TLS/proxy/certificate/encryption proof remains operator-managed.",
+      "summary": "Deployment readiness is explicit, with safe-local production-like proof and remaining runtime blockers recorded.",
+      "support_boundary": "Deployment readiness is explicit, with safe-local production-like proof and remaining runtime blockers recorded.",
       "title": "Enterprise deployment hardening"
     },
     {
