@@ -2495,6 +2495,7 @@ function currentOnboardingState() {
 }
 
 function shouldAutoShowOnboarding() {
+  if (state.activeScreen === "settings") return false;
   return !state.engagements.length && !operatorSettingBoolean("instance.onboarding_completed");
 }
 

@@ -2,47 +2,52 @@
 
 ## Title
 
-Enterprise identity and tenant-admin proof: move SSO/RBAC/tenant boundaries from configured-state to enforceable truth
+Chain phase visibility in Mission Control: show current phase, next phase, approval requirement, and phase history clearly
 
 ## Promoted From
 
-`codex/tasks/backlog-239-enterprise-identity-tenant-admin-proof.json`
+`codex/tasks/backlog-208-chain-phase-visibility-mission-control.json`
 
 ## Goal
 
-Close the gap between visible enterprise identity settings and enterprise-ready access control by proving or explicitly gating browser SSO, tenant membership, role enforcement, session expiry/logout, and SCIM/tenant-admin boundaries.
+Assessment chain execution is already implemented with phase definitions, auto-advance, and approval gating, but operators cannot clearly see the current phase, what comes next, what requires approval, or why a chain is waiting. Mission Control needs a phase progress strip for chain runs, including completed phases, the current phase, pending approval state, and a single existing phase-approval action.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-239-enterprise-identity-tenant-admin-proof.json`.
+Implement the active backlog package `codex/tasks/backlog-208-chain-phase-visibility-mission-control.json`.
 
 Expected slice:
 
-- build the next governed identity proof slice on top of existing OIDC/SAML settings and RBAC foundations
-- add enforceable or clearly blocked operator paths for tenant membership and role boundaries
-- prove or explicitly gate browser-session enforcement where configured
-- prove session expiry/logout behavior without corrupting active missions or runs
-- surface SCIM, invitation, and tenant-admin status honestly as configured, disabled, or unsupported
-- keep local development fallback available only as a clearly labelled development path
+- render existing assessment-chain phase data in Mission Control
+- show a horizontal phase bar for chain runs
+- highlight the current phase
+- show completed phases with a green/completed state and duration when available
+- show pending approval phases with an amber/waiting state and an `Approve Phase N` action
+- show a concise summary card when a phase is pending approval
+- hide the phase bar for non-chain runs
 
 ## Constraints
 
-- Keep Prompt 1 and Prompt 2 intact.
-- Do not weaken ROE, scope boundaries, API-key revocation, tenant isolation, or local development safety labels.
-- Do not bypass scope enforcement, secret materialization, validation, approval, deployment, runtime binding, credentials, or kill switch.
+- Render existing chain phase data only.
+- Do not change chain phase logic in `api/app/services/assessment_chain.py`.
+- Do not change phase approval gating.
+- Do not change run dispatch logic.
+- Do not add new chain types or a chain-definition editor.
+- Do not bypass scope, ROE, approval, validation, deployment, runtime binding, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- Do not change ChatGPT OAuth provider semantics.
-- Do not remove finding schema fields.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_auth.py -q`
-- `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Enterprise identity readiness does not imply SSO enforcement unless enforcement is proven.
-- Tenant/admin/RBAC limits are visible, tested, and audit-backed.
+- Mission Control shows a phase progress bar when the active run is part of an assessment chain.
+- Completed phases show green/completed state and duration where data is available.
+- Pending-approval phase shows amber/waiting state and an `Approve Phase N` button.
+- Approve button triggers the existing phase approval endpoint.
+- Phase bar is hidden when the selected run is not part of a chain.
+- E2E Mission Control behavior does not regress.

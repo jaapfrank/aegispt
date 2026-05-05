@@ -31,6 +31,9 @@ Supported now:
 - Session timeout and logout redirect policy are explicit for operators.
 - Logout, login-event recording, API-key creation/revocation, and enterprise identity settings changes write audit events.
 - Local X-Actor fallback and API-key actors stay visible and are labeled separately from enterprise authentication.
+- `/api/v1/auth/identity/status`, Settings, and readiness metadata now expose an enterprise boundary proof map for browser SSO, tenant membership, role enforcement, session expiry/logout, SCIM, and tenant-admin paths.
+- API-key role enforcement is proven for admin-only identity/settings paths; non-admin API-key roles receive `403`.
+- Readiness is deliberately `degraded`, not `ready`, when OIDC/SAML is configured but browser SSO, tenant membership, and server-side sessions are not enforced.
 
 Still future work:
 
@@ -39,6 +42,17 @@ Still future work:
 - SCIM provisioning
 - hosted-SaaS RBAC and tenant switching
 - external identity-provider metadata validation
+
+### Enterprise Identity Proof Matrix
+
+| Boundary | Current status | Proof / gate |
+| --- | --- | --- |
+| Browser SSO | `disabled` or `configured_not_enforced` | OIDC/SAML settings can be stored, but no browser SSO callback or enterprise session is active. Enterprise identity readiness must not claim `ready` from configuration alone. |
+| Tenant membership | `blocked` | `X-Tenant-ID` narrows tenant-scoped records, but no authenticated tenant organization, membership, invitation, or tenant-admin model exists. |
+| Role enforcement | `enforced` for API keys | `admin`, `operator`, and `reviewer` API-key roles are enforced by protected endpoints; admin-only identity/settings paths reject non-admin keys and write audit events for key lifecycle changes. |
+| Session expiry/logout | `configured_not_enforced` | Timeout/logout policy is visible and logout is audit-backed. Local fallback has no server session, expiry is not enforced, and logout does not mutate active runs. |
+| SCIM provisioning | `unsupported` | No SCIM connector or provisioning workflow is active. |
+| Tenant administration | `unsupported` | No tenant switcher, invitation flow, or tenant-admin UI is active. |
 
 ## Tenant Boundary Map
 
@@ -51,7 +65,7 @@ Still future work:
 | Reports | Run report endpoints | Report catalog, report export, and report-draft endpoints reject mismatched tenant headers through the source run. | Persisted report-export storage paths still need tenant-partitioned storage policy for hosted deployments. |
 | Inventory | `inventory_snapshots.engagement_id` | Inventory list/create/read/summary/cloud-analysis APIs reject mismatched tenant headers. | Cross-tenant aggregate inventory and MSSP portfolio views are intentionally not implemented. |
 | Secrets | `secrets_refs.engagement_id` | Secret materialization remains engagement-scoped and raw values remain out of API/report/UI/MCP surfaces. | Secret administration, rotation, per-tenant KMS/vault policy, and tenant-specific broker configuration remain future work. |
-| Enterprise identity | `InstanceSetting` keys under `identity.*` | OIDC/SAML settings, session timeout, and logout redirect policy are visible and sensitive values are encrypted. | Browser SSO enforcement, SCIM, tenant membership, and hosted RBAC remain future work. |
+| Enterprise identity | `InstanceSetting` keys under `identity.*`, `/api/v1/auth/identity/status` | OIDC/SAML settings, session timeout, logout policy, API-key role boundaries, and explicit blocked/unsupported identity gates are visible and sensitive values are encrypted. | Browser SSO enforcement, SCIM, tenant membership, tenant-admin UI, and hosted RBAC remain future work. |
 | Evidence artifacts | `EvidenceArtifact -> ToolExecution -> Task -> Run -> Engagement` | Artifact content download rejects mismatched tenant headers before storage retrieval. | Pack artifacts and generated export storage need complete tenant partitioning before hosted SaaS. |
 | Capability packs | `capability_packs.engagement_id` | Existing pack registry, validation, approval, deployment, and runtime binding gates remain unchanged and engagement-scoped. | This slice does not retrofit every pack endpoint with tenant-aware membership or MSSP catalog policy. |
 | Codex build lane | repo task/result files and pack context | Codex remains a supervised build-lane feature and does not execute tenant runtime changes. | Codex task/result visibility needs a tenant-aware index before external MSSP operators can share one hosted control plane. |

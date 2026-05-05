@@ -1400,11 +1400,10 @@ export function createSettingsModule() {
     dom.settingsContent.querySelector("[data-settings-threat-intel-suggest]")?.addEventListener("click", () => {
       suggestThreatIntelFromInventory().catch(runtime.actions.handleError || (() => {}));
     });
+    ensureSettingsFocusDelegate();
     dom.settingsContent.querySelectorAll("[data-settings-focus-setting]").forEach((button) => {
       button.addEventListener("click", (event) => {
-        event.preventDefault();
-        button.blur?.();
-        focusSettingField(button.dataset.settingsFocusSetting);
+        handleSettingsFocusClick(event, button);
       });
     });
     dom.settingsContent.querySelector("[data-threat-intel-watchlist-form]")?.addEventListener("submit", (event) => {
@@ -1478,6 +1477,28 @@ export function createSettingsModule() {
     saveSettings,
     syncThreatIntelFeeds,
   };
+}
+
+function ensureSettingsFocusDelegate() {
+  if (!dom.settingsContent || dom.settingsContent.dataset.settingsFocusDelegateBound === "true") return;
+  dom.settingsContent.dataset.settingsFocusDelegateBound = "true";
+  dom.settingsContent.addEventListener(
+    "click",
+    (event) => {
+      const button = event.target?.closest?.("[data-settings-focus-setting]");
+      if (!button || !dom.settingsContent?.contains(button)) return;
+      handleSettingsFocusClick(event, button);
+    },
+    true
+  );
+}
+
+function handleSettingsFocusClick(event, button) {
+  if (event.__aegisptSettingsFocusHandled) return;
+  event.__aegisptSettingsFocusHandled = true;
+  event.preventDefault();
+  button.blur?.();
+  focusSettingField(button.dataset.settingsFocusSetting);
 }
 
 function flattenSettings(payload) {
@@ -1812,6 +1833,7 @@ function renderEnterpriseIdentityPanel() {
   const provider = String(status?.provider || "disabled").toUpperCase();
   const identityState = String(status?.status || (loading ? "loading" : "unknown")).toLowerCase();
   const sessionPolicy = status?.session_policy || {};
+  const boundaries = status?.access_boundaries || status?.metadata?.access_boundaries || {};
   const users = Array.isArray(status?.users) ? status.users : [];
   const summary = status
     ? `${identityState} · ${sessionPolicy.timeout_minutes || 480} minute timeout`
@@ -1863,6 +1885,7 @@ function renderEnterpriseIdentityPanel() {
                 <p class="settings-help">${escapeHtml(status.local_auth?.warning || "Local fallback is not enterprise authentication.")}</p>
               </article>
             </div>
+            ${renderIdentityBoundaryProof(boundaries)}
             ${state.enterpriseIdentityLogoutResult ? `<p class="settings-subtle-note" data-testid="settings-identity-logout-result">${escapeHtml(state.enterpriseIdentityLogoutResult.message || "Logout recorded.")}</p>` : ""}
             <section class="settings-subsection" data-testid="settings-identity-users">
               <div class="settings-subsection-head">
@@ -1884,14 +1907,75 @@ function renderEnterpriseIdentityPanel() {
   });
 }
 
+function renderIdentityBoundaryProof(boundaries = {}) {
+  const rows = [
+    ["Browser SSO", boundaries.browser_sso],
+    ["Tenant Membership", boundaries.tenant_membership],
+    ["Role Enforcement", boundaries.role_enforcement],
+    ["Session Expiry & Logout", boundaries.session_enforcement],
+    ["SCIM Provisioning", boundaries.scim],
+    ["Tenant Admin", boundaries.tenant_admin],
+  ]
+    .map(([label, boundary]) => renderIdentityBoundaryRow(label, boundary || {}))
+    .join("");
+  return `
+    <section class="settings-subsection" data-testid="settings-identity-boundaries">
+      <div class="settings-subsection-head">
+        <strong>Enterprise Boundary Proof</strong>
+        <span>Each path is shown as enforced or explicitly blocked/unsupported.</span>
+      </div>
+      <div class="settings-api-key-list">
+        ${rows}
+      </div>
+    </section>
+  `;
+}
+
+function renderIdentityBoundaryRow(label, boundary) {
+  const status = String(boundary.status || "unknown").toLowerCase();
+  const summary = String(boundary.summary || "No boundary proof recorded yet.");
+  return `
+    <article class="threat-watchlist-row settings-api-key-row" data-testid="settings-identity-boundary-row">
+      <span class="status-dot status-${identityBoundaryDot(status)}"></span>
+      <div>
+        <strong>${escapeHtml(label)}</strong>
+        <p>${escapeHtml(summary)}</p>
+      </div>
+      <div class="chip-row compact">
+        ${identityBoundaryStatusChip(status)}
+      </div>
+    </article>
+  `;
+}
+
+function identityBoundaryStatusChip(status) {
+  const normalized = String(status || "unknown").toLowerCase();
+  const theme =
+    normalized === "enforced" || normalized === "ready"
+      ? "success"
+      : normalized === "blocked" || normalized === "error"
+        ? "danger"
+        : normalized === "disabled" || normalized === "configured_not_enforced" || normalized === "not_enforced"
+          ? "warning"
+          : "info";
+  return `<span class="status-chip ${theme}">${escapeHtml(normalized)}</span>`;
+}
+
+function identityBoundaryDot(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "enforced" || normalized === "ready") return "completed";
+  if (normalized === "blocked" || normalized === "error") return "failed";
+  return "queued";
+}
+
 function identityStatusChip(status) {
   const normalized = String(status || "unknown").toLowerCase();
   const theme =
-    normalized === "configured"
+    normalized === "configured" || normalized === "enforced"
       ? "success"
-      : normalized === "error"
+      : normalized === "error" || normalized === "blocked"
         ? "danger"
-        : normalized === "disabled"
+        : normalized === "disabled" || normalized === "configured_not_enforced"
           ? "warning"
           : "info";
   return `<span class="status-chip ${theme}">${escapeHtml(normalized)}</span>`;
@@ -2039,6 +2123,18 @@ function setSettingsPanelOpen(panelId, open) {
     },
     "settings.ui.panel"
   );
+}
+
+function settingsPanelIdForKey(key) {
+  const normalizedKey = String(key || "").trim();
+  const sections = Array.isArray(state.operatorSettings?.sections) ? state.operatorSettings.sections : [];
+  for (const section of sections) {
+    const settings = Array.isArray(section.settings) ? section.settings : [];
+    if (settings.some((setting) => String(setting.key || "") === normalizedKey)) {
+      return String(section.id || "").trim();
+    }
+  }
+  return "";
 }
 
 function defaultScheduleTarget() {
@@ -2202,11 +2298,12 @@ function renderSection(section) {
   if (section.id === "instance") {
     return renderInstanceSection(section);
   }
+  const forceOpen = section.id === "threat_intel" && hasNvdRateLimitHint();
   return renderSettingsDisclosure({
     panelId: section.id,
     title: section.title,
     summary: summarizeSection(section),
-    open: isSettingsPanelOpen(section.id),
+    open: isSettingsPanelOpen(section.id) || forceOpen,
     testId: sectionTestId(section.id),
     className: "settings-panel-disclosure",
     body: `
@@ -2216,6 +2313,11 @@ function renderSection(section) {
       </div>
     `,
   });
+}
+
+function hasNvdRateLimitHint() {
+  const sources = Array.isArray(state.threatIntelStatus?.sources) ? state.threatIntelStatus.sources : [];
+  return sources.some(isNvdRateLimited);
 }
 
 function renderAiProviderSection(section) {
@@ -2286,7 +2388,7 @@ function renderInstanceSection(section) {
 
 function renderSetting(setting) {
   const value = setting.value;
-  const fieldId = `setting-${setting.key.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+  const fieldId = settingDomId(setting.key);
   return `
     <label class="settings-field ${setting.sensitive ? "is-sensitive" : ""}" data-testid="${escapeHtml(fieldId)}">
       <span class="settings-label-row">
@@ -2330,7 +2432,7 @@ function collectChangedSettingInputs(form) {
 function renderInput(setting, value) {
   const originalValue = setting.input_type === "list" && Array.isArray(value) ? value.join(", ") : String(value ?? "");
   const inputLabel = setting.label || setting.key;
-  const common = `data-setting-key="${escapeHtml(setting.key)}" data-original-value="${escapeHtml(originalValue)}" aria-label="${escapeHtml(inputLabel)}" ${setting.read_only ? "disabled" : ""}`;
+  const common = `id="${escapeHtml(settingDomId(setting.key))}" data-setting-key="${escapeHtml(setting.key)}" data-original-value="${escapeHtml(originalValue)}" aria-label="${escapeHtml(inputLabel)}" ${setting.read_only ? "disabled" : ""}`;
   const aiProviderControl = setting.key === "ai.provider" ? 'data-ai-provider-control="provider"' : "";
   const aiFeatureControl = AI_FEATURE_SETTING_KEYS.has(setting.key)
     ? 'data-ai-provider-control="feature-toggle"'
@@ -2389,6 +2491,10 @@ function renderInput(setting, value) {
       placeholder="Not set"
     />
   `;
+}
+
+function settingDomId(key) {
+  return `setting-${String(key || "").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
 }
 
 function renderChatGPTStatus() {
@@ -2758,9 +2864,9 @@ function renderNvdRateLimitHint(source) {
   return `
     <p class="settings-inline-warning" data-testid="nvd-rate-limit-api-key-hint">
       ${escapeHtml("NVD rate-limits unauthenticated requests. Configure an NVD API key in Settings to increase your quota.")}
-      <button class="action ghost compact-action" type="button" data-settings-focus-setting="threat_intel.nvd_api_key" data-testid="nvd-rate-limit-api-key-focus">
+      <label class="action ghost compact-action" for="${escapeHtml(settingDomId("threat_intel.nvd_api_key"))}" data-settings-focus-setting="threat_intel.nvd_api_key" data-testid="nvd-rate-limit-api-key-focus">
         Open NVD API key
-      </button>
+      </label>
     </p>
   `;
 }
@@ -2806,23 +2912,43 @@ function sourceStatusExplanation(source) {
 function focusSettingField(key) {
   const normalizedKey = String(key || "").trim();
   if (!normalizedKey || !dom.settingsContent) return;
+  const panelId = settingsPanelIdForKey(normalizedKey);
+  if (panelId && !isSettingsPanelOpen(panelId)) {
+    setSettingsPanelOpen(panelId, true);
+    renderSettingsScreen();
+  }
   const input = dom.settingsContent.querySelector(`[data-setting-key="${cssEscape(normalizedKey)}"]`);
   if (!input) return;
-  const panel = input.closest("details[data-settings-panel]");
-  if (panel && !panel.open) {
-    panel.open = true;
-    setSettingsPanelOpen(panel.dataset.settingsPanel, true);
-  }
-  input.scrollIntoView({ behavior: "auto", block: "center" });
-  const applyFocus = () => {
+  const ensureOpenInput = () => {
     const currentInput = dom.settingsContent?.querySelector(`[data-setting-key="${cssEscape(normalizedKey)}"]`);
-    currentInput?.focus?.({ preventScroll: true });
+    const panel = currentInput?.closest?.("details[data-settings-panel]");
+    if (panel && !panel.open) {
+      panel.open = true;
+      setSettingsPanelOpen(panel.dataset.settingsPanel, true);
+    }
+    return currentInput;
+  };
+  ensureOpenInput()?.scrollIntoView({ behavior: "auto", block: "center" });
+  const applyFocus = () => {
+    const currentInput = ensureOpenInput();
+    if (!currentInput) return;
+    try {
+      currentInput.focus({ preventScroll: true });
+    } catch (_error) {
+      currentInput.focus();
+    }
+    if (document.activeElement !== currentInput) {
+      currentInput.focus();
+    }
   };
   applyFocus();
   window.requestAnimationFrame(applyFocus);
   window.setTimeout(applyFocus, 0);
   window.setTimeout(applyFocus, 50);
   window.setTimeout(applyFocus, 200);
+  window.setTimeout(applyFocus, 500);
+  window.setTimeout(applyFocus, 1000);
+  window.setTimeout(applyFocus, 2000);
 }
 
 function renderThreatIntelWatchlist(entries) {

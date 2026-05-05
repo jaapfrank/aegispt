@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from api.app.auth import API_KEY_ROLES
 from api.app.config import Settings, get_settings
 from api.app.models import (
     CveFeedSyncLog,
@@ -1225,6 +1226,110 @@ def _sensitive_setting_configured(rows: dict[str, InstanceSetting], key: str) ->
     return bool(row and row.sensitive and row.encrypted_value)
 
 
+def _enterprise_identity_readiness_boundary(
+    *,
+    provider: str,
+    configured: bool,
+    status: str,
+) -> str:
+    if provider == "disabled":
+        return "local_dev_identity_only"
+    if status == "error":
+        return "identity_configuration_blocked"
+    if configured:
+        return "configuration_recorded_not_enterprise_enforced"
+    return "identity_configuration_not_enterprise_enforced"
+
+
+def _enterprise_identity_access_boundaries(
+    *,
+    tenant_key: str,
+    provider: str,
+    configured: bool,
+    status: str,
+    session_timeout: int,
+) -> dict[str, dict[str, Any]]:
+    if provider == "disabled":
+        browser_sso_status = "disabled"
+        browser_sso_summary = "Enterprise browser SSO is disabled; local fallback and API-key auth are the active paths."
+    elif configured:
+        browser_sso_status = "configured_not_enforced"
+        browser_sso_summary = (
+            f"{provider.upper()} configuration is stored, but no browser SSO callback/session enforcement is active."
+        )
+    elif status == "error":
+        browser_sso_status = "blocked"
+        browser_sso_summary = "Enterprise browser SSO is blocked by incomplete or invalid provider configuration."
+    else:
+        browser_sso_status = "not_enforced"
+        browser_sso_summary = "Enterprise browser SSO is not enforced."
+
+    return {
+        "browser_sso": {
+            "status": browser_sso_status,
+            "provider": provider,
+            "configuration_recorded": configured,
+            "browser_sso_enforced": False,
+            "full_sso_login_enabled": False,
+            "summary": browser_sso_summary,
+            "operator_next_step": (
+                "Implement and test the governed browser SSO callback before claiming enterprise sign-in enforcement."
+            ),
+        },
+        "tenant_membership": {
+            "status": "blocked",
+            "tenant_id": tenant_key,
+            "request_tenant_header_scopes_records": True,
+            "membership_model_enforced": False,
+            "invitation_flow_enabled": False,
+            "tenant_admin_ui_enabled": False,
+            "summary": (
+                "X-Tenant-ID narrows tenant-scoped records, but there is no authenticated tenant membership model yet."
+            ),
+            "operator_next_step": "Add tenant organizations, memberships, invitations, and tenant-admin workflows.",
+        },
+        "role_enforcement": {
+            "status": "enforced",
+            "api_key_roles_enforced": True,
+            "supported_roles": sorted(API_KEY_ROLES),
+            "admin_only_paths": [
+                "PATCH /api/v1/settings",
+                "POST /api/v1/auth/keys",
+                "GET /api/v1/auth/keys",
+                "POST /api/v1/auth/keys/{key_id}/revoke",
+            ],
+            "local_fallback_role": "admin_development_only",
+            "audit_events": ["auth.api_key.created", "auth.api_key.revoked"],
+            "summary": "API-key admin/operator/reviewer roles are enforced by protected endpoints.",
+        },
+        "session_enforcement": {
+            "status": "configured_not_enforced",
+            "timeout_minutes": session_timeout,
+            "server_session_enforced": False,
+            "expiry_enforced": False,
+            "logout_audit_backed": True,
+            "logout_mutates_active_runs": False,
+            "audit_events": ["auth.login", "auth.logout"],
+            "summary": (
+                "Session timeout and logout policy are visible and audit-backed, but local fallback has no server session."
+            ),
+        },
+        "scim": {
+            "status": "unsupported",
+            "provisioning_enabled": False,
+            "summary": "SCIM provisioning is not implemented in this slice.",
+            "operator_next_step": "Keep identity import/provisioning disabled until a governed SCIM connector exists.",
+        },
+        "tenant_admin": {
+            "status": "unsupported",
+            "admin_ui_enabled": False,
+            "tenant_switcher_enabled": False,
+            "summary": "Tenant administration and tenant switching are not implemented in this slice.",
+            "operator_next_step": "Add tenant-admin screens only after authenticated memberships and audit export exist.",
+        },
+    }
+
+
 def _enterprise_identity_snapshot_from_rows(
     *,
     tenant_key: str,
@@ -1274,11 +1379,27 @@ def _enterprise_identity_snapshot_from_rows(
     else:
         status = "configured"
         configured = True
-        summary = f"{provider.upper()} configuration is recorded and secrets remain masked."
-        next_step = (
-            "Use this as the governed configuration baseline; a later task must enable the actual "
-            "browser SSO callback before hosted enterprise auth can be claimed."
+        summary = (
+            f"{provider.upper()} configuration is recorded and secrets remain masked; "
+            "browser SSO enforcement is not active yet."
         )
+        next_step = (
+            "Use this as the governed configuration baseline only; enable and test the browser SSO "
+            "callback, tenant memberships, SCIM, and server sessions before hosted enterprise auth can be claimed."
+        )
+
+    access_boundaries = _enterprise_identity_access_boundaries(
+        tenant_key=tenant_key,
+        provider=provider,
+        configured=configured,
+        status=status,
+        session_timeout=session_timeout,
+    )
+    readiness_boundary = _enterprise_identity_readiness_boundary(
+        provider=provider,
+        configured=configured,
+        status=status,
+    )
 
     return {
         "tenant_id": tenant_key,
@@ -1294,6 +1415,10 @@ def _enterprise_identity_snapshot_from_rows(
             "logout_redirect_url": logout_redirect_url or None,
             "server_session_enforced": False,
             "local_fallback_has_server_session": False,
+            "expiry_enforced": False,
+            "expiry_status": "configured_not_enforced",
+            "logout_audit_backed": True,
+            "logout_mutates_active_runs": False,
         },
         "local_auth": {
             "x_actor_fallback_enabled": True,
@@ -1301,10 +1426,21 @@ def _enterprise_identity_snapshot_from_rows(
             "enterprise_auth_enforced": False,
             "warning": "Local X-Actor fallback is for supervised local/dev use and is not enterprise authentication.",
         },
+        "access_boundaries": access_boundaries,
         "metadata": {
             "public_base_url": settings.app_public_base_url,
             "secrets_plaintext_exposed": False,
             "full_sso_login_enabled": False,
+            "browser_sso_enforced": False,
+            "enterprise_ready": False,
+            "readiness_boundary": readiness_boundary,
+            "role_enforcement_proven": True,
+            "tenant_membership_enforced": False,
+            "session_expiry_enforced": False,
+            "logout_mutates_active_runs": False,
+            "scim_enabled": False,
+            "tenant_admin_enabled": False,
+            "access_boundaries": access_boundaries,
         },
     }
 
@@ -1317,7 +1453,7 @@ def _enterprise_identity_readiness(
     rows: dict[str, InstanceSetting],
 ) -> ReadinessCapabilityRead:
     snapshot = _enterprise_identity_snapshot_from_rows(tenant_key=tenant_key, settings=settings, rows=rows)
-    if snapshot["status"] == "configured":
+    if snapshot["metadata"].get("enterprise_ready") is True:
         status = "ready"
     elif snapshot["status"] == "error":
         status = "blocked"
@@ -1332,10 +1468,16 @@ def _enterprise_identity_readiness(
             f"Provider state: {snapshot['status']}.",
             f"Session timeout: {snapshot['session_policy']['timeout_minutes']} minutes.",
             "Local X-Actor fallback and API keys remain available; they are labeled separately from enterprise auth.",
+            f"Browser SSO enforcement: {snapshot['access_boundaries']['browser_sso']['status']}.",
+            f"Tenant membership: {snapshot['access_boundaries']['tenant_membership']['status']}.",
+            f"Role enforcement: {snapshot['access_boundaries']['role_enforcement']['status']}.",
+            "Session logout is audit-backed and does not mutate active runs; server-side session expiry is not enforced.",
+            "SCIM, invitation, and tenant-admin paths are unsupported until explicit future implementation.",
         ],
         operator_next_step=str(snapshot["operator_next_step"]),
         metadata={
             **snapshot,
+            **snapshot["metadata"],
             "actions": [
                 _focus_setting_action(
                     action_id="configure_enterprise_identity",

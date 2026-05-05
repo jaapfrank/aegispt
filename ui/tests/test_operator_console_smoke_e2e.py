@@ -2109,12 +2109,42 @@ def test_settings_enterprise_identity_panel_shows_sso_and_session_state(loaded_p
               local_auth: {
                 warning: 'Local X-Actor fallback is for supervised local/dev use and is not enterprise authentication.',
               },
+              access_boundaries: {
+                browser_sso: {
+                  status: 'disabled',
+                  summary: 'Enterprise browser SSO is disabled; local fallback and API-key auth are the active paths.',
+                },
+                tenant_membership: {
+                  status: 'blocked',
+                  summary: 'X-Tenant-ID narrows tenant-scoped records, but there is no authenticated tenant membership model yet.',
+                },
+                role_enforcement: {
+                  status: 'enforced',
+                  summary: 'API-key admin/operator/reviewer roles are enforced by protected endpoints.',
+                },
+                session_enforcement: {
+                  status: 'configured_not_enforced',
+                  summary: 'Session timeout and logout policy are visible and audit-backed, but local fallback has no server session.',
+                },
+                scim: {
+                  status: 'unsupported',
+                  summary: 'SCIM provisioning is not implemented in this slice.',
+                },
+                tenant_admin: {
+                  status: 'unsupported',
+                  summary: 'Tenant administration and tenant switching are not implemented in this slice.',
+                },
+              },
               current_actor: { actor_name: 'admin-ui', role: 'admin', auth_method: 'x_actor_fallback' },
               users: [
                 { actor_name: 'admin-ui', role: 'admin', auth_method: 'x_actor_fallback', status: 'active', source: 'current_request', last_seen_at: null },
                 { actor_name: 'integration-runner', role: 'operator', auth_method: 'api_key', status: 'active', source: 'api_key', last_seen_at: null },
               ],
-              metadata: { full_sso_login_enabled: false },
+              metadata: {
+                full_sso_login_enabled: false,
+                enterprise_ready: false,
+                readiness_boundary: 'local_dev_identity_only',
+              },
             },
             enterpriseIdentityLoading: false,
             enterpriseIdentityError: null,
@@ -2133,6 +2163,13 @@ def test_settings_enterprise_identity_panel_shows_sso_and_session_state(loaded_p
     expect(panel).to_contain_text("disabled")
     expect(panel).to_contain_text("480 minute timeout")
     expect(panel).to_contain_text("Local X-Actor fallback")
+    expect(panel).to_contain_text("Enterprise Boundary Proof")
+    expect(panel).to_contain_text("Tenant Membership")
+    expect(panel).to_contain_text("blocked")
+    expect(panel).to_contain_text("Role Enforcement")
+    expect(panel).to_contain_text("enforced")
+    expect(panel).to_contain_text("SCIM Provisioning")
+    expect(panel).to_contain_text("unsupported")
     expect(panel).to_contain_text("integration-runner")
     expect(loaded_page.get_by_test_id("settings-enterprise-identity")).to_be_visible()
     expect(loaded_page.locator("[data-setting-key='identity.session_timeout_minutes']")).to_have_attribute("min", "5")

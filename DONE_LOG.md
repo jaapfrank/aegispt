@@ -1,5 +1,43 @@
 # Done Log
 
+- 2026-05-05: completed backlog-239 `Enterprise identity and tenant-admin proof: move SSO/RBAC/tenant boundaries from configured-state to enforceable truth`:
+  - rationale:
+    - existing OIDC/SAML settings could be read as configured even though browser SSO callbacks, tenant membership, SCIM, tenant-admin workflows, and server-side browser sessions were not enforced
+    - the active task required enterprise identity readiness to distinguish governed configuration from enforceable enterprise access control
+  - implementation:
+    - extended enterprise identity snapshots and `/api/v1/auth/identity/status` with an `access_boundaries` proof map for browser SSO, tenant membership, role enforcement, session expiry/logout, SCIM, and tenant-admin paths
+    - changed Settings readiness so `enterprise_identity` remains `degraded` unless enforcement is actually proven; OIDC/SAML `configured` state no longer implies enterprise-ready SSO
+    - exposed explicit metadata for `enterprise_ready=false`, `readiness_boundary`, `browser_sso_enforced=false`, `tenant_membership_enforced=false`, `session_expiry_enforced=false`, `scim_enabled=false`, and `tenant_admin_enabled=false`
+    - expanded auth tests to prove non-admin API keys receive `403` on admin-only identity routes, key lifecycle actions are audited, and logout does not mutate an existing run
+    - added Settings UI boundary-proof rendering and smoke coverage for disabled/configured-not-enforced/blocked/enforced/unsupported identity boundaries
+    - hardened Settings focus/onboarding behavior found by the required smoke suite: NVD rate-limit focus now opens and focuses the API-key setting reliably, and first-run onboarding no longer auto-opens over the Settings screen while explicit rerun still works
+    - updated `docs/mssp_multitenant_readiness.md` with the enterprise identity proof matrix
+  - files:
+    - `api/app/services/settings.py`
+    - `api/app/routers/auth.py`
+    - `api/tests/test_auth.py`
+    - `ui/assets/modules/settings.js`
+    - `ui/assets/app.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `docs/mssp_multitenant_readiness.md`
+    - `codex/results/backlog-239-enterprise-identity-tenant-admin-proof-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_auth.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - extra regression guard `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_first_run_onboarding_prefills_wizard_defaults -q` passed
+    - current-code safe acceptance on temporary port `8022` passed for `/health/live`, `/api/v1/auth/identity/status`, `/api/v1/settings/readiness`, and browser Settings boundary-proof visibility
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-239-enterprise-identity-tenant-admin-proof-20260505.md`
+  - exceptions and boundaries:
+    - the running service on `http://127.0.0.1:8000` was relevant but served stale identity-status fields, so it was used only to identify relevance/staleness and not claimed as current-code acceptance
+    - the operator-reported Gruyere full-pentest wizard/all-tools issue remains outside this active task and queued separately; this slice does not alter wizard runner selection or approval bundling
+  - remaining risks:
+    - browser SSO callback enforcement, authenticated tenant membership, SCIM, tenant-admin UI, tenant switching, and server-side browser session expiry remain future work and must not be claimed as ready
+    - local X-Actor fallback remains available only as a labelled supervised development path
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-208 `Chain phase visibility in Mission Control`
+
 - 2026-05-05: completed backlog-234 `Linux privilege escalation enumeration runner: SUID/SGID binaries, sudo misconfigurations, writable cron jobs, and path hijacking`:
   - rationale:
     - AegisPT had no first-class Linux local privilege-escalation enumeration runner even though SUID/SGID GTFOBins matches, dangerous sudoers entries, writable cron locations, weak local permissions, writable early PATH directories, and known kernel local-privesc signals are common internal-pentest evidence classes

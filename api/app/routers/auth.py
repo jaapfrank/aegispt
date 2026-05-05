@@ -99,6 +99,10 @@ class SessionPolicyRead(BaseModel):
     logout_redirect_url: str | None = None
     server_session_enforced: bool = False
     local_fallback_has_server_session: bool = False
+    expiry_enforced: bool = False
+    expiry_status: str = "configured_not_enforced"
+    logout_audit_backed: bool = True
+    logout_mutates_active_runs: bool = False
 
 
 class EnterpriseIdentityStatusRead(BaseModel):
@@ -112,6 +116,7 @@ class EnterpriseIdentityStatusRead(BaseModel):
     configured_secret_labels: list[str] = Field(default_factory=list)
     session_policy: SessionPolicyRead
     local_auth: dict[str, object]
+    access_boundaries: dict[str, object] = Field(default_factory=dict)
     current_actor: CurrentActorRead
     users: list[IdentityUserRead] = Field(default_factory=list)
     metadata: dict[str, object] = Field(default_factory=dict)
