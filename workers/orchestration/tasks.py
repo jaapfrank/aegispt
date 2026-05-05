@@ -116,6 +116,7 @@ from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
 from workers.runners.headers_security.runner import execute_headers_security_analysis
 from workers.runners.graphql_probe.runner import execute_graphql_probe
+from workers.runners.http_smuggling.runner import execute_http_smuggling_probe
 from workers.runners.httpx.runner import execute_httpx_probe
 from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
@@ -192,6 +193,7 @@ SUPPORTED_TOOLS = {
     "external-infra",
     "graphql-probe",
     "headers-security",
+    "http-smuggling",
     "httpx",
     "idor-bac",
     "impacket-lateral",
@@ -538,6 +540,22 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 request.params.get("max_parameters")
                 if isinstance(request.params.get("max_parameters"), int)
                 else 12
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "http-smuggling":
+        return execute_http_smuggling_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            proxy_evidence=(
+                request.params.get("proxy_evidence")
+                if isinstance(request.params.get("proxy_evidence"), list)
+                else []
+            ),
+            timing_threshold_seconds=(
+                float(request.params.get("timing_threshold_seconds"))
+                if isinstance(request.params.get("timing_threshold_seconds"), (int, float))
+                else 4.5
             ),
             timeout_seconds=timeout_seconds,
         )
@@ -2276,6 +2294,19 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"{parameter_count} --stored-contexts {stored_count} "
             f"--gruyere-contexts {gruyere_count} --no-command-payloads "
             f"--no-config-dump-payloads --approved-scope {target_label}{extra}"
+        )
+    if tool == "http-smuggling":
+        evidence_count = (
+            len(effective_params.get("proxy_evidence") or [])
+            if isinstance(effective_params.get("proxy_evidence"), list)
+            else 0
+        )
+        timeout_value = min(float(effective_params.get("timeout_seconds") or 5.0), 5.0)
+        return (
+            "$ http-smuggling --timing-only --variants CL.TE,TE.CL,TE.TE "
+            f"--proxy-evidence-required --configured-proxy-evidence {evidence_count} "
+            f"--timeout {timeout_value:g}s --no-confirming-request "
+            f"--no-hijacking --no-cache-poisoning --approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":
         upload_count = len(effective_params.get("upload_contexts") or []) if isinstance(effective_params.get("upload_contexts"), list) else 0

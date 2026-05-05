@@ -450,6 +450,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-deserialization-probe",
         "active-web-graphql-probe",
         "active-web-headers-security",
+        "active-web-http-smuggling",
         "active-web-idor-bac",
         "active-web-jwt-probe",
         "active-web-safe",
@@ -2566,6 +2567,55 @@ def test_active_ssti_probe_profile_requires_approval_and_queues_ssti_task(client
     assert task["params_json"]["stored_form_contexts"][0]["field"] == "snippet"
     assert task["params_json"]["gruyere_contexts"][0]["field"] == "snippet"
     assert task["params_json"]["max_parameters"] == 2
+
+
+def test_active_http_smuggling_profile_requires_approval_and_queues_smuggling_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://proxy.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-http-smuggling",
+            "configuration_json": {
+                "targets": {"urls": ["https://proxy.example.test/app/"]},
+                "http_smuggling": {
+                    "proxy_evidence": [
+                        {
+                            "target": "https://proxy.example.test/app/",
+                            "headers": {"Via": "1.1 lab-proxy"},
+                        }
+                    ],
+                    "timeout_seconds": 5,
+                    "timing_threshold_seconds": 4.5,
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "http-smuggling"
+    assert task["target_id"] == "https://proxy.example.test/app/"
+    assert task["params_json"]["proxy_evidence"][0]["headers"]["Via"] == "1.1 lab-proxy"
+    assert task["params_json"]["timeout_seconds"] == 5.0
+    assert task["params_json"]["timing_threshold_seconds"] == 4.5
 
 
 def test_intrusive_responder_profile_requires_named_approval_gate_and_configured_interface(

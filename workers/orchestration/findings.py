@@ -30,6 +30,7 @@ from workers.runners.deserialization_probe.runner import DESERIALIZATION_RESULTS
 from workers.runners.external_infra.runner import EXTERNAL_INFRA_RESULTS_ARTIFACT_NAME
 from workers.runners.graphql_probe.runner import GRAPHQL_RESULTS_ARTIFACT_NAME
 from workers.runners.headers_security.runner import HEADERS_SECURITY_RESULTS_ARTIFACT_NAME
+from workers.runners.http_smuggling.runner import HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME
 from workers.runners.idor_bac.runner import IDOR_BAC_ARTIFACT_NAME
 from workers.runners.impacket.runner import IMPACKET_RESULTS_ARTIFACT_NAME
 from workers.runners.iot_default_creds.runner import IOT_DEFAULT_CREDS_ARTIFACT_NAME
@@ -517,7 +518,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "graphql-probe", "ssti-probe", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "graphql-probe", "ssti-probe", "http-smuggling", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -535,6 +536,7 @@ def extract_findings(
                 HEADERS_SECURITY_RESULTS_ARTIFACT_NAME,
                 GRAPHQL_RESULTS_ARTIFACT_NAME,
                 SSTI_RESULTS_ARTIFACT_NAME,
+                HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,

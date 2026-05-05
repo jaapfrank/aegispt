@@ -1,5 +1,51 @@
 # Done Log
 
+- 2026-05-05: completed backlog-229 `HTTP request smuggling runner: CL.TE, TE.CL, and TE.TE timing validation`:
+  - rationale:
+    - AegisPT had no first-class HTTP request smuggling coverage even though proxy-backed CL/TE desync is a critical web/API risk that default ZAP coverage does not reliably prove
+    - the active task required timing-only detection, approved scope, proxy evidence gating, active approval, max 5-second probe timeouts, and no request hijacking, cache poisoning, WAF bypass, internal endpoint chains, or visible side-effect confirming requests
+  - implementation:
+    - added `http-smuggling` as a dedicated approval-gated runner for approved web/API roots that emits `http-smuggling-results.json`
+    - the runner performs a proxy-evidence gate from response headers or configured evidence, accepting `Via`, `Forwarded`, or `X-Forwarded-*` only before any smuggling probe is sent
+    - CL.TE, TE.CL, and TE.TE probes are represented as bounded raw HTTP timing probes over a single connection with `Connection: close`; findings are produced only from timing signals or timeout at the capped threshold
+    - critical findings include variant, elapsed time, timeout, proxy evidence, and explicit safety evidence that no confirming request, side-effect request, hijacking, cache-poisoning, WAF-bypass, or internal-endpoint access was attempted
+    - registered `http-smuggling` in supported worker tools, dispatch, command preview, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-http-smuggling` run profile, and the Tool Library
+  - package exception:
+    - the task-package goal text mentioned a `10+ second delay on the confirming request`, but `NEXT_TASK.md` and the package constraints made `Max 5-second timeout per probe` and no visible-side-effect confirming requests authoritative; this slice therefore uses 5-second capped timing/timeout evidence and records `confirming_request_sent=false`
+  - operator complaint boundary:
+    - the reported Gruyere wizard issue where a full pentest only uses a small subset of tools and still needs scattered approvals/starts maps to queued backlog-250 runner/wizard/profile wiring, not this active backlog-229 slice; no claim is made that Gruyere full-wizard coverage is fixed here
+  - files:
+    - `workers/runners/http_smuggling/runner.py`
+    - `workers/runners/http_smuggling/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_http_smuggling_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-229-http-smuggling-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m compileall -q workers/runners/http_smuggling workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py workers/tests/test_http_smuggling_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py workers/tests/test_web_depth_runner.py` passed
+    - focused tests passed: `source .venv/bin/activate && python -m pytest workers/tests/test_http_smuggling_runner.py workers/tests/test_web_depth_runner.py::test_web_depth_tools_are_supported api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_active_http_smuggling_profile_requires_approval_and_queues_smuggling_task -q`
+    - registration tests passed: `source .venv/bin/activate && python -m pytest api/tests/test_runs.py::test_list_run_profiles api/tests/test_pentest_depth_registration.py -q`
+    - required full API gate passed: `source .venv/bin/activate && python -m pytest api/tests/ -q`; existing Alembic warnings appeared and the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test
+    - read-only live acceptance passed after restarting the local inline host on current code with `AEGISPT_LOCAL_ENSURE_ZAP=0`: `/health/live` was healthy, `/app/assets/modules/packs.js` contained `http-smuggling` / `HTTP Smuggling`, and `/api/v1/run-profiles` contained `active-web-http-smuggling` with `['http-smuggling']`
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-230 into `NEXT_TASK.md`
+    - final `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-229-http-smuggling-runner-20260505.md`
+  - remaining risks:
+    - no Gruyere, WebGoat, public internet target, or live proxy lab was actively scanned during this build-lane slice; proof is from deterministic safe fixtures plus read-only local UI/API acceptance
+    - timing-only request smuggling signals are conservative and should be treated as critical evidence requiring expert review, not as an exploitation chain
+    - the wizard still does not automatically call every newly added runner during a full External Web mission until the queued runner/profile/wizard wiring task is active and implemented
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-230 `OAuth2/OIDC misconfiguration runner`
+
 - 2026-05-05: completed backlog-228 `SSTI runner: Server-Side Template Injection detection via mathematical expression payloads`:
   - rationale:
     - AegisPT lacked first-class SSTI coverage even though this is a critical input-validation class that existing ZAP/Nuclei defaults do not reliably cover

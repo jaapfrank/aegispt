@@ -48,6 +48,7 @@ def test_web_depth_tools_are_supported() -> None:
         "headers-security",
         "graphql-probe",
         "ssti-probe",
+        "http-smuggling",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 

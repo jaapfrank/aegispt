@@ -1015,6 +1015,32 @@ def ssti_runner_params_from_configuration(
     return result
 
 
+def http_smuggling_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("http_smuggling")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for source in (settings, validation):
+        if "proxy_evidence" in result:
+            continue
+        value = source.get("proxy_evidence")
+        if isinstance(value, list) and value:
+            result["proxy_evidence"] = [
+                dict(item)
+                for item in value[:20]
+                if isinstance(item, dict)
+            ]
+    for source in (settings, validation):
+        for field_name in ("timeout_seconds", "timing_threshold_seconds"):
+            if field_name not in result and isinstance(source.get(field_name), (int, float)):
+                result[field_name] = float(source[field_name])
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2296,6 +2322,51 @@ def validate_ssti_probe_run_configuration(
                     )
 
 
+def _is_http_smuggling_proxy_evidence_header(name: str) -> bool:
+    normalized = str(name or "").strip().lower()
+    return normalized in {"via", "forwarded"} or normalized.startswith("x-forwarded-")
+
+
+def validate_http_smuggling_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="http-smuggling",
+    )
+    params = http_smuggling_runner_params_from_configuration(configuration)
+    for field_name in ("timeout_seconds", "timing_threshold_seconds"):
+        value = params.get(field_name)
+        if isinstance(value, (int, float)) and not 0 < float(value) <= 5:
+            raise ValueError(
+                "http-smuggling timing and timeout values must be greater than zero and capped at 5 seconds"
+            )
+
+    proxy_evidence = params.get("proxy_evidence")
+    for item in proxy_evidence if isinstance(proxy_evidence, list) else []:
+        raw_target = str(item.get("target") or item.get("url") or "").strip()
+        if (
+            raw_target
+            and "://" in raw_target
+            and not web_target_value_is_allowed_with_path(scope.allowlist_json, raw_target)
+        ):
+            raise ValueError(
+                "configured HTTP smuggling proxy evidence target "
+                f"{raw_target} is outside the approved engagement scope"
+            )
+        headers = item.get("headers")
+        if not isinstance(headers, dict) or not any(
+            _is_http_smuggling_proxy_evidence_header(str(name)) and str(value or "").strip()
+            for name, value in headers.items()
+        ):
+            raise ValueError(
+                "http-smuggling proxy_evidence requires Via, Forwarded, or X-Forwarded-* header evidence"
+            )
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -3125,6 +3196,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "headers-security",
         "graphql-probe",
         "ssti-probe",
+        "http-smuggling",
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
@@ -3361,6 +3433,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     headers_security_params = headers_security_runner_params_from_configuration(run_configuration)
     graphql_probe_params = graphql_probe_runner_params_from_configuration(run_configuration)
     ssti_params = ssti_runner_params_from_configuration(run_configuration)
+    http_smuggling_params = http_smuggling_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3456,6 +3529,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "ssti-probe":
             validate_ssti_probe_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "http-smuggling":
+            validate_http_smuggling_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3822,6 +3900,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in ssti_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "http-smuggling":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in http_smuggling_params.items()
                         if value not in (None, [], {})
                     }
                 )

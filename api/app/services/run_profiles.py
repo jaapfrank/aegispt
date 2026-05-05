@@ -1059,6 +1059,26 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-http-smuggling",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated HTTP request smuggling timing validation for approved web/API roots with proxy evidence.",
+            "required_approvals": 1,
+            "tools": ["http-smuggling"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "proxy_evidence_required": True,
+            "probe_variants": ["CL.TE", "TE.CL", "TE.TE"],
+            "max_probe_timeout_seconds": 5,
+            "timing_based_detection_only": True,
+            "confirming_request_sent": False,
+            "visible_side_effect_request_sent": False,
+            "request_hijacking": False,
+            "cache_poisoning": False,
+            "internal_endpoint_access": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

@@ -128,6 +128,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Injection confirmation"],
   },
   {
+    id: "http-smuggling",
+    name: "HTTP Smuggling",
+    category: "Web",
+    tier: "active",
+    description: "Checks CL.TE, TE.CL, and TE.TE request desynchronization with timing-only probes on approved proxy-backed web roots.",
+    findings: ["HTTP Request Smuggling timing confirmation", "Proxy-backed desync signal", "Critical input validation weakness"],
+    prerequisites: ["Approved web or API root", "Active approval", "Proxy evidence such as Via or X-Forwarded-*", "No confirming request, hijacking, or cache poisoning"],
+    chains: ["External Web", "Authenticated App", "Injection confirmation"],
+  },
+  {
     id: "headers-security",
     name: "HTTP Headers Security",
     category: "Web",
