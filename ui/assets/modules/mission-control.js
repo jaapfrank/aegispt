@@ -1913,6 +1913,7 @@ export function createMissionModule() {
       ? insights.reasoning_records
       : [];
     const proposals = Array.isArray(insights?.proposals) ? insights.proposals : [];
+    const pendingActionableProposals = pendingStandardAiProposals(proposals);
     const autonomousMode = Boolean(state.selectedRun?.autonomous_mode);
     const autonomousAgents = autonomousMode
       ? buildAutonomousAgentCards(state.selectedRun?.tasks || [], selectedRunFindingsForMission())
@@ -1936,7 +1937,7 @@ export function createMissionModule() {
     const boundary = insights?.review_boundary || {};
     const boundaryMessage =
       boundary.message ||
-      "AI suggestions are review-only. They do not queue tasks, dispatch tools, or expand scope.";
+      "AI suggestions need operator review. Approved follow-ups become queued tasks; dispatch stays explicit.";
     const contractBadges = autonomousMode
       ? [
           "In-scope autonomous follow-up only",
@@ -1944,8 +1945,8 @@ export function createMissionModule() {
           "Intrusive stays gated",
         ]
       : [
-          "Suggestion, not an executed task",
-          "No task queued",
+          "Approval queues tasks only",
+          "Dispatch remains explicit",
           "Existing approvals still apply",
         ];
     const contractLabel = autonomousMode
@@ -1992,6 +1993,7 @@ export function createMissionModule() {
           ${pendingCount ? `<span class="ai-signal-count" data-testid="ai-signal-pending-count">${escapeHtml(String(pendingCount))}</span>` : ""}
         </div>
         ${renderAiOperatorWorkbench(workbench, provider)}
+        ${renderSuggestedNextStepsPanel(pendingActionableProposals)}
         <div class="ai-signal-review-contract" data-testid="ai-proposal-insights-card">
           <div class="ai-signal-inbox-title" data-testid="ai-signal-inbox">
             <span>AI Signal Inbox</span>
@@ -2115,6 +2117,73 @@ export function createMissionModule() {
         }
       </div>
     `;
+  }
+
+  function pendingStandardAiProposals(proposals = []) {
+    return (Array.isArray(proposals) ? proposals : []).filter((proposal) => {
+      if (String(proposal?.status || "").toLowerCase() !== "pending_review") return false;
+      const metadata = proposal?.metadata_json && typeof proposal.metadata_json === "object" ? proposal.metadata_json : {};
+      const params = proposal?.proposed_params_json && typeof proposal.proposed_params_json === "object"
+        ? proposal.proposed_params_json
+        : {};
+      const boundary = params.boundary && typeof params.boundary === "object" ? params.boundary : {};
+      const kind = String(metadata.proposal_kind || "").toLowerCase();
+      return kind !== "ai_repair" && kind !== "tool_library_manual_task" && boundary.isolated_draft_only !== true;
+    });
+  }
+
+  function renderSuggestedNextStepsPanel(proposals) {
+    if (!Array.isArray(proposals) || !proposals.length) return "";
+    return `
+      <div class="ai-signal-review-contract ai-proposals-inbox" data-testid="ai-proposals-inbox">
+        <div class="ai-signal-inbox-title">
+          <span>${escapeHtml("Suggested Next Steps")}</span>
+          <small>${escapeHtml(`${proposals.length} pending`)}</small>
+        </div>
+        <div class="ai-signal-stream">
+          ${proposals.map(renderSuggestedNextStepRow).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSuggestedNextStepRow(proposal) {
+    const confidence = Number(proposal.confidence_score);
+    const reason = oneLineProposalReason(proposal.reasoning_text || "AI suggested a bounded follow-up for this run.");
+    return `
+      <article class="ai-signal-entry tone-proposal" data-testid="ai-proposal-row">
+        <div class="ai-signal-entry-meta">
+          <span>${escapeHtml(formatToolLabel(proposal.proposed_tool || "tool"))}</span>
+          <span>${escapeHtml(proposal.risk_tier || "passive")}</span>
+          ${Number.isFinite(confidence) ? `<span>${escapeHtml(toPercent(confidence))}</span>` : ""}
+        </div>
+        <h4>${escapeHtml(proposal.proposed_target || "selected target")}</h4>
+        <p>${escapeHtml(reason)}</p>
+        ${renderBadgeList(
+          [
+            proposal.proposed_tool ? `Tool ${proposal.proposed_tool}` : null,
+            proposal.risk_tier ? `Risk ${proposal.risk_tier}` : null,
+            Number.isFinite(confidence) ? `Confidence ${toPercent(confidence)}` : null,
+          ],
+          "compact-badge-list split-top"
+        )}
+        <div class="panel-actions ai-signal-actions">
+          <button class="action primary" type="button" data-ai-proposal-review="approved" data-ai-proposal-id="${escapeHtml(String(proposal.id || ""))}">
+            Approve & Queue
+          </button>
+          <button class="action ghost" type="button" data-ai-proposal-review="rejected" data-ai-proposal-id="${escapeHtml(String(proposal.id || ""))}">
+            Reject
+          </button>
+        </div>
+      </article>
+    `;
+  }
+
+  function oneLineProposalReason(value) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (!text) return "AI suggested a bounded follow-up for this run.";
+    const sentence = text.split(/(?<=[.!?])\s+/)[0] || text;
+    return sentence.length > 160 ? `${sentence.slice(0, 157).trim()}...` : sentence;
   }
 
   function aiSignalProviderStatus({ guidance, insights, liveStream, useGlobalFallback = false }) {
@@ -2661,7 +2730,7 @@ export function createMissionModule() {
             Number.isFinite(confidence) ? `Confidence ${toPercent(confidence)}` : null,
             sourceTaskId ? `Source task ${sourceTaskId}` : null,
             draftPath ? "Isolated draft" : null,
-            dispatchesWork ? "Autonomous dispatch" : "Review-only",
+            repairProposal ? "Review-only" : dispatchesWork ? "Queued follow-up" : "Queues on approval",
           ],
           "compact-badge-list split-top"
         )}
@@ -2688,11 +2757,13 @@ export function createMissionModule() {
             : pending
             ? repairProposal
               ? "Pending repair: approval alone is only a note. Pick a recovery action below so the gap is either recorded or turned into review work."
-              : "Pending review: accepting this suggestion only records approval intent. It does not create, queue, or dispatch a task."
+              : "Pending review: approval queues this follow-up as a task. Dispatch remains a separate operator action."
             : status === "approved"
               ? repairProposal
                 ? "Repair action recorded. No runtime work was launched by this decision."
-                : "Confirmed by operator. No execution was launched by this decision."
+                : dispatchesWork
+                  ? "Queued by operator approval. No execution starts until queued checks are dispatched."
+                  : "Confirmed by operator. No execution was launched by this decision."
               : `Reviewed as ${status}. No execution was launched by this decision.`
         )}</p>
         ${
@@ -2700,10 +2771,10 @@ export function createMissionModule() {
             ? `
               <div class="panel-actions ai-signal-actions">
                 <button class="action primary" type="button" data-ai-proposal-review="approved" data-ai-proposal-id="${escapeHtml(String(proposal.id || ""))}">
-                  Approve suggestion
+                  ${repairProposal ? "Approve note" : "Approve & Queue"}
                 </button>
                 <button class="action ghost" type="button" data-ai-proposal-review="rejected" data-ai-proposal-id="${escapeHtml(String(proposal.id || ""))}">
-                  Skip suggestion
+                  Reject
                 </button>
               </div>
             `
@@ -2980,7 +3051,23 @@ export function createMissionModule() {
       },
       "mission.aiProposal.reviewed"
     );
-    runtime.actions.pushStatus?.(`AI proposal marked ${proposal.status}; no task was queued.`, "success");
+    const queuedTaskId = proposal?.metadata_json?.queued_task_id || "";
+    if (proposal.status === "approved" && queuedTaskId && runtime.actions.loadSelectedRun) {
+      try {
+        await runtime.actions.loadSelectedRun();
+      } catch (error) {
+        console.warn("AI proposal review succeeded but selected run refresh failed", error);
+      }
+    }
+    runtime.actions.renderFlowOverview?.();
+    runtime.actions.pushStatus?.(
+      proposal.status === "approved" && queuedTaskId
+        ? "AI proposal approved; follow-up task queued. Dispatch remains explicit."
+        : proposal.status === "rejected"
+          ? "AI proposal rejected and removed from the pending inbox."
+          : `AI proposal marked ${proposal.status}.`,
+      "success"
+    );
     renderMissionControl();
   }
 

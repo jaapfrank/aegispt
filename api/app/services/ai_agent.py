@@ -31,11 +31,13 @@ from api.app.services.runs import (
     derive_targets_for_run,
     derive_targets_from_target_map,
     latest_scope_query,
+    pending_approvals,
 )
 from api.app.services.settings import (
     effective_runtime_settings_for_run,
     effective_runtime_settings_for_task,
 )
+from api.app.services.task_dispatch import supported_execution_tools
 
 
 class PostTaskAnalysisError(RuntimeError):
@@ -175,17 +177,19 @@ class PostTaskAnalysisOutcome:
 
 AI_PROPOSAL_REVIEW_BOUNDARY = {
     "message": (
-        "AI proposals are suggestions for operator review only; approving one records review intent "
-        "and does not create tasks, dispatch tools, grant approvals, deploy packs, or bind runtime packs."
+        "AI proposals are suggestions until an operator approves them. Approving a standard "
+        "in-scope follow-up creates a queued task only; dispatch remains explicit and existing "
+        "scope, approval, pack, runtime-binding, credential, and kill-switch controls still apply. "
+        "Repair and Tool Library proposals remain review-only."
     ),
-    "approval_effect": "review_status_only",
-    "approved_proposals_dispatch_work": False,
+    "approval_effect": "operator_approved_queued_task",
+    "approved_proposals_dispatch_work": True,
+    "approved_proposals_create_queued_tasks": True,
     "operator_controlled_flow_only": True,
     "forbidden_action_classes": [
         "unsupported_tool",
         "out_of_scope_or_denied_target",
-        "automatic_execution",
-        "automatic_task_queueing",
+        "risk_tier_escalation_without_matching_run_profile",
         "automatic_run_dispatch",
         "automatic_approval",
         "finding_schema_mutation",
@@ -626,11 +630,13 @@ def _build_operator_workbench(
         "boundary": {
             "active_runtime_mutated": False,
             "dispatches_work": False,
-            "creates_runtime_tasks": False,
+            "creates_runtime_tasks": "operator_approved_standard_proposals_only",
             "can_create_build_lane_tasks": True,
+            "standard_proposal_approval_creates_queued_tasks": True,
             "message": (
-                "AI may explain, summarize, and create reviewed Codex build-lane handoff tasks. "
-                "It cannot change active runtime state, grant approvals, dispatch tools, or bypass pack gates."
+                "AI may explain, summarize, and suggest follow-up tasks. Standard proposals only "
+                "become queued tasks after operator approval; dispatch stays explicit and AI cannot "
+                "grant approvals, execute tools, or bypass pack gates."
             ),
         },
     }
@@ -773,13 +779,25 @@ def review_agent_proposal(
             allowed_targets=allowed_targets,
             denied_targets=denied_targets,
         )
+        if _proposal_review_creates_queued_task(proposal):
+            _assert_proposal_can_queue_task(run=run, proposal=proposal)
 
     reviewed_at = datetime.now(tz=UTC)
+    queued_task: Task | None = None
     proposal.status = normalized_decision
     if normalized_decision == "approved":
         proposal.approved_by = actor
         proposal.approved_at = reviewed_at
+        if _proposal_review_creates_queued_task(proposal):
+            queued_task = _queue_task_from_reviewed_proposal(
+                session=session,
+                run=run,
+                proposal=proposal,
+                actor=actor,
+                queued_at=reviewed_at,
+            )
 
+    creates_task = queued_task is not None
     proposal.metadata_json = {
         **_safe_json_object(proposal.metadata_json),
         "requires_operator_review": True,
@@ -787,11 +805,17 @@ def review_agent_proposal(
         "reviewed_at": reviewed_at.isoformat(),
         "review_decision": normalized_decision,
         "review_note": (note or "").strip() or None,
-        "dispatches_work": False,
-        "creates_tasks": False,
+        "dispatches_work": creates_task,
+        "creates_tasks": creates_task,
+        "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+        "queued_task_status": queued_task.status if queued_task is not None else None,
         "grants_approval": False,
         "operator_controlled_flow_only": True,
-        "review_boundary": AI_PROPOSAL_REVIEW_BOUNDARY["approval_effect"],
+        "review_boundary": (
+            "operator_approved_queued_task"
+            if creates_task
+            else AI_PROPOSAL_REVIEW_BOUNDARY["approval_effect"]
+        ),
     }
     write_audit_event(
         session=session,
@@ -805,8 +829,9 @@ def review_agent_proposal(
             "decision": normalized_decision,
             "proposed_tool": proposal.proposed_tool,
             "proposed_target": proposal.proposed_target,
-            "dispatches_work": False,
-            "creates_tasks": False,
+            "dispatches_work": creates_task,
+            "creates_tasks": creates_task,
+            "queued_task_id": str(queued_task.id) if queued_task is not None else None,
             "operator_controlled_flow_only": True,
         },
     )
@@ -1010,6 +1035,158 @@ def _assert_proposal_is_review_approvable(
             f"AI proposal target is outside approved scope or denied: {target}",
             reason="out_of_scope_target",
         )
+
+
+def _proposal_review_creates_queued_task(proposal: AgentProposal) -> bool:
+    metadata = _safe_json_object(proposal.metadata_json)
+    params = _safe_json_object(proposal.proposed_params_json)
+    boundary = params.get("boundary") if isinstance(params.get("boundary"), dict) else {}
+    proposal_kind = str(metadata.get("proposal_kind") or "").strip().lower()
+    if proposal_kind in {"ai_repair", "tool_library_manual_task"}:
+        return False
+    if boundary.get("isolated_draft_only") is True:
+        return False
+    return True
+
+
+def _assert_proposal_can_queue_task(*, run: Run, proposal: AgentProposal) -> None:
+    run_status = str(run.status or "").strip().lower()
+    if run_status in {"cancelled", "cancelling", "rejected"}:
+        raise AgentProposalReviewError(
+            "AI proposal cannot queue a task for a cancelled or rejected run",
+            reason="run_not_dispatchable",
+        )
+
+    tool = str(proposal.proposed_tool or "").strip()
+    if tool not in supported_execution_tools():
+        raise AgentProposalReviewError(
+            f"unsupported execution tool cannot be queued from AI proposal: {tool}",
+            reason="unsupported_tool",
+        )
+
+    proposal_risk = _normalized_risk_tier(proposal.risk_tier)
+    profile_risk = _normalized_risk_tier(run.profile.run_class if run.profile is not None else None)
+    if _risk_tier_rank(proposal_risk) > _risk_tier_rank(profile_risk):
+        raise AgentProposalReviewError(
+            (
+                f"AI proposal risk tier {proposal_risk} exceeds selected run profile "
+                f"risk tier {profile_risk}; create an appropriately approved run instead"
+            ),
+            reason="risk_tier_escalation",
+        )
+
+    if run.profile is not None and pending_approvals(run, run.profile) > 0:
+        raise AgentProposalReviewError(
+            "AI proposal cannot queue a task while the selected run still has pending approvals",
+            reason="pending_run_approval",
+        )
+
+    if _find_existing_task_for_proposal(
+        run=run,
+        proposed_tool=proposal.proposed_tool,
+        proposed_target=proposal.proposed_target,
+    ) is not None:
+        raise AgentProposalReviewError(
+            "AI proposal already has a matching task on this run",
+            reason="duplicate_task_exists",
+        )
+
+
+def _risk_tier_rank(value: str | None) -> int:
+    normalized = _normalized_risk_tier(value)
+    return {
+        RunClass.PASSIVE.value: 0,
+        RunClass.ACTIVE.value: 1,
+        RunClass.INTRUSIVE.value: 2,
+    }.get(normalized, 0)
+
+
+def _queue_task_from_reviewed_proposal(
+    *,
+    session: Session,
+    run: Run,
+    proposal: AgentProposal,
+    actor: str,
+    queued_at: datetime,
+) -> Task:
+    params = _approved_proposal_task_params(
+        run=run,
+        proposal=proposal,
+        actor=actor,
+        queued_at=queued_at,
+    )
+    task = Task(
+        run=run,
+        tool=proposal.proposed_tool,
+        target_id=proposal.proposed_target,
+        status="queued",
+        params_json=params,
+    )
+    session.add(task)
+    session.flush()
+    if str(run.status or "").lower() not in {"cancelled", "cancelling", "rejected"}:
+        run.status = "queued"
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="agent_proposal.task_queued",
+        object_type="task",
+        object_id=str(task.id),
+        metadata={
+            "run_id": str(run.id),
+            "agent_proposal_id": str(proposal.id),
+            "agent_reasoning_id": str(proposal.agent_reasoning_id),
+            "proposed_tool": proposal.proposed_tool,
+            "proposed_target": proposal.proposed_target,
+            "risk_tier": proposal.risk_tier,
+            "dispatch_mode": "queued_not_dispatched",
+            "operator_controlled_flow_only": True,
+        },
+    )
+    return task
+
+
+def _approved_proposal_task_params(
+    *,
+    run: Run,
+    proposal: AgentProposal,
+    actor: str,
+    queued_at: datetime,
+) -> dict[str, Any]:
+    profile = run.profile
+    run_class = _normalized_risk_tier(proposal.risk_tier)
+    profile_name = profile.name if profile is not None else "ai-proposal-follow-up"
+    normalized_limits = normalize_profile_limits(
+        run_class,
+        {
+            **(dict(profile.limits_json or {}) if profile is not None else {}),
+            "tools": [proposal.proposed_tool],
+        },
+    )
+    params = {
+        **_safe_json_object(proposal.proposed_params_json),
+        "target_kind": _target_kind_for_value(proposal.proposed_target),
+        "profile_name": profile_name,
+        "run_class": run_class,
+        "limits": normalized_limits,
+        "ai_proposal": {
+            "enabled": True,
+            "reviewed_by": actor,
+            "reviewed_at": queued_at.isoformat(),
+            "proposal_id": str(proposal.id),
+            "agent_reasoning_id": str(proposal.agent_reasoning_id),
+            "proposed_tool": proposal.proposed_tool,
+            "proposed_target": proposal.proposed_target,
+            "risk_tier": run_class,
+            "confidence_score": proposal.confidence_score,
+            "dispatch_mode": "queued_not_dispatched",
+            "approval_effect": "operator_approved_queued_task",
+        },
+    }
+    params.pop("review_required", None)
+    if proposal.proposed_tool == "zap":
+        params["targets"] = [proposal.proposed_target]
+    return params
 
 
 def _filter_proposal_drafts(

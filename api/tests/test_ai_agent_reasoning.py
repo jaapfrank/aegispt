@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import func, select
@@ -9,6 +9,7 @@ from api.app.config import Settings
 from api.app.models import (
     AgentProposal,
     AgentReasoning,
+    Approval,
     AuditEvent,
     Engagement,
     Finding,
@@ -599,6 +600,7 @@ def _seed_review_proposal(
     *,
     proposed_tool: str = "httpx",
     proposed_target: str | None = None,
+    risk_tier: str = "passive",
     reasoning_text: str = "Operator review is required before any follow-up.",
 ) -> tuple[Run, Task, AgentProposal]:
     run, task, _execution = _seed_run_with_task(session)
@@ -623,7 +625,7 @@ def _seed_review_proposal(
         proposed_target=proposed_target or task.target_id,
         proposed_params={"source_task_id": str(task.id), "review_required": True},
         reasoning_text=reasoning_text,
-        risk_tier="passive",
+        risk_tier=risk_tier,
         priority=20,
         confidence_score=0.72,
         metadata={"dispatches_work": False, "requires_operator_review": True},
@@ -646,17 +648,43 @@ def test_ai_insights_endpoint_lists_reasoning_and_proposals_with_disabled_truth(
     assert payload["run_id"] == str(run_id)
     assert payload["post_task_analysis_enabled"] is False
     assert payload["provider"] == "disabled"
-    assert payload["review_boundary"]["approved_proposals_dispatch_work"] is False
-    assert "does not create tasks" in payload["review_boundary"]["message"]
+    assert payload["review_boundary"]["approved_proposals_dispatch_work"] is True
+    assert payload["review_boundary"]["approved_proposals_create_queued_tasks"] is True
+    assert "creates a queued task only" in payload["review_boundary"]["message"]
     assert payload["reasoning_records"][0]["task_id"] == str(task_id)
     assert payload["reasoning_records"][0]["proposals"][0]["id"] == str(proposal_id)
     assert payload["proposals"][0]["id"] == str(proposal_id)
     assert payload["proposals"][0]["status"] == "pending_review"
 
 
-def test_ai_proposal_approval_is_auditable_and_does_not_queue_work(client) -> None:
+def test_engagement_run_ai_proposals_endpoint_lists_run_proposals(client) -> None:
     with client.app.state.session_factory() as session:
         run, _task, proposal = _seed_review_proposal(session)
+        session.commit()
+        engagement_id = run.engagement_id
+        run_id = run.id
+        proposal_id = proposal.id
+
+    response = client.get(f"/api/v1/engagements/{engagement_id}/runs/{run_id}/ai-proposals")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["id"] for item in payload] == [str(proposal_id)]
+    assert payload[0]["status"] == "pending_review"
+    assert payload[0]["proposed_tool"] == "httpx"
+
+
+def test_ai_proposal_approval_is_auditable_and_queues_follow_up_task(client) -> None:
+    with client.app.state.session_factory() as session:
+        run, _task, proposal = _seed_review_proposal(session)
+        session.add(
+            Approval(
+                run=run,
+                step_id="run.launch",
+                approver_id="launch-approver",
+                decision="approved",
+            )
+        )
         task_count_before = session.scalar(select(func.count()).select_from(Task))
         session.commit()
         run_id = run.id
@@ -675,11 +703,25 @@ def test_ai_proposal_approval_is_auditable_and_does_not_queue_work(client) -> No
     assert payload["approved_at"] is not None
     assert payload["metadata_json"]["reviewed_by"] == "reviewer-alice"
     assert payload["metadata_json"]["review_decision"] == "approved"
-    assert payload["metadata_json"]["dispatches_work"] is False
-    assert payload["metadata_json"]["creates_tasks"] is False
+    assert payload["metadata_json"]["dispatches_work"] is True
+    assert payload["metadata_json"]["creates_tasks"] is True
+    assert payload["metadata_json"]["queued_task_status"] == "queued"
+    queued_task_id = payload["metadata_json"]["queued_task_id"]
+    assert queued_task_id
 
     with client.app.state.session_factory() as session:
-        assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
+        assert session.scalar(select(func.count()).select_from(Task)) == task_count_before + 1
+        queued_task = session.get(Task, UUID(queued_task_id))
+        assert queued_task is not None
+        assert queued_task.run_id == run_id
+        assert queued_task.tool == "httpx"
+        assert queued_task.target_id == "10.0.0.5"
+        assert queued_task.status == "queued"
+        assert queued_task.params_json["ai_proposal"]["proposal_id"] == str(proposal_id)
+        assert queued_task.params_json["ai_proposal"]["dispatch_mode"] == "queued_not_dispatched"
+        refreshed_run = session.get(Run, run_id)
+        assert refreshed_run is not None
+        assert refreshed_run.status == "queued"
         audit = session.scalar(
             select(AuditEvent).where(
                 AuditEvent.action == "agent_proposal.reviewed",
@@ -689,8 +731,17 @@ def test_ai_proposal_approval_is_auditable_and_does_not_queue_work(client) -> No
         assert audit is not None
         assert audit.actor == "reviewer-alice"
         assert audit.metadata_json["decision"] == "approved"
-        assert audit.metadata_json["dispatches_work"] is False
+        assert audit.metadata_json["dispatches_work"] is True
+        assert audit.metadata_json["queued_task_id"] == queued_task_id
         assert audit.metadata_json["operator_controlled_flow_only"] is True
+        task_audit = session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.action == "agent_proposal.task_queued",
+                AuditEvent.object_id == queued_task_id,
+            )
+        )
+        assert task_audit is not None
+        assert task_audit.metadata_json["dispatch_mode"] == "queued_not_dispatched"
 
 
 def test_ai_proposal_rejection_is_auditable_without_approval_fields(client) -> None:
@@ -742,12 +793,19 @@ def test_ai_proposal_approval_blocks_forbidden_action_classes(client) -> None:
             proposed_tool="httpx",
             proposed_target="203.0.113.250",
         )
+        risk_run, _risk_task, risk_proposal = _seed_review_proposal(
+            session,
+            proposed_tool="httpx",
+            risk_tier="intrusive",
+        )
         task_count_before = session.scalar(select(func.count()).select_from(Task))
         session.commit()
         unsupported_run_id = unsupported_run.id
         unsupported_proposal_id = unsupported_proposal.id
         out_of_scope_run_id = out_of_scope_run.id
         out_of_scope_proposal_id = out_of_scope_proposal.id
+        risk_run_id = risk_run.id
+        risk_proposal_id = risk_proposal.id
 
     unsupported_response = client.post(
         f"/api/v1/runs/{unsupported_run_id}/ai-proposals/{unsupported_proposal_id}/review",
@@ -759,21 +817,32 @@ def test_ai_proposal_approval_blocks_forbidden_action_classes(client) -> None:
         json={"decision": "approved"},
         headers={"X-Actor": "reviewer-carol"},
     )
+    risk_response = client.post(
+        f"/api/v1/runs/{risk_run_id}/ai-proposals/{risk_proposal_id}/review",
+        json={"decision": "approved"},
+        headers={"X-Actor": "reviewer-carol"},
+    )
 
     assert unsupported_response.status_code == 409
     assert "unsupported AI proposal tool" in unsupported_response.json()["detail"]
     assert out_of_scope_response.status_code == 409
     assert "outside approved scope" in out_of_scope_response.json()["detail"]
+    assert risk_response.status_code == 409
+    assert "exceeds selected run profile" in risk_response.json()["detail"]
 
     with client.app.state.session_factory() as session:
         unsupported = session.get(AgentProposal, unsupported_proposal_id)
         out_of_scope = session.get(AgentProposal, out_of_scope_proposal_id)
+        risk = session.get(AgentProposal, risk_proposal_id)
         assert unsupported is not None
         assert out_of_scope is not None
+        assert risk is not None
         assert unsupported.status == "pending_review"
         assert out_of_scope.status == "pending_review"
+        assert risk.status == "pending_review"
         assert unsupported.approved_by is None
         assert out_of_scope.approved_by is None
+        assert risk.approved_by is None
         assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
         assert (
             session.scalar(

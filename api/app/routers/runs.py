@@ -74,6 +74,7 @@ from api.app.services.ai_agent import (
 )
 from api.app.services.ai_enrichment import (
     build_mission_guidance_for_run,
+    list_agent_proposals_for_run,
     store_agent_proposal_record,
     store_agent_reasoning_record,
 )
@@ -1094,6 +1095,24 @@ def get_run_ai_insights(
     return RunAiInsightsRead.model_validate(
         build_ai_insights_for_run(session=session, run=run, settings=settings)
     )
+
+
+@router.get(
+    "/engagements/{engagement_id}/runs/{run_id}/ai-proposals",
+    response_model=list[AgentProposalRead],
+)
+def list_run_ai_proposals_for_engagement(
+    engagement_id: UUID,
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> list[AgentProposalRead]:
+    load_engagement_for_tenant(session, engagement_id, tenant_id)
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    if run.engagement_id != engagement_id:
+        raise HTTPException(status_code=404, detail="run not found for engagement")
+    proposals = list_agent_proposals_for_run(session=session, run_id=run.id)
+    return [AgentProposalRead.model_validate(proposal) for proposal in proposals]
 
 
 @router.get("/runs/{run_id}/ai-signal/stream")

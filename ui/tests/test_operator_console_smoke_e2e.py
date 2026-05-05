@@ -1213,6 +1213,223 @@ def test_mission_control_ai_signal_provider_badge_and_live_text(loaded_page: Pag
     expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).not_to_contain_text("REPAIRS")
 
 
+def test_mission_control_ai_proposals_inbox_badge_and_review_actions(loaded_page: Page) -> None:
+    reviewed: list[dict[str, object]] = []
+    now = "2026-05-05T20:45:00Z"
+
+    def proposal_payload(proposal_id: str, status: str, *, queued: bool = False) -> dict[str, object]:
+        return {
+            "id": proposal_id,
+            "run_id": "run-ai-proposals",
+            "agent_reasoning_id": "reasoning-ai-proposals",
+            "proposed_tool": "httpx" if proposal_id == "proposal-one" else "nuclei",
+            "proposed_target": "https://app.example.test",
+            "proposed_params_json": {"source_task_id": "task-ai-source", "review_required": True},
+            "reasoning_text": (
+                "HTTP service evidence suggests a bounded follow-up check. Keep dispatch explicit."
+            ),
+            "risk_tier": "passive" if proposal_id == "proposal-one" else "active",
+            "priority": 20,
+            "confidence_score": 0.82 if proposal_id == "proposal-one" else 0.67,
+            "status": status,
+            "approved_by": "operator-ui" if status == "approved" else None,
+            "approved_at": now if status == "approved" else None,
+            "metadata_json": {
+                "requires_operator_review": True,
+                "review_decision": status if status in {"approved", "rejected"} else None,
+                "dispatches_work": queued,
+                "creates_tasks": queued,
+                "queued_task_id": "task-ai-follow-up" if queued else None,
+                "queued_task_status": "queued" if queued else None,
+            },
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    def insights_payload() -> dict[str, object]:
+        return {
+            "run_id": "run-ai-proposals",
+            "post_task_analysis_enabled": True,
+            "provider": "deterministic",
+            "provider_status": {"mode": "deterministic", "label": "Review mode", "status": "fallback", "connected": False},
+            "reasoning_records": [],
+            "proposals": [
+                proposal_payload("proposal-one", "approved", queued=True),
+                proposal_payload("proposal-two", "pending_review"),
+            ],
+            "review_boundary": {
+                "approved_proposals_dispatch_work": True,
+                "message": "Approved standard suggestions create queued tasks; dispatch stays explicit.",
+            },
+            "operator_workbench": {},
+        }
+
+    def run_payload() -> dict[str, object]:
+        return {
+            "id": "run-ai-proposals",
+            "engagement_id": "eng-ai-proposals",
+            "status": "queued",
+            "requested_by": "operator-ui",
+            "created_at": now,
+            "updated_at": now,
+            "configuration_json": {"targets": {"urls": ["https://app.example.test"]}},
+            "profile": {"id": "profile-ai", "name": "active-web", "run_class": "active", "limits_json": {}},
+            "tasks": [
+                {
+                    "id": "task-ai-source",
+                    "tool": "nmap",
+                    "target_id": "https://app.example.test",
+                    "status": "completed",
+                    "params_json": {},
+                    "created_at": now,
+                    "updated_at": now,
+                },
+                {
+                    "id": "task-ai-follow-up",
+                    "tool": "httpx",
+                    "target_id": "https://app.example.test",
+                    "status": "queued",
+                    "params_json": {"ai_proposal": {"proposal_id": "proposal-one"}},
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            ],
+            "findings": {"finding_count": 0, "findings_by_severity": {}, "findings_by_status": {}},
+            "required_approvals": 0,
+            "granted_approvals": 0,
+            "pending_approvals": 0,
+            "approval_step_id": "run.launch",
+        }
+
+    def capture_review(route):
+        decision = route.request.post_data_json["decision"]
+        proposal_id = route.request.url.rstrip("/").split("/")[-2]
+        reviewed.append({"proposal_id": proposal_id, "decision": decision})
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                proposal_payload(proposal_id, decision, queued=decision == "approved")
+            ),
+        )
+
+    loaded_page.route("**/api/v1/runs/run-ai-proposals/ai-proposals/*/review", capture_review)
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-ai-proposals$"),
+        lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(run_payload())),
+    )
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-ai-proposals/reports$"),
+        lambda route: route.fulfill(status=200, content_type="application/json", body="[]"),
+    )
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-ai-proposals/attack-paths$"),
+        lambda route: route.fulfill(status=200, content_type="application/json", body="{}"),
+    )
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-ai-proposals/ai-insights$"),
+        lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(insights_payload())),
+    )
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-ai-proposals/cve-intelligence$"),
+        lambda route: route.fulfill(status=200, content_type="application/json", body="{}"),
+    )
+    loaded_page.route(
+        re.compile(r".*/api/v1/runs/run-ai-proposals/findings$"),
+        lambda route: route.fulfill(status=200, content_type="application/json", body="[]"),
+    )
+
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const now = '2026-05-05T20:45:00Z';
+          const runId = 'run-ai-proposals';
+          Object.defineProperty(window, 'EventSource', { value: undefined, configurable: true });
+          const proposal = (id, tool, risk, confidence) => ({
+            id,
+            run_id: runId,
+            agent_reasoning_id: 'reasoning-ai-proposals',
+            proposed_tool: tool,
+            proposed_target: 'https://app.example.test',
+            proposed_params_json: { source_task_id: 'task-ai-source', review_required: true },
+            reasoning_text: 'HTTP service evidence suggests a bounded follow-up check. Keep dispatch explicit.',
+            risk_tier: risk,
+            priority: 20,
+            confidence_score: confidence,
+            status: 'pending_review',
+            approved_by: null,
+            approved_at: null,
+            metadata_json: { requires_operator_review: true, dispatches_work: false },
+            created_at: now,
+            updated_at: now,
+          });
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedEngagementId: 'eng-ai-proposals',
+            selectedRunId: runId,
+            selectedTaskId: 'task-ai-source',
+            selectedAiInsights: {
+              run_id: runId,
+              post_task_analysis_enabled: true,
+              provider: 'deterministic',
+              provider_status: { mode: 'deterministic', label: 'Review mode', status: 'fallback', connected: false },
+              reasoning_records: [],
+              proposals: [
+                proposal('proposal-one', 'httpx', 'passive', 0.82),
+                proposal('proposal-two', 'nuclei', 'active', 0.67),
+              ],
+              review_boundary: { approved_proposals_dispatch_work: true },
+              operator_workbench: {},
+            },
+            selectedRun: {
+              id: runId,
+              status: 'running',
+              requested_by: 'operator-ui',
+              created_at: now,
+              updated_at: now,
+              configuration_json: { targets: { urls: ['https://app.example.test'] } },
+              profile: { id: 'profile-ai', name: 'active-web', run_class: 'active', limits_json: {} },
+              tasks: [{
+                id: 'task-ai-source',
+                tool: 'nmap',
+                target_id: 'https://app.example.test',
+                status: 'completed',
+                params_json: {},
+                created_at: now,
+                updated_at: now,
+              }],
+              findings: { finding_count: 0, findings_by_severity: {}, findings_by_status: {} },
+            },
+          }, 'ui.test.aiProposalsInbox');
+          runtimeModule.runtime.actions.renderFlowOverview?.();
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_be_visible()
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("Suggested Next Steps")
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("2 pending")
+    expect(loaded_page.get_by_test_id("nav-mission-control")).to_contain_text("● 2")
+
+    loaded_page.get_by_test_id("ai-proposal-row").filter(has_text="HTTP probe").get_by_text("Approve & Queue").click()
+    expect(loaded_page.get_by_test_id("status-feed-focus")).to_contain_text("follow-up task queued")
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("1 pending")
+    expect(loaded_page.get_by_test_id("nav-mission-control")).to_contain_text("● 1")
+
+    loaded_page.get_by_test_id("ai-proposal-row").filter(has_text="Template validation").get_by_text("Reject").click()
+    expect(loaded_page.get_by_test_id("status-feed-focus")).to_contain_text("removed from the pending inbox")
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("nav-mission-control-ai-proposals")).to_have_count(0)
+    assert reviewed == [
+        {"proposal_id": "proposal-one", "decision": "approved"},
+        {"proposal_id": "proposal-two", "decision": "rejected"},
+    ]
+
+
 def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run(
     loaded_page: Page,
 ) -> None:

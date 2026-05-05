@@ -4,7 +4,7 @@ import { createCustomVulnerabilitiesModule } from "./modules/custom-vulnerabilit
 import { createDashboardModule } from "./modules/dashboard.js";
 import { createExplorerHistoryModule } from "./modules/explorer-history.js";
 import { createFindingsModule } from "./modules/findings.js?v=20260429-auto-enrichment-1";
-import { createMissionModule } from "./modules/mission-control.js?v=20260501-surface-map-inventory-1";
+import { createMissionModule } from "./modules/mission-control.js?v=20260505-ai-proposals-inbox-1";
 import { createPacksModule } from "./modules/packs.js";
 import { createProblemsModule } from "./modules/problems.js";
 import { createReportsModule } from "./modules/reports.js";
@@ -3103,6 +3103,7 @@ function renderStatus() {
 function renderFlowOverview() {
   if (dom.sidebarNav) {
     const findingCount = selectedRunFindings().length || engagementFindings().length;
+    const proposalCount = pendingAiProposalCount();
     dom.sidebarNav.innerHTML = NAV_GROUPS
       .map((item) => {
         if (item.kind === "section") {
@@ -3115,6 +3116,9 @@ function renderFlowOverview() {
         const badge = item.count === "findings" && findingCount
           ? `<span class="sb-count">${escapeHtml(String(findingCount))}</span>`
           : "";
+        const proposalBadge = item.screen === "mission-control" && proposalCount
+          ? `<span class="sb-count ai-proposal-nav-count" data-testid="nav-mission-control-ai-proposals">${escapeHtml(`● ${proposalCount}`)}</span>`
+          : "";
         return `
           <button
             class="sb-item sidebar-link ${active ? "active" : ""} ${item.utility ? "utility" : ""}"
@@ -3124,17 +3128,21 @@ function renderFlowOverview() {
             aria-current="${active ? "page" : "false"}"
           >
             <span class="sb-left"><span class="sb-icon">${escapeHtml(item.icon)}</span>${escapeHtml(item.label)}</span>
-            ${badge}
+            ${proposalBadge || badge}
           </button>
         `;
       })
       .join("");
   }
   if (dom.bottomScreenNav) {
+    const proposalCount = pendingAiProposalCount();
     dom.bottomScreenNav.classList.toggle("hidden", state.activeScreen === "wizard");
     dom.bottomScreenNav.innerHTML = BOTTOM_NAV_ITEMS
       .map((item) => {
         const active = item.screen === state.activeScreen;
+        const label = item.screen === "mission-control" && proposalCount
+          ? `${item.label} ● ${proposalCount}`
+          : item.label;
         return `
           <button
             class="demo-tab ${active ? "active on" : ""}"
@@ -3142,7 +3150,7 @@ function renderFlowOverview() {
             data-nav-screen="${escapeHtml(item.screen)}"
             data-testid="bottom-nav-${escapeHtml(item.screen)}"
             aria-current="${active ? "page" : "false"}"
-          >${escapeHtml(item.label)}</button>
+          >${escapeHtml(label)}</button>
         `;
       })
       .join("");

@@ -1,5 +1,51 @@
 # Done Log
 
+- 2026-05-05: completed backlog-205 `AI Proposals Inbox: make AI-generated next-step proposals visible and actionable in Mission Control`:
+  - rationale:
+    - the AI agent already persisted `AgentProposal` records, but operators could not see or decide on those proposed follow-up checks from Mission Control
+    - the active task required operator visibility and approve/reject actions while preserving existing proposal review, scope, approval, dispatch, pack/runtime, credential, and kill-switch boundaries
+  - implementation:
+    - Mission Control now renders a `Suggested Next Steps` inbox for pending standard proposals on the selected run, showing tool, target, risk tier, confidence, and a one-line reason
+    - Mission Control sidebar and bottom nav show a pending proposal badge/count and clear it when no pending standard proposals remain
+    - approve/reject UI actions reuse the existing proposal review endpoint; approved standard proposals now refresh selected-run state when the backend returns a queued follow-up task
+    - the backend review path now creates a queued `Task` for approved standard in-scope proposals after supported-tool, scope, selected-run risk tier, pending-approval, cancelled/rejected-run, and duplicate-task checks pass
+    - repair and Tool Library manual proposals remain review-only, and approval still does not dispatch execution
+    - added an engagement-scoped run proposals endpoint so Mission Control can list run proposals without crossing engagement/tenant boundaries
+  - files:
+    - `api/app/services/ai_agent.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_ai_agent_reasoning.py`
+    - `ui/assets/app.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-205-ai-proposals-inbox-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - `python3 -m py_compile api/app/services/ai_agent.py api/app/routers/runs.py api/tests/test_ai_agent_reasoning.py` passed
+    - `node --input-type=module --check < ui/assets/app.js` passed
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py -q` passed
+    - focused Mission Control inbox smoke E2E passed
+    - required `python3 scripts/validate_backlog_tasks.py` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - full `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - current-code browser acceptance on `http://127.0.0.1:8000/app/` passed for inbox render, badge count, approve-and-queue, reject-and-remove, and hidden panel after all pending proposals are reviewed
+    - `git diff --check` passed before task-close documentation and again after task-close updates
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with exactly one active task, backlog-206, and `source_context.queue_index=229` matching `TASK_QUEUE.md`
+  - evidence:
+    - `codex/results/backlog-205-ai-proposals-inbox-20260505.md`
+  - exceptions and boundaries:
+    - `http://127.0.0.1:8000` was relevant and served current backlog-205 Mission Control assets; no temporary acceptance port was needed for this slice
+    - approval creates a queued task only for standard proposals; dispatch remains an explicit operator action through existing mechanisms
+    - no proposal generation, confidence scoring, live target scanning, runtime self-modification, uncontrolled plugin installation, pack validation, approval, deployment, runtime binding, credential, scope, ROE, or kill-switch boundary was bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted
+  - remaining risks:
+    - real execution still depends on the operator explicitly dispatching queued checks and the runtime/kill-switch state at that moment
+    - future proposal creation from CVE matches is not part of this task and is promoted next under backlog-206
+    - the operator-reported Gruyere wizard/all-tools issue remains outside this active task
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-206 `CVE-to-Test auto-queue`
+
 - 2026-05-05: completed backlog-210 `Email, Slack, and Teams notifications: alert operators on critical findings, phase completions, and run results`:
   - rationale:
     - AegisPT already had SIEM push and generic webhook handoff paths, but enterprise operators lacked first-class optional email, Slack, and Teams alerts for urgent run events

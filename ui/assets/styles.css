@@ -10117,6 +10117,11 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   font-weight: 800;
 }
 
+.sb-count.ai-proposal-nav-count {
+  min-width: 2.15rem;
+  background: rgba(14, 165, 233, 0.78);
+}
+
 .run-card-active {
   display: grid;
   gap: 0.24rem;
