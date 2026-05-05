@@ -8033,6 +8033,8 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   gap: 0.6rem;
   min-width: 150px;
   padding: 0.55rem 0.35rem 0.55rem 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   flex: 1 0 0;
 }
 
@@ -8096,9 +8098,40 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   color: var(--red);
 }
 
+.mission-phase-step.waiting .mission-phase-step-dot {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--amber);
+}
+
+.mission-phase-step.is-current {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border-color: rgba(14, 165, 233, 0.28);
+  background: rgba(14, 165, 233, 0.06);
+}
+
+.mission-phase-step.waiting.is-current {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.mission-phase-step.is-current .mission-phase-step-copy strong {
+  color: var(--text);
+}
+
 .assessment-chain-operator-map {
   display: grid;
   gap: 0.8rem;
+}
+
+.assessment-chain-approval-summary {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(245, 158, 11, 0.08);
 }
 
 .chain-now-next-grid {

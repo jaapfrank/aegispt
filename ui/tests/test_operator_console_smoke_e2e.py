@@ -225,6 +225,251 @@ def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Pag
     expect(actor_pill.locator("input")).to_have_count(0)
 
 
+def test_mission_control_chain_phase_progress_shows_pending_approval_and_posts_decision(
+    loaded_page: Page,
+) -> None:
+    decisions: list[dict[str, object]] = []
+    chain_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+    def capture_phase_decision(route):
+        decisions.append(route.request.post_data_json)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "id": chain_id,
+                    "engagement_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                    "assessment_mode": "FULL-INTERNAL-LAN",
+                    "status": "active",
+                    "current_phase_index": 1,
+                    "current_step_index": 0,
+                    "current_phase_key": "active-enrichment",
+                    "current_run_id": "33333333-3333-4333-8333-333333333333",
+                    "last_completed_run_id": "22222222-2222-4222-8222-222222222222",
+                    "auto_advance_on_phase_complete": True,
+                    "halt_requested": False,
+                    "completed_phase_count": 1,
+                    "phase_count": 4,
+                    "phases": [],
+                    "operator_state": {},
+                    "created_at": "2026-05-05T08:00:00Z",
+                    "updated_at": "2026-05-05T08:31:00Z",
+                }
+            ),
+        )
+
+    loaded_page.route(
+        "**/api/v1/assessment-chains/*/phases/active-enrichment/decision",
+        capture_phase_decision,
+    )
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async ({ chainId }) => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const run = {
+            id: '22222222-2222-4222-8222-222222222222',
+            status: 'completed',
+            requested_by: 'operator-ui',
+            created_at: '2026-05-05T08:00:00Z',
+            updated_at: '2026-05-05T08:31:00Z',
+            completed_at: '2026-05-05T08:31:00Z',
+            configuration_json: {
+              assessment_type: 'Internal Range / LAN',
+              eta: { estimated_total_minutes: 100 },
+            },
+            profile: { name: 'passive-network-discovery', run_class: 'passive', limits_json: {} },
+            tasks: [],
+            assessment_chain: {
+              id: chainId,
+              engagement_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+              assessment_mode: 'FULL-INTERNAL-LAN',
+              status: 'pending_phase_approval',
+              current_phase_index: 1,
+              current_step_index: 0,
+              current_phase_key: 'active-enrichment',
+              current_run_id: null,
+              last_completed_run_id: '22222222-2222-4222-8222-222222222222',
+              auto_advance_on_phase_complete: true,
+              halt_requested: false,
+              completed_phase_count: 1,
+              phase_count: 4,
+              created_at: '2026-05-05T08:00:00Z',
+              updated_at: '2026-05-05T08:31:00Z',
+              operator_state: { primary_action: 'Approve Next Phase' },
+              phases: [
+                {
+                  key: 'passive-discovery',
+                  label: 'Phase 1 · Passive Discovery',
+                  tier: 'passive',
+                  status: 'completed',
+                  requires_approval: false,
+                  started_at: '2026-05-05T08:00:00Z',
+                  completed_at: '2026-05-05T08:25:00Z',
+                  authorization_state: { status: 'authorized', label: 'Authorized' },
+                  steps: [
+                    { profile_name: 'passive-network-discovery', status: 'completed', run_id: '22222222-2222-4222-8222-222222222222' },
+                    { profile_name: 'passive-lan-iot-discovery', status: 'completed', run_id: '22222222-2222-4222-8222-222222222222' },
+                  ],
+                },
+                {
+                  key: 'active-enrichment',
+                  label: 'Phase 2 · Active Enrichment',
+                  tier: 'active',
+                  status: 'pending_approval',
+                  requires_approval: true,
+                  started_at: null,
+                  completed_at: null,
+                  gate_reason: 'This phase is waiting for an explicit operator approval decision.',
+                  safe_next_action: 'Approve, reject, or halt at this boundary after reviewing prerequisites.',
+                  authorization_state: {
+                    status: 'manual_approval_required',
+                    label: 'Manual approval required',
+                    gate_reason: 'This phase is waiting for an explicit operator approval decision.',
+                    safe_next_action: 'Approve, reject, or halt at this boundary after reviewing prerequisites.',
+                  },
+                  steps: [
+                    { profile_name: 'passive-network-service-enumeration', status: 'pending', run_id: null },
+                    { profile_name: 'passive-web-nuclei-audit', status: 'pending', run_id: null },
+                    { profile_name: 'active-ad-bloodhound', status: 'pending', run_id: null },
+                  ],
+                },
+                {
+                  key: 'intrusive-credential',
+                  label: 'Phase 3 · Intrusive Credential Validation',
+                  tier: 'intrusive-credential',
+                  status: 'pending',
+                  requires_approval: true,
+                  started_at: null,
+                  completed_at: null,
+                  authorization_state: { status: 'manual_approval_required', label: 'Manual approval required' },
+                  steps: [{ profile_name: 'intrusive-ad-password-spray', status: 'pending', run_id: null }],
+                },
+                {
+                  key: 'intrusive-exploitation',
+                  label: 'Phase 4 · Intrusive Exploitation',
+                  tier: 'intrusive-exploitation',
+                  status: 'pending',
+                  requires_approval: true,
+                  started_at: null,
+                  completed_at: null,
+                  authorization_state: { status: 'manual_approval_required', label: 'Manual exploitation approval required' },
+                  steps: [{ profile_name: 'intrusive-exploitation', status: 'pending', run_id: null }],
+                },
+              ],
+            },
+          };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedEngagementId: null,
+            selectedRunId: run.id,
+            selectedRun: run,
+            selectedTaskId: null,
+            mission: {
+              scope: null,
+              inventory: [{
+                id: 'inventory-chain-phase',
+                raw_inputs_json: { run_id: run.id },
+                summary_json: { host_count: 12 },
+              }],
+              relevance: [],
+              packs: [],
+              runs: [run],
+              internalValidations: [],
+              findingsByRun: {
+                [run.id]: [
+                  {
+                    id: 'finding-critical-1',
+                    title: 'Critical exposure',
+                    severity: 'critical',
+                    target_id: '10.0.20.12',
+                    created_at: '2026-05-05T08:20:00Z',
+                    updated_at: '2026-05-05T08:20:00Z',
+                  },
+                ],
+              },
+            },
+          }, 'ui.test.chainPhaseProgress');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """,
+        {"chainId": chain_id},
+    )
+
+    phase_strip = loaded_page.get_by_test_id("assessment-chain-phase-strip")
+    expect(phase_strip).to_be_visible()
+    phase_cards = phase_strip.get_by_test_id("mission-phase-card")
+    expect(phase_cards).to_have_count(4)
+    expect(phase_cards.nth(0)).to_contain_text("Complete")
+    expect(phase_cards.nth(0)).to_contain_text("Duration 25m")
+    expect(phase_cards.nth(1)).to_have_attribute("data-phase-status", "waiting")
+    expect(phase_cards.nth(1)).to_have_attribute("data-phase-current", "true")
+    expect(phase_cards.nth(1)).to_contain_text("Awaiting Approval")
+
+    approval_summary = loaded_page.get_by_test_id("assessment-chain-pending-approval-summary")
+    expect(approval_summary).to_be_visible()
+    expect(approval_summary).to_contain_text("Ready to start Phase 2")
+    expect(approval_summary).to_contain_text("12 hosts visible")
+    expect(approval_summary).to_contain_text("1 critical")
+    expect(approval_summary).to_contain_text("Passive Web Nuclei Audit")
+    approve_button = loaded_page.get_by_test_id("assessment-chain-approve")
+    expect(approve_button).to_have_text("Approve Phase 2")
+    expect(approve_button).to_have_count(1)
+
+    approve_button.click()
+    expect(loaded_page.get_by_test_id("status-feed-focus")).to_contain_text(
+        "Phase active-enrichment approved",
+        timeout=15000,
+    )
+    assert decisions == [{"decision": "approved"}]
+
+
+def test_mission_control_hides_chain_phase_progress_for_non_chain_runs(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const run = {
+            id: '55555555-5555-4555-8555-555555555555',
+            status: 'completed',
+            requested_by: 'operator-ui',
+            created_at: '2026-05-05T08:00:00Z',
+            updated_at: '2026-05-05T08:10:00Z',
+            configuration_json: { assessment_type: 'External Web' },
+            profile: { name: 'passive-web-baseline', run_class: 'passive', limits_json: {} },
+            tasks: [],
+          };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedEngagementId: null,
+            selectedRunId: run.id,
+            selectedRun: run,
+            mission: {
+              scope: null,
+              inventory: [],
+              relevance: [],
+              packs: [],
+              runs: [run],
+              internalValidations: [],
+              findingsByRun: { [run.id]: [] },
+            },
+          }, 'ui.test.nonChainRun');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("assessment-chain-panel")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("assessment-chain-phase-strip")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("mission-run-summary")).to_have_count(0)
+
+
 def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
     loaded_page: Page,
 ) -> None:

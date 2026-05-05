@@ -1,5 +1,41 @@
 # Done Log
 
+- 2026-05-05: completed backlog-208 `Chain phase visibility in Mission Control: show current phase, next phase, approval requirement, and phase history clearly`:
+  - rationale:
+    - assessment-chain phase execution, auto-advance, and approval gating already existed, but Mission Control did not make the current phase, next phase, pending approval state, or phase history clear enough for operators
+    - the active task required a UI-only rendering slice using existing `assessment_chain` data and the existing phase approval endpoint
+  - implementation:
+    - added chain phase visual-state mapping for `complete`, `active`, `waiting`, `blocked`, and `pending` phases in Mission Control
+    - changed pending phase approval from a generic blocked/red treatment to an amber `waiting` state with current-phase highlighting
+    - rendered completed phase duration when `started_at` and `completed_at` are present, while preserving elapsed/not-started labels for other states
+    - added a pending approval summary card with previous phase resolution, next phase, approval requirement, planned runners, available inventory/finding signals, and mission ETA-derived window when present
+    - exposed a single primary `Approve Phase N` button for the pending approval action; it posts to the existing chain phase decision endpoint without changing backend approval or dispatch logic
+    - added smoke E2E coverage for chain phase rendering, approval endpoint body, and hidden phase strip for non-chain runs
+  - files:
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-208-chain-phase-visibility-mission-control-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js` passed
+    - focused Mission Control smoke E2E passed for chain phase approval rendering and non-chain hiding
+    - required `python3 scripts/validate_backlog_tasks.py` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - full `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - current-code browser acceptance on temporary port `8022` passed for four phase cards, pending state `waiting`, `Approve Phase 2`, existing endpoint decision payload `{"decision": "approved"}`, and non-chain strip count `0`
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-208-chain-phase-visibility-mission-control-20260505.md`
+  - exceptions and boundaries:
+    - `http://127.0.0.1:8000` was relevant but not used as current-code proof because the already-running service can be stale; current-code acceptance used isolated temporary port `8022`
+    - no backend chain phase logic, approval gating, dispatch logic, pack lifecycle, scope/ROE checks, credentials, runtime binding, deployment, or kill-switch behavior was changed
+    - the operator-reported Gruyere full-pentest wizard/all-tools complaint is outside this active task and remains queued separately
+  - remaining risks:
+    - phase-specific time windows are only shown from existing run ETA data when present; no new backend ETA model was added
+    - no live third-party, Gruyere, customer, or public internet target was scanned by this build-lane slice
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-210 `Email, Slack, and Teams notifications`
+
 - 2026-05-05: completed backlog-239 `Enterprise identity and tenant-admin proof: move SSO/RBAC/tenant boundaries from configured-state to enforceable truth`:
   - rationale:
     - existing OIDC/SAML settings could be read as configured even though browser SSO callbacks, tenant membership, SCIM, tenant-admin workflows, and server-side browser sessions were not enforced

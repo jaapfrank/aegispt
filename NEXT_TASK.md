@@ -2,37 +2,37 @@
 
 ## Title
 
-Chain phase visibility in Mission Control: show current phase, next phase, approval requirement, and phase history clearly
+Email, Slack, and Teams notifications: alert operators on critical findings, phase completions, and run results
 
 ## Promoted From
 
-`codex/tasks/backlog-208-chain-phase-visibility-mission-control.json`
+`codex/tasks/backlog-210-email-slack-teams-notification.json`
 
 ## Goal
 
-Assessment chain execution is already implemented with phase definitions, auto-advance, and approval gating, but operators cannot clearly see the current phase, what comes next, what requires approval, or why a chain is waiting. Mission Control needs a phase progress strip for chain runs, including completed phases, the current phase, pending approval state, and a single existing phase-approval action.
+AegisPT has SIEM push and generic webhooks, but enterprise operators still lack first-class email, Slack, and Microsoft Teams notifications for urgent assessment events. Add optional notification delivery for critical findings, run completion, and phase completion / phase-approval-needed events using existing integration and credential-storage patterns.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-208-chain-phase-visibility-mission-control.json`.
+Implement the active backlog package `codex/tasks/backlog-210-email-slack-teams-notification.json`.
 
 Expected slice:
 
-- render existing assessment-chain phase data in Mission Control
-- show a horizontal phase bar for chain runs
-- highlight the current phase
-- show completed phases with a green/completed state and duration when available
-- show pending approval phases with an amber/waiting state and an `Approve Phase N` action
-- show a concise summary card when a phase is pending approval
-- hide the phase bar for non-chain runs
+- add email delivery via SMTP for critical findings, run completion, and phase approval-needed events
+- add Slack webhook notification delivery for the same events
+- add Microsoft Teams webhook delivery using Adaptive Card format
+- add Settings configuration surfaces for SMTP, Slack webhook URL, and Teams webhook URL
+- keep all notification channels optional so the system works when none are configured
+- store credentials/secrets encrypted using the existing Jira/SIEM integration pattern
+- trigger from existing event locations without changing SIEM push logic or existing webhook formats
 
 ## Constraints
 
-- Render existing chain phase data only.
-- Do not change chain phase logic in `api/app/services/assessment_chain.py`.
-- Do not change phase approval gating.
-- Do not change run dispatch logic.
-- Do not add new chain types or a chain-definition editor.
+- Do not change SIEM push logic.
+- Do not change existing webhook format.
+- Do not change finding severity model.
+- Keep all channels optional.
+- Use existing encrypted credential/integration storage patterns.
 - Do not bypass scope, ROE, approval, validation, deployment, runtime binding, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -40,14 +40,16 @@ Expected slice:
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/ -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Mission Control shows a phase progress bar when the active run is part of an assessment chain.
-- Completed phases show green/completed state and duration where data is available.
-- Pending-approval phase shows amber/waiting state and an `Approve Phase N` button.
-- Approve button triggers the existing phase approval endpoint.
-- Phase bar is hidden when the selected run is not part of a chain.
-- E2E Mission Control behavior does not regress.
+- Email alert sends on critical finding with mock SMTP verification.
+- Slack webhook is called on critical finding.
+- Teams webhook is called on critical finding using Adaptive Card format.
+- Run completion and phase-approval-needed events trigger configured channels.
+- No crash or failure when no notification channels are configured.
+- Credentials are stored encrypted.
+- Settings screen exposes email, Slack, and Teams configuration panels.
+- Existing tests do not regress.

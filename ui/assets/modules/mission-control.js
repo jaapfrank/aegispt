@@ -141,6 +141,169 @@ export function createMissionModule() {
     return phases[Math.max(0, phases.length - 1)] || null;
   }
 
+  function assessmentChainPhaseNumber(phase, index) {
+    const label = String(phase?.label || "");
+    const match = label.match(/phase\s*(\d+)/i);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return Number(index || 0) + 1;
+  }
+
+  function assessmentChainPhaseName(phase, index) {
+    return String(phase?.label || `Phase ${assessmentChainPhaseNumber(phase, index)}`);
+  }
+
+  function assessmentChainPhaseVisualState(chain, phase, index) {
+    const status = String(phase?.status || "pending").toLowerCase();
+    const chainStatus = String(chain?.status || "").toLowerCase();
+    const currentIndex = Number(chain?.current_phase_index ?? -1);
+    const isCurrent = index === currentIndex;
+    if (status === "pending_approval" || (chainStatus === "pending_phase_approval" && isCurrent)) {
+      return {
+        status: "waiting",
+        label: "Awaiting Approval",
+        current: true,
+      };
+    }
+    if (["completed", "completed_with_gaps"].includes(status)) {
+      return {
+        status: "complete",
+        label: status === "completed_with_gaps" ? "Complete With Gaps" : "Complete",
+        current: isCurrent,
+      };
+    }
+    if (["active", "running"].includes(status) || (isCurrent && chainStatus === "active")) {
+      return {
+        status: "active",
+        label: "Current Phase",
+        current: true,
+      };
+    }
+    if (["blocked", "rejected", "cancelled", "halted"].includes(status)) {
+      return {
+        status: "blocked",
+        label: capitalizeWord(status.replaceAll("_", " ")),
+        current: isCurrent,
+      };
+    }
+    return {
+      status: "pending",
+      label: phase?.requires_approval ? "Approval Later" : "Pending",
+      current: false,
+    };
+  }
+
+  function assessmentChainPhaseDurationLabel(chain, phase, visualState) {
+    const startedAt = phase?.started_at || null;
+    const completedAt = phase?.completed_at || null;
+    if (startedAt && completedAt) {
+      const startMs = timestampMs(startedAt);
+      const endMs = timestampMs(completedAt);
+      if (startMs > 0 && endMs > 0 && endMs >= startMs) {
+        return `Duration ${formatDurationLabel(Math.round((endMs - startMs) / 60000))}`;
+      }
+    }
+    if (completedAt) {
+      return `Completed ${formatDateTime(completedAt)}`;
+    }
+    if (startedAt) {
+      return `Elapsed ${formatElapsedMinutes(startedAt, 0)}`;
+    }
+    if (visualState?.status === "active" && chain?.created_at) {
+      return `Elapsed ${formatElapsedMinutes(chain.created_at, 0)}`;
+    }
+    return visualState?.status === "complete" ? "Duration unknown" : "Not started";
+  }
+
+  function assessmentChainRunnerNames(phase, limit = 4) {
+    const steps = Array.isArray(phase?.steps) ? phase.steps : [];
+    const names = steps
+      .map((step) => assessmentChainRunnerLabel(step?.profile_name))
+      .filter(Boolean);
+    if (names.length <= limit) return names;
+    return [...names.slice(0, limit), `+${names.length - limit} more`];
+  }
+
+  function assessmentChainPhaseEtaLabel(chain) {
+    const eta = Number(state.selectedRun?.configuration_json?.eta?.estimated_total_minutes || 0);
+    const phaseCount = Math.max(1, Number(chain?.phase_count || (Array.isArray(chain?.phases) ? chain.phases.length : 0)));
+    if (!Number.isFinite(eta) || eta <= 0) return "No phase ETA in payload";
+    return `~${formatDurationLabel(Math.ceil(eta / phaseCount))}`;
+  }
+
+  function renderAssessmentChainPendingApprovalSummary(chain, phase) {
+    if (String(chain?.status || "").toLowerCase() !== "pending_phase_approval" || !phase) return "";
+    const phases = Array.isArray(chain?.phases) ? chain.phases : [];
+    const currentIndex = Number(chain?.current_phase_index || 0);
+    const phaseNumber = assessmentChainPhaseNumber(phase, currentIndex);
+    const previousPhase = currentIndex > 0 ? phases[currentIndex - 1] || null : null;
+    const previousCounts = summarizeAssessmentChainSteps(previousPhase?.steps || []);
+    const plannedRunnerNames = assessmentChainRunnerNames(phase);
+    const inventory = runtime.actions.selectedRunInventorySnapshot?.() || null;
+    const findings = runtime.actions.selectedRunFindings?.() || [];
+    const hostCount = Number(
+      inventory?.summary_json?.host_count ||
+      (Array.isArray(inventory?.hosts_json) ? inventory.hosts_json.length : 0) ||
+      (Array.isArray(inventory?.hosts) ? inventory.hosts.length : 0) ||
+      0
+    );
+    const criticalCount = findings.filter((finding) => String(finding?.severity || "").toLowerCase() === "critical").length;
+    const previousOutcome = previousPhase
+      ? `${assessmentChainPhaseName(previousPhase, currentIndex - 1)} resolved ${previousCounts.completed || 0} runner${previousCounts.completed === 1 ? "" : "s"}${previousCounts.skipped ? ` with ${previousCounts.skipped} skipped` : ""}.`
+      : "Earlier chain prerequisites are recorded.";
+    const signalLine = [
+      hostCount ? `${hostCount} host${hostCount === 1 ? "" : "s"} visible` : null,
+      findings.length ? `${findings.length} finding${findings.length === 1 ? "" : "s"}` : null,
+      criticalCount ? `${criticalCount} critical` : null,
+    ].filter(Boolean).join(" · ");
+    return `
+      <div class="assessment-chain-approval-summary split-top" data-testid="assessment-chain-pending-approval-summary">
+        <div class="task-activity-header">
+          <div>
+            <h4>${escapeHtml(`Approve Phase ${phaseNumber}: ${assessmentChainPhaseName(phase, currentIndex).replace(/^Phase\s*\d+\s*[·:-]?\s*/i, "")}`)}</h4>
+            <p class="mission-status-subline">${escapeHtml(`${previousOutcome} Ready to start ${assessmentChainPhaseName(phase, currentIndex)}.`)}</p>
+          </div>
+          <div class="inline-metrics">
+            <span class="metric-pill status-review">Awaiting approval</span>
+            <span class="metric-pill">${escapeHtml(assessmentChainPhaseEtaLabel(chain))}</span>
+          </div>
+        </div>
+        ${signalLine ? `<p class="micro-copy split-top">${escapeHtml(signalLine)}</p>` : ""}
+        <div class="compact-definition-grid split-top">
+          <div><span>Next Phase</span><strong>${escapeHtml(assessmentChainPhaseName(phase, currentIndex))}</strong></div>
+          <div><span>Approval Requirement</span><strong>${escapeHtml(phase.authorization_state?.label || "Manual approval required")}</strong></div>
+          <div><span>Will Run</span><strong>${escapeHtml(plannedRunnerNames.join(", ") || "No runner list in payload")}</strong></div>
+          <div><span>Estimated Window</span><strong>${escapeHtml(assessmentChainPhaseEtaLabel(chain))}</strong></div>
+        </div>
+        ${
+          phase.gate_reason || phase.safe_next_action
+            ? `
+              <p class="micro-copy split-top">${escapeHtml(
+                [phase.gate_reason, phase.safe_next_action ? `Safe next action: ${phase.safe_next_action}` : null]
+                  .filter(Boolean)
+                  .join(" ")
+              )}</p>
+            `
+            : ""
+        }
+        <div class="panel-actions split-top">
+          <button
+            class="action primary"
+            type="button"
+            data-assessment-chain-id="${escapeHtml(chain.id)}"
+            data-assessment-chain-phase-key="${escapeHtml(phase.key || "")}"
+            data-assessment-chain-phase-decision="approved"
+            data-testid="assessment-chain-approve"
+          >
+            ${escapeHtml(`Approve Phase ${phaseNumber}`)}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   function summarizeAssessmentChainSteps(steps) {
     return (Array.isArray(steps) ? steps : []).reduce(
       (counts, step) => {
@@ -515,20 +678,25 @@ export function createMissionModule() {
             ? `
               <div class="mission-phase-stepper split-top" data-testid="assessment-chain-phase-strip">
                 ${phases
-                  .map((chainPhase) =>
-                    renderPhaseCard({
-                      label: chainPhase.label || "Unnamed phase",
-                      status: assessmentChainPhaseCardStatus(chainPhase),
+                  .map((chainPhase, phaseIndex) => {
+                    const visualState = assessmentChainPhaseVisualState(chain, chainPhase, phaseIndex);
+                    return renderPhaseCard({
+                      label: assessmentChainPhaseName(chainPhase, phaseIndex),
+                      status: visualState.status,
+                      statusText: visualState.label,
                       progress: assessmentChainPhaseProgress(chainPhase),
-                      elapsed: formatElapsedMinutes(chainPhase.started_at || chain?.created_at, 0),
+                      elapsedLabel: assessmentChainPhaseDurationLabel(chain, chainPhase, visualState),
                       summary: assessmentChainPhaseSummary(chainPhase),
                       authorizationStatus: chainPhase.authorization_state?.status || "",
                       authorizationLabel: chainPhase.authorization_state?.label || "",
                       gateReason: chainPhase.gate_reason || chainPhase.authorization_state?.gate_reason || "",
                       safeNextAction: chainPhase.safe_next_action || chainPhase.authorization_state?.safe_next_action || "",
                       nfirPhase: nfirPhaseForAssessmentChainPhase(chainPhase),
-                    })
-                  )
+                      current: visualState.current,
+                      requiresApproval: Boolean(chainPhase.requires_approval),
+                      phaseNumber: assessmentChainPhaseNumber(chainPhase, phaseIndex),
+                    });
+                  })
                   .join("")}
               </div>
             `
@@ -556,6 +724,7 @@ export function createMissionModule() {
                   : ""
               }
               ${renderAssessmentChainPhaseDetail(phase)}
+              ${renderAssessmentChainPendingApprovalSummary(chain, phase)}
             `
             : ""
         }
@@ -563,16 +732,6 @@ export function createMissionModule() {
           ${
             String(chain.status || "").toLowerCase() === "pending_phase_approval" && phase
               ? `
-                <button
-                  class="action primary"
-                  type="button"
-                  data-assessment-chain-id="${escapeHtml(chain.id)}"
-                  data-assessment-chain-phase-key="${escapeHtml(phase.key || "")}"
-                  data-assessment-chain-phase-decision="approved"
-                  data-testid="assessment-chain-approve"
-                >
-                  Approve Phase
-                </button>
                 <button
                   class="action ghost"
                   type="button"
@@ -1196,10 +1355,12 @@ export function createMissionModule() {
     const nfirPhase = String(phase.nfirPhase || "").trim();
     const authorizationStatus = String(phase.authorizationStatus || "").trim();
     const authorizationLabel = String(phase.authorizationLabel || "").trim();
+    const normalizedStatus = String(phase.status || "pending").toLowerCase();
+    const elapsedLabel = phase.elapsedLabel || (phase.elapsed ? `Elapsed ${phase.elapsed}` : null);
     const detailLine = [
-      statusLabelForPhase(phase.status),
+      phase.statusText || statusLabelForPhase(normalizedStatus),
       authorizationLabel || null,
-      `Elapsed ${phase.elapsed}`,
+      elapsedLabel,
     ].filter(Boolean).join(" · ");
     const tooltip = [
       phase.summary,
@@ -1210,17 +1371,31 @@ export function createMissionModule() {
     ]
       .filter(Boolean)
       .join(" | ");
+    const classes = [
+      "mission-phase-step",
+      normalizedStatus,
+      phase.current ? "is-current" : "",
+      phase.requiresApproval ? "requires-approval" : "",
+    ].filter(Boolean).join(" ");
+    const dotLabel = normalizedStatus === "complete"
+      ? "✓"
+      : normalizedStatus === "waiting"
+        ? "!"
+        : escapeHtml(String(Math.max(0, Math.min(100, phase.progress || 0))));
     return `
       <div
-        class="mission-phase-step ${escapeHtml(phase.status)}"
+        class="${escapeHtml(classes)}"
         style="--phase-progress:${phase.progress}%"
         data-testid="mission-phase-card"
+        data-phase-status="${escapeHtml(normalizedStatus)}"
+        ${phase.current ? 'data-phase-current="true"' : ""}
+        ${phase.phaseNumber ? `data-phase-number="${escapeHtml(String(phase.phaseNumber))}"` : ""}
         ${authorizationStatus ? `data-phase-auth-status="${escapeHtml(authorizationStatus)}"` : ""}
         ${nfirPhase ? `data-nfir-phase-label="${escapeHtml(nfirPhase)}"` : ""}
         title="${escapeHtml(tooltip)}"
       >
         <div class="mission-phase-step-dot" aria-hidden="true">
-          ${phase.status === "complete" ? "✓" : escapeHtml(String(Math.max(0, Math.min(100, phase.progress || 0))))}
+          ${dotLabel}
         </div>
         <div class="mission-phase-step-copy">
           <strong>${escapeHtml(phase.label)}</strong>
@@ -1264,6 +1439,7 @@ export function createMissionModule() {
     const mapping = {
       complete: "Complete",
       active: "Active",
+      waiting: "Awaiting Approval",
       blocked: "Blocked",
       pending: "Pending",
     };
