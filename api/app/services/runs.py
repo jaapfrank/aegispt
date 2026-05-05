@@ -937,6 +937,40 @@ def headers_security_runner_params_from_configuration(
     return result
 
 
+def graphql_probe_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("graphql_probe")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("endpoint_paths", "ide_paths"):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = [
+                str(item).strip()
+                for item in value
+                if isinstance(item, str) and str(item).strip()
+            ]
+    for field_name in ("endpoint_paths", "ide_paths"):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = [
+                str(item).strip()
+                for item in value
+                if isinstance(item, str) and str(item).strip()
+            ]
+    if isinstance(settings.get("max_depth"), int):
+        result["max_depth"] = min(max(int(settings["max_depth"]), 2), 20)
+    if isinstance(settings.get("max_injection_fields"), int):
+        result["max_injection_fields"] = min(max(int(settings["max_injection_fields"]), 0), 10)
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2139,6 +2173,33 @@ def validate_headers_security_run_configuration(
             )
 
 
+def validate_graphql_probe_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="graphql-probe",
+    )
+    params = graphql_probe_runner_params_from_configuration(configuration)
+    for field_name in ("endpoint_paths", "ide_paths"):
+        for raw_path in params.get(field_name, []):
+            value = str(raw_path or "").strip()
+            if (
+                value
+                and "://" in value
+                and not web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+            ):
+                raise ValueError(
+                    f"configured GraphQL probe target {value} is outside the approved engagement scope"
+                )
+    max_depth = params.get("max_depth")
+    if isinstance(max_depth, int) and max_depth > 20:
+        raise ValueError("graphql-probe max_depth must be capped at 20")
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -2966,6 +3027,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "idor-bac",
         "client-state",
         "headers-security",
+        "graphql-probe",
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
@@ -3200,6 +3262,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     idor_bac_params = idor_bac_runner_params_from_configuration(run_configuration)
     client_state_params = client_state_runner_params_from_configuration(run_configuration)
     headers_security_params = headers_security_runner_params_from_configuration(run_configuration)
+    graphql_probe_params = graphql_probe_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3285,6 +3348,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "headers-security":
             validate_headers_security_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "graphql-probe":
+            validate_graphql_probe_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3635,6 +3703,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in headers_security_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "graphql-probe":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in graphql_probe_params.items()
                         if value not in (None, [], {})
                     }
                 )

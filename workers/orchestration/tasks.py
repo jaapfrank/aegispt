@@ -115,6 +115,7 @@ from workers.runners.deserialization_probe.runner import execute_deserialization
 from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
 from workers.runners.headers_security.runner import execute_headers_security_analysis
+from workers.runners.graphql_probe.runner import execute_graphql_probe
 from workers.runners.httpx.runner import execute_httpx_probe
 from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
@@ -188,6 +189,7 @@ SUPPORTED_TOOLS = {
     "easm-discover",
     "external-osint",
     "external-infra",
+    "graphql-probe",
     "headers-security",
     "httpx",
     "idor-bac",
@@ -477,6 +479,32 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 request.params.get("redirect_paths")
                 if isinstance(request.params.get("redirect_paths"), list)
                 else []
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "graphql-probe":
+        return execute_graphql_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            endpoint_paths=(
+                request.params.get("endpoint_paths")
+                if isinstance(request.params.get("endpoint_paths"), list)
+                else None
+            ),
+            ide_paths=(
+                request.params.get("ide_paths")
+                if isinstance(request.params.get("ide_paths"), list)
+                else None
+            ),
+            max_depth=(
+                request.params.get("max_depth")
+                if isinstance(request.params.get("max_depth"), int)
+                else 20
+            ),
+            max_injection_fields=(
+                request.params.get("max_injection_fields")
+                if isinstance(request.params.get("max_injection_fields"), int)
+                else 5
             ),
             timeout_seconds=timeout_seconds,
         )
@@ -2195,6 +2223,16 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             "$ headers-security --passive-headers --cors-origin-reflection "
             f"--additional-origins {origin_count} --redirect-probes {redirect_count} "
             f"--no-cors-data-extraction --approved-scope {target_label}{extra}"
+        )
+    if tool == "graphql-probe":
+        endpoint_count = len(effective_params.get("endpoint_paths") or []) if isinstance(effective_params.get("endpoint_paths"), list) else 4
+        ide_count = len(effective_params.get("ide_paths") or []) if isinstance(effective_params.get("ide_paths"), list) else 2
+        max_depth = min(max(int(effective_params.get("max_depth") or 20), 2), 20)
+        return (
+            "$ graphql-probe --discover-endpoints "
+            f"{endpoint_count} --discover-ides {ide_count} --introspection --depth {max_depth} "
+            "--field-suggestions --argument-injection --batch-size 2 "
+            f"--approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":
         upload_count = len(effective_params.get("upload_contexts") or []) if isinstance(effective_params.get("upload_contexts"), list) else 0

@@ -1027,6 +1027,23 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-graphql-probe",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated GraphQL validation for approved web/API roots covering endpoint and IDE discovery, introspection schema disclosure, bounded query-depth checks, field suggestion leakage, argument injection signals, and safe batching representation.",
+            "required_approvals": 1,
+            "tools": ["graphql-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "endpoint_discovery": True,
+            "introspection_probe": True,
+            "max_depth": 20,
+            "batch_probe_size": 2,
+            "rate_limit_bypass_attempted": False,
+            "authorization_bypass_exploitation": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

@@ -2,43 +2,41 @@
 
 ## Title
 
-GraphQL security runner: introspection abuse, query depth attacks, field suggestion, injection via GraphQL
+SSTI runner: Server-Side Template Injection detection via mathematical expression payloads
 
 ## Promoted From
 
-`codex/tasks/backlog-227-graphql-security-runner.json`
+`codex/tasks/backlog-228-ssti-server-side-template-injection.json`
 
 ## Goal
 
-Add the queued GraphQL security capability described in `codex/tasks/backlog-227-graphql-security-runner.json`.
+Add the queued SSTI capability described in `codex/tasks/backlog-228-ssti-server-side-template-injection.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-227-graphql-security-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-228-ssti-server-side-template-injection.json`.
 
 Expected slice:
 
-- detect GraphQL endpoints such as `/graphql`, `/api/graphql`, `/v1/graphql`, and `/gql`
-- detect GraphQL playground or IDE exposure such as `/graphiql` and `/playground`
-- detect successful introspection and produce schema-disclosure findings
-- use schema enumeration for subsequent bounded field testing
-- detect missing query depth limiting with a bounded depth probe
-- detect field suggestion leakage
-- test injection payloads in GraphQL string arguments
-- represent batching and authorization-bypass checks safely within the package constraints
+- add an `ssti-probe` runner for approved web/API roots
+- detect Jinja2, Twig, Freemarker, Smarty, Velocity, and similar SSTI signals using mathematical expression payloads only
+- check reflected string parameters and explicitly configured stored-form contexts
+- include Gruyere-style custom template-language detection where safely represented by the package
+- produce critical SSTI findings with engine evidence when expression output confirms execution
 - expose the capability through the supported execution registry and operator surfaces required by the package
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Add only the GraphQL security capability from the task package.
+- Add only the SSTI detection capability from the task package.
 - Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- GraphQL detection and probing must stay within approved scope.
-- Depth attack probe is capped at max 20 levels and must stop immediately.
-- No batching attacks that could overwhelm the server.
-- Do not change the existing API assessment runner or ZAP config.
+- SSTI probing must stay within approved scope.
+- Mathematical expression detection only.
+- Do not send OS command execution payloads.
+- Do not use `__import__`, `os.system`, shell, file-read, config-dump, or RCE payloads.
+- Do not change existing injection runners, Metasploit, or intrusive-tier behavior.
 - No live target actions outside safe/local/explicitly authorized validation.
 
 ## Validation
@@ -49,9 +47,8 @@ Expected slice:
 
 ## Acceptance
 
-- `graphql-probe` is registered in supported tools.
-- GraphQL endpoints are detected automatically.
-- Introspection findings are produced on a test GraphQL endpoint.
-- Schema enumeration is used for subsequent field testing.
-- GraphQL argument injection is tested in a bounded active tier requiring approval.
+- `ssti-probe` is registered in supported tools.
+- Jinja2/Twig/Freemarker-style SSTI is detected on safe test targets using only math-expression payloads.
+- Engine identification appears in produced findings.
+- Critical severity findings are produced for confirmed SSTI.
 - Existing runner/API tests do not regress.

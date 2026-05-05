@@ -128,6 +128,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Configuration review"],
   },
   {
+    id: "graphql-probe",
+    name: "GraphQL Probe",
+    category: "API",
+    tier: "active",
+    description: "Discovers GraphQL endpoints and IDEs, validates introspection exposure, bounded depth handling, field suggestions, and argument injection signals.",
+    findings: ["GraphQL introspection schema disclosure", "Missing query depth limit", "Field suggestion leakage", "GraphQL argument injection signal"],
+    prerequisites: ["Approved web or API root", "Active approval", "Depth probe capped at 20 levels and batch probe capped at 2 queries"],
+    chains: ["API Assessment", "External Web", "Authenticated App"],
+  },
+  {
     id: "xxe-probe",
     name: "XXE Probe",
     category: "Web",

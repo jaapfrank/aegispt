@@ -1,5 +1,44 @@
 # Done Log
 
+- 2026-05-05: completed backlog-227 `GraphQL security runner: introspection abuse, query depth attacks, field suggestion, injection via GraphQL`:
+  - rationale:
+    - API-first and modern web assessments needed a first-class GraphQL runner because existing API/ZAP coverage did not safely validate introspection disclosure, GraphQL IDE exposure, depth-limit posture, field suggestion leakage, or argument injection signals
+    - the active task required approved-scope endpoint discovery, schema enumeration, bounded active probes, safe representation of batching and authorization-bypass concerns, and no changes to the existing API assessment runner or ZAP configuration
+  - implementation:
+    - added `graphql-probe` as a dedicated approval-gated runner that enforces approved web/API root scope and emits `graphql-probe-results.json`
+    - implemented GraphQL endpoint discovery for configured/common paths, GraphQL IDE/playground discovery, introspection querying with schema-map extraction, schema-informed bounded depth probing capped at 20 levels, field suggestion probing, string/ID argument injection checks, and a two-query batching capability check that does not attempt rate-limit bypass
+    - recorded authorization-bypass candidates as safe evidence/check records without unauthenticated data extraction or type-confusion exploitation
+    - registered `graphql-probe` in supported tools, worker dispatch, command previews, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-graphql-probe` run profile, and the Tool Library
+  - files:
+    - `workers/runners/graphql_probe/runner.py`
+    - `workers/runners/graphql_probe/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_graphql_probe_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-227-graphql-probe-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/graphql_probe/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py workers/tests/test_graphql_probe_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py workers/tests/test_web_depth_runner.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_graphql_probe_runner.py api/tests/test_pentest_depth_registration.py workers/tests/test_web_depth_runner.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_graphql_probe_profile_requires_approval_and_queues_graphql_task -q` passed after aligning the safe fixture with the generated schema-informed queries
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings; the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test and the command exited 0
+    - `git diff --check` passed
+    - `curl -fsS --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -fsS --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "graphql-probe|GraphQL Probe"` confirmed the live-served Tool Library module contains the GraphQL Probe entry
+  - evidence:
+    - `codex/results/backlog-227-graphql-probe-runner-20260505.md`
+  - remaining risks:
+    - no public WebGoat/Gruyere or internet GraphQL target was actively scanned during build-lane validation; proof is from deterministic safe fixtures and read-only local UI asset acceptance
+    - authorization-bypass and batching checks are represented safely and do not attempt data extraction, rate-limit bypass, or high-volume batches
+    - argument injection findings are backend-error/evidence signals; they do not execute database exploitation or extract records
+
 - 2026-05-05: completed backlog-226 `HTTP security headers comprehensive check: CORS misconfiguration, CSP bypass, Clickjacking, HSTS, and information disclosure headers`:
   - rationale:
     - benchmark coverage showed AegisPT lacked a first-class runner for credentialed CORS reflection, detailed CSP policy risks, clickjacking exposure, HSTS completeness, and disclosure headers beyond existing ZAP passive behavior
