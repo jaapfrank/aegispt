@@ -166,6 +166,40 @@ from api.app.services.tenancy import (
 router = APIRouter(prefix="/api/v1", tags=["runs"])
 
 TERMINAL_RUN_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "rejected"}
+AUTO_DISPATCH_BLOCKED_TOOLS = {
+    "credential-attacks",
+    "impacket-lateral",
+    "metasploit",
+    "netexec",
+    "responder",
+}
+LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
+    "biz-logic-probe",
+    "burp",
+    "headers-security",
+    "httpx",
+    "nuclei",
+    "playwright-web",
+    "zap",
+}
+
+
+def _eligible_for_launch_auto_dispatch(run: Run) -> bool:
+    profile = run.profile
+    if profile is None:
+        return False
+    configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
+    runtime_launch = configuration.get("runtime_launch")
+    if not isinstance(runtime_launch, dict) or runtime_launch.get("dispatch_after_approval") is not True:
+        return False
+    if str(profile.run_class or "").lower() not in {"passive", "active"}:
+        return False
+    task_tools = {str(task.tool or "").strip() for task in run.tasks or []}
+    if not task_tools:
+        return False
+    if not task_tools.issubset(LAUNCH_AUTO_DISPATCH_WEB_TOOLS):
+        return False
+    return not bool(task_tools & AUTO_DISPATCH_BLOCKED_TOOLS)
 
 
 def _run_target_values(run: Run) -> list[str]:
@@ -662,6 +696,14 @@ def create_run(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     timestamp = datetime.now(tz=UTC)
+    if payload.dispatch_after_create and required_approvals(profile) > 0:
+        sanitized_configuration = {
+            **dict(sanitized_configuration or {}),
+            "runtime_launch": {
+                **dict(sanitized_configuration.get("runtime_launch") or {}),
+                "dispatch_after_approval": True,
+            },
+        }
 
     run = Run(
         engagement_id=engagement.id,
@@ -1497,8 +1539,10 @@ def draft_run_report(
 def record_run_approval(
     run_id: UUID,
     payload: ApprovalCreate,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     actor: str = Depends(require_roles("operator", "admin")),
+    settings: Settings = Depends(get_settings),
     tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> RunRead:
     run = _load_run_for_tenant(session, run_id, tenant_id)
@@ -1576,6 +1620,28 @@ def record_run_approval(
                 object_id=str(run.id),
                 metadata={"activated_by": actor, "step_id": payload.step_id},
             )
+            if _eligible_for_launch_auto_dispatch(run):
+                effective_settings = effective_runtime_settings_for_run(
+                    session,
+                    run=run,
+                    settings=settings,
+                )
+                inline_background_tasks = (
+                    background_tasks
+                    if effective_settings.inline_dispatch_background
+                    else None
+                )
+                try:
+                    dispatch_queued_run_tasks(
+                        session,
+                        run=run,
+                        actor=actor,
+                        settings=effective_settings,
+                        background_tasks=inline_background_tasks,
+                    )
+                except ValueError as exc:
+                    if str(exc) != "run has no queued tasks to dispatch":
+                        raise HTTPException(status_code=409, detail=str(exc)) from exc
         else:
             run.status = "pending_approval"
 

@@ -3,16 +3,17 @@
   "task_file": "codex/tasks/backlog-231-insufficient-logging-detection.json",
   "task_type": "product_slice",
   "title": "Insufficient logging and monitoring detection: verify security events are logged and error handling doesn't leak information",
-  "goal": "WebGoat has a dedicated logging module. OWASP A09:2021 - Security Logging and Monitoring Failures. No current runner tests this. Implement a logging-probe runner: (1) Error leakage detection: send malformed requests (invalid JSON, SQL syntax errors, stack trace triggers) and check if responses contain: stack traces, internal file paths, database error messages, framework version info, internal IP addresses. Finding: 'Error Information Disclosure - Stack Trace/Internal Path Exposed'. (2) Admin panel exposure: check common admin paths (/admin, /management, /actuator, /debug, /console, /phpinfo.php, /server-status). Spring Actuator endpoints (/actuator/env, /actuator/heapdump, /actuator/mappings) are particularly dangerous. (3) Exposed debug endpoints: check for /_debug, /debug/vars (Go), /debug/pprof, /.env, /config.json, /config.yml exposed at root. (4) Log injection probe: inject CRLF sequences (\\r\\n) and log format strings (%s, %n, ${jndi:...} — Log4Shell variant) into parameters. Check if application echoes them back unsanitized. Finding: 'Log Injection Possible' or 'Log4Shell-Style Injection Pattern Accepted'. (5) Verbose error mode: systematically trigger common errors (404, 500, auth failure) and document what information each reveals. Passive + active tier.",
+  "goal": "WebGoat has a dedicated logging module. OWASP A09:2021 - Security Logging and Monitoring Failures. No current runner tests this. Implement a logging-probe runner: (1) Error leakage detection: send malformed requests (invalid JSON, SQL syntax errors, stack trace triggers) and check if responses contain: stack traces, internal file paths, database error messages, framework version info, internal IP addresses. Finding: 'Error Information Disclosure - Stack Trace/Internal Path Exposed'. (2) Admin panel exposure: check common admin paths (/admin, /management, /actuator, /debug, /console, /phpinfo.php, /server-status). Spring Actuator endpoints (/actuator/env, /actuator/heapdump, /actuator/mappings) are particularly dangerous. (3) Exposed debug endpoints: check for /_debug, /debug/vars (Go), /debug/pprof, /.env, /config.json, /config.yml exposed at root. (4) Log injection probe: inject CRLF sequences (\\r\\n) and log format strings (%s, %n, ${jndi:...} \u2014 Log4Shell variant) into parameters. Check if application echoes them back unsanitized. Finding: 'Log Injection Possible' or 'Log4Shell-Style Injection Pattern Accepted'. (5) Verbose error mode: systematically trigger common errors (404, 500, auth failure) and document what information each reveals. Passive + active tier. WIZARD WIRING (mandatory): (1) Add to api/app/services/run_profiles.py: name=passive-web-logging-probe, run_class=PASSIVE, tools=[logging-probe], required_approvals=0. (2) Add profile passive-web-logging-probe to FULL-EXTERNAL-WEB Phase 1 in api/app/services/assessment_chain.py. (3) Add to wizard.js resolveExecutionProfile: when All web tiles any depth, include passive-web-logging-probe in planned profiles. (4) Add to scripts/acceptance_harness.py PROFILE_TOOL_MAP: passive-web-logging-probe: [logging-probe].",
   "scope": "WebGoat logging module + OWASP A09. Not currently tested. Information leakage via error messages and admin panel exposure are consistently found in enterprise pentests.",
   "status": "queued",
   "generated_by": "coverage-gap-analysis-2026-05-03",
-  "generation_reason": "OWASP A09 (Logging/Monitoring Failures) not tested — WebGoat has dedicated module, stack traces and Spring Actuator exposure are common enterprise findings.",
+  "generation_reason": "OWASP A09 (Logging/Monitoring Failures) not tested \u2014 WebGoat has dedicated module, stack traces and Spring Actuator exposure are common enterprise findings.",
   "source_context": {
     "queue_index": 219,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
-      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",
+      "codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json"
     ],
     "pack_id": null,
     "pack_version": null,
@@ -41,12 +42,18 @@
     "Common admin/debug path exposure produces findings.",
     "Log injection probe tests CRLF and log format strings.",
     "Passive tier for error analysis, active for path probing.",
-    "No regression in existing tests."
+    "No regression in existing tests.",
+    "RunProfile passive-web-logging-probe added to run_profiles.py.",
+    "Runner reachable via wizard when: All web tiles any depth."
   ],
   "likely_touched_files": [
     "workers/orchestration/tasks.py",
     "CURRENT_STATE.md",
-    "DONE_LOG.md"
+    "DONE_LOG.md",
+    "api/app/services/run_profiles.py",
+    "api/app/services/assessment_chain.py",
+    "ui/assets/modules/wizard.js",
+    "scripts/acceptance_harness.py"
   ],
   "must_not_touch": [
     "Existing Nuclei runner",

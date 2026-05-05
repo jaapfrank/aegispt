@@ -976,7 +976,7 @@ export function createMissionModule() {
           : completed
             ? `Run ${runId} is ${normalizedStatus}; Mission Control is showing stored run and task state.`
             : ready
-              ? `${counts.queued} queued check${counts.queued === 1 ? "" : "s"} are attached to ${profileName}. Starting queued checks remains an explicit operator action.`
+              ? `${counts.queued} queued check${counts.queued === 1 ? "" : "s"} are attached to ${profileName}. AegisPT will start eligible authorized work automatically when an inline runner or worker is attached.`
               : `Run ${runId} is ${normalizedStatus}; no additional launch motion is implied.`;
     const steps = [
       {
@@ -1515,13 +1515,13 @@ export function createMissionModule() {
     if (canDispatchSelectedRun()) {
       const queuedTasks = (state.selectedRun?.tasks || []).filter((task) => task.status === "queued").length;
       return {
-        title: "Run is ready to start",
+        title: "Queued checks are ready",
         status: "queued",
-        health: "Operator start required",
-        next: "Dispatch queued tasks",
+        health: "Runtime handoff ready",
+        next: "Start or attach runtime execution",
         summary: `${queuedTasks} queued task${queuedTasks === 1 ? "" : "s"} are ready for controlled execution.`,
-        why: "The wizard created the mission record and queued the validation work, but dispatch is still an explicit operator action.",
-        expectation: "Press Start Queued Checks to launch the queued tasks with the current run profile, scope, and safety settings.",
+        why: "The launch gate is clear. In normal inline mode AegisPT dispatches this automatically; this action remains here only when the host still reports queued work.",
+        expectation: "Use the single Mission Control action to retry the runtime handoff, or attach an inline/background worker if the host is configured for manual dispatch.",
         primaryAction: { label: "Start Queued Checks", action: "dispatch-run" },
         secondaryAction: { label: "Open Explorer", screen: "explorer" },
       };
@@ -5849,7 +5849,17 @@ function renderSurfaceAssetCard(asset, selectedAsset) {
 function manualDispatchHintForSelectedRun() {
   const runId = state.selectedRunId ? String(state.selectedRunId) : "";
   if (!runId) return null;
-  return state.dispatchHintsByRunId[runId] || null;
+  const localHint = state.dispatchHintsByRunId[runId] || null;
+  if (localHint) return localHint;
+  const run = resolvedSelectedRun();
+  const runtimeDispatch = run?.configuration_json?.runtime_dispatch || {};
+  if (String(runtimeDispatch.last_dispatch_mode || "").toLowerCase() === "manual") {
+    return {
+      dispatch_mode: "manual",
+      message: "AegisPT already tried to start this run, but this host is in manual dispatch mode and no inline runner or worker picked up the queued checks.",
+    };
+  }
+  return null;
 }
 
 function resolvedSelectedRun() {

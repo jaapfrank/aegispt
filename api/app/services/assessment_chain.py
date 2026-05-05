@@ -82,6 +82,14 @@ HOST_FOLLOW_UP_PROFILES = {
     "intrusive-impacket-dcsync",
 }
 
+WEB_FOLLOW_UP_PROFILES = {
+    "passive-web-baseline",
+    "passive-web-nuclei-audit",
+    "active-web-safe",
+    "passive-web-burp",
+    "active-business-logic",
+}
+
 CHAIN_CRITICAL_FAILURE_PROFILES = {
     "passive-network-discovery",
 }
@@ -791,6 +799,34 @@ def _domain_targets_from_configuration(configuration: dict[str, Any]) -> list[st
     return domains
 
 
+def _web_targets_from_configuration(
+    configuration: dict[str, Any],
+) -> tuple[list[str], list[str], list[str]]:
+    targets = configuration.get("targets")
+    if not isinstance(targets, dict):
+        return [], [], []
+
+    urls: list[str] = []
+    hosts: list[str] = []
+    domains: list[str] = []
+    for key in ("urls", "api_base_urls"):
+        values = targets.get(key)
+        if isinstance(values, list):
+            for value in values:
+                _append_unique(urls, value)
+    for key in ("hosts", "ip_addresses"):
+        values = targets.get(key)
+        if isinstance(values, list):
+            for value in values:
+                _append_unique(hosts, value)
+    for key in ("domains", "subdomains"):
+        values = targets.get(key)
+        if isinstance(values, list):
+            for value in values:
+                _append_unique(domains, value)
+    return urls, hosts, domains
+
+
 def _domain_to_base_dn(value: str) -> str:
     return ",".join(f"DC={label}" for label in str(value or "").split(".") if label)
 
@@ -1014,19 +1050,26 @@ def _phase_step_run_configuration(
             raise ValueError(
                 f"{profile_name} requires discovered host inventory from an earlier chain step"
             )
-    elif profile_name in {
-        "passive-web-baseline",
-        "passive-web-nuclei-audit",
-    }:
+    elif profile_name in WEB_FOLLOW_UP_PROFILES:
         discovered_urls = _urls_from_inventory_snapshots(chain_snapshots)
         discovered_hosts = _hosts_from_inventory_snapshots(chain_snapshots)
+        configured_urls, configured_hosts, configured_domains = _web_targets_from_configuration(
+            configuration
+        )
         if discovered_urls:
             _set_follow_up_targets(configuration, urls=discovered_urls)
         elif discovered_hosts:
             _set_follow_up_targets(configuration, hosts=discovered_hosts)
+        elif configured_urls or configured_hosts or configured_domains:
+            _set_follow_up_targets(
+                configuration,
+                urls=configured_urls,
+                hosts=configured_hosts,
+                domains=configured_domains,
+            )
         else:
             raise ValueError(
-                f"{profile_name} requires discovered web targets or hosts from an earlier chain step"
+                f"{profile_name} requires discovered or configured web targets from the approved chain scope"
             )
 
     if profile_name == "passive-network-service-enumeration":

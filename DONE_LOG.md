@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-05-05: completed backlog-243 `Mission launch auto-dispatch unified flow`:
+  - rationale:
+    - External Web missions were forcing the operator through a scattered sequence of `Approve Run`, `Start Queued Checks`, and hidden profiling/Attack Map follow-up before any useful web test could finish
+    - the fix needed to preserve safety gates while making a single launch authorization carry through already-authorized web non-exploitation work
+  - implementation:
+    - approval-gated runs created with wizard-requested `dispatch_after_create` now persist launch auto-dispatch intent and auto-dispatch eligible web checks after the single approval clears
+    - dispatch attempts now persist `runtime_dispatch.last_dispatch_mode`, including manual mode, so Mission Control can explain missing inline/worker execution instead of showing a repeated dead start button
+    - Full External Web chain follow-ups now inherit approved configured URL/host/domain scope when httpx/profiling emits no inventory, so phase 2 can still queue `passive-web-nuclei-audit`, `active-web-safe`, `passive-web-burp`, and `active-business-logic` under approved scope
+    - Mission Control and wizard copy now describe auto-start/runtime attachment accurately, and the manual-dispatch UI test expects one clear remediation message instead of a second start click
+  - files:
+    - `api/app/routers/runs.py`
+    - `api/app/services/assessment_chain.py`
+    - `api/app/services/runs.py`
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_runs.py`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/modules/wizard.js`
+    - `ui/tests/test_operator_console_e2e.py`
+    - `codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md`
+    - `TASK_QUEUE.md` queue sync for externally generated backlog-244 through backlog-249 packages
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed after queue sync with 249 queued task packages mapped one-to-one and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py api/tests/test_assessment_chain.py -q`
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q`
+    - focused UI: `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_e2e.py::test_pending_approval_run_can_be_approved_from_mission_control ui/tests/test_operator_console_e2e.py::test_manual_dispatch_mode_explains_why_start_validation_does_not_launch_work ui/tests/test_operator_console_e2e.py::test_assessment_mode_internal_lan_surfaces_chain_progress -q`
+    - `curl -fsS http://127.0.0.1:8000/health/live`
+    - `git diff --check`
+  - not claimed green:
+    - full `ui/tests/test_operator_console_e2e.py -q` was attempted and then stopped after broad failures; rerun with `-x` showed the first failure in the unrelated external-infrastructure wizard route test, where the screen stayed on Authorise instead of Mission Control
+  - remaining risks:
+    - this slice does not add new web runner coverage; it repairs launch/approval/dispatch/profiling flow and scope handoff for existing External Web phases
+    - manual-dispatch hosts still need `TASK_DISPATCH_MODE=inline` or a real worker attached before queued tasks can execute
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-228 `SSTI runner`
+
 - 2026-05-05: queued and reprioritized backlog-243 `Mission launch auto-dispatch unified flow`:
   - rationale:
     - the operator reported that External Web missions still require a scattered sequence: `Approve Run` in Mission Control, `Start Queued Checks`, and then profiling activation from Attack Map instead of Mission Control

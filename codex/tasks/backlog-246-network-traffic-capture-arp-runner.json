@@ -1,0 +1,104 @@
+{
+  "id": "backlog-246-network-traffic-capture-arp-runner",
+  "task_file": "codex/tasks/backlog-246-network-traffic-capture-arp-runner.json",
+  "task_type": "product_slice",
+  "title": "Network traffic capture runner: tcpdump passive capture + ARP poisoning detection to cover AutoPenBench NS4/NS5",
+  "goal": "AutoPenBench NS4 (traffic sniffing) and NS5 (ARP spoofing) require network capture capabilities. AegisPT has no tcpdump or ARP testing. Implement a network-capture runner in two sub-modes: (1) PASSIVE CAPTURE (NS4): Run tcpdump on the assessment host for a time-bounded window (configurable, default 60s) on the target network interface. Capture packets and analyse: look for cleartext credentials in HTTP/FTP/Telnet/SMTP traffic (PCAP analysis), identify unencrypted protocols in use, detect cleartext auth tokens. Finding: 'Cleartext Credentials Captured in Network Traffic (HTTP Basic Auth)'. Passive tier \u2014 no network modification. (2) ARP POISONING DETECTION (NS5): Detect ARP spoofing vulnerabilities on the network by: sending ARP probes to verify MAC-IP consistency across the subnet, checking for ARP entries where multiple IPs map to the same MAC (sign of poisoning), checking if the default gateway IP resolves to the expected MAC. Finding: 'ARP Poisoning Possible - No ARP Inspection Detected' (network does not enforce Dynamic ARP Inspection). (3) Optional ARP spoof test (intrusive tier): use arpspoof to briefly poison a single host's ARP cache in a controlled manner, capture the rerouted traffic, immediately restore. Produces strongest evidence. Requires intrusive-credential gate. Install tcpdump and dsniff (for arpspoof) via install_security_tools.sh. WIZARD WIRING (mandatory): (1) Add to api/app/services/run_profiles.py: name=passive-lan-network-capture, run_class=PASSIVE, tools=[network-capture], required_approvals=0. (2) Add profile passive-lan-network-capture to FULL-INTERNAL-LAN Phase 1 and FULL-LAN-IOT Phase 1 in api/app/services/assessment_chain.py. (3) Add to wizard.js resolveExecutionProfile: when Internal LAN or Smart Home or IoT tile any depth, include passive-lan-network-capture in planned profiles. (4) Add to scripts/acceptance_harness.py PROFILE_TOOL_MAP: passive-lan-network-capture: [network-capture].",
+  "scope": "AutoPenBench NS4+NS5 not covered. Code audit: no tcpdump/arpspoof in AegisPT. Passive capture is low risk. ARP detection is standard LAN pentest step. Together these close 2 AutoPenBench in-vitro tasks (+9% coverage).",
+  "status": "queued",
+  "generated_by": "autopenBench-inVitro-gap-2026-05-05",
+  "generation_reason": "AutoPenBench NS4 (traffic sniffing) and NS5 (ARP spoofing) require tcpdump and arpspoof \u2014 not implemented. Both are standard LAN pentest capabilities.",
+  "source_context": {
+    "queue_index": 246,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-70-responder-llmnr-poisoning-runner.json",
+      "codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "network_capture_arp",
+    "source_documents": [
+      "workers/orchestration/tasks.py",
+      "scripts/install_security_tools.sh"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Passive capture: time-limited (max 120s), only on engagement-approved network interface. ARP spoof: max 30s, single target host, immediate restoration of original ARP entries.",
+    "safety": "ARP spoof is intrusive-credential tier only. Capture stopped immediately if packet count exceeds 10000. No storage of captured cleartext credentials beyond the finding.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "network-capture runner with passive tcpdump sub-mode.",
+    "Detects cleartext credentials in captured traffic.",
+    "ARP consistency check produces finding when no DAI detected.",
+    "ARP spoof test (intrusive) requires explicit gate.",
+    "Capture time-bounded (default 60s, max 120s).",
+    "tcpdump and dsniff in install_security_tools.sh.",
+    "AutoPenBench NS4 scenario covered.",
+    "No regression in existing tests.",
+    "RunProfile passive-lan-network-capture added to run_profiles.py.",
+    "Runner reachable via wizard when: Internal LAN or Smart Home or IoT tile any depth."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/tasks.py",
+    "workers/runners/network_capture/runner.py",
+    "scripts/install_security_tools.sh",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "api/app/services/run_profiles.py",
+    "api/app/services/assessment_chain.py",
+    "ui/assets/modules/wizard.js",
+    "scripts/acceptance_harness.py"
+  ],
+  "must_not_touch": [
+    "Existing Responder runner",
+    "Approval gates for intrusive tools"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "network-capture in supported tools.",
+      "Passive capture works.",
+      "ARP check produces finding.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Full packet capture storage",
+    "Man-in-the-middle beyond detection",
+    "SSL stripping"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

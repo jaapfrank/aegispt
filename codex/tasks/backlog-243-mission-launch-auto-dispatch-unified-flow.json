@@ -9,7 +9,7 @@
   "generated_by": "operator-mission-flow-blocker-2026-05-05",
   "generation_reason": "The operator reported that External Web missions still require pressing Approve Run, then Start Queued Checks, then starting profiling from Attack Map instead of Mission Control. This makes the app feel unusable and blocks enterprise-ready operation.",
   "source_context": {
-    "queue_index": 216,
+    "queue_index": 215,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-180-launch-authorization-auto-advance-contract.json",

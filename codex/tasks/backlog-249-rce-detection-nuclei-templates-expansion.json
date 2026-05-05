@@ -1,0 +1,33 @@
+{
+  "id": "backlog-249-rce-detection-nuclei-templates-expansion",
+  "task_file": "codex/tasks/backlog-249-rce-detection-nuclei-templates-expansion.json",
+  "task_type": "product_slice",
+  "title": "RCE detection Nuclei template expansion: cover AutoPenBench WS5/WS6 and real-world CVE RCE tasks",
+  "goal": "AutoPenBench WS5/WS6 (Remote Code Execution) and the real-world CVE tasks (Log4Shell, Spring4Shell, GeoServer, Jenkins, Drupal RCE) require comprehensive RCE detection. AegisPT uses Nuclei but may lack templates for all variants. Implement an RCE-focused Nuclei template expansion: (1) Ensure the following CVE-specific Nuclei templates are present and enabled: CVE-2021-44228 (Log4Shell), CVE-2022-22965 (Spring4Shell), CVE-2024-36401 (GeoServer), CVE-2024-23897 (Jenkins CLI RCE), CVE-2021-25646 (Druid RCE), CVE-2021-43798 (Grafana path traversal→file read), CVE-2019-16113 (Bludit RCE), CVE-2017-7494 (SambaCry). (2) Generic RCE detection: add Nuclei templates for: command injection via common parameters (cmd=, exec=, command=, ping=), PHP code execution via file inclusion, Server-Side Template Injection leading to RCE (math expression probe), deserialization gadget chain probe (URLDNS OOB). (3) OOB callback integration: configure Nuclei with an OOB server (Interactsh or self-hosted) so blind RCE (Log4Shell, SSRF→RCE) is detected via DNS/HTTP callbacks. (4) Verify Nuclei template database is up-to-date: run nuclei -update-templates in the assessment flow before each nuclei run. (5) Auto-match templates to discovered services: if nmap finds Jenkins on port 8080, only run Jenkins-specific templates. Reduces noise and scan time.",
+  "scope": "AutoPenBench WS5/WS6 (RCE) + real-world CVE tasks. Current coverage depends on Nuclei template availability. OOB detection (Interactsh) is needed for blind RCE (Log4Shell). Template auto-matching to services reduces false scan overhead.",
+  "status": "queued",
+  "generated_by": "autopenBench-inVitro-gap-2026-05-05",
+  "generation_reason": "AutoPenBench WS5/WS6 + CVE RCE tasks need comprehensive Nuclei templates + OOB callback. Template auto-matching to nmap service fingerprints maximises efficiency.",
+  "source_context": { "queue_index": 249, "queue_file": "TASK_QUEUE.md", "alignment_docs": ["codex/tasks/backlog-206-cve-to-test-auto-queue.json"], "pack_id": null, "pack_version": null, "inventory_snapshot_id": null, "relevance_decision_id": null, "threat_intel_refs": [] },
+  "inputs": { "prerequisite_active_task": "NEXT_TASK.md", "broader_theme": "rce_detection_completeness", "source_documents": ["workers/orchestration/tasks.py", "scripts/install_security_tools.sh"] },
+  "constraints": { "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.", "no_silent_reprioritization": true, "no_untracked_future_work": true,
+    "scope_creep_guard": "Detection templates only. Never use Nuclei templates that deliver payloads or write files. OOB probe is DNS/HTTP callback only.",
+    "safety": "Nuclei templates MUST be detection-only. No templates with 'attack' or 'body' payloads. Verify against existing safety validation from cve_template_generator.py.",
+    "runtime_mutation": false },
+  "success_criteria": [
+    "All listed CVE templates verified present and enabled.",
+    "OOB/Interactsh configured for blind RCE detection (Log4Shell).",
+    "nuclei -update-templates runs before each scan.",
+    "Templates auto-matched to nmap-discovered services.",
+    "AutoPenBench WS5 (basic RCE) detected.",
+    "Log4Shell detected via OOB callback.",
+    "No regression in existing Nuclei tests."
+  ],
+  "likely_touched_files": ["workers/orchestration/tasks.py", "workers/runners/nuclei/runner.py", "scripts/install_security_tools.sh", "CURRENT_STATE.md", "DONE_LOG.md"],
+  "must_not_touch": ["Nuclei safety validation", "Existing template approval gates"],
+  "validation": { "required_checks": ["python3 scripts/validate_backlog_tasks.py", "source .venv/bin/activate && python -m pytest api/tests/ -q", "git diff --check"], "acceptance_criteria": ["Log4Shell template detects via OOB.", "Service-matched template selection works.", "E2E tests pass."] },
+  "promotion_requirements": { "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."], "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."] },
+  "out_of_scope": ["RCE exploitation", "Payload delivery", "Webshell uploads"],
+  "expected_output": { "decision_complete": true, "task_package_type": "single_clear_slice", "validation_required": true, "docs_update_required": true },
+  "validation_status": "task_package_ready", "approval_status": "queued_not_promoted"
+}

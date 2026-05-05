@@ -1579,7 +1579,7 @@ export function createWizardModule() {
         <div class="mission-created-metrics">
           <span>${escapeHtml(profileName || "selected execution lane")}</span>
           <span>${escapeHtml(targetSummary || "approved scope")}</span>
-          <span>${escapeHtml("operator dispatch required")}</span>
+          <span>${escapeHtml("authorized checks auto-start when runtime is attached")}</span>
         </div>
       </div>
     `;

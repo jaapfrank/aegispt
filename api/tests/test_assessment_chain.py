@@ -228,7 +228,6 @@ def test_assessment_chain_phase_approval_queues_next_phase_once(client) -> None:
     assert approved_chain["status"] == "active"
     assert approved_chain["current_phase_key"] == "directory-enumeration"
     assert approved_chain["current_run_id"] is not None
-
     run_response = client.get(f"/api/v1/runs/{approved_chain['current_run_id']}")
     assert run_response.status_code == 200
     queued_run = run_response.json()
@@ -237,6 +236,96 @@ def test_assessment_chain_phase_approval_queues_next_phase_once(client) -> None:
     assert queued_run["pending_approvals"] == 0
     assert queued_run["assessment_chain"]["current_run_id"] == queued_run["id"]
 
+
+def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_httpx_has_no_inventory(
+    client,
+) -> None:
+    engagement_id = _create_engagement_with_assessment_chain_scope(client)
+    configuration = _with_chain_authorization(
+        _assessment_chain_configuration(assessment_type="External Web"),
+        level="active",
+        mode="FULL-EXTERNAL-WEB",
+        confirmation_target="https://portal.example.test",
+        confirmed_scope="https://portal.example.test",
+    )
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-easm-discovery",
+            "assessment_mode": "FULL-EXTERNAL-WEB",
+            "assessment_auto_advance_on_phase_complete": True,
+            "configuration_json": configuration,
+            "dispatch_after_create": True,
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_run = create_response.json()
+    assert created_run["profile"]["name"] == "passive-easm-discovery"
+    assert (
+        created_run["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"]
+        == "manual"
+    )
+
+    with client.app.state.session_factory() as session:
+        first_run = session.get(Run, UUID(created_run["id"]))
+        assert first_run is not None
+        first_run.status = "completed"
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=first_run.id,
+            actor="runner:easm-discover",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        baseline_run = session.get(Run, chain.current_run_id)
+        assert baseline_run is not None
+        assert baseline_run.profile is not None
+        assert baseline_run.profile.name == "passive-web-baseline"
+        assert baseline_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
+
+        baseline_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=baseline_run.id,
+            actor="runner:httpx",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        nuclei_run = session.get(Run, chain.current_run_id)
+        assert nuclei_run is not None
+        assert nuclei_run.profile is not None
+        assert nuclei_run.profile.name == "passive-web-nuclei-audit"
+        assert nuclei_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
+
+        nuclei_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=nuclei_run.id,
+            actor="runner:nuclei",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        active_run = session.get(Run, chain.current_run_id)
+        assert active_run is not None
+        assert active_run.profile is not None
+        assert active_run.profile.name == "active-web-safe"
+        assert active_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
 
 def test_full_authorization_auto_advances_pre_authorized_non_exploitation_phase(client) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)

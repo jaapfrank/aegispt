@@ -4352,6 +4352,16 @@ def dispatch_queued_run_tasks(
         settings,
         background_tasks=background_tasks,
     )
+    run.configuration_json = {
+        **dict(run.configuration_json or {}),
+        "runtime_dispatch": {
+            **dict((run.configuration_json or {}).get("runtime_dispatch") or {}),
+            "last_dispatch_mode": dispatch_mode,
+            "last_dispatched_at": datetime.now(tz=UTC).isoformat(),
+            "last_dispatched_by": actor,
+            "queued_task_count": len(queued_tasks),
+        },
+    }
 
     write_audit_event(
         session=session,

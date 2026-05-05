@@ -5621,20 +5621,14 @@ def test_manual_dispatch_mode_explains_why_start_validation_does_not_launch_work
     _finish_internal_inventory_intake(manual_loaded_page)
     _launch_guided_mission_from_preview(manual_loaded_page)
 
-    expect(manual_loaded_page.get_by_test_id("mission-dispatch")).to_be_visible(timeout=15000)
-    manual_loaded_page.get_by_test_id("mission-dispatch").click()
-
-    expect(manual_loaded_page.locator("#status-feed")).to_contain_text(
-        "manual mode",
-        timeout=15000,
-    )
+    expect(manual_loaded_page.locator('[data-testid="mission-dispatch"]')).to_have_count(0)
     expect(manual_loaded_page.get_by_test_id("manual-dispatch-warning")).to_contain_text(
-        "no inline runner or background worker is attached"
+        "no inline runner or worker",
+        timeout=15000,
     )
     expect(manual_loaded_page.get_by_test_id("manual-dispatch-warning")).to_contain_text(
         "TASK_DISPATCH_MODE=inline"
     )
-    expect(manual_loaded_page.locator('[data-testid="mission-dispatch"]')).to_have_count(0)
 
 
 def test_surface_map_shows_only_functional_tabs_and_light_empty_state_before_inventory_exists(

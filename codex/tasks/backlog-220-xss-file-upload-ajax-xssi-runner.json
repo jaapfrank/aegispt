@@ -3,8 +3,8 @@
   "task_file": "codex/tasks/backlog-220-xss-file-upload-ajax-xssi-runner.json",
   "task_type": "product_slice",
   "title": "XSS completeness: dedicated file-upload XSS, AJAX/JSON XSS, and XSSI (Cross-Site Script Inclusion) detection",
-  "goal": "ZAP active scan covers basic reflected/stored XSS but misses three Gruyere-confirmed variants: (1) File Upload XSS: when a file upload endpoint is found, attempt uploading an HTML file containing an XSS payload. If the server serves the uploaded file on the same domain without Content-Type: text/plain or Content-Disposition: attachment, the file executes scripts. Detection: upload <html><script>alert(1)</script></html>, check if GET to the uploaded path returns HTML with script tag. Finding: 'Stored XSS via Unrestricted HTML Upload'. (2) AJAX/JSON XSS: for AJAX endpoints returning JSON, inject XSS payloads into all parameters. Check if the JSON response embeds the unescaped payload AND if the response is served as text/html (triggering script execution when eval'd). ZAP scanner often misses this because it only checks HTML responses. (3) XSSI (Cross-Site Script Inclusion): check if JSON endpoints with sensitive data are accessible without SameSite cookie requirements. An attacker can include them via <script src='...'> and steal data. Detection: check if JSON responses that contain user data lack: X-Content-Type-Options, vary: Origin, or CSRF tokens. Finding: 'Cross-Site Script Inclusion - Data Leakage via JSONP or JSON without protection'. Implement as an extension to the existing ZAP runner (additional scanner IDs + custom scripts) and a standalone xss-extended runner for file upload + XSSI checks.",
-  "scope": "Gruyere benchmark: 3 XSS variants that ZAP misses. Current coverage gap: XSS via file upload ⚠️, XSS via AJAX/JSON ⚠️, XSSI ❌. To reach 80% Gruyere coverage these must be implemented.",
+  "goal": "ZAP active scan covers basic reflected/stored XSS but misses three Gruyere-confirmed variants: (1) File Upload XSS: when a file upload endpoint is found, attempt uploading an HTML file containing an XSS payload. If the server serves the uploaded file on the same domain without Content-Type: text/plain or Content-Disposition: attachment, the file executes scripts. Detection: upload <html><script>alert(1)</script></html>, check if GET to the uploaded path returns HTML with script tag. Finding: 'Stored XSS via Unrestricted HTML Upload'. (2) AJAX/JSON XSS: for AJAX endpoints returning JSON, inject XSS payloads into all parameters. Check if the JSON response embeds the unescaped payload AND if the response is served as text/html (triggering script execution when eval'd). ZAP scanner often misses this because it only checks HTML responses. (3) XSSI (Cross-Site Script Inclusion): check if JSON endpoints with sensitive data are accessible without SameSite cookie requirements. An attacker can include them via <script src='...'> and steal data. Detection: check if JSON responses that contain user data lack: X-Content-Type-Options, vary: Origin, or CSRF tokens. Finding: 'Cross-Site Script Inclusion - Data Leakage via JSONP or JSON without protection'. Implement as an extension to the existing ZAP runner (additional scanner IDs + custom scripts) and a standalone xss-extended runner for file upload + XSSI checks. WIZARD WIRING (mandatory): (1) Add to api/app/services/run_profiles.py: name=active-web-xss-extended, run_class=ACTIVE, tools=[xss-extended], required_approvals=1, approval_step_id: active-web-xss-extended. (2) Add profile active-web-xss-extended to FULL-EXTERNAL-WEB Phase 2 in api/app/services/assessment_chain.py. (3) Add to wizard.js resolveExecutionProfile: when Web tile + active or full depth, include active-web-xss-extended in planned profiles. (4) Add to scripts/acceptance_harness.py PROFILE_TOOL_MAP: active-web-xss-extended: [xss-extended].",
+  "scope": "Gruyere benchmark: 3 XSS variants that ZAP misses. Current coverage gap: XSS via file upload \u26a0\ufe0f, XSS via AJAX/JSON \u26a0\ufe0f, XSSI \u274c. To reach 80% Gruyere coverage these must be implemented.",
   "status": "queued",
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "Gruyere shows 3 XSS variants not covered by ZAP: file upload XSS, AJAX/JSON response injection, XSSI data leakage. These are needed to reach 80%+ coverage.",
@@ -12,7 +12,8 @@
     "queue_index": 207,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
-      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",
+      "codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json"
     ],
     "pack_id": null,
     "pack_version": null,
@@ -39,14 +40,20 @@
     "AJAX/JSON XSS: detects XSS in JSON response context.",
     "XSSI: detects unprotected JSON endpoint accessible cross-site.",
     "All three produce structured findings.",
-    "Active tier — requires one approval.",
-    "No regression in existing tests."
+    "Active tier \u2014 requires one approval.",
+    "No regression in existing tests.",
+    "RunProfile active-web-xss-extended added to run_profiles.py.",
+    "Runner reachable via wizard when: Web tile + active or full depth."
   ],
   "likely_touched_files": [
     "workers/orchestration/tasks.py",
     "scripts/install_security_tools.sh",
     "CURRENT_STATE.md",
-    "DONE_LOG.md"
+    "DONE_LOG.md",
+    "api/app/services/run_profiles.py",
+    "api/app/services/assessment_chain.py",
+    "ui/assets/modules/wizard.js",
+    "scripts/acceptance_harness.py"
   ],
   "must_not_touch": [
     "Existing ZAP runner",

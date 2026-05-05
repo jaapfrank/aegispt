@@ -5529,7 +5529,7 @@ def test_active_run_requires_approval_before_queueing(client) -> None:
     create_response = client.post(
         f"/api/v1/engagements/{engagement_id}/runs",
         headers={"X-Actor": "operator"},
-        json={"profile_name": "active-web-safe"},
+        json={"profile_name": "active-web-safe", "dispatch_after_create": True},
     )
 
     assert create_response.status_code == 201
@@ -5554,6 +5554,8 @@ def test_active_run_requires_approval_before_queueing(client) -> None:
     assert len(approval_payload["tasks"]) == 1
     assert {task["tool"] for task in approval_payload["tasks"]} == {"zap"}
     assert approval_payload["tasks"][0]["params_json"]["targets"] == ["https://example.com"]
+    assert approval_payload["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"] == "manual"
+    assert approval_payload["configuration_json"]["runtime_dispatch"]["queued_task_count"] == 1
     assert approval_payload["findings"]["finding_count"] == 0
 
 
