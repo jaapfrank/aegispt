@@ -2,41 +2,43 @@
 
 ## Title
 
-SSTI runner: Server-Side Template Injection detection via mathematical expression payloads
+HTTP request smuggling runner: detect CL.TE, TE.CL, and TE.TE desync vulnerabilities in reverse proxy setups
 
 ## Promoted From
 
-`codex/tasks/backlog-228-ssti-server-side-template-injection.json`
+`codex/tasks/backlog-229-http-request-smuggling-runner.json`
 
 ## Goal
 
-Add the queued SSTI capability described in `codex/tasks/backlog-228-ssti-server-side-template-injection.json`.
+Add the queued HTTP request smuggling capability described in `codex/tasks/backlog-229-http-request-smuggling-runner.json`.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-228-ssti-server-side-template-injection.json`.
+Implement the active backlog package `codex/tasks/backlog-229-http-request-smuggling-runner.json`.
 
 Expected slice:
 
-- add an `ssti-probe` runner for approved web/API roots
-- detect Jinja2, Twig, Freemarker, Smarty, Velocity, and similar SSTI signals using mathematical expression payloads only
-- check reflected string parameters and explicitly configured stored-form contexts
-- include Gruyere-style custom template-language detection where safely represented by the package
-- produce critical SSTI findings with engine evidence when expression output confirms execution
+- add an `http-smuggling` runner for approved web/API roots behind a proxy
+- detect CL.TE, TE.CL, and TE.TE request desynchronization signals through timing-based detection only
+- run only when proxy evidence is present, such as `Via` or `X-Forwarded-*` headers from the approved target
+- cap probe timing/timeout according to the package and stop after timing confirmation
+- produce critical HTTP request smuggling findings with timing and proxy evidence
 - expose the capability through the supported execution registry and operator surfaces required by the package
 
 ## Constraints
 
 - Keep Prompt 1 and Prompt 2 intact.
-- Add only the SSTI detection capability from the task package.
+- Add only the HTTP request smuggling detection capability from the task package.
 - Do not bypass local provenance, scope, ROE, validation, approval, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- SSTI probing must stay within approved scope.
-- Mathematical expression detection only.
-- Do not send OS command execution payloads.
-- Do not use `__import__`, `os.system`, shell, file-read, config-dump, or RCE payloads.
-- Do not change existing injection runners, Metasploit, or intrusive-tier behavior.
+- HTTP request smuggling probing must stay within approved scope.
+- Timing-based detection only.
+- Only probe targets identified as being behind a proxy.
+- Max 5-second timeout per probe.
+- Do not construct confirming requests that cause visible side effects for other users.
+- Do not perform request hijacking, cache poisoning, WAF bypass, or internal endpoint access chains.
+- Do not change ZAP config, SSL/TLS runner, Metasploit, or intrusive-tier behavior.
 - No live target actions outside safe/local/explicitly authorized validation.
 
 ## Validation
@@ -47,8 +49,8 @@ Expected slice:
 
 ## Acceptance
 
-- `ssti-probe` is registered in supported tools.
-- Jinja2/Twig/Freemarker-style SSTI is detected on safe test targets using only math-expression payloads.
-- Engine identification appears in produced findings.
-- Critical severity findings are produced for confirmed SSTI.
+- `http-smuggling` is registered in supported tools.
+- CL.TE, TE.CL, and TE.TE timing probes are represented safely on deterministic test targets.
+- The runner refuses targets without proxy evidence.
+- Critical severity findings are produced for timing-confirmed request smuggling.
 - Existing runner/API tests do not regress.

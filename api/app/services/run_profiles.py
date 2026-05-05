@@ -1044,6 +1044,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-ssti-probe",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated server-side template injection validation for approved web/API roots using math-expression payloads only across reflected parameters and explicitly configured stored-form contexts.",
+            "required_approvals": 1,
+            "tools": ["ssti-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "math_expression_payloads_only": True,
+            "command_payloads": False,
+            "config_dump_payloads": False,
+            "stored_contexts_require_explicit_configuration": True,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

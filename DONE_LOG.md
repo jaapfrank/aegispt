@@ -1,5 +1,48 @@
 # Done Log
 
+- 2026-05-05: completed backlog-228 `SSTI runner: Server-Side Template Injection detection via mathematical expression payloads`:
+  - rationale:
+    - AegisPT lacked first-class SSTI coverage even though this is a critical input-validation class that existing ZAP/Nuclei defaults do not reliably cover
+    - the active task required detection by mathematical expression output, engine evidence, stored-form coverage, Gruyere-style custom template representation, active approval, and no command/config/file-read payloads
+  - implementation:
+    - added `ssti-probe` as a dedicated approval-gated runner for approved web/API roots that emits `ssti-probe-results.json`
+    - reflected-parameter probing now uses marker-wrapped math expressions for Jinja2/Twig/GTL-style, Jinja2 string multiplication, Freemarker/Spring EL, Freemarker assignment, Velocity, hash-expression engines, Smarty/custom syntax, and ERB/EEx
+    - explicit stored-form and Gruyere GTL contexts are supported through configured action/render URLs only, with approved-scope validation before submission or render retrieval
+    - critical findings include engine evidence, checked parameter/context, response hash/excerpt, replay metadata, and safety metadata proving math-only execution with no command or config-dump payloads
+    - registered `ssti-probe` in supported worker tools, dispatch, command preview, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-ssti-probe` run profile, and the Tool Library
+  - package exception:
+    - the task-package goal included engine fingerprint examples such as config/version/callback template expressions, but `NEXT_TASK.md` and package constraints made mathematical expressions only authoritative; this slice therefore identifies engines from safe expression syntax and output markers only
+  - files:
+    - `workers/runners/ssti_probe/runner.py`
+    - `workers/runners/ssti_probe/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_ssti_probe_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-228-ssti-probe-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m compileall -q workers/runners/ssti_probe workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py` passed
+    - focused tests passed: `source .venv/bin/activate && python -m pytest workers/tests/test_ssti_probe_runner.py workers/tests/test_web_depth_runner.py::test_web_depth_tools_are_supported api/tests/test_pentest_depth_registration.py api/tests/test_runs.py::test_active_ssti_probe_profile_requires_approval_and_queues_ssti_task -q`
+    - required full API gate passed: `source .venv/bin/activate && python -m pytest api/tests/ -q`; existing Alembic warnings appeared and the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test
+    - read-only live acceptance passed after restarting the local inline host on current code with `AEGISPT_LOCAL_ENSURE_ZAP=0`: `/health/live` was healthy, `/app/assets/modules/packs.js` contained `ssti-probe` / `SSTI Probe`, and `/api/v1/run-profiles` contained `active-web-ssti-probe` with `['ssti-probe']`
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-229 into `NEXT_TASK.md`
+    - final `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-228-ssti-probe-runner-20260505.md`
+  - remaining risks:
+    - no public Gruyere/WebGoat or internet target was actively scanned during this build-lane slice; proof is from deterministic safe fixtures plus read-only local UI/API acceptance
+    - stored-form SSTI validation depends on operators configuring explicit in-scope stored-form and render contexts
+    - the runner confirms template evaluation and records RCE possibility, but intentionally does not execute commands, read files, dump config, or chain exploitation
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-229 `HTTP request smuggling runner`
+
 - 2026-05-05: completed backlog-243 `Mission launch auto-dispatch unified flow`:
   - rationale:
     - External Web missions were forcing the operator through a scattered sequence of `Approve Run`, `Start Queued Checks`, and hidden profiling/Attack Map follow-up before any useful web test could finish

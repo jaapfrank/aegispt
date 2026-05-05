@@ -971,6 +971,50 @@ def graphql_probe_runner_params_from_configuration(
     return result
 
 
+def ssti_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("ssti_probe")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("parameter_names", "candidate_paths"):
+        value = _normalized_string_list(settings.get(field_name), limit=40)
+        if value:
+            result[field_name] = value
+    for field_name in ("parameter_names", "candidate_paths"):
+        if field_name in result:
+            continue
+        value = _normalized_string_list(validation.get(field_name), limit=40)
+        if value:
+            result[field_name] = value
+    for field_name in ("stored_form_contexts", "gruyere_contexts"):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = [
+                dict(item)
+                for item in value[:20]
+                if isinstance(item, dict)
+            ]
+    for field_name in ("stored_form_contexts", "gruyere_contexts"):
+        if field_name in result:
+            continue
+        value = validation.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = [
+                dict(item)
+                for item in value[:20]
+                if isinstance(item, dict)
+            ]
+    if isinstance(settings.get("max_parameters"), int):
+        result["max_parameters"] = min(max(int(settings["max_parameters"]), 1), 20)
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2200,6 +2244,58 @@ def validate_graphql_probe_run_configuration(
         raise ValueError("graphql-probe max_depth must be capped at 20")
 
 
+def _configured_context_targets(item: Any) -> list[str]:
+    if isinstance(item, str):
+        return [item]
+    if not isinstance(item, dict):
+        return []
+    return [
+        str(
+            item.get("url")
+            or item.get("action")
+            or item.get("target")
+            or item.get("endpoint")
+            or ""
+        ).strip(),
+        str(item.get("render_url") or item.get("final_url") or item.get("view_url") or "").strip(),
+    ]
+
+
+def validate_ssti_probe_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="ssti-probe",
+    )
+    params = ssti_runner_params_from_configuration(configuration)
+    for raw_path in params.get("candidate_paths", []):
+        value = str(raw_path or "").strip()
+        if (
+            value
+            and "://" in value
+            and not web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+        ):
+            raise ValueError(
+                f"configured SSTI probe target {value} is outside the approved engagement scope"
+            )
+    for field_name in ("stored_form_contexts", "gruyere_contexts"):
+        entries = params.get(field_name)
+        for item in entries if isinstance(entries, list) else []:
+            for target_value in _configured_context_targets(item):
+                if (
+                    target_value
+                    and "://" in target_value
+                    and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+                ):
+                    raise ValueError(
+                        f"configured SSTI probe target {target_value} is outside the approved engagement scope"
+                    )
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -3028,6 +3124,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "client-state",
         "headers-security",
         "graphql-probe",
+        "ssti-probe",
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
@@ -3263,6 +3360,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     client_state_params = client_state_runner_params_from_configuration(run_configuration)
     headers_security_params = headers_security_runner_params_from_configuration(run_configuration)
     graphql_probe_params = graphql_probe_runner_params_from_configuration(run_configuration)
+    ssti_params = ssti_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3353,6 +3451,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "graphql-probe":
             validate_graphql_probe_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "ssti-probe":
+            validate_ssti_probe_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3711,6 +3814,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in graphql_probe_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "ssti-probe":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in ssti_params.items()
                         if value not in (None, [], {})
                     }
                 )

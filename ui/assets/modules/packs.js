@@ -118,6 +118,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Injection confirmation"],
   },
   {
+    id: "ssti-probe",
+    name: "SSTI Probe",
+    category: "Web",
+    tier: "active",
+    description: "Confirms server-side template injection with marker-wrapped mathematical expressions only, covering reflected parameters and explicitly configured stored-form contexts.",
+    findings: ["SSTI Confirmed with engine evidence", "Template expression evaluation", "Critical input validation weakness"],
+    prerequisites: ["Approved web or API root", "Active approval", "No command, file-read, or config-dump payloads"],
+    chains: ["External Web", "Authenticated App", "Injection confirmation"],
+  },
+  {
     id: "headers-security",
     name: "HTTP Headers Security",
     category: "Web",

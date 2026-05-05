@@ -47,6 +47,7 @@ def test_web_depth_tools_are_supported() -> None:
         "client-state",
         "headers-security",
         "graphql-probe",
+        "ssti-probe",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 

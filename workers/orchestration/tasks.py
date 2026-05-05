@@ -147,6 +147,7 @@ from workers.runners.smart_home.runner import (
     SMART_HOME_RESULTS_ARTIFACT_NAME,
     execute_smart_home_audit,
 )
+from workers.runners.ssti_probe.runner import execute_ssti_probe
 from workers.runners.ssrf_probe.runner import execute_ssrf_probe
 from workers.runners.snmp_enum.runner import (
     SNMP_ENUM_RESULTS_ARTIFACT_NAME,
@@ -212,6 +213,7 @@ SUPPORTED_TOOLS = {
     "semgrep",
     "session-security",
     "smart-home",
+    "ssti-probe",
     "ssrf-probe",
     "snmp-enum",
     "sqlmap",
@@ -505,6 +507,37 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 request.params.get("max_injection_fields")
                 if isinstance(request.params.get("max_injection_fields"), int)
                 else 5
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "ssti-probe":
+        return execute_ssti_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            parameter_names=(
+                request.params.get("parameter_names")
+                if isinstance(request.params.get("parameter_names"), list)
+                else None
+            ),
+            candidate_paths=(
+                request.params.get("candidate_paths")
+                if isinstance(request.params.get("candidate_paths"), list)
+                else None
+            ),
+            stored_form_contexts=(
+                request.params.get("stored_form_contexts")
+                if isinstance(request.params.get("stored_form_contexts"), list)
+                else []
+            ),
+            gruyere_contexts=(
+                request.params.get("gruyere_contexts")
+                if isinstance(request.params.get("gruyere_contexts"), list)
+                else []
+            ),
+            max_parameters=(
+                request.params.get("max_parameters")
+                if isinstance(request.params.get("max_parameters"), int)
+                else 12
             ),
             timeout_seconds=timeout_seconds,
         )
@@ -2233,6 +2266,16 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"{endpoint_count} --discover-ides {ide_count} --introspection --depth {max_depth} "
             "--field-suggestions --argument-injection --batch-size 2 "
             f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "ssti-probe":
+        parameter_count = len(effective_params.get("parameter_names") or []) if isinstance(effective_params.get("parameter_names"), list) else 10
+        stored_count = len(effective_params.get("stored_form_contexts") or []) if isinstance(effective_params.get("stored_form_contexts"), list) else 0
+        gruyere_count = len(effective_params.get("gruyere_contexts") or []) if isinstance(effective_params.get("gruyere_contexts"), list) else 0
+        return (
+            "$ ssti-probe --math-expressions-only --reflected-parameters "
+            f"{parameter_count} --stored-contexts {stored_count} "
+            f"--gruyere-contexts {gruyere_count} --no-command-payloads "
+            f"--no-config-dump-payloads --approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":
         upload_count = len(effective_params.get("upload_contexts") or []) if isinstance(effective_params.get("upload_contexts"), list) else 0
