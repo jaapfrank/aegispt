@@ -14,6 +14,7 @@ from api.app.config import Settings, get_settings
 from api.app.db import configure_database, shutdown_database
 from api.app.routers.artifacts import router as artifacts_router
 from api.app.routers.auth import router as auth_router
+from api.app.routers.ai_research import router as ai_research_router
 from api.app.routers.codex import router as codex_router
 from api.app.routers.custom_vulnerabilities import router as custom_vulnerabilities_router
 from api.app.routers.dashboard import router as dashboard_router
@@ -157,6 +158,7 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(health_router)
+    app.include_router(ai_research_router)
     app.include_router(artifacts_router)
     app.include_router(auth_router)
     app.include_router(codex_router)

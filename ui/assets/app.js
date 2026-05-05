@@ -7,6 +7,7 @@ import { createFindingsModule } from "./modules/findings.js?v=20260429-auto-enri
 import { createMissionModule } from "./modules/mission-control.js?v=20260505-ai-proposals-inbox-1";
 import { createPacksModule } from "./modules/packs.js";
 import { createProblemsModule } from "./modules/problems.js";
+import { createResearchModule } from "./modules/research.js";
 import { createReportsModule } from "./modules/reports.js";
 import { createSettingsModule } from "./modules/settings.js?v=20260501-nvd-rate-limit-hint-1";
 import {
@@ -46,6 +47,7 @@ let missionModule;
 let findingsModule;
 let packsModule;
 let problemsModule;
+let researchModule;
 let reportsModule;
 let explorerHistoryModule;
 let settingsModule;
@@ -101,6 +103,7 @@ const SCREEN_PHASE_MAP = {
   agents: "execution",
   "surface-map": "execution",
   "pack-forge": "execution",
+  research: "execution",
   "problems-center": "analysis",
   "custom-vulnerabilities": "analysis",
   "findings-theater": "analysis",
@@ -142,6 +145,7 @@ const NAV_GROUPS = [
   { screen: "report-center", label: "Reports", icon: "☰", testId: "nav-reports" },
   { screen: "history", label: "History", icon: "⊡", testId: "nav-history" },
   { kind: "section", label: "Build" },
+  { screen: "research", label: "Research", icon: "✧", testId: "nav-research" },
   { screen: "pack-forge", label: "Packs", icon: "⬖", testId: "nav-packs" },
   { screen: "evidence-replay", label: "Evidence Replay", icon: "▣", testId: "nav-evidence-replay", utility: true },
   { screen: "explorer", label: "Explorer", icon: "⌕", testId: "nav-explorer", utility: true },
@@ -174,6 +178,7 @@ function initializeModules() {
   findingsModule = createFindingsModule();
   packsModule = createPacksModule();
   problemsModule = createProblemsModule();
+  researchModule = createResearchModule();
   reportsModule = createReportsModule();
   explorerHistoryModule = createExplorerHistoryModule();
   settingsModule = createSettingsModule();
@@ -243,6 +248,7 @@ function bindDom() {
   dom.findingTheaterDetail = document.getElementById("finding-theater-detail");
   dom.problemsContent = document.getElementById("problems-content");
   dom.customVulnerabilitiesContent = document.getElementById("custom-vulnerabilities-content");
+  dom.researchContent = document.getElementById("research-content");
   dom.evidenceOverview = document.getElementById("evidence-overview");
   dom.evidenceExecutions = document.getElementById("evidence-executions");
   dom.evidenceArtifacts = document.getElementById("evidence-artifacts");
@@ -293,6 +299,7 @@ function bindRuntimeActions() {
     latestRelevanceDecision,
     loadDashboard: dashboardModule.loadDashboard,
     loadProblems: problemsModule.loadProblems,
+    loadResearchLab: researchModule.loadResearchLab,
     ensureComparisonFindings,
     loadFindingsForRun,
     loadSelectedFinding,
@@ -312,6 +319,7 @@ function bindRuntimeActions() {
     renderCustomVulnerabilityLibrary: customVulnerabilitiesModule.renderCustomVulnerabilityLibrary,
     renderDashboard: dashboardModule.renderDashboard,
     renderProblemsCenter: problemsModule.renderProblemsCenter,
+    renderResearchLab: researchModule.renderResearchLab,
     renderFlowOverview,
     renderMissionControl: missionModule.renderMissionControl,
     renderReportCenter: reportsModule.renderReportCenter,
@@ -381,6 +389,12 @@ function bindGlobalEvents() {
     state.threatIntelLoading = false;
     state.threatIntelSyncing = false;
     state.threatIntelError = null;
+    state.researchLab = null;
+    state.researchLoading = false;
+    state.researchError = null;
+    state.researchCveGeneratingId = null;
+    state.researchIdeaGenerating = false;
+    state.researchGenerationResult = null;
     state.customVulnerabilities = [];
     state.customVulnerabilityScanOptions = [];
     state.customVulnError = null;
@@ -3547,6 +3561,7 @@ function renderActiveScreen() {
     "surface-map": missionModule.renderSurfaceMap,
     "problems-center": problemsModule.renderProblemsCenter,
     "custom-vulnerabilities": customVulnerabilitiesModule.renderCustomVulnerabilityLibrary,
+    research: researchModule.renderResearchLab,
     "findings-theater": findingsModule.renderFindingsTheater,
     "evidence-replay": findingsModule.renderEvidenceReplay,
     "pack-forge": packsModule.renderPackForge,
@@ -3571,6 +3586,9 @@ function navigateToScreen(screen) {
   }
   if (state.activeScreen === "custom-vulnerabilities") {
     customVulnerabilitiesModule.loadCustomVulnerabilities().then(renderAll).catch(handleError);
+  }
+  if (state.activeScreen === "research") {
+    researchModule.loadResearchLab().then(renderAll).catch(handleError);
   }
   if (["history", "report-center"].includes(state.activeScreen)) {
     ensureComparisonFindings().then(renderAll).catch(handleError);

@@ -22,6 +22,7 @@ def test_operator_console_fast_navigation_smoke(loaded_page: Page) -> None:
         "nav-findings": "screen-findings-theater",
         "nav-reports": "screen-report-center",
         "nav-history": "screen-history",
+        "nav-research": "screen-research",
         "nav-packs": "screen-pack-forge",
         "nav-settings": "screen-settings",
     }
@@ -177,6 +178,217 @@ def test_pack_forge_tool_library_catalogue_and_manual_proposal(loaded_page: Page
     assert created[0]["proposed_target"] == "10.0.0.5"
 
 
+def test_research_lab_cve_and_custom_idea_workflows_stage_pack_review(loaded_page: Page) -> None:
+    engagement_id = "77777777-7777-4777-8777-777777777777"
+    cve_record_id = "88888888-8888-4888-8888-888888888888"
+    cve_pack_id = "99999999-9999-4999-8999-999999999999"
+    custom_pack_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    cve_generated = {"value": False}
+    proposals: list[dict[str, object]] = []
+    generated_requests: list[dict[str, object]] = []
+
+    def research_lab(route):
+        generated_template = (
+            {
+                "status": "pending_review",
+                "pack_id": cve_pack_id,
+                "artifact_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "review_url": f"/app/?screen=pack-forge&pack_id={cve_pack_id}",
+                "operator_review_required": True,
+                "auto_deploy": False,
+            }
+            if cve_generated["value"]
+            else None
+        )
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "engagement_id": engagement_id,
+                    "lifecycle_note": "Generated research output is staged only.",
+                    "cve_records": [
+                        {
+                            "id": cve_record_id,
+                            "source": "cve-cvss",
+                            "advisory_id": "CVE-2026-8888",
+                            "title": "ExampleMQTT anonymous subscribe marker",
+                            "summary": "ExampleMQTT exposes a marker.",
+                            "affected_products_json": ["ExampleMQTT"],
+                            "affected_versions_json": ["2.x"],
+                            "product_match_hints_json": ["CVE-2026-8888", "ExampleMQTT"],
+                            "architecture_hints_json": [],
+                            "attack_surface_type": "web",
+                            "suggested_test_patterns_json": ["cve:CVE-2026-8888"],
+                            "confidence_score": 0.82,
+                            "severity": "medium",
+                            "references_json": [],
+                            "published_at": None,
+                            "updated_at": None,
+                            "normalization_status": "normalized",
+                            "metadata_json": {
+                                "cve_id": "CVE-2026-8888",
+                                "generated_nuclei_template": generated_template,
+                            },
+                            "created_at": "2026-05-06T10:00:00Z",
+                        }
+                    ],
+                    "research_proposals": proposals,
+                }
+            ),
+        )
+
+    def generate_cve(route):
+        generated_requests.append(route.request.post_data_json)
+        cve_generated["value"] = True
+        proposals.append(
+            {
+                "id": cve_pack_id,
+                "pack_id": cve_pack_id,
+                "artifact_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "record_id": cve_record_id,
+                "source": "cve_template",
+                "title": "CVE-2026-8888",
+                "description": "Detection-only CVE template.",
+                "status": "staged",
+                "pack_status": "generated",
+                "review_url": f"/app/?screen=pack-forge&pack_id={cve_pack_id}",
+                "generation_mode": "ai-cve-nuclei-template",
+                "output_kind": "nuclei_yaml",
+                "provider": "chatgpt_oauth",
+                "model": "gpt-5.4",
+                "advisory_id": "CVE-2026-8888",
+                "validation": {"detection_only": True, "auto_deploy": False, "matcher_count": 1},
+                "yaml_diff": "--- empty-reviewed-template.yaml\n+++ generated-detection-template.yaml\n+id: cve-2026-8888\n",
+                "reasoning": "Presence detection only.",
+                "detection_strategy": "GET landing page.",
+                "safety_notes": ["No exploit payloads"],
+                "created_at": "2026-05-06T10:00:00Z",
+                "updated_at": "2026-05-06T10:00:00Z",
+            }
+        )
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "record_id": cve_record_id,
+                    "status": "generated",
+                    "message": "Detection-only Nuclei template staged as a generated capability pack.",
+                    "pack_id": cve_pack_id,
+                    "artifact_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                    "pack_status": "generated",
+                    "review_url": f"/app/?screen=pack-forge&pack_id={cve_pack_id}",
+                    "template_yaml": "id: cve-2026-8888\ninfo:\n  name: Example\n  severity: medium\nhttp: []\n",
+                    "yaml_diff": "--- empty-reviewed-template.yaml\n+++ generated-detection-template.yaml\n+id: cve-2026-8888\n",
+                    "validation": {
+                        "detection_only": True,
+                        "auto_deploy": False,
+                        "operator_review_required": True,
+                        "matcher_count": 1,
+                        "allowed_methods": ["GET", "HEAD"],
+                    },
+                    "generated_template": {},
+                    "lifecycle_note": "Generated template is staged only.",
+                }
+            ),
+        )
+
+    def generate_custom(route):
+        generated_requests.append(route.request.post_data_json)
+        proposals.append(
+            {
+                "id": custom_pack_id,
+                "pack_id": custom_pack_id,
+                "artifact_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                "record_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+                "source": "custom_idea",
+                "title": "Check if MQTT broker allows anonymous subscribe on port 1883",
+                "description": "Detection-only AI research template.",
+                "status": "staged",
+                "pack_status": "generated",
+                "review_url": f"/app/?screen=pack-forge&pack_id={custom_pack_id}",
+                "generation_mode": "ai-research-nuclei-template",
+                "output_kind": "nuclei_yaml",
+                "provider": "chatgpt_oauth",
+                "model": "gpt-5.4",
+                "advisory_id": "RESEARCH-123456789ABC",
+                "validation": {"detection_only": True, "auto_deploy": False, "matcher_count": 1},
+                "yaml_diff": "--- empty-reviewed-template.yaml\n+++ generated-detection-template.yaml\n+id: mqtt-anonymous-subscribe\n",
+                "reasoning": "Operator idea staged as detection-only review output.",
+                "detection_strategy": "GET metadata only.",
+                "safety_notes": ["No broker subscribe"],
+                "created_at": "2026-05-06T10:02:00Z",
+                "updated_at": "2026-05-06T10:02:00Z",
+            }
+        )
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "record_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+                    "status": "generated",
+                    "message": "Detection-only research template staged as a generated capability pack.",
+                    "pack_id": custom_pack_id,
+                    "artifact_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                    "pack_status": "generated",
+                    "review_url": f"/app/?screen=pack-forge&pack_id={custom_pack_id}",
+                    "template_yaml": "id: mqtt-anonymous-subscribe\ninfo:\n  name: MQTT\n  severity: medium\nhttp: []\n",
+                    "yaml_diff": "--- empty-reviewed-template.yaml\n+++ generated-detection-template.yaml\n+id: mqtt-anonymous-subscribe\n",
+                    "validation": {
+                        "detection_only": True,
+                        "auto_deploy": False,
+                        "operator_review_required": True,
+                        "matcher_count": 1,
+                        "allowed_methods": ["GET", "HEAD"],
+                    },
+                    "generated_template": {},
+                    "lifecycle_note": "Generated research output is staged only.",
+                }
+            ),
+        )
+
+    loaded_page.route(re.compile(r".*/api/v1/ai/research\?.*"), research_lab)
+    loaded_page.route(f"**/api/v1/threat-intel/{cve_record_id}/generate-template", generate_cve)
+    loaded_page.route("**/api/v1/ai/research/generate-script", generate_custom)
+    loaded_page.evaluate(
+        """
+        async ({ engagementId }) => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          runtimeModule.patchState({ selectedEngagementId: engagementId }, 'ui.test.research.engagement');
+        }
+        """,
+        {"engagementId": engagement_id},
+    )
+
+    loaded_page.get_by_test_id("nav-research").click()
+    expect(loaded_page.get_by_test_id("screen-research")).to_be_visible()
+    expect(loaded_page.get_by_test_id("research-cve-generator")).to_contain_text("CVE-2026-8888")
+    loaded_page.get_by_test_id("research-cve-row").first.locator("[data-research-generate-cve]").click()
+    expect(loaded_page.get_by_test_id("research-generation-result")).to_contain_text(
+        "Template staged for review",
+        timeout=15000,
+    )
+    expect(loaded_page.get_by_test_id("research-safety-summary")).to_contain_text("no auto deploy")
+    expect(loaded_page.get_by_test_id("research-generation-result")).to_contain_text(
+        "generated-detection-template.yaml"
+    )
+
+    loaded_page.get_by_test_id("research-idea-description").fill(
+        "Check if MQTT broker allows anonymous subscribe on port 1883"
+    )
+    loaded_page.get_by_test_id("research-generate-idea").click()
+    expect(loaded_page.get_by_test_id("research-generation-result")).to_contain_text(
+        "Detection-only research template staged",
+        timeout=15000,
+    )
+    expect(loaded_page.get_by_test_id("research-proposal-row")).to_have_count(2)
+    assert generated_requests[0] == {"engagement_id": engagement_id}
+    assert generated_requests[1]["description"] == "Check if MQTT broker allows anonymous subscribe on port 1883"
+    assert generated_requests[1]["output_kind"] == "nuclei_yaml"
+
+
 def test_application_shell_has_no_repeated_marketing_subtitle(loaded_page: Page) -> None:
     long_subtitle = (
         "Guided, evidence-first assessment operations across wizard-driven setup, "
@@ -190,6 +402,7 @@ def test_application_shell_has_no_repeated_marketing_subtitle(loaded_page: Page)
         "nav-findings": "screen-findings-theater",
         "nav-reports": "screen-report-center",
         "nav-history": "screen-history",
+        "nav-research": "screen-research",
         "nav-settings": "screen-settings",
     }
 

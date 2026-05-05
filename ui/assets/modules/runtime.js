@@ -153,6 +153,12 @@ export const state = {
   problems: null,
   problemsLoading: false,
   problemsError: null,
+  researchLab: null,
+  researchLoading: false,
+  researchError: null,
+  researchCveGeneratingId: null,
+  researchIdeaGenerating: false,
+  researchGenerationResult: null,
   problemsUi: {
     selectedIds: [],
     expandedId: null,

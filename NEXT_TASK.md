@@ -2,51 +2,49 @@
 
 ## Title
 
-AI Security Research Lab screen: let AI invent new Nuclei templates, scripts, and test ideas from CVEs and findings
+AI attack chain reasoning: teach the AI agent to chain web vulnerabilities across tools and recognize compound attack paths
 
 ## Promoted From
 
-`codex/tasks/backlog-207-ai-security-research-lab-screen.json`
+`codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json`
 
 ## Goal
 
-Create a dedicated `Research` screen accessible from the BUILD section of the sidebar. The screen exposes AegisPT's AI-driven capability creation without bypassing safety validation or Pack Forge approval/deployment gates.
+Implement cross-task web attack-chain reasoning for the AI agent. After web scan tasks, the AI should analyze all findings so far for the current engagement, recognize compound paths such as file upload plus stored XSS or path traversal plus writable filesystem/code execution signals, and propose the next logical review-gated chain test.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-207-ai-security-research-lab-screen.json`.
+Implement the active backlog package `codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json`.
 
 Expected slice:
 
-- add a Research screen entry under BUILD navigation
-- expose a CVE-to-template workflow where an operator selects a CVE from threat intelligence and requests a detection-only Nuclei YAML through the existing `cve_template_generator.py` flow
-- show generated template output with preview and safety summary
-- allow reviewed generated templates to be submitted into Pack Forge staging/review rather than deployed directly
-- add a Custom Script Ideas panel for plain-language detection ideas using the same safety posture
-- show a Research Proposals log with generated templates/ideas and statuses
+- extend the AI agent with an engagement-scoped cross-task context window that reads all in-scope findings, not only the current task output
+- add deterministic web-specific chain templates for compound patterns such as stored XSS plus file upload, unrestricted file upload plus uploaded HTML execution checks, and path traversal plus writable filesystem/code execution signals
+- create and store a compound attack-chain finding type or equivalent finding record for multi-step paths
+- surface generated chain proposals through the existing Mission Control AI Proposals inbox
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Do not change safety validation in `cve_template_generator.py`.
-- Do not bypass Pack Forge approval gates.
+- Do not change autonomous dispatch logic.
+- Do not bypass intrusive approval gates.
+- Do not change finding schema behavior for non-chain findings.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
-- No active exploit generation or external template downloads.
+- No autonomous exploit chaining or full attack graph implementation.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
+- `source .venv/bin/activate && python -m pytest api/tests/ -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Research screen is accessible from the sidebar.
-- CVE template generation flow works end-to-end.
-- Generated templates show YAML preview with safety summary.
-- Generated templates go to Pack Forge staging/review, not direct deployment.
-- Custom script idea input returns a detection script or safe blocked state.
-- Research Proposals log shows generated templates/ideas with status.
-- E2E tests pass.
+- AI proposes a compound chain when stored XSS and file upload evidence co-exist in the same engagement.
+- AI proposes a code-execution chain when path traversal and writable filesystem/code execution signals co-exist in the same engagement.
+- A compound attack-chain finding type or equivalent stored chain finding exists.
+- Chain proposals appear in the Mission Control AI Proposals inbox.
+- Chain reasoning uses only in-scope findings from the current engagement.
+- No AI agent test regressions.

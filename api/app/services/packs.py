@@ -543,6 +543,167 @@ def stage_generated_nuclei_template_pack(
     return pack, template_artifact
 
 
+def stage_generated_research_template_pack(
+    session: Session,
+    *,
+    engagement_id: UUID,
+    requested_by: str,
+    record: ThreatIntelRecord,
+    description: str,
+    output_kind: str,
+    template_yaml: str,
+    validation_summary: dict[str, Any],
+    model: str,
+    prompt_digest: str,
+    generation_metadata: dict[str, Any] | None = None,
+) -> tuple[CapabilityPack, CapabilityPackArtifact]:
+    generation_metadata = generation_metadata or {}
+    pack_name = _slugify(f"research-template-{record.advisory_id}")
+    version = _next_pack_version(session, engagement_id=engagement_id, name=pack_name)
+    generated_at = datetime.now(UTC).isoformat()
+    title = str(record.title or description or "AI research detection idea").strip()
+    manifest = {
+        "ai_research_generation": {
+            "threat_intel_record_id": str(record.id),
+            "advisory_id": record.advisory_id,
+            "source": record.source,
+            "title": title,
+            "operator_description": description,
+            "output_kind": output_kind,
+            "provider": "chatgpt_oauth",
+            "model": model,
+            "prompt_digest_sha256": prompt_digest,
+            "validated_before_storage": True,
+            "detection_only": True,
+            "auto_deploy": False,
+            "operator_review_required": True,
+            "generated_at": generated_at,
+        },
+        "validation_policy": "schema-check-before-storage, pack validation required before approval",
+        "runtime_policy": "staged only; validate, approve, deploy, and bind through the existing pack lifecycle",
+    }
+    provenance = {
+        "requested_by": requested_by,
+        "generation_mode": "ai-research-nuclei-template",
+        "threat_intel_record_id": str(record.id),
+        "advisory_id": record.advisory_id,
+        "provider": "chatgpt_oauth",
+        "model": model,
+        "token_exposed": False,
+        "generation_metadata": _json_copy(generation_metadata, {}),
+    }
+    pack = CapabilityPack(
+        engagement_id=engagement_id,
+        relevance_decision_id=None,
+        source_inventory_snapshot_id=None,
+        parent_pack_id=None,
+        name=pack_name,
+        version=version,
+        status="generated",
+        generated_by=requested_by,
+        generation_mode="ai-research-nuclei-template",
+        description=f"Detection-only AI research template for operator idea: {description[:180]}",
+        source_threat_intel_refs_json=[record.advisory_id, str(record.id)],
+        methodology_tags=["ai-research", "nuclei", "detection-only"],
+        manifest_json=manifest,
+        provenance_json=provenance,
+    )
+    session.add(pack)
+    session.flush()
+
+    logical_name = f"{_slugify(record.advisory_id)}-research-detection.yaml"
+    template_artifact = CapabilityPackArtifact(
+        pack_id=pack.id,
+        artifact_type="nuclei_template",
+        logical_name=logical_name,
+        status="generated",
+        checksum_sha256=_sha256_for_artifact(content_text=template_yaml, content_json=None),
+        methodology_tags=["ai-research", "nuclei", "detection-only"],
+        content_text=template_yaml,
+        content_json=None,
+        provenance_json={
+            "generated_by": requested_by,
+            "generation_mode": "ai-research-nuclei-template",
+            "threat_intel_record_id": str(record.id),
+            "advisory_id": record.advisory_id,
+            "validation_summary": _json_copy(validation_summary, {}),
+            "detection_only": True,
+            "auto_deploy": False,
+        },
+    )
+    session.add(template_artifact)
+    session.flush()
+
+    review_metadata = {
+        "threat_intel_record_id": str(record.id),
+        "advisory_id": record.advisory_id,
+        "title": title,
+        "operator_description": description,
+        "output_kind": output_kind,
+        "validation": _json_copy(validation_summary, {}),
+        "generation": _json_copy(generation_metadata, {}),
+        "review_gate": "pack validation, approval, deployment, runtime binding",
+    }
+    for artifact_type, logical_name, content_json in (
+        ("metadata", "generated-research-review.json", review_metadata),
+        (
+            "workflow",
+            "validation-promotion-workflow.json",
+            {
+                "steps": [
+                    "operator-research-idea",
+                    "ai-template-generation",
+                    "schema-validation",
+                    "pack-review",
+                    "pack-validation",
+                    "approval",
+                    "deployment",
+                    "runtime-binding",
+                ],
+                "auto_deploy": False,
+            },
+        ),
+    ):
+        artifact = CapabilityPackArtifact(
+            pack_id=pack.id,
+            artifact_type=artifact_type,
+            logical_name=logical_name,
+            status="generated",
+            checksum_sha256=_sha256_for_artifact(content_text=None, content_json=content_json),
+            methodology_tags=["ai-research", "nuclei", "detection-only"],
+            content_text=None,
+            content_json=content_json,
+            provenance_json={
+                "generated_by": requested_by,
+                "generation_mode": "ai-research-nuclei-template",
+                "source_artifact_id": str(template_artifact.id),
+            },
+        )
+        session.add(artifact)
+
+    metadata = _json_copy(record.metadata_json, {})
+    metadata["generated_nuclei_template"] = {
+        "status": "pending_review",
+        "engagement_id": str(engagement_id),
+        "pack_id": str(pack.id),
+        "pack_version": pack.version,
+        "artifact_id": str(template_artifact.id),
+        "review_url": f"/app/?screen=pack-forge&pack_id={pack.id}",
+        "generated_at": generated_at,
+        "provider": "chatgpt_oauth",
+        "model": model,
+        "validation": _json_copy(validation_summary, {}),
+        "yaml_diff": generation_metadata.get("yaml_diff"),
+        "auto_deploy": False,
+        "operator_review_required": True,
+        "ai_research": True,
+        "output_kind": output_kind,
+    }
+    record.metadata_json = metadata
+    session.flush()
+    return pack, template_artifact
+
+
 def stage_codex_reimport(
     session: Session,
     *,
@@ -911,7 +1072,10 @@ def _update_generated_template_link(
     status: str,
     deployment_id: UUID | None = None,
 ) -> None:
-    generation = (pack.manifest_json or {}).get("cve_template_generation")
+    manifest = pack.manifest_json or {}
+    generation = manifest.get("cve_template_generation")
+    if not isinstance(generation, dict):
+        generation = manifest.get("ai_research_generation")
     if not isinstance(generation, dict):
         return
     record_id = generation.get("threat_intel_record_id")

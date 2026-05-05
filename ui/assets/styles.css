@@ -10821,18 +10821,27 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   gap: 16px;
 }
 
-.custom-vuln-command-strip,
-.custom-vuln-grid {
+.research-content {
   display: grid;
   gap: 16px;
 }
 
-.custom-vuln-command-strip {
+.custom-vuln-command-strip,
+.custom-vuln-grid,
+.research-command-strip,
+.research-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.custom-vuln-command-strip,
+.research-command-strip {
   grid-template-columns: minmax(0, 1.4fr) auto;
   align-items: end;
 }
 
-.custom-vuln-command-strip p {
+.custom-vuln-command-strip p,
+.research-command-strip p {
   max-width: 720px;
   color: var(--text-muted);
 }
@@ -10840,6 +10849,83 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
 .custom-vuln-grid {
   grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr) minmax(340px, 0.9fr);
   align-items: start;
+}
+
+.research-grid {
+  grid-template-columns: minmax(300px, 0.95fr) minmax(340px, 1fr) minmax(340px, 1fr);
+  align-items: start;
+}
+
+.research-list,
+.research-row-main,
+.research-proposal-row {
+  display: grid;
+  gap: 10px;
+}
+
+.research-list {
+  gap: 12px;
+}
+
+.research-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.research-row-main p,
+.research-proposal-row p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.research-row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.research-idea-form textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.research-proposal-row {
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.research-proposal-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.research-result {
+  display: grid;
+  gap: 12px;
+}
+
+.research-yaml-diff {
+  max-height: 360px;
+  overflow: auto;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: var(--radius-md);
+  background: #0b1020;
+  color: #dbeafe;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .custom-vuln-import-panel {
@@ -10960,6 +11046,8 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   .dashboard-command-strip,
   .agents-command-strip,
   .custom-vuln-command-strip,
+  .research-command-strip,
+  .research-grid,
   .custom-vuln-grid,
   .agents-grid {
     grid-template-columns: 1fr;
@@ -11104,6 +11192,8 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   .field-grid.two,
   .custom-vuln-readout,
   .custom-vuln-toggle-row,
+  .research-row,
+  .research-proposal-head,
   .cve-intel-row,
   .custom-vuln-row {
     grid-template-columns: 1fr;

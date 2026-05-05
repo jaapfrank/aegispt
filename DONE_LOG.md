@@ -1,5 +1,57 @@
 # Done Log
 
+- 2026-05-06: completed backlog-207 `AI Security Research Lab screen: let AI invent new Nuclei templates, scripts, and test ideas from CVEs and findings`:
+  - rationale:
+    - AegisPT already had CVE-to-template generation and Pack Forge staging primitives, but no dedicated operator-facing Research surface for AI-assisted capability creation
+    - the active task required surfacing those flows without changing template safety validation or bypassing Pack Forge validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill-switch boundaries
+  - implementation:
+    - added a BUILD > Research screen with CVE template generation, custom detection idea generation, generated YAML/diff preview, safety summary, Pack Forge review actions, and a Research Proposals log
+    - added `GET /api/v1/ai/research` to return CVE candidates and generated research/template proposal status for an engagement
+    - added `POST /api/v1/ai/research/generate-script` for custom detection ideas; Nuclei YAML ideas reuse the same detection-only safety posture and Pack Forge staging path, while Python detection scripts return a safe blocked state because no Python detection-script validator/lifecycle exists yet
+    - added generated research pack staging metadata in `api/app/services/packs.py` with `generation_mode=ai-research-nuclei-template`, `auto_deploy=false`, and review-only Pack Forge lifecycle links
+    - reused the existing CVE template-generation endpoint for CVE rows; `api/app/services/cve_template_generator.py` safety validation was not changed
+  - files:
+    - `api/app/schemas/ai_research.py`
+    - `api/app/services/ai_research.py`
+    - `api/app/routers/ai_research.py`
+    - `api/app/services/packs.py`
+    - `api/app/main.py`
+    - `api/tests/test_ai_research.py`
+    - `ui/assets/modules/research.js`
+    - `ui/assets/modules/runtime.js`
+    - `ui/assets/app.js`
+    - `ui/assets/styles.css`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-207-ai-security-research-lab-screen-20260506.md`
+    - `codex/results/backlog-207-research-screen-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - Python compile check for the new Research API/schema/service/tests and touched pack/main modules passed
+    - corrected ES module syntax checks for `ui/assets/modules/research.js` and `ui/assets/app.js` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_research.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_cve_template_generator.py -q` passed
+    - combined focused Research/CVE generator tests passed
+    - focused operator-console smoke coverage passed for Research navigation, CVE generation, custom idea generation, proposal log, and shell text constraints
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - full `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - current-code localhost acceptance on `http://127.0.0.1:8000/app/` passed after restarting the stale local Uvicorn process to current repo code; `/api/v1/ai/research?engagement_id=not-a-uuid` now returns route-level UUID validation instead of `404`
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with exactly one active task, backlog-219, and `source_context.queue_index=231` matching `TASK_QUEUE.md`
+    - final post-documentation `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-207-ai-security-research-lab-screen-20260506.md`
+    - `codex/results/backlog-207-research-screen-8000.png`
+  - exceptions and boundaries:
+    - `http://127.0.0.1:8000` was relevant and initially served stale backend code; it was restarted from the current repo before current-code browser/API acceptance was claimed
+    - Python detection-script generation is intentionally blocked until a dedicated validator and Pack Forge lifecycle exists for that artifact type
+    - no live Gruyere, customer, public internet, or third-party target was scanned; no external templates were downloaded
+    - pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, kill switch, and existing CVE template safety validation were not bypassed
+  - remaining risks:
+    - real AI generation depends on ChatGPT OAuth/session availability
+    - generated packs remain review-only until an operator validates, approves, deploys, and binds them through the existing lifecycle
+    - the broader operator-reported Gruyere wizard/all-tools issue remains outside this active task
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-219 `AI attack chain reasoning`
+
 - 2026-05-05: completed backlog-206 `CVE-to-Test auto-queue: when discovery matches a CVE, automatically queue a Nuclei test proposal for operator approval`:
   - rationale:
     - AegisPT already extracted product/version evidence, matched local CVE intelligence, checked Nuclei template availability, and exposed the backlog-205 AI Proposals inbox
