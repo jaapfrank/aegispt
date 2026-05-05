@@ -1,5 +1,60 @@
 # Done Log
 
+- 2026-05-06: completed backlog-232 `AI reasoning transparency: restructure post-task analysis into Summary→Thought→Action and show each step to operators`:
+  - rationale:
+    - AegisPT already stored observations, hypotheses, proposals, and `AgentProposal.reasoning_text`, but operators could not see a clear Summary→Thought→Action breakdown per task in Mission Control
+    - the active task required exposing reasoning quality before approval while preserving existing proposal generation, approval, dispatch, pack lifecycle, scope, ROE, credential, and kill-switch controls
+  - implementation:
+    - extended `PostTaskAnalysisResult` with explicit `summary_text`, `thought_text`, and `action_text`
+    - deterministic post-task analysis now populates Summary, Thought, and Action for standard and compound-chain analysis paths
+    - ChatGPT OAuth post-task instructions now require `analysis.summary_text`, `analysis.thought_text`, and `analysis.action_text`, and the provider parses them into the same result shape
+    - `store_agent_reasoning_record` now stores the three text fields additively in `AgentReasoning.metadata_json` and preserves them under `analysis_steps`
+    - `AgentReasoningRead` exposes `summary_text`, `thought_text`, and `action_text` as top-level API fields without a database migration
+    - Mission Control task rows now render a collapsible `AI Analysis` card for completed tasks with post-task reasoning, showing Summary, Reasoning, Suggested Actions, linked proposal reasoning text, and existing approve/reject controls
+    - UI asset versions were bumped so current-code Mission Control and CSS are served through `/app/`
+  - files:
+    - `api/app/models/control.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/services/ai_enrichment.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/services/chatgpt_oauth.py`
+    - `api/tests/test_ai_agent_reasoning.py`
+    - `api/tests/test_chatgpt_oauth.py`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-232-ai-reasoning-transparency-summary-thought-action-20260506.md`
+    - `codex/results/backlog-232-ai-analysis-card-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - Python compile checks passed for touched backend modules and focused tests
+    - ES module syntax checks passed for `ui/assets/modules/mission-control.js` and `ui/assets/app.js`
+    - focused API tests passed for additive reasoning storage, post-task deterministic analysis fields, AI insights serialization, and ChatGPT OAuth structured output instructions/parsing
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py api/tests/test_chatgpt_oauth.py api/tests/test_live_ai_signal_stream.py -q` passed
+    - focused Mission Control AI Proposals/AI Analysis smoke passed
+    - full `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings only
+    - current-code safe API acceptance on `http://127.0.0.1:8000` passed for `/api/v1/runs/{run_id}/ai-insights` returning Summary, Thought, Action, proposal reasoning text, and `dispatches_work=false`
+    - current-code browser acceptance on `http://127.0.0.1:8000/app/` passed for the Mission Control AI Analysis card and linked proposal reasoning
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with exactly one active task, backlog-233, and `source_context.queue_index=233` matching `TASK_QUEUE.md`
+    - final `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-232-ai-reasoning-transparency-summary-thought-action-20260506.md`
+    - `codex/results/backlog-232-ai-analysis-card-8000.png`
+  - exceptions and boundaries:
+    - `http://127.0.0.1:8000` was relevant and was restarted onto current working-tree code before current-code API/browser acceptance was claimed
+    - a first acceptance seed attempt using `create_app()` without FastAPI lifespan startup failed because `app.state.session_factory` was unavailable; it was not claimed green
+    - a first browser acceptance attempt using `networkidle` timed out because the app keeps polling/stream-capable connections open; it was not claimed green
+    - transient Codex/planner-generated untracked `codex/tasks/task-20260505...pack-refinement...json` was removed because it was not the active task and was not a queue-backed `backlog-*.json` package
+    - no live Gruyere, customer, public internet, or third-party target was contacted; acceptance used synthetic local evidence for `https://backlog-232.local`
+    - proposal generation logic, approval gates, autonomous dispatch logic, pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, and kill switch were not bypassed
+  - remaining risks:
+    - older pre-existing `AgentReasoning` rows can have empty top-level Summary/Thought/Action API fields, though the UI has legacy fallbacks and new records are populated
+    - the next promoted task package, backlog-233, contains stale alignment-doc references and a context note partly superseded by backlog-219's engagement-scoped finding context; handle that truth when backlog-233 is active
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-233 `AI cross-task working memory`
+
 - 2026-05-06: completed backlog-219 `AI attack chain reasoning: teach the AI agent to chain web vulnerabilities across tools and recognize compound attack paths`:
   - rationale:
     - the AI agent already persisted post-task reasoning and proposals, and AegisPT already had additive finding-chain records, but post-task analysis only reasoned over the selected task/run output

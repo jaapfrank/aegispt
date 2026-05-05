@@ -1579,6 +1579,32 @@ def test_mission_control_ai_proposals_inbox_badge_and_review_actions(loaded_page
             created_at: now,
             updated_at: now,
           });
+          const reasoningRecord = {
+            id: 'reasoning-ai-proposals',
+            run_id: runId,
+            task_id: 'task-ai-source',
+            reasoning_type: 'post_task_analysis',
+            status: 'succeeded',
+            context_snapshot_json: {},
+            observations_json: [{ summary: 'Nmap completed against the selected web target.' }],
+            hypotheses_json: [{ summary: 'The exposed HTTP surface is ready for bounded follow-up review.' }],
+            proposals_json: [],
+            summary_text: 'Nmap completed against the selected web target.',
+            thought_text: 'The exposed HTTP surface is ready for bounded follow-up review.',
+            action_text: 'Review the suggested HTTP and template checks before queueing work.',
+            provider: 'deterministic',
+            model: 'deterministic',
+            llm_tokens_used: 0,
+            confidence_score: 0.82,
+            failure_reason: null,
+            metadata_json: { analysis_steps: { summary: 'Nmap completed against the selected web target.' } },
+            proposals: [
+              proposal('proposal-one', 'httpx', 'passive', 0.82),
+              proposal('proposal-two', 'nuclei', 'active', 0.67),
+            ],
+            created_at: now,
+            updated_at: now,
+          };
           runtimeModule.patchState({
             activeScreen: 'mission-control',
             selectedEngagementId: 'eng-ai-proposals',
@@ -1589,7 +1615,7 @@ def test_mission_control_ai_proposals_inbox_badge_and_review_actions(loaded_page
               post_task_analysis_enabled: true,
               provider: 'deterministic',
               provider_status: { mode: 'deterministic', label: 'Review mode', status: 'fallback', connected: false },
-              reasoning_records: [],
+              reasoning_records: [reasoningRecord],
               proposals: [
                 proposal('proposal-one', 'httpx', 'passive', 0.82),
                 proposal('proposal-two', 'nuclei', 'active', 0.67),
@@ -1613,6 +1639,14 @@ def test_mission_control_ai_proposals_inbox_badge_and_review_actions(loaded_page
                 params_json: {},
                 created_at: now,
                 updated_at: now,
+              }, {
+                id: 'task-without-analysis',
+                tool: 'nikto',
+                target_id: 'https://app.example.test',
+                status: 'completed',
+                params_json: {},
+                created_at: now,
+                updated_at: now,
               }],
               findings: { finding_count: 0, findings_by_severity: {}, findings_by_status: {} },
             },
@@ -1627,6 +1661,15 @@ def test_mission_control_ai_proposals_inbox_badge_and_review_actions(loaded_page
     expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("Suggested Next Steps")
     expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("2 pending")
     expect(loaded_page.get_by_test_id("nav-mission-control")).to_contain_text("● 2")
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_be_visible()
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_have_count(1)
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_contain_text("Summary")
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_contain_text("Nmap completed against the selected web target.")
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_contain_text("Reasoning")
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_contain_text("The exposed HTTP surface is ready for bounded follow-up review.")
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_contain_text("Suggested Actions")
+    expect(loaded_page.get_by_test_id("mission-task-ai-analysis")).to_contain_text("HTTP service evidence suggests a bounded follow-up check.")
+    expect(loaded_page.get_by_test_id("mission-task-ai-proposal")).to_have_count(2)
 
     loaded_page.get_by_test_id("ai-proposal-row").filter(has_text="HTTP probe").get_by_text("Approve & Queue").click()
     expect(loaded_page.get_by_test_id("status-feed-focus")).to_contain_text("follow-up task queued")

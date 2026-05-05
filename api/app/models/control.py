@@ -976,6 +976,21 @@ class AgentReasoning(UUIDMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def summary_text(self) -> str:
+        metadata = self.metadata_json if isinstance(self.metadata_json, dict) else {}
+        return str(metadata.get("summary_text") or "")
+
+    @property
+    def thought_text(self) -> str:
+        metadata = self.metadata_json if isinstance(self.metadata_json, dict) else {}
+        return str(metadata.get("thought_text") or "")
+
+    @property
+    def action_text(self) -> str:
+        metadata = self.metadata_json if isinstance(self.metadata_json, dict) else {}
+        return str(metadata.get("action_text") or "")
+
 
 class AgentProposal(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "agent_proposals"

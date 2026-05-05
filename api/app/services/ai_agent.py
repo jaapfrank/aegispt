@@ -155,6 +155,9 @@ class AgentProposalDraft:
 
 @dataclass(frozen=True, slots=True)
 class PostTaskAnalysisResult:
+    summary_text: str | None = None
+    thought_text: str | None = None
+    action_text: str | None = None
     observations: list[dict[str, Any]] = field(default_factory=list)
     hypotheses: list[dict[str, Any]] = field(default_factory=list)
     proposals: list[AgentProposalDraft] = field(default_factory=list)
@@ -294,19 +297,31 @@ class DeterministicPostTaskAnalysisProvider:
         chain_proposals = _compound_chain_proposal_drafts(context=context, task_target=task_target)
         if chain_proposals:
             chain_count = len(context.get("finding_chains") if isinstance(context.get("finding_chains"), list) else [])
+            summary_text = (
+                f"Task {task.get('id')} completed and the current engagement contains "
+                f"{chain_count} compound attack-chain signal(s)."
+            )
+            thought_text = (
+                "The stored findings may combine into a compound web path, but the chain remains "
+                "a hypothesis until an operator reviews the evidence and approves a bounded follow-up."
+            )
+            action_text = (
+                "Review the compound-chain proposal in Mission Control and approve only a safe, "
+                "in-scope validation task if the evidence matches the rules of engagement."
+            )
             return PostTaskAnalysisResult(
+                summary_text=summary_text,
+                thought_text=thought_text,
+                action_text=action_text,
                 observations=[
                     {
-                        "summary": (
-                            f"Task {task.get('id')} completed and engagement context contains "
-                            f"{chain_count} compound attack-chain signal(s)."
-                        ),
+                        "summary": summary_text,
                         "evidence_ref": "finding_chains",
                     }
                 ],
                 hypotheses=[
                     {
-                        "summary": "A compound web path may exist and should be validated only through operator-reviewed follow-up.",
+                        "summary": thought_text,
                         "confidence": max(
                             [draft.confidence_score or 0.0 for draft in chain_proposals],
                             default=0.72,
@@ -348,16 +363,25 @@ class DeterministicPostTaskAnalysisProvider:
                 "fixture_mode": fixture_mode or "standard",
             },
         )
+        summary_text = f"Task {task.get('id')} completed with tool {task_tool}."
+        thought_text = "A bounded follow-up may help the operator review task output."
+        action_text = (
+            f"Review the suggested {proposal.proposed_tool} follow-up for "
+            f"{proposal.proposed_target or 'the selected target'} before queueing work."
+        )
         return PostTaskAnalysisResult(
+            summary_text=summary_text,
+            thought_text=thought_text,
+            action_text=action_text,
             observations=[
                 {
-                    "summary": f"Task {task.get('id')} completed with tool {task_tool}.",
+                    "summary": summary_text,
                     "evidence_ref": "task.status",
                 }
             ],
             hypotheses=[
                 {
-                    "summary": "A bounded follow-up may help the operator review task output.",
+                    "summary": thought_text,
                     "confidence": 0.71,
                 }
             ],
@@ -487,6 +511,9 @@ def run_post_task_analysis_for_task(
         observations=list(result.observations or []),
         hypotheses=list(result.hypotheses or []),
         proposals=accepted_payloads,
+        summary_text=result.summary_text,
+        thought_text=result.thought_text,
+        action_text=result.action_text,
         provider=provider_name,
         model=result.model or settings.ai_agent_post_task_analysis_model,
         llm_tokens_used=result.llm_tokens_used,

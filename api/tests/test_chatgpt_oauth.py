@@ -387,10 +387,16 @@ def test_post_task_chatgpt_oauth_provider_uses_streaming_codex_response_shape(
         assert body["store"] is False
         assert body["stream"] is True
         assert isinstance(body["instructions"], str) and "Return an object" in body["instructions"]
+        assert "summary_text" in body["instructions"]
+        assert "thought_text" in body["instructions"]
+        assert "action_text" in body["instructions"]
         assert isinstance(body["input"], list)
         return StreamResponse(
             {
                 "analysis": {
+                    "summary_text": "Stored stdout has been reviewed.",
+                    "thought_text": "The discovered HTTP service is worth a bounded passive follow-up.",
+                    "action_text": "Ask the operator to review an httpx follow-up before queueing.",
                     "observations": [{"summary": "Stored stdout has been reviewed."}],
                     "hypotheses": [],
                     "proposals": [
@@ -437,6 +443,9 @@ def test_post_task_chatgpt_oauth_provider_uses_streaming_codex_response_shape(
 
         assert len(calls) == 1
         assert result.model == "gpt-5.4"
+        assert result.summary_text == "Stored stdout has been reviewed."
+        assert result.thought_text == "The discovered HTTP service is worth a bounded passive follow-up."
+        assert result.action_text == "Ask the operator to review an httpx follow-up before queueing."
         assert result.observations[0]["summary"] == "Stored stdout has been reviewed."
         assert result.proposals[0].proposed_tool == "httpx"
 

@@ -266,6 +266,10 @@ def test_agent_reasoning_and_proposal_records_are_additive_and_auditable(client)
         assert reasoning.task_id == task.id
         assert reasoning.status == "succeeded"
         assert reasoning.observations_json[0]["summary"] == "HTTPS is exposed"
+        assert reasoning.metadata_json["summary_text"] == "HTTPS is exposed"
+        assert reasoning.metadata_json["thought_text"] == "Service fingerprinting may be useful"
+        assert "httpx follow-up" in reasoning.metadata_json["action_text"]
+        assert reasoning.metadata_json["analysis_steps"]["summary"] == "HTTPS is exposed"
         assert reasoning.provider == "deterministic-ledger-test"
         assert reasoning.llm_tokens_used == 0
         assert proposal.run_id == run.id
@@ -279,6 +283,9 @@ def test_agent_reasoning_and_proposal_records_are_additive_and_auditable(client)
         assert execution.stdout_text == original_execution_stdout
 
         serialized = AgentReasoningRead.model_validate(reasoning)
+        assert serialized.summary_text == "HTTPS is exposed"
+        assert serialized.thought_text == "Service fingerprinting may be useful"
+        assert "httpx follow-up" in serialized.action_text
         assert serialized.proposals[0].id == proposal.id
         assert serialized.proposals[0].status == "pending_review"
 
@@ -513,8 +520,13 @@ def test_post_task_analysis_stores_pending_review_proposal_without_execution(cli
         session.commit()
 
         proposals = list_agent_proposals_for_run(session=session, run_id=run.id)
+        reasoning_records = list_agent_reasoning_for_run(session=session, run_id=run.id)
         assert outcome.status == "succeeded"
         assert outcome.stored_proposal_count == 1
+        assert reasoning_records[0].summary_text == f"Task {task.id} completed with tool nmap."
+        assert reasoning_records[0].thought_text == "A bounded follow-up may help the operator review task output."
+        assert "httpx follow-up" in reasoning_records[0].action_text
+        assert reasoning_records[0].metadata_json["analysis_steps"]["action"] == reasoning_records[0].action_text
         assert len(proposals) == 1
         assert proposals[0].status == "pending_review"
         assert proposals[0].approved_by is None
@@ -875,6 +887,9 @@ def test_ai_insights_endpoint_lists_reasoning_and_proposals_with_disabled_truth(
     assert payload["review_boundary"]["approved_proposals_create_queued_tasks"] is True
     assert "creates a queued task only" in payload["review_boundary"]["message"]
     assert payload["reasoning_records"][0]["task_id"] == str(task_id)
+    assert payload["reasoning_records"][0]["summary_text"]
+    assert payload["reasoning_records"][0]["thought_text"]
+    assert payload["reasoning_records"][0]["action_text"]
     assert payload["reasoning_records"][0]["proposals"][0]["id"] == str(proposal_id)
     assert payload["proposals"][0]["id"] == str(proposal_id)
     assert payload["proposals"][0]["status"] == "pending_review"

@@ -143,6 +143,9 @@ class AgentReasoningRead(BaseModel):
     observations_json: list[dict[str, Any]]
     hypotheses_json: list[dict[str, Any]]
     proposals_json: list[dict[str, Any]]
+    summary_text: str = ""
+    thought_text: str = ""
+    action_text: str = ""
     provider: str
     model: str | None = None
     llm_tokens_used: int | None = None

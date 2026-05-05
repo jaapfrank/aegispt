@@ -650,6 +650,9 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
                 "analysis.hypotheses must be arrays of objects. analysis.proposals must be an array of "
                 "bounded follow-up suggestions only, each with proposed_tool, proposed_target, "
                 "proposed_params, reasoning_text, risk_tier, priority, confidence_score, and metadata. "
+                "Also return analysis.summary_text, analysis.thought_text, and analysis.action_text as "
+                "short separate strings: summary_text says what happened in the task, thought_text says "
+                "what it means for the engagement, and action_text says what should happen next and why. "
                 "When task_context includes engagement_findings or finding_chains, reason only across "
                 "findings from the current engagement and keep compound attack-chain proposals review-gated. "
                 "Never propose session theft, credential theft, file writes, code execution, or autonomous "
@@ -683,6 +686,9 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
             for item in _dict_list(result_payload.get("proposals"))
         ]
         return PostTaskAnalysisResult(
+            summary_text=str(result_payload.get("summary_text") or "") or None,
+            thought_text=str(result_payload.get("thought_text") or "") or None,
+            action_text=str(result_payload.get("action_text") or "") or None,
             observations=_dict_list(result_payload.get("observations")),
             hypotheses=_dict_list(result_payload.get("hypotheses")),
             proposals=proposals,

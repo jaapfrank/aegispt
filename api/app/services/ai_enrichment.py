@@ -534,6 +534,9 @@ def store_agent_reasoning_record(
     observations: list[dict[str, Any]] | None = None,
     hypotheses: list[dict[str, Any]] | None = None,
     proposals: list[dict[str, Any]] | None = None,
+    summary_text: str | None = None,
+    thought_text: str | None = None,
+    action_text: str | None = None,
     provider: str = "not-configured",
     model: str | None = None,
     llm_tokens_used: int | None = None,
@@ -558,25 +561,130 @@ def store_agent_reasoning_record(
             raise ValueError("task-scoped agent reasoning must reference a task from the same run")
         task_id = task.id
 
+    normalized_observations = _json_object_list(observations, "observations")
+    normalized_hypotheses = _json_object_list(hypotheses, "hypotheses")
+    normalized_proposals = _json_object_list(proposals, "proposals")
+    base_metadata = _json_object(metadata, "metadata")
+    transparency = _reasoning_transparency_fields(
+        summary_text=summary_text,
+        thought_text=thought_text,
+        action_text=action_text,
+        observations=normalized_observations,
+        hypotheses=normalized_hypotheses,
+        proposals=normalized_proposals,
+        failure_reason=failure_reason,
+        metadata=base_metadata,
+    )
+    metadata_with_transparency = {
+        **base_metadata,
+        **transparency,
+        "analysis_steps": {
+            **(base_metadata.get("analysis_steps") if isinstance(base_metadata.get("analysis_steps"), dict) else {}),
+            "summary": transparency["summary_text"],
+            "thought": transparency["thought_text"],
+            "action": transparency["action_text"],
+        },
+    }
+
     reasoning = AgentReasoning(
         run_id=run.id,
         task_id=task_id,
         reasoning_type=normalized_reasoning_type,
         status=normalized_status,
         context_snapshot_json=_json_object(context_snapshot, "context_snapshot"),
-        observations_json=_json_object_list(observations, "observations"),
-        hypotheses_json=_json_object_list(hypotheses, "hypotheses"),
-        proposals_json=_json_object_list(proposals, "proposals"),
+        observations_json=normalized_observations,
+        hypotheses_json=normalized_hypotheses,
+        proposals_json=normalized_proposals,
         provider=normalized_provider,
         model=_optional_label(model),
         llm_tokens_used=llm_tokens_used,
         confidence_score=confidence_score,
         failure_reason=(failure_reason or None),
-        metadata_json=_json_object(metadata, "metadata"),
+        metadata_json=metadata_with_transparency,
     )
     session.add(reasoning)
     session.flush()
     return reasoning
+
+
+def _reasoning_transparency_fields(
+    *,
+    summary_text: str | None,
+    thought_text: str | None,
+    action_text: str | None,
+    observations: list[dict[str, Any]],
+    hypotheses: list[dict[str, Any]],
+    proposals: list[dict[str, Any]],
+    failure_reason: str | None,
+    metadata: dict[str, Any],
+) -> dict[str, str]:
+    existing_steps = metadata.get("analysis_steps") if isinstance(metadata.get("analysis_steps"), dict) else {}
+    summary = _first_non_empty_text(
+        summary_text,
+        metadata.get("summary_text"),
+        existing_steps.get("summary"),
+        _first_item_text(observations),
+        failure_reason,
+        "Task evidence was reviewed.",
+    )
+    thought = _first_non_empty_text(
+        thought_text,
+        metadata.get("thought_text"),
+        existing_steps.get("thought"),
+        _first_item_text(hypotheses),
+        "Stored evidence does not currently change the engagement hypothesis.",
+    )
+    action = _first_non_empty_text(
+        action_text,
+        metadata.get("action_text"),
+        existing_steps.get("action"),
+        _proposal_action_text(proposals),
+        "No safe follow-up action was proposed.",
+    )
+    return {
+        "summary_text": summary,
+        "thought_text": thought,
+        "action_text": action,
+    }
+
+
+def _first_item_text(items: list[dict[str, Any]]) -> str | None:
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        text = _first_non_empty_text(
+            item.get("summary"),
+            item.get("message"),
+            item.get("title"),
+            item.get("description"),
+        )
+        if text:
+            return text
+    return None
+
+
+def _proposal_action_text(proposals: list[dict[str, Any]]) -> str | None:
+    first = next((item for item in proposals if isinstance(item, dict)), None)
+    if not first:
+        return None
+    tool = _first_non_empty_text(first.get("proposed_tool"), first.get("tool"), first.get("title"))
+    target = _first_non_empty_text(first.get("proposed_target"), first.get("target"))
+    reason = _first_non_empty_text(first.get("reasoning_text"), first.get("summary"))
+    if tool and target:
+        return f"Review the suggested {tool} follow-up for {target} before any queued work is created."
+    if reason:
+        return reason
+    if tool:
+        return f"Review the suggested {tool} follow-up before any queued work is created."
+    return "Review the suggested follow-up before any queued work is created."
+
+
+def _first_non_empty_text(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def store_agent_proposal_record(

@@ -3400,26 +3400,149 @@ export function createMissionModule() {
             .map((task) => {
               const normalized = normalizeTaskStatus(task.status);
               return `
-                <button
-                  class="mission-task-row status-${escapeHtml(normalized)} ${String(state.selectedTaskId || "") === String(task.id || "") ? "selected" : ""} ${normalized === "running" ? "is-live" : ""}"
-                  type="button"
-                  data-mission-task-pick="${escapeHtml(String(task.id || ""))}"
-                  data-testid="mission-task-row"
-                >
-                  <span class="mission-task-dot status-${escapeHtml(normalized)}" aria-hidden="true"></span>
-                  <span class="mission-task-tool">${escapeHtml(formatToolLabel(task.tool))}</span>
-                  <span class="mission-task-target">${escapeHtml(task.target_id || "No target recorded")}</span>
-                  <span class="mission-task-meta">
-                    ${renderTaskFindingBadge(task, findings)}
-                    ${statusPill(task.status)}
-                  </span>
-                </button>
+                <div class="mission-task-item">
+                  <button
+                    class="mission-task-row status-${escapeHtml(normalized)} ${String(state.selectedTaskId || "") === String(task.id || "") ? "selected" : ""} ${normalized === "running" ? "is-live" : ""}"
+                    type="button"
+                    data-mission-task-pick="${escapeHtml(String(task.id || ""))}"
+                    data-testid="mission-task-row"
+                  >
+                    <span class="mission-task-dot status-${escapeHtml(normalized)}" aria-hidden="true"></span>
+                    <span class="mission-task-tool">${escapeHtml(formatToolLabel(task.tool))}</span>
+                    <span class="mission-task-target">${escapeHtml(task.target_id || "No target recorded")}</span>
+                    <span class="mission-task-meta">
+                      ${renderTaskFindingBadge(task, findings)}
+                      ${statusPill(task.status)}
+                    </span>
+                  </button>
+                  ${renderTaskAiAnalysisCard(task)}
+                </div>
               `;
             })
             .join("")}
         </div>
       </div>
     `;
+  }
+
+  function renderTaskAiAnalysisCard(task) {
+    const analysis = aiAnalysisForTask(task);
+    if (!analysis) return "";
+    const record = analysis.record;
+    const proposals = analysis.proposals;
+    const open = String(state.selectedTaskId || "") === String(task.id || "") ? "open" : "";
+    return `
+      <details class="mission-task-ai-analysis" data-testid="mission-task-ai-analysis" ${open}>
+        <summary>
+          <span>${escapeHtml("AI Analysis")}</span>
+          <small>${escapeHtml(`${proposals.length} suggested action${proposals.length === 1 ? "" : "s"}`)}</small>
+        </summary>
+        <div class="mission-task-ai-body">
+          <div class="mission-task-ai-section">
+            <span>Summary</span>
+            <p>${escapeHtml(record.summary_text || reasoningSectionFallback(record, "summary"))}</p>
+          </div>
+          <div class="mission-task-ai-section">
+            <span>Reasoning</span>
+            <p>${escapeHtml(record.thought_text || reasoningSectionFallback(record, "thought"))}</p>
+          </div>
+          <div class="mission-task-ai-section">
+            <span>Suggested Actions</span>
+            <p>${escapeHtml(record.action_text || reasoningSectionFallback(record, "action"))}</p>
+          </div>
+          ${
+            proposals.length
+              ? `<div class="mission-task-ai-proposals">${proposals.map(renderTaskAiProposalRow).join("")}</div>`
+              : `<p class="micro-copy">${escapeHtml("No proposal was stored for this analysis.")}</p>`
+          }
+        </div>
+      </details>
+    `;
+  }
+
+  function aiAnalysisForTask(task) {
+    if (normalizeTaskStatus(task?.status) !== "completed") return null;
+    const insights = state.selectedAiInsights || {};
+    const taskId = String(task?.id || "");
+    const records = (Array.isArray(insights.reasoning_records) ? insights.reasoning_records : [])
+      .filter((record) => {
+        if (String(record?.task_id || "") !== taskId) return false;
+        return String(record?.reasoning_type || "").toLowerCase() === "post_task_analysis";
+      })
+      .sort((left, right) =>
+        timestampMs(right?.updated_at || right?.created_at) - timestampMs(left?.updated_at || left?.created_at)
+      );
+    const record = records[0] || null;
+    if (!record) return null;
+    return {
+      record,
+      proposals: proposalsForAiAnalysis(record, taskId),
+    };
+  }
+
+  function proposalsForAiAnalysis(record, taskId) {
+    const insights = state.selectedAiInsights || {};
+    const seen = new Set();
+    const candidates = [
+      ...(Array.isArray(record?.proposals) ? record.proposals : []),
+      ...(Array.isArray(insights.proposals) ? insights.proposals : []),
+    ];
+    return candidates.filter((proposal) => {
+      const proposalId = String(proposal?.id || "");
+      if (!proposalId || seen.has(proposalId)) return false;
+      const params = proposal?.proposed_params_json && typeof proposal.proposed_params_json === "object"
+        ? proposal.proposed_params_json
+        : {};
+      const metadata = proposal?.metadata_json && typeof proposal.metadata_json === "object" ? proposal.metadata_json : {};
+      const sourceTaskId = String(params.source_task_id || metadata.source_task_id || "");
+      const linkedByReasoning = String(proposal?.agent_reasoning_id || "") === String(record?.id || "");
+      const linkedByTask = sourceTaskId && sourceTaskId === String(taskId || "");
+      if (!linkedByReasoning && !linkedByTask) return false;
+      seen.add(proposalId);
+      return true;
+    });
+  }
+
+  function renderTaskAiProposalRow(proposal) {
+    const pending = String(proposal?.status || "").toLowerCase() === "pending_review";
+    const confidence = Number(proposal?.confidence_score);
+    return `
+      <article class="mission-task-ai-proposal" data-testid="mission-task-ai-proposal">
+        <div class="ai-signal-entry-meta">
+          <span>${escapeHtml(formatToolLabel(proposal?.proposed_tool || "tool"))}</span>
+          <span>${escapeHtml(proposal?.status || "review")}</span>
+          ${Number.isFinite(confidence) ? `<span>${escapeHtml(toPercent(confidence))}</span>` : ""}
+        </div>
+        <p>${escapeHtml(proposal?.reasoning_text || "Review this suggested action before approving any follow-up.")}</p>
+        ${
+          pending
+            ? `
+              <div class="panel-actions ai-signal-actions">
+                <button class="action primary compact-action" type="button" data-ai-proposal-review="approved" data-ai-proposal-id="${escapeHtml(String(proposal.id || ""))}">Approve & Queue</button>
+                <button class="action ghost compact-action" type="button" data-ai-proposal-review="rejected" data-ai-proposal-id="${escapeHtml(String(proposal.id || ""))}">Reject</button>
+              </div>
+            `
+            : `<p class="micro-copy">${escapeHtml(`Proposal status: ${proposal?.status || "recorded"}`)}</p>`
+        }
+      </article>
+    `;
+  }
+
+  function reasoningSectionFallback(record, section) {
+    if (section === "summary") {
+      const first = Array.isArray(record?.observations_json) ? record.observations_json[0] : null;
+      return first?.summary || first?.message || "Task evidence was reviewed.";
+    }
+    if (section === "thought") {
+      const first = Array.isArray(record?.hypotheses_json) ? record.hypotheses_json[0] : null;
+      return first?.summary || first?.message || "Stored evidence does not currently change the engagement hypothesis.";
+    }
+    if (section === "action") {
+      return Array.isArray(record?.proposals) && record.proposals.length
+        ? "Review the suggested actions before queueing follow-up work."
+        : "No safe follow-up action was proposed.";
+    }
+    return "AI analysis is stored for this task.";
   }
 
   function renderCveIntelligencePanel() {
@@ -4354,6 +4477,13 @@ export function createMissionModule() {
     dom.missionRunActivity.querySelectorAll("[data-ai-repair-task-id]").forEach((button) => {
       button.addEventListener("click", async () => {
         await draftAiRepairProposal(button.dataset.aiRepairTaskId);
+      });
+    });
+    dom.missionRunActivity.querySelectorAll("[data-ai-proposal-review]").forEach((button) => {
+      button.addEventListener("click", () => {
+        reviewAiProposal(button.dataset.aiProposalId, button.dataset.aiProposalReview).catch((error) => {
+          runtime.actions.handleError?.(error);
+        });
       });
     });
     dom.missionRunActivity.querySelectorAll("[data-run-stale-recovery]").forEach((button) => {
