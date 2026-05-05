@@ -1,0 +1,847 @@
+{
+  "claim_totals": {
+    "blocked": 2,
+    "supported": 2,
+    "supported-with-gap": 11,
+    "unsupported": 1
+  },
+  "generated_at": "2026-05-05T18:14:52.271339+00:00",
+  "inputs": {
+    "operator_assurance_matrix": "docs/operator_product_operational_assurance.md",
+    "product_acceptance_matrix": "codex/tasks/product_acceptance_matrix.json",
+    "runner_tool_certification_matrix": "codex/results/runner-tool-certification-matrix.json",
+    "target_lab_matrix": "codex/tasks/target_lab_matrix.json",
+    "validation_matrix": "codex/results/validation-matrix-latest.json"
+  },
+  "kind": "aegispt.enterprise_release_readiness",
+  "release_decision": {
+    "blocked_claim_ids": [
+      "known_vulnerability_detection_accuracy",
+      "false_positive_false_negative_posture"
+    ],
+    "can_claim_enterprise_ready": false,
+    "critical_gap_claim_ids": [
+      "operator_product_acceptance",
+      "runner_tool_readiness",
+      "safe_lab_and_real_run_catalog",
+      "evidence_integrity",
+      "report_quality_and_exports",
+      "security_self_test",
+      "enterprise_deployment_hardening",
+      "backup_restore_upgrade_rollback",
+      "observability_support_diagnostics",
+      "enterprise_identity_sessions"
+    ],
+    "go_no_go": "no-go",
+    "reason": "Critical release-readiness evidence is missing.",
+    "status": "blocked"
+  },
+  "repo_root": "/home/administrator/project/automation skill/AegisPT",
+  "schema_version": 1,
+  "support_claim_ledger": [
+    {
+      "category": "product_acceptance",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Operational assurance matrix",
+          "missing_signals": [],
+          "path": "docs/operator_product_operational_assurance.md",
+          "required_signals": [
+            "Status Legend"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Product acceptance matrix",
+          "missing_signals": [],
+          "path": "codex/tasks/product_acceptance_matrix.json",
+          "required_signals": [
+            "product_acceptance_matrix_v1"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Full-system acceptance audit",
+          "missing_signals": [],
+          "path": "codex/results/backlog-181-full-system-audit.json",
+          "required_signals": [],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Latest full-system audit records 23 product defects."
+      ],
+      "id": "operator_product_acceptance",
+      "metrics": {
+        "full_system_audit": {
+          "severity_counts": {
+            "high": 1,
+            "medium": 22
+          },
+          "total": 23
+        },
+        "product_matrix": {
+          "enabled_lanes": {
+            "api_regression": 3,
+            "real_run": 3,
+            "ui_browser": 10
+          },
+          "enabled_scenario_count": 16
+        }
+      },
+      "next_task_refs": [
+        "codex/tasks/backlog-149-full-system-acceptance-harness-and-defect-inventory.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Operator journeys have matrix and audit coverage, but release claims must account for recorded product defects.",
+      "support_boundary": "Operator journeys have matrix and audit coverage, but release claims must account for recorded product defects.",
+      "title": "Operator product acceptance"
+    },
+    {
+      "category": "product_acceptance",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Wizard/profile acceptance scenarios",
+          "missing_signals": [],
+          "path": "codex/tasks/product_acceptance_matrix.json",
+          "required_signals": [
+            "ui-wizard-profile-matrix"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Wizard matrix evidence",
+          "missing_signals": [],
+          "path": "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "required_signals": [],
+          "satisfied": true
+        }
+      ],
+      "gaps": [],
+      "id": "wizard_profile_matrix",
+      "metrics": {
+        "product_matrix": {
+          "enabled_lanes": {
+            "api_regression": 3,
+            "real_run": 3,
+            "ui_browser": 10
+          },
+          "enabled_scenario_count": 16
+        }
+      },
+      "next_task_refs": [],
+      "status": "supported",
+      "summary": "Wizard assessment, profile, access, and safety matrix evidence is present.",
+      "support_boundary": "Wizard assessment, profile, access, and safety matrix evidence is present.",
+      "title": "Wizard/profile matrix"
+    },
+    {
+      "category": "runtime_readiness",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Settings/readiness API coverage",
+          "missing_signals": [],
+          "path": "api/tests/test_settings.py",
+          "required_signals": [
+            "tool",
+            "readiness"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Runner/tool certification matrix",
+          "missing_signals": [],
+          "path": "codex/results/runner-tool-certification-matrix.json",
+          "required_signals": [
+            "aegispt.runner_tool_certification_matrix",
+            "certification_status"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Runner/tool certification matrix summary",
+          "missing_signals": [],
+          "path": "codex/results/runner-tool-certification-matrix.md",
+          "required_signals": [
+            "Runner and Tool Certification Matrix"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Diagnostics evidence",
+          "missing_signals": [],
+          "path": "codex/results/backlog-184-observability-support-diagnostics-bundle-20260502.md",
+          "required_signals": [
+            "tool readiness"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "WiFi readiness evidence",
+          "missing_signals": [],
+          "path": "codex/results/backlog-164-wifi-readiness-20260501.md",
+          "required_signals": [],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Tool availability depends on installed host binaries, adapters, and worker/inline mode.",
+        "Certification matrix records 1 blocked runner(s)."
+      ],
+      "id": "runner_tool_readiness",
+      "metrics": {
+        "runner_tool_certification_matrix": {
+          "blocked_tool_count": 1,
+          "certified_tool_count": 53,
+          "software_ready_state_counts": {
+            "missing": 2,
+            "not-required": 37,
+            "ready": 15
+          },
+          "status_counts": {
+            "blocked": 1,
+            "certified": 53
+          },
+          "supported_with_gap_tool_count": 0,
+          "tool_count": 54
+        }
+      },
+      "next_task_refs": [
+        "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Readiness surfaces expose tool availability, but actual enterprise hosts remain environment-dependent.",
+      "support_boundary": "Readiness surfaces expose tool availability, but actual enterprise hosts remain environment-dependent.",
+      "title": "Runner and tool readiness"
+    },
+    {
+      "category": "lab_truth",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Safe target catalog",
+          "missing_signals": [],
+          "path": "codex/tasks/target_lab_matrix.json",
+          "required_signals": [
+            "safe_target_catalog_v2"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Safe real-run coverage",
+          "missing_signals": [],
+          "path": "docs/operator_product_operational_assurance.md",
+          "required_signals": [
+            "Real-Run Safe Target Coverage"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "8 safe target entries are disabled/templates/documentation-only."
+      ],
+      "id": "safe_lab_and_real_run_catalog",
+      "metrics": {
+        "target_catalog": {
+          "blocked_or_template_target_count": 8,
+          "enabled_real_run_scenario_count": 5,
+          "enabled_target_count": 5,
+          "real_run_scenario_count": 9,
+          "target_count": 13
+        }
+      },
+      "next_task_refs": [
+        "codex/tasks/backlog-107-benchmark-lab-expansion-foundation.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "The catalog distinguishes runnable safe targets from disabled templates and documentation-only references.",
+      "support_boundary": "The catalog distinguishes runnable safe targets from disabled templates and documentation-only references.",
+      "title": "Safe lab and real-run catalog"
+    },
+    {
+      "category": "accuracy",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Known-vulnerability validation matrix result",
+          "missing_signals": [],
+          "path": "codex/results/validation-matrix-latest.json",
+          "required_signals": [
+            "known_vulnerability_validation_v1"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Validation matrix runner",
+          "missing_signals": [],
+          "path": "scripts/run_validation_matrix.py",
+          "required_signals": [
+            "detection_rate",
+            "false_positive_rate"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Validation matrix status is `blocked`, not `passed`.",
+        "Scenario `webgoat-active-web-safe` blocked (docker_image_missing): Docker image webgoat/webgoat:2023.8 is not present locally; remote image pulls are disabled for the default safe validation path. Next: Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+        "Scenario `dvwa-active-web-safe` blocked (docker_image_missing): Docker image vulnerables/web-dvwa:latest is not present locally; remote image pulls are disabled for the default safe validation path. Next: Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+        "Scenario `clean-nginx-passive-web` blocked (docker_image_missing): Docker image nginx:1.25-alpine is not present locally; remote image pulls are disabled for the default safe validation path. Next: Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access."
+      ],
+      "id": "known_vulnerability_detection_accuracy",
+      "metrics": {
+        "validation_matrix": {
+          "scenario_blockers": [
+            {
+              "reason": "Docker image webgoat/webgoat:2023.8 is not present locally; remote image pulls are disabled for the default safe validation path.",
+              "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+              "scenario_id": "webgoat-active-web-safe",
+              "scenario_name": "OWASP WebGoat active-safe validation",
+              "type": "docker_image_missing"
+            },
+            {
+              "reason": "Docker image vulnerables/web-dvwa:latest is not present locally; remote image pulls are disabled for the default safe validation path.",
+              "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+              "scenario_id": "dvwa-active-web-safe",
+              "scenario_name": "DVWA active-safe validation",
+              "type": "docker_image_missing"
+            },
+            {
+              "reason": "Docker image nginx:1.25-alpine is not present locally; remote image pulls are disabled for the default safe validation path.",
+              "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+              "scenario_id": "clean-nginx-passive-web",
+              "scenario_name": "Clean nginx false-positive guard",
+              "type": "docker_image_missing"
+            }
+          ],
+          "scenario_count": 3,
+          "scenario_status_counts": {
+            "blocked": 3
+          },
+          "status": "blocked"
+        }
+      },
+      "next_task_refs": [
+        "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",
+        "codex/tasks/backlog-213-known-vuln-validation-fixture-execution.json"
+      ],
+      "status": "blocked",
+      "summary": "Release claims require executed expected-vs-actual validation, not catalog-only evidence.",
+      "support_boundary": "Release claims require executed expected-vs-actual validation, not catalog-only evidence.",
+      "title": "Known-vulnerability detection accuracy"
+    },
+    {
+      "category": "accuracy",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Known-vulnerability validation matrix result",
+          "missing_signals": [],
+          "path": "codex/results/validation-matrix-latest.json",
+          "required_signals": [
+            "known_vulnerability_validation_v1"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Validation matrix runner",
+          "missing_signals": [],
+          "path": "scripts/run_validation_matrix.py",
+          "required_signals": [
+            "detection_rate",
+            "false_positive_rate"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Current validation matrix has no executed pass/fail accuracy verdict.",
+        "Validation matrix status is `blocked`, not `passed`.",
+        "Scenario `webgoat-active-web-safe` blocked (docker_image_missing): Docker image webgoat/webgoat:2023.8 is not present locally; remote image pulls are disabled for the default safe validation path. Next: Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+        "Scenario `dvwa-active-web-safe` blocked (docker_image_missing): Docker image vulnerables/web-dvwa:latest is not present locally; remote image pulls are disabled for the default safe validation path. Next: Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+        "Scenario `clean-nginx-passive-web` blocked (docker_image_missing): Docker image nginx:1.25-alpine is not present locally; remote image pulls are disabled for the default safe validation path. Next: Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access."
+      ],
+      "id": "false_positive_false_negative_posture",
+      "metrics": {
+        "validation_matrix": {
+          "scenario_blockers": [
+            {
+              "reason": "Docker image webgoat/webgoat:2023.8 is not present locally; remote image pulls are disabled for the default safe validation path.",
+              "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+              "scenario_id": "webgoat-active-web-safe",
+              "scenario_name": "OWASP WebGoat active-safe validation",
+              "type": "docker_image_missing"
+            },
+            {
+              "reason": "Docker image vulnerables/web-dvwa:latest is not present locally; remote image pulls are disabled for the default safe validation path.",
+              "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+              "scenario_id": "dvwa-active-web-safe",
+              "scenario_name": "DVWA active-safe validation",
+              "type": "docker_image_missing"
+            },
+            {
+              "reason": "Docker image nginx:1.25-alpine is not present locally; remote image pulls are disabled for the default safe validation path.",
+              "safest_next_step": "Pre-pull the approved fixture image on a validation host, update the catalog if the tag is obsolete, or rerun with --allow-image-pull after explicitly accepting external registry access.",
+              "scenario_id": "clean-nginx-passive-web",
+              "scenario_name": "Clean nginx false-positive guard",
+              "type": "docker_image_missing"
+            }
+          ],
+          "scenario_count": 3,
+          "scenario_status_counts": {
+            "blocked": 3
+          },
+          "status": "blocked"
+        }
+      },
+      "next_task_refs": [
+        "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",
+        "codex/tasks/backlog-213-known-vuln-validation-fixture-execution.json"
+      ],
+      "status": "blocked",
+      "summary": "False-positive/negative posture must be based on executed validation scenarios with expected and forbidden findings.",
+      "support_boundary": "False-positive/negative posture must be based on executed validation scenarios with expected and forbidden findings.",
+      "title": "False-positive and false-negative posture"
+    },
+    {
+      "category": "evidence",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Backup/restore evidence linkage tests",
+          "missing_signals": [],
+          "path": "api/tests/test_backup_restore.py",
+          "required_signals": [
+            "artifact_hash_verified"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Support bundle redaction tests",
+          "missing_signals": [],
+          "path": "api/tests/test_diagnostics.py",
+          "required_signals": [
+            "raw_evidence_payloads"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Evidence and report path support matrix",
+          "missing_signals": [],
+          "path": "docs/operator_product_operational_assurance.md",
+          "required_signals": [
+            "Evidence Replay"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Full evidence-chain completeness and timestamping are still tracked separately."
+      ],
+      "id": "evidence_integrity",
+      "metrics": {},
+      "next_task_refs": [
+        "codex/tasks/backlog-119-evidence-chain-completeness.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Evidence hash/linkage and support redaction are validated, while full RFC 3161 chain completeness remains future work.",
+      "support_boundary": "Evidence hash/linkage and support redaction are validated, while full RFC 3161 chain completeness remains future work.",
+      "title": "Evidence integrity and chain custody"
+    },
+    {
+      "category": "reporting",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Report/export support matrix",
+          "missing_signals": [],
+          "path": "docs/operator_product_operational_assurance.md",
+          "required_signals": [
+            "Export and Report Paths"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Report download acceptance scenario",
+          "missing_signals": [],
+          "path": "codex/tasks/product_acceptance_matrix.json",
+          "required_signals": [
+            "ui-report-downloads"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Evidence-backed assurance, ISO 27001, and PCI DSS report packages remain future slices."
+      ],
+      "id": "report_quality_and_exports",
+      "metrics": {},
+      "next_task_refs": [
+        "codex/tasks/backlog-20-evidence-backed-assurance-package-foundation.json",
+        "codex/tasks/backlog-29-compliance-framework-expansion-foundation.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Current report/export paths are documented and tested, but enterprise assurance packages and external attestations are not complete.",
+      "support_boundary": "Current report/export paths are documented and tested, but enterprise assurance packages and external attestations are not complete.",
+      "title": "Report quality and exports"
+    },
+    {
+      "category": "ai",
+      "critical": false,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "AI provider/settings coverage",
+          "missing_signals": [],
+          "path": "api/tests/test_settings.py",
+          "required_signals": [
+            "AI"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "AI Signal state evidence",
+          "missing_signals": [],
+          "path": "codex/results/backlog-161-ai-signal-global-chatgpt-no-run-validation-20260501.md",
+          "required_signals": [],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "AI repair operator contract",
+          "missing_signals": [],
+          "path": "DECISIONS.md",
+          "required_signals": [
+            "AI repair",
+            "AI Signal"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "AI value, repair actions, and signal inbox remain partially implemented and provider-dependent."
+      ],
+      "id": "ai_feature_availability",
+      "metrics": {},
+      "next_task_refs": [
+        "codex/tasks/backlog-152-ai-value-and-operator-signal-workbench.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "AI surfaces are governed and disabled/configuration-aware; they must not be marketed as always-on without provider evidence.",
+      "support_boundary": "AI surfaces are governed and disabled/configuration-aware; they must not be marketed as always-on without provider evidence.",
+      "title": "AI feature availability"
+    },
+    {
+      "category": "security",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Security self-assessment",
+          "missing_signals": [],
+          "path": "docs/security_self_assessment.md",
+          "required_signals": [
+            "Automated Validation",
+            "Dependency Audit"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Input validation and tenant/scope tests",
+          "missing_signals": [],
+          "path": "api/tests/test_input_validation_security.py",
+          "required_signals": [
+            "tenant",
+            "scope"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Dependency audit recorded tool_unavailable until pip-audit or safety is provided."
+      ],
+      "id": "security_self_test",
+      "metrics": {},
+      "next_task_refs": [
+        "docs/security_self_assessment.md"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Local self-security tests exist, with dependency CVE verdict still dependent on audit tooling availability.",
+      "support_boundary": "Local self-security tests exist, with dependency CVE verdict still dependent on audit tooling availability.",
+      "title": "Security self-test"
+    },
+    {
+      "category": "ux",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Accessibility result",
+          "missing_signals": [],
+          "path": "codex/results/backlog-185-accessibility-keyboard-enterprise-ux-gate-20260502.md",
+          "required_signals": [
+            "Keyboard",
+            "reduced-motion"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Accessibility acceptance standard",
+          "missing_signals": [],
+          "path": "docs/accessibility_acceptance.md",
+          "required_signals": [],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Accessibility E2E gate",
+          "missing_signals": [],
+          "path": "ui/tests/test_accessibility_e2e.py",
+          "required_signals": [
+            "focus",
+            "keyboard"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [],
+      "id": "accessibility_keyboard_enterprise_ux",
+      "metrics": {
+        "enterprise_ia_audit": {
+          "failure_notes": [],
+          "page_count": 28,
+          "partial": false
+        }
+      },
+      "next_task_refs": [],
+      "status": "supported",
+      "summary": "A dedicated keyboard/accessibility gate exists for the operator console.",
+      "support_boundary": "A dedicated keyboard/accessibility gate exists for the operator console.",
+      "title": "Accessibility and keyboard enterprise UX"
+    },
+    {
+      "category": "deployment",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Deployment hardening result",
+          "missing_signals": [],
+          "path": "codex/results/backlog-186-enterprise-deployment-hardening-20260503.md",
+          "required_signals": [
+            "Deployment Hardening",
+            "Remaining Risk"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Host deployment hardening runbook",
+          "missing_signals": [],
+          "path": "docs/host_service_install.md",
+          "required_signals": [
+            "Production deployment hardening"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "The readiness surface does not install or verify external TLS, proxy, certificate, database, or object-store infrastructure."
+      ],
+      "id": "enterprise_deployment_hardening",
+      "metrics": {},
+      "next_task_refs": [
+        "codex/tasks/backlog-186-enterprise-deployment-hardening.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Deployment readiness is explicit, but external TLS/proxy/certificate/encryption proof remains operator-managed.",
+      "support_boundary": "Deployment readiness is explicit, but external TLS/proxy/certificate/encryption proof remains operator-managed.",
+      "title": "Enterprise deployment hardening"
+    },
+    {
+      "category": "operations",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Backup/restore drill result",
+          "missing_signals": [],
+          "path": "codex/results/backlog-183-backup-restore-upgrade-rollback-drill-20260502.md",
+          "required_signals": [
+            "Artifact hash verified",
+            "Plaintext secrets exposed: false"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Restore verification script",
+          "missing_signals": [],
+          "path": "scripts/verify_restore.py",
+          "required_signals": [
+            "safe-local"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Automated proof is SQLite/local; Compose/PostgreSQL and production secret recovery require operator drills."
+      ],
+      "id": "backup_restore_upgrade_rollback",
+      "metrics": {},
+      "next_task_refs": [
+        "codex/tasks/backlog-183-backup-restore-upgrade-rollback-drill.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "A safe local restore drill exists; production PostgreSQL/secret recovery remains environment-specific.",
+      "support_boundary": "A safe local restore drill exists; production PostgreSQL/secret recovery remains environment-specific.",
+      "title": "Backup, restore, upgrade, and rollback"
+    },
+    {
+      "category": "operations",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Observability/support diagnostics result",
+          "missing_signals": [],
+          "path": "codex/results/backlog-184-observability-support-diagnostics-bundle-20260502.md",
+          "required_signals": [
+            "Support Diagnostics",
+            "Redaction"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Diagnostics API tests",
+          "missing_signals": [],
+          "path": "api/tests/test_diagnostics.py",
+          "required_signals": [
+            "support_bundle",
+            "redact"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "Existing live processes may need restart before new diagnostics routes are visible."
+      ],
+      "id": "observability_support_diagnostics",
+      "metrics": {},
+      "next_task_refs": [
+        "codex/tasks/backlog-184-observability-support-diagnostics-bundle.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Diagnostics and redacted support bundles are validated, with live-host availability dependent on deployment refresh.",
+      "support_boundary": "Diagnostics and redacted support bundles are validated, with live-host availability dependent on deployment refresh.",
+      "title": "Observability and support diagnostics"
+    },
+    {
+      "category": "identity",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Enterprise identity result",
+          "missing_signals": [],
+          "path": "codex/results/backlog-182-enterprise-identity-session-admin-20260502.md",
+          "required_signals": [
+            "Enterprise Identity",
+            "Remaining"
+          ],
+          "satisfied": true
+        },
+        {
+          "exists": true,
+          "label": "Auth/identity tests",
+          "missing_signals": [],
+          "path": "api/tests/test_auth.py",
+          "required_signals": [
+            "identity",
+            "logout"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [
+        "OIDC/SAML browser enforcement, SCIM, tenant membership, and hosted RBAC remain future work."
+      ],
+      "id": "enterprise_identity_sessions",
+      "metrics": {},
+      "next_task_refs": [
+        "codex/tasks/backlog-182-enterprise-sso-session-identity-administration.json",
+        "codex/tasks/backlog-127-rbac.json"
+      ],
+      "status": "supported-with-gap",
+      "summary": "Identity configuration/status/audit foundations exist, but enforced hosted enterprise SSO remains future work.",
+      "support_boundary": "Identity configuration/status/audit foundations exist, but enforced hosted enterprise SSO remains future work.",
+      "title": "Enterprise identity and sessions"
+    },
+    {
+      "category": "truth_boundary",
+      "critical": true,
+      "evidence": [
+        {
+          "exists": true,
+          "label": "Runtime safety decisions",
+          "missing_signals": [
+            "No runtime self-modification",
+            "No uncontrolled plugin installation"
+          ],
+          "path": "DECISIONS.md",
+          "required_signals": [
+            "No runtime self-modification",
+            "No uncontrolled plugin installation"
+          ],
+          "satisfied": false
+        },
+        {
+          "exists": true,
+          "label": "Unsupported path ledger",
+          "missing_signals": [],
+          "path": "docs/operator_product_operational_assurance.md",
+          "required_signals": [
+            "intentionally-unsupported"
+          ],
+          "satisfied": true
+        }
+      ],
+      "gaps": [],
+      "id": "unsupported_claim_boundary",
+      "metrics": {},
+      "next_task_refs": [],
+      "status": "unsupported",
+      "summary": "Hosted SaaS completeness, external certification, arbitrary public scanning, runtime self-modification, and uncontrolled plugin installation remain outside the supported claim boundary.",
+      "support_boundary": "Do not market or imply these capabilities until a future task explicitly implements and validates them.",
+      "title": "Unsupported claim boundary"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts import run_validation_matrix
 from scripts.run_validation_matrix import evaluate_scenario, main, normalize_findings
 
 
@@ -227,7 +228,40 @@ def test_cli_writes_offline_fixture_results(tmp_path: Path) -> None:
     assert exit_code == 0
     payload = json.loads(results_path.read_text(encoding="utf-8"))
     assert payload["status"] == "passed"
-    assert payload["summary"] == {"failed": 0, "not_run": 0, "passed": 1, "scenarios": 1}
+    assert payload["summary"] == {"blocked": 0, "failed": 0, "not_run": 0, "passed": 1, "scenarios": 1}
+
+
+def test_cli_writes_blocked_preflight_when_default_api_is_unreachable(tmp_path: Path, monkeypatch) -> None:
+    catalog = {
+        "matrix_id": "fixture_matrix",
+        "scenarios": [_scenario(id="fixture-web")],
+    }
+    catalog_path = tmp_path / "catalog.json"
+    results_path = tmp_path / "latest.json"
+    catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+    monkeypatch.setattr(
+        run_validation_matrix,
+        "_aegispt_api_ready",
+        lambda base_url: (False, "connection refused"),
+    )
+
+    exit_code = main(
+        [
+            "--catalog",
+            str(catalog_path),
+            "--results-file",
+            str(results_path),
+            "--base-url",
+            "http://127.0.0.1:9",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(results_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "blocked"
+    assert payload["mode"] == "blocked-preflight"
+    assert payload["summary"]["blocked"] == 1
+    assert payload["scenarios"][0]["execution_blocker"]["type"] == "aegispt_api_unreachable"
 
 
 def test_validation_matrix_workflow_is_valid_yaml() -> None:

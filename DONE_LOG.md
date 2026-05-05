@@ -11034,3 +11034,45 @@
     - host binary readiness remains environment-dependent and was recorded rather than repaired; `nikto` and `sqlmap` binaries were missing on this build host
     - wireless support remains blocked until a future authorized hardware lab proves adapter/monitor-mode behavior safely
     - enterprise release-readiness remains `blocked`; `NEXT_TASK.md` now promotes exactly one active task, backlog-237 `Enterprise release blocker closure`
+
+- 2026-05-05: completed backlog-237 `Enterprise release blocker closure: execute accuracy evidence and close or keep blocked release claims honestly`:
+  - rationale:
+    - enterprise release-readiness was already fail-closed because the known-vulnerability validation matrix had no executed current evidence
+    - the active task required the existing evidence path to be executed or to record exact blockers and safest next steps without lowering thresholds, inventing proof, or adding new detection capability
+  - implementation:
+    - updated `scripts/run_validation_matrix.py` so blocked scenario execution is first-class machine-readable evidence with `execution_blocker.type`, `reason`, `safest_next_step`, and details
+    - made default validation matrix execution use the configured local AegisPT API when reachable, while blocking safely when the API is unavailable instead of silently producing catalog-only `not_run` evidence
+    - added Docker fixture preflight so missing local images are recorded as `docker_image_missing` blockers unless `--allow-image-pull` is explicitly supplied
+    - updated `scripts/run_enterprise_release_readiness.py` so validation scenario blockers are propagated into accuracy and FP/FN support claims, and markdown gaps render one per line for operators
+    - added focused coverage for validation preflight blockers and release-readiness blocker propagation
+  - files:
+    - `scripts/run_validation_matrix.py`
+    - `scripts/run_enterprise_release_readiness.py`
+    - `scripts/tests/test_validation_runner.py`
+    - `api/tests/test_release_readiness.py`
+    - `codex/results/validation-matrix-latest.json`
+    - `codex/results/enterprise-release-readiness.json`
+    - `codex/results/enterprise-release-readiness.md`
+    - `codex/results/backlog-237-enterprise-release-blocker-closure-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_release_readiness.py -q` passed
+    - `source .venv/bin/activate && python -m pytest scripts/tests/test_validation_runner.py -q` passed as focused extra coverage for the repaired matrix runner
+    - `python3 scripts/run_validation_matrix.py` passed and wrote `codex/results/validation-matrix-latest.json` with status `blocked`, mode `auto-execute`, and three `docker_image_missing` scenario blockers
+    - `python3 scripts/run_enterprise_release_readiness.py --output-json codex/results/enterprise-release-readiness.json --output-md codex/results/enterprise-release-readiness.md` passed and kept release-readiness `blocked`/`no-go`
+    - safe local acceptance confirmed `http://127.0.0.1:8000/health/live` healthy; no browser UI was changed by this task
+    - `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-237-enterprise-release-blocker-closure-20260505.md`
+    - `codex/results/validation-matrix-latest.json`
+    - `codex/results/enterprise-release-readiness.json`
+    - `codex/results/enterprise-release-readiness.md`
+  - proof:
+    - validation matrix truth is current and machine-readable: `3` scenarios, `3` blocked, `0` passed, `0` failed, `0` not_run
+    - blockers are explicit for `webgoat-active-web-safe`, `dvwa-active-web-safe`, and `clean-nginx-passive-web` because the approved Docker fixture images are not present locally and remote pulls are disabled by default
+    - enterprise release-readiness remains `blocked`/`no-go`; `known_vulnerability_detection_accuracy` and `false_positive_false_negative_posture` are the blocked critical claims and the enterprise-ready claim remains disallowed
+  - remaining risks:
+    - no benchmark scenario executed because required local Docker fixture images were unavailable and this slice did not pull external registry images by default
+    - detection accuracy and FP/FN posture remain release-blocking until approved local fixtures are present or explicit registry access is authorized and the matrix passes
+    - the operator-reported Gruyere wizard/all-tools complaint is outside this active task and remains queued under backlog-250
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-238 `Production-like deployment proof drill`

@@ -116,15 +116,28 @@ def _count_full_system_defects(payload: dict[str, Any]) -> dict[str, Any]:
 def _validation_matrix_summary(payload: dict[str, Any]) -> dict[str, Any]:
     scenarios = payload.get("scenarios") if isinstance(payload.get("scenarios"), list) else []
     statuses: dict[str, int] = {}
+    scenario_blockers: list[dict[str, Any]] = []
     for scenario in scenarios:
         if not isinstance(scenario, dict):
             continue
         status = str(scenario.get("status") or "unknown")
         statuses[status] = statuses.get(status, 0) + 1
+        blocker = scenario.get("execution_blocker") if isinstance(scenario.get("execution_blocker"), dict) else {}
+        if status == "blocked":
+            scenario_blockers.append(
+                {
+                    "scenario_id": scenario.get("scenario_id"),
+                    "scenario_name": scenario.get("scenario_name"),
+                    "type": blocker.get("type") or "unknown",
+                    "reason": blocker.get("reason") or scenario.get("reason") or "No blocker reason recorded.",
+                    "safest_next_step": blocker.get("safest_next_step") or "No safest next step recorded.",
+                }
+            )
     return {
         "status": str(payload.get("status") or "missing"),
         "scenario_status_counts": statuses,
         "scenario_count": len(scenarios),
+        "scenario_blockers": scenario_blockers,
     }
 
 
@@ -327,6 +340,23 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
         ],
     )
     validation_ready = validation_metrics["status"] == "passed"
+    validation_gaps = []
+    if not validation_ready:
+        validation_gaps.append(f"Validation matrix status is `{validation_metrics['status']}`, not `passed`.")
+    for blocker in validation_metrics["scenario_blockers"]:
+        validation_gaps.append(
+            "Scenario "
+            f"`{blocker['scenario_id']}` blocked ({blocker['type']}): "
+            f"{blocker['reason']} Next: {blocker['safest_next_step']}"
+        )
+    validation_next_task_refs = (
+        []
+        if validation_ready
+        else [
+            "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",
+            "codex/tasks/backlog-213-known-vuln-validation-fixture-execution.json",
+        ]
+    )
     claims.append(
         _claim(
             claim_id="known_vulnerability_detection_accuracy",
@@ -336,8 +366,8 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
             critical=True,
             summary="Release claims require executed expected-vs-actual validation, not catalog-only evidence.",
             evidence=detection_evidence,
-            gaps=[] if validation_ready else [f"Validation matrix status is `{validation_metrics['status']}`, not `passed`."],
-            next_task_refs=[] if validation_ready else ["codex/tasks/backlog-99-known-vulnerability-validation-matrix.json"],
+            gaps=validation_gaps,
+            next_task_refs=validation_next_task_refs,
             metrics={"validation_matrix": validation_metrics},
         )
     )
@@ -351,8 +381,8 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
             critical=True,
             summary="False-positive/negative posture must be based on executed validation scenarios with expected and forbidden findings.",
             evidence=detection_evidence,
-            gaps=[] if validation_ready else ["Current validation matrix has no executed pass/fail accuracy verdict."],
-            next_task_refs=[] if validation_ready else ["codex/tasks/backlog-99-known-vulnerability-validation-matrix.json"],
+            gaps=[] if validation_ready else ["Current validation matrix has no executed pass/fail accuracy verdict.", *validation_gaps],
+            next_task_refs=validation_next_task_refs,
             metrics={"validation_matrix": validation_metrics},
         )
     )
@@ -639,7 +669,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         evidence = "<br>".join(
             f"`{item['path']}`" for item in claim["evidence"] if item.get("exists")
         ) or "Missing"
-        gap_text = "; ".join(claim["gaps"]) if claim["gaps"] else "No recorded gap."
+        gap_text = "<br>".join(claim["gaps"]) if claim["gaps"] else "No recorded gap."
         if claim["next_task_refs"]:
             gap_text += "<br>Next: " + ", ".join(f"`{ref}`" for ref in claim["next_task_refs"])
         lines.append(

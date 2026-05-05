@@ -20,6 +20,14 @@ def _write_json(path: Path, payload: dict) -> None:
 
 
 def _seed_minimal_repo(root: Path, *, validation_status: str = "not_run") -> None:
+    validation_scenario = {"scenario_id": "webgoat", "status": validation_status}
+    if validation_status == "blocked":
+        validation_scenario["reason"] = "Docker image is missing locally."
+        validation_scenario["execution_blocker"] = {
+            "type": "docker_image_missing",
+            "reason": "Docker image is missing locally.",
+            "safest_next_step": "Pre-pull the approved fixture image or update the catalog tag.",
+        }
     _write_json(
         root / "codex/tasks/product_acceptance_matrix.json",
         {
@@ -46,7 +54,7 @@ def _seed_minimal_repo(root: Path, *, validation_status: str = "not_run") -> Non
         {
             "matrix_id": "known_vulnerability_validation_v1",
             "status": validation_status,
-            "scenarios": [{"scenario_id": "webgoat", "status": validation_status}],
+            "scenarios": [validation_scenario],
         },
     )
     _write_json(
@@ -138,6 +146,28 @@ def test_release_readiness_fails_closed_when_accuracy_matrix_is_not_executed(tmp
     assert ledger["known_vulnerability_detection_accuracy"]["status"] == "blocked"
     assert ledger["known_vulnerability_detection_accuracy"]["next_task_refs"]
     assert ledger["false_positive_false_negative_posture"]["status"] == "blocked"
+
+
+def test_release_readiness_surfaces_validation_scenario_blockers(tmp_path: Path) -> None:
+    _seed_minimal_repo(tmp_path, validation_status="blocked")
+
+    report = build_release_readiness_report(tmp_path)
+    ledger = {claim["id"]: claim for claim in report["support_claim_ledger"]}
+    accuracy = ledger["known_vulnerability_detection_accuracy"]
+    markdown = render_markdown(report)
+
+    assert accuracy["status"] == "blocked"
+    assert accuracy["metrics"]["validation_matrix"]["scenario_blockers"] == [
+        {
+            "scenario_id": "webgoat",
+            "scenario_name": None,
+            "type": "docker_image_missing",
+            "reason": "Docker image is missing locally.",
+            "safest_next_step": "Pre-pull the approved fixture image or update the catalog tag.",
+        }
+    ]
+    assert "docker_image_missing" in " ".join(accuracy["gaps"])
+    assert "docker_image_missing" in markdown
 
 
 def test_supported_claims_have_evidence_and_marketing_boundary_is_explicit(tmp_path: Path) -> None:
