@@ -871,6 +871,48 @@ def idor_bac_runner_params_from_configuration(
     return result
 
 
+def client_state_auth_contexts_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    return business_logic_auth_contexts_from_configuration(configuration)
+
+
+def client_state_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("client_state")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in (
+        "form_contexts",
+        "cookie_contexts",
+        "request_contexts",
+        "price_contexts",
+        "workflow_contexts",
+        "gruyere_contexts",
+    ):
+        value = settings.get(field_name)
+        if isinstance(value, list) and value:
+            result[field_name] = value
+    for field_name in (
+        "form_contexts",
+        "cookie_contexts",
+        "request_contexts",
+        "price_contexts",
+        "workflow_contexts",
+        "gruyere_contexts",
+    ):
+        value = validation.get(field_name)
+        if isinstance(value, list) and value and field_name not in result:
+            result[field_name] = value
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1990,6 +2032,54 @@ def validate_idor_bac_run_configuration(
                 raise ValueError(f"configured IDOR/BAC endpoint {target} is outside the approved engagement scope")
 
 
+def validate_client_state_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="client-state",
+    )
+    if not client_state_auth_contexts_from_configuration(configuration):
+        raise ValueError(
+            "client-state requires at least one authenticated access account with stored secret bindings"
+        )
+    params = client_state_runner_params_from_configuration(configuration)
+    for field_name in (
+        "form_contexts",
+        "cookie_contexts",
+        "request_contexts",
+        "price_contexts",
+        "workflow_contexts",
+        "gruyere_contexts",
+    ):
+        entries = params.get(field_name)
+        for item in entries if isinstance(entries, list) else []:
+            if isinstance(item, str):
+                targets = [item]
+            elif isinstance(item, dict):
+                targets = [
+                    item.get("url") or item.get("target") or item.get("endpoint"),
+                    item.get("action"),
+                    item.get("final_url"),
+                    item.get("prerequisite_url"),
+                ]
+            else:
+                continue
+            for target in targets:
+                target_value = str(target or "").strip()
+                if (
+                    target_value
+                    and "://" in target_value
+                    and not web_target_value_is_allowed_with_path(scope.allowlist_json, target_value)
+                ):
+                    raise ValueError(
+                        f"configured client-state endpoint {target_value} is outside the approved engagement scope"
+                    )
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -2815,6 +2905,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "jwt-probe",
         "vuln-components",
         "idor-bac",
+        "client-state",
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
@@ -3047,6 +3138,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     jwt_params = jwt_runner_params_from_configuration(run_configuration)
     vulnerable_components_params = vulnerable_components_runner_params_from_configuration(run_configuration)
     idor_bac_params = idor_bac_runner_params_from_configuration(run_configuration)
+    client_state_params = client_state_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3122,6 +3214,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "idor-bac":
             validate_idor_bac_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "client-state":
+            validate_client_state_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -3450,6 +3547,19 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         **{
                             key: value
                             for key, value in idor_bac_params.items()
+                            if value not in (None, [], {})
+                        },
+                    }
+                )
+            if tool == "client-state":
+                task_params.update(
+                    {
+                        "auth_contexts": client_state_auth_contexts_from_configuration(
+                            run_configuration
+                        ),
+                        **{
+                            key: value
+                            for key, value in client_state_params.items()
                             if value not in (None, [], {})
                         },
                     }

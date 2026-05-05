@@ -44,6 +44,7 @@ def test_web_depth_tools_are_supported() -> None:
         "deserialization-probe",
         "session-security",
         "auth-flow",
+        "client-state",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 

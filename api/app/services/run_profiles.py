@@ -997,6 +997,21 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "active-web-client-state",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated client-state manipulation validation for approved web roots covering hidden privilege fields, role/admin cookies, request parameter privilege escalation, price or amount tampering, and workflow step-skipping.",
+            "required_approvals": 1,
+            "tools": ["client-state"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "requires_auth_context": True,
+            "credentials_from_configured_contexts": True,
+            "parameter_and_cookie_manipulation_only": True,
+            "post_exploitation_chaining": False,
+        },
+    },
+    {
         "name": "active-web-idor-bac",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

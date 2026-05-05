@@ -158,6 +158,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["Authenticated App", "External Web", "API Security"],
   },
   {
+    id: "client-state",
+    name: "Client-State Authorization",
+    category: "Authentication",
+    tier: "active",
+    description: "Validates server-side authorization gaps exposed by client-controlled hidden fields, role cookies, privilege parameters, price fields, and workflow step-skipping.",
+    findings: ["Hidden field privilege escalation", "Cookie-based privilege escalation", "Request parameter authorization bypass", "Price or amount manipulation", "Workflow step-skipping"],
+    prerequisites: ["Approved web root", "Configured authenticated access context", "Active approval", "Parameter and cookie manipulation only"],
+    chains: ["Authenticated App", "External Web", "API Security"],
+  },
+  {
     id: "vuln-components",
     name: "Vulnerable Components",
     category: "Web",

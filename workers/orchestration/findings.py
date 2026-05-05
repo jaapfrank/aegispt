@@ -19,6 +19,7 @@ from workers.runners.biz_logic.runner import BIZ_LOGIC_ARTIFACT_NAME
 from workers.runners.bloodhound.runner import BLOODHOUND_RESULTS_ARTIFACT_NAME
 from workers.runners.burp.runner import BURP_RESULTS_ARTIFACT_NAME
 from workers.runners.camera_test.runner import CAMERA_TEST_RESULTS_ARTIFACT_NAME
+from workers.runners.client_state.runner import CLIENT_STATE_RESULTS_ARTIFACT_NAME
 from workers.runners.cicd_security.runner import CICD_SECURITY_RESULTS_ARTIFACT_NAME
 from workers.runners.cloud_native.runner import CLOUD_NATIVE_RESULTS_ARTIFACT_NAME
 from workers.runners.credential_attacks.runner import (
@@ -513,7 +514,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -527,6 +528,7 @@ def extract_findings(
                 JWT_RESULTS_ARTIFACT_NAME,
                 VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
                 IDOR_BAC_ARTIFACT_NAME,
+                CLIENT_STATE_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,

@@ -445,6 +445,7 @@ def test_list_run_profiles(client) -> None:
         "active-llm-application-probe",
         "active-offline-hash-crack",
         "active-web-auth-flow",
+        "active-web-client-state",
         "active-web-content-discovery",
         "active-web-deserialization-probe",
         "active-web-idor-bac",
@@ -2320,6 +2321,95 @@ def test_active_auth_flow_profile_requires_approval_and_queues_authenticated_tas
     assert task["params_json"]["auth_contexts"][0]["username"] == "alice@example.test"
     assert "password" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
     assert "CorrectHorseBatteryStaple!" not in json.dumps(task["params_json"])
+
+
+def test_active_client_state_profile_requires_approval_and_queues_authenticated_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-client-state",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "access": {
+                    "accounts": [
+                        {
+                            "label": "Client State User",
+                            "username": "alice@example.test",
+                            "role": "User",
+                            "session_ref": "session=alice",
+                        }
+                    ]
+                },
+                "client_state": {
+                    "form_contexts": [
+                        {
+                            "url": "settings",
+                            "html": '<form action="/app/save" method="post"><input type="hidden" name="role" value="user"></form>',
+                            "success_markers": ["admin panel saved"],
+                        }
+                    ],
+                    "cookie_contexts": [
+                        {
+                            "url": "admin",
+                            "cookie_name": "admin",
+                            "original_value": "false",
+                            "mutated_value": "true",
+                        }
+                    ],
+                    "request_contexts": [
+                        {"url": "profile", "method": "POST", "json": {"isAdmin": False}},
+                    ],
+                    "price_contexts": [
+                        {"url": "checkout", "method": "POST", "json": {"price": "99.00"}},
+                    ],
+                    "workflow_contexts": [
+                        {"final_url": "checkout/confirm", "success_markers": ["checkout complete"]},
+                    ],
+                    "gruyere_contexts": [
+                        {
+                            "url": "newsnippet",
+                            "cookie_name": "is_admin",
+                            "original_value": "False",
+                            "mutated_value": "True",
+                        }
+                    ],
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "run.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "client-state"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["form_contexts"][0]["url"] == "settings"
+    assert task["params_json"]["cookie_contexts"][0]["cookie_name"] == "admin"
+    assert task["params_json"]["request_contexts"][0]["json"] == {"isAdmin": False}
+    assert task["params_json"]["price_contexts"][0]["json"] == {"price": "99.00"}
+    assert task["params_json"]["workflow_contexts"][0]["final_url"] == "checkout/confirm"
+    assert task["params_json"]["gruyere_contexts"][0]["url"] == "newsnippet"
+    assert task["params_json"]["auth_contexts"][0]["label"] == "Client State User"
+    assert "session" in task["params_json"]["auth_contexts"][0]["secret_bindings"]
+    assert "session=alice" not in json.dumps(task["params_json"])
 
 
 def test_intrusive_responder_profile_requires_named_approval_gate_and_configured_interface(

@@ -51,6 +51,7 @@ class AgentProposalReviewError(RuntimeError):
 SUPPORTED_AI_PROPOSAL_TOOLS = {
     "auth-flow",
     "aws-inventory",
+    "client-state",
     "content-discovery",
     "deserialization-probe",
     "external-osint",
@@ -82,6 +83,7 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "camera-test",
     "cicd-security",
     "cloud-native",
+    "client-state",
     "content-discovery",
     "credential-attacks",
     "desktop-client",

@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-05: completed backlog-225 `Client-state manipulation and server-side authorization bypass: detect privilege escalation via parameter/cookie tampering`:
+  - rationale:
+    - benchmark coverage showed AegisPT lacked a first-class runner for client-controlled hidden fields, role/admin cookies, privilege parameters, price manipulation, and workflow step-skipping
+    - the active task required configured credentials, active approval, structured evidence-first findings, Gruyere-style client-state fixture proof, and no post-exploitation chaining
+  - implementation:
+    - added `client-state` as a dedicated active runner that enforces approved web-root scope for targets, configured endpoints, and configured form actions
+    - implemented hidden-field privilege manipulation, cookie-based role/admin manipulation, request parameter privilege manipulation, price/amount/quantity manipulation, workflow step-skipping, and Gruyere-style admin-cookie validation through explicit configured contexts
+    - emitted `client-state-results.json` with structured findings, check records, replay metadata, summary counts, and safety metadata proving configured-credential-only execution, parameter/cookie manipulation only, no raw credential or cookie value storage, and no post-exploitation chaining
+    - registered `client-state` in supported tools, worker dispatch, command previews, secret materialization reuse, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, an `active-web-client-state` run profile, and the Tool Library
+  - files:
+    - `workers/runners/client_state/runner.py`
+    - `workers/runners/client_state/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_client_state_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-225-client-state-runner-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile workers/runners/client_state/runner.py workers/orchestration/tasks.py workers/orchestration/findings.py api/app/services/runs.py api/app/services/run_profiles.py api/app/services/ai_agent.py api/app/methodology.py workers/tests/test_client_state_runner.py api/tests/test_pentest_depth_registration.py api/tests/test_runs.py` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_client_state_runner.py api/tests/test_pentest_depth_registration.py workers/tests/test_web_depth_runner.py -q` passed after correcting boolean admin-parameter mutation to preserve JSON booleans
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_client_state_profile_requires_approval_and_queues_authenticated_task -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings; the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test and the command exited 0
+    - `git diff --check` passed
+    - `curl -fsS --max-time 5 http://127.0.0.1:8000/health/live` returned healthy development runtime
+    - `curl -fsS --max-time 5 http://127.0.0.1:8000/app/assets/modules/packs.js | rg -n "client-state|Client-State"` confirmed the live-served Tool Library module contains the Client-State Authorization entry
+  - evidence:
+    - `codex/results/backlog-225-client-state-runner-20260505.md`
+  - remaining risks:
+    - no public Gruyere or WebGoat target was actively scanned during build-lane validation; proof is from deterministic safe fixtures
+    - real client-state validation depends on configured in-scope authenticated access contexts and explicit form/cookie/request/price/workflow contexts
+    - server acceptance is marker/status based; the runner does not attempt account takeover, privilege persistence, or post-exploitation
+
 - 2026-05-05: completed backlog-224 `Password reset and authentication flow security: detect predictable tokens, token reuse, and reset poisoning`:
   - rationale:
     - benchmark coverage showed AegisPT lacked first-class authentication-flow checks for password reset, username enumeration, brute-force protection, and insecure credential submission
