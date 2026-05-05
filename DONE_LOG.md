@@ -1,5 +1,48 @@
 # Done Log
 
+- 2026-05-05: completed backlog-210 `Email, Slack, and Teams notifications: alert operators on critical findings, phase completions, and run results`:
+  - rationale:
+    - AegisPT already had SIEM push and generic webhook handoff paths, but enterprise operators lacked first-class optional email, Slack, and Teams alerts for urgent run events
+    - the active task required encrypted settings-backed channel configuration and delivery triggers from the existing finding/run completion event locations without changing SIEM push, existing webhook formats, severity, scope/ROE, approval, deployment, runtime binding, credentials, or kill-switch behavior
+  - implementation:
+    - added `api/app/services/notification_delivery.py` with optional SMTP email, Slack webhook, and Teams Adaptive Card delivery for critical findings, run completion, and phase approval-needed events
+    - SMTP uses Settings-backed host/port/from/to/STARTTLS/username fields plus encrypted `notifications.smtp_password`; Slack and Teams reuse encrypted webhook settings keys without returning plaintext
+    - worker completion flow now invokes notification delivery alongside existing SIEM push calls after critical finding creation and run completion, and after assessment-chain advancement when a phase waits for approval
+    - Settings now exposes email delivery controls and moves Slack/Teams webhook configuration into the Notifications section while preserving the existing setting keys
+    - UI summary now reflects configured email/Slack/Teams channels, and the Settings smoke fixture proves the notification fields render
+  - files:
+    - `api/app/services/notification_delivery.py`
+    - `workers/orchestration/tasks.py`
+    - `api/app/services/settings.py`
+    - `api/app/config.py`
+    - `api/tests/test_notification_delivery.py`
+    - `api/tests/test_settings.py`
+    - `ui/assets/modules/settings.js`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `.env.example`
+    - `codex/results/backlog-210-email-slack-teams-notification-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - initial syntax attempts using `python` and `node --input-type=module --check ui/assets/modules/settings.js` were not valid on this host and were not claimed green
+    - corrected `python3 -m py_compile api/app/services/notification_delivery.py workers/orchestration/tasks.py api/app/services/settings.py api/app/config.py api/tests/test_notification_delivery.py` passed
+    - corrected `node --input-type=module --check < ui/assets/modules/settings.js` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_notification_delivery.py api/tests/test_settings.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_settings_collapsed_sections_show_status_summaries_and_still_toggle -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings only
+    - full `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed as extra UI coverage
+    - current-code API/browser acceptance on temporary port `8023` passed for encrypted SMTP/Slack/Teams settings, no plaintext secret exposure, visible Settings fields, and summary `Alerts: email/Slack/Teams · completion on`
+    - `git diff --check` passed before task-close documentation
+  - evidence:
+    - `codex/results/backlog-210-email-slack-teams-notification-20260505.md`
+  - exceptions and boundaries:
+    - `http://127.0.0.1:8000` was relevant but served stale Settings code without the new SMTP/phase-approval notification fields, so current-code acceptance used isolated temporary port `8023`
+    - no real SMTP tenant, Slack workspace, Teams tenant, external public target, Gruyere target, WebGoat target, or customer target was contacted
+    - SIEM push logic, existing webhook handoff formats, finding severity, scope/ROE, approvals, deployment, runtime binding, credentials, and kill-switch behavior were not bypassed
+  - remaining risks:
+    - real delivery depends on operator-provided reachable SMTP/chat endpoints and egress policy
+    - the stale `:8000` service must be explicitly restarted or redeployed outside this build-lane slice before it reflects this commit
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-205 `AI Proposals Inbox`
+
 - 2026-05-05: completed backlog-208 `Chain phase visibility in Mission Control: show current phase, next phase, approval requirement, and phase history clearly`:
   - rationale:
     - assessment-chain phase execution, auto-advance, and approval gating already existed, but Mission Control did not make the current phase, next phase, pending approval state, or phase history clear enough for operators

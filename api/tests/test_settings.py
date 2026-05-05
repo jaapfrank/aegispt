@@ -57,6 +57,14 @@ def test_get_settings_returns_all_sections_with_environment_defaults(client) -> 
     assert settings["integrations.slack_webhook_url"]["sensitive"] is True
     assert settings["integrations.slack_webhook_url"]["value"] is None
     assert settings["integrations.slack_webhook_url"]["configured"] is False
+    assert settings["integrations.teams_webhook_url"]["sensitive"] is True
+    assert settings["notifications.email_enabled"]["value"] is False
+    assert settings["notifications.smtp_host"]["value"] is None
+    assert settings["notifications.smtp_password"]["sensitive"] is True
+    assert settings["notifications.smtp_password"]["value"] is None
+    assert settings["notifications.smtp_port"]["value"] == 587
+    assert settings["notifications.smtp_to"]["value"] == []
+    assert settings["notifications.phase_approval_needed"]["value"] is True
     assert settings["threat_intel.sync_enabled"]["value"] is True
     assert settings["threat_intel.nvd_api_key"]["sensitive"] is True
     assert settings["threat_intel.opencve_api_token"]["value"] is None
@@ -76,6 +84,7 @@ def test_patch_settings_persists_plain_and_encrypted_sensitive_values(client) ->
                 "network.default_lan_cidr": "10.42.0.0/16",
                 "network.default_vlan_cidrs": ["10.43.0.0/16", "10.44.0.0/16"],
                 "notifications.run_completion": True,
+                "notifications.smtp_password": "smtp-secret",
                 "integrations.slack_webhook_url": secret,
             }
         },
@@ -86,6 +95,8 @@ def test_patch_settings_persists_plain_and_encrypted_sensitive_values(client) ->
     assert settings["network.default_lan_cidr"]["value"] == "10.42.0.0/16"
     assert settings["network.default_vlan_cidrs"]["value"] == ["10.43.0.0/16", "10.44.0.0/16"]
     assert settings["notifications.run_completion"]["value"] is True
+    assert settings["notifications.smtp_password"]["value"] is None
+    assert settings["notifications.smtp_password"]["configured"] is True
     assert settings["integrations.slack_webhook_url"]["value"] is None
     assert settings["integrations.slack_webhook_url"]["configured"] is True
     assert settings["integrations.slack_webhook_url"]["masked_value"]
@@ -98,6 +109,9 @@ def test_patch_settings_persists_plain_and_encrypted_sensitive_values(client) ->
     assert rows["integrations.slack_webhook_url"].sensitive is True
     assert rows["integrations.slack_webhook_url"].encrypted_value
     assert secret not in rows["integrations.slack_webhook_url"].encrypted_value
+    assert rows["notifications.smtp_password"].sensitive is True
+    assert rows["notifications.smtp_password"].encrypted_value
+    assert "smtp-secret" not in rows["notifications.smtp_password"].encrypted_value
     assert rows["integrations.slack_webhook_url"].updated_by == "settings-admin"
 
 

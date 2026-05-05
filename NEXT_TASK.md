@@ -2,37 +2,35 @@
 
 ## Title
 
-Email, Slack, and Teams notifications: alert operators on critical findings, phase completions, and run results
+AI Proposals Inbox: make AI-generated next-step proposals visible and actionable in Mission Control
 
 ## Promoted From
 
-`codex/tasks/backlog-210-email-slack-teams-notification.json`
+`codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json`
 
 ## Goal
 
-AegisPT has SIEM push and generic webhooks, but enterprise operators still lack first-class email, Slack, and Microsoft Teams notifications for urgent assessment events. Add optional notification delivery for critical findings, run completion, and phase completion / phase-approval-needed events using existing integration and credential-storage patterns.
+The AI agent generates AgentProposal records after completed tool runs, but operators cannot see or act on those suggested next steps in Mission Control. Add a visible AI proposals inbox for the active run, with approval and rejection actions grounded in the existing proposal/dispatch mechanisms.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-210-email-slack-teams-notification.json`.
+Implement the active backlog package `codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json`.
 
 Expected slice:
 
-- add email delivery via SMTP for critical findings, run completion, and phase approval-needed events
-- add Slack webhook notification delivery for the same events
-- add Microsoft Teams webhook delivery using Adaptive Card format
-- add Settings configuration surfaces for SMTP, Slack webhook URL, and Teams webhook URL
-- keep all notification channels optional so the system works when none are configured
-- store credentials/secrets encrypted using the existing Jira/SIEM integration pattern
-- trigger from existing event locations without changing SIEM push logic or existing webhook formats
+- show a Mission Control panel listing pending AgentProposal records for the active run
+- show tool, target, risk tier, confidence, and one-line reasoning for each proposal
+- add approve and reject controls for each proposal
+- approved proposals dispatch as queued tasks through the existing mechanism
+- rejected proposals are marked rejected and removed from the visible pending list
+- show a pending proposal badge/count on the Mission Control navigation item
+- hide the panel when no proposals exist
 
 ## Constraints
 
-- Do not change SIEM push logic.
-- Do not change existing webhook format.
-- Do not change finding severity model.
-- Keep all channels optional.
-- Use existing encrypted credential/integration storage patterns.
+- Do not change AI agent proposal generation logic.
+- Do not change proposal confidence scoring.
+- Do not bypass approval gates for intrusive tools.
 - Do not bypass scope, ROE, approval, validation, deployment, runtime binding, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -40,16 +38,14 @@ Expected slice:
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/ -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Email alert sends on critical finding with mock SMTP verification.
-- Slack webhook is called on critical finding.
-- Teams webhook is called on critical finding using Adaptive Card format.
-- Run completion and phase-approval-needed events trigger configured channels.
-- No crash or failure when no notification channels are configured.
-- Credentials are stored encrypted.
-- Settings screen exposes email, Slack, and Teams configuration panels.
-- Existing tests do not regress.
+- AI proposals panel renders in Mission Control.
+- Approve action dispatches proposal as a task.
+- Reject action removes proposal from the panel.
+- Pending proposal badge/count updates for Mission Control.
+- Panel hidden when no proposals exist.
+- E2E tests pass.

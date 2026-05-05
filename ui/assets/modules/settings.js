@@ -2248,8 +2248,6 @@ function summarizeSection(section) {
       "integrations.jira_base_url",
       "integrations.jira_project_key",
       "integrations.jira_token",
-      "integrations.slack_webhook_url",
-      "integrations.teams_webhook_url",
       "integrations.servicenow_instance_url",
     ].filter(settingConfigured).length;
     return configured
@@ -2259,7 +2257,13 @@ function summarizeSection(section) {
 
   if (section.id === "notifications") {
     const destination = valueLabel(settingValue("notifications.critical_destination")) || "none";
-    return `Critical alerts: ${destination} · completion ${boolLabel(Boolean(settingValue("notifications.run_completion")))}`;
+    const channels = [
+      settingConfigured("notifications.smtp_host") && settingConfigured("notifications.smtp_to") ? "email" : "",
+      settingConfigured("integrations.slack_webhook_url") ? "Slack" : "",
+      settingConfigured("integrations.teams_webhook_url") ? "Teams" : "",
+    ].filter(Boolean);
+    const channelText = channels.length ? channels.join("/") : destination;
+    return `Alerts: ${channelText} · completion ${boolLabel(Boolean(settingValue("notifications.run_completion")))}`;
   }
 
   if (section.id === "threat_intel") {

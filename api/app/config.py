@@ -116,8 +116,17 @@ class Settings(BaseSettings):
     settings_jira_base_url: str | None = None
     settings_jira_project_key: str | None = None
     settings_servicenow_instance_url: str | None = None
+    settings_email_notifications_enabled: bool = False
+    settings_smtp_host: str | None = None
+    settings_smtp_port: int = 587
+    settings_smtp_username: str | None = None
+    settings_smtp_from: str | None = None
+    settings_smtp_to: str = ""
+    settings_smtp_use_tls: bool = True
     settings_critical_alert_destination: str = "none"
     settings_notify_on_run_completion: bool = False
+    settings_notify_on_phase_approval_needed: bool = True
+    settings_notification_timeout_seconds: float = 10.0
     settings_operator_display_name: str = "operator-ui"
     settings_tenant_id: str | None = None
     cve_feed_sync_enabled: bool = True

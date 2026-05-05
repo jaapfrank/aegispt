@@ -59,6 +59,11 @@ from api.app.services.inventory import (
     wifi_survey_observation_from_json,
 )
 from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_task
+from api.app.services.notification_delivery import (
+    deliver_critical_finding_notifications,
+    deliver_phase_approval_needed_notifications,
+    deliver_run_completion_notifications,
+)
 from api.app.services.redaction import redact_artifact_bytes, redact_text
 from api.app.services.run_drift import compute_run_drift
 from api.app.services.runs import latest_scope_query, target_is_allowed
@@ -3933,6 +3938,12 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                 actor=f"runner:{task.tool}",
                 settings=active_settings,
             )
+            deliver_critical_finding_notifications(
+                session=session,
+                finding_ids=stored_result.created_finding_ids,
+                actor=f"runner:{task.tool}",
+                settings=active_settings,
+            )
             session.commit()
         if stored_result.created_finding_ids:
             validation_run_ids = queue_automatic_validations(
@@ -3948,6 +3959,12 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             )
         if run_completion_reached and task.run_id is not None:
             deliver_run_completion_to_configured_siems(
+                session=session,
+                run_id=task.run_id,
+                actor=f"runner:{task.tool}",
+                settings=active_settings,
+            )
+            deliver_run_completion_notifications(
                 session=session,
                 run_id=task.run_id,
                 actor=f"runner:{task.tool}",
@@ -3969,6 +3986,13 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                 actor=f"runner:{task.tool}",
                 settings=active_settings,
             )
+            if advanced_chain is not None and advanced_chain.status == "pending_phase_approval":
+                deliver_phase_approval_needed_notifications(
+                    session=session,
+                    chain_id=advanced_chain.id,
+                    actor=f"runner:{task.tool}",
+                    settings=active_settings,
+                )
             session.commit()
             if advanced_chain is not None and advanced_chain.current_run_id is not None:
                 dispatch_assessment_chain_current_run(

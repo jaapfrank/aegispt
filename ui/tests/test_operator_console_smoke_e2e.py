@@ -529,7 +529,6 @@ def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
                   description: 'Handoff defaults.',
                   settings: [
                     { key: 'integrations.jira_base_url', value: null, input_type: 'url', source: 'default', configured: false, options: [], description: '' },
-                    { key: 'integrations.slack_webhook_url', value: null, input_type: 'password', source: 'default', sensitive: true, configured: false, options: [], description: '' },
                   ],
                 },
                 {
@@ -537,8 +536,14 @@ def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
                   title: 'Notifications',
                   description: 'Alert defaults.',
                   settings: [
-                    { key: 'notifications.critical_destination', value: 'slack', input_type: 'select', source: 'database', configured: true, options: [], description: '' },
-                    { key: 'notifications.run_completion', value: true, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'notifications.critical_destination', label: 'Critical alert destination', value: 'slack', input_type: 'select', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'notifications.email_enabled', label: 'Email notifications', value: true, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'notifications.smtp_host', label: 'SMTP host', value: 'smtp.example.test', input_type: 'text', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'notifications.smtp_to', label: 'Email recipients', value: ['secops@example.test'], input_type: 'list', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'integrations.slack_webhook_url', label: 'Slack webhook URL', value: null, input_type: 'password', source: 'database', sensitive: true, configured: true, masked_value: 'webhook url protected locally', options: [], description: '' },
+                    { key: 'integrations.teams_webhook_url', label: 'Teams webhook URL', value: null, input_type: 'password', source: 'database', sensitive: true, configured: true, masked_value: 'webhook url protected locally', options: [], description: '' },
+                    { key: 'notifications.run_completion', label: 'Notify on run completion', value: true, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
+                    { key: 'notifications.phase_approval_needed', label: 'Notify when phase approval is needed', value: true, input_type: 'checkbox', source: 'database', configured: true, options: [], description: '' },
                   ],
                 },
                 {
@@ -573,7 +578,7 @@ def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
         "default_scan_profile-summary": "Profile: Deep · passive · passive-network-discovery",
         "runtime_execution-summary": "6 parallel task workers",
         "integrations-summary": "Configure Jira and webhook handoffs",
-        "notifications-summary": "Critical alerts: slack · completion on",
+        "notifications-summary": "Alerts: email/Slack/Teams · completion on",
         "threat_intel-summary": "Daily CVE sync on · NVD key not set",
         "instance-summary": "Operator: alice-reviewer · https://aegispt.example.test",
     }
@@ -589,6 +594,12 @@ def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
     network_panel.locator("summary").evaluate("summary => summary.click()")
     assert network_panel.evaluate("element => element.open") is False
     expect(loaded_page.get_by_test_id("default_network_scope-summary")).to_be_visible()
+
+    notifications_panel = loaded_page.get_by_test_id("settings-notifications")
+    notifications_panel.locator("summary").evaluate("summary => summary.click()")
+    expect(notifications_panel.locator("[data-setting-key='notifications.smtp_host']")).to_be_visible()
+    expect(notifications_panel.locator("[data-setting-key='integrations.slack_webhook_url']")).to_be_visible()
+    expect(notifications_panel.locator("[data-setting-key='integrations.teams_webhook_url']")).to_be_visible()
 
 
 def test_topbar_status_chip_labels_are_simple_and_readable(loaded_page: Page) -> None:
