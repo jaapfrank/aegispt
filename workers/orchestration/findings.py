@@ -37,6 +37,7 @@ from workers.runners.iot_default_creds.runner import IOT_DEFAULT_CREDS_ARTIFACT_
 from workers.runners.ipv6_discovery.runner import IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME
 from workers.runners.ldap_enum.runner import LDAP_ENUM_ARTIFACT_NAME
 from workers.runners.llm_probe import LLM_PROBE_ARTIFACT_NAME
+from workers.runners.logging_probe.runner import LOGGING_PROBE_RESULTS_ARTIFACT_NAME
 from workers.runners.mdns_ssdp.runner import MDNS_SSDP_ARTIFACT_NAME
 from workers.runners.metasploit.runner import METASPLOIT_RESULTS_ARTIFACT_NAME
 from workers.runners.mobile_android.runner import MOBILE_ANDROID_RESULTS_ARTIFACT_NAME
@@ -519,7 +520,7 @@ def extract_findings(
             artifact=artifact,
             artifact_record=artifact_record,
         )
-    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "graphql-probe", "ssti-probe", "http-smuggling", "oauth-probe", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
+    if task.tool in {"content-discovery", "nikto", "sqlmap", "external-osint", "xxe-probe", "jwt-probe", "vuln-components", "idor-bac", "client-state", "headers-security", "graphql-probe", "ssti-probe", "http-smuggling", "oauth-probe", "logging-probe", "xss-extended", "ssrf-probe", "deserialization-probe", "session-security", "auth-flow"}:
         return extract_standard_json_findings(
             target_id=task.target_id,
             artifact=artifact,
@@ -539,6 +540,7 @@ def extract_findings(
                 SSTI_RESULTS_ARTIFACT_NAME,
                 HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME,
                 OAUTH_PROBE_RESULTS_ARTIFACT_NAME,
+                LOGGING_PROBE_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,

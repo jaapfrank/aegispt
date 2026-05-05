@@ -55,6 +55,7 @@ DEFAULT_SAFETY = {
 RUN_PROFILE_TOOL_HINTS = {
     "passive-network-discovery": ["nmap"],
     "passive-web-baseline": ["httpx"],
+    "passive-web-logging-probe": ["logging-probe"],
     "passive-web-nuclei-audit": ["nuclei"],
     "passive-code-semgrep-audit": ["semgrep"],
     "passive-cicd-security-assessment": ["cicd-security"],

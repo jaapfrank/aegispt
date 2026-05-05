@@ -118,6 +118,7 @@ from workers.runners.headers_security.runner import execute_headers_security_ana
 from workers.runners.graphql_probe.runner import execute_graphql_probe
 from workers.runners.http_smuggling.runner import execute_http_smuggling_probe
 from workers.runners.httpx.runner import execute_httpx_probe
+from workers.runners.logging_probe.runner import execute_logging_probe
 from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
 from workers.runners.iot_default_creds.runner import execute_iot_default_credential_audit
@@ -203,6 +204,7 @@ SUPPORTED_TOOLS = {
     "jwt-probe",
     "ldap-enum",
     "llm-probe",
+    "logging-probe",
     "metasploit",
     "mdns-ssdp",
     "mobile-android",
@@ -593,6 +595,32 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             client_id=(
                 request.params.get("client_id")
                 if isinstance(request.params.get("client_id"), str)
+                else None
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "logging-probe":
+        return execute_logging_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            admin_paths=(
+                request.params.get("admin_paths")
+                if isinstance(request.params.get("admin_paths"), list)
+                else None
+            ),
+            actuator_paths=(
+                request.params.get("actuator_paths")
+                if isinstance(request.params.get("actuator_paths"), list)
+                else None
+            ),
+            debug_paths=(
+                request.params.get("debug_paths")
+                if isinstance(request.params.get("debug_paths"), list)
+                else None
+            ),
+            error_paths=(
+                request.params.get("error_paths")
+                if isinstance(request.params.get("error_paths"), list)
                 else None
             ),
             timeout_seconds=timeout_seconds,
@@ -2362,6 +2390,17 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--configured-authorization-urls {authorization_count} "
             f"--token-evidence {token_evidence_count} --redirects-not-followed "
             "--no-third-party-idp-requests --no-token-exchange "
+            f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "logging-probe":
+        admin_count = len(effective_params.get("admin_paths") or []) if isinstance(effective_params.get("admin_paths"), list) else 7
+        debug_count = len(effective_params.get("debug_paths") or []) if isinstance(effective_params.get("debug_paths"), list) else 6
+        error_count = len(effective_params.get("error_paths") or []) if isinstance(effective_params.get("error_paths"), list) else 1
+        return (
+            "$ logging-probe --error-leakage --admin-debug-paths "
+            f"{admin_count + debug_count} --error-paths {error_count} "
+            "--log-injection-crlf --log-format-strings --log4shell-pattern-detection-only "
+            "--no-jndi-callback-listener --no-admin-takeover "
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":

@@ -178,6 +178,7 @@ LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
     "burp",
     "headers-security",
     "httpx",
+    "logging-probe",
     "nuclei",
     "oauth-probe",
     "playwright-web",

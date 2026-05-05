@@ -370,6 +370,7 @@ const TOOL_ICON_LABELS = {
   "biz-logic": "BIZ",
   "aws-inventory": "AWS",
   "oauth-probe": "OAUTH",
+  "logging-probe": "LOG",
 };
 
 const PROFILE_TARGET_GROUPS = {
@@ -379,6 +380,7 @@ const PROFILE_TARGET_GROUPS = {
   "passive-easm-discovery": ["domain", "web"],
   "passive-network-service-enumeration": ["network"],
   "passive-web-baseline": ["web", "api"],
+  "passive-web-logging-probe": ["web", "api"],
   "passive-web-nuclei-audit": ["web", "api"],
   "active-external-infrastructure": ["network", "domain", "web"],
   "active-web-safe": ["web", "api"],
@@ -413,6 +415,7 @@ const PROFILE_EXPECTATION_COPY = {
   "passive-easm-discovery": "Surface inventory, DNS truth, and discovered entry points.",
   "passive-network-service-enumeration": "Service banners, ports, and protocol fingerprints.",
   "passive-web-baseline": "HTTP stack inventory, routes, and response fingerprints.",
+  "passive-web-logging-probe": "Verbose errors, stack traces, admin/debug exposure, actuator paths, and reflected log-injection markers.",
   "passive-web-nuclei-audit": "Safe CVE and exposure validation from curated templates.",
   "active-external-infrastructure": "Infrastructure-focused nuclei validation after the passive external baseline.",
   "active-web-safe": "Guarded web validation with proof-backed application signals.",
@@ -574,8 +577,8 @@ const MISSION_PREVIEW_DEFINITIONS = {
         tier: "passive",
         icon: "SURF",
         estimatedMinutes: 16,
-        findingCopy: "Surface inventory, baseline web responses, and discovered entry points.",
-        profiles: ["passive-easm-discovery", "passive-web-baseline"],
+        findingCopy: "Surface inventory, baseline web responses, verbose-error leakage, and discovered entry points.",
+        profiles: ["passive-easm-discovery", "passive-web-baseline", "passive-web-logging-probe"],
       },
       {
         key: "active-web-validation",
@@ -1385,8 +1388,11 @@ function guidedAssessmentModeForSelection({
   selectedTile = assessmentTileByKey(primaryAssessmentTileKey(keys)),
   depthChoice = state.wizard.intake.flowDepthChoice || "active",
 } = {}) {
-  if (String(depthChoice || "").trim() === "passive") return "";
-  return compatibleAssessmentModesForSelection(keys, selectedTile)[0] || "";
+  const compatibleModes = compatibleAssessmentModesForSelection(keys, selectedTile);
+  if (String(depthChoice || "").trim() === "passive") {
+    return compatibleModes[0] === "FULL-EXTERNAL-WEB" ? "FULL-EXTERNAL-WEB" : "";
+  }
+  return compatibleModes[0] || "";
 }
 
 function depthChoiceKeyForGoal(goal) {

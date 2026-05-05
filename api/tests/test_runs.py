@@ -496,6 +496,7 @@ def test_list_run_profiles(client) -> None:
         "passive-network-service-enumeration",
         "passive-web-baseline",
         "passive-web-burp",
+        "passive-web-logging-probe",
         "passive-web-nikto-scan",
         "passive-web-nuclei-audit",
         "passive-wifi-survey",
@@ -2681,6 +2682,40 @@ def test_active_oauth_probe_profile_requires_named_approval_and_queues_oauth_tas
     ]
     assert task["params_json"]["script_paths"] == ["https://portal.example.test/app/app.js"]
     assert task["params_json"]["token_evidence"][0]["granted_scope"] == "openid profile"
+    assert task["params_json"]["timeout_seconds"] == 5.0
+
+
+def test_passive_logging_probe_profile_queues_logging_task_without_extra_approval(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://portal.example.test/app/")
+
+    response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-web-logging-probe",
+            "configuration_json": {
+                "targets": {"urls": ["https://portal.example.test/app/"]},
+                "logging_probe": {
+                    "error_paths": ["errors/trace"],
+                    "admin_paths": ["/admin"],
+                    "debug_paths": ["/debug/vars"],
+                    "timeout_seconds": 5,
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "queued"
+    assert payload["pending_approvals"] == 0
+    assert len(payload["tasks"]) == 1
+    task = payload["tasks"][0]
+    assert task["tool"] == "logging-probe"
+    assert task["target_id"] == "https://portal.example.test/app/"
+    assert task["params_json"]["error_paths"] == ["errors/trace"]
+    assert task["params_json"]["admin_paths"] == ["/admin"]
+    assert task["params_json"]["debug_paths"] == ["/debug/vars"]
     assert task["params_json"]["timeout_seconds"] == 5.0
 
 

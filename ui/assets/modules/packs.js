@@ -148,6 +148,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["External Web", "Authenticated App", "Configuration review"],
   },
   {
+    id: "logging-probe",
+    name: "Logging Probe",
+    category: "Web",
+    tier: "passive",
+    description: "Checks approved web and API roots for verbose error leakage, stack traces, internal paths, Spring Actuator/admin/debug exposure, and reflected log-injection markers.",
+    findings: ["Error Information Disclosure - Stack Trace/Internal Path Exposed", "Spring Actuator Endpoint Exposed", "Exposed Debug Endpoint", "Log Injection Possible"],
+    prerequisites: ["Approved web or API root", "No JNDI callback listener or exploitation chain", "No admin-panel login or debug-endpoint chaining"],
+    chains: ["External Web", "Authenticated App", "API Security", "Configuration review"],
+  },
+  {
     id: "graphql-probe",
     name: "GraphQL Probe",
     category: "API",

@@ -704,6 +704,23 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         },
     },
     {
+        "name": "passive-web-logging-probe",
+        "run_class": RunClass.PASSIVE.value,
+        "limits_json": {
+            "description": "Detection-only insufficient logging and verbose error handling probe for approved web/API roots, covering stack traces, internal paths, framework/database errors, actuator/admin/debug/config exposures, and reflected log-injection markers.",
+            "required_approvals": 0,
+            "tools": ["logging-probe"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "max_probe_timeout_seconds": 5,
+            "error_and_path_probing_only": True,
+            "log4shell_pattern_detection_only": True,
+            "jndi_exploitation": False,
+            "callback_chain": False,
+            "admin_takeover": False,
+        },
+    },
+    {
         "name": "passive-web-burp",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {

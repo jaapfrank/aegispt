@@ -1,5 +1,54 @@
 # Done Log
 
+- 2026-05-05: completed backlog-231 `Insufficient logging and monitoring detection: verify security events are logged and error handling does not leak information`:
+  - rationale:
+    - AegisPT had no first-class OWASP A09-style insufficient logging/error-handling coverage even though stack traces, internal paths, Spring Actuator exposure, admin/debug/config paths, and reflected log-injection markers are common enterprise web/API findings
+    - the active task required safe detection on approved web/API roots only, with no Log4Shell exploitation, no callback chaining, no admin takeover, no debug endpoint chaining, and no bypass of scope/ROE/runtime gates
+  - implementation:
+    - added `logging-probe` as a dedicated detection-only runner for approved web/API roots that emits `logging-probe-results.json`
+    - the runner performs bounded malformed-query and invalid-JSON error leakage checks, detects stack traces, internal file paths, database/framework error messages, internal IP disclosures, verbose error signals, Spring Actuator endpoints, admin/management/debug/config exposures, and reflected CRLF/log-format/Log4Shell-style marker input
+    - response excerpts redact secret-like key/value pairs such as `DB_PASSWORD` and `JWT_SECRET`; path probing uses bounded response reads and range headers to avoid full heapdump downloads
+    - registered `logging-probe` in supported worker tools, dispatch, command preview, standard finding extraction, run target planning, run configuration validation, AI/manual proposal allowlists, methodology mapping, a zero-approval `passive-web-logging-probe` run profile, Tool Library, acceptance harness hints, and Full External Web/API wizard and assessment-chain surfaces
+  - package exception:
+    - the task package described Log4Shell OOB callback detection but also forbade JNDI exploitation and callback-chain exploitation; this slice keeps the Log4Shell variant to marker reflection only and records `jndi_callback_listener_started=false`, `jndi_exploitation_attempted=false`, and `callback_chain_attempted=false`
+  - operator complaint boundary:
+    - this slice improves Full External Web/API Phase 1 by making logging/error-handling coverage reachable through the wizard, including passive web/API depth previews, but it does not claim to solve the broader Gruyere full-pentest issue where all newly added runners must be cohesively selected, approved, and started; that remains queued under backlog-250
+  - files:
+    - `workers/runners/logging_probe/runner.py`
+    - `workers/runners/logging_probe/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/assessment_chain.py`
+    - `api/app/routers/runs.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/methodology.py`
+    - `ui/assets/modules/packs.js`
+    - `ui/assets/modules/wizard.js`
+    - `scripts/acceptance_harness.py`
+    - `workers/tests/test_logging_probe_runner.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `api/tests/test_assessment_chain.py`
+    - `codex/results/backlog-231-insufficient-logging-detection-20260505.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 250 queued task packages and exactly one active task
+    - focused py_compile, runner tests, API registration/queueing tests, assessment-chain tests, supported-tools tests, and JS module syntax checks passed
+    - required full API gate passed: `source .venv/bin/activate && python -m pytest api/tests/ -q`; existing Alembic deprecation warnings appeared and the `AEGISPT_DB_KEY or --key is required.` line came from an existing negative startup test
+    - extra `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` was attempted but is not claimed green because the existing `run_create` rate limit blocked the 11th run in `test_wizard_launch_flow_matches_matrix_for_each_assessment_family` with HTTP 429 after 10 run creations in 60 seconds
+    - read-only live/browser acceptance passed after restarting the local inline host with `AEGISPT_LOCAL_ENSURE_ZAP=0`: `/health/live` was healthy, `/api/v1/run-profiles` exposed `passive-web-logging-probe` with `tools=["logging-probe"]` and `required_approvals=0`, the wizard prediction matrix included `passive-web-logging-probe` for External Web/API paths, and Tool Library assets exposed `logging-probe`
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-234 into `NEXT_TASK.md`
+    - final `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-231-insufficient-logging-detection-20260505.md`
+  - remaining risks:
+    - no Gruyere, WebGoat, public internet target, or live third-party target was actively scanned during this build-lane slice; proof is from deterministic local fixtures plus read-only local UI/API acceptance
+    - Log4Shell coverage is marker reflection only, not callback or exploit proof
+    - Spring Actuator/admin/debug/config findings are safe exposure signals and do not attempt login, takeover, heapdump download, log reading, or endpoint chaining
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-234 `Linux privilege escalation enumeration runner`
+
 - 2026-05-05: completed backlog-230 `OAuth2/OIDC misconfiguration runner: redirect_uri bypass, PKCE absence, state parameter missing, and token leakage`:
   - rationale:
     - AegisPT had no first-class OAuth2/OIDC flow validation even though redirect URI bypass, missing state, absent PKCE, implicit flow, token-in-URL leakage, and over-broad token scopes are high-impact modern web/API risks

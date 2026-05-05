@@ -1076,6 +1076,28 @@ def oauth_probe_runner_params_from_configuration(
     return result
 
 
+def logging_probe_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("logging_probe")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in ("admin_paths", "actuator_paths", "debug_paths", "error_paths"):
+        for source in (settings, validation):
+            if field_name in result:
+                continue
+            value = _normalized_string_list(source.get(field_name), limit=40)
+            if value:
+                result[field_name] = value
+    for source in (settings, validation):
+        if "timeout_seconds" not in result and isinstance(source.get("timeout_seconds"), (int, float)):
+            result["timeout_seconds"] = float(source["timeout_seconds"])
+    return result
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2445,6 +2467,34 @@ def validate_oauth_probe_run_configuration(
                 )
 
 
+def validate_logging_probe_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="logging-probe",
+    )
+    params = logging_probe_runner_params_from_configuration(configuration)
+    timeout_value = params.get("timeout_seconds")
+    if isinstance(timeout_value, (int, float)) and not 0 < float(timeout_value) <= 5:
+        raise ValueError("logging-probe timeout_seconds must be greater than zero and capped at 5 seconds")
+
+    for field_name in ("admin_paths", "actuator_paths", "debug_paths", "error_paths"):
+        for raw_value in params.get(field_name, []):
+            value = str(raw_value or "").strip()
+            if (
+                value
+                and "://" in value
+                and not web_target_value_is_allowed_with_path(scope.allowlist_json, value)
+            ):
+                raise ValueError(
+                    f"configured logging probe target {value} is outside the approved engagement scope"
+                )
+
+
 def validate_xss_extended_run_configuration(
     *,
     scope: Scope,
@@ -3276,6 +3326,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "ssti-probe",
         "http-smuggling",
         "oauth-probe",
+        "logging-probe",
         "xss-extended",
         "ssrf-probe",
         "deserialization-probe",
@@ -3514,6 +3565,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     ssti_params = ssti_runner_params_from_configuration(run_configuration)
     http_smuggling_params = http_smuggling_runner_params_from_configuration(run_configuration)
     oauth_probe_params = oauth_probe_runner_params_from_configuration(run_configuration)
+    logging_probe_params = logging_probe_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
@@ -3619,6 +3671,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "oauth-probe":
             validate_oauth_probe_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "logging-probe":
+            validate_logging_probe_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -4001,6 +4058,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in oauth_probe_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "logging-probe":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in logging_probe_params.items()
                         if value not in (None, [], {})
                     }
                 )

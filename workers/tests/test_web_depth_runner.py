@@ -50,6 +50,7 @@ def test_web_depth_tools_are_supported() -> None:
         "ssti-probe",
         "http-smuggling",
         "oauth-probe",
+        "logging-probe",
         "vuln-components",
     }.issubset(SUPPORTED_TOOLS)
 
