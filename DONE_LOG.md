@@ -1,5 +1,23 @@
 # Done Log
 
+- 2026-05-05: queued backlog-242 `Authorized DVGA GraphQL live-lab validation`:
+  - rationale:
+    - the operator correctly challenged fixture-only GraphQL proof for a pentesting product
+    - online target research selected DVGA as the primary reproducible target because the official repository describes it as an intentionally vulnerable GraphQL implementation for learning and practicing GraphQL security, and documents Docker/local execution
+    - PortSwigger Web Security Academy GraphQL labs remain useful manual references, but DVGA is better suited for repeatable product acceptance because it can run locally under an approved localhost root
+  - files:
+    - `codex/tasks/backlog-242-authorized-dvga-graphql-live-lab-validation.json`
+    - `TASK_QUEUE.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with 242 queued task packages mapped one-to-one and exactly one active task
+  - evidence:
+    - source references are embedded in the task package under `source_context.alignment_docs` and `inputs.source_documents`
+  - remaining risks:
+    - this slice only adds the queued task; it does not promote it over the active SSTI task and does not run DVGA yet
+    - active validation must stay under local `http://127.0.0.1:5013/` or `http://localhost:5013/` unless a future active task explicitly authorizes another lab URL
+
 - 2026-05-05: completed backlog-227 `GraphQL security runner: introspection abuse, query depth attacks, field suggestion, injection via GraphQL`:
   - rationale:
     - API-first and modern web assessments needed a first-class GraphQL runner because existing API/ZAP coverage did not safely validate introspection disclosure, GraphQL IDE exposure, depth-limit posture, field suggestion leakage, or argument injection signals
