@@ -1,5 +1,58 @@
 # Done Log
 
+- 2026-05-06: completed backlog-235 `Kill chain progress rate tracking: map findings and phase completions to MITRE ATT&CK stages and show progress gauge`:
+  - rationale:
+    - AegisPT already stored findings, run tasks, and assessment-chain phase state, but it did not translate those evidence signals into an operator-facing kill-chain progress rate
+    - the active task required an AutoPenBench-style progress gauge and ATT&CK matrix view while preserving finding schema, threat-intel sync, run dispatch, approvals, pack lifecycle, runtime binding, scope, ROE, credentials, and kill-switch boundaries
+  - implementation:
+    - added a deterministic kill-chain progress service with static ATT&CK tactic/stage definitions and finding/tool/phase mapping
+    - added `GET /api/v1/engagements/{engagement_id}/kill-chain-progress` and an additive `RunRead.kill_chain_progress` field for selected run dossiers
+    - mapped stored finding titles, summaries, evidence refs, methodology tags, and control fields without mutating the finding records
+    - mapped completed tasks and completed assessment-chain phases to tested coverage, while active/pending phases can mark the current stage without claiming completed coverage
+    - added Mission Control kill-chain progress strip rendering with complete/current/future stage states and numeric progress percentage
+    - added Explorer dossier MITRE ATT&CK coverage matrix with confirmed/tested/untested technique states
+    - added focused API and Playwright smoke coverage for mapping, no-mutation behavior, Mission Control strip rendering, and Explorer matrix rendering
+  - files:
+    - `api/app/services/kill_chain_progress.py`
+    - `api/app/schemas/kill_chain.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/routers/engagements.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_kill_chain_progress.py`
+    - `ui/assets/modules/kill-chain.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/modules/explorer-history.js`
+    - `ui/assets/app.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-235-kill-chain-progress-rate-tracking-20260506.md`
+    - `codex/results/backlog-235-kill-chain-browser-acceptance-8000.json`
+    - `codex/results/backlog-235-kill-chain-mission-8000.png`
+    - `codex/results/backlog-235-kill-chain-matrix-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - Python compile checks passed for the new service/schema/router/test files
+    - ES module syntax checks passed for `kill-chain.js`, `mission-control.js`, `explorer-history.js`, and `app.js`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_kill_chain_progress.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_kill_chain_progress_strip_and_dossier_matrix_render -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings and the known stdout line `AEGISPT_DB_KEY or --key is required.`
+    - `http://127.0.0.1:8000` was relevant and was restarted onto current working-tree code with `scripts/restart_local_inline_host.sh`; current-code API and browser acceptance passed on that host
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed after implementation
+  - evidence:
+    - `codex/results/backlog-235-kill-chain-progress-rate-tracking-20260506.md`
+    - `codex/results/backlog-235-kill-chain-browser-acceptance-8000.json`
+    - `codex/results/backlog-235-kill-chain-mission-8000.png`
+    - `codex/results/backlog-235-kill-chain-matrix-8000.png`
+  - boundaries:
+    - no finding schema fields, migrations, threat-intel sync behavior, run dispatch logic, pack lifecycle, approval gates, runtime binding, scope, ROE, credentials, or kill-switch paths were changed or bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; live acceptance used local synthetic UI/API state only
+  - remaining risks:
+    - ATT&CK coverage is a deterministic static map, not full ATT&CK Navigator integration or threat-actor mapping
+    - progress percentage reflects highest reached mapped stage from stored evidence/completed phases and should not be treated as proof of exploit success beyond the underlying evidence
+    - the broader operator-reported Gruyere wizard/all-tools issue remains outside this active task and is still queued separately
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-198 `Wizard multi-tile target question mismatch`
+
 - 2026-05-06: completed backlog-233 `AI cross-task working memory: accumulate analysis context across all tasks in an engagement for compound reasoning`:
   - rationale:
     - post-task AI analysis already had engagement-scoped findings, compound-chain signals, and operator-visible Summary→Thought→Action records, but each analysis still lacked bounded memory of prior task analyses and approved proposal outcomes across the engagement

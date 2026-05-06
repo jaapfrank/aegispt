@@ -38,6 +38,7 @@ import {
   toPercent,
   capitalizeWord,
 } from "./shared.js";
+import { renderKillChainProgressStrip } from "./kill-chain.js";
 import { estimateMission } from "./wizard.js";
 
 function normalizeTaskStatus(status) {
@@ -2860,6 +2861,13 @@ export function createMissionModule() {
     return state.selectedRunId ? state.mission.findingsByRun[state.selectedRunId] || [] : [];
   }
 
+  function renderMissionKillChainProgress(run) {
+    return renderKillChainProgressStrip(run?.kill_chain_progress || null, {
+      testId: "mission-kill-chain-progress",
+      title: "Kill Chain Progress",
+    });
+  }
+
   function formatAiSignalTime(value) {
     if (!value) return "now";
     const date = new Date(value);
@@ -3200,15 +3208,16 @@ export function createMissionModule() {
     }
 
     const assessmentChain = selectedAssessmentChain(run);
+    const killChainProgress = renderMissionKillChainProgress(run);
     const tasks = [...(run.tasks || [])];
     if (!tasks.length) {
       if (String(run.status || "").toLowerCase() === "pending_approval") {
-        return `${renderDriftSummaryBanner(run)}${renderAssessmentChainPanel(assessmentChain)}${renderPendingApprovalRunActivity(run)}`;
+        return `${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${renderPendingApprovalRunActivity(run)}`;
       }
       if (assessmentChainHasLifecycleRows(assessmentChain)) {
-        return `${renderDriftSummaryBanner(run)}${renderAssessmentChainPanel(assessmentChain)}${renderChainLifecycleTaskFallback(assessmentChain)}`;
+        return `${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${renderChainLifecycleTaskFallback(assessmentChain)}`;
       }
-      return `${renderDriftSummaryBanner(run)}${renderAssessmentChainPanel(assessmentChain)}${emptyState("This run exists, but no execution tasks were queued yet.")}`;
+      return `${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${emptyState("This run exists, but no execution tasks were queued yet.")}`;
     }
 
     const dispatching =
@@ -3283,6 +3292,7 @@ export function createMissionModule() {
         ${renderRunStreamStatus(run)}
       </div>
       ${renderDriftSummaryBanner(run)}
+      ${killChainProgress}
       ${compactTaskList}
       ${renderMissionTaskFocus(selectedTaskSummary, selectedTask, latestExecution)}
       ${renderCveIntelligencePanel()}

@@ -683,6 +683,192 @@ def test_mission_control_hides_chain_phase_progress_for_non_chain_runs(
     expect(loaded_page.get_by_test_id("mission-run-summary")).to_have_count(0)
 
 
+def test_kill_chain_progress_strip_and_dossier_matrix_render(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const run = {
+            id: '66666666-6666-4666-8666-666666666666',
+            engagement_id: '77777777-7777-4777-8777-777777777777',
+            status: 'completed',
+            requested_by: 'operator-ui',
+            created_at: '2026-05-06T08:00:00Z',
+            updated_at: '2026-05-06T08:20:00Z',
+            configuration_json: {
+              assessment_type: 'External Web',
+              targets: { urls: ['https://app.example.test'] },
+            },
+            profile: { name: 'active-web-validation', run_class: 'active', limits_json: {} },
+            approvals: [],
+            tasks: [
+              {
+                id: 'task-kill-chain-zap',
+                tool: 'zap',
+                target_id: 'https://app.example.test',
+                status: 'completed',
+                params_json: {},
+                created_at: '2026-05-06T08:01:00Z',
+                updated_at: '2026-05-06T08:10:00Z',
+              },
+            ],
+            findings: {
+              finding_count: 1,
+              findings_by_severity: { high: 1 },
+              findings_by_status: { open: 1 },
+            },
+            kill_chain_progress: {
+              engagement_id: '77777777-7777-4777-8777-777777777777',
+              progress_percentage: 50,
+              completed_stage_count: 2,
+              total_stage_count: 4,
+              confirmed_stage_count: 1,
+              tested_stage_count: 1,
+              current_stage_id: 'execution',
+              current_stage_label: 'Execution',
+              highest_reached_stage_id: 'initial_access',
+              highest_reached_stage_label: 'Initial Access',
+              boundary: { advisory_only: true },
+              source_summary: { finding_count: 1, task_count: 1, phase_count: 0 },
+              stages: [
+                {
+                  id: 'reconnaissance',
+                  order: 0,
+                  tactic_id: 'TA0043',
+                  tactic_name: 'Reconnaissance',
+                  label: 'Recon',
+                  status: 'tested',
+                  display_state: 'complete',
+                  progress_weight: 1,
+                  finding_count: 0,
+                  task_count: 1,
+                  phase_count: 0,
+                  evidence_count: 1,
+                  summary: 'Recon has completed task coverage.',
+                  techniques: [{ technique_id: 'T1595', name: 'Active Scanning', status: 'tested', source_count: 1, sources: [] }],
+                },
+                {
+                  id: 'initial_access',
+                  order: 1,
+                  tactic_id: 'TA0001',
+                  tactic_name: 'Initial Access',
+                  label: 'Initial Access',
+                  status: 'confirmed',
+                  display_state: 'complete',
+                  progress_weight: 1,
+                  finding_count: 1,
+                  task_count: 0,
+                  phase_count: 0,
+                  evidence_count: 1,
+                  summary: 'Initial Access has mapped finding coverage.',
+                  techniques: [{ technique_id: 'T1190', name: 'Exploit Public-Facing Application', status: 'confirmed', source_count: 1, sources: [] }],
+                },
+                {
+                  id: 'execution',
+                  order: 2,
+                  tactic_id: 'TA0002',
+                  tactic_name: 'Execution',
+                  label: 'Execution',
+                  status: 'untested',
+                  display_state: 'current',
+                  progress_weight: 1,
+                  finding_count: 0,
+                  task_count: 0,
+                  phase_count: 0,
+                  evidence_count: 0,
+                  summary: 'Execution is the current stage.',
+                  techniques: [{ technique_id: 'T1059', name: 'Command and Scripting Interpreter', status: 'untested', source_count: 0, sources: [] }],
+                },
+                {
+                  id: 'privilege_escalation',
+                  order: 3,
+                  tactic_id: 'TA0004',
+                  tactic_name: 'Privilege Escalation',
+                  label: 'Privilege Escalation',
+                  status: 'untested',
+                  display_state: 'future',
+                  progress_weight: 1,
+                  finding_count: 0,
+                  task_count: 0,
+                  phase_count: 0,
+                  evidence_count: 0,
+                  summary: 'Privilege Escalation is untested.',
+                  techniques: [{ technique_id: 'T1068', name: 'Exploitation for Privilege Escalation', status: 'untested', source_count: 0, sources: [] }],
+                },
+              ],
+              matrix: [],
+            },
+          };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedEngagementId: run.engagement_id,
+            selectedRunId: run.id,
+            selectedRun: run,
+            selectedTaskId: null,
+            engagements: [{ id: run.engagement_id, name: 'Kill Chain Dossier', client: 'Acme Corp', status: 'active' }],
+            mission: {
+              scope: null,
+              inventory: [],
+              relevance: [],
+              packs: [],
+              runs: [run],
+              internalValidations: [],
+              findingsByRun: {
+                [run.id]: [
+                  {
+                    id: 'finding-kill-chain-initial',
+                    title: 'Service vulnerability CVE-2026-0001',
+                    severity: 'high',
+                    status: 'open',
+                    target_id: 'https://app.example.test',
+                    evidence_ref: 'artifact://ui/kill-chain',
+                    created_at: '2026-05-06T08:12:00Z',
+                    updated_at: '2026-05-06T08:12:00Z',
+                  },
+                ],
+              },
+            },
+          }, 'ui.test.killChainProgress');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    panel = loaded_page.get_by_test_id("mission-kill-chain-progress")
+    expect(panel).to_be_visible()
+    expect(panel).to_contain_text("50")
+    stages = panel.get_by_test_id("kill-chain-stage")
+    expect(stages).to_have_count(4)
+    expect(stages.nth(0)).to_have_attribute("data-stage-display", "complete")
+    expect(stages.nth(1)).to_have_attribute("data-stage-coverage", "confirmed")
+    expect(stages.nth(2)).to_have_attribute("data-stage-display", "current")
+    expect(stages.nth(3)).to_have_attribute("data-stage-display", "future")
+
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const explorerModule = await import('/app/assets/modules/explorer-history.js');
+          runtimeModule.patchState({ activeScreen: 'explorer' }, 'ui.test.killChainExplorer');
+          runtimeModule.runtime.actions.renderScreens?.();
+          explorerModule.createExplorerHistoryModule().renderExplorer();
+        }
+        """
+    )
+    matrix = loaded_page.get_by_test_id("dossier-mitre-attack-matrix")
+    expect(matrix).to_be_visible()
+    expect(matrix).to_contain_text("MITRE ATT&CK Coverage")
+    expect(matrix).to_contain_text("1 Confirmed")
+    expect(matrix).to_contain_text("1 Tested")
+    expect(matrix).to_contain_text("2 Untested")
+    expect(matrix.locator('[data-technique-status="confirmed"]')).to_have_count(1)
+    expect(matrix.locator('[data-technique-status="tested"]')).to_have_count(1)
+
+
 def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
     loaded_page: Page,
 ) -> None:

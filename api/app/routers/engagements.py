@@ -31,6 +31,7 @@ from api.app.schemas.engagements import (
     ScopeCreate,
     ScopeRead,
 )
+from api.app.schemas.kill_chain import KillChainProgressRead
 from api.app.services.audit import write_audit_event
 from api.app.services.exposure_score import ensure_exposure_score, list_exposure_score_history
 from api.app.services.gdpr_data import (
@@ -39,6 +40,7 @@ from api.app.services.gdpr_data import (
     engagement_retention_status,
     hard_purge_engagement_assessment_data,
 )
+from api.app.services.kill_chain_progress import build_engagement_kill_chain_progress
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.runs import (
     align_run_configuration_with_engagement,
@@ -138,6 +140,18 @@ def get_engagement_exposure_score(
             "Exposure score is advisory only. It summarizes stored finding posture and remediation progress, "
             "but it never gates runs or guarantees security improvement."
         ),
+    )
+
+
+@router.get("/{engagement_id}/kill-chain-progress", response_model=KillChainProgressRead)
+def get_engagement_kill_chain_progress(
+    engagement_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> KillChainProgressRead:
+    _load_engagement(session, engagement_id, tenant_id)
+    return KillChainProgressRead.model_validate(
+        build_engagement_kill_chain_progress(session, engagement_id)
     )
 
 

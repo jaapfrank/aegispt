@@ -2,34 +2,34 @@
 
 ## Title
 
-Kill chain progress rate tracking: map findings and phase completions to MITRE ATT&CK stages and show progress gauge
+Wizard multi-tile target question mismatch: mixed LAN+Web asks LAN-biased question and labels URL input as CIDR range
 
 ## Promoted From
 
-`codex/tasks/backlog-235-kill-chain-progress-rate-tracking.json`
+`codex/tasks/backlog-198-wizard-multi-tile-target-question-mismatch.json`
 
 ## Goal
 
-Implement kill chain progress tracking so AegisPT can map stored findings and assessment progress to MITRE ATT&CK-style stages and show assessment depth as an operator-facing progress gauge.
+Fix the wizard target question and interpretation for multi-tile contexts so mixed LAN + Web selections use neutral target language and classify URL input as URL/web target context instead of CIDR/LAN context.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-235-kill-chain-progress-rate-tracking.json`.
+Implement the active backlog package `codex/tasks/backlog-198-wizard-multi-tile-target-question-mismatch.json`.
 
 Expected slice:
 
-- add static finding-to-ATT&CK tactic mapping without changing finding schema
-- compute engagement kill-chain progress and progress percentage from existing findings and phase/completion signals
-- render a Mission Control kill-chain progress strip with completed, current, and future stages
-- expose MITRE ATT&CK matrix coverage in the engagement dossier / Explorer surface
-- keep the mapping deterministic and grounded in stored evidence
+- keep single-tile target questions unchanged
+- use generic multi-tile target prompt copy
+- make URL input for mixed LAN + Web show URL/web interpretation, not CIDR interpretation
+- show both URL and CIDR quick-fill examples for multi-tile target entry
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Do not change finding schema.
-- Do not change threat-intel sync behavior.
-- Do not change run dispatch logic.
+- Only fix the question label, interpretation text, and quick-fill chips for multi-tile context.
+- Do not change single-tile target question rendering.
+- Do not change backend run profile logic.
+- Do not change target interpretation for single-tile contexts.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -37,14 +37,13 @@ Expected slice:
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/ -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Each supported finding type maps to a MITRE ATT&CK tactic/stage.
-- Mission Control shows a kill-chain progress strip.
-- Completed stages render as complete, current stage renders as in progress/current, and untested stages render as future/untested.
-- Explorer/dossier shows MITRE ATT&CK matrix coverage.
-- Progress percentage is computed and shown numerically.
-- Mission Control and Explorer coverage do not regress.
+- Multi-tile LAN + Web target step shows generic target question copy.
+- URL input in mixed tile context renders URL-appropriate interpretation.
+- Quick-fill chips for multi-tile target entry include URL and CIDR examples.
+- Single-tile target questions remain unchanged.
+- Wizard E2E coverage does not regress.

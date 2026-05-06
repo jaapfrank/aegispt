@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.app.schemas.kill_chain import KillChainProgressRead
 from api.app.schemas.packs import RunPackBindingRead
 
 
@@ -302,6 +303,7 @@ class RunRead(BaseModel):
     ai_mission_guidance: dict[str, Any] = Field(default_factory=dict)
     multi_agent_orchestration: dict[str, Any] = Field(default_factory=dict)
     assessment_chain: dict[str, Any] = Field(default_factory=dict)
+    kill_chain_progress: KillChainProgressRead | None = None
     drift_summary: RunDriftRead | None = None
     stale_recovery: dict[str, Any] = Field(default_factory=dict)
 

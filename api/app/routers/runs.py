@@ -100,6 +100,7 @@ from api.app.services.intake_intelligence import (
     attach_intake_interpretation_to_configuration,
     build_intake_interpretation,
 )
+from api.app.services.kill_chain_progress import build_engagement_kill_chain_progress
 from api.app.services.multi_agent_orchestration import build_multi_agent_orchestration_readiness
 from api.app.services.on_demand_cve_intel import (
     build_run_cve_intelligence,
@@ -276,7 +277,7 @@ def serialize_task(task, *, run: Run | None = None) -> TaskRead:
     )
 
 
-def serialize_run(run: Run, *, session: Session) -> RunRead:
+def serialize_run(run: Run, *, session: Session, include_kill_chain_progress: bool = True) -> RunRead:
     profile = run.profile
     if profile is None:
         raise HTTPException(status_code=500, detail="run profile relationship not loaded")
@@ -335,6 +336,11 @@ def serialize_run(run: Run, *, session: Session) -> RunRead:
         ai_mission_guidance=build_mission_guidance_for_run(session=session, run=run),
         multi_agent_orchestration=build_multi_agent_orchestration_readiness(run),
         assessment_chain=chain_summary,
+        kill_chain_progress=(
+            build_engagement_kill_chain_progress(session, run.engagement_id)
+            if include_kill_chain_progress
+            else None
+        ),
         drift_summary=(
             RunDriftRead.model_validate(run.drift_summary)
             if run.drift_summary is not None
@@ -521,7 +527,11 @@ def list_engagement_runs(
         .order_by(Run.created_at.desc(), Run.id.desc())
     ).all()
     hydrated_runs = [load_run(session, run.id) for run in runs]
-    return [serialize_run(run, session=session) for run in hydrated_runs if run is not None]
+    return [
+        serialize_run(run, session=session, include_kill_chain_progress=False)
+        for run in hydrated_runs
+        if run is not None
+    ]
 
 
 @router.post(

@@ -18,6 +18,7 @@ import {
   severityRank,
   statusPill,
 } from "./shared.js";
+import { renderKillChainMatrix } from "./kill-chain.js";
 
 function summarizeDossierExclusions(exclusions) {
   const values = [
@@ -471,6 +472,7 @@ export function createExplorerHistoryModule() {
           <button class="action ghost" type="button" data-nav-screen="report-center">Open Reports</button>
         </div>
       </div>
+      ${renderKillChainMatrix(run.kill_chain_progress, { testId: "dossier-mitre-attack-matrix" })}
       <h4>${escapeHtml(run.profile.name)} <span class="badge">${escapeHtml(run.status)}</span></h4>
       <p>${escapeHtml(`Requested by ${run.requested_by} · created ${formatDateTime(run.created_at)}`)}</p>
       ${renderBadgeList([
