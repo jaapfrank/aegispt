@@ -135,6 +135,29 @@ PASSIVE_LAN_NSE_FULL_SCRIPTS: tuple[str, ...] = (
 
 DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
     {
+        "name": "active-web-rce-nuclei-audit",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Approval-gated service-aware Nuclei RCE detection using curated generic probes and locally installed official CVE template IDs.",
+            "required_approvals": 1,
+            "approval_step_id": "active-web-rce-nuclei-audit",
+            "tools": ["nuclei"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "rce_template_selection": True,
+            "include_generic_rce_templates": True,
+            "update_templates": True,
+            "template_update_approved": True,
+            "oob_enabled": False,
+            "oob_requires_explicit_interactsh_server": True,
+            "detection_only": True,
+            "payload_delivery": False,
+            "file_write": False,
+            "webshell_upload": False,
+            "shell_execution": False,
+        },
+    },
+    {
         "name": "active-ai-shell",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

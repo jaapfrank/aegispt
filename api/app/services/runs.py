@@ -2207,6 +2207,46 @@ def nmap_runner_params_from_configuration(
     return result
 
 
+def nuclei_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("nuclei")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name in (
+        "rce_template_selection",
+        "update_templates",
+        "template_update_approved",
+        "oob_enabled",
+    ):
+        if isinstance(settings.get(field_name), bool):
+            result[field_name] = bool(settings[field_name])
+    for field_name in ("template_update_dir", "interactsh_server"):
+        value = str(settings.get(field_name) or "").strip()
+        if value:
+            result[field_name] = value
+
+    requested_template_ids = _normalized_string_list(
+        settings.get("requested_template_ids") or validation.get("requested_template_ids"),
+        limit=64,
+    )
+    if requested_template_ids:
+        result["requested_template_ids"] = requested_template_ids
+
+    for source in (settings, validation):
+        if "service_evidence" in result:
+            continue
+        evidence = source.get("service_evidence")
+        if isinstance(evidence, list) and evidence:
+            result["service_evidence"] = [
+                dict(item) for item in evidence[:256] if isinstance(item, dict)
+            ]
+    return result
+
+
 def snmp_enum_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -4065,6 +4105,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     credential_attack_params = credential_attack_runner_params_from_configuration(run_configuration)
     impacket_params = impacket_lateral_runner_params_from_configuration(run_configuration)
     metasploit_params = metasploit_runner_params_from_configuration(run_configuration)
+    nuclei_params = nuclei_runner_params_from_configuration(run_configuration)
     nmap_params = nmap_runner_params_from_configuration(run_configuration)
     snmp_enum_params = snmp_enum_runner_params_from_configuration(run_configuration)
     netexec_params = netexec_runner_params_from_configuration(run_configuration)
@@ -4358,6 +4399,35 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         if value not in (None, [], {})
                     }
                 )
+            if tool == "nuclei":
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in {
+                            **{
+                                key: value
+                                for key, value in normalized_limits.items()
+                                if key
+                                in {
+                                    "rce_template_selection",
+                                    "update_templates",
+                                    "template_update_approved",
+                                    "oob_enabled",
+                                }
+                            },
+                            **nuclei_params,
+                        }.items()
+                        if value not in (None, [], {})
+                    }
+                )
+                snapshot = (
+                    session.get(InventorySnapshot, run.source_inventory_snapshot_id)
+                    if run.source_inventory_snapshot_id is not None
+                    else None
+                )
+                if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict):
+                    task_params["source_inventory_snapshot_id"] = str(snapshot.id)
+                    task_params["inventory"] = dict(snapshot.normalized_inventory_json)
             if tool == "bloodhound-collect":
                 task_params.update(
                     {

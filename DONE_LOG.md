@@ -1,5 +1,56 @@
 # Done Log
 
+- 2026-05-07: completed backlog-249 `RCE detection Nuclei template expansion: cover AutoPenBench WS5/WS6 and real-world CVE RCE tasks`:
+  - rationale:
+    - RCE coverage needed to become reachable through governed Nuclei selection without turning passive Nuclei audit into unsafe exploitation or broad OOB behavior
+    - the safe slice adds service-aware RCE template planning, deterministic detection-only generic probes, governed template-update handling, and fail-closed OOB behavior while preserving existing Nuclei runner controls
+    - `http://127.0.0.1:8000` was not directly relevant because no browser UI modules changed; command preview/runtime behavior was validated with worker/API tests and evidence
+  - implementation:
+    - added a Nuclei RCE catalog with CVE metadata, service/product matching, template-root discovery, repository status checks, and detection-only safety inspection for raw/body/payload/attack/unsafe/javascript/code/interactsh/command constructs
+    - added a generic AegisPT detection-only RCE signal template covering safe SSTI math probes, PHP filter/LFI signals, and non-command marker probes
+    - extended the Nuclei runner with optional RCE template selection, service-evidence/inventory matching, governed `nuclei -update-templates` behavior, OOB/Interactsh fail-closed defaults, template repository status artifacts, and blocked-template metadata
+    - wired Nuclei task parameter propagation from run configuration/profile limits, including source inventory snapshots, requested CVE IDs, template-update approval, OOB config, and service evidence
+    - registered an approval-gated `active-web-rce-nuclei-audit` profile so RCE/OOB/update behavior is not silently added to the existing passive baseline
+    - updated task command preview and artifact metadata for RCE selected templates, OOB status, update status, and approved-scope visibility
+    - recorded open live-proof gaps in `risico.md` and `extra_tests.md`
+  - files:
+    - `workers/runners/nuclei/rce_catalog.py`
+    - `workers/runners/nuclei/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/tests/test_nuclei_rce_runner.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/runs.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-249-rce-nuclei-template-expansion-20260507.json`
+    - `risico.md`
+    - `extra_tests.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_runner_contract.py::test_nuclei_command_is_structured workers/tests/test_nuclei_rce_runner.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_rce_nuclei_profile_requires_approval_and_queues_service_aware_task -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_nuclei_dispatch.py workers/tests/test_runner_contract.py workers/tests/test_nuclei_rce_runner.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_rce_nuclei_profile_requires_approval_and_queues_service_aware_task -q` passed
+    - `source .venv/bin/activate && ruff check workers/runners/nuclei/runner.py workers/runners/nuclei/rce_catalog.py workers/tests/test_nuclei_rce_runner.py api/app/services/runs.py api/app/services/run_profiles.py api/tests/test_runs.py workers/orchestration/tasks.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed after implementation and documentation updates
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-250 into `NEXT_TASK.md`
+    - `git diff --check` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_nuclei_dispatch.py workers/tests/test_runner_contract.py workers/tests/test_nuclei_rce_runner.py api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_active_rce_nuclei_profile_requires_approval_and_queues_service_aware_task -q` passed as a final focused regression
+  - proof:
+    - deterministic runner tests prove the generic template passes existing detection-only validation, service evidence selects relevant RCE CVEs, OOB-required Log4Shell is skipped unless explicitly configured, `-no-interactsh` is used by default, fake approved template update is governed, and unsafe local official templates are blocked before execution
+    - local read-only Nuclei template inspection on v3.7.1 / templates v10.4.2 found Grafana CVE-2021-43798 present and safe, found multiple official RCE templates present but unsafe for this detection-only lane, and did not verify local Bludit/SambaCry availability
+    - evidence is recorded in `codex/results/backlog-249-rce-nuclei-template-expansion-20260507.json`
+  - exceptions:
+    - no live AutoPenBench WS5/WS6 target, customer target, public target, OOB callback, or real template update was executed in this build-lane slice
+    - official local templates for Log4Shell, Spring4Shell, GeoServer, Jenkins CLI RCE, Druid RCE, and Drupalgeddon2 were blocked by safety inspection because they use raw/body/payload/javascript/code/interactsh/command-like constructs outside the detection-only constraints
+    - the task package asks for RCE coverage under Nuclei while keeping detection-only and safety validation intact; where official templates conflicted with that boundary, the implementation fails closed and records gaps instead of weakening safety
+    - post-validation generated non-queue `codex/tasks/task-20260506234911-pack-refinement-ca5d5d18.json`; it was removed as out-of-scope generated state
+  - remaining risks:
+    - live WS5/WS6 proof, OOB callback proof, curated safe official-template replacements, and Bludit/SambaCry template availability are tracked in `extra_tests.md`
+    - `risico.md` tracks the residual RCE-template coverage gap and the need to keep official template execution behind detection-only validation or explicit authorized lab ROE
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-250 `Wire all new runners (214-249) into RunProfiles, assessment chains, and wizard depth triggers`
+
 - 2026-05-07: completed backlog-248 `AI Free Bash Execution: let the AI agent run arbitrary shell commands on authorized targets via SSH, with operator-per-command approval`:
   - rationale:
     - AI-driven chaining needs a controlled way to request a single remote shell command without giving the AI direct host access or bypassing AegisPT runtime controls

@@ -461,6 +461,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-idor-bac",
         "active-web-jwt-probe",
         "active-web-oauth-probe",
+        "active-web-rce-nuclei-audit",
         "active-web-safe",
         "active-web-session-security",
         "active-web-sqlmap-confirmation",
@@ -2283,6 +2284,52 @@ def test_active_xss_extended_profile_requires_approval_and_queues_task(client) -
     ]
     assert task["params_json"]["xssi_contexts"] == [{"url": "api/profile.json"}]
     assert task["params_json"]["candidate_paths"] == ["api/profile.json"]
+
+
+def test_active_rce_nuclei_profile_requires_approval_and_queues_service_aware_task(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://jenkins.example.test:8080/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-rce-nuclei-audit",
+            "configuration_json": {
+                "targets": {"urls": ["https://jenkins.example.test:8080/"]},
+                "nuclei": {
+                    "service_evidence": [{"product": "Jenkins", "port": 8080}],
+                    "requested_template_ids": ["CVE-2024-23897"],
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["tasks"] == []
+    assert created_payload["pending_approvals"] == 1
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "active-web-rce-nuclei-audit", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "nuclei"
+    assert task["target_id"] == "https://jenkins.example.test:8080/"
+    assert task["params_json"]["rce_template_selection"] is True
+    assert task["params_json"]["update_templates"] is True
+    assert task["params_json"]["template_update_approved"] is True
+    assert task["params_json"]["oob_enabled"] is False
+    assert task["params_json"]["service_evidence"] == [{"product": "Jenkins", "port": 8080}]
+    assert task["params_json"]["requested_template_ids"] == ["CVE-2024-23897"]
 
 
 def test_active_ssrf_probe_profile_requires_approval_and_queues_task(client) -> None:

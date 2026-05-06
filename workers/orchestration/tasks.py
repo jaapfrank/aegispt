@@ -1366,6 +1366,39 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else None
             )
             or None,
+            rce_template_selection=bool(request.params.get("rce_template_selection", False)),
+            service_evidence=(
+                request.params.get("service_evidence")
+                if isinstance(request.params.get("service_evidence"), list)
+                else None
+            ),
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            requested_template_ids=(
+                [
+                    str(item).strip()
+                    for item in request.params.get("requested_template_ids", [])
+                    if str(item).strip()
+                ]
+                if isinstance(request.params.get("requested_template_ids"), list)
+                else None
+            ),
+            oob_enabled=bool(request.params.get("oob_enabled", False)),
+            interactsh_server=(
+                request.params.get("interactsh_server")
+                if isinstance(request.params.get("interactsh_server"), str)
+                else None
+            ),
+            update_templates=bool(request.params.get("update_templates", False)),
+            template_update_approved=bool(request.params.get("template_update_approved", False)),
+            template_update_dir=(
+                request.params.get("template_update_dir")
+                if isinstance(request.params.get("template_update_dir"), str)
+                else None
+            ),
         )
     if request.tool == "playwright-web":
         return execute_playwright_web_validation(
@@ -2619,6 +2652,47 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         )
     if tool == "nikto":
         return f"$ nikto -host {target_label}{extra} -Format json --approved-scope"
+    if tool == "nuclei":
+        command = [
+            os.getenv("NUCLEI_BINARY", "nuclei"),
+            "-duc",
+            "-l",
+            "<evidence>/targets.txt",
+            "-jsonl-export",
+            "<evidence>/nuclei-results.jsonl",
+            "-rl",
+            str(int(effective_params.get("max_rps") or effective_params.get("rate_limit") or 1)),
+            "-timeout",
+            str(max(int(effective_params.get("timeout_seconds") or 10), 1)),
+            "-retries",
+            "0",
+            "-no-stdin",
+            "-nc",
+        ]
+        if bool(effective_params.get("rce_template_selection", False)):
+            command.extend(["-t", "<aegispt-rce-generic-signal-detection.yaml>"])
+            command.extend(["-id", "<service-matched-rce-cve-ids>"])
+            if not (
+                bool(effective_params.get("oob_enabled", False))
+                and str(effective_params.get("interactsh_server") or "").strip()
+            ):
+                command.append("-no-interactsh")
+            else:
+                command.extend(["-iserver", str(effective_params["interactsh_server"])])
+            prefix = (
+                "$ nuclei -update-templates --approved; "
+                if bool(effective_params.get("update_templates", False))
+                and bool(effective_params.get("template_update_approved", False))
+                else "$ "
+            )
+            return (
+                prefix
+                + " ".join(shlex.quote(str(part)) for part in command)
+                + f" --approved-scope {target_label}{extra}"
+            )
+        template_label = str(effective_params.get("template_id") or "aegispt-http-status-200")
+        command.extend(["-t", f"<{template_label}.yaml>"])
+        return "$ " + " ".join(shlex.quote(str(part)) for part in command)
     if tool == "sqlmap":
         parameter_count = (
             len(effective_params.get("injectable_parameters") or [])
@@ -3170,6 +3244,11 @@ def _store_execution(session, task: Task, execution: RunnerExecution) -> StoredE
                         "template_id",
                         "template_sha256",
                         "template_source",
+                        "template_update_status",
+                        "rce_template_selection",
+                        "selected_template_ids",
+                        "oob_status",
+                        "template_repository_status",
                         "rule_ids",
                         "rule_source",
                         "rule_sha256",
