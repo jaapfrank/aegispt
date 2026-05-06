@@ -1,0 +1,126 @@
+{
+  "id": "backlog-251-dvga-graphql-command-injection-runner",
+  "task_file": "codex/tasks/backlog-251-dvga-graphql-command-injection-runner.json",
+  "task_type": "runner_expansion",
+  "title": "DVGA GraphQL command-injection runner: approval-gated OS command evidence on local lab only",
+  "goal": "Add a dedicated, approval-gated GraphQL command-injection validation capability that can safely prove the DVGA systemDiagnostics command-injection challenge on a local intentionally vulnerable lab, without folding OS command execution into the generic graphql-probe runner.",
+  "scope": "Follow-up from backlog-242 DVGA live-lab validation. During the authorized DVGA proof, graphql-probe deliberately avoided the DVGA systemDiagnostics(cmd:) surface because the active task prohibited OS command execution and unrelated DVGA exploitation families. The operator explicitly requested a future task for that coverage because real pentest suites need controlled command-injection proof. This package captures that work as a separate governed slice with its own authorization, kill-switch, safe command allowlist, provenance, reporting, and local-lab acceptance.",
+  "status": "queued",
+  "generated_by": "operator-requested-dvga-command-injection-follow-up-2026-05-06",
+  "generation_reason": "The operator asked to create a separate task for DVGA GraphQL OS-command-injection coverage after backlog-242 kept systemDiagnostics out of the generic graphql-probe runner.",
+  "source_context": {
+    "queue_index": 251,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-242-authorized-dvga-graphql-live-lab-validation.json",
+      "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.md",
+      "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json",
+      "https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application",
+      "https://dvga.tools.escape.tech/"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "authorized_target_root": "http://127.0.0.1:5013/",
+    "authorized_alternate_root": "http://localhost:5013/",
+    "broader_theme": "real_lab_validation_and_governed_intrusive_graphql_testing",
+    "source_documents": [
+      "workers/runners/graphql_probe/runner.py",
+      "workers/orchestration/tasks.py",
+      "workers/orchestration/findings.py",
+      "api/app/services/runs.py",
+      "api/app/services/run_profiles.py",
+      "codex/tasks/backlog-242-authorized-dvga-graphql-live-lab-validation.json",
+      "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.md",
+      "https://github.com/dolevf/Damn-Vulnerable-GraphQL-Application",
+      "https://dvga.tools.escape.tech/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Implement only governed GraphQL command-injection detection and DVGA local-lab proof. Do not add arbitrary shell, persistence, credential attacks, public target execution, reverse shells, file write, lateral movement, privilege escalation, or broad RCE exploitation families.",
+    "runtime_mutation": false,
+    "uncontrolled_plugin_installation": false,
+    "authorized_root_only": "Active validation must run only against a locally launched DVGA instance at http://127.0.0.1:5013/ or http://localhost:5013/ unless a future active task explicitly authorizes another target.",
+    "approval_and_roe": "Use existing approval, scope, ROE, runtime binding, credential, and kill-switch gates. This runner must require intrusive/exploitation approval before any command-bearing payload is sent.",
+    "safe_command_allowlist": "Use a minimal local-lab command allowlist such as id, whoami, uname -a, or echo aegispt-command-injection-proof. No destructive commands, shell metacharacter chains beyond the documented DVGA proof form, network callbacks, file writes, persistence, package installs, credential access, or environment dumps."
+  },
+  "success_criteria": [
+    "A dedicated command-injection runner or clearly named graphql command-injection mode exists separately from generic graphql-probe.",
+    "The runner is wired through existing orchestration, finding extraction, provenance, report/replay recipe, approval validation, and run profile flows without bypassing gates.",
+    "The runner refuses out-of-scope targets and requires explicit intrusive/exploitation authorization for command-bearing payloads.",
+    "The safe command allowlist is enforced and covered by tests.",
+    "A local DVGA Docker lab is launched and the runner proves the documented systemDiagnostics command-injection challenge using only an allowed harmless command.",
+    "Evidence records exact local target URL, command allowlist entry, request summary, structured artifact, normalized finding, and cleanup status.",
+    "No existing GraphQL runner/API tests regress."
+  ],
+  "likely_touched_files": [
+    "workers/runners/graphql_command_injection/runner.py",
+    "workers/tests/test_graphql_command_injection_runner.py",
+    "workers/orchestration/tasks.py",
+    "workers/orchestration/findings.py",
+    "api/app/services/runs.py",
+    "api/app/services/run_profiles.py",
+    "api/tests/test_pentest_depth_registration.py",
+    "codex/results/backlog-251-dvga-graphql-command-injection-runner-20260506.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Prompt 1 / Prompt 2 foundations",
+    "Approval gate bypasses",
+    "Scope/ROE enforcement",
+    "Kill switch behavior",
+    "Generic graphql-probe safe discovery behavior",
+    "Public DVGA or PortSwigger targets without explicit active-task authorization",
+    "Reverse shell, persistence, credential attack, file write, lateral movement, or privilege escalation payloads"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest workers/tests/test_graphql_command_injection_runner.py workers/tests/test_graphql_probe_runner.py api/tests/test_pentest_depth_registration.py -q",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Only the local DVGA lab root is used for live command-injection acceptance.",
+      "The command-bearing payload uses an allowlisted harmless command and produces structured proof without destructive effects.",
+      "The run path remains approval-gated, scope-enforced, provenance-backed, and kill-switch compatible.",
+      "Any unsupported command-injection scenario is recorded as product truth with bounded follow-up rather than hidden behind green fixtures."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Write evidence under codex/results/.",
+      "Promote exactly one next approved task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Running command payloads against public or customer targets without explicit active-task authorization",
+    "Reverse shells, callback/OOB command proof, persistence, arbitrary file write, package install, credential extraction, privilege escalation, or lateral movement",
+    "Merging command execution into generic graphql-probe discovery checks",
+    "Changing active task order silently",
+    "Bypassing approval, scope, ROE, credentials, runtime binding, or kill-switch controls"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

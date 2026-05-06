@@ -81,6 +81,8 @@ def _schema() -> dict:
 def test_graphql_probe_detects_introspection_depth_suggestions_injection_and_ide() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path == "/graphiql":
+            assert "text/html" in request.headers.get("accept", "")
+            assert request.url.params.get("query")
             return httpx.Response(200, text="<title>GraphiQL</title><div>GraphQL IDE</div>")
         if request.method != "POST" or request.url.path != "/graphql":
             return httpx.Response(404, json={"error": "not found"})
@@ -155,6 +157,115 @@ def test_graphql_probe_detects_introspection_depth_suggestions_injection_and_ide
     assert len(findings) >= 5
     assert "high" in {finding.severity for finding in findings}
     assert all("graphql-probe-validation" in finding.methodology_tags for finding in findings)
+
+
+def test_graphql_probe_detects_dvga_style_graphiql_and_sql_error_signal() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/graphiql":
+            if "text/html" in request.headers.get("accept", "") and request.url.params.get("query"):
+                return httpx.Response(
+                    200,
+                    headers={"Content-Type": "text/html"},
+                    text="<html><title>GraphiQL</title><div>GraphiQL</div></html>",
+                )
+            return httpx.Response(400, json={"errors": [{"message": "Must provide query string."}]})
+        if request.method != "POST" or request.url.path != "/graphql":
+            return httpx.Response(404, json={"error": "not found"})
+
+        payload = json.loads(request.content.decode("utf-8"))
+        if isinstance(payload, list):
+            return httpx.Response(200, json=[{"data": {"__typename": "Query"}} for _ in payload])
+
+        query = payload.get("query", "")
+        variables = payload.get("variables") or {}
+        if "__schema" in query:
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "__schema": {
+                            "queryType": {"name": "Query"},
+                            "mutationType": None,
+                            "types": [
+                                {
+                                    "kind": "OBJECT",
+                                    "name": "Query",
+                                    "fields": [
+                                        {
+                                            "name": "pastes",
+                                            "args": [
+                                                {
+                                                    "name": "filter",
+                                                    "type": {"kind": "SCALAR", "name": "String"},
+                                                }
+                                            ],
+                                            "type": {
+                                                "kind": "LIST",
+                                                "name": None,
+                                                "ofType": {"kind": "OBJECT", "name": "PasteObject"},
+                                            },
+                                        },
+                                        {
+                                            "name": "systemDiagnostics",
+                                            "args": [
+                                                {
+                                                    "name": "cmd",
+                                                    "type": {"kind": "SCALAR", "name": "String"},
+                                                }
+                                            ],
+                                            "type": {"kind": "SCALAR", "name": "String"},
+                                        },
+                                    ],
+                                },
+                                {
+                                    "kind": "OBJECT",
+                                    "name": "PasteObject",
+                                    "fields": [
+                                        {
+                                            "name": "id",
+                                            "args": [],
+                                            "type": {"kind": "SCALAR", "name": "String"},
+                                        },
+                                    ],
+                                },
+                            ],
+                        }
+                    }
+                },
+            )
+        if "pstes" in query:
+            return httpx.Response(
+                400,
+                json={"errors": [{"message": 'Cannot query field "pstes". Did you mean "pastes"?'}]},
+            )
+        if "systemDiagnostics" in query:
+            raise AssertionError("dangerous DVGA systemDiagnostics field should not be probed")
+        if "pastes" in query and variables.get("value") == "aegispt '":
+            return httpx.Response(
+                200,
+                json={"errors": [{"message": "(sqlite3.OperationalError) near \"aegispt\": syntax error"}]},
+            )
+        return httpx.Response(200, json={"data": {"__typename": "Query"}})
+
+    execution = execute_graphql_probe(
+        ["http://127.0.0.1:5013/"],
+        scope_allowlist={"urls": ["http://127.0.0.1:5013/"]},
+        client_factory=_client_factory(handler),
+    )
+
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+    assert execution.exit_code == 0
+    assert payload["summary"]["injection_findings"] == 1
+    assert any(
+        check["check_type"] == "graphql_ide_discovery" and check["exposed"]
+        for check in payload["checks"]
+    )
+    assert any(
+        check["check_type"] == "graphql_argument_injection"
+        and check["field"] == "pastes"
+        and check["backend_error_signal"]
+        for check in payload["checks"]
+    )
 
 
 def test_graphql_probe_rejects_out_of_scope_targets_and_caps_depth() -> None:

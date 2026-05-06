@@ -4,7 +4,7 @@ import json
 import re
 from hashlib import sha256
 from typing import Any, Callable
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import httpx as httpx_client
 
@@ -16,9 +16,16 @@ GRAPHQL_RESULTS_ARTIFACT_NAME = "graphql-probe-results.json"
 DEFAULT_ENDPOINT_PATHS = ("/graphql", "/api/graphql", "/v1/graphql", "/gql")
 DEFAULT_IDE_PATHS = ("/graphiql", "/playground")
 INJECTION_PAYLOADS = (
+    "aegispt '",
     "' OR '1'='1",
     '" OR "1"="1',
     '{"$ne": null}',
+)
+IDE_PROBE_QUERY = "query AegisPTGraphiQL { __typename }"
+SAFE_INJECTION_FIELD_RE = re.compile(r"paste|search|filter|find|lookup|query|user", flags=re.I)
+DANGEROUS_INJECTION_FIELD_RE = re.compile(
+    r"system|diagnostic|debug|update|delete|upload|import|login|create|edit|admin|command|cmd",
+    flags=re.I,
 )
 SQL_ERROR_MARKERS = (
     "sql syntax",
@@ -142,6 +149,13 @@ def _graphql_post(
             "User-Agent": "AegisPT/graphql-probe bounded validation",
         },
     )
+
+
+def _ide_probe_url(url: str) -> str:
+    parsed = urlparse(url)
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    params.setdefault("query", IDE_PROBE_QUERY)
+    return urlunparse(parsed._replace(query=urlencode(params)))
 
 
 def _looks_like_graphql_response(response: httpx_client.Response) -> bool:
@@ -380,6 +394,8 @@ def _string_argument_candidates(schema: dict[str, Any] | None, limit: int) -> li
         field_name = str(field.get("name") or "").strip()
         if not field_name or field_name.startswith("__"):
             continue
+        if DANGEROUS_INJECTION_FIELD_RE.search(field_name):
+            continue
         return_type = _unwrap_type(field.get("type"))
         selection = " { __typename }" if return_type["kind"] == "OBJECT" else ""
         for arg in field.get("args") or []:
@@ -387,7 +403,11 @@ def _string_argument_candidates(schema: dict[str, Any] | None, limit: int) -> li
                 continue
             arg_name = str(arg.get("name") or "").strip()
             arg_type = _unwrap_type(arg.get("type"))
-            if arg_name and arg_type["name"] in {"String", "ID"}:
+            if not arg_name or DANGEROUS_INJECTION_FIELD_RE.search(arg_name):
+                continue
+            if not (SAFE_INJECTION_FIELD_RE.search(field_name) or SAFE_INJECTION_FIELD_RE.search(arg_name)):
+                continue
+            if arg_type["name"] in {"String", "ID"}:
                 candidates.append(
                     {
                         "field": field_name,
@@ -453,10 +473,14 @@ def execute_graphql_probe(
     factory = client_factory or httpx_client.Client
     with factory(timeout=timeout_seconds, follow_redirects=False) as client:
         for ide_url in ide_candidates:
+            probe_url = _ide_probe_url(ide_url)
             try:
                 response = client.get(
-                    ide_url,
-                    headers={"User-Agent": "AegisPT/graphql-probe IDE discovery"},
+                    probe_url,
+                    headers={
+                        "Accept": "text/html,application/xhtml+xml",
+                        "User-Agent": "AegisPT/graphql-probe IDE discovery",
+                    },
                 )
             except httpx_client.HTTPError as exc:
                 exit_code = 1
@@ -472,7 +496,8 @@ def execute_graphql_probe(
             checks.append(
                 {
                     "check_type": "graphql_ide_discovery",
-                    "target": ide_url,
+                    "target": probe_url,
+                    "base_target": ide_url,
                     "status_code": response.status_code,
                     "exposed": exposed,
                     "response_hash": _response_hash(response),

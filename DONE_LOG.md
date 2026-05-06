@@ -1,5 +1,49 @@
 # Done Log
 
+- 2026-05-06: completed backlog-242 `Authorized DVGA GraphQL live-lab validation: prove graphql-probe against a real vulnerable GraphQL target`:
+  - rationale:
+    - backlog-227 proved `graphql-probe` with deterministic fixtures, but the product truth still needed a real intentionally vulnerable GraphQL lab proof
+    - the active package authorized only local DVGA on `http://127.0.0.1:5013/` or `http://localhost:5013/` for active validation, with public DVGA/PortSwigger/GitHub references limited to read-only documentation
+    - `http://127.0.0.1:8000` was not relevant because the acceptance path used the direct runner against the local DVGA lab, not the AegisPT UI/API browser path
+  - implementation:
+    - launched `dolevf/dvga:latest` locally with `docker run -d --rm -p 127.0.0.1:5013:5013 -e WEB_HOST=0.0.0.0 --name aegispt-dvga-backlog242 dolevf/dvga`, digest `sha256:040aa33c199d99f3380c9ff9a1ee5d725e9abca7b189c63a35a2a73bda79c957`
+    - validated the real DVGA `/graphql` endpoint and `/graphiql` IDE path with bounded local requests only
+    - repaired `graphql-probe` narrowly so IDE discovery requests HTML with a safe query string, matching DVGA's real GraphiQL behavior
+    - added a bounded `aegispt '` SQL-error payload that proves DVGA's documented `pastes(filter:)` argument-injection signal
+    - filtered argument-injection candidates away from dangerous command-bearing or mutating fields such as `systemDiagnostics`, `systemDebug`, upload/import/delete/create/edit/login/admin/command surfaces
+    - added a repo-backed follow-up package, `codex/tasks/backlog-251-dvga-graphql-command-injection-runner.json`, at queue item 251 for a separate approval-gated DVGA command-injection runner with safe command allowlist, provenance, reporting, and kill-switch boundaries
+  - files:
+    - `workers/runners/graphql_probe/runner.py`
+    - `workers/tests/test_graphql_probe_runner.py`
+    - `codex/tasks/backlog-251-dvga-graphql-command-injection-runner.json`
+    - `TASK_QUEUE.md`
+    - `codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.md`
+    - `codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - pre-repair live DVGA runner validation stayed under `http://127.0.0.1:5013/` and proved endpoint discovery, introspection, field suggestions, bounded depth, and batching, but honestly missed GraphiQL exposure and argument-injection error signal
+    - post-repair live DVGA runner validation stayed under `http://127.0.0.1:5013/` and produced `finding_count: 5`, including GraphiQL exposure, introspection, field suggestion leakage, missing depth limit, and argument-injection error signal
+    - the live request log recorded `unsafe_system_diagnostics_probe: false`; command-bearing DVGA OS-command surfaces were not probed in this task
+    - normalized finding extraction produced 5 findings through the existing extraction path
+    - DVGA container `aegispt-dvga-backlog242` was stopped after evidence capture
+    - focused `source .venv/bin/activate && python -m pytest workers/tests/test_graphql_probe_runner.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest workers/tests/test_graphql_probe_runner.py api/tests/test_pentest_depth_registration.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0; only existing Alembic deprecation warnings were printed
+    - `python3 scripts/validate_backlog_tasks.py` passed after adding the queued follow-up package and queue entry, with 251 queued task packages mapped one-to-one
+  - evidence:
+    - `codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.md`
+    - `codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json`
+  - exceptions and boundaries:
+    - no public DVGA, PortSwigger, or other public GraphQL target was scanned
+    - active validation requests used only the local DVGA root on `127.0.0.1:5013`
+    - no OS command execution, arbitrary file write, denial-of-service, resource exhaustion, subscription flooding, credential attack, account takeover, persistence, mutation execution, pack-registry bypass, validation bypass, approval bypass, deployment bypass, runtime-binding bypass, scope bypass, ROE bypass, credential-gate bypass, or kill-switch bypass occurred
+    - command-injection coverage is intentionally queued as a separate future task rather than hidden inside generic `graphql-probe`
+  - remaining risks:
+    - this is local DVGA proof for the listed GraphQL behaviors, not broad GraphQL exploitation or authenticated authorization-bypass coverage
+    - batching is recorded as a safe size-2 capability signal, not a rate-limit bypass or DoS proof
+    - DVGA OS-command injection remains a queued future slice under `backlog-251-dvga-graphql-command-injection-runner`
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-244 `SSH/service brute force runner via Hydra`
+
 - 2026-05-06: completed backlog-241 `Authorized Gruyere XSS Extended validation: derive official contexts and prove detection on approved instance root`:
   - rationale:
     - backlog-220 had deterministic fixture coverage for file-upload XSS, AJAX/JSON XSS, and XSSI, but no official Gruyere-derived context proof or real authorized hosted instance validation
