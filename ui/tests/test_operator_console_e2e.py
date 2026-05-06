@@ -443,6 +443,7 @@ def _api_json(base_url: str, path: str, *, method: str = "GET", body: dict | Non
 def _set_operator_actor_via_settings(page: Page, actor_name: str) -> None:
     page.get_by_test_id("topbar-settings").click()
     expect(page.get_by_test_id("screen-settings")).to_be_visible()
+    page.get_by_test_id("settings-tab-identity-users").click()
     instance_panel = page.get_by_test_id("settings-instance")
     if not instance_panel.evaluate("(element) => Boolean(element.open)"):
         instance_panel.locator("summary").click()
@@ -5750,6 +5751,7 @@ def test_settings_screen_handles_failed_engagement_loads_without_request_storm(
     page.get_by_test_id("topbar-settings").click()
 
     expect(page.get_by_test_id("screen-settings")).to_be_visible()
+    page.get_by_test_id("settings-tab-integrations").click()
     expect(page.get_by_test_id("settings-siem-panel")).to_contain_text(
         "SIEM settings unavailable for this engagement",
         timeout=15000,
@@ -5794,18 +5796,20 @@ def test_settings_screen_defaults_to_disclosures_with_chatgpt_panel_open(loaded_
 
     chatgpt_panel = loaded_page.get_by_test_id("settings-chatgpt-oauth-panel")
     ai_provider_panel = loaded_page.get_by_test_id("settings-ai-provider")
-    network_panel = loaded_page.get_by_test_id("settings-default-network-scope")
 
     expect(loaded_page.get_by_test_id("screen-settings")).to_be_visible()
     expect(chatgpt_panel).to_have_js_property("open", True)
     expect(ai_provider_panel).to_have_js_property("open", False)
-    expect(network_panel).to_have_js_property("open", False)
     expect(loaded_page.get_by_test_id("setting-ai-chatgpt-model")).not_to_be_visible()
 
     ai_provider_panel.locator("summary").click()
 
     expect(ai_provider_panel).to_have_js_property("open", True)
     expect(loaded_page.get_by_test_id("setting-ai-chatgpt-model")).to_be_visible()
+
+    loaded_page.get_by_test_id("settings-tab-tools-runtime").click()
+    network_panel = loaded_page.get_by_test_id("settings-default-network-scope")
+    expect(network_panel).to_have_js_property("open", False)
 
 
 def test_settings_chatgpt_connect_opens_authorization_window(
@@ -7304,6 +7308,7 @@ def test_first_run_onboarding_can_be_rerun_from_settings(first_run_loaded_page: 
 
     first_run_loaded_page.get_by_test_id("nav-settings").click()
     expect(first_run_loaded_page.get_by_test_id("screen-settings")).to_be_visible()
+    first_run_loaded_page.get_by_test_id("settings-tab-identity-users").click()
     first_run_loaded_page.get_by_test_id("settings-instance").locator("summary").click()
     first_run_loaded_page.get_by_test_id("settings-rerun-onboarding").click()
     expect(first_run_loaded_page.get_by_test_id("onboarding-overlay")).to_be_visible()

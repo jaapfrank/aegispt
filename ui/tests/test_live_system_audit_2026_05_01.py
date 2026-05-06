@@ -722,6 +722,7 @@ def test_report_center_download_buttons_labeled(page: Page) -> None:
 def test_settings_screen_key_sections_present(page: Page) -> None:
     _load(page)
     _nav(page, "settings")
+    page.get_by_test_id("settings-tab-tools-runtime").click()
     page.wait_for_timeout(1000)
     _ss(page, "settings-full")
     text = page.locator("#settings-content").inner_text()
@@ -735,6 +736,7 @@ def test_settings_screen_key_sections_present(page: Page) -> None:
 def test_settings_integrations_visible(page: Page) -> None:
     _load(page)
     _nav(page, "settings")
+    page.get_by_test_id("settings-tab-integrations").click()
     page.wait_for_timeout(800)
     text = page.locator("#settings-content").inner_text()
     _ss(page, "settings-integrations")
@@ -746,6 +748,7 @@ def test_settings_integrations_visible(page: Page) -> None:
 def test_settings_data_retention_section(page: Page) -> None:
     _load(page)
     _nav(page, "settings")
+    page.get_by_test_id("settings-tab-data-security").click()
     page.wait_for_timeout(800)
     text = page.locator("#settings-content").inner_text()
     _ss(page, "settings-retention")

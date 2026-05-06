@@ -66,16 +66,17 @@ def test_settings_all_panels_expanded(page: Page) -> None:
     nav(page, "settings")
     page.wait_for_timeout(800)
     ss(page, "02-settings-initial")
-    # Expand all panels
-    toggles = page.locator("[data-settings-toggle], .settings-panel-toggle, details summary")
-    for i in range(toggles.count()):
-        t = toggles.nth(i)
-        if t.is_visible():
-            try:
-                t.click()
-                page.wait_for_timeout(150)
-            except Exception:
-                pass
+    for tab_id in ["ai-provider", "tools-runtime", "integrations", "data-security", "identity-users"]:
+        page.get_by_test_id(f"settings-tab-{tab_id}").click()
+        toggles = page.locator("[data-settings-toggle], .settings-panel-toggle, details summary")
+        for i in range(toggles.count()):
+            t = toggles.nth(i)
+            if t.is_visible():
+                try:
+                    t.click()
+                    page.wait_for_timeout(150)
+                except Exception:
+                    pass
     page.wait_for_timeout(500)
     ss(page, "02-settings-all-expanded")
 

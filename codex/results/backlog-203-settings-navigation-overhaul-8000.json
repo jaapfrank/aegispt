@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-05-06T03:52:51.942712+00:00",
+  "url": "http://127.0.0.1:8000/app/",
+  "asset_versions": {
+    "stylesheet": "./assets/styles.css?v=20260506-settings-tabs-1",
+    "appScript": "./assets/app.js?v=20260506-settings-tabs-1"
+  },
+  "tab_count": 5,
+  "tabs": {
+    "ai-provider": {
+      "rendered_panel_count": 2,
+      "max_six_ok": true,
+      "visible_panels": [
+        "settings-ai-provider",
+        "settings-chatgpt-oauth-panel"
+      ]
+    },
+    "tools-runtime": {
+      "rendered_panel_count": 6,
+      "max_six_ok": true,
+      "visible_panels": [
+        "settings-diagnostics-panel",
+        "settings-readiness-panel",
+        "settings-default-network-scope",
+        "settings-default-scan-profile",
+        "settings-runtime-execution",
+        "settings-scheduled-scans-panel"
+      ]
+    },
+    "integrations": {
+      "rendered_panel_count": 5,
+      "max_six_ok": true,
+      "visible_panels": [
+        "settings-integrations",
+        "settings-notifications",
+        "settings-siem-panel",
+        "settings-jira-panel",
+        "settings-cicd-panel"
+      ]
+    },
+    "data-security": {
+      "rendered_panel_count": 6,
+      "max_six_ok": true,
+      "visible_panels": [
+        "settings-threat-intel",
+        "settings-threat-intel-panel",
+        "settings-data-retention-panel",
+        "settings-evidence-integrity",
+        "settings-deployment-hardening",
+        "settings-remediation"
+      ]
+    },
+    "identity-users": {
+      "rendered_panel_count": 4,
+      "max_six_ok": true,
+      "visible_panels": [
+        "settings-enterprise-identity-panel",
+        "settings-users-panel",
+        "settings-enterprise-identity",
+        "settings-instance"
+      ]
+    }
+  },
+  "search": {
+    "query": "jira",
+    "summary": "2 matching panels across settings",
+    "matching_panel_count": 2,
+    "jira_visible": true
+  },
+  "screenshots": {
+    "ai_provider": "codex/results/backlog-203-settings-tabs-ai-8000.png",
+    "integrations": "codex/results/backlog-203-settings-tabs-integrations-8000.png",
+    "search_jira": "codex/results/backlog-203-settings-search-jira-8000.png"
+  }
+}

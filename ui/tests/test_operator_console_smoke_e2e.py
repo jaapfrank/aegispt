@@ -9,6 +9,12 @@ from playwright.sync_api import Page, expect
 pytestmark = [pytest.mark.ui_fast, pytest.mark.smoke]
 
 
+def _open_settings_tab(page: Page, tab_id: str) -> None:
+    tab = page.get_by_test_id(f"settings-tab-{tab_id}")
+    expect(tab).to_be_visible()
+    tab.click()
+
+
 def test_operator_console_fast_navigation_smoke(loaded_page: Page) -> None:
     expect(loaded_page.get_by_test_id("topbar")).to_contain_text("AegisPT")
 
@@ -582,6 +588,7 @@ def test_topbar_actor_identity_is_read_only_and_settings_backed(loaded_page: Pag
     expect(loaded_page.get_by_test_id("topbar-role-badge")).to_contain_text("admin")
 
     loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_tab(loaded_page, "identity-users")
     instance_panel = loaded_page.get_by_test_id("settings-instance")
     instance_panel.locator("summary").click()
     actor_setting = loaded_page.locator("[data-setting-key='instance.operator_display_name']")
@@ -1127,20 +1134,33 @@ def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
         """
     )
 
-    expected_summaries = {
-        "ai_provider-summary": "AI Provider: ChatGPT connected · 1 helper on",
-        "default_network_scope-summary": "Default scope: 10.0.20.0/24 · 1 VLAN range",
-        "default_scan_profile-summary": "Profile: Deep · passive · passive-network-discovery",
-        "runtime_execution-summary": "6 parallel task workers",
-        "integrations-summary": "Configure Jira and webhook handoffs",
-        "notifications-summary": "Alerts: email/Slack/Teams · completion on",
-        "threat_intel-summary": "Daily CVE sync on · NVD key not set",
-        "instance-summary": "Operator: alice-reviewer · https://aegispt.example.test",
+    expected_by_tab = {
+        "ai-provider": {
+            "ai_provider-summary": "AI Provider: ChatGPT connected · 1 helper on",
+        },
+        "tools-runtime": {
+            "default_network_scope-summary": "Default scope: 10.0.20.0/24 · 1 VLAN range",
+            "default_scan_profile-summary": "Profile: Deep · passive · passive-network-discovery",
+            "runtime_execution-summary": "6 parallel task workers",
+        },
+        "integrations": {
+            "integrations-summary": "Configure Jira and webhook handoffs",
+            "notifications-summary": "Alerts: email/Slack/Teams · completion on",
+        },
+        "data-security": {
+            "threat_intel-summary": "Daily CVE sync on · NVD key not set",
+        },
+        "identity-users": {
+            "instance-summary": "Operator: alice-reviewer · https://aegispt.example.test",
+        },
     }
-    for test_id, text in expected_summaries.items():
-        expect(loaded_page.get_by_test_id(test_id)).to_be_visible()
-        expect(loaded_page.get_by_test_id(test_id)).to_have_text(text)
+    for tab_id, expected_summaries in expected_by_tab.items():
+        _open_settings_tab(loaded_page, tab_id)
+        for test_id, text in expected_summaries.items():
+            expect(loaded_page.get_by_test_id(test_id)).to_be_visible()
+            expect(loaded_page.get_by_test_id(test_id)).to_have_text(text)
 
+    _open_settings_tab(loaded_page, "tools-runtime")
     network_panel = loaded_page.get_by_test_id("settings-default-network-scope")
     assert network_panel.evaluate("element => element.open") is False
     network_panel.locator("summary").evaluate("summary => summary.click()")
@@ -1150,11 +1170,52 @@ def test_settings_collapsed_sections_show_status_summaries_and_still_toggle(
     assert network_panel.evaluate("element => element.open") is False
     expect(loaded_page.get_by_test_id("default_network_scope-summary")).to_be_visible()
 
+    _open_settings_tab(loaded_page, "integrations")
     notifications_panel = loaded_page.get_by_test_id("settings-notifications")
     notifications_panel.locator("summary").evaluate("summary => summary.click()")
     expect(notifications_panel.locator("[data-setting-key='notifications.smtp_host']")).to_be_visible()
     expect(notifications_panel.locator("[data-setting-key='integrations.slack_webhook_url']")).to_be_visible()
     expect(notifications_panel.locator("[data-setting-key='integrations.teams_webhook_url']")).to_be_visible()
+
+
+def test_settings_category_tabs_and_search_filter_panels(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-settings").click()
+    expect(loaded_page.get_by_test_id("settings-navigation")).to_be_visible()
+    expect(loaded_page.locator("[data-settings-tab]")).to_have_count(5)
+
+    expected_panels = {
+        "ai-provider": ["settings-ai-provider", "settings-chatgpt-oauth-panel"],
+        "tools-runtime": [
+            "settings-diagnostics-panel",
+            "settings-readiness-panel",
+            "settings-default-network-scope",
+            "settings-default-scan-profile",
+            "settings-runtime-execution",
+            "settings-scheduled-scans-panel",
+        ],
+        "integrations": ["settings-integrations", "settings-notifications", "settings-siem-panel", "settings-jira-panel", "settings-cicd-panel"],
+        "data-security": [
+            "settings-threat-intel",
+            "settings-threat-intel-panel",
+            "settings-data-retention-panel",
+            "settings-evidence-integrity",
+            "settings-deployment-hardening",
+            "settings-remediation",
+        ],
+        "identity-users": ["settings-enterprise-identity-panel", "settings-users-panel", "settings-enterprise-identity", "settings-instance"],
+    }
+    for tab_id, panel_test_ids in expected_panels.items():
+        _open_settings_tab(loaded_page, tab_id)
+        expect(loaded_page.locator("[data-settings-panel-entry]")).to_have_count(len(panel_test_ids))
+        assert loaded_page.locator("[data-settings-panel-entry]").count() <= 6
+        for panel_test_id in panel_test_ids:
+            expect(loaded_page.get_by_test_id(panel_test_id)).to_be_visible()
+
+    search = loaded_page.get_by_test_id("settings-search")
+    search.fill("jira")
+    expect(loaded_page.get_by_test_id("settings-search-summary")).to_contain_text("matching panel")
+    expect(loaded_page.get_by_test_id("settings-jira-panel")).to_be_visible()
+    assert loaded_page.locator("[data-settings-search-match='true']").count() >= 1
 
 
 def test_topbar_status_chip_labels_are_simple_and_readable(loaded_page: Page) -> None:
@@ -1445,6 +1506,7 @@ def test_pack_forge_build_lane_panels_are_gated_by_developer_mode(loaded_page: P
     expect(loaded_page.get_by_test_id("codex-task-result")).not_to_be_visible()
 
     loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_tab(loaded_page, "identity-users")
     instance_panel = loaded_page.get_by_test_id("settings-instance")
     instance_panel.locator("summary").click()
     expect(loaded_page.get_by_test_id("setting-instance-build-lane-mode")).to_be_visible()
@@ -2757,6 +2819,7 @@ def test_settings_readiness_panel_exposes_tools_and_export(loaded_page: Page) ->
         """
     )
 
+    _open_settings_tab(loaded_page, "tools-runtime")
     panel = loaded_page.get_by_test_id("settings-readiness-panel")
     expect(panel).to_contain_text("Runtime Readiness")
     expect(panel).to_contain_text("inline task workers configured")
@@ -2841,6 +2904,7 @@ def test_settings_diagnostics_panel_exposes_subsystems_failures_and_bundle_expor
         ),
     )
     loaded_page.get_by_test_id("nav-settings").click()
+    _open_settings_tab(loaded_page, "tools-runtime")
 
     panel = loaded_page.get_by_test_id("settings-diagnostics-panel")
     expect(panel).to_contain_text("Support Diagnostics")
@@ -2894,6 +2958,7 @@ def test_settings_scheduled_scans_panel_exposes_required_fields(loaded_page: Pag
         """
     )
 
+    _open_settings_tab(loaded_page, "tools-runtime")
     panel = loaded_page.get_by_test_id("settings-scheduled-scans-panel")
     expect(panel).to_contain_text("Scheduled Scans")
     expect(panel).to_contain_text("passive-web-baseline")
@@ -2954,6 +3019,7 @@ def test_settings_threat_intel_nvd_rate_limit_hint_focuses_api_key_field(
         """
     )
 
+    _open_settings_tab(loaded_page, "data-security")
     source_card = loaded_page.get_by_test_id("threat-intel-source-nvd")
     expect(source_card).to_contain_text("Provider returned HTTP 429")
     expect(loaded_page.get_by_test_id("nvd-rate-limit-api-key-hint")).to_contain_text(
@@ -3117,6 +3183,7 @@ def test_settings_jira_panel_exposes_configuration_fields(loaded_page: Page) -> 
         """
     )
 
+    _open_settings_tab(loaded_page, "integrations")
     panel = loaded_page.get_by_test_id("settings-jira-panel")
     expect(panel).to_contain_text("Jira Handoff")
     expect(loaded_page.get_by_test_id("settings-jira-form")).to_contain_text("Base URL")
@@ -3354,6 +3421,7 @@ def test_topbar_role_badge_and_settings_users_panel_render(loaded_page: Page) ->
         """
     )
 
+    _open_settings_tab(loaded_page, "identity-users")
     users_panel = loaded_page.get_by_test_id("settings-users-panel")
     expect(users_panel).to_contain_text("Users & API Keys")
     expect(users_panel).to_contain_text("review-ui")
@@ -3471,6 +3539,7 @@ def test_settings_enterprise_identity_panel_shows_sso_and_session_state(loaded_p
         """
     )
 
+    _open_settings_tab(loaded_page, "identity-users")
     panel = loaded_page.get_by_test_id("settings-enterprise-identity-panel")
     expect(panel).to_contain_text("Enterprise Identity")
     expect(panel).to_contain_text("disabled")

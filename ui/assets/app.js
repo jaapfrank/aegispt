@@ -9,7 +9,7 @@ import { createPacksModule } from "./modules/packs.js";
 import { createProblemsModule } from "./modules/problems.js";
 import { createResearchModule } from "./modules/research.js";
 import { createReportsModule } from "./modules/reports.js";
-import { createSettingsModule } from "./modules/settings.js?v=20260501-nvd-rate-limit-hint-1";
+import { createSettingsModule } from "./modules/settings.js?v=20260506-settings-tabs-1";
 import {
   buildEmptyOnboardingState,
   buildEmptyWizardState,

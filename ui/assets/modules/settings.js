@@ -80,6 +80,61 @@ const DEFAULT_SETTINGS_PANELS = Object.freeze({
   cicd_history: false,
 });
 
+const SETTINGS_DEFAULT_TAB_ID = "ai-provider";
+
+const SETTINGS_TAB_DEFINITIONS = Object.freeze([
+  {
+    id: "ai-provider",
+    label: "AI & Provider",
+    summary: "Provider, models, and ChatGPT OAuth",
+  },
+  {
+    id: "tools-runtime",
+    label: "Tools & Runtime",
+    summary: "Readiness, scope, profiles, and scheduling",
+  },
+  {
+    id: "integrations",
+    label: "Integrations",
+    summary: "Handoffs, delivery, triggers, and alerts",
+  },
+  {
+    id: "data-security",
+    label: "Data & Security",
+    summary: "Threat intel, evidence, retention, and hardening",
+  },
+  {
+    id: "identity-users",
+    label: "Identity & Users",
+    summary: "SSO, API keys, actors, and instance identity",
+  },
+]);
+
+const SETTINGS_PANEL_TABS = Object.freeze({
+  ai_provider: "ai-provider",
+  chatgpt_oauth: "ai-provider",
+  support_diagnostics: "tools-runtime",
+  runtime_readiness: "tools-runtime",
+  default_network_scope: "tools-runtime",
+  default_scan_profile: "tools-runtime",
+  runtime_execution: "tools-runtime",
+  scheduled_scans: "tools-runtime",
+  integrations: "integrations",
+  notifications: "integrations",
+  engagement_siem: "integrations",
+  engagement_jira: "integrations",
+  engagement_cicd: "integrations",
+  threat_intel: "data-security",
+  threat_intel_controls: "data-security",
+  data_retention: "data-security",
+  evidence_integrity: "data-security",
+  deployment_hardening: "data-security",
+  remediation: "data-security",
+  enterprise_identity: "identity-users",
+  users: "identity-users",
+  instance: "identity-users",
+});
+
 const AI_PROVIDER_PRIMARY_KEYS = new Set([
   "ai.provider",
   "ai.chatgpt_model",
@@ -1067,9 +1122,10 @@ export function createSettingsModule() {
       return;
     }
     if (kind === "panel_action" && action.panel_id) {
+      patchSettingsUi({ activeTab: settingsTabIdForPanel(action.panel_id), searchQuery: "" }, "settings.ui.panel-action");
       setSettingsPanelOpen(action.panel_id, true);
       renderSettingsScreen();
-      dom.settingsContent?.querySelector(`[data-settings-panel="${CSS.escape(action.panel_id)}"]`)?.scrollIntoView?.({
+      dom.settingsContent?.querySelector(`[data-settings-panel="${cssEscape(action.panel_id)}"]`)?.scrollIntoView?.({
         block: "start",
         behavior: "smooth",
       });
@@ -1258,36 +1314,31 @@ export function createSettingsModule() {
       return;
     }
     const pendingValues = capturePendingSettingValues();
+    const activeTabId = selectedSettingsTabId();
+    const searchQuery = settingsSearchQuery();
+    const panels = buildSettingsPanelCatalog(payload);
+    const visiblePanels = filterSettingsPanelCatalog(panels, activeTabId, searchQuery);
 
     dom.settingsContent.innerHTML = `
       ${renderSettingsOverview(payload)}
-      ${renderDiagnosticsPanel()}
-      ${renderSettingsReadinessPanel()}
-      ${renderEnterpriseIdentityPanel()}
-      ${renderUsersPanel()}
-      ${renderChatGPTOAuthPanel()}
-      ${renderThreatIntelPanel()}
-      ${renderScheduledScansPanel()}
-      ${renderDataRetentionPanel()}
-      <form id="settings-form" class="settings-grid" data-testid="settings-form">
-        <div class="settings-stack">
-          ${payload.sections.map(renderSection).join("")}
-        </div>
-        <div class="settings-save-bar">
-          <span>${escapeHtml(state.settingsError || "Changes update defaults only; they do not mutate active runs.")}</span>
-          <button class="action primary" type="button" data-testid="settings-save" ${state.settingsSaving ? "disabled" : ""}>
-            ${state.settingsSaving ? "Saving..." : "Save Settings"}
-          </button>
-        </div>
-      </form>
-      <div class="settings-stack">
-        ${renderJiraPanel()}
-        ${renderSiemPanel()}
-        ${renderCicdPanel()}
-      </div>
+      ${renderSettingsNavigation({ activeTabId, searchQuery, panels, visiblePanels })}
+      ${renderSettingsPanelCatalog(visiblePanels, searchQuery)}
     `;
     restorePendingSettingValues(pendingValues);
 
+    dom.settingsContent.querySelectorAll("[data-settings-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        patchSettingsUi({ activeTab: button.dataset.settingsTab || SETTINGS_DEFAULT_TAB_ID }, "settings.ui.tab");
+        renderSettingsScreen();
+      });
+    });
+    dom.settingsContent.querySelector("[data-settings-search]")?.addEventListener("input", (event) => {
+      const input = event.currentTarget;
+      const cursor = input.selectionStart ?? String(input.value || "").length;
+      patchSettingsUi({ searchQuery: input.value || "" }, "settings.ui.search");
+      renderSettingsScreen();
+      focusSettingsSearchInput(cursor);
+    });
     dom.settingsContent.querySelector("#settings-form")?.addEventListener("submit", (event) => {
       event.preventDefault();
       saveSettings(event.currentTarget).catch(runtime.actions.handleError || (() => {}));
@@ -1402,8 +1453,10 @@ export function createSettingsModule() {
     });
     ensureSettingsFocusDelegate();
     dom.settingsContent.querySelectorAll("[data-settings-focus-setting]").forEach((button) => {
-      button.addEventListener("click", (event) => {
-        handleSettingsFocusClick(event, button);
+      ["pointerdown", "click"].forEach((eventName) => {
+        button.addEventListener(eventName, (event) => {
+          handleSettingsFocusClick(event, button);
+        });
       });
     });
     dom.settingsContent.querySelector("[data-threat-intel-watchlist-form]")?.addEventListener("submit", (event) => {
@@ -1498,7 +1551,12 @@ function handleSettingsFocusClick(event, button) {
   event.__aegisptSettingsFocusHandled = true;
   event.preventDefault();
   button.blur?.();
-  focusSettingField(button.dataset.settingsFocusSetting);
+  const settingKey = button.dataset.settingsFocusSetting;
+  focusSettingField(settingKey);
+  window.setTimeout(() => focusSettingField(settingKey), 0);
+  window.setTimeout(() => focusSettingField(settingKey), 100);
+  window.setTimeout(() => focusVisibleSettingInput(settingKey), 250);
+  window.setTimeout(() => focusVisibleSettingInput(settingKey), 750);
 }
 
 function flattenSettings(payload) {
@@ -1535,6 +1593,328 @@ function restorePendingSettingValues(values) {
       input.checked = Boolean(value);
     } else {
       input.value = String(value);
+    }
+  });
+}
+
+function selectedSettingsTabId() {
+  const candidate = String(state.settingsUi?.activeTab || SETTINGS_DEFAULT_TAB_ID);
+  return SETTINGS_TAB_DEFINITIONS.some((tab) => tab.id === candidate) ? candidate : SETTINGS_DEFAULT_TAB_ID;
+}
+
+function settingsSearchQuery() {
+  return String(state.settingsUi?.searchQuery || "").trim();
+}
+
+function patchSettingsUi(partial, reason) {
+  patchState(
+    {
+      settingsUi: {
+        ...(state.settingsUi || {}),
+        ...partial,
+      },
+    },
+    reason
+  );
+}
+
+function settingsTabIdForPanel(panelId) {
+  return SETTINGS_PANEL_TABS[String(panelId || "")] || SETTINGS_DEFAULT_TAB_ID;
+}
+
+function buildSettingsPanelCatalog(payload) {
+  const sections = Array.isArray(payload.sections) ? payload.sections : [];
+  const sectionsById = new Map(sections.map((section) => [String(section.id || ""), section]));
+  const addedSectionIds = new Set();
+  const panels = [];
+  const addPanel = (entry) => {
+    panels.push({
+      id: entry.id || entry.panelId,
+      panelId: entry.panelId || entry.id,
+      tabId: entry.tabId || settingsTabIdForPanel(entry.panelId || entry.id),
+      title: entry.title || "",
+      summary: entry.summary || "",
+      searchText: entry.searchText || "",
+      inSettingsForm: Boolean(entry.inSettingsForm),
+      render: entry.render,
+    });
+  };
+  const addSection = (sectionId) => {
+    const section = sectionsById.get(sectionId);
+    if (!section) return;
+    addedSectionIds.add(sectionId);
+    addPanel({
+      id: `section:${sectionId}`,
+      panelId: sectionId,
+      tabId: settingsTabIdForPanel(sectionId),
+      title: section.title || sectionId,
+      summary: summarizeSection(section),
+      searchText: settingsSectionSearchText(section),
+      inSettingsForm: true,
+      render: () => renderSection(section),
+    });
+  };
+
+  addSection("ai_provider");
+  addPanel({
+    id: "chatgpt_oauth",
+    panelId: "chatgpt_oauth",
+    title: "ChatGPT OAuth",
+    summary: "Engagement-scoped ChatGPT OAuth connection",
+    searchText: "chatgpt oauth ai provider model token connection",
+    render: renderChatGPTOAuthPanel,
+  });
+
+  addPanel({
+    id: "support_diagnostics",
+    panelId: "support_diagnostics",
+    title: "Support Diagnostics",
+    summary: "Operational diagnostics and support bundle",
+    searchText: "support diagnostics health migrations dispatch queue tools ai feed support bundle",
+    render: renderDiagnosticsPanel,
+  });
+  addPanel({
+    id: "runtime_readiness",
+    panelId: "runtime_readiness",
+    title: "Runtime Readiness",
+    summary: "Tool readiness, runtime capabilities, and deployment checks",
+    searchText: "runtime readiness pentest tools binaries nmap wifi metasploit zap concurrency export",
+    render: renderSettingsReadinessPanel,
+  });
+  addSection("default_network_scope");
+  addSection("default_scan_profile");
+  addSection("runtime_execution");
+  addPanel({
+    id: "scheduled_scans",
+    panelId: "scheduled_scans",
+    title: "Scheduled Scans",
+    summary: "Recurring passive baseline schedules",
+    searchText: "scheduled scans recurring passive baseline cadence frequency time engagement profile",
+    render: renderScheduledScansPanel,
+  });
+
+  addSection("integrations");
+  addSection("notifications");
+  addPanel({
+    id: "engagement_siem",
+    panelId: "engagement_siem",
+    title: "Delivery Integrations",
+    summary: "SIEM push-only delivery providers",
+    searchText: "delivery integrations siem splunk elastic sentinel hec findings push completion sigma",
+    render: renderSiemPanel,
+  });
+  addPanel({
+    id: "engagement_jira",
+    panelId: "engagement_jira",
+    title: "Jira Handoff",
+    summary: "Engagement-scoped Jira finding handoff",
+    searchText: "jira handoff tickets project key base url issue type auth token",
+    render: renderJiraPanel,
+  });
+  addPanel({
+    id: "engagement_cicd",
+    panelId: "engagement_cicd",
+    title: "Trigger Automation",
+    summary: "Signed deploy triggers and recent trigger history",
+    searchText: "cicd trigger automation github gitlab generic webhook hmac branch profiles history",
+    render: renderCicdPanel,
+  });
+
+  addSection("threat_intel");
+  addPanel({
+    id: "threat_intel_controls",
+    panelId: "threat_intel_controls",
+    title: "Threat Intel Cache",
+    summary: "Local CVE cache, watchlist, and sync controls",
+    searchText: "threat intel cache cve kev ncsc nvd opencve watchlist sync templates product",
+    render: renderThreatIntelPanel,
+  });
+  addPanel({
+    id: "data_retention",
+    panelId: "data_retention",
+    title: "Data Retention",
+    summary: "Engagement-scoped retention and purge policy",
+    searchText: "data retention gdpr avg purge cleanup export engagement assessment delete",
+    render: renderDataRetentionPanel,
+  });
+  addSection("evidence_integrity");
+  addSection("deployment_hardening");
+  addSection("remediation");
+
+  addPanel({
+    id: "enterprise_identity_status",
+    panelId: "enterprise_identity",
+    title: "Enterprise Identity",
+    summary: "SSO status, session policy, and boundary proof",
+    searchText: "enterprise identity sso oidc saml session logout actor role boundary scim tenant",
+    render: renderEnterpriseIdentityPanel,
+  });
+  addPanel({
+    id: "users",
+    panelId: "users",
+    title: "Users & API Keys",
+    summary: "API key actors and one-time token creation",
+    searchText: "users api keys actor reviewer operator admin revoke token create key",
+    render: renderUsersPanel,
+  });
+  addSection("enterprise_identity");
+  addSection("instance");
+
+  sections.forEach((section) => {
+    const sectionId = String(section.id || "");
+    if (!sectionId || addedSectionIds.has(sectionId)) return;
+    addSection(sectionId);
+  });
+
+  return panels;
+}
+
+function settingsSectionSearchText(section) {
+  const settings = Array.isArray(section.settings) ? section.settings : [];
+  return [
+    section.id,
+    section.title,
+    section.description,
+    summarizeSection(section),
+    ...settings.flatMap((setting) => [
+      setting.key,
+      setting.label,
+      setting.description,
+      setting.placeholder,
+      setting.source,
+    ]),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function normalizedSettingsSearch(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function settingsPanelMatches(panel, searchQuery) {
+  const query = normalizedSettingsSearch(searchQuery);
+  if (!query) return true;
+  const haystack = [panel.panelId, panel.title, panel.summary, panel.searchText].join(" ").toLowerCase();
+  return query
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((token) => haystack.includes(token));
+}
+
+function filterSettingsPanelCatalog(panels, activeTabId, searchQuery) {
+  const query = normalizedSettingsSearch(searchQuery);
+  if (query) return panels.filter((panel) => settingsPanelMatches(panel, query));
+  return panels.filter((panel) => panel.tabId === activeTabId);
+}
+
+function renderSettingsNavigation({ activeTabId, searchQuery, panels, visiblePanels }) {
+  const query = normalizedSettingsSearch(searchQuery);
+  const panelCounts = SETTINGS_TAB_DEFINITIONS.reduce((acc, tab) => {
+    acc[tab.id] = panels.filter((panel) => panel.tabId === tab.id).length;
+    return acc;
+  }, {});
+  const searchSummary = query
+    ? `${visiblePanels.length} matching panel${visiblePanels.length === 1 ? "" : "s"} across settings`
+    : `${panelCounts[activeTabId] || 0} panel${panelCounts[activeTabId] === 1 ? "" : "s"} in this category`;
+  return `
+    <section class="settings-nav-shell" data-testid="settings-navigation">
+      <div class="settings-tablist" role="tablist" aria-label="Settings categories">
+        ${SETTINGS_TAB_DEFINITIONS.map(
+          (tab) => `
+            <button
+              class="settings-tab ${tab.id === activeTabId ? "active" : ""}"
+              type="button"
+              role="tab"
+              aria-selected="${tab.id === activeTabId ? "true" : "false"}"
+              data-settings-tab="${escapeHtml(tab.id)}"
+              data-testid="settings-tab-${escapeHtml(tab.id)}"
+            >
+              <span>${escapeHtml(tab.label)}</span>
+              <small>${escapeHtml(String(panelCounts[tab.id] || 0))}</small>
+            </button>
+          `
+        ).join("")}
+      </div>
+      <div class="settings-search-row">
+        <label class="settings-search-field">
+          <span class="sr-only">Find a setting</span>
+          <input
+            type="search"
+            value="${escapeHtml(searchQuery)}"
+            placeholder="Find a setting..."
+            autocomplete="off"
+            data-settings-search
+            data-testid="settings-search"
+          />
+        </label>
+        <p class="settings-search-summary" data-testid="settings-search-summary">${escapeHtml(searchSummary)}</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettingsPanelCatalog(panels, searchQuery) {
+  const query = normalizedSettingsSearch(searchQuery);
+  if (!panels.length) {
+    return `
+      <div class="detail-surface empty-detail-surface" data-testid="settings-empty-filter">
+        No settings panels match this search.
+      </div>
+    `;
+  }
+  const formPanels = panels.filter((panel) => panel.inSettingsForm);
+  const standalonePanels = panels.filter((panel) => !panel.inSettingsForm);
+  return `
+    <div class="settings-stack" data-testid="settings-panel-stack">
+      ${
+        formPanels.length
+          ? `
+            <form id="settings-form" class="settings-grid" data-testid="settings-form">
+              <div class="settings-stack">
+                ${formPanels.map((panel) => renderSettingsPanelShell(panel, query)).join("")}
+              </div>
+              <div class="settings-save-bar">
+                <span>${escapeHtml(state.settingsError || "Changes update defaults only; they do not mutate active runs.")}</span>
+                <button class="action primary" type="button" data-testid="settings-save" ${state.settingsSaving ? "disabled" : ""}>
+                  ${state.settingsSaving ? "Saving..." : "Save Settings"}
+                </button>
+              </div>
+            </form>
+          `
+          : ""
+      }
+      ${standalonePanels.map((panel) => renderSettingsPanelShell(panel, query)).join("")}
+    </div>
+  `;
+}
+
+function renderSettingsPanelShell(panel, searchQuery) {
+  const highlighted = Boolean(searchQuery) && settingsPanelMatches(panel, searchQuery);
+  return `
+    <div
+      class="settings-panel-shell ${highlighted ? "is-search-match" : ""}"
+      data-settings-panel-entry="${escapeHtml(panel.id)}"
+      data-settings-panel-tab="${escapeHtml(panel.tabId)}"
+      ${highlighted ? "data-settings-search-match=\"true\"" : ""}
+    >
+      ${panel.render()}
+    </div>
+  `;
+}
+
+function focusSettingsSearchInput(cursor) {
+  window.requestAnimationFrame(() => {
+    const input = dom.settingsContent?.querySelector("[data-settings-search]");
+    if (!input) return;
+    try {
+      input.focus({ preventScroll: true });
+    } catch (_error) {
+      input.focus();
+    }
+    if (typeof input.setSelectionRange === "function") {
+      const position = Math.min(Number(cursor || 0), String(input.value || "").length);
+      input.setSelectionRange(position, position);
     }
   });
 }
@@ -2868,9 +3248,9 @@ function renderNvdRateLimitHint(source) {
   return `
     <p class="settings-inline-warning" data-testid="nvd-rate-limit-api-key-hint">
       ${escapeHtml("NVD rate-limits unauthenticated requests. Configure an NVD API key in Settings to increase your quota.")}
-      <label class="action ghost compact-action" for="${escapeHtml(settingDomId("threat_intel.nvd_api_key"))}" data-settings-focus-setting="threat_intel.nvd_api_key" data-testid="nvd-rate-limit-api-key-focus">
+      <button class="action ghost compact-action" type="button" data-settings-focus-setting="threat_intel.nvd_api_key" data-testid="nvd-rate-limit-api-key-focus">
         Open NVD API key
-      </label>
+      </button>
     </p>
   `;
 }
@@ -2917,8 +3297,19 @@ function focusSettingField(key) {
   const normalizedKey = String(key || "").trim();
   if (!normalizedKey || !dom.settingsContent) return;
   const panelId = settingsPanelIdForKey(normalizedKey);
-  if (panelId && !isSettingsPanelOpen(panelId)) {
-    setSettingsPanelOpen(panelId, true);
+  const targetTabId = panelId ? settingsTabIdForPanel(panelId) : selectedSettingsTabId();
+  const visibleInput = dom.settingsContent.querySelector(`[data-setting-key="${cssEscape(normalizedKey)}"]`);
+  const visiblePanel = visibleInput?.closest?.("details[data-settings-panel]");
+  const canUseCurrentDom =
+    Boolean(visibleInput) &&
+    (!visiblePanel || visiblePanel.open) &&
+    (!panelId || selectedSettingsTabId() === targetTabId) &&
+    !settingsSearchQuery();
+  if (panelId && !canUseCurrentDom) {
+    patchSettingsUi({ activeTab: targetTabId, searchQuery: "" }, "settings.ui.focus-setting");
+    if (!isSettingsPanelOpen(panelId)) {
+      setSettingsPanelOpen(panelId, true);
+    }
     renderSettingsScreen();
   }
   const input = dom.settingsContent.querySelector(`[data-setting-key="${cssEscape(normalizedKey)}"]`);
@@ -2953,6 +3344,23 @@ function focusSettingField(key) {
   window.setTimeout(applyFocus, 500);
   window.setTimeout(applyFocus, 1000);
   window.setTimeout(applyFocus, 2000);
+}
+
+function focusVisibleSettingInput(key) {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey || !dom.settingsContent) return;
+  const input = dom.settingsContent.querySelector(`[data-setting-key="${cssEscape(normalizedKey)}"]`);
+  if (!input) return;
+  const panel = input.closest?.("details[data-settings-panel]");
+  if (panel && !panel.open) {
+    panel.open = true;
+    setSettingsPanelOpen(panel.dataset.settingsPanel, true);
+  }
+  try {
+    input.focus({ preventScroll: true });
+  } catch (_error) {
+    input.focus();
+  }
 }
 
 function renderThreatIntelWatchlist(entries) {

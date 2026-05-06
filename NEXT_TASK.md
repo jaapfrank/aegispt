@@ -2,36 +2,35 @@
 
 ## Title
 
-Settings page navigation overhaul: replace 28-panel vertical list with tabbed category navigation
+Advanced Configuration drawer: replace developer language with operator-appropriate copy
 
 ## Promoted From
 
-`codex/tasks/backlog-203-settings-page-navigation-overhaul.json`
+`codex/tasks/backlog-204-advanced-config-drawer-operator-language.json`
 
 ## Goal
 
-Improve the Settings screen so operators can navigate the existing settings panels through five focused tabs and a search/filter input, while preserving the existing panel content, panel rendering model, and settings save/load behavior.
+Make the wizard Advanced Configuration drawer read like an operator-facing assessment control, not an implementation/debug surface, while preserving drawer functionality, tabs, fields, and backend behavior.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-203-settings-page-navigation-overhaul.json`.
+Implement the active backlog package `codex/tasks/backlog-204-advanced-config-drawer-operator-language.json`.
 
 Expected slice:
 
-- add a five-tab navigation bar at the top of Settings content
-- use the categories `AI & Provider`, `Tools & Runtime`, `Integrations`, `Data & Security`, and `Identity & Users`
-- show only panels relevant to the selected tab, with no more than six panels per tab
-- keep existing expand/collapse behavior within each tab
-- add a prominent `Find a setting...` search/filter input that highlights matching panels across tabs
-- preserve the existing `DEFAULT_SETTINGS_PANELS` object and panel rendering content
+- remove `Deterministic Run Controls` from the advanced drawer header
+- rewrite the drawer description to: `Fine-tune modules, credentials, profiles, and safety limits for this assessment.`
+- make the Type tab clearly communicate that tile selection already sets the assessment type and changes there are overrides
+- rename non-functional `What changed?` language to `Why?` or remove it where appropriate
+- in the AI drawer section, show the full ChatGPT connection block only when ChatGPT is not connected; when connected, show a minimal connected badge instead
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Add tab navigation and search only.
-- Do not change panel content.
-- Do not change settings save/load logic.
-- Do not change backend settings APIs.
+- Only change string copy and conditional visibility of the ChatGPT block.
+- Do not change drawer tab logic.
+- Do not change field rendering or field behavior.
+- Do not change backend APIs.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -44,9 +43,8 @@ Expected slice:
 
 ## Acceptance
 
-- Settings screen shows a 5-tab navigation bar at top.
-- Each tab shows only the panels relevant to its category.
-- All existing panels remain accessible through tabs or search.
-- Search input narrows/highlights visible panels across tabs.
-- Settings screen no longer requires 10+ viewport scrolls to see all panels.
-- E2E tests pass.
+- `Deterministic Run Controls` does not appear in the advanced drawer.
+- The drawer description is operator-appropriate.
+- The Type tab includes a note that tile selection already sets this and changes are overrides.
+- The ChatGPT block is hidden or reduced to a minimal badge when already connected.
+- Wizard E2E tests pass.
