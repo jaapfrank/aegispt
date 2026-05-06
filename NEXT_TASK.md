@@ -2,34 +2,36 @@
 
 ## Title
 
-Wizard multi-tile target question mismatch: mixed LAN+Web asks LAN-biased question and labels URL input as CIDR range
+CSS design system tokens: standardise spacing, typography, and colour to one consistent unit system
 
 ## Promoted From
 
-`codex/tasks/backlog-198-wizard-multi-tile-target-question-mismatch.json`
+`codex/tasks/backlog-199-css-design-system-tokens.json`
 
 ## Goal
 
-Fix the wizard target question and interpretation for multi-tile contexts so mixed LAN + Web selections use neutral target language and classify URL input as URL/web target context instead of CIDR/LAN context.
+Standardise the main CSS spacing/token system in one focused pass so the operator console has one clean `:root` variable source, consistent 4px-grid spacing units, reusable spacing tokens, and a tablet-friendly tile-grid breakpoint.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-198-wizard-multi-tile-target-question-mismatch.json`.
+Implement the active backlog package `codex/tasks/backlog-199-css-design-system-tokens.json`.
 
 Expected slice:
 
-- keep single-tile target questions unchanged
-- use generic multi-tile target prompt copy
-- make URL input for mixed LAN + Web show URL/web interpretation, not CIDR interpretation
-- show both URL and CIDR quick-fill examples for multi-tile target entry
+- audit `ui/assets/styles.css` for the spacing/token inconsistencies described in the task package
+- remove duplicate CSS variable definitions by keeping one clean `:root` block near the top of the file
+- define `--spacing-xs` through `--spacing-xl`
+- use the spacing tokens for at least 20 repeated spacing values
+- add a 2-column tile-grid fallback at the 900px tablet breakpoint
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Only fix the question label, interpretation text, and quick-fill chips for multi-tile context.
-- Do not change single-tile target question rendering.
-- Do not change backend run profile logic.
-- Do not change target interpretation for single-tile contexts.
+- Standardise units and remove duplication only.
+- Do not redesign components.
+- Do not add new CSS classes.
+- Do not change colours or fonts.
+- Do not change JavaScript.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -42,8 +44,8 @@ Expected slice:
 
 ## Acceptance
 
-- Multi-tile LAN + Web target step shows generic target question copy.
-- URL input in mixed tile context renders URL-appropriate interpretation.
-- Quick-fill chips for multi-tile target entry include URL and CIDR examples.
-- Single-tile target questions remain unchanged.
-- Wizard E2E coverage does not regress.
+- `ui/assets/styles.css` has no duplicate `:root` block.
+- `--spacing-xs` through `--spacing-xl` tokens are defined.
+- spacing updates stay on the 4px grid for the main layout sections covered by the slice.
+- tile grid has a 2-column fallback at the 900px breakpoint.
+- existing E2E coverage does not regress.

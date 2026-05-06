@@ -1,5 +1,43 @@
 # Done Log
 
+- 2026-05-06: completed backlog-198 `Wizard multi-tile target question mismatch: mixed LAN+Web asks LAN-biased question and labels URL input as CIDR range`:
+  - rationale:
+    - the guided wizard used the primary selected tile for target prompt copy, so a mixed Internal LAN + External Web selection could still ask `What is the target network?`
+    - the live interpretation line was not refreshed while the operator typed, so a URL entered into the mixed LAN+Web target field could leave the stale CIDR/LAN interpretation visible
+    - the active task required neutral multi-tile target language and mixed URL/CIDR quick-fill examples while keeping single-tile questions and backend run profile logic unchanged
+  - implementation:
+    - added multi-tile-only target guidance with `What are the targets?`, a neutral URL/CIDR placeholder, and mixed URL plus CIDR quick-fill examples
+    - kept single-tile target guidance on the existing tile-specific copy, including `What is the target website or app?` and `What is the target network?`
+    - added tile-context-aware interpretation text so URL input in an Internal LAN + External Web selection reads `URL target added for External Web component` instead of a CIDR/LAN interpretation
+    - updated the target input handler to refresh only the interpretation line during typing, without changing backend scope processing or run profile selection
+    - added wizard E2E coverage for the mixed LAN+Web prompt, placeholder, quick-fill chips, URL interpretation, and single-tile regression behavior
+    - adjusted the wizard prediction-matrix E2E helper to use a per-tile test client identity, preventing the matrix proof from exhausting the product `run_create` rate-limit bucket while the dedicated backend rate-limit tests still cover 429 behavior
+    - bumped the `wizard.js` asset version in `app.js` so restarted `/app/` hosts serve the current wizard bundle
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/app.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `codex/results/backlog-198-wizard-multitile-target-8000.json`
+    - `codex/results/backlog-198-wizard-multitile-target-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - ES module syntax checks passed for `ui/assets/modules/wizard.js` and `ui/assets/app.js`
+    - focused wizard E2E for the new mixed LAN+Web target behavior passed
+    - full `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed after the local matrix helper was isolated from the product run-create rate-limit bucket
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `http://127.0.0.1:8000` was relevant and was explicitly restarted onto current working-tree code with `scripts/restart_local_inline_host.sh`; current-code browser acceptance passed on that host and proved the app bundle contains `20260506-multitile-target-1`
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed after implementation
+  - evidence:
+    - `codex/results/backlog-198-wizard-multitile-target-8000.json`
+    - `codex/results/backlog-198-wizard-multitile-target-8000.png`
+  - boundaries:
+    - no backend run profile logic, target validation logic, scope processing, pack registry, validation, approval, deployment, runtime binding, ROE, credentials, or kill-switch behavior was changed or bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; browser acceptance used local wizard UI state only
+  - remaining risks:
+    - multi-tile quick-fill examples are deterministic defaults plus any recent-scope chips, not a new target-type inference system
+    - the broader operator-reported Gruyere full-pentest wizard/all-tools issue remains outside this active task and is still represented by later queued wiring/tool-control tasks
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-199 `CSS design system tokens`
+
 - 2026-05-06: completed backlog-235 `Kill chain progress rate tracking: map findings and phase completions to MITRE ATT&CK stages and show progress gauge`:
   - rationale:
     - AegisPT already stored findings, run tasks, and assessment-chain phase state, but it did not translate those evidence signals into an operator-facing kill-chain progress rate

@@ -798,6 +798,15 @@ const WIZARD_TARGET_GUIDANCE = {
   },
 };
 
+const MULTI_TILE_TARGET_GUIDANCE = {
+  question: "What are the targets?",
+  placeholder: "e.g. https://app.example.com or 192.168.1.0/24",
+  examples: ["https://app.example.com", "192.168.1.0/24", "portal.example.com", "10.0.20.0/24"],
+  addLabel: "+ Add target",
+  hint: "Add only explicitly authorized URLs, domains, IPs, or CIDR ranges. Each value is routed to the matching selected assessment component.",
+  predictedGroup: "auto-detected",
+};
+
 function wizardDepthConfig(choice = "active") {
   return WIZARD_FLOW_DEPTH_OPTIONS[String(choice || "active").trim()] || WIZARD_FLOW_DEPTH_OPTIONS.full;
 }
@@ -845,6 +854,12 @@ function targetGuidanceForTile(tileKey = "") {
   return WIZARD_TARGET_GUIDANCE[tileKey] || WIZARD_TARGET_GUIDANCE["external-web"];
 }
 
+function targetGuidanceForSelection(keys = selectedAssessmentTileKeys()) {
+  const normalizedKeys = normalizeAssessmentTileKeys(keys);
+  if (normalizedKeys.length > 1) return MULTI_TILE_TARGET_GUIDANCE;
+  return targetGuidanceForTile(primaryAssessmentTileKey(normalizedKeys));
+}
+
 function targetBucketForTileValue(value, selectedKey = "") {
   const normalized = String(value || "").trim();
   if (selectedKey === "wifi-wireless") return "wireless_sites";
@@ -882,6 +897,52 @@ function buildWizardTargetsForTileValue(value, selectedKey = "") {
     ssids: [],
     bssids: [],
   };
+}
+
+function targetBucketDisplayLabel(bucket) {
+  const labels = {
+    urls: "URL",
+    api_base_urls: "API base URL",
+    ip_addresses: "IP address",
+    cidr_ranges: "CIDR range",
+    domains: "domain",
+    wireless_sites: "wireless site",
+  };
+  return labels[String(bucket || "").trim()] || String(bucket || "target").replaceAll("_", " ");
+}
+
+function targetComponentLabelForBucket(bucket, keys = selectedAssessmentTileKeys()) {
+  const normalizedKeys = normalizeAssessmentTileKeys(keys);
+  const value = String(bucket || "").trim();
+  if (["urls", "domains"].includes(value)) {
+    if (normalizedKeys.includes("external-web")) return "External Web component";
+    if (normalizedKeys.includes("authenticated-app")) return "Authenticated App component";
+    if (normalizedKeys.includes("llm-ai-app")) return "LLM / AI App component";
+    if (normalizedKeys.includes("ssl-tls")) return "SSL/TLS component";
+    if (normalizedKeys.includes("api-security")) return "API Security component";
+    if (normalizedKeys.includes("active-directory")) return "Active Directory component";
+  }
+  if (value === "api_base_urls" && normalizedKeys.includes("api-security")) return "API Security component";
+  if (["cidr_ranges", "ip_addresses"].includes(value)) {
+    if (normalizedKeys.includes("internal-lan")) return "Internal LAN component";
+    if (normalizedKeys.includes("external-infrastructure")) return "External IPs component";
+    if (normalizedKeys.includes("smart-home-lan")) return "Smart Home / IoT LAN component";
+    if (normalizedKeys.includes("active-directory")) return "Active Directory component";
+  }
+  if (value === "wireless_sites" && normalizedKeys.includes("wifi-wireless")) return "WiFi / Wireless component";
+  return "";
+}
+
+function targetInterpretationTextForSelection(value, keys = selectedAssessmentTileKeys(), heading = assessmentSelectionLabel(keys) || "Selected Assessment") {
+  const normalizedKeys = normalizeAssessmentTileKeys(keys);
+  const selectedKey = primaryAssessmentTileKey(normalizedKeys);
+  const targetBucket = targetBucketForTileValue(value, selectedKey);
+  const label = targetBucketDisplayLabel(targetBucket);
+  if (normalizedKeys.length > 1) {
+    const componentLabel = targetComponentLabelForBucket(targetBucket, normalizedKeys);
+    return `Predicted interpretation: ${label} target added for ${componentLabel || heading}.`;
+  }
+  return `Predicted interpretation: ${label} target for ${heading}.`;
 }
 
 function wizardMatrixExecutionProfile(tileKey, depthChoice, targetValue) {
@@ -1273,6 +1334,22 @@ function recentTargetChipsForTile(tileKey = "", limit = 3) {
 function targetQuickFillChipsForTile(tileKey = "", guidance = targetGuidanceForTile(tileKey)) {
   const recentTargets = recentTargetChipsForTile(tileKey);
   return recentTargets.length ? recentTargets : [...(guidance.examples || [])];
+}
+
+function targetQuickFillChipsForSelection(keys = selectedAssessmentTileKeys(), guidance = targetGuidanceForSelection(keys)) {
+  const normalizedKeys = normalizeAssessmentTileKeys(keys);
+  if (normalizedKeys.length <= 1) return targetQuickFillChipsForTile(primaryAssessmentTileKey(normalizedKeys), guidance);
+  const seen = new Set();
+  const chips = [];
+  const addChip = (value) => {
+    const normalizedValue = String(value || "").trim();
+    if (!normalizedValue || seen.has(normalizedValue)) return;
+    seen.add(normalizedValue);
+    chips.push(normalizedValue);
+  };
+  (guidance.examples || []).forEach(addChip);
+  normalizedKeys.forEach((key) => recentTargetChipsForTile(key, 2).forEach(addChip));
+  return chips.slice(0, 5);
 }
 
 function normalizedAuthorizationLevel(value) {
@@ -2201,18 +2278,6 @@ export function createWizardModule() {
     return targetBucketForTileValue(value, selectedKey);
   }
 
-  function targetBucketDisplayLabel(bucket) {
-    const labels = {
-      urls: "URL",
-      api_base_urls: "API base URL",
-      ip_addresses: "IP address",
-      cidr_ranges: "CIDR range",
-      domains: "domain",
-      wireless_sites: "wireless site",
-    };
-    return labels[String(bucket || "").trim()] || String(bucket || "target").replaceAll("_", " ");
-  }
-
   function buildTargetsForFlowValue(value) {
     const target = String(value || "").trim() || flowTargetValue();
     const selectedKey = primaryAssessmentTileKey(selectedAssessmentTileKeys(state.wizard));
@@ -2397,16 +2462,10 @@ export function createWizardModule() {
   function renderGuidedTargetStep() {
     const targetValue = flowTargetValue();
     const selectedKeys = selectedAssessmentTileKeys(state.wizard);
-    const selectedKey = primaryAssessmentTileKey(selectedKeys);
-    const guidance = targetGuidanceForTile(
-      selectedKeys.includes("internal-lan") && selectedKeys.includes("active-directory") ? "full-internal" : selectedKey
-    );
-    const targetChips = targetQuickFillChipsForTile(
-      selectedKeys.includes("internal-lan") && selectedKeys.includes("active-directory") ? "full-internal" : selectedKey,
-      guidance
-    );
-    const targetBucket = targetBucketForValue(targetValue, selectedKey);
     const heading = assessmentSelectionLabel(selectedKeys) || "Selected Assessment";
+    const guidance = targetGuidanceForSelection(selectedKeys);
+    const targetChips = targetQuickFillChipsForSelection(selectedKeys, guidance);
+    const interpretation = targetInterpretationTextForSelection(targetValue, selectedKeys, heading);
     const depthChoice = state.wizard.intake.flowDepthChoice || "full";
     return `
       <div class="wizard-flow-step wizard-target-depth-step" data-testid="conversation-question">
@@ -2425,7 +2484,7 @@ export function createWizardModule() {
             <button class="q-tag" type="button" data-wizard-target-add="true">${escapeHtml(guidance.addLabel)}</button>
           </div>
           <div class="q-hint">${escapeHtml(guidance.hint)}</div>
-          <div class="q-hint" data-testid="wizard-target-interpretation">Predicted interpretation: ${escapeHtml(targetBucketDisplayLabel(targetBucket))} target for ${escapeHtml(heading)}.</div>
+          <div class="q-hint" data-testid="wizard-target-interpretation">${escapeHtml(interpretation)}</div>
         </section>
         <section class="q-card" data-testid="wizard-depth-card">
           <div class="q-meta">
@@ -3668,6 +3727,15 @@ export function createWizardModule() {
         targetValue: event.target.value,
         step: 2,
       });
+      const selectedKeys = selectedAssessmentTileKeys(state.wizard);
+      const interpretation = document.querySelector('[data-testid="wizard-target-interpretation"]');
+      if (interpretation) {
+        interpretation.textContent = targetInterpretationTextForSelection(
+          event.target.value,
+          selectedKeys,
+          assessmentSelectionLabel(selectedKeys) || "Selected Assessment"
+        );
+      }
     });
 
     document.querySelectorAll("[data-wizard-depth-choice]").forEach((button) => {

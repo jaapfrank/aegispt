@@ -239,6 +239,7 @@ def _create_predicted_run(page: Page, *, tile_key: str, target: str, prediction:
               headers: {
                 "Content-Type": "application/json",
                 "X-Actor": "wizard-matrix-test",
+                "X-Forwarded-For": `wizard-matrix-${tileKey}`,
               },
               body: JSON.stringify(body),
             });
@@ -428,6 +429,36 @@ def test_active_scan_depth_description_matches_assessment_context(loaded_page: P
     _click_selector(loaded_page, "[data-assessment-submit-selection]")
     lan_active = loaded_page.locator('[data-testid="wizard-depth-tile-active"]:visible')
     expect(lan_active).to_contain_text("Vulnerability detection + AD mapping")
+
+
+def test_wizard_multi_tile_target_prompt_and_interpretation_are_context_aware(loaded_page: Page) -> None:
+    _reset_wizard(loaded_page)
+    _select_tile(loaded_page, "internal-lan")
+    _select_tile(loaded_page, "external-web")
+    _click_selector(loaded_page, "[data-assessment-submit-selection]")
+    target_card = loaded_page.get_by_test_id("wizard-target-card")
+    target_input = loaded_page.get_by_test_id("wizard-target-input")
+
+    expect(target_card).to_contain_text("What are the targets?")
+    expect(target_input).to_have_attribute("placeholder", "e.g. https://app.example.com or 192.168.1.0/24")
+    expect(target_card).to_contain_text("https://app.example.com")
+    expect(target_card).to_contain_text("192.168.1.0/24")
+    expect(target_card).to_contain_text("+ Add target")
+
+    target_input.fill("https://testphp.vulnweb.com")
+    interpretation = loaded_page.get_by_test_id("wizard-target-interpretation")
+    expect(interpretation).to_contain_text("URL target added for External Web component")
+    expect(interpretation).not_to_contain_text("CIDR range target")
+
+    _reset_wizard(loaded_page)
+    _select_tile(loaded_page, "external-web")
+    _click_selector(loaded_page, "[data-assessment-submit-selection]")
+    expect(loaded_page.get_by_test_id("wizard-target-card")).to_contain_text("What is the target website or app?")
+
+    _reset_wizard(loaded_page)
+    _select_tile(loaded_page, "internal-lan")
+    _click_selector(loaded_page, "[data-assessment-submit-selection]")
+    expect(loaded_page.get_by_test_id("wizard-target-card")).to_contain_text("What is the target network?")
 
 
 def test_wizard_target_quick_fill_chips_use_recent_scope_with_example_fallback(loaded_page: Page) -> None:
