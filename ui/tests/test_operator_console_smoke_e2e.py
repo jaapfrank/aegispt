@@ -1605,6 +1605,58 @@ def test_wizard_advanced_step_labels_are_short_and_do_not_wrap(loaded_page: Page
         assert overflow is False, f"Wizard advanced step label overflows its button: {label}"
 
 
+def test_wizard_advanced_drawer_copy_and_connected_chatgpt_badge(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-wizard").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const wizardModule = await import('/app/assets/modules/wizard.js');
+          const engagement = { id: 'eng-chatgpt-connected', name: 'Connected Customer' };
+          const wizard = runtimeModule.buildEmptyWizardState();
+          wizard.intake.advancedOpen = true;
+          runtimeModule.patchState({
+            activeScreen: 'wizard',
+            engagements: [engagement],
+            selectedEngagementId: engagement.id,
+            wizard,
+            chatgptOAuthStatus: {
+              loadedForEngagementId: engagement.id,
+              connected: true,
+              status: 'connected',
+              account_id: 'chatgpt-account-1',
+              stale: false,
+            },
+          }, 'ui.test.wizardAdvancedOperatorLanguage');
+          runtimeModule.runtime.actions.navigateToScreen?.('wizard');
+          wizardModule.createWizardModule().renderWizard();
+        }
+        """
+    )
+
+    drawer = loaded_page.get_by_test_id("wizard-advanced-drawer")
+    expect(drawer).to_be_visible()
+    expect(drawer).not_to_contain_text("Deterministic Run Controls")
+    expect(drawer).to_contain_text(
+        "Fine-tune modules, credentials, profiles, and safety limits for this assessment."
+    )
+    expect(drawer).to_contain_text("Assessment Type (change)")
+    expect(drawer).to_contain_text(
+        "Already set from tile selection. Change here only to override."
+    )
+    expect(drawer).not_to_contain_text("What changed")
+    expect(drawer).not_to_contain_text("What changes")
+    expect(loaded_page.get_by_test_id("chatgpt-oauth-connected-badge")).to_be_visible()
+    expect(loaded_page.get_by_test_id("chatgpt-oauth-status")).to_have_text("Connected")
+    expect(loaded_page.get_by_test_id("chatgpt-oauth-account")).to_have_text(
+        "chatgpt-account-1"
+    )
+    expect(loaded_page.get_by_test_id("chatgpt-oauth-connect")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("chatgpt-oauth-refresh")).to_have_count(0)
+
+
 def test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context(loaded_page: Page) -> None:
     expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
     expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_count(0)

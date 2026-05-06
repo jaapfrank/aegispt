@@ -3379,11 +3379,11 @@ export function createWizardModule() {
         <div class="panel-head">
           <div>
             <p class="eyebrow">Advanced Configuration</p>
-            <h4>Deterministic Run Controls</h4>
+            <h4>Advanced Configuration</h4>
           </div>
           <button class="action ghost tiny" type="button" data-advanced-close="true">Hide</button>
         </div>
-        <p class="micro-copy">These controls write into the same run configuration that the conversational intake is building.</p>
+        <p class="micro-copy">Fine-tune modules, credentials, profiles, and safety limits for this assessment.</p>
         ${renderChatGptOAuthCard()}
         <div class="advanced-nav split-top" role="tablist" aria-label="Advanced configuration sections">
           ${steps.map((label, index) => `
@@ -3430,6 +3430,21 @@ export function createWizardModule() {
             ? "Complete the browser login, then refresh this status after the callback returns."
             : "Connect a ChatGPT Plus/Pro account using PKCE. Tokens are encrypted through SecretRef and never rendered here.";
     const buttonLabel = connected ? "Reconnect ChatGPT" : reusable ? "Use Existing ChatGPT Session" : "Connect ChatGPT";
+    if (connected) {
+      return `
+        <section class="ai-provider-card split-top" data-testid="chatgpt-oauth-card">
+          <div>
+            <p class="eyebrow">AI Provider</p>
+            <h4>ChatGPT connected</h4>
+            <div class="chip-row compact split-top" data-testid="chatgpt-oauth-connected-badge">
+              <span class="status-chip success" data-testid="chatgpt-oauth-status">${escapeHtml(statusLabel)}</span>
+              ${accountId ? `<span class="status-chip neutral" data-testid="chatgpt-oauth-account">${escapeHtml(accountId)}</span>` : ""}
+              <span class="status-chip neutral">token exposed: no</span>
+            </div>
+          </div>
+        </section>
+      `;
+    }
     return `
       <section class="ai-provider-card split-top" data-testid="chatgpt-oauth-card">
         <div>
@@ -5211,10 +5226,10 @@ function applySafetyAnswer(answer) {
           </div>
           <div class="stack-form">
             ${fieldLabel(
-              "Assessment Type",
-              "This controls which scope inputs are shown next and which execution lane is likely to be selected later.",
-              "What changes?"
+              "Assessment Type (change)",
+              "Tile selection already sets the assessment type. Change this only when you need an override."
             )}
+            <p class="micro-copy">Already set from tile selection. Change here only to override.</p>
             <div class="toggle-grid">
               ${ASSESSMENT_TYPES.map((type) => `
                 <label class="option-card">

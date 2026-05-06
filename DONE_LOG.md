@@ -1,5 +1,46 @@
 # Done Log
 
+- 2026-05-06: completed backlog-204 `Advanced Configuration drawer: replace developer language with operator-appropriate copy`:
+  - rationale:
+    - the wizard Advanced Configuration drawer exposed implementation language (`Deterministic Run Controls`) and a developer-oriented description in an operator-facing mission setup flow
+    - the Type tab duplicated tile selection without explaining that those radios are overrides, and the ChatGPT connection block stayed visually heavy even when an engagement was already connected
+    - the active package required a narrow UI copy and connected-state visibility change only, without changing drawer tabs, field behavior, backend APIs, pack gates, scope, ROE, credentials, or kill-switch paths
+  - implementation:
+    - replaced the drawer header with `Advanced Configuration`
+    - rewrote the drawer description to `Fine-tune modules, credentials, profiles, and safety limits for this assessment.`
+    - changed the Type section label to `Assessment Type (change)` and added the visible note `Already set from tile selection. Change here only to override.`
+    - removed the remaining non-functional `What changes?` help-label wording from the Type section by using the existing `Why?` default
+    - changed the ChatGPT OAuth drawer rendering so disconnected/reusable states keep the full connection block, while connected engagements show only a compact connected badge with account/status chips and no connect/refresh actions
+    - bumped the served wizard module and `app.js` query strings to `20260506-advanced-config-language-1` so restarted `/app/` hosts load the current wizard code
+  - files:
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-204-advanced-config-language-8000.json`
+    - `codex/results/backlog-204-advanced-config-language-connected-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `node --input-type=module --check < ui/assets/modules/wizard.js` passed; plain `node --check ui/assets/modules/wizard.js` is not claimed because this browser bundle uses ES module imports without a Node package module marker
+    - Python syntax check passed for `ui/tests/test_operator_console_smoke_e2e.py`
+    - copy scan passed with no `Deterministic Run Controls`, old drawer description, `What changes?`, or `What changed?` matches in `ui/assets/modules/wizard.js`
+    - focused wizard smoke E2E passed for advanced step labels and the new drawer copy/connected ChatGPT badge
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - required `git diff --check` passed after implementation
+    - `http://127.0.0.1:8000` was relevant for UI validation; the first probe did not provide a valid running host, so a temporary current-code host was started on `127.0.0.1:8000`, current assets were confirmed, and browser acceptance passed with no page errors or console errors
+  - evidence:
+    - `codex/results/backlog-204-advanced-config-language-8000.json`
+    - `codex/results/backlog-204-advanced-config-language-connected-8000.png`
+  - exceptions and boundaries:
+    - an initial browser attempt was blocked by the first-run onboarding overlay on the temporary host and was not claimed green
+    - a second browser attempt confirmed behavior but produced expected fake-engagement scope 422 console noise and was not claimed as clean acceptance; the accepted run used a local acceptance engagement and recorded no console/page errors
+    - no drawer tab logic, field rendering, field behavior, backend API, pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill-switch behavior was changed or bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; browser acceptance used only the local operator console
+  - remaining risks:
+    - this is a focused drawer language/connected-state slice, not a full wizard information-architecture redesign
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-241 `Authorized Gruyere XSS Extended validation`
+
 - 2026-05-06: completed backlog-203 `Settings page navigation overhaul: replace 28-panel vertical list with tabbed category navigation`:
   - rationale:
     - Settings had grown into a long vertical stack of operational, integration, data, and identity panels, forcing operators to scroll through unrelated controls

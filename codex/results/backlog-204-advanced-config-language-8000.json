@@ -1,0 +1,19 @@
+{
+  "task": "backlog-204-advanced-config-drawer-operator-language",
+  "url": "http://127.0.0.1:8000/app/",
+  "accepted": true,
+  "wait_strategy": "domcontentloaded plus explicit wizard selectors and local acceptance engagement",
+  "engagement_id": "e5cb7ee2-c856-4364-9489-6325b92c122c",
+  "checks": {
+    "old_header_absent": true,
+    "operator_description_visible": true,
+    "type_override_note_visible": true,
+    "what_changed_language_absent": true,
+    "disconnected_full_block_visible_before_connected_patch": true,
+    "connected_badge_visible": true,
+    "connected_actions_hidden": true
+  },
+  "screenshot": "codex/results/backlog-204-advanced-config-language-connected-8000.png",
+  "page_errors": [],
+  "console_errors": []
+}
