@@ -997,6 +997,11 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if isinstance(request.params.get("community_strings"), list)
                 else None
             ),
+            ports=(
+                request.params.get("ports")
+                if isinstance(request.params.get("ports"), (int, list, tuple, str))
+                else None
+            ),
             timeout_seconds=timeout_seconds,
             max_target_hosts=(
                 int(request.params.get("max_target_hosts"))
@@ -2824,9 +2829,17 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
     if tool == "snmp-enum":
         communities = effective_params.get("community_strings")
         community_count = len(communities) if isinstance(communities, list) else 8
+        ports_value = effective_params.get("ports")
+        if isinstance(ports_value, list):
+            ports_label = ",".join(str(port) for port in ports_value) or "161"
+        elif ports_value:
+            ports_label = str(ports_value)
+        else:
+            ports_label = "161"
         return (
             f"$ snmp-enum --read-only --default-communities {community_count} "
-            f"--oids system,interfaces,arp,routes --approved-scope {target_label}{extra}"
+            f"--ports {ports_label} --oids system,interfaces,arp,routes "
+            f"--approved-scope {target_label}{extra}"
         )
     if tool == "smart-home":
         listen_seconds = effective_params.get("mqtt_listen_seconds")

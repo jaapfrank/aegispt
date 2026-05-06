@@ -63,6 +63,7 @@ export const DEFAULT_SAFETY = {
   active_checks: "guarded",
   adaptive_generation: true,
   max_validation_depth: "standard",
+  nmap_scan_depth: "top-10000",
 };
 
 export const REPORT_VARIANTS = [

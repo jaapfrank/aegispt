@@ -869,7 +869,7 @@ def _apply_deep_lan_service_enumeration_defaults(configuration: dict[str, Any]) 
     nmap["discovery_only"] = False
     nmap["service_detection"] = True
     nmap["skip_discovery"] = True
-    nmap["top_ports"] = _int_at_least(nmap.get("top_ports"), 1000)
+    nmap["top_ports"] = _int_at_least(nmap.get("top_ports"), 10000)
     nmap["version_intensity"] = _int_at_least(nmap.get("version_intensity"), 5)
     nmap["timing_template"] = str(nmap.get("timing_template") or "T3")
     nmap["max_retries"] = _int_at_least(nmap.get("max_retries"), 2)

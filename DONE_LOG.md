@@ -12006,3 +12006,52 @@
     - no live Compose/PostgreSQL/MinIO restore was run because this build-lane slice did not start or pull infrastructure; that remains a recorded blocker requiring an explicitly approved local Compose fixture
     - external TLS certificates, proxy policy, database encryption, object-store encryption, and offline bundle custody require operator/platform evidence outside this safe-local proof
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-239 `Enterprise identity and tenant-admin proof`
+
+- 2026-05-06: completed backlog-245 `Full port scan by default plus SNMP non-standard port support: cover AutoPenBench NS1 and NS3`:
+  - rationale:
+    - AutoPenBench NS1/NS3 coverage needs active-tier service discovery to see non-standard ports and SNMP enumeration to follow both configured and nmap-discovered SNMP ports
+    - the safest slice was to reuse existing nmap configuration, assessment-chain defaults, SNMP runner artifacts, scope filtering, command previews, and wizard Advanced Configuration rather than adding a second scanner path
+  - implementation:
+    - changed Deep internal LAN service-enumeration defaults from nmap top-1000 to top-10000 while preserving service detection, skip-discovery, timeout, and retry controls
+    - added governed nmap `scan_depth` parsing for `top-1000`, `top-10000`, and `all-ports`, with `all-ports` mapping to the existing `full_port_scan` runner option
+    - exposed `Nmap Scan Depth` in Wizard Advanced Configuration > Safety and bumped current UI asset cache keys
+    - added SNMP port normalization with default `[161]`, profile/task parameter propagation, command preview port display, and runner execution across configured ports
+    - made SNMP inventory seeding preserve nmap-discovered SNMP services on non-standard ports and record target/port provenance in the SNMP artifact
+  - files:
+    - `api/app/services/assessment_chain.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/runs.py`
+    - `workers/runners/snmp_enum/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `ui/assets/modules/constants.js`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_runs.py`
+    - `api/tests/test_wizard_iot_static.py`
+    - `workers/tests/test_snmp_enum_runner.py`
+    - `workers/tests/test_runner_contract.py`
+    - `codex/results/backlog-245-nmap-snmp-port-depth-20260506.md`
+    - `codex/results/backlog-245-wizard-nmap-scan-depth-8000.json`
+    - `codex/results/backlog-245-wizard-nmap-scan-depth-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 251 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_snmp_enum_runner.py workers/tests/test_runner_contract.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py::test_internal_lan_chain_service_enumeration_uses_discovered_hosts api/tests/test_runs.py::test_snmp_enum_profile_queues_read_only_bounded_default_community_task api/tests/test_runs.py::test_nmap_configuration_scan_depth_maps_to_bounded_runner_params api/tests/test_runs.py::test_snmp_configuration_accepts_nonstandard_ports api/tests/test_wizard_iot_static.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed
+    - current-code browser acceptance on `http://127.0.0.1:8000/app/` passed for the Wizard Advanced Configuration Safety nmap scan-depth selector and wrote JSON/screenshot evidence
+    - `git diff --check` passed before and after documentation/promotion updates
+  - proof:
+    - Deep internal LAN follow-up tasks now queue nmap `top_ports=10000`
+    - nmap config scan-depth maps top-10000 to `top_ports=10000` and all-ports to `full_port_scan=true`
+    - SNMP profile queue params now include `ports=[161]`
+    - SNMP runner tests prove configured ports expand approved hosts and a nmap-discovered SNMP service on port `1161` is probed and emitted as `port: 1161`
+    - browser evidence proves the local wizard exposes default `top-10000` and can select `All 65,535 ports`
+  - exceptions:
+    - the first Playwright acceptance attempt used `networkidle` and timed out because the operator console keeps live background requests open; it is not claimed green, and the accepted proof used `domcontentloaded` plus explicit selectors
+    - generated `codex/tasks/task-2026050610...pack-refinement...json` files appeared during validation/runtime interaction; they were not queue-backed backlog packages and were removed as out-of-scope generated state
+  - remaining risks:
+    - no live customer, public, third-party, or real LAN SNMP/nmap target was scanned; SNMP non-standard behavior is proven through deterministic runner tests and local UI acceptance
+    - all-ports nmap can be slow/noisy and remains an explicit governed option rather than a silent default
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-246 `Network traffic capture runner`

@@ -287,6 +287,18 @@ def test_smart_home_command_preview_is_read_only() -> None:
     assert "10.0.20.44" in preview
 
 
+def test_snmp_enum_command_preview_includes_configured_ports() -> None:
+    preview = _runner_command_preview(
+        "snmp-enum",
+        ["10.0.20.8"],
+        {"ports": [161, 1161], "community_strings": ["public", "private"]},
+    )
+
+    assert "--ports 161,1161" in preview
+    assert "--default-communities 2" in preview
+    assert "10.0.20.8" in preview
+
+
 def test_crypto_audit_command_preview_names_safe_tooling() -> None:
     preview = _runner_command_preview(
         "crypto-audit",

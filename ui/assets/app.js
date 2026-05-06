@@ -38,7 +38,7 @@ import {
   renderTargetSummary,
   statusPill,
 } from "./modules/shared.js";
-import { createWizardModule, estimateMission } from "./modules/wizard.js?v=20260506-ssh-brute-1";
+import { createWizardModule, estimateMission } from "./modules/wizard.js?v=20260506-nmap-depth-1";
 
 let wizardModule;
 let dashboardModule;

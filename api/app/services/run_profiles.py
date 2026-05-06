@@ -643,6 +643,7 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
             ],
             "timeout_seconds": 5,
             "max_target_hosts": 256,
+            "ports": [161],
         },
     },
     {

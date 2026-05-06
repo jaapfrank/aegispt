@@ -305,6 +305,40 @@ def _normalized_string_list(
     return normalized
 
 
+def _normalized_port_int_list(
+    value: object,
+    *,
+    default: list[int] | None = None,
+    limit: int = 32,
+) -> list[int]:
+    raw_values: list[object] = []
+    if isinstance(value, str):
+        raw_values = [item.strip() for item in value.split(",")]
+    elif isinstance(value, list):
+        for item in value:
+            if isinstance(item, str) and "," in item:
+                raw_values.extend(part.strip() for part in item.split(","))
+            else:
+                raw_values.append(item)
+    elif isinstance(value, int):
+        raw_values = [value]
+
+    normalized: list[int] = []
+    seen: set[int] = set()
+    for item in raw_values:
+        try:
+            port = int(str(item).strip())
+        except (TypeError, ValueError):
+            continue
+        if port < 1 or port > 65535 or port in seen:
+            continue
+        seen.add(port)
+        normalized.append(port)
+        if len(normalized) >= limit:
+            break
+    return normalized or list(default or [])
+
+
 def _normalized_bssid(value: object) -> str:
     candidate = str(value or "").strip().lower()
     compact = candidate.replace("-", "").replace(":", "")
@@ -2156,6 +2190,50 @@ def nmap_runner_params_from_configuration(
     if timing_template in {f"T{value}" for value in range(0, 6)}:
         result["timing_template"] = timing_template
 
+    scan_depth = str(settings.get("scan_depth") or "").strip().lower().replace("_", "-")
+    if scan_depth in {"top-1000", "1000"}:
+        result["top_ports"] = 1000
+        result["full_port_scan"] = False
+        result.pop("ports", None)
+    elif scan_depth in {"top-10000", "10000"}:
+        result["top_ports"] = 10000
+        result["full_port_scan"] = False
+        result.pop("ports", None)
+    elif scan_depth in {"all", "all-ports", "full", "full-port-scan", "65535"}:
+        result["full_port_scan"] = True
+        result.pop("top_ports", None)
+        result.pop("ports", None)
+
+    return result
+
+
+def snmp_enum_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("snmp")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    raw_legacy_settings = payload.get("snmp_enum")
+    legacy_settings = raw_legacy_settings if isinstance(raw_legacy_settings, dict) else {}
+    merged_settings = {**legacy_settings, **settings}
+
+    result: dict[str, Any] = {}
+    ports = _normalized_port_int_list(merged_settings.get("ports"))
+    if ports:
+        result["ports"] = ports
+
+    community_strings = _normalized_string_list(merged_settings.get("community_strings"), limit=16)
+    if community_strings:
+        result["community_strings"] = community_strings
+
+    max_target_hosts = merged_settings.get("max_target_hosts")
+    if isinstance(max_target_hosts, int):
+        result["max_target_hosts"] = max(1, min(max_target_hosts, 1024))
+
+    timeout_seconds = merged_settings.get("timeout_seconds")
+    if isinstance(timeout_seconds, (int, float)):
+        result["timeout_seconds"] = float(timeout_seconds)
+
     return result
 
 
@@ -3985,6 +4063,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     impacket_params = impacket_lateral_runner_params_from_configuration(run_configuration)
     metasploit_params = metasploit_runner_params_from_configuration(run_configuration)
     nmap_params = nmap_runner_params_from_configuration(run_configuration)
+    snmp_enum_params = snmp_enum_runner_params_from_configuration(run_configuration)
     netexec_params = netexec_runner_params_from_configuration(run_configuration)
     priv_esc_linux_params = priv_esc_linux_runner_params_from_configuration(run_configuration)
     responder_params = responder_runner_params_from_configuration(run_configuration)
@@ -4956,6 +5035,16 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     else {}
                 )
                 community_strings = normalized_limits.get("community_strings")
+                configured_communities = snmp_enum_params.get("community_strings")
+                community_source = (
+                    configured_communities
+                    if isinstance(configured_communities, list)
+                    else community_strings
+                )
+                ports = snmp_enum_params.get("ports") or _normalized_port_int_list(
+                    normalized_limits.get("ports"),
+                    default=[161],
+                )
                 task_params.update(
                     {
                         "source_inventory_snapshot_id": (
@@ -4968,13 +5057,23 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         "community_strings": (
                             [
                                 str(item).strip()
-                                for item in community_strings
+                                for item in community_source
                                 if isinstance(item, str) and str(item).strip()
                             ]
-                            if isinstance(community_strings, list)
+                            if isinstance(community_source, list)
                             else []
                         ),
-                        "max_target_hosts": int(normalized_limits.get("max_target_hosts") or 256),
+                        "ports": ports,
+                        "max_target_hosts": int(
+                            snmp_enum_params.get(
+                                "max_target_hosts",
+                                normalized_limits.get("max_target_hosts") or 256,
+                            )
+                        ),
+                        "timeout_seconds": snmp_enum_params.get(
+                            "timeout_seconds",
+                            normalized_limits.get("timeout_seconds", 5),
+                        ),
                     }
                 )
             if tool == "smart-home":

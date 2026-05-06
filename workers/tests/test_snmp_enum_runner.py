@@ -19,10 +19,10 @@ def _artifact_payload(execution):
 
 
 def test_default_community_detection_collects_system_interface_arp_and_routes() -> None:
-    calls: list[tuple[str, str, str]] = []
+    calls: list[tuple[str, int, str, str]] = []
 
-    def fake_client(host: str, community: str, oid: str, timeout_seconds: float):
-        calls.append((host, community, oid))
+    def fake_client(host: str, port: int, community: str, oid: str, timeout_seconds: float):
+        calls.append((host, port, community, oid))
         if community != "public":
             return []
         if oid == "1.3.6.1.2.1.1":
@@ -65,13 +65,14 @@ def test_default_community_detection_collects_system_interface_arp_and_routes() 
     assert payload["inventory"]["routes"][0]["destination_cidr"] == "192.168.10.0/24"
     assert payload["analysis_findings"][0]["severity"] == "medium"
     assert payload["analysis_findings"][0]["title"] == "SNMP community string accepted"
-    assert ("10.0.20.1", "public", "1.3.6.1.2.1.1") in calls
+    assert payload["ports_tested"] == [161]
+    assert ("10.0.20.1", 161, "public", "1.3.6.1.2.1.1") in calls
 
 
 def test_community_testing_is_limited_to_task_package_defaults() -> None:
     calls: list[str] = []
 
-    def fake_client(host: str, community: str, oid: str, timeout_seconds: float):
+    def fake_client(host: str, port: int, community: str, oid: str, timeout_seconds: float):
         calls.append(community)
         return []
 
@@ -89,11 +90,56 @@ def test_community_testing_is_limited_to_task_package_defaults() -> None:
     assert payload["analysis_findings"] == []
 
 
+def test_inventory_snmp_service_on_nonstandard_port_is_probed() -> None:
+    calls: list[tuple[str, int, str, str]] = []
+
+    def fake_client(host: str, port: int, community: str, oid: str, timeout_seconds: float):
+        calls.append((host, port, community, oid))
+        if host == "10.0.20.8" and port == 1161 and community == "public" and oid == "1.3.6.1.2.1.1":
+            return [{"oid": "1.3.6.1.2.1.1.5.0", "value": "snmp-alt"}]
+        return []
+
+    execution = execute_snmp_enumeration(
+        targets=[],
+        scope_allowlist={"hosts": ["10.0.20.8"]},
+        inventory={"services": [{"host": "10.0.20.8", "port": 1161, "service": "snmp"}]},
+        snmp_client=fake_client,
+    )
+    payload = _artifact_payload(execution)
+
+    assert execution.exit_code == 0
+    assert "10.0.20.8:1161" in payload["targets"]
+    assert payload["inventory"]["services"][0]["port"] == 1161
+    assert payload["analysis_findings"][0]["target_id"] == "10.0.20.8:1161"
+    assert ("10.0.20.8", 1161, "public", "1.3.6.1.2.1.1") in calls
+
+
+def test_configured_snmp_ports_expand_approved_hosts() -> None:
+    calls: list[tuple[str, int]] = []
+
+    def fake_client(host: str, port: int, community: str, oid: str, timeout_seconds: float):
+        calls.append((host, port))
+        return []
+
+    execution = execute_snmp_enumeration(
+        targets=["10.0.20.1"],
+        scope_allowlist={"hosts": ["10.0.20.1"]},
+        ports=[161, 1161],
+        snmp_client=fake_client,
+    )
+    payload = _artifact_payload(execution)
+
+    assert execution.exit_code == 0
+    assert payload["ports_tested"] == [161, 1161]
+    assert payload["targets"] == ["10.0.20.1:161", "10.0.20.1:1161"]
+    assert ("10.0.20.1", 1161) in calls
+
+
 def test_inventory_import_and_finding_extraction_use_normalized_payload() -> None:
     execution = execute_snmp_enumeration(
         targets=["10.0.20.1"],
         scope_allowlist={"hosts": ["10.0.20.1"]},
-        snmp_client=lambda host, community, oid, timeout_seconds: (
+        snmp_client=lambda host, port, community, oid, timeout_seconds: (
             [{"oid": "1.3.6.1.2.1.1.5.0", "value": "router"}]
             if community == "public" and oid == "1.3.6.1.2.1.1"
             else []

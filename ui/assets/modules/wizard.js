@@ -3029,6 +3029,9 @@ export function createWizardModule() {
       ...nextWizard.data.safety,
       ...(configuration.safety || {}),
     };
+    if (!nextWizard.data.safety.nmap_scan_depth && configuration.nmap) {
+      nextWizard.data.safety.nmap_scan_depth = nmapScanDepthFromConfiguration(configuration.nmap);
+    }
     nextWizard.intake.flowMode = "tile";
     nextWizard.intake.selectedAssessmentTileKey = deriveAssessmentTileKey(nextWizard.data, nextWizard.intake);
     nextWizard.intake.selectedAssessmentTileKeys = normalizeAssessmentTileKeys([nextWizard.intake.selectedAssessmentTileKey]);
@@ -5496,6 +5499,17 @@ function applySafetyAnswer(answer) {
             </select>
             ${fieldHelp("Light keeps validation short and cautious. Standard fits most work. Deep allows broader follow-up within the approved profile.")}
           </label>
+          <label class="field">
+            ${fieldLabel("Nmap Scan Depth", "Controls bounded service-port coverage for Nmap tasks that use top-port or all-port scanning.")}
+            <select id="wizard-nmap-scan-depth" data-testid="wizard-nmap-scan-depth">
+              ${[
+                ["top-1000", "Top 1,000 ports"],
+                ["top-10000", "Top 10,000 ports"],
+                ["all-ports", "All 65,535 ports"],
+              ].map(([value, label]) => `<option value="${value}" ${String(data.safety.nmap_scan_depth || DEFAULT_SAFETY.nmap_scan_depth) === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+            </select>
+            ${fieldHelp("Use Top 10,000 for active-tier service discovery by default; All ports remains explicit and governed by this setting.")}
+          </label>
         </div>
       `;
     }
@@ -5977,6 +5991,7 @@ function applySafetyAnswer(answer) {
       data.safety.active_checks = document.getElementById("wizard-active-checks")?.value || DEFAULT_SAFETY.active_checks;
       data.safety.adaptive_generation = (document.getElementById("wizard-adaptive-generation")?.value || "true") === "true";
       data.safety.max_validation_depth = document.getElementById("wizard-max-depth")?.value || DEFAULT_SAFETY.max_validation_depth;
+      data.safety.nmap_scan_depth = document.getElementById("wizard-nmap-scan-depth")?.value || DEFAULT_SAFETY.nmap_scan_depth;
     }
   }
 
@@ -6309,6 +6324,7 @@ export function buildRunConfiguration(data, estimate) {
     },
     modules: data.modules,
     safety: data.safety,
+    nmap: nmapConfigurationFromSafety(data.safety),
     wireless: data.assessment_type === "WiFi / Wireless"
       ? {
           site: data.wireless?.site || data.targets?.wireless_sites?.[0] || null,
@@ -6360,6 +6376,35 @@ export function buildRunConfiguration(data, estimate) {
         },
     eta: estimate,
   };
+}
+
+function nmapConfigurationFromSafety(safety = {}) {
+  const scanDepth = String(safety.nmap_scan_depth || DEFAULT_SAFETY.nmap_scan_depth || "top-10000");
+  if (scanDepth === "all-ports") {
+    return {
+      scan_depth: "all-ports",
+      full_port_scan: true,
+    };
+  }
+  if (scanDepth === "top-1000") {
+    return {
+      scan_depth: "top-1000",
+      top_ports: 1000,
+      full_port_scan: false,
+    };
+  }
+  return {
+    scan_depth: "top-10000",
+    top_ports: 10000,
+    full_port_scan: false,
+  };
+}
+
+function nmapScanDepthFromConfiguration(nmap = {}) {
+  if (nmap.full_port_scan === true) return "all-ports";
+  const topPorts = Number(nmap.top_ports || 0);
+  if (topPorts && topPorts <= 1000) return "top-1000";
+  return "top-10000";
 }
 
 function buildAllowlistFromWizard(targets) {

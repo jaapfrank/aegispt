@@ -10,6 +10,7 @@ from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 SNMP_ENUM_RESULTS_ARTIFACT_NAME = "snmp-enum-results.json"
 SNMP_ENUM_RUNNER_DIGEST = "workers.snmp_enum.runner:v1"
+DEFAULT_SNMP_PORTS = (161,)
 DEFAULT_COMMUNITIES = (
     "public",
     "private",
@@ -25,7 +26,7 @@ INTERFACES_OID = "1.3.6.1.2.1.2.2"
 ARP_OID = "1.3.6.1.2.1.4.22"
 ROUTES_OID = "1.3.6.1.2.1.4.21"
 
-SnmpClient = Callable[[str, str, str, float], list[dict[str, Any]]]
+SnmpClient = Callable[[str, int, str, str, float], list[dict[str, Any]]]
 
 
 def _normalized_string_list(values: Iterable[object] | None) -> list[str]:
@@ -37,6 +38,44 @@ def _normalized_string_list(values: Iterable[object] | None) -> list[str]:
             seen.add(candidate)
             normalized.append(candidate)
     return normalized
+
+
+def _coerce_port(value: object) -> int | None:
+    try:
+        port = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if 1 <= port <= 65535:
+        return port
+    return None
+
+
+def _normalized_ports(values: Iterable[object] | object | None) -> list[int]:
+    raw_values: list[object] = []
+    if values is None:
+        raw_values = list(DEFAULT_SNMP_PORTS)
+    elif isinstance(values, str):
+        raw_values = [item.strip() for item in values.split(",")]
+    elif isinstance(values, Iterable):
+        for value in values:
+            if isinstance(value, str) and "," in value:
+                raw_values.extend(item.strip() for item in value.split(","))
+            else:
+                raw_values.append(value)
+    else:
+        raw_values = [values]
+
+    normalized: list[int] = []
+    seen: set[int] = set()
+    for value in raw_values:
+        port = _coerce_port(value)
+        if port is None or port in seen:
+            continue
+        seen.add(port)
+        normalized.append(port)
+        if len(normalized) >= 32:
+            break
+    return normalized or list(DEFAULT_SNMP_PORTS)
 
 
 def _scope_values(targets: list[str], scope_allowlist: dict[str, Any]) -> list[str]:
@@ -104,9 +143,13 @@ def _expand_targets(values: Iterable[str], *, host_limit: int) -> list[str]:
     return hosts
 
 
-def _inventory_snmp_hosts(inventory: dict[str, Any] | None) -> list[str]:
-    hosts: list[str] = []
-    seen: set[str] = set()
+def _inventory_snmp_targets(
+    inventory: dict[str, Any] | None,
+    *,
+    configured_ports: list[int],
+) -> list[tuple[str, int]]:
+    targets: list[tuple[str, int]] = []
+    seen: set[tuple[str, int]] = set()
     for service in (
         inventory.get("services", [])
         if isinstance(inventory, dict) and isinstance(inventory.get("services"), list)
@@ -114,18 +157,65 @@ def _inventory_snmp_hosts(inventory: dict[str, Any] | None) -> list[str]:
     ):
         if not isinstance(service, dict):
             continue
-        port = service.get("port")
+        port = _coerce_port(service.get("port"))
         service_name = str(service.get("service") or "").lower()
-        if port != 161 and "snmp" not in service_name:
+        if port is None:
+            continue
+        if port not in configured_ports and "snmp" not in service_name:
             continue
         host = str(service.get("host") or "").strip()
-        if host and host not in seen:
-            seen.add(host)
-            hosts.append(host)
-    return hosts
+        key = (host, port)
+        if host and key not in seen:
+            seen.add(key)
+            targets.append(key)
+    return targets
 
 
-def _pysnmp_walk(host: str, community: str, oid: str, timeout_seconds: float) -> list[dict[str, Any]]:
+def _expand_target_ports(
+    values: Iterable[str],
+    *,
+    ports: list[int],
+    host_limit: int,
+) -> list[tuple[str, int]]:
+    return [(host, port) for host in _expand_targets(values, host_limit=host_limit) for port in ports]
+
+
+def _bounded_targets(
+    targets: Iterable[tuple[str, int]],
+    *,
+    scope_networks: list[ipaddress._BaseNetwork],
+    host_limit: int,
+) -> list[tuple[str, int]]:
+    bounded: list[tuple[str, int]] = []
+    seen_targets: set[tuple[str, int]] = set()
+    seen_hosts: set[str] = set()
+    for host, port in targets:
+        if not host or port < 1 or port > 65535:
+            continue
+        if not _host_in_scope(host, scope_networks):
+            continue
+        if host not in seen_hosts and len(seen_hosts) >= host_limit:
+            continue
+        key = (host, port)
+        if key in seen_targets:
+            continue
+        seen_hosts.add(host)
+        seen_targets.add(key)
+        bounded.append(key)
+    return bounded
+
+
+def _target_label(host: str, port: int) -> str:
+    return f"{host}:{port}"
+
+
+def _pysnmp_walk(
+    host: str,
+    port: int,
+    community: str,
+    oid: str,
+    timeout_seconds: float,
+) -> list[dict[str, Any]]:
     try:
         from pysnmp.hlapi import (  # type: ignore[import-not-found]
             CommunityData,
@@ -143,7 +233,7 @@ def _pysnmp_walk(host: str, community: str, oid: str, timeout_seconds: float) ->
     iterator = nextCmd(
         SnmpEngine(),
         CommunityData(community, mpModel=1),
-        UdpTransportTarget((host, 161), timeout=max(float(timeout_seconds), 0.1), retries=0),
+        UdpTransportTarget((host, port), timeout=max(float(timeout_seconds), 0.1), retries=0),
         ContextData(),
         ObjectType(ObjectIdentity(oid)),
         lexicographicMode=False,
@@ -164,12 +254,13 @@ def _snmp_walk(
     client: SnmpClient,
     *,
     host: str,
+    port: int,
     community: str,
     oid: str,
     timeout_seconds: float,
 ) -> tuple[list[dict[str, Any]], str | None]:
     try:
-        rows = client(host, community, oid, timeout_seconds)
+        rows = client(host, port, community, oid, timeout_seconds)
     except Exception as exc:  # noqa: BLE001 - runner must preserve bounded evidence on client failure
         return [], str(exc)
     normalized = [
@@ -267,13 +358,14 @@ def _parse_routes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return routes
 
 
-def _finding_for_default_community(host: str, community: str) -> dict[str, Any]:
+def _finding_for_default_community(host: str, port: int, community: str) -> dict[str, Any]:
+    target_label = _target_label(host, port)
     return {
         "title": "SNMP community string accepted",
         "severity": "medium",
-        "target_id": host,
+        "target_id": host if port == 161 else target_label,
         "summary": (
-            f"Read-only SNMP accepted the default community string '{community}' on {host}. "
+            f"Read-only SNMP accepted the default community string '{community}' on {target_label}. "
             "Default SNMP communities can expose device identity, interfaces, ARP neighbors, "
             "and routing data."
         ),
@@ -290,6 +382,7 @@ def execute_snmp_enumeration(
     scope_allowlist: dict[str, Any] | None = None,
     inventory: dict[str, Any] | None = None,
     communities: Iterable[object] | None = None,
+    ports: Iterable[object] | object | None = None,
     timeout_seconds: float = 5.0,
     max_target_hosts: int = 256,
     snmp_client: SnmpClient | None = None,
@@ -301,15 +394,18 @@ def execute_snmp_enumeration(
         for community in _normalized_string_list(communities or DEFAULT_COMMUNITIES)
         if community in DEFAULT_COMMUNITIES
     ] or list(DEFAULT_COMMUNITIES)
+    port_list = _normalized_ports(ports)
     host_limit = max(1, min(int(max_target_hosts or 256), 1024))
     scope_values = _scope_values(targets, scope)
     scope_networks = _scope_networks(scope_values)
-    candidate_hosts = _normalized_string_list(
-        [*_inventory_snmp_hosts(inventory), *_expand_targets(scope_values, host_limit=host_limit)]
+    candidate_targets = _bounded_targets(
+        [
+            *_inventory_snmp_targets(inventory, configured_ports=port_list),
+            *_expand_target_ports(scope_values, ports=port_list, host_limit=host_limit),
+        ],
+        scope_networks=scope_networks,
+        host_limit=host_limit,
     )
-    candidate_hosts = [
-        host for host in candidate_hosts if _host_in_scope(host, scope_networks)
-    ][:host_limit]
     client = snmp_client or _pysnmp_walk
 
     hosts: list[dict[str, Any]] = []
@@ -322,7 +418,7 @@ def execute_snmp_enumeration(
     notes: list[str] = []
     missing_dependency = False
 
-    for host in candidate_hosts:
+    for host, port in candidate_targets:
         host_errors: list[str] = []
         accepted: list[str] = []
         community_system_rows: dict[str, list[dict[str, Any]]] = {}
@@ -330,6 +426,7 @@ def execute_snmp_enumeration(
             rows, error = _snmp_walk(
                 client,
                 host=host,
+                port=port,
                 community=community,
                 oid=SYSTEM_OID,
                 timeout_seconds=timeout_seconds,
@@ -342,7 +439,7 @@ def execute_snmp_enumeration(
             if rows:
                 accepted.append(community)
                 community_system_rows[community] = rows
-                analysis_findings.append(_finding_for_default_community(host, community))
+                analysis_findings.append(_finding_for_default_community(host, port, community))
 
         selected_community = accepted[0] if accepted else None
         system_rows = community_system_rows.get(selected_community or "", [])
@@ -358,6 +455,7 @@ def execute_snmp_enumeration(
                 rows, error = _snmp_walk(
                     client,
                     host=host,
+                    port=port,
                     community=selected_community,
                     oid=oid,
                     timeout_seconds=timeout_seconds,
@@ -377,16 +475,16 @@ def execute_snmp_enumeration(
         parsed_arp = _parse_arp(arp_rows)
         parsed_routes = _parse_routes(route_rows)
         for interface in parsed_interfaces:
-            interfaces.append({"host": host, **interface})
+            interfaces.append({"host": host, "source_port": port, **interface})
         for entry in parsed_arp:
-            arp_table.append({"source_host": host, **entry})
+            arp_table.append({"source_host": host, "source_port": port, **entry})
         for route in parsed_routes:
-            routes.append({"source_host": host, **route})
+            routes.append({"source_host": host, "source_port": port, **route})
         if selected_community:
             services.append(
                 {
                     "host": host,
-                    "port": 161,
+                    "port": port,
                     "protocol": "udp",
                     "service": "snmp",
                     "product": parsed_system.get("sysDescr"),
@@ -406,6 +504,8 @@ def execute_snmp_enumeration(
         hosts.append(
             {
                 "host": host,
+                "port": port,
+                "target": _target_label(host, port),
                 "status": "ok" if accepted else "no-snmp-response",
                 "accepted_communities": accepted,
                 "system": parsed_system,
@@ -422,7 +522,7 @@ def execute_snmp_enumeration(
         notes.append(f"Target expansion capped at {host_limit} hosts for bounded passive execution.")
 
     inventory_payload = {
-        "hosts": [host["host"] for host in hosts],
+        "hosts": _normalized_string_list(host["host"] for host in hosts),
         "services": services,
         "fingerprints": fingerprints,
         "network_interfaces": interfaces,
@@ -434,7 +534,8 @@ def execute_snmp_enumeration(
         "runner": "snmp-enum",
         "runner_digest": SNMP_ENUM_RUNNER_DIGEST,
         "community_strings_tested": community_list,
-        "targets": candidate_hosts,
+        "ports_tested": port_list,
+        "targets": [_target_label(host, port) for host, port in candidate_targets],
         "hosts": hosts,
         "inventory": inventory_payload,
         "analysis_findings": analysis_findings,
@@ -448,10 +549,15 @@ def execute_snmp_enumeration(
         kind="snmp-enum-results",
     )
     stdout = (
-        f"snmp-enum: {len(candidate_hosts)} targets, "
-        f"{sum(1 for host in hosts if host.get('accepted_communities'))} responding hosts, "
+        f"snmp-enum: {len(candidate_targets)} targets, "
+        f"{sum(1 for host in hosts if host.get('accepted_communities'))} responding targets, "
         f"{len(analysis_findings)} findings"
     )
+    responding_hosts = {
+        str(host.get("host") or "")
+        for host in hosts
+        if host.get("accepted_communities") and str(host.get("host") or "")
+    }
     return RunnerExecution(
         tool="snmp-enum",
         exit_code=0,
@@ -459,8 +565,11 @@ def execute_snmp_enumeration(
         stderr="",
         metadata={
             "status": "ok",
-            "target_count": len(candidate_hosts),
-            "responding_host_count": sum(1 for host in hosts if host.get("accepted_communities")),
+            "target_count": len(candidate_targets),
+            "responding_host_count": len(responding_hosts),
+            "responding_target_count": sum(
+                1 for host in hosts if host.get("accepted_communities")
+            ),
             "finding_count": len(analysis_findings),
             "runner_digest": SNMP_ENUM_RUNNER_DIGEST,
             "read_only": True,

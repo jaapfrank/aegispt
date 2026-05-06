@@ -1620,6 +1620,7 @@ def test_snmp_enum_profile_queues_read_only_bounded_default_community_task(clien
     assert task["params_json"]["read_only"] is True
     assert task["params_json"]["source_inventory_snapshot_id"] == inventory_id
     assert task["params_json"]["inventory"]["services"][0]["port"] == 161
+    assert task["params_json"]["ports"] == [161]
     assert task["params_json"]["community_strings"] == [
         "public",
         "private",
@@ -1631,6 +1632,34 @@ def test_snmp_enum_profile_queues_read_only_bounded_default_community_task(clien
         "ubiquiti",
     ]
     assert task["params_json"]["max_target_hosts"] == 256
+
+
+def test_nmap_configuration_scan_depth_maps_to_bounded_runner_params() -> None:
+    from api.app.services.runs import nmap_runner_params_from_configuration
+
+    top_ports = nmap_runner_params_from_configuration(
+        {"nmap": {"scan_depth": "top-10000", "ports": ["80", "443"]}}
+    )
+    full_ports = nmap_runner_params_from_configuration(
+        {"nmap": {"scan_depth": "all-ports", "top_ports": 10000}}
+    )
+
+    assert top_ports["top_ports"] == 10000
+    assert top_ports["full_port_scan"] is False
+    assert "ports" not in top_ports
+    assert full_ports["full_port_scan"] is True
+    assert "top_ports" not in full_ports
+
+
+def test_snmp_configuration_accepts_nonstandard_ports() -> None:
+    from api.app.services.runs import snmp_enum_runner_params_from_configuration
+
+    params = snmp_enum_runner_params_from_configuration(
+        {"snmp": {"ports": [161, "1161", "16100"], "max_target_hosts": 4}}
+    )
+
+    assert params["ports"] == [161, 1161, 16100]
+    assert params["max_target_hosts"] == 4
 
 
 def test_ipv6_discovery_profile_queues_passive_bounded_task(client) -> None:

@@ -526,7 +526,7 @@ def test_internal_lan_chain_service_enumeration_uses_discovered_hosts(client) ->
         "10.0.20.8",
     ]
     assert all(task["params_json"]["target_kind"] == "host" for task in queued_run["tasks"])
-    assert all(task["params_json"]["top_ports"] == 1000 for task in queued_run["tasks"])
+    assert all(task["params_json"]["top_ports"] == 10000 for task in queued_run["tasks"])
     assert all(task["params_json"]["version_intensity"] == 5 for task in queued_run["tasks"])
     assert all(task["params_json"]["timeout_seconds"] == 180.0 for task in queued_run["tasks"])
 
