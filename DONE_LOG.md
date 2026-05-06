@@ -1,5 +1,40 @@
 # Done Log
 
+- 2026-05-06: completed backlog-199 `CSS design system tokens`:
+  - rationale:
+    - `ui/assets/styles.css` had duplicate `:root` token definitions and repeated spacing literals across the main operator-console/wizard layout
+    - the active task required one clean variable source, reusable 4px-grid spacing tokens, and a tablet tile-grid fallback without redesigning components or changing JavaScript, colors, or fonts
+  - implementation:
+    - merged the duplicate `:root` token blocks into one top-level `:root`
+    - defined `--spacing-xs` through `--spacing-xl` and added `--spacing-2xl` for the existing 32px spacing value
+    - replaced repeated spacing values in the sidebar, wizard steps, tile grid, selection bar, sticky wizard step bar, top bar, unlocker, and related layout surfaces with spacing tokens
+    - added a tablet tile-grid fallback that renders two columns at `max-width: 1024px`, covering the requested 900px tablet viewport, and kept the existing mobile single-column behavior at `max-width: 640px`
+  - files:
+    - `ui/assets/styles.css`
+    - `codex/results/backlog-199-css-design-system-tokens-8000.json`
+    - `codex/results/backlog-199-css-tile-grid-desktop-8000.png`
+    - `codex/results/backlog-199-css-tile-grid-tablet-8000.png`
+    - `codex/results/backlog-199-css-tile-grid-mobile-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - required `git diff --check` passed
+    - repository audit confirmed one `:root` block, all required spacing tokens, 72 spacing-token references, and tile-grid two-column tablet CSS plus one-column mobile CSS
+    - `bash scripts/run_ui_fast_tests.sh -q` passed for the existing fast UI smoke lane used by CI
+    - `http://127.0.0.1:8000` was relevant for CSS/UI validation and was restarted onto current working-tree code with `scripts/restart_local_inline_host.sh`; current-code browser acceptance passed on that host with desktop/tablet/mobile tile-grid screenshots and no console errors
+  - evidence:
+    - `codex/results/backlog-199-css-design-system-tokens-8000.json`
+    - `codex/results/backlog-199-css-tile-grid-desktop-8000.png`
+    - `codex/results/backlog-199-css-tile-grid-tablet-8000.png`
+    - `codex/results/backlog-199-css-tile-grid-mobile-8000.png`
+  - boundaries:
+    - no JavaScript, colors, fonts, component structure, routes, sidebar/topbar behavior, pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill-switch paths were changed or bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; browser acceptance used local UI rendering only
+  - remaining risks:
+    - this is a focused CSS token normalization pass, not a full design-system refactor
+    - the first browser screenshot attempt hit a transient DOM-detach screenshot failure and was not claimed green; the robust retry with page-level screenshots passed
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-200 `Bottom navigation bar: remove redundant duplicate of sidebar navigation`
+
 - 2026-05-06: completed backlog-198 `Wizard multi-tile target question mismatch: mixed LAN+Web asks LAN-biased question and labels URL input as CIDR range`:
   - rationale:
     - the guided wizard used the primary selected tile for target prompt copy, so a mixed Internal LAN + External Web selection could still ask `What is the target network?`

@@ -2,36 +2,36 @@
 
 ## Title
 
-CSS design system tokens: standardise spacing, typography, and colour to one consistent unit system
+Bottom navigation bar: remove redundant duplicate of sidebar navigation, or justify with mobile-first purpose
 
 ## Promoted From
 
-`codex/tasks/backlog-199-css-design-system-tokens.json`
+`codex/tasks/backlog-200-bottom-nav-bar-remove-or-replace-sidebar.json`
 
 ## Goal
 
-Standardise the main CSS spacing/token system in one focused pass so the operator console has one clean `:root` variable source, consistent 4px-grid spacing units, reusable spacing tokens, and a tablet-friendly tile-grid breakpoint.
+Remove or gate the redundant sticky bottom navigation bar that duplicates the sidebar so the operator console has one clear desktop navigation path and recovers the wasted screen height.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-199-css-design-system-tokens.json`.
+Implement the active backlog package `codex/tasks/backlog-200-bottom-nav-bar-remove-or-replace-sidebar.json`.
 
 Expected slice:
 
-- audit `ui/assets/styles.css` for the spacing/token inconsistencies described in the task package
-- remove duplicate CSS variable definitions by keeping one clean `:root` block near the top of the file
-- define `--spacing-xs` through `--spacing-xl`
-- use the spacing tokens for at least 20 repeated spacing values
-- add a 2-column tile-grid fallback at the 900px tablet breakpoint
+- evaluate the bottom navigation rendered from `BOTTOM_NAV_ITEMS` in `ui/assets/app.js`
+- preferred action: remove the bottom navigation entirely because there is no documented mobile requirement
+- alternative only if a current mobile story exists: restrict the bottom bar to mobile-only below 640px and hide the sidebar there
+- remove associated bottom-nav CSS from `ui/assets/styles.css`
+- run E2E coverage to prove no test relies on the bottom navigation
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Standardise units and remove duplication only.
-- Do not redesign components.
-- Do not add new CSS classes.
-- Do not change colours or fonts.
-- Do not change JavaScript.
+- Only remove or gate the bottom nav bar.
+- Do not change sidebar navigation.
+- Do not change topbar navigation.
+- Do not change screen routing logic.
+- Do not add new navigation structures.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -44,8 +44,8 @@ Expected slice:
 
 ## Acceptance
 
-- `ui/assets/styles.css` has no duplicate `:root` block.
-- `--spacing-xs` through `--spacing-xl` tokens are defined.
-- spacing updates stay on the 4px grid for the main layout sections covered by the slice.
-- tile grid has a 2-column fallback at the 900px breakpoint.
-- existing E2E coverage does not regress.
+- Bottom navigation bar is not visible on a 1280px desktop viewport.
+- All screens remain navigable through the sidebar.
+- If bottom nav is kept for mobile, it is only visible below 640px.
+- No E2E test relies on the bottom nav bar to pass.
+- 44px of screen height is recovered on desktop pages.
