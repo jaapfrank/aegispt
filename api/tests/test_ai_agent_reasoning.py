@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -405,6 +406,60 @@ class IntrusivePostTaskProvider:
         )
 
 
+class WorkingMemoryPostTaskProvider:
+    name = "working-memory-test"
+
+    def __init__(self) -> None:
+        self.context: dict | None = None
+
+    def analyze(self, context: dict) -> PostTaskAnalysisResult:
+        self.context = context
+        engagement_context = context.get("engagement_context")
+        assert isinstance(engagement_context, dict)
+        prior = engagement_context.get("prior_task_analyses")
+        assert isinstance(prior, list)
+        assert prior
+        narrative = engagement_context.get("attack_narrative")
+        assert isinstance(narrative, dict)
+        target = str(context.get("task", {}).get("target_id") or "10.0.0.5")
+        latest_summary = str(prior[0].get("summary_text") or "")
+        return PostTaskAnalysisResult(
+            summary_text=f"Working memory reviewed {len(prior)} prior task analyses.",
+            thought_text=f"Prior task memory changes the next hypothesis: {latest_summary}",
+            action_text="Review the follow-up in light of the engagement working memory.",
+            observations=[
+                {
+                    "summary": f"Prior memory available: {latest_summary}",
+                    "evidence_ref": "engagement_context.prior_task_analyses",
+                }
+            ],
+            hypotheses=[
+                {
+                    "summary": "Earlier approved proposal outcomes should influence the next review.",
+                    "confidence": 0.78,
+                }
+            ],
+            proposals=[
+                AgentProposalDraft(
+                    proposed_tool="httpx",
+                    proposed_target=target,
+                    reasoning_text=(
+                        f"Working memory saw prior analysis '{latest_summary}' and narrative "
+                        f"'{narrative.get('text')}'."
+                    ),
+                    risk_tier="passive",
+                    priority=30,
+                    confidence_score=0.78,
+                    metadata={"working_memory_test": True},
+                )
+            ],
+            model="fixture",
+            llm_tokens_used=0,
+            confidence_score=0.78,
+            metadata={"provider_mode": "working-memory-fixture"},
+        )
+
+
 def test_post_task_analysis_disabled_by_default_skips_without_records(client) -> None:
     with client.app.state.session_factory() as session:
         run, task, _execution = _seed_run_with_task(session)
@@ -536,6 +591,146 @@ def test_post_task_analysis_stores_pending_review_proposal_without_execution(cli
         assert proposals[0].metadata_json["dispatches_work"] is False
         assert proposals[0].metadata_json["requires_operator_review"] is True
         assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
+
+
+def test_post_task_analysis_includes_bounded_engagement_working_memory(client) -> None:
+    with client.app.state.session_factory() as session:
+        run, task, _execution = _seed_run_with_task(session)
+        base_time = datetime(2026, 5, 6, 12, 0, tzinfo=UTC)
+        other_run = Run(
+            engagement=run.engagement,
+            profile=run.profile,
+            requested_by="memory-operator",
+            status="completed",
+            configuration_json=run.configuration_json,
+        )
+        session.add(other_run)
+        session.flush()
+
+        approved_proposal_id = None
+        for index in range(6):
+            prior_run = other_run if index == 5 else run
+            prior_task = Task(
+                run=prior_run,
+                tool="httpx" if index % 2 else "nuclei",
+                target_id=task.target_id,
+                params_json={"sequence": index},
+                status="completed",
+            )
+            session.add(prior_task)
+            session.flush()
+            reasoning = store_agent_reasoning_record(
+                session=session,
+                run=prior_run,
+                task=prior_task,
+                reasoning_type="post_task_analysis",
+                status="succeeded",
+                context_snapshot={"sequence": index},
+                summary_text=f"Prior analysis {index}",
+                thought_text=f"Prior thought {index}",
+                action_text=f"Prior action {index}",
+                hypotheses=[{"summary": f"Hypothesis {index}", "confidence": 0.5 + index / 20}],
+                provider="memory-seed",
+                model="fixture",
+                metadata={"dispatches_work": False, "post_task_analysis": True},
+            )
+            reasoning.created_at = base_time.replace(minute=index)
+            reasoning.updated_at = base_time.replace(minute=index)
+            if index == 4:
+                queued_task = Task(
+                    run=prior_run,
+                    tool="httpx",
+                    target_id=task.target_id,
+                    params_json={"approved_from": "working-memory-test"},
+                    status="completed",
+                )
+                session.add(queued_task)
+                session.flush()
+                proposal = store_agent_proposal_record(
+                    session=session,
+                    reasoning=reasoning,
+                    proposed_tool="httpx",
+                    proposed_target=task.target_id,
+                    proposed_params={"review_required": False},
+                    reasoning_text="Approved proposal from prior task found HTTPS detail.",
+                    risk_tier="passive",
+                    priority=15,
+                    confidence_score=0.82,
+                    status="approved",
+                    metadata={
+                        "dispatches_work": True,
+                        "creates_tasks": True,
+                        "queued_task_id": str(queued_task.id),
+                        "queued_task_status": queued_task.status,
+                    },
+                )
+                proposal.approved_by = "memory-operator"
+                proposal.approved_at = base_time.replace(minute=30)
+                approved_proposal_id = proposal.id
+
+        finding = Finding(
+            run=run,
+            title="Critical stored XSS from prior chain",
+            severity="critical",
+            target_id=task.target_id,
+            evidence_ref="artifact://memory/stored-xss",
+            status="open",
+            summary="Prior task evidence confirmed stored JavaScript execution.",
+            methodology_tags=["stored xss"],
+            wstg_id="WSTG-CLNT-02",
+        )
+        session.add(finding)
+        session.flush()
+
+        provider = WorkingMemoryPostTaskProvider()
+        outcome = run_post_task_analysis_for_task(
+            session=session,
+            task_id=task.id,
+            settings=Settings(
+                ai_agent_post_task_analysis_enabled=True,
+                ai_agent_post_task_analysis_provider="test",
+            ),
+            provider=provider,
+        )
+        session.commit()
+
+        assert provider.context is not None
+        engagement_context = provider.context["engagement_context"]
+        prior = engagement_context["prior_task_analyses"]
+        approved = engagement_context["approved_proposals"]
+        narrative = engagement_context["attack_narrative"]
+        limits = engagement_context["limits"]
+
+        assert outcome.status == "succeeded"
+        assert len(prior) == 5
+        assert prior[0]["summary_text"] == "Prior analysis 5"
+        assert "Prior analysis 0" not in {item["summary_text"] for item in prior}
+        assert any(item["run_id"] == str(other_run.id) for item in prior)
+        assert prior[1]["confirmed_proposals"][0]["id"] == str(approved_proposal_id)
+        assert approved[0]["id"] == str(approved_proposal_id)
+        assert approved[0]["outcome"]["queued_task_status"] == "completed"
+        assert approved[0]["outcome"]["finding_outcome"]["severity_counts"]["critical"] == 1
+        assert engagement_context["finding_summary"]["severity_counts"]["critical"] == 1
+        assert engagement_context["finding_summary"]["high_priority_findings"][0]["title"] == (
+            "Critical stored XSS from prior chain"
+        )
+        assert narrative["sentence_count"] <= limits["max_attack_narrative_sentences"]
+        assert "Prior analysis 5" in narrative["text"]
+        assert engagement_context["estimated_serialized_chars"] <= limits["max_serialized_chars"]
+
+        reasoning_records = list_agent_reasoning_for_run(session=session, run_id=run.id)
+        latest_reasoning = next(
+            record for record in reasoning_records if record.provider == "working-memory-test"
+        )
+        assert latest_reasoning.context_snapshot_json["engagement_context"]["prior_task_analyses"] == prior
+        proposals = list_agent_proposals_for_run(session=session, run_id=run.id)
+        working_memory_proposals = [
+            proposal
+            for proposal in proposals
+            if proposal.metadata_json.get("working_memory_test")
+        ]
+        assert len(working_memory_proposals) == 1
+        assert "Prior analysis 5" in str(working_memory_proposals[0].reasoning_text)
 
 
 def test_post_task_analysis_creates_engagement_scoped_upload_xss_chain_proposal(client) -> None:

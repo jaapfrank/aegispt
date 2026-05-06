@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
@@ -267,6 +268,13 @@ COMPOUND_CHAIN_PROPOSAL_TEMPLATES: dict[str, dict[str, Any]] = {
         },
     },
 }
+
+AI_WORKING_MEMORY_MAX_PRIOR_ANALYSES = 5
+AI_WORKING_MEMORY_MAX_APPROVED_PROPOSALS = 10
+AI_WORKING_MEMORY_MAX_HIGH_PRIORITY_FINDINGS = 10
+AI_WORKING_MEMORY_MAX_NARRATIVE_SENTENCES = 5
+AI_WORKING_MEMORY_CONTEXT_CHAR_LIMIT = 24_000
+AI_WORKING_MEMORY_TEXT_LIMIT = 480
 
 
 class PostTaskAnalysisProvider(Protocol):
@@ -989,6 +997,13 @@ def _build_analysis_context(
     denied_targets = (
         derive_targets_from_target_map(scope.denylist_json) if scope is not None else []
     )
+    engagement_findings = _engagement_findings_for_analysis(session=session, run=run)
+    engagement_context = _build_engagement_working_memory_context(
+        session=session,
+        run=run,
+        task=task,
+        engagement_findings=engagement_findings,
+    )
     return {
         "run": {
             "id": str(run.id),
@@ -1011,8 +1026,9 @@ def _build_analysis_context(
         "findings": [_finding_context(finding) for finding in list(run.findings or [])[:25]],
         "engagement_findings": [
             _finding_context(finding)
-            for finding in _engagement_findings_for_analysis(session=session, run=run)
+            for finding in engagement_findings
         ],
+        "engagement_context": engagement_context,
         "finding_chains": [
             _finding_chain_context(chain)
             for chain in sorted(
@@ -1035,6 +1051,434 @@ def _build_analysis_context(
             "scope_expansion_allowed": False,
         },
     }
+
+
+def _build_engagement_working_memory_context(
+    *,
+    session: Session,
+    run: Run,
+    task: Task,
+    engagement_findings: list[Finding],
+) -> dict[str, Any]:
+    prior_analyses = _prior_task_analysis_context(
+        session=session,
+        run=run,
+        current_task=task,
+    )
+    approved_proposals = _approved_proposal_context(
+        session=session,
+        run=run,
+    )
+    finding_summary = _engagement_finding_summary_context(engagement_findings)
+    attack_narrative = _attack_narrative_context(
+        prior_analyses=prior_analyses,
+        approved_proposals=approved_proposals,
+        finding_summary=finding_summary,
+    )
+    context = {
+        "engagement_id": str(run.engagement_id),
+        "current_run_id": str(run.id),
+        "current_task_id": str(task.id),
+        "prior_task_analyses": prior_analyses,
+        "approved_proposals": approved_proposals,
+        "finding_summary": finding_summary,
+        "attack_narrative": attack_narrative,
+        "limits": {
+            "max_prior_task_analyses": AI_WORKING_MEMORY_MAX_PRIOR_ANALYSES,
+            "max_approved_proposals": AI_WORKING_MEMORY_MAX_APPROVED_PROPOSALS,
+            "max_high_priority_findings": AI_WORKING_MEMORY_MAX_HIGH_PRIORITY_FINDINGS,
+            "max_attack_narrative_sentences": AI_WORKING_MEMORY_MAX_NARRATIVE_SENTENCES,
+            "max_serialized_chars": AI_WORKING_MEMORY_CONTEXT_CHAR_LIMIT,
+        },
+        "boundary": {
+            "advisory_context_only": True,
+            "creates_tasks": False,
+            "executes_tools": False,
+            "auto_approves": False,
+            "mutates_findings": False,
+            "scope_expansion_allowed": False,
+        },
+    }
+    return _cap_working_memory_context(context)
+
+
+def _prior_task_analysis_context(
+    *,
+    session: Session,
+    run: Run,
+    current_task: Task,
+) -> list[dict[str, Any]]:
+    records = list(
+        session.scalars(
+            select(AgentReasoning)
+            .join(Run, AgentReasoning.run_id == Run.id)
+            .where(
+                Run.engagement_id == run.engagement_id,
+                Run.deleted_at.is_(None),
+                AgentReasoning.task_id.is_not(None),
+                AgentReasoning.task_id != current_task.id,
+                AgentReasoning.reasoning_type == "post_task_analysis",
+            )
+            .options(selectinload(AgentReasoning.task), selectinload(AgentReasoning.proposals))
+            .order_by(
+                AgentReasoning.created_at.desc(),
+                AgentReasoning.updated_at.desc(),
+                AgentReasoning.id.desc(),
+            )
+            .limit(AI_WORKING_MEMORY_MAX_PRIOR_ANALYSES)
+        ).all()
+    )
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        task = record.task
+        rows.append(
+            {
+                "id": str(record.id),
+                "run_id": str(record.run_id),
+                "task_id": str(record.task_id) if record.task_id else None,
+                "task_tool": task.tool if task is not None else None,
+                "task_target": task.target_id if task is not None else None,
+                "status": record.status,
+                "created_at": record.created_at.isoformat() if record.created_at else None,
+                "summary_text": _trim_working_memory_text(record.summary_text),
+                "thought_text": _trim_working_memory_text(record.thought_text),
+                "action_text": _trim_working_memory_text(record.action_text),
+                "hypotheses": _bounded_json_object_list(
+                    record.hypotheses_json,
+                    limit=3,
+                    text_limit=AI_WORKING_MEMORY_TEXT_LIMIT,
+                ),
+                "confirmed_proposals": [
+                    _proposal_memory_summary(proposal)
+                    for proposal in list(record.proposals or [])
+                    if proposal.status == "approved"
+                ][:3],
+            }
+        )
+    return rows
+
+
+def _approved_proposal_context(
+    *,
+    session: Session,
+    run: Run,
+) -> list[dict[str, Any]]:
+    proposals = list(
+        session.scalars(
+            select(AgentProposal)
+            .join(Run, AgentProposal.run_id == Run.id)
+            .where(
+                Run.engagement_id == run.engagement_id,
+                Run.deleted_at.is_(None),
+                AgentProposal.status == "approved",
+            )
+            .options(selectinload(AgentProposal.agent_reasoning))
+            .order_by(
+                AgentProposal.approved_at.desc().nullslast(),
+                AgentProposal.updated_at.desc(),
+                AgentProposal.created_at.desc(),
+                AgentProposal.id.desc(),
+            )
+            .limit(AI_WORKING_MEMORY_MAX_APPROVED_PROPOSALS)
+        ).all()
+    )
+    return [_proposal_memory_summary(proposal, session=session) for proposal in proposals]
+
+
+def _proposal_memory_summary(
+    proposal: AgentProposal,
+    *,
+    session: Session | None = None,
+) -> dict[str, Any]:
+    metadata = _safe_json_object(proposal.metadata_json)
+    queued_task_id = _first_non_empty_value(
+        metadata.get("queued_task_id"),
+        metadata.get("dispatched_task_id"),
+    )
+    queued_task = None
+    if session is not None and queued_task_id:
+        try:
+            queued_task = session.get(Task, UUID(str(queued_task_id)))
+        except ValueError:
+            queued_task = None
+    finding_outcome = _proposal_finding_outcome(session=session, proposal=proposal)
+    return {
+        "id": str(proposal.id),
+        "run_id": str(proposal.run_id),
+        "agent_reasoning_id": str(proposal.agent_reasoning_id),
+        "status": proposal.status,
+        "proposed_tool": proposal.proposed_tool,
+        "proposed_target": proposal.proposed_target,
+        "risk_tier": proposal.risk_tier,
+        "reasoning_text": _trim_working_memory_text(proposal.reasoning_text),
+        "approved_by": proposal.approved_by,
+        "approved_at": proposal.approved_at.isoformat() if proposal.approved_at else None,
+        "outcome": {
+            "dispatches_work": bool(metadata.get("dispatches_work")),
+            "creates_tasks": bool(metadata.get("creates_tasks")),
+            "queued_task_id": str(queued_task.id) if queued_task is not None else queued_task_id,
+            "queued_task_status": (
+                queued_task.status if queued_task is not None else metadata.get("queued_task_status")
+            ),
+            "finding_outcome": finding_outcome,
+        },
+    }
+
+
+def _proposal_finding_outcome(
+    *,
+    session: Session | None,
+    proposal: AgentProposal,
+) -> dict[str, Any]:
+    if session is None:
+        return {"available": False}
+    findings = list(
+        session.scalars(
+            select(Finding)
+            .where(
+                Finding.run_id == proposal.run_id,
+                Finding.target_id == proposal.proposed_target,
+            )
+            .order_by(
+                Finding.created_at.desc(),
+                Finding.id.desc(),
+            )
+            .limit(10)
+        ).all()
+    )
+    severity_counts = _severity_counts(findings)
+    high_priority = [
+        _high_priority_finding_summary(finding)
+        for finding in sorted(
+            findings,
+            key=lambda item: (
+                _severity_rank(item.severity),
+                item.created_at or datetime.min.replace(tzinfo=UTC),
+                str(item.id),
+            ),
+            reverse=True,
+        )
+        if _severity_rank(finding.severity) >= _severity_rank("high")
+    ][:3]
+    return {
+        "available": bool(findings),
+        "finding_count": len(findings),
+        "severity_counts": severity_counts,
+        "high_priority_findings": high_priority,
+    }
+
+
+def _engagement_finding_summary_context(findings: list[Finding]) -> dict[str, Any]:
+    severity_counts = _severity_counts(findings)
+    target_ids = sorted({str(finding.target_id) for finding in findings if str(finding.target_id).strip()})
+    high_priority = [
+        _high_priority_finding_summary(finding)
+        for finding in sorted(
+            findings,
+            key=lambda item: (
+                _severity_rank(item.severity),
+                item.created_at or datetime.min.replace(tzinfo=UTC),
+                str(item.id),
+            ),
+            reverse=True,
+        )
+        if _severity_rank(finding.severity) >= _severity_rank("high")
+    ][:AI_WORKING_MEMORY_MAX_HIGH_PRIORITY_FINDINGS]
+    return {
+        "total": len(findings),
+        "severity_counts": severity_counts,
+        "target_count": len(target_ids),
+        "targets": target_ids[:20],
+        "high_priority_findings": high_priority,
+    }
+
+
+def _attack_narrative_context(
+    *,
+    prior_analyses: list[dict[str, Any]],
+    approved_proposals: list[dict[str, Any]],
+    finding_summary: dict[str, Any],
+) -> dict[str, Any]:
+    sentences: list[str] = []
+    severity_counts = finding_summary.get("severity_counts")
+    if isinstance(severity_counts, dict) and finding_summary.get("total"):
+        counts = ", ".join(
+            f"{severity}={count}"
+            for severity, count in severity_counts.items()
+            if count
+        )
+        sentences.append(
+            f"The engagement currently has {finding_summary.get('total')} recorded finding(s)"
+            + (f" ({counts})." if counts else ".")
+        )
+    elif prior_analyses:
+        sentences.append("The engagement has prior AI task analysis but no stored findings yet.")
+    else:
+        sentences.append("No prior engagement findings or AI task analyses are available yet.")
+
+    first_analysis = next(
+        (item for item in prior_analyses if str(item.get("summary_text") or "").strip()),
+        None,
+    )
+    if first_analysis is not None:
+        sentences.append(
+            "Recent task memory: "
+            f"{_sentence_fragment(first_analysis.get('summary_text'))}."
+        )
+
+    high_priority = finding_summary.get("high_priority_findings")
+    if isinstance(high_priority, list) and high_priority:
+        top_titles = [
+            str(item.get("title") or "").strip()
+            for item in high_priority[:3]
+            if isinstance(item, dict) and str(item.get("title") or "").strip()
+        ]
+        if top_titles:
+            sentences.append(
+                "High-priority evidence centers on "
+                f"{_sentence_fragment('; '.join(top_titles))}."
+            )
+
+    if approved_proposals:
+        proposal_bits = [
+            f"{item.get('proposed_tool')} on {item.get('proposed_target')}"
+            for item in approved_proposals[:3]
+            if isinstance(item, dict) and item.get("proposed_tool") and item.get("proposed_target")
+        ]
+        if proposal_bits:
+            sentences.append(
+                "Approved follow-up history includes "
+                f"{_sentence_fragment('; '.join(proposal_bits))}."
+            )
+
+    sentences.append(
+        "Use this memory only as bounded advisory context; scope, ROE, approvals, runtime binding, and kill switch remain authoritative."
+    )
+    bounded_sentences = sentences[:AI_WORKING_MEMORY_MAX_NARRATIVE_SENTENCES]
+    return {
+        "text": " ".join(bounded_sentences),
+        "sentences": bounded_sentences,
+        "sentence_count": len(bounded_sentences),
+        "generated_from": [
+            "prior_task_analyses",
+            "approved_proposals",
+            "engagement_findings",
+        ],
+        "bounded": True,
+    }
+
+
+def _cap_working_memory_context(context: dict[str, Any]) -> dict[str, Any]:
+    capped = dict(context)
+    capped["estimated_serialized_chars"] = _json_char_count(capped)
+    if capped["estimated_serialized_chars"] <= AI_WORKING_MEMORY_CONTEXT_CHAR_LIMIT:
+        return capped
+
+    high_priority = (
+        capped.get("finding_summary", {}).get("high_priority_findings")
+        if isinstance(capped.get("finding_summary"), dict)
+        else []
+    )
+    if isinstance(high_priority, list):
+        capped["finding_summary"] = {
+            **dict(capped.get("finding_summary") or {}),
+            "high_priority_findings": high_priority[:5],
+        }
+    proposals = capped.get("approved_proposals")
+    if isinstance(proposals, list):
+        capped["approved_proposals"] = proposals[:5]
+    analyses = capped.get("prior_task_analyses")
+    if isinstance(analyses, list):
+        capped["prior_task_analyses"] = analyses[:3]
+
+    capped["truncated"] = True
+    capped["truncation_reason"] = "serialized_context_char_limit"
+    capped["estimated_serialized_chars"] = _json_char_count(capped)
+    return capped
+
+
+def _severity_counts(findings: list[Finding]) -> dict[str, int]:
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "unknown": 0}
+    for finding in findings:
+        severity = str(finding.severity or "").strip().lower() or "unknown"
+        if severity not in counts:
+            severity = "unknown"
+        counts[severity] += 1
+    return counts
+
+
+def _severity_rank(value: str | None) -> int:
+    return {
+        "critical": 5,
+        "high": 4,
+        "medium": 3,
+        "low": 2,
+        "info": 1,
+    }.get(str(value or "").strip().lower(), 0)
+
+
+def _high_priority_finding_summary(finding: Finding) -> dict[str, Any]:
+    return {
+        "id": str(finding.id),
+        "run_id": str(finding.run_id) if finding.run_id else None,
+        "title": _trim_working_memory_text(finding.title, limit=220),
+        "severity": finding.severity,
+        "target_id": finding.target_id,
+        "status": finding.status,
+        "summary": _trim_working_memory_text(finding.summary, limit=320),
+        "evidence_ref": finding.evidence_ref,
+    }
+
+
+def _bounded_json_object_list(
+    value: Any,
+    *,
+    limit: int,
+    text_limit: int,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if not isinstance(value, list):
+        return rows
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                str(key): (
+                    _trim_working_memory_text(raw, limit=text_limit)
+                    if isinstance(raw, str)
+                    else raw
+                )
+                for key, raw in item.items()
+            }
+        )
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def _trim_working_memory_text(value: Any, *, limit: int = AI_WORKING_MEMORY_TEXT_LIMIT) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[: max(limit - 12, 0)].rstrip()} [truncated]"
+
+
+def _sentence_fragment(value: Any) -> str:
+    text = _trim_working_memory_text(value, limit=360).rstrip(". ")
+    return text or "no additional detail"
+
+
+def _first_non_empty_value(*values: Any) -> str | None:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return None
+
+
+def _json_char_count(value: Any) -> int:
+    return len(json.dumps(value, sort_keys=True, default=str))
 
 
 def _allowed_targets(*, run: Run, task: Task, scope: Scope | None) -> list[dict[str, str]]:

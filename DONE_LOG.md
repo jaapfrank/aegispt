@@ -1,5 +1,43 @@
 # Done Log
 
+- 2026-05-06: completed backlog-233 `AI cross-task working memory: accumulate analysis context across all tasks in an engagement for compound reasoning`:
+  - rationale:
+    - post-task AI analysis already had engagement-scoped findings, compound-chain signals, and operator-visible Summary→Thought→Action records, but each analysis still lacked bounded memory of prior task analyses and approved proposal outcomes across the engagement
+    - the active task required cross-task working memory while preserving proposal generation, approval gates, provider connections, pack lifecycle, scope, ROE, credentials, and kill-switch boundaries
+  - implementation:
+    - extended `_build_analysis_context()` with an `engagement_context` section
+    - included the last five prior engagement `post_task_analysis` `AgentReasoning` records with Summary, Thought, Action, bounded hypotheses, and approved proposals linked to those records
+    - included up to ten approved engagement proposals with stored queued-task status and target-matched finding outcome context where available
+    - added engagement finding summary data with severity counts, target count, target list, and bounded critical/high finding summaries
+    - added a deterministic five-sentence maximum attack narrative generated from stored analyses, approved proposals, and findings
+    - added explicit working-memory limits and advisory guardrails to the context snapshot; the context does not create tasks, execute tools, auto-approve, mutate findings, or expand scope
+    - added a regression test proving a provider analyzing the third-plus task can see prior task analysis memory, approved proposal outcomes, high-priority findings, a bounded narrative, and can produce a pending review-only proposal that cites prior task memory
+  - files:
+    - `api/app/services/ai_agent.py`
+    - `api/tests/test_ai_agent_reasoning.py`
+    - `codex/results/backlog-233-ai-cross-task-working-memory-20260506.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `source .venv/bin/activate && python -m py_compile api/app/services/ai_agent.py api/tests/test_ai_agent_reasoning.py` passed
+    - focused working-memory test passed for three-plus task context, last-five cap, approved proposal outcome, high-priority finding summary, bounded narrative, and proposal reasoning awareness
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py api/tests/test_chatgpt_oauth.py api/tests/test_live_ai_signal_stream.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with existing Alembic deprecation warnings and the known stdout line `AEGISPT_DB_KEY or --key is required.`
+    - current-code safe API acceptance on `http://127.0.0.1:8000` passed after restarting the local listener onto current working-tree code; `/api/v1/runs/{run_id}/ai-insights` returned `engagement_context` with prior analyses, approved proposal outcome, high finding count, five-sentence narrative, serialized-size budget, and a pending proposal with `dispatches_work=false`
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed after implementation
+  - evidence:
+    - `codex/results/backlog-233-ai-cross-task-working-memory-20260506.md`
+  - exceptions and boundaries:
+    - the package mentioned generating the rolling narrative through a lightweight summarization prompt, but the active constraints also required extending `_build_analysis_context()` only and not changing provider connections; the implementation therefore uses deterministic summarization from stored repo/runtime data
+    - the package `source_context.alignment_docs` references stale package names; repo truth is backlog-219 for engagement-scoped chain reasoning and backlog-232 for Summary→Thought→Action transparency
+    - transient Codex/planner-generated untracked `codex/tasks/task-20260506001235-pack-refinement-fb8ccb67.json` was removed because it was not the active task and was not a queue-backed `backlog-*.json` package
+    - no live Gruyere, customer, public internet, or third-party target was contacted; acceptance used synthetic local target `10.233.0.5`
+    - proposal generation logic, approval gates, autonomous dispatch logic, AI provider connections, pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, and kill switch were not bypassed
+  - remaining risks:
+    - working memory is bounded deterministic context, not a full long-horizon agent memory store or model fine-tuning layer
+    - approved proposal outcomes are limited to stored queued-task/proposal metadata and target-matched finding context; no unsupported proposal-to-finding causality is inferred
+    - real LLM reasoning still depends on configured provider quality
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-235 `Kill chain progress rate tracking`
+
 - 2026-05-06: completed backlog-232 `AI reasoning transparency: restructure post-task analysis into Summary→Thought→Action and show each step to operators`:
   - rationale:
     - AegisPT already stored observations, hypotheses, proposals, and `AgentProposal.reasoning_text`, but operators could not see a clear Summary→Thought→Action breakdown per task in Mission Control

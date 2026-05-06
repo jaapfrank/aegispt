@@ -2,38 +2,34 @@
 
 ## Title
 
-AI cross-task working memory: accumulate analysis context across all tasks in an engagement for compound reasoning
+Kill chain progress rate tracking: map findings and phase completions to MITRE ATT&CK stages and show progress gauge
 
 ## Promoted From
 
-`codex/tasks/backlog-233-ai-cross-task-working-memory.json`
+`codex/tasks/backlog-235-kill-chain-progress-rate-tracking.json`
 
 ## Goal
 
-Implement engagement-level AI working memory for post-task analysis. The AI analysis context should include prior task analyses, approved proposal outcomes, engagement finding summaries, and a bounded rolling attack narrative so later task analysis can reason from earlier task results.
+Implement kill chain progress tracking so AegisPT can map stored findings and assessment progress to MITRE ATT&CK-style stages and show assessment depth as an operator-facing progress gauge.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-233-ai-cross-task-working-memory.json`.
+Implement the active backlog package `codex/tasks/backlog-235-kill-chain-progress-rate-tracking.json`.
 
 Expected slice:
 
-- extend `_build_analysis_context()` with an `engagement_context` section
-- include the last five `AgentReasoning` summaries for the current engagement
-- include approved proposals and their available outcomes
-- include engagement-level finding counts and high-priority finding summaries
-- generate or maintain a short bounded attack narrative for the engagement
-- cap added context to prevent token-limit growth
-- add tests proving later task analysis can see prior task results
+- add static finding-to-ATT&CK tactic mapping without changing finding schema
+- compute engagement kill-chain progress and progress percentage from existing findings and phase/completion signals
+- render a Mission Control kill-chain progress strip with completed, current, and future stages
+- expose MITRE ATT&CK matrix coverage in the engagement dossier / Explorer surface
+- keep the mapping deterministic and grounded in stored evidence
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Extend `_build_analysis_context()` only for this slice.
-- Do not change proposal generation logic.
-- Do not change proposal approval gates.
-- Do not change AI provider connections.
-- Keep total added context bounded.
+- Do not change finding schema.
+- Do not change threat-intel sync behavior.
+- Do not change run dispatch logic.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -46,9 +42,9 @@ Expected slice:
 
 ## Acceptance
 
-- `_build_analysis_context()` includes prior task analyses for the current engagement.
-- Context includes approved proposals and their recorded outcomes where available.
-- Context includes a bounded attack narrative.
-- Context size is capped to prevent unbounded token growth.
-- AI proposals after the change demonstrate awareness of prior task results in tests with three or more completed tasks.
-- No AI agent test regressions.
+- Each supported finding type maps to a MITRE ATT&CK tactic/stage.
+- Mission Control shows a kill-chain progress strip.
+- Completed stages render as complete, current stage renders as in progress/current, and untested stages render as future/untested.
+- Explorer/dossier shows MITRE ATT&CK matrix coverage.
+- Progress percentage is computed and shown numerically.
+- Mission Control and Explorer coverage do not regress.
