@@ -99,6 +99,28 @@ JWT_HMAC_ALGORITHMS = {
     "HS384": hashlib.sha384,
     "HS512": hashlib.sha512,
 }
+SQLMAP_ADVANCED_TAMPER_SCRIPTS = ("space2comment", "between", "randomcase")
+SQLMAP_VULNERABLE_PATTERNS = (
+    re.compile(r"\bis vulnerable\b", re.IGNORECASE),
+    re.compile(r"\bparameter\b.*\bappears to be\b.*\binjectable\b", re.IGNORECASE),
+)
+SQLMAP_POSSIBLE_PATTERNS = (
+    re.compile(r"\bmight be injectable\b", re.IGNORECASE),
+    re.compile(r"\bappears to be dynamic\b", re.IGNORECASE),
+    re.compile(r"\bheuristic\b.*\b(?:injectable|sqli|sql injection)\b", re.IGNORECASE),
+    re.compile(r"\bpossible\b.*\b(?:injectable|sqli|sql injection)\b", re.IGNORECASE),
+)
+SQLMAP_WAF_PATTERNS = (
+    re.compile(r"\bWAF\b", re.IGNORECASE),
+    re.compile(r"\bIPS\b", re.IGNORECASE),
+    re.compile(r"\bweb application firewall\b", re.IGNORECASE),
+    re.compile(r"\bprotection\b.*\b(?:identified|detected)\b", re.IGNORECASE),
+)
+SQLMAP_BLIND_PATTERNS = (
+    re.compile(r"\btime-based blind\b", re.IGNORECASE),
+    re.compile(r"\bboolean-based blind\b", re.IGNORECASE),
+    re.compile(r"\bblind\b.*\bSQL\b", re.IGNORECASE),
+)
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -1871,6 +1893,131 @@ def _candidate_parameters(*values: Any) -> list[dict[str, str]]:
     return candidates
 
 
+def _sqlmap_has_match(patterns: tuple[re.Pattern[str], ...], stdout: str) -> bool:
+    return any(pattern.search(stdout) for pattern in patterns)
+
+
+def _sqlmap_phase_command(
+    *,
+    binary: str,
+    candidate: dict[str, str],
+    output_dir: Path,
+    phase: str,
+) -> list[str]:
+    command = [
+        binary,
+        "-u",
+        candidate["url"],
+        "-p",
+        candidate["parameter"],
+        "--batch",
+        "--smart",
+        "--identify-waf",
+        "--level",
+        "1",
+        "--risk",
+        "1",
+        "--output-dir",
+        str(output_dir),
+        "--flush-session",
+    ]
+    if phase == "phase_b_advanced_blind":
+        command[command.index("--level") + 1] = "3"
+        command[command.index("--risk") + 1] = "2"
+        command.extend(
+            [
+                "--technique",
+                "T",
+                f"--tamper={','.join(SQLMAP_ADVANCED_TAMPER_SCRIPTS)}",
+            ]
+        )
+    return command
+
+
+def _sqlmap_phase_result(
+    *,
+    phase: str,
+    process: subprocess.CompletedProcess[str],
+    tamper_scripts: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    stdout = process.stdout or ""
+    return {
+        "phase": phase,
+        "status": "ok" if process.returncode in {0, 1} else "error",
+        "returncode": process.returncode,
+        "level": 3 if phase == "phase_b_advanced_blind" else 1,
+        "risk": 2 if phase == "phase_b_advanced_blind" else 1,
+        "technique": "T" if phase == "phase_b_advanced_blind" else "default",
+        "tamper_scripts": list(tamper_scripts),
+        "vulnerable": _sqlmap_has_match(SQLMAP_VULNERABLE_PATTERNS, stdout),
+        "possible": _sqlmap_has_match(SQLMAP_POSSIBLE_PATTERNS, stdout),
+        "waf_detected": _sqlmap_has_match(SQLMAP_WAF_PATTERNS, stdout),
+        "blind_signal": _sqlmap_has_match(SQLMAP_BLIND_PATTERNS, stdout),
+        "stdout_excerpt": stdout[-2000:],
+    }
+
+
+def _sqlmap_finding_for_confirmed(
+    candidate: dict[str, str],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    is_blind = any(
+        bool(phase.get("blind_signal"))
+        for phase in result.get("phase_results", [])
+        if isinstance(phase, dict)
+    )
+    phase_names = [
+        str(phase.get("phase"))
+        for phase in result.get("phase_results", [])
+        if isinstance(phase, dict) and phase.get("phase")
+    ]
+    return _finding(
+        title="Confirmed Blind SQL Injection" if is_blind else "Confirmed SQL Injection",
+        severity="high" if is_blind else "critical",
+        target=candidate["url"],
+        summary=(
+            f"sqlmap confirmed {'blind ' if is_blind else ''}SQL injection behavior for "
+            f"parameter {candidate['parameter']} on an explicitly scoped URL."
+        ),
+        tags=["sqlmap", "owasp-wstg", "input_validation"],
+        extra={
+            "parameter": candidate["parameter"],
+            "source": candidate["source"],
+            "sqlmap_phases": phase_names,
+            "waf_detected": bool(result.get("waf_detected")),
+            "tamper_scripts": result.get("tamper_scripts", []),
+        },
+    )
+
+
+def _sqlmap_finding_for_potential(
+    candidate: dict[str, str],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    return _finding(
+        title="Potential SQL Injection Signal",
+        severity="medium",
+        target=candidate["url"],
+        summary=(
+            f"sqlmap heuristics reported possible SQL injection behavior for parameter "
+            f"{candidate['parameter']}, but the bounded advanced phase did not confirm it."
+        ),
+        tags=["sqlmap", "owasp-wstg", "input_validation"],
+        extra={
+            "parameter": candidate["parameter"],
+            "source": candidate["source"],
+            "sqlmap_phases": [
+                str(phase.get("phase"))
+                for phase in result.get("phase_results", [])
+                if isinstance(phase, dict) and phase.get("phase")
+            ],
+            "waf_detected": bool(result.get("waf_detected")),
+            "tamper_scripts": result.get("tamper_scripts", []),
+            "confirmation_status": "not_confirmed",
+        },
+    )
+
+
 def execute_sqlmap_confirmation(
     targets: list[str],
     *,
@@ -1906,25 +2053,16 @@ def execute_sqlmap_confirmation(
         output_dir = Path(tmp) / "sqlmap-output"
         output_dir.mkdir(parents=True, exist_ok=True)
         for candidate in candidates:
-            command = [
-                binary,
-                "-u",
-                candidate["url"],
-                "-p",
-                candidate["parameter"],
-                "--batch",
-                "--smart",
-                "--level",
-                "1",
-                "--risk",
-                "1",
-                "--output-dir",
-                str(output_dir),
-                "--flush-session",
-            ]
+            phase_results: list[dict[str, Any]] = []
+            phase_error: str | None = None
             try:
                 process = runner(
-                    command,
+                    _sqlmap_phase_command(
+                        binary=binary,
+                        candidate=candidate,
+                        output_dir=output_dir,
+                        phase="phase_a_quick",
+                    ),
                     capture_output=True,
                     text=True,
                     check=False,
@@ -1940,37 +2078,83 @@ def execute_sqlmap_confirmation(
                 exit_code = max(exit_code, process.returncode)
             if process.stderr:
                 stderr_lines.append(process.stderr.strip())
-            stdout = process.stdout or ""
-            vulnerable = bool(
-                re.search(r"\bis vulnerable\b", stdout, re.IGNORECASE)
-                or re.search(r"\bparameter\b.*\bappears to be\b.*\binjectable\b", stdout, re.IGNORECASE)
+            phase_a_result = _sqlmap_phase_result(phase="phase_a_quick", process=process)
+            phase_results.append(phase_a_result)
+
+            if not bool(phase_a_result.get("vulnerable")) and process.returncode in {0, 1}:
+                try:
+                    phase_b_process = runner(
+                        _sqlmap_phase_command(
+                            binary=binary,
+                            candidate=candidate,
+                            output_dir=output_dir,
+                            phase="phase_b_advanced_blind",
+                        ),
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        timeout=max(timeout_seconds, 5.0),
+                    )
+                except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+                    phase_error = str(exc)
+                    exit_code = 1
+                    stderr_lines.append(f"{candidate['url']}:{candidate['parameter']}: {exc}")
+                else:
+                    if phase_b_process.returncode not in {0, 1}:
+                        exit_code = max(exit_code, phase_b_process.returncode)
+                    if phase_b_process.stderr:
+                        stderr_lines.append(phase_b_process.stderr.strip())
+                    phase_results.append(
+                        _sqlmap_phase_result(
+                            phase="phase_b_advanced_blind",
+                            process=phase_b_process,
+                            tamper_scripts=SQLMAP_ADVANCED_TAMPER_SCRIPTS,
+                        )
+                    )
+
+            vulnerable = any(bool(phase.get("vulnerable")) for phase in phase_results)
+            possible = any(bool(phase.get("possible")) for phase in phase_results)
+            waf_detected = any(bool(phase.get("waf_detected")) for phase in phase_results)
+            phase_b_ran = any(
+                phase.get("phase") == "phase_b_advanced_blind" for phase in phase_results
             )
             result = {
                 **candidate,
-                "status": "ok" if process.returncode in {0, 1} else "error",
+                "status": "ok"
+                if all(phase.get("status") == "ok" for phase in phase_results) and not phase_error
+                else "error",
                 "vulnerable": vulnerable,
-                "stdout_excerpt": stdout[-2000:],
+                "possible": possible,
+                "waf_detected": waf_detected,
+                "phase_b_ran": phase_b_ran,
+                "tamper_scripts": list(SQLMAP_ADVANCED_TAMPER_SCRIPTS) if phase_b_ran else [],
+                "phase_results": phase_results,
             }
+            if phase_error:
+                result["error"] = phase_error
             results.append(result)
             if vulnerable:
-                findings.append(
-                    _finding(
-                        title="Confirmed SQL Injection",
-                        severity="high",
-                        target=candidate["url"],
-                        summary=(
-                            f"sqlmap confirmed SQL injection behavior for parameter "
-                            f"{candidate['parameter']} on an explicitly scoped URL."
-                        ),
-                        tags=["sqlmap", "owasp-wstg", "input_validation"],
-                        extra={"parameter": candidate["parameter"], "source": candidate["source"]},
-                    )
-                )
+                findings.append(_sqlmap_finding_for_confirmed(candidate, result))
+            elif possible and phase_b_ran and not phase_error:
+                findings.append(_sqlmap_finding_for_potential(candidate, result))
 
     artifact_payload = {
         "results": results,
         "findings": findings,
-        "summary": {"parameter_count": len(candidates), "finding_count": len(findings)},
+        "summary": {
+            "parameter_count": len(candidates),
+            "finding_count": len(findings),
+            "phase_a": {"level": 1, "risk": 1, "identify_waf": True},
+            "phase_b": {
+                "level": 3,
+                "risk": 2,
+                "technique": "T",
+                "tamper_scripts": list(SQLMAP_ADVANCED_TAMPER_SCRIPTS),
+                "max_risk": 2,
+                "database_dump": False,
+                "os_shell": False,
+            },
+        },
     }
     return RunnerExecution(
         tool="sqlmap",

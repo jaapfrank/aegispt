@@ -328,6 +328,30 @@ def test_crypto_audit_command_preview_names_safe_tooling() -> None:
     assert "https://portal.example.test" in preview
 
 
+def test_sqlmap_command_preview_describes_bounded_two_phase_scan() -> None:
+    preview = _runner_command_preview(
+        "sqlmap",
+        ["https://portal.example.test/app/"],
+        {
+            "injectable_parameters": [
+                {"url": "https://portal.example.test/app/item?id=1", "parameter": "id"}
+            ]
+        },
+    )
+
+    assert "phase-a" in preview
+    assert "--identify-waf" in preview
+    assert "--level 1 --risk 1" in preview
+    assert "phase-b" in preview
+    assert "--level 3 --risk 2" in preview
+    assert "--technique T" in preview
+    assert "--tamper space2comment,between,randomcase" in preview
+    assert "--approved-parameters 1" in preview
+    assert "--risk 3" not in preview
+    assert "--dump" not in preview
+    assert "--os-shell" not in preview
+
+
 def test_camera_test_command_preview_is_read_only() -> None:
     preview = _runner_command_preview(
         "camera-test",

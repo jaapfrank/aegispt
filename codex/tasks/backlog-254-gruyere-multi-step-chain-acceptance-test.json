@@ -1,0 +1,89 @@
+{
+  "id": "backlog-254-gruyere-multi-step-chain-acceptance-test",
+  "task_file": "codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json",
+  "task_type": "benchmark_validation",
+  "title": "Gruyere multi-step attack chain acceptance test: prove AegisPT can find all 6 vulnerability layers by chaining AI proposals and Free Bash execution",
+  "goal": "Google Gruyere contains layered vulnerabilities that require chaining: (1) Layer 1 - Reflected XSS: scanner finds directly. (2) Layer 2 - Stored XSS via snippet: scanner finds if it tests snippet submission. (3) Layer 3 - XSS via file upload: requires finding upload endpoint then testing HTML upload specifically. (4) Layer 4 - Client-state manipulation / privilege escalation: requires authenticated session to test. (5) Layer 5 - Path traversal + data tampering: requires combining traversal with write access. (6) Layer 6 - Remote Code Execution via GTL injection: requires chaining path traversal + file write + server restart. Without actually executing steps 1-5, layer 6 is undetectable by any passive/active scanner. This task creates the acceptance test that validates the full chain works once backlog-248 (AI Free Bash) is implemented. Implement: (1) A local Docker Gruyere instance in docker-compose for safe lab testing. (2) A test script that runs AegisPT against Gruyere and verifies which layers are found. (3) For layers 1-2: verify current scanners (ZAP, xss-extended) find them without shell commands. (4) For layers 3-6: verify the AI Proposals mechanism proposes the next step after each finding, and when the operator (test automation) approves and the AI shell executes, each subsequent layer is found. (5) The test PASSES when all 6 layers produce findings. (6) The test documents exactly which proposals the AI made and which shell commands were executed for each layer. This becomes the living proof that AegisPT's AI-assisted chain testing matches the intent of AutoPenBench. PREREQUISITE: backlog-248 (AI Free Bash execution) must be implemented before layers 3-6 can be tested. This task can be partially run (layers 1-2) before backlog-248 and fully run after.",
+  "scope": "User identified the fundamental gap: without exploiting found vulnerabilities, deeper vulnerabilities remain undetectable. Gruyere has 6 vulnerability layers where each layer enables access to the next. Current AegisPT finds layers 1-2 with scanners. Layers 3-6 require actually executing the chain steps. backlog-248 (AI Free Bash) is the missing enabler.",
+  "status": "queued",
+  "generated_by": "architecture-gap-analysis-2026-05-06",
+  "generation_reason": "User correctly identified that finding the first vulnerability is not enough — the chain must be executed to find deeper vulnerabilities. This test proves the full chain works.",
+  "source_context": {
+    "queue_index": 254,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-248-ai-free-bash-execution-runner.json",
+      "codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json",
+      "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json",
+      "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "backlog-248 (AI Free Bash execution) must be implemented for full chain testing (layers 3-6). Layers 1-2 can be validated immediately.",
+    "broader_theme": "gruyere_chain_acceptance",
+    "source_documents": [
+      "docker-compose.yml",
+      "api/app/services/ai_agent.py",
+      "workers/runners/ai_shell/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only test against the local Gruyere Docker instance. Never test against the live appspot.com version. All shell commands limited to the local engagement scope.",
+    "safety": "Gruyere instance must be local Docker only — never test against google-gruyere.appspot.com. All AI shell proposals must go through approval gate even in test automation.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Local Gruyere Docker instance runs in test environment.",
+    "Layers 1-2 (Reflected XSS, Stored XSS): found by ZAP/xss-extended scanner without AI shell — verified by test.",
+    "Layer 3 (XSS via file upload): AI proposes file upload XSS test, shell executes upload, finding confirmed.",
+    "Layer 4 (Client-state manipulation): AI proposes session test, shell executes privilege escalation test, finding confirmed.",
+    "Layer 5 (Path traversal + write): AI proposes traversal write test, shell executes, finding confirmed.",
+    "Layer 6 (RCE via GTL): AI proposes full chain, shell executes each step, RCE finding confirmed.",
+    "Test report produced: gruyere-chain-acceptance-report.json with per-layer detection status.",
+    "All 6 layers produce findings in the AegisPT finding database."
+  ],
+  "likely_touched_files": [
+    "docker-compose.yml",
+    "ui/tests/test_gruyere_chain_acceptance.py",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Production Gruyere (appspot.com)",
+    "AI Free Bash approval gates",
+    "Core scope enforcement"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_gruyere_chain_acceptance.py -v",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "All 6 Gruyere vulnerability layers produce findings.",
+      "Layers 1-2: found without AI shell.",
+      "Layers 3-6: found via AI proposal → approval → shell execution chain.",
+      "Test report documents the full chain."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the only active task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-248 completed (for layers 3-6)."
+    ],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Testing against live appspot.com Gruyere", "Persistent exploitation", "Data exfiltration"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

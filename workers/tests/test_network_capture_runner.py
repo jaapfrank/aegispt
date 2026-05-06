@@ -175,7 +175,11 @@ def test_arp_spoof_proof_executes_only_with_explicit_intrusive_gate() -> None:
     )
     payload = _artifact_payload(execution)
 
-    assert calls == [(["arpspoof", "-i", "eth0", "-t", "10.0.20.44", "10.0.20.1"], 30)]
+    assert len(calls) == 1
+    command, duration_seconds = calls[0]
+    assert command[0].endswith("arpspoof")
+    assert command[1:] == ["-i", "eth0", "-t", "10.0.20.44", "10.0.20.1"]
+    assert duration_seconds == 30
     assert payload["arp_spoof_proof"]["status"] == "completed"
     assert payload["arp_spoof_proof"]["authorized"] is True
     assert payload["arp_spoof_proof"]["executed"] is True

@@ -144,8 +144,14 @@ def test_sqlmap_requires_explicit_or_zap_flagged_parameter() -> None:
 
 
 def test_sqlmap_confirms_only_explicit_parameter_target() -> None:
+    commands: list[list[str]] = []
+
     def fake_runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
         assert command[command.index("-p") + 1] == "id"
+        assert command[command.index("--level") + 1] == "1"
+        assert command[command.index("--risk") + 1] == "1"
+        assert "--identify-waf" in command
         return subprocess.CompletedProcess(
             command,
             0,
@@ -163,6 +169,132 @@ def test_sqlmap_confirms_only_explicit_parameter_target() -> None:
     assert execution.artifacts[0].name == SQLMAP_RESULTS_ARTIFACT_NAME
     payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
     assert payload["findings"][0]["title"] == "Confirmed SQL Injection"
+    assert payload["findings"][0]["severity"] == "critical"
+    assert payload["results"][0]["phase_b_ran"] is False
+    assert len(commands) == 1
+
+
+def test_sqlmap_phase_b_uses_bounded_blind_tamper_after_basic_miss() -> None:
+    commands: list[list[str]] = []
+
+    def fake_runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        assert "--dump" not in command
+        assert "--os-shell" not in command
+        assert "--risk" in command
+        assert command[command.index("--risk") + 1] != "3"
+        if command[command.index("--level") + 1] == "1":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="heuristic test shows that GET parameter 'id' might be injectable",
+                stderr="",
+            )
+        assert command[command.index("--level") + 1] == "3"
+        assert command[command.index("--risk") + 1] == "2"
+        assert command[command.index("--technique") + 1] == "T"
+        assert "--identify-waf" in command
+        assert "--tamper=space2comment,between,randomcase" in command
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="Parameter: id (GET) Type: time-based blind is vulnerable",
+            stderr="",
+        )
+
+    execution = execute_sqlmap_confirmation(
+        ["https://example.com/app/"],
+        scope_allowlist={"urls": ["https://example.com/app/"]},
+        injectable_parameters=[{"url": "https://example.com/app/item?id=1", "parameter": "id"}],
+        command_runner=fake_runner,
+    )
+
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+
+    assert len(commands) == 2
+    assert payload["summary"]["phase_a"] == {"level": 1, "risk": 1, "identify_waf": True}
+    assert payload["summary"]["phase_b"]["level"] == 3
+    assert payload["summary"]["phase_b"]["risk"] == 2
+    assert payload["summary"]["phase_b"]["technique"] == "T"
+    assert payload["summary"]["phase_b"]["tamper_scripts"] == [
+        "space2comment",
+        "between",
+        "randomcase",
+    ]
+    assert payload["summary"]["phase_b"]["database_dump"] is False
+    assert payload["summary"]["phase_b"]["os_shell"] is False
+    assert payload["results"][0]["phase_b_ran"] is True
+    assert payload["results"][0]["tamper_scripts"] == ["space2comment", "between", "randomcase"]
+    assert payload["findings"][0]["title"] == "Confirmed Blind SQL Injection"
+    assert payload["findings"][0]["severity"] == "high"
+    assert "dump" not in json.dumps(payload["findings"]).lower()
+
+
+def test_sqlmap_waf_signal_triggers_advanced_tamper_phase() -> None:
+    commands: list[list[str]] = []
+
+    def fake_runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        if command[command.index("--level") + 1] == "1":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="WAF/IPS protection has been detected",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="all tested parameters do not appear injectable",
+            stderr="",
+        )
+
+    execution = execute_sqlmap_confirmation(
+        ["https://example.com/app/"],
+        scope_allowlist={"urls": ["https://example.com/app/"]},
+        zap_flagged_parameters=[
+            {"url": "https://example.com/app/search?q=test", "parameter": "q", "source": "zap"}
+        ],
+        command_runner=fake_runner,
+    )
+
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+
+    assert len(commands) == 2
+    assert payload["results"][0]["waf_detected"] is True
+    assert payload["results"][0]["phase_b_ran"] is True
+    assert commands[1][commands[1].index("--risk") + 1] == "2"
+    assert "--tamper=space2comment,between,randomcase" in commands[1]
+
+
+def test_sqlmap_possible_without_confirmation_is_medium_potential() -> None:
+    def fake_runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        if command[command.index("--level") + 1] == "1":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="heuristic test shows that GET parameter 'id' might be injectable",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="no injection point found",
+            stderr="",
+        )
+
+    execution = execute_sqlmap_confirmation(
+        ["https://example.com/app/"],
+        scope_allowlist={"urls": ["https://example.com/app/"]},
+        injectable_parameters=[{"url": "https://example.com/app/item?id=1", "parameter": "id"}],
+        command_runner=fake_runner,
+    )
+
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+
+    assert payload["findings"][0]["title"] == "Potential SQL Injection Signal"
+    assert payload["findings"][0]["severity"] == "medium"
+    assert payload["findings"][0]["evidence"]["confirmation_status"] == "not_confirmed"
 
 
 @pytest.fixture

@@ -2571,7 +2571,9 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             else 0
         )
         return (
-            "$ sqlmap --batch --smart --level 1 --risk 1 "
+            "$ sqlmap phase-a --batch --smart --identify-waf --level 1 --risk 1; "
+            "phase-b --level 3 --risk 2 --technique T "
+            "--tamper space2comment,between,randomcase "
             f"--approved-parameters {parameter_count} --approved-scope {target_label}{extra}"
         )
     if tool == "external-osint":

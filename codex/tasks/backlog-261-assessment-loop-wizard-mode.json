@@ -1,0 +1,62 @@
+{
+  "id": "backlog-261-assessment-loop-wizard-mode",
+  "task_file": "codex/tasks/backlog-261-assessment-loop-wizard-mode.json",
+  "task_type": "product_slice",
+  "title": "AI Loop wizard mode: wizard offers 'Let AI drive' as primary choice alongside manual depth selection — one target, one approval tier, AI handles the rest",
+  "goal": "The wizard should offer operators a simple choice: (A) 'Let AI drive' — operator enters target, sets maximum authorization tier (passive-only / active / full pentest), AI handles everything within that tier autonomously with tier-escalation approval prompts. (B) 'Manual' — current depth selection (Passive/Active/Full Pentest) with fixed phase execution. For 'Let AI drive': wizard collects only three things: (1) Target (URL/IP/CIDR/domain — AI auto-detects target type), (2) Maximum tier ('Keep it passive' / 'Allow active scanning' / 'Full assessment including credential testing' / 'Full pentest with exploitation'), (3) Optional: credentials if operator has them (passed to AI for use when relevant). Operator clicks 'Start — AI drives from here'. Mission Control shows the live loop: each iteration AI narrates what it found and what it's doing next. Operator sees the reasoning in real-time. Approval prompts appear at tier boundaries. This is the 'product that a non-expert can use' vision: you give it a target, tell it how aggressive it can be, and it finds everything findable within those boundaries.",
+  "scope": "The AI Continuous Assessment Loop (backlog-260) needs a clean wizard entry point. The current wizard asks too many questions. For AI-driven mode: target + max tier is sufficient. AI figures out the rest. This is the 'easy button' for operators who trust the AI to drive.",
+  "status": "queued",
+  "generated_by": "architectural-vision-2026-05-06",
+  "generation_reason": "AI loop needs a simple wizard entry point. Three questions: target + max tier + credentials. AI handles everything else. Non-expert-friendly.",
+  "source_context": {
+    "queue_index": 261,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-260-ai-continuous-assessment-loop.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "backlog-260 must be completed first.",
+    "broader_theme": "ai_loop_wizard_entry",
+    "source_documents": ["ui/assets/modules/wizard.js"]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Add 'Let AI drive' as a wizard mode alongside existing manual mode. Never remove manual mode.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Wizard Step 1 shows two top-level choices: 'Let AI drive' and 'Manual assessment'.",
+    "AI drive mode collects: target + max tier + optional credentials only.",
+    "Manual mode shows current tile/depth selection unchanged.",
+    "AI drive launches assessment loop (backlog-260).",
+    "Mission Control shows AI narration: iteration reasoning visible.",
+    "Tier approval prompts appear at escalation boundaries.",
+    "No regression in manual mode wizard tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/wizard.js",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": ["Manual wizard mode", "Tile selection", "Depth cards"],
+  "validation": {
+    "required_checks": ["python3 scripts/validate_backlog_tasks.py", "source .venv/bin/activate && python -m pytest api/tests/ -q", "git diff --check"],
+    "acceptance_criteria": ["'Let AI drive' option in wizard.", "Three-question AI mode works.", "Manual mode unchanged.", "E2E tests pass."]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes.", "backlog-260 completed."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Changing manual wizard mode", "New assessment types"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

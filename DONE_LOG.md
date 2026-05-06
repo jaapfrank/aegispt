@@ -1,5 +1,49 @@
 # Done Log
 
+- 2026-05-06: completed backlog-247 `sqlmap blind and advanced SQLi: cover AutoPenBench WS4 complex SQL injection with filtered inputs`:
+  - rationale:
+    - AutoPenBench WS4-style filtered/blind SQLi needs a stronger sqlmap confirmation pass than the previous level 1/risk 1-only command
+    - the safe slice was to preserve explicit/ZAP-flagged parameter selection, approved scope checks, runtime dispatch, and no-dump posture while adding a bounded advanced phase for already-approved parameter targets
+    - `http://127.0.0.1:8000` was not relevant because the task changed runner behavior and command-preview text, not browser UI/operator-console flows
+  - implementation:
+    - kept Phase A as quick sqlmap detection at `--level 1 --risk 1` and added `--identify-waf`
+    - added Phase B after an unconfirmed Phase A result using `--level 3 --risk 2 --technique T --tamper=space2comment,between,randomcase`
+    - added sqlmap output classifiers for confirmed, possible, WAF, and blind/time-based signals
+    - recorded Phase A/B metadata, WAF detection, bounded tamper use, and safety flags in `sqlmap-results.json`
+    - mapped confirmed basic SQLi to critical, confirmed blind SQLi to high, and heuristic possible-but-unconfirmed SQLi to medium without adding database dump content to findings
+    - updated the runner command preview to show the two-phase bounded sqlmap path and no dump/OS-shell behavior
+    - hardened the existing network-capture ARP spoof proof test to accept a resolved `arpspoof` binary path after host readiness installed the tool locally
+  - files:
+    - `workers/runners/web_depth/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/tests/test_web_depth_runner.py`
+    - `workers/tests/test_runner_contract.py`
+    - `workers/tests/test_network_capture_runner.py`
+    - `codex/results/backlog-247-sqlmap-blind-advanced-sqli-20260506.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 265 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_web_depth_runner.py workers/tests/test_runner_contract.py -q` passed
+    - `python3 -m compileall workers/runners/web_depth/runner.py workers/orchestration/tasks.py workers/tests/test_web_depth_runner.py workers/tests/test_runner_contract.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0
+    - `source .venv/bin/activate && python -m pytest workers/tests scripts/tests -q` initially exposed a local host-tool path assumption in `test_arp_spoof_proof_executes_only_with_explicit_intrusive_gate`; after the test-only repair, it passed
+  - proof:
+    - deterministic runner tests prove Phase A remains level 1/risk 1, includes WAF identification, and stops after confirmed basic SQLi
+    - deterministic runner tests prove Phase B uses level 3/risk 2, `--technique T`, and only `space2comment`, `between`, and `randomcase` tampers
+    - deterministic runner tests prove simulated time-based blind SQLi becomes `Confirmed Blind SQL Injection` at high severity
+    - command-preview tests prove the visible preview includes Phase A/B and excludes `--risk 3`, `--dump`, and `--os-shell`
+  - exceptions:
+    - a live AutoPenBench WS4 target was not run in this slice; acceptance used deterministic runner evidence as allowed by the active task
+    - the worktree already contained uncommitted queue/task-package additions for backlog-252 through backlog-265 at task start; backlog validation accepted them as one-to-one queued packages, so they were preserved as existing repo context rather than removed during the active sqlmap implementation
+    - post-validation generated `codex/tasks/task-20260506214514-pack-refinement-fc6eff7e.json`; it was not a queue-backed backlog package and was removed as out-of-scope generated state
+    - extra worker/script validation required a test-only adjustment outside the sqlmap runner because `arpspoof` now resolves to `/usr/sbin/arpspoof` on this host instead of staying as the bare command string
+  - remaining risks:
+    - real WS4 benchmark proof still needs an explicitly authorized local fixture or approved benchmark target
+    - future queued packages 252 through 265 include operator-requested AI/adaptive/UI work and should be reconciled against current product truth when each becomes active
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-248 `AI Free Bash Execution`
+
 - 2026-05-06: completed current stabilization pass before continuing backlog-247:
   - rationale:
     - the operator asked to stop backlog progression and fix current problems first

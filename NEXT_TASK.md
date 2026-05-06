@@ -2,38 +2,43 @@
 
 ## Title
 
-sqlmap blind and advanced SQLi: cover AutoPenBench WS4 complex SQL injection with filtered inputs using bounded approval-gated sqlmap profile improvements
+AI Free Bash Execution: let the AI agent run arbitrary shell commands on authorized targets via SSH, with operator-per-command approval
 
 ## Promoted From
 
-`codex/tasks/backlog-247-sqlmap-blind-and-advanced-sqli.json`
+`codex/tasks/backlog-248-ai-free-bash-execution-runner.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-247-sqlmap-blind-and-advanced-sqli.json` so AegisPT improves sqlmap coverage for complex/blind SQL injection with input filters while preserving the existing approval gate, scope handling, runtime binding, and no-dump safety posture.
+Implement the active backlog package `codex/tasks/backlog-248-ai-free-bash-execution-runner.json` so AegisPT can support AI-proposed SSH shell commands on approved engagement targets while preserving per-command operator approval, scope enforcement, auditability, kill-switch control, and the existing predefined runner model.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-247-sqlmap-blind-and-advanced-sqli.json`.
+Implement the active backlog package `codex/tasks/backlog-248-ai-free-bash-execution-runner.json`.
 
 Expected slice:
 
-- keep Phase A quick sqlmap detection at level 1 / risk 1
-- add Phase B advanced sqlmap mode at level 3 / risk 2 for possible endpoints
-- add bounded tamper support for `space2comment`, `between`, and `randomcase`
-- add WAF detection with `--identify-waf`
-- include time-based blind detection in Phase B through `--technique=T`
-- preserve existing parameter selection and finding schema behavior
-- never dump database contents, never use `--risk 3`, and never enable sqlmap OS shell behavior
+- add an `ai-shell` runner that executes a single approved SSH command on an approved engagement target
+- allow the AI agent to propose shell-type actions with exact command, target, SSH credential reference, and reasoning
+- surface shell proposals in Mission Control with the exact command visible before approval
+- execute only after operator approval of that individual command
+- cap command output and store durable proposed/approved/rejected/executed audit evidence
+- enforce a banned-command list before SSH execution
+- enforce approved target scope before SSH execution
+- add a per-engagement kill switch or disable control for `ai-shell`
+- add the `active-ai-shell` run profile and dispatch mapping required by the package
+- keep the existing manual/predefined runners intact
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Do not change how parameters are selected or how findings are stored.
+- Do not execute shell commands on the AegisPT host itself.
+- Only execute via SSH on approved engagement targets.
+- Every shell command requires individual operator approval; no batch approval and no auto-run shell mode.
+- Enforce the banned-command list before execution: destructive disk operations, reboot/shutdown, firewall flush, password/user changes, crontab removal, and external `wget`/`curl` outside scope.
 - Do not bypass approvals, scope, ROE, deployment, runtime binding, credential gates, or kill switch.
-- Max sqlmap risk is `2`; do not use `--risk 3`.
-- Do not dump database contents.
-- Do not add sqlmap OS shell behavior.
+- Do not weaken intrusive exploitation gates.
+- Do not change existing predefined runner behavior except where explicitly required to register `ai-shell`.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
 
@@ -45,10 +50,13 @@ Expected slice:
 
 ## Acceptance
 
-- Phase A/B split is implemented for sqlmap.
-- Phase B uses level 3 / risk 2 with the bounded tamper scripts.
-- Phase B includes time-based blind detection.
-- WAF detection and auto-tamper selection are implemented.
-- Blind SQLi can be detected on the approved test target or deterministic equivalent.
-- Findings do not contain database dumps.
-- Existing SQLi tests do not regress.
+- AI can propose shell-type actions with command, target, SSH credential reference, and reasoning.
+- Mission Control shows the exact proposed command before approval.
+- Approval executes exactly one SSH command on an in-scope target.
+- Rejection does not execute.
+- Banned commands are blocked before SSH execution.
+- Out-of-scope targets are blocked before SSH execution.
+- Output is capped and returned for the next AI analysis cycle.
+- Audit log records proposed, approved/rejected, executed, output hash, and blocker states.
+- Engagement kill switch disables `ai-shell`.
+- Existing AI agent, proposal, runner, approval, and dispatch tests do not regress.

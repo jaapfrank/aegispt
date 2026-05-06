@@ -1,0 +1,85 @@
+{
+  "id": "backlog-265-ai-assessment-narrative-report",
+  "task_file": "codex/tasks/backlog-265-ai-assessment-narrative-report.json",
+  "task_type": "product_slice",
+  "title": "AI Assessment Narrative report: evidence-backed attack story traceable to runner output, findings, iteration logs, and approval events — AI summarises, never invents",
+  "goal": "Add an 'AI Assessment Narrative' report to Report Center for ai_loop runs. CRITICAL: every statement in the narrative must be traceable to a specific source record: runner output artifact, finding record, AgentReasoning log entry, or approval event. AI (via ChatGPT OAuth) may summarise and rephrase these records into readable prose. AI may not add claims, inferences, or conclusions not present in the source records. Report structure: (1) EXECUTIVE SUMMARY: 'AegisPT conducted an AI-assisted assessment of [target] on [date] under [authorized tier] authorization. The AI agent completed [N] assessment iterations and identified [N] findings, including [N] High/Critical. Key finding: [most severe finding title].' Every number references actual database counts — no rounding or approximation. (2) ITERATION LOG: for each loop iteration: iteration number, timestamp, tool used (with run ID ref), finding created (with finding ID ref), AI reasoning summary (verbatim or lightly rephrased from AgentReasoning.thought_text with ref), approval event if tier was escalated (with approval event ID ref). (3) CHAIN SUMMARY: shown only if compound_chain_id data exists. Lists the chain in sequence with evidence refs per link. Language follows run authorization tier: 'controlled active test evidence' for active tier, 'controlled proof under authorized intrusive scope' for intrusive tier. Never uses words like 'exploit', 'hack', 'compromise' unless the run tier explicitly authorized exploitation AND the finding is tagged exploitation_tier. (4) REMEDIATION PRIORITY: the critical finding at the chain root (first link) with specific fix recommendation. (5) COVERAGE: what was tested vs what was skipped and why (from SKIP decisions in AssessmentPlan). EVIDENCE CHAIN: every claim in the report has a footnote-style reference [R1], [F2], [I3] etc. linking to runner output, finding, or iteration record. A reader can verify every statement. AI generates the report only when ChatGPT is connected — graceful template fallback when not connected. Report only available for runs with run_mode=ai_loop.",
+  "scope": "ChatGPT review 2026-05-06: 'Narrative report must be evidence-backed. Every narrative point traceable to runner output, finding, iteration log, or approval event. AI may summarise, not hallucinate.' ROE-proof language required. No exploit terminology unless explicitly authorized.",
+  "status": "queued",
+  "generated_by": "ui-loop-audit-2026-05-06-corrected",
+  "generation_reason": "AI narrative report must be verifiable. Every claim has a source ref. AI summarises evidence, never invents. ROE-proof language throughout.",
+  "source_context": {
+    "queue_index": 265,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",
+      "codex/tasks/backlog-264-findings-attack-path-grouped-view.json",
+      "codex/tasks/backlog-94-report-quality-overhaul.json",
+      "codex/tasks/backlog-98-evidence-completeness-guarantor.json"
+    ],
+    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
+    "relevance_decision_id": null, "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_narrative_evidence_backed_report",
+    "source_documents": [
+      "ui/assets/modules/reports.js",
+      "api/app/routers/reports.py",
+      "api/app/services/ai_agent.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "New report type for ai_loop runs only. No changes to existing reports.",
+    "evidence_gate": "Every claim in the narrative must have a traceable source reference (runner output ID, finding ID, AgentReasoning ID, approval event ID). If source unavailable, the claim is omitted — not approximated.",
+    "no_hallucination": "AI prompt must explicitly instruct: 'Summarise only what is in the provided records. Do not add inferences, conclusions, or context not present in the source data.'",
+    "roe_language": "Language follows run authorization tier. Exploitation terminology only if run had exploitation_tier ROE. Default active tier: 'session exposure risk', 'controlled proof', 'canary evidence'. Never 'compromise', 'hack', 'steal' in operator or client copy.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Narrative report available only for ai_loop runs with at least 2 completed iterations.",
+    "Every claim in the report has a traceable source reference.",
+    "Iteration log references specific run IDs and finding IDs.",
+    "Chain summary only shown when compound_chain_id data exists.",
+    "Language matches run authorization tier throughout.",
+    "Exploitation terminology absent unless exploitation_tier ROE confirmed.",
+    "AI generation requires ChatGPT connected — template fallback when not.",
+    "Evidence references [R1], [F2], [I3] style footnotes included.",
+    "No regression in existing report generation tests."
+  ],
+  "likely_touched_files": [
+    "ui/assets/modules/reports.js",
+    "api/app/routers/reports.py",
+    "api/app/services/ai_agent.py",
+    "CURRENT_STATE.md", "DONE_LOG.md"
+  ],
+  "must_not_touch": ["Existing report types", "Report evidence hash integrity", "Existing report generation"],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Narrative report absent for manual runs.",
+      "All claims in generated report have source refs.",
+      "No exploitation language for active-tier runs.",
+      "Template fallback works without ChatGPT.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
+    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+  },
+  "out_of_scope": ["Changing existing reports", "Unevidenced AI claims", "Retroactive chain generation"],
+  "expected_output": {
+    "decision_complete": true, "task_package_type": "single_clear_slice",
+    "validation_required": true, "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
