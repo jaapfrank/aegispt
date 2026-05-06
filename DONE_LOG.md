@@ -40,6 +40,7 @@
     - `ui/assets/modules/packs.js`
     - `ui/assets/app.js`
     - `ui/index.html`
+    - `ui/tests/test_mockup_port_e2e.py`
     - `codex/results/backlog-246-network-capture-runner-20260506.md`
     - `codex/results/backlog-246-network-capture-live-10-0-20-20260506.json`
     - `codex/results/backlog-246-wizard-network-capture-8000.json`
@@ -57,6 +58,7 @@
     - `python3 scripts/validate_backlog_tasks.py` passed before promotion with 251 queued task packages mapped one-to-one and exactly one active task
     - `git diff --check` passed before promotion
     - local browser acceptance on `http://127.0.0.1:8000/app/` confirmed current asset key `20260506-network-capture-1`, Internal LAN and Smart Home / IoT LAN prediction matrix coverage, visible Internal LAN preview for `10.0.20.0/24`, `CAP Network capture + ARP`, no stale `RUNNE` fallback label, and no page errors
+    - exact CI fast UI smoke command `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH=/opt/aegispt/ms-playwright python -m pytest -q -s -m ui_fast ui/tests/test_operator_console_smoke_e2e.py ui/tests/test_mockup_port_e2e.py` passed locally after updating stale lane-chip expectations
   - evidence:
     - `codex/results/backlog-246-network-capture-runner-20260506.md`
     - `codex/results/backlog-246-network-capture-live-10-0-20-20260506.json`
@@ -68,6 +70,7 @@
     - the operator authorized `10.0.20.0/24`; safe discovery found 27 hosts and `ip neigh` provided 28 usable ARP entries for real runner parsing
     - host `tcpdump`, `arping`, and `arpspoof` are not installed, so live passive packet capture and live ARP spoof proof are recorded as blocked/missing host capability, not green; install/readiness wiring now covers those binaries
     - an initial full API test run failed because network-capture was treated as host-only chain follow-up and skipped CIDR-only scope; this was fixed by making the profile CIDR-capable and the full API suite was rerun successfully
+    - the first GitHub CI run after push failed in `ui/tests/test_mockup_port_e2e.py` because the smoke tests still expected the old single-run `passive-network-discovery · nmap` lane chip; the tests were updated to the new Full Internal LAN chain preview with `Network capture + ARP` and the exact fast UI smoke command passed locally before repush
     - no live ARP spoofing, public/customer/third-party target traffic capture, raw packet payload storage, credential value storage, database/content extraction, pack-registry bypass, validation bypass, approval bypass, deployment bypass, runtime-binding bypass, scope bypass, ROE bypass, credential-gate bypass, kill-switch bypass, runtime self-modification, or uncontrolled plugin installation occurred
   - remaining risks:
     - real tcpdump/arping/arpspoof execution on this host still requires installing the declared tools through the governed host install/readiness path

@@ -134,9 +134,11 @@ def test_lan_wizard_routes_private_cidr_to_discovery_lane(loaded_page: Page) -> 
     loaded_page.locator("[data-wizard-preview]").click()
 
     expect(loaded_page.get_by_test_id("wizard-preview-execution-lane")).to_contain_text(
-        "passive-network-discovery"
+        "Full Internal LAN"
     )
-    expect(loaded_page.get_by_test_id("wizard-preview-execution-lane")).to_contain_text("nmap")
+    expect(loaded_page.get_by_test_id("wizard-mission-preview")).to_contain_text(
+        "Network capture + ARP"
+    )
     expect(loaded_page.get_by_test_id("lan-discovery-routing-warning")).to_have_count(0)
 
 
@@ -157,9 +159,11 @@ def test_private_cidr_web_path_warns_and_one_click_corrects_to_lan_discovery(
 
     expect(loaded_page.get_by_test_id("lan-discovery-routing-warning")).to_have_count(0)
     expect(loaded_page.get_by_test_id("wizard-preview-execution-lane")).to_contain_text(
-        "passive-network-discovery"
+        "Full Internal LAN"
     )
-    expect(loaded_page.get_by_test_id("wizard-preview-execution-lane")).to_contain_text("nmap")
+    expect(loaded_page.get_by_test_id("wizard-mission-preview")).to_contain_text(
+        "Network capture + ARP"
+    )
 
 
 def _finding_record(finding_id: str, title: str, severity: str, target: str) -> dict[str, object]:
