@@ -1,5 +1,40 @@
 # Done Log
 
+- 2026-05-06: completed backlog-241 `Authorized Gruyere XSS Extended validation: derive official contexts and prove detection on approved instance root`:
+  - rationale:
+    - backlog-220 had deterministic fixture coverage for file-upload XSS, AJAX/JSON XSS, and XSSI, but no official Gruyere-derived context proof or real authorized hosted instance validation
+    - the active task authorized only `https://google-gruyere.appspot.com/482338906867472456097470474631954304306/` for live validation and allowed official Gruyere docs/source pages for read-only context derivation
+    - `http://127.0.0.1:8000` was not relevant because this slice validated the direct `xss-extended` runner rather than a UI/API browser flow
+  - implementation:
+    - derived the Gruyere file-upload context from official `upload.gtl`, `upload2.gtl`, and `gruyere.py` source: multipart `POST /upload2`, field `upload_file`, and uploaded file URL rendered as plain response text
+    - derived the AJAX/JSON XSS context from official codelab/source `feed.gtl?uid=value`, using the runner's existing bounded payload substitution for the `uid` parameter
+    - derived the XSSI context from official codelab/source `feed.gtl`, where `_feed((...))` exposes `private_snippet`
+    - repaired only narrow `xss-extended` parsing needed for the documented Gruyere behavior: prefer absolute upload-result URLs before navigation links, recognize JSONP-like `_callback((...))` data wrappers, and treat `private_snippet` as sensitive XSSI evidence
+    - added focused runner coverage for Gruyere-style upload response parsing and JSONP/XSSI detection
+  - files:
+    - `workers/runners/xss_extended/runner.py`
+    - `workers/tests/test_xss_extended_runner.py`
+    - `codex/results/backlog-241-authorized-gruyere-xss-extended-validation-20260506.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - pre-repair direct live runner validation stayed under the authorized root and detected file-upload XSS plus AJAX/JSON XSS, but honestly missed XSSI (`xssi_findings: 0`)
+    - post-repair direct live runner validation stayed under the authorized root and produced `file_upload_findings: 1`, `ajax_json_findings: 1`, `xssi_findings: 1`, `finding_count: 3`
+    - outbound live validation requests were limited to `POST /upload2`, `GET /None/aegispt-xss-241-final.html`, `GET /feed.gtl?uid=...`, and `GET /feed.gtl` under the authorized instance root
+    - focused `source .venv/bin/activate && python -m pytest workers/tests/test_xss_extended_runner.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest workers/tests/test_xss_extended_runner.py api/tests/test_pentest_depth_registration.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0; only existing Alembic deprecation warnings were printed
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed after implementation and promotion
+  - evidence:
+    - `codex/results/backlog-241-authorized-gruyere-xss-extended-validation-20260506.md`
+  - exceptions and boundaries:
+    - official Gruyere documentation/source pages outside the instance root were read only; active validation traffic used only the explicitly authorized instance root
+    - no resetbutton, reset, quit, overload, DoS, code execution, path traversal, SQLi, account takeover, pack-registry bypass, validation bypass, approval bypass, deployment bypass, runtime-binding bypass, scope bypass, ROE bypass, credential-gate bypass, or kill-switch bypass was performed
+    - the unauthenticated upload proof created `None/aegispt-xss-241-final.html` on the authorized Gruyere lab instance; it was not removed because reset/destructive endpoints are out of scope for this task
+  - remaining risks:
+    - this is an explicit-context Gruyere validation slice, not crawler-based discovery or broad Gruyere vulnerability coverage
+    - the runner now supports the documented JSONP/XSSI shape, but deeper semantic JavaScript execution analysis remains outside this backlog item
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-242 `Authorized DVGA GraphQL live-lab validation`
+
 - 2026-05-06: completed backlog-204 `Advanced Configuration drawer: replace developer language with operator-appropriate copy`:
   - rationale:
     - the wizard Advanced Configuration drawer exposed implementation language (`Deterministic Run Controls`) and a developer-oriented description in an operator-facing mission setup flow

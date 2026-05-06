@@ -15,7 +15,17 @@ from workers.runners.httpx.runner import normalize_http_target
 XSS_EXTENDED_RESULTS_ARTIFACT_NAME = "xss-extended-results.json"
 DEFAULT_XSS_PAYLOAD = "<html><script>alert('aegispt-xss')</script></html>"
 DEFAULT_AJAX_PAYLOAD = "<script>alert('aegispt-json-xss')</script>"
-SENSITIVE_JSON_KEYS = ("email", "user", "username", "token", "session", "account", "profile")
+SENSITIVE_JSON_KEYS = (
+    "email",
+    "user",
+    "username",
+    "token",
+    "session",
+    "account",
+    "profile",
+    "private_snippet",
+)
+JSONP_CALLBACK_RE = re.compile(r"^\s*[A-Za-z_$][\w$]*\s*\((?P<body>.*)\)\s*;?\s*$", flags=re.S)
 
 
 def _json_artifact(name: str, payload: dict[str, Any], *, kind: str = "runner-results") -> EvidenceArtifact:
@@ -172,6 +182,9 @@ def _extract_returned_url(base_url: str, response: httpx_client.Response) -> str
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
                 return urljoin(base_url, value.strip())
+    match = re.search(r"""https?://[^\s<>"']+""", response.text, flags=re.I)
+    if match:
+        return match.group(0)
     match = re.search(r"""(?:href|src)\s*=\s*["']([^"']+)["']""", response.text, flags=re.I)
     if match:
         return urljoin(str(response.url), match.group(1))
@@ -200,17 +213,28 @@ def _inject_query(url: str, payload: str, parameters: list[str]) -> str:
     return urlunparse(parsed._replace(query=urlencode(existing)))
 
 
+def _json_or_jsonp_payload(text: str) -> str | None:
+    stripped = text.strip()
+    if stripped.startswith(("{", "[")):
+        return stripped
+    match = JSONP_CALLBACK_RE.match(stripped)
+    if not match:
+        return None
+    inner = match.group("body").strip()
+    while len(inner) >= 2 and inner.startswith("(") and inner.endswith(")"):
+        inner = inner[1:-1].strip()
+    if inner.startswith(("{", "[")):
+        return inner
+    return None
+
+
 def _looks_like_sensitive_json(response: httpx_client.Response) -> bool:
     content_type = response.headers.get("Content-Type", "").lower()
     text = response.text.strip()
-    if not (
-        "json" in content_type
-        or "javascript" in content_type
-        or text.startswith("{")
-        or text.startswith("[")
-    ):
+    json_payload = _json_or_jsonp_payload(text)
+    if not ("json" in content_type or "javascript" in content_type or json_payload is not None):
         return False
-    lower = text.lower()
+    lower = (json_payload or text).lower()
     return any(f'"{key}"' in lower or f"{key}:" in lower for key in SENSITIVE_JSON_KEYS)
 
 

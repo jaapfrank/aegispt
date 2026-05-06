@@ -106,6 +106,53 @@ def test_xss_extended_detects_file_upload_ajax_json_and_xssi() -> None:
     assert all("xss" in finding.methodology_tags for finding in findings)
 
 
+def test_xss_extended_detects_gruyere_style_upload_url_and_jsonp_xssi() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/gruyere/upload2":
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "text/html"},
+                text=(
+                    '<a href="/gruyere/">Home</a> File accessible at: '
+                    "https://gruyere.example.test/gruyere/None/aegispt-xss.html"
+                ),
+            )
+        if request.method == "GET" and request.url.path == "/gruyere/None/aegispt-xss.html":
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "text/html"},
+                text=DEFAULT_XSS_PAYLOAD,
+            )
+        if request.method == "GET" and request.url.path == "/gruyere/feed.gtl":
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "text/html"},
+                text='_feed(({"private_snippet":"operator-only","cheddar":"snippet"}))',
+            )
+        return httpx.Response(404, text="not found")
+
+    execution = execute_xss_extended_scan(
+        ["https://gruyere.example.test/gruyere/"],
+        scope_allowlist={"urls": ["https://gruyere.example.test/gruyere/"]},
+        upload_contexts=[
+            {"url": "upload2", "file_field": "upload_file"},
+        ],
+        xssi_contexts=[
+            {"url": "feed.gtl"},
+        ],
+        client_factory=_client_factory(handler),
+    )
+
+    payload = json.loads(execution.artifacts[0].data.decode("utf-8"))
+    assert execution.exit_code == 0
+    assert payload["summary"]["file_upload_findings"] == 1
+    assert payload["summary"]["xssi_findings"] == 1
+    assert payload["checks"][0]["returned_url"] == (
+        "https://gruyere.example.test/gruyere/None/aegispt-xss.html"
+    )
+    assert payload["checks"][2]["sensitive_json"] is True
+
+
 def test_xss_extended_rejects_out_of_scope_targets() -> None:
     with pytest.raises(ValueError, match="outside approved web scope"):
         execute_xss_extended_scan(
