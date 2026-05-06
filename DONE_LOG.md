@@ -1,5 +1,77 @@
 # Done Log
 
+- 2026-05-06: completed backlog-244 `SSH/service brute force runner via Hydra: cover AutoPenBench AC0 weak-password task`:
+  - rationale:
+    - AutoPenBench AC0-style weak SSH password coverage required a bounded service brute-force runner, while the existing `credential-attacks` lane is AD/Kerberos-specific
+    - the active package required Hydra-backed SSH coverage plus FTP, Telnet, and RDP under the same approval, scope, rate-limit, and lockout model
+    - `http://127.0.0.1:8000` was relevant because the task changed RunProfiles, assessment-chain previews, wizard trigger/matrix behavior, tool catalog display, and cache-busted browser assets
+  - implementation:
+    - added `workers.runners.ssh_brute.runner` with a deterministic `ssh-brute` RunnerExecution contract, top-50 common password tier, optional capped operator password candidates, max 5 attempts/second, max 200 attempts/service, stop after 3 lockout signals, kill-switch checks before attempts, and scope filtering through existing target allowlist logic
+    - wired `ssh-brute` into `SUPPORTED_TOOLS`, worker dispatch, command previews, normalized finding extraction, methodology tags, and protected secret material output for validated service credentials
+    - added active RunProfile `active-lan-ssh-brute` with `required_approvals: 1`, `approval_step_id: active-lan-ssh-brute`, SSH/FTP/Telnet/RDP protocol metadata, bounded wordlist metadata, and safety caps
+    - wired `active-lan-ssh-brute` into FULL-INTERNAL-LAN, FULL-LAN-IOT, FULL-AD-ASSESSMENT, host follow-up profiles, wizard prediction/matrix behavior, tool catalog/fallback display, and acceptance harness mapping
+    - added Hydra to existing install/readiness surfaces: `scripts/install_security_tools.sh`, `scripts/verify_host.sh`, Settings tool readiness, and the runner/tool certification matrix
+  - files:
+    - `workers/runners/ssh_brute/runner.py`
+    - `workers/runners/ssh_brute/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/tests/test_ssh_brute_runner.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/assessment_chain.py`
+    - `api/app/services/runs.py`
+    - `api/app/routers/runs.py`
+    - `api/app/services/settings.py`
+    - `api/app/methodology.py`
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `scripts/acceptance_harness.py`
+    - `scripts/build_runner_tool_certification_matrix.py`
+    - `scripts/install_security_tools.sh`
+    - `scripts/verify_host.sh`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/modules/shared.js`
+    - `ui/assets/modules/packs.js`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `codex/results/backlog-244-ssh-hydra-brute-force-runner-20260506.md`
+    - `codex/results/backlog-244-ssh-hydra-live-lab-20260506.json`
+    - `codex/results/backlog-244-wizard-ssh-brute-8000.json`
+    - `codex/results/backlog-244-wizard-ssh-brute-8000.png`
+    - `codex/results/backlog-244-runner-tool-certification-matrix-20260506.json`
+    - `codex/results/backlog-244-runner-tool-certification-matrix-20260506.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - Python compile checks passed for the new runner, orchestration, API services/routers, and certification/acceptance scripts
+    - ES module syntax checks passed for touched wizard/shared/packs/app browser modules
+    - `bash -n scripts/install_security_tools.sh scripts/verify_host.sh` passed
+    - focused `source .venv/bin/activate && python -m pytest workers/tests/test_ssh_brute_runner.py workers/tests/test_runner_tool_certification_matrix.py -q` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0; only existing Alembic deprecation warnings were printed
+    - focused `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - safe local Docker Hydra lab validation detected `Weak Credential: SSH ac0:password on 127.0.0.1:2222` through the real runner path, with `ssh-brute-results.json`, one protected credential output, top-50 password tier, no large wordlist, and scope allowlist `127.0.0.1`
+    - current-code browser acceptance on `http://127.0.0.1:8000/app/` confirmed the `20260506-ssh-brute-1` asset key and `active-lan-ssh-brute` in active/full wizard chain profiles for internal LAN, AD, full internal, and smart-home LAN, with no page or console errors
+    - runner/tool certification matrix generation passed and records `ssh-brute` as mapped to `active-lan-ssh-brute`, `ssh-brute-results.json`, normalized finding extraction, and installable Hydra readiness
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with 251 queued task packages mapped one-to-one and exactly one active task
+    - post-promotion `git diff --check` passed
+  - evidence:
+    - `codex/results/backlog-244-ssh-hydra-brute-force-runner-20260506.md`
+    - `codex/results/backlog-244-ssh-hydra-live-lab-20260506.json`
+    - `codex/results/backlog-244-wizard-ssh-brute-8000.json`
+    - `codex/results/backlog-244-wizard-ssh-brute-8000.png`
+    - `codex/results/backlog-244-runner-tool-certification-matrix-20260506.json`
+    - `codex/results/backlog-244-runner-tool-certification-matrix-20260506.md`
+  - exceptions and boundaries:
+    - host `hydra` is not installed on this build host; `apt-cache policy hydra` shows candidate `9.5-1build3`, and the certification matrix honestly records the host binary state as missing while install/readiness wiring is present
+    - a wrong-path extra check, `source .venv/bin/activate && python -m pytest scripts/tests/test_runner_tool_certification_matrix.py -q`, exited with code 4 and is not claimed green; the correct `workers/tests/test_runner_tool_certification_matrix.py` path passed
+    - local browser acceptance generated one unrelated untracked pack-refinement task artifact under `codex/tasks/`; it was removed because it was out of scope for backlog-244 and not part of the authoritative queue
+    - no public, customer, or third-party target was brute-forced; live proof used only a disposable loopback Docker SSH target
+    - no rockyou/large wordlist, mass credential stuffing, AD/Kerberos credential-attacks behavior change, pack-registry bypass, validation bypass, approval bypass, deployment bypass, runtime-binding bypass, scope bypass, ROE bypass, credential-gate bypass, kill-switch bypass, runtime self-modification, or uncontrolled plugin installation occurred
+  - remaining risks:
+    - product support remains bounded to approved SSH/FTP/Telnet/RDP service targets and discovered services; this is not a broad credential-stuffing feature
+    - host operators still need Hydra installed through the existing install/readiness path before non-container local execution will run on this build host
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-245 `Full port scan by default plus SNMP non-standard port support`
+
 - 2026-05-06: completed backlog-242 `Authorized DVGA GraphQL live-lab validation: prove graphql-probe against a real vulnerable GraphQL target`:
   - rationale:
     - backlog-227 proved `graphql-probe` with deterministic fixtures, but the product truth still needed a real intentionally vulnerable GraphQL lab proof

@@ -81,6 +81,14 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
       tools: ["zap"],
     },
   },
+  "active-lan-ssh-brute": {
+    run_class: "active",
+    limits_json: {
+      description: "Approval-gated Hydra weak-credential validation for approved SSH, FTP, Telnet, and RDP services.",
+      required_approvals: 1,
+      tools: ["ssh-brute"],
+    },
+  },
   "intrusive-validation": {
     run_class: "intrusive",
     limits_json: {

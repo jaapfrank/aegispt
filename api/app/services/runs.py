@@ -1089,6 +1089,79 @@ def logging_probe_runner_params_from_configuration(
     return result
 
 
+def ssh_brute_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("ssh_brute")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    for field_name, limit in (
+        ("usernames", 10),
+        ("password_candidates", 50),
+        ("discovered_services", 256),
+    ):
+        for source in (settings, validation):
+            if field_name in result:
+                continue
+            value = _normalized_string_list(source.get(field_name), limit=limit)
+            if value:
+                result[field_name] = value
+
+    for source in (settings, validation):
+        if "service_targets" in result:
+            continue
+        raw_targets = source.get("service_targets")
+        if not isinstance(raw_targets, list):
+            continue
+        service_targets: list[dict[str, object]] = []
+        for item in raw_targets[:256]:
+            if not isinstance(item, dict):
+                continue
+            host = str(item.get("host") or item.get("target") or item.get("value") or "").strip()
+            service = str(item.get("service") or item.get("protocol") or "").strip().lower()
+            port = item.get("port")
+            if not host:
+                continue
+            service_targets.append(
+                {
+                    "host": host,
+                    "port": int(port) if isinstance(port, int) else port,
+                    "service": service,
+                }
+            )
+        if service_targets:
+            result["service_targets"] = service_targets
+
+    numeric_fields = {
+        "max_usernames": (1, 10),
+        "max_custom_passwords": (0, 50),
+        "max_attempts_per_service": (1, 200),
+        "lockout_stop_threshold": (1, 3),
+    }
+    for field_name, (minimum, maximum) in numeric_fields.items():
+        for source in (settings, validation):
+            if field_name in result or not isinstance(source.get(field_name), int):
+                continue
+            result[field_name] = min(max(int(source[field_name]), minimum), maximum)
+
+    for source in (settings, validation):
+        if "rate_limit_per_second" not in result and isinstance(
+            source.get("rate_limit_per_second"), (int, float)
+        ):
+            result["rate_limit_per_second"] = min(
+                max(float(source["rate_limit_per_second"]), 0.1),
+                5.0,
+            )
+        if "timeout_seconds" not in result and isinstance(
+            source.get("timeout_seconds"), (int, float)
+        ):
+            result["timeout_seconds"] = min(max(float(source["timeout_seconds"]), 1.0), 60.0)
+    return result
+
+
 def crypto_audit_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2654,6 +2727,46 @@ def validate_logging_probe_run_configuration(
                 )
 
 
+def _ssh_brute_service_target_host(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("host") or value.get("target") or value.get("value") or "").strip()
+    return str(value or "").strip().split(":", 1)[0]
+
+
+def validate_ssh_brute_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    targets = derive_targets_from_target_map(
+        configuration.get("targets")
+        if isinstance(configuration, dict) and isinstance(configuration.get("targets"), dict)
+        else scope.allowlist_json
+    )
+    params = ssh_brute_runner_params_from_configuration(configuration)
+    if (
+        not planned_targets_for_tool("ssh-brute", targets)
+        and not params.get("service_targets")
+        and not params.get("discovered_services")
+    ):
+        raise ValueError("ssh-brute requires at least one approved host, CIDR, or service target")
+
+    if float(params.get("rate_limit_per_second") or 5.0) > 5.0:
+        raise ValueError("ssh-brute rate_limit_per_second must be capped at 5")
+    if int(params.get("lockout_stop_threshold") or 3) > 3:
+        raise ValueError("ssh-brute lockout_stop_threshold must be capped at 3")
+    if int(params.get("max_attempts_per_service") or 200) > 200:
+        raise ValueError("ssh-brute max_attempts_per_service must be capped at 200")
+
+    for field_name in ("service_targets", "discovered_services"):
+        for raw_value in params.get(field_name, []):
+            value = _ssh_brute_service_target_host(raw_value)
+            if value and not target_value_is_allowed(scope.allowlist_json, value):
+                raise ValueError(
+                    f"configured ssh-brute service target {value} is outside the approved engagement scope"
+                )
+
+
 def validate_crypto_audit_run_configuration(
     *,
     scope: Scope,
@@ -3525,6 +3638,12 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
             return list(host_targets)
         return [target for target in targets if target["kind"] in {"domain", "target"}]
 
+    if tool == "ssh-brute":
+        host_targets = [target for target in targets if target["kind"] == "host"]
+        if host_targets:
+            return list(host_targets)
+        return [target for target in targets if target["kind"] in {"cidr", "domain", "target"}]
+
     if tool == "credential-attacks":
         domain_targets = [target for target in targets if target["kind"] == "domain"]
         if domain_targets:
@@ -3851,6 +3970,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     http_smuggling_params = http_smuggling_runner_params_from_configuration(run_configuration)
     oauth_probe_params = oauth_probe_runner_params_from_configuration(run_configuration)
     logging_probe_params = logging_probe_runner_params_from_configuration(run_configuration)
+    ssh_brute_params = ssh_brute_runner_params_from_configuration(run_configuration)
     crypto_audit_params = crypto_audit_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
@@ -3963,6 +4083,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "logging-probe":
             validate_logging_probe_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "ssh-brute":
+            validate_ssh_brute_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -4359,6 +4484,45 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         key: value
                         for key, value in logging_probe_params.items()
                         if value not in (None, [], {})
+                    }
+                )
+            if tool == "ssh-brute":
+                snapshot = (
+                    session.get(InventorySnapshot, run.source_inventory_snapshot_id)
+                    if run.source_inventory_snapshot_id is not None
+                    else None
+                )
+                inventory = (
+                    dict(snapshot.normalized_inventory_json)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
+                    else {}
+                )
+                task_params.update(
+                    {
+                        "source_inventory_snapshot_id": (
+                            str(run.source_inventory_snapshot_id)
+                            if run.source_inventory_snapshot_id
+                            else None
+                        ),
+                        "inventory": inventory,
+                        "rate_limit_per_second": float(
+                            normalized_limits.get("rate_limit_per_second") or 5
+                        ),
+                        "lockout_stop_threshold": int(
+                            normalized_limits.get("lockout_stop_threshold") or 3
+                        ),
+                        "max_attempts_per_service": int(
+                            normalized_limits.get("max_attempts_per_service") or 200
+                        ),
+                        "max_usernames": int(normalized_limits.get("max_usernames") or 10),
+                        "max_custom_passwords": int(
+                            normalized_limits.get("max_custom_passwords") or 50
+                        ),
+                        **{
+                            key: value
+                            for key, value in ssh_brute_params.items()
+                            if value not in (None, [], {})
+                        },
                     }
                 )
             if tool == "crypto-audit":

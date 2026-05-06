@@ -69,6 +69,7 @@ RUN_PROFILE_TOOL_HINTS = {
     "active-llm-application-probe": ["llm-probe"],
     "intrusive-credential-priv-esc-linux": ["priv-esc-linux"],
     "intrusive-validation": ["zap", "nuclei"],
+    "active-lan-ssh-brute": ["ssh-brute"],
 }
 TERMINAL_RUN_STATUSES = {
     "completed",

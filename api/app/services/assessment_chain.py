@@ -68,6 +68,7 @@ HOST_FOLLOW_UP_PROFILES = {
     "passive-lan-smart-home-audit",
     "active-lan-camera-audit",
     "active-lan-default-creds-audit",
+    "active-lan-ssh-brute",
     "passive-lan-segmentation-check",
     "passive-lan-ipv6-discovery",
     "passive-identity-ldap-enum",
@@ -145,6 +146,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                     "passive-web-baseline",
                     "passive-web-nuclei-audit",
                     "active-ad-bloodhound",
+                    "active-lan-ssh-brute",
                 ),
             ),
             AssessmentChainPhaseDefinition(
@@ -220,6 +222,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 requires_approval=True,
                 profiles=(
                     "active-lan-default-creds-audit",
+                    "active-lan-ssh-brute",
                     "passive-lan-smb-enum",
                 ),
             ),
@@ -304,7 +307,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 label="Phase 2 · Directory Enumeration",
                 tier="active",
                 requires_approval=True,
-                profiles=("active-ad-bloodhound",),
+                profiles=("active-ad-bloodhound", "active-lan-ssh-brute"),
             ),
             AssessmentChainPhaseDefinition(
                 key="credential-impact",

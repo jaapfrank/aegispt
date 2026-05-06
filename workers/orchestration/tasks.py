@@ -157,6 +157,7 @@ from workers.runners.smart_home.runner import (
     SMART_HOME_RESULTS_ARTIFACT_NAME,
     execute_smart_home_audit,
 )
+from workers.runners.ssh_brute.runner import execute_ssh_brute_force
 from workers.runners.ssti_probe.runner import execute_ssti_probe
 from workers.runners.ssrf_probe.runner import execute_ssrf_probe
 from workers.runners.snmp_enum.runner import (
@@ -228,6 +229,7 @@ SUPPORTED_TOOLS = {
     "semgrep",
     "session-security",
     "smart-home",
+    "ssh-brute",
     "ssti-probe",
     "ssrf-probe",
     "snmp-enum",
@@ -633,6 +635,64 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else None
             ),
             timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "ssh-brute":
+        return execute_ssh_brute_force(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            service_targets=(
+                request.params.get("service_targets")
+                if isinstance(request.params.get("service_targets"), list)
+                else None
+            ),
+            discovered_services=(
+                request.params.get("discovered_services")
+                if isinstance(request.params.get("discovered_services"), list)
+                else None
+            ),
+            usernames=(
+                request.params.get("usernames")
+                if isinstance(request.params.get("usernames"), list)
+                else None
+            ),
+            password_candidates=(
+                request.params.get("password_candidates")
+                if isinstance(request.params.get("password_candidates"), list)
+                else None
+            ),
+            max_usernames=(
+                request.params.get("max_usernames")
+                if isinstance(request.params.get("max_usernames"), int)
+                else 10
+            ),
+            max_custom_passwords=(
+                request.params.get("max_custom_passwords")
+                if isinstance(request.params.get("max_custom_passwords"), int)
+                else 50
+            ),
+            max_attempts_per_service=(
+                request.params.get("max_attempts_per_service")
+                if isinstance(request.params.get("max_attempts_per_service"), int)
+                else 200
+            ),
+            rate_limit_per_second=(
+                float(request.params.get("rate_limit_per_second"))
+                if isinstance(request.params.get("rate_limit_per_second"), (int, float))
+                else 5.0
+            ),
+            lockout_stop_threshold=(
+                request.params.get("lockout_stop_threshold")
+                if isinstance(request.params.get("lockout_stop_threshold"), int)
+                else 3
+            ),
+            timeout_seconds=timeout_seconds,
+            hydra_binary=os.getenv("HYDRA_BINARY", "hydra"),
+            kill_switch_check=execution_kill_switch_enabled,
         )
     if request.tool == "bloodhound-collect":
         return execute_bloodhound_collect(
@@ -2600,6 +2660,15 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"{admin_count + debug_count} --error-paths {error_count} "
             "--log-injection-crlf --log-format-strings --log4shell-pattern-detection-only "
             "--no-jndi-callback-listener --no-admin-takeover "
+            f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "ssh-brute":
+        max_attempts = int(effective_params.get("max_attempts_per_service") or 200)
+        rate_limit_value = min(float(effective_params.get("rate_limit_per_second") or 5), 5.0)
+        return (
+            "$ hydra --bounded-service-brute ssh,ftp,telnet,rdp "
+            f"--top-50-first --max-attempts-per-service {max_attempts} "
+            f"--rate-limit {rate_limit_value:g}/s --stop-after-lockouts 3 "
             f"--approved-scope {target_label}{extra}"
         )
     if tool == "xss-extended":

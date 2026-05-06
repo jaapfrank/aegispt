@@ -116,6 +116,14 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
         missing_next_step="Install sqlmap before enabling approved parameter-only SQLi confirmation.",
     ),
     ToolReadinessDefinition(
+        id="hydra",
+        title="Hydra",
+        binary_names=("hydra",),
+        affected_assessment_families=("SSH/service weak credential validation", "LAN credential testing"),
+        required=False,
+        missing_next_step="Install Hydra before enabling approval-gated SSH, FTP, Telnet, or RDP brute-force checks.",
+    ),
+    ToolReadinessDefinition(
         id="semgrep",
         title="Semgrep",
         binary_names=("semgrep",),

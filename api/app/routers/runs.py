@@ -147,6 +147,7 @@ from api.app.services.runs import (
     validate_playwright_web_run_configuration,
     validate_priv_esc_linux_run_configuration,
     validate_responder_run_configuration,
+    validate_ssh_brute_run_configuration,
     validate_wifi_run_configuration,
 )
 from api.app.services.secrets import (
@@ -177,6 +178,7 @@ AUTO_DISPATCH_BLOCKED_TOOLS = {
     "netexec",
     "priv-esc-linux",
     "responder",
+    "ssh-brute",
 }
 LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
     "biz-logic-probe",
@@ -708,6 +710,11 @@ def create_run(
             )
         if "responder" in planned_tools(profile):
             validate_responder_run_configuration(
+                scope=scope,
+                configuration=sanitized_configuration,
+            )
+        if "ssh-brute" in planned_tools(profile):
+            validate_ssh_brute_run_configuration(
                 scope=scope,
                 configuration=sanitized_configuration,
             )

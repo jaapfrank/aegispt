@@ -2,40 +2,33 @@
 
 ## Title
 
-SSH/service brute force runner via Hydra: cover AutoPenBench AC0 weak-password task
+Full port scan by default plus SNMP non-standard port support: cover AutoPenBench NS1 and NS3
 
 ## Promoted From
 
-`codex/tasks/backlog-244-ssh-hydra-brute-force-runner.json`
+`codex/tasks/backlog-245-nmap-full-port-scan-and-snmp-nonstandard.json`
 
 ## Goal
 
-Implement an approval-gated `ssh-brute` runner using Hydra so AegisPT can cover the AutoPenBench AC0 weak-password task and bounded service brute-force checks for approved SSH, FTP, Telnet, RDP, and related discovered services.
+Implement the active backlog package `codex/tasks/backlog-245-nmap-full-port-scan-and-snmp-nonstandard.json` so active-tier nmap scanning catches services on non-standard ports and SNMP probing can use configured or discovered non-standard SNMP ports.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-244-ssh-hydra-brute-force-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-245-nmap-full-port-scan-and-snmp-nonstandard.json`.
 
 Expected slice:
 
-- add an `ssh-brute` runner using Hydra
-- take configured target host(s), discovered services, and port metadata from existing approved scope/run context
-- use a tiered wordlist: top-50 common passwords first, then an engagement-configured password list only when provided
-- rate-limit attempts to max 5 attempts per second
-- stop after 3 consecutive lockout signals
-- report successful credential pairs as critical findings with existing provenance/report flows
-- support SSH plus FTP, Telnet, RDP basic brute-force coverage within the same safety model
-- install/verify Hydra through existing tool-install readiness paths
-- wire `active-lan-ssh-brute` into RunProfiles, assessment chains, wizard trigger logic, and acceptance harness mapping as described in the task package
+- change active-tier nmap default port coverage from top-1000 to top-10000, or the nearest existing bounded implementation required by the package
+- expose a governed scan-depth option for top-1000, top-10000, and all 65535 ports where the existing wizard/settings flow supports it
+- make SNMP probing accept a configurable port list defaulting to `[161]`
+- make SNMP probe ports include nmap-discovered SNMP services on non-standard ports
+- keep scope, approval, runtime binding, deployment, credential, ROE, and kill-switch behavior intact
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Brute force only within approved engagement CIDR/targets.
-- Active tier; requires approval.
-- Never use `rockyou.txt` or large wordlists unless explicitly operator-configured in a future active task.
-- Stop immediately on 3 lockout detections.
-- Do not touch existing AD/Kerberos `credential-attacks` behavior except where registration/dispatch references require coexistence.
+- Only change nmap port-depth defaults/options and SNMP port configuration/discovery behavior.
+- Do not change unrelated scanner behavior.
 - Do not bypass approvals, scope, ROE, deployment, runtime binding, credential gates, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -48,8 +41,8 @@ Expected slice:
 
 ## Acceptance
 
-- `ssh-brute` appears in supported tools.
-- The runner detects a weak credential on a safe approved test container or records an exact blocker.
-- Lockout protection works.
-- `active-lan-ssh-brute` is reachable through RunProfiles, relevant assessment chains, wizard triggers, and acceptance harness mapping.
-- Existing tests do not regress.
+- Active-tier nmap scans use top-10000 ports by default instead of top-1000.
+- Full port scan is available as a governed wizard/settings option.
+- SNMP runner accepts a configurable port list with default `[161]`.
+- SNMP runner probes ports identified as SNMP by nmap, including non-standard ports.
+- Existing nmap/SNMP tests do not regress.

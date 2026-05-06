@@ -428,6 +428,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["Active Directory", "Full AD Assessment"],
   },
   {
+    id: "ssh-brute",
+    name: "SSH/Service Brute",
+    category: "Credential",
+    tier: "active",
+    description: "Runs approval-gated Hydra validation against approved SSH, FTP, Telnet, and RDP services with top-50 passwords first.",
+    findings: ["Weak SSH/service credential", "Default password exposure", "Lockout-protection evidence"],
+    prerequisites: ["Approved LAN host or discovered service", "Hydra installed", "Rate limit and lockout stop controls"],
+    chains: ["Internal LAN", "IoT credential testing"],
+  },
+  {
     id: "hashcat",
     name: "Hashcat",
     backendTool: "credential-attacks",

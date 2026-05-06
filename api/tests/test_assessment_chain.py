@@ -141,7 +141,7 @@ def test_full_lan_iot_chain_definition_matches_required_phase_contract() -> None
         ),
         (
             "iot-credential-testing",
-            ("active-lan-default-creds-audit", "passive-lan-smb-enum"),
+            ("active-lan-default-creds-audit", "active-lan-ssh-brute", "passive-lan-smb-enum"),
         ),
         (
             "iot-segmentation",
@@ -176,8 +176,17 @@ def test_full_external_web_chain_includes_crypto_logging_and_oauth_probe() -> No
 def test_full_internal_lan_chain_includes_linux_privilege_escalation_enumeration() -> None:
     definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-INTERNAL-LAN"]
 
+    assert definition.phases[1].key == "active-enrichment"
+    assert "active-lan-ssh-brute" in definition.phases[1].profiles
     assert definition.phases[2].key == "intrusive-credential"
     assert "intrusive-credential-priv-esc-linux" in definition.phases[2].profiles
+
+
+def test_full_ad_chain_includes_bounded_service_brute_force() -> None:
+    definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-AD-ASSESSMENT"]
+
+    assert definition.phases[1].key == "directory-enumeration"
+    assert "active-lan-ssh-brute" in definition.phases[1].profiles
 
 
 def test_full_internal_lan_assessment_chain_creates_queued_passive_run(client) -> None:
@@ -565,6 +574,7 @@ def test_full_lan_iot_follow_up_profiles_use_discovered_hosts() -> None:
         "passive-lan-smart-home-audit",
         "active-lan-camera-audit",
         "active-lan-default-creds-audit",
+        "active-lan-ssh-brute",
         "passive-lan-segmentation-check",
         "passive-lan-ipv6-discovery",
         "passive-lan-infrastructure-audit",

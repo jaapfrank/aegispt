@@ -373,6 +373,7 @@ const TOOL_ICON_LABELS = {
   "oauth-probe": "OAUTH",
   "logging-probe": "LOG",
   "priv-esc-linux": "PRIV",
+  "ssh-brute": "HYD",
 };
 
 const PROFILE_TARGET_GROUPS = {
@@ -391,6 +392,7 @@ const PROFILE_TARGET_GROUPS = {
   "active-business-logic": ["web", "api"],
   "active-web-oauth-probe": ["web", "api"],
   "active-ad-bloodhound": ["directory", "network"],
+  "active-lan-ssh-brute": ["network", "directory"],
   "passive-lan-smb-enum": ["network"],
   "intrusive-lan-credential-capture": ["network"],
   "active-ad-kerberoast": ["directory"],
@@ -448,6 +450,7 @@ const PROFILE_EXPECTATION_COPY = {
   "passive-lan-smart-home-audit": "MQTT, Home Assistant, OpenHAB, Domoticz, and Node-RED exposure signals.",
   "active-lan-camera-audit": "ONVIF, RTSP, snapshot, and bounded camera default-credential checks.",
   "active-lan-default-creds-audit": "Bounded default credential testing for discovered management interfaces.",
+  "active-lan-ssh-brute": "Hydra-backed SSH, FTP, Telnet, and RDP weak-credential validation with top-50 passwords first.",
   "passive-lan-segmentation-check": "Segmentation, route, ARP, and cross-segment reachability evidence.",
   "passive-lan-ipv6-discovery": "IPv6 neighbor, router, and link-local reachability evidence.",
 };
@@ -478,6 +481,7 @@ const MISSION_PREVIEW_DEFINITIONS = {
           "passive-web-baseline",
           "passive-web-nuclei-audit",
           "active-ad-bloodhound",
+          "active-lan-ssh-brute",
           "passive-lan-smb-enum",
         ],
       },
@@ -552,7 +556,7 @@ const MISSION_PREVIEW_DEFINITIONS = {
         icon: "AUTH",
         estimatedMinutes: 25,
         findingCopy: "Bounded default credential checks and SMB posture.",
-        profiles: ["active-lan-default-creds-audit", "passive-lan-smb-enum"],
+        profiles: ["active-lan-default-creds-audit", "active-lan-ssh-brute", "passive-lan-smb-enum"],
       },
       {
         key: "iot-segmentation",
@@ -627,7 +631,7 @@ const MISSION_PREVIEW_DEFINITIONS = {
         icon: "GRAPH",
         estimatedMinutes: 18,
         findingCopy: "BloodHound paths, privilege edges, and AD attack-path truth.",
-        profiles: ["active-ad-bloodhound"],
+        profiles: ["active-ad-bloodhound", "active-lan-ssh-brute"],
       },
       {
         key: "credential-impact",

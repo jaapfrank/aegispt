@@ -1,0 +1,5115 @@
+{
+  "generated_at": "2026-05-06T09:38:11.858597+00:00",
+  "inputs": {
+    "finding_mapping": "workers/orchestration/findings.py",
+    "inventory_mapping": "api/app/services/inventory.py",
+    "run_profiles": "api/app/services/run_profiles.py",
+    "settings_readiness": "api/app/services/settings.py",
+    "supported_tools": "workers/orchestration/tasks.py"
+  },
+  "kind": "aegispt.runner_tool_certification_matrix",
+  "schema_version": 1,
+  "source_task": "codex/tasks/backlog-240-runner-tool-certification-matrix.json",
+  "summary": {
+    "blocked_tool_count": 1,
+    "certified_tool_count": 54,
+    "hardware_blocker_tool_ids": [
+      "wifi-survey"
+    ],
+    "software_ready_state_counts": {
+      "missing": 3,
+      "not-required": 37,
+      "ready": 15
+    },
+    "status_counts": {
+      "blocked": 1,
+      "certified": 54
+    },
+    "supported_with_gap_tool_count": 0,
+    "tool_count": 55
+  },
+  "support_boundary": {
+    "live_target_actions": false,
+    "runtime_mutation": false,
+    "scope": "Evidence matrix only. It does not add runners, install tools, dispatch scans, approve actions, expand scope, or weaken runtime gates.",
+    "uncontrolled_plugin_installation": false
+  },
+  "tools": [
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-api-assessment"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-api-assessment",
+          "name": "active-api-assessment",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "api-assessment",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "api-assessment-results.json",
+          "api-assessment-inventory.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.api_assessment.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Api Assessment",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_api_assessment_runner.py",
+          "workers/tests/test_graphql_probe_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-auth-flow",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "auth-flow",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "auth-flow-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.auth_flow.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Auth Flow",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_auth_flow_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-224-auth-flow-runner-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-cloud-aws-inventory",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "No normalized finding parser is claimed; output is treated as inventory/raw evidence unless another mapping is recorded."
+      ],
+      "finding_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "aws-inventory",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "aws-inventory-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.aws_inventory.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Aws Inventory",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_aws_inventory_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-business-logic",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "biz-logic-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "biz-logic-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.biz_logic.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Biz Logic Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_biz_logic_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-ad-bloodhound",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "bloodhound-collect",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "bloodhound-results.json",
+          "bloodhound-collection.zip",
+          "bloodhound-session.log"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.bloodhound.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "bloodhound-python": "/home/administrator/.local/bin/bloodhound-python"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "bloodhound-python"
+          ]
+        ],
+        "settings_tool_group_id": "bloodhound",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Bloodhound Collect",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_attack_paths.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_bloodhound_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-web-burp",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "burp",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "burp-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.burp.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Burp",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_burp_dispatch.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_burp_runner.py",
+          "workers/tests/test_findings_contract.py",
+          "workers/tests/test_runner_contract.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-lan-camera-audit"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-lan-camera-audit",
+          "name": "active-lan-camera-audit",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "camera-test",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "camera-test-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.camera_test.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Camera Test",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_camera_test_runner.py",
+          "workers/tests/test_runner_contract.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-cicd-security-assessment",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "cicd-security",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "cicd-security-results.json",
+          "cicd-security-inventory.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.cicd_security.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Cicd Security",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_acceptance_harness.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_cicd_security_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-client-state",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "client-state",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "client-state-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.client_state.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Client State",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_client_state_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-225-client-state-runner-20260505.md",
+          "codex/results/benchmark-coverage-latest.json",
+          "codex/results/coverage_report.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-cloud-native-assessment",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "cloud-native",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "cloud-native-results.json",
+          "cloud-native-inventory.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.cloud_native.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Cloud Native",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_cloud_native_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-content-discovery",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "content-discovery",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "content-discovery-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.web_depth.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "ffuf": "/usr/bin/ffuf"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "ffuf"
+          ]
+        ],
+        "settings_tool_group_id": "content-discovery",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Content Discovery",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_product_feature_matrix.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-ad-credential-attacks",
+          "intrusive-ad-password-spray"
+        ],
+        "max_required_approvals": 2,
+        "run_classes": [
+          "active",
+          "intrusive"
+        ],
+        "status": "intrusive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-ad-credential-attacks",
+          "name": "active-ad-asreproast",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": "active-ad-credential-attacks",
+          "name": "active-ad-kerberoast",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": "active-ad-credential-attacks",
+          "name": "active-offline-hash-crack",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": "intrusive-ad-password-spray",
+          "name": "intrusive-ad-password-spray",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.",
+        "Spray and offline cracking modes remain approval-gated and bounded by lockout policy inputs.",
+        "Plaintext credentials and captured secrets must remain encrypted or redacted outside evidence custody."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "credential-attacks",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "credential-attack-results.json",
+          "credential-attack-session.log"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.credential_attacks.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "hashcat": "/usr/bin/hashcat"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "hashcat"
+          ]
+        ],
+        "settings_tool_group_id": "hashcat",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Credential Attacks",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_credential_attack_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-209-tool-capability-guide-20260504.md",
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-crypto-audit",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "crypto-audit",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "crypto-audit-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.crypto_audit.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "ssh-audit": "/usr/bin/ssh-audit",
+          "testssl": "/usr/bin/testssl",
+          "testssl.sh": "/usr/local/bin/testssl.sh"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "testssl.sh",
+            "testssl"
+          ],
+          [
+            "ssh-audit"
+          ]
+        ],
+        "settings_tool_group_id": "crypto-audit",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Crypto Audit",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "workers/tests/test_crypto_audit_runner.py",
+          "workers/tests/test_runner_contract.py",
+          "workers/tests/test_runner_tool_certification_matrix.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-236-cryptographic-weakness-detection-runner-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-deserialization-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "deserialization-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "deserialization-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.deserialization_probe.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Deserialization Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_deserialization_probe_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-222-deserialization-probe-runner-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-desktop-client-static",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "desktop-client",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "desktop-client-results.json",
+          "desktop-client-inventory.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.desktop_client.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Desktop Client",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_desktop_client_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-easm-discovery",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "No normalized finding parser is claimed; output is treated as inventory/raw evidence unless another mapping is recorded."
+      ],
+      "finding_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "easm-discover",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "easm-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.easm.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Easm Discover",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_easm_dispatch.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_easm_runner.py",
+          "workers/tests/test_external_infra_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active",
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-external-infrastructure",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-external-infrastructure",
+          "required_approvals": 0,
+          "run_class": "passive"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-infrastructure-audit",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "external-infra",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "external-infra-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.external_infra.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "External Infra",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_external_infra_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-181-ia-audit.json",
+          "codex/results/backlog-209-tool-capability-guide-20260504.md",
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-external-osint-recon",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "external-osint",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "external-osint-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.web_depth.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "External Osint",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-graphql-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "graphql-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "graphql-probe-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.graphql_probe.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Graphql Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_graphql_probe_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-227-graphql-probe-runner-20260505.md",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-headers-security",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "headers-security",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "headers-security-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.headers_security.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Headers Security",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_headers_security_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-226-headers-security-runner-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-http-smuggling",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "http-smuggling",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "http-smuggling-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.http_smuggling.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Http Smuggling",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_http_smuggling_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-229-http-smuggling-runner-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "autonomous-web",
+          "required_approvals": 0,
+          "run_class": "passive"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-web-baseline",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "No normalized finding parser is claimed; output is treated as inventory/raw evidence unless another mapping is recorded."
+      ],
+      "finding_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "httpx",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "httpx-results.jsonl"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.httpx.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "httpx": "/home/administrator/.local/bin/httpx",
+          "httpx-toolkit": "/usr/local/bin/httpx-toolkit"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "httpx-toolkit",
+            "httpx"
+          ]
+        ],
+        "settings_tool_group_id": "httpx",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Httpx",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_acceptance_harness.py",
+          "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_ai_finding_enrichment.py",
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_attack_paths.py",
+          "api/tests/test_autofix.py",
+          "api/tests/test_benchmark_ai_eval.py",
+          "api/tests/test_chatgpt_oauth.py",
+          "api/tests/test_cicd_triggers.py",
+          "api/tests/test_codex_lane.py",
+          "api/tests/test_codex_tasks.py",
+          "api/tests/test_cve_sync.py",
+          "api/tests/test_diagnostics.py",
+          "api/tests/test_exposure_score.py",
+          "api/tests/test_finding_remediation.py",
+          "api/tests/test_internal_validations.py",
+          "api/tests/test_lifecycle_consistency.py",
+          "api/tests/test_live_ai_signal_stream.py",
+          "api/tests/test_mcp_operator_interface.py",
+          "api/tests/test_mcp_tools.py",
+          "api/tests/test_product_feature_matrix.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_repository_integration.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "api/tests/test_task_dispatch.py",
+          "api/tests/test_ui_support.py",
+          "workers/tests/test_auth_flow_runner.py",
+          "workers/tests/test_biz_logic_runner.py",
+          "workers/tests/test_client_state_runner.py",
+          "workers/tests/test_deserialization_probe_runner.py",
+          "workers/tests/test_external_infra_runner.py",
+          "workers/tests/test_graphql_probe_runner.py",
+          "workers/tests/test_headers_security_runner.py",
+          "workers/tests/test_http_smuggling_runner.py",
+          "workers/tests/test_idor_bac_runner.py",
+          "workers/tests/test_oauth_probe_runner.py",
+          "workers/tests/test_runner_contract.py",
+          "workers/tests/test_session_security_runner.py",
+          "workers/tests/test_ssrf_probe_runner.py",
+          "workers/tests/test_ssti_probe_runner.py",
+          "workers/tests/test_task_ai_callbacks.py",
+          "workers/tests/test_xss_extended_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-181-full-system-audit.json",
+          "codex/results/backlog-215-tool-install-enable-control-plane-20260504.md",
+          "codex/results/backlog-218-idor-bac-runner-20260504.md",
+          "codex/results/backlog-225-client-state-runner-20260505.md",
+          "codex/results/backlog-230-oauth-probe-runner-20260505.md",
+          "codex/results/backlog-232-ai-reasoning-transparency-summary-thought-action-20260506.md",
+          "codex/results/backlog-241-authorized-gruyere-xss-extended-validation-20260506.md",
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-idor-bac",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "idor-bac",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "idor-bac-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.idor_bac.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Idor Bac",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_idor_bac_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-218-idor-bac-runner-20260504.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "intrusive-exploitation"
+        ],
+        "max_required_approvals": 2,
+        "run_classes": [
+          "intrusive"
+        ],
+        "status": "intrusive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "intrusive-exploitation",
+          "name": "intrusive-impacket-dcsync",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        },
+        {
+          "approval_step_id": "intrusive-exploitation",
+          "name": "intrusive-impacket-remote-exec",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        },
+        {
+          "approval_step_id": "intrusive-exploitation",
+          "name": "intrusive-impacket-secretsdump",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "impacket-lateral",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "impacket-lateral-results.json",
+          "impacket-lateral-session.log"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.impacket.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "GetNPUsers.py": "/home/administrator/.local/bin/GetNPUsers.py",
+          "GetUserSPNs.py": "/home/administrator/.local/bin/GetUserSPNs.py",
+          "impacket-psexec": "/home/administrator/.local/bin/impacket-psexec",
+          "impacket-secretsdump": "/home/administrator/.local/bin/impacket-secretsdump",
+          "impacket-wmiexec": "/home/administrator/.local/bin/impacket-wmiexec",
+          "psexec.py": "/home/administrator/.local/bin/psexec.py",
+          "secretsdump.py": "/home/administrator/.local/bin/secretsdump.py",
+          "wmiexec.py": "/home/administrator/.local/bin/wmiexec.py"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "secretsdump.py",
+            "impacket-secretsdump"
+          ],
+          [
+            "psexec.py",
+            "impacket-psexec"
+          ],
+          [
+            "wmiexec.py",
+            "impacket-wmiexec"
+          ],
+          [
+            "GetUserSPNs.py"
+          ],
+          [
+            "GetNPUsers.py"
+          ]
+        ],
+        "settings_tool_group_id": "impacket",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Impacket Lateral",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_impacket_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-lan-default-creds-audit"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-lan-default-creds-audit",
+          "name": "active-lan-default-creds-audit",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "iot-default-creds",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "iot-default-creds-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.iot_default_creds.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Iot Default Creds",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_iot_default_creds_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-ipv6-discovery",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "ipv6-discovery",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "ipv6-discovery-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.ipv6_discovery.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Ipv6 Discovery",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_wizard_iot_static.py",
+          "workers/tests/test_ipv6_discovery_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-jwt-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "jwt-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "jwt-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.web_depth.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Jwt Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-216-jwt-vulnerability-runner-20260504.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-identity-ldap-enum",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "ldap-enum",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "ldap-enum-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.ldap_enum.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Ldap Enum",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_attack_paths.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_ldap_enum_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-llm-application-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "llm-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "llm-probe-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.llm_probe",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Llm Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_llm_probe.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-web-logging-probe",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "logging-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "logging-probe-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.logging_probe.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Logging Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_logging_probe_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-iot-discovery",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "mdns-ssdp",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "mdns-ssdp-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.mdns_ssdp.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Mdns Ssdp",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_mdns_ssdp_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "intrusive-exploitation"
+        ],
+        "max_required_approvals": 2,
+        "run_classes": [
+          "intrusive"
+        ],
+        "status": "intrusive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "intrusive-exploitation",
+          "name": "intrusive-exploitation",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.",
+        "Only curated safe modules and bounded whoami/sysinfo proof are allowed through existing approval gates.",
+        "No persistence, lateral expansion, or unmanaged sessions are certified here."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "metasploit",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "metasploit-results.json",
+          "metasploit-session.log"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.metasploit.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "msfconsole": "/usr/bin/msfconsole",
+          "msfrpcd": "/usr/bin/msfrpcd"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "msfconsole"
+          ],
+          [
+            "msfrpcd"
+          ]
+        ],
+        "settings_tool_group_id": "metasploit",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Metasploit",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_kill_chain_progress.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "workers/tests/test_metasploit_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-mobile-android-static",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "mobile-android",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "mobile-android-results.json",
+          "mobile-android-inventory.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.mobile_android.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Mobile Android",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_mobile_android_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "intrusive-lan-smb-auth"
+        ],
+        "max_required_approvals": 2,
+        "run_classes": [
+          "intrusive",
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "intrusive-lan-smb-auth",
+          "name": "intrusive-lan-smb-auth",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-smb-enum",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "netexec",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "netexec-results.json",
+          "netexec-session.log"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.netexec.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "netexec": "/home/administrator/.local/bin/netexec",
+          "nxc": "/home/administrator/.local/bin/nxc"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "nxc",
+            "netexec",
+            "crackmapexec"
+          ]
+        ],
+        "settings_tool_group_id": "netexec",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Netexec",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "workers/tests/test_external_infra_runner.py",
+          "workers/tests/test_netexec_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-181-full-system-audit.json",
+          "codex/results/backlog-215-tool-install-enable-control-plane-20260504.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-lan-segmentation-test"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active",
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-lan-segmentation-test",
+          "name": "active-lan-segmentation-test",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-segmentation-check",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "network-segmentation",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "network-segmentation-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.network_segmentation.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Network Segmentation",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_network_segmentation_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-web-nikto-scan",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "nikto",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [
+        "Required host binaries were not fully detected on this build host."
+      ],
+      "output_contract": {
+        "artifact_names": [
+          "nikto-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.nikto.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [
+          [
+            "nikto"
+          ]
+        ],
+        "required_binary_groups": [
+          [
+            "nikto"
+          ]
+        ],
+        "settings_tool_group_id": "nikto",
+        "software_installable": true,
+        "state": "missing"
+      },
+      "title": "Nikto",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/backlog-240-runner-tool-certification-matrix-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-lan-default-creds-audit"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active",
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-lan-default-creds-audit",
+          "name": "active-lan-default-creds-audit",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": null,
+          "name": "autonomous-internal",
+          "required_approvals": 0,
+          "run_class": "passive"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-network-discovery",
+          "required_approvals": 0,
+          "run_class": "passive"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-network-service-enumeration",
+          "required_approvals": 0,
+          "run_class": "passive"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-nse-full",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "No normalized finding parser is claimed; output is treated as inventory/raw evidence unless another mapping is recorded."
+      ],
+      "finding_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "nmap",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "nmap-results.xml"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.nmap.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "nmap": "/usr/bin/nmap"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "nmap"
+          ]
+        ],
+        "settings_tool_group_id": "nmap",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Nmap",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_ai_finding_enrichment.py",
+          "api/tests/test_ai_repair_lane.py",
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_chatgpt_oauth.py",
+          "api/tests/test_codex_lane.py",
+          "api/tests/test_diagnostics.py",
+          "api/tests/test_gdpr_data_handling.py",
+          "api/tests/test_kill_chain_progress.py",
+          "api/tests/test_live_ai_signal_stream.py",
+          "api/tests/test_nmap_dispatch.py",
+          "api/tests/test_on_demand_cve_intel.py",
+          "api/tests/test_release_readiness.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "workers/tests/test_external_infra_runner.py",
+          "workers/tests/test_ipv6_discovery_runner.py",
+          "workers/tests/test_network_segmentation_runner.py",
+          "workers/tests/test_runner_contract.py",
+          "workers/tests/test_task_ai_callbacks.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
+          "codex/results/backlog-181-full-system-audit.json",
+          "codex/results/backlog-232-ai-reasoning-transparency-summary-thought-action-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 2,
+        "run_classes": [
+          "intrusive",
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-web-nuclei-audit",
+          "required_approvals": 0,
+          "run_class": "passive"
+        },
+        {
+          "approval_step_id": null,
+          "name": "intrusive-validation",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "nuclei",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "nuclei-results.jsonl"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.nuclei.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "nuclei": "/usr/local/bin/nuclei"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "nuclei"
+          ]
+        ],
+        "settings_tool_group_id": "nuclei",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Nuclei",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_ai_finding_enrichment.py",
+          "api/tests/test_ai_research.py",
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_custom_vulnerabilities.py",
+          "api/tests/test_cve_sync.py",
+          "api/tests/test_cve_template_generator.py",
+          "api/tests/test_diagnostics.py",
+          "api/tests/test_evidence_integrity.py",
+          "api/tests/test_finding_validator.py",
+          "api/tests/test_kill_chain_progress.py",
+          "api/tests/test_nuclei_dispatch.py",
+          "api/tests/test_on_demand_cve_intel.py",
+          "api/tests/test_product_feature_matrix.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "scripts/tests/test_validation_runner.py",
+          "workers/tests/test_external_infra_runner.py",
+          "workers/tests/test_findings_contract.py",
+          "workers/tests/test_runner_contract.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-181-full-system-audit.json",
+          "codex/results/backlog-181-full-system-audit.md",
+          "codex/results/backlog-181-ia-audit.json",
+          "codex/results/backlog-206-cve-to-test-auto-queue-20260505.md",
+          "codex/results/backlog-213-gruyere-webgoat-coverage-20260504.md",
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/benchmark-coverage-latest.json",
+          "codex/results/coverage_report.json",
+          "codex/results/github-ci-pr-gate-correction-20260501.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-web-oauth-probe"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-web-oauth-probe",
+          "name": "active-web-oauth-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "oauth-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "oauth-probe-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.oauth_probe.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Oauth Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_oauth_probe_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-230-oauth-probe-runner-20260505.md",
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-browser-validation"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active",
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-browser-validation",
+          "name": "active-browser-validation",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": null,
+          "name": "passive-browser-recon",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "playwright-web",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "playwright-web-results.json",
+          "playwright-web-network.jsonl",
+          "playwright-web-console.jsonl",
+          "playwright-web-dom.html",
+          "playwright-web-screenshot.png"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.playwright_web.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Playwright Web",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_runs.py",
+          "workers/tests/test_playwright_web_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "intrusive-credential-priv-esc-linux"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "intrusive-credential-priv-esc-linux",
+          "name": "intrusive-credential-priv-esc-linux",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "priv-esc-linux",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "priv-esc-linux-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.priv_esc_linux.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Priv Esc Linux",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_priv_esc_linux_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
+          "codex/results/active-task-priv-esc-linux-wizard-preview-20260505.png",
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-234-linux-priv-esc-runner-20260505.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "intrusive-lan-poisoning"
+        ],
+        "max_required_approvals": 2,
+        "run_classes": [
+          "intrusive"
+        ],
+        "status": "intrusive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "intrusive-lan-poisoning",
+          "name": "intrusive-lan-credential-capture",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.",
+        "LLMNR/NBT-NS capture remains time-limited, CIDR-scoped, and intrusive approval-gated.",
+        "This matrix does not authorize poisoning on live networks."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "responder",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "responder-results.json",
+          "responder-session.log"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.responder.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "responder": "/usr/local/bin/responder"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "responder"
+          ]
+        ],
+        "settings_tool_group_id": "responder",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Responder",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "workers/tests/test_responder_runner.py",
+          "workers/tests/test_runner_contract.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-181-full-system-audit.json",
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-code-semgrep-audit",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "semgrep",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "semgrep-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.semgrep.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "semgrep": "/home/administrator/.local/bin/semgrep"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "semgrep"
+          ]
+        ],
+        "settings_tool_group_id": "semgrep",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Semgrep",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_internal_validations.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_semgrep_dispatch.py",
+          "workers/tests/test_runner_contract.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/github-ci-pr-gate-correction-20260501.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-session-security",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "session-security",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "session-security-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.session_security.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Session Security",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_session_security_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-223-session-security-runner-20260505.md",
+          "codex/results/benchmark-coverage-latest.json",
+          "codex/results/coverage_report.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-smart-home-audit",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "smart-home",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "smart-home-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.smart_home.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Smart Home",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_wizard_iot_static.py",
+          "workers/tests/test_mdns_ssdp_runner.py",
+          "workers/tests/test_runner_contract.py",
+          "workers/tests/test_smart_home_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-181-ia-audit.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/live-mission-and-github-ci-check-20260501.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-snmp-enum",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "snmp-enum",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "snmp-enum-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.snmp_enum.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "snmpwalk": "/usr/bin/snmpwalk"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "snmpwalk"
+          ]
+        ],
+        "settings_tool_group_id": "snmp",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Snmp Enum",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_wizard_iot_static.py",
+          "workers/tests/test_snmp_enum_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-sqlmap-confirmation",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "sqlmap",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [
+        "Required host binaries were not fully detected on this build host."
+      ],
+      "output_contract": {
+        "artifact_names": [
+          "sqlmap-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.sqlmap.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [
+          [
+            "sqlmap"
+          ]
+        ],
+        "required_binary_groups": [
+          [
+            "sqlmap"
+          ]
+        ],
+        "settings_tool_group_id": "sqlmap",
+        "software_installable": true,
+        "state": "missing"
+      },
+      "title": "Sqlmap",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_ai_finding_enrichment.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/backlog-240-runner-tool-certification-matrix-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-lan-ssh-brute"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-lan-ssh-brute",
+          "name": "active-lan-ssh-brute",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.",
+        "Hydra execution is approval-gated, scoped to approved LAN service targets, capped at five attempts per second, and stopped after lockout signals.",
+        "Only the built-in top-50 password tier plus explicitly configured bounded candidates are certified; large wordlists remain out of scope."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "ssh-brute",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [
+        "Required host binaries were not fully detected on this build host."
+      ],
+      "output_contract": {
+        "artifact_names": [
+          "ssh-brute-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.ssh_brute.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [
+          [
+            "hydra"
+          ]
+        ],
+        "required_binary_groups": [
+          [
+            "hydra"
+          ]
+        ],
+        "settings_tool_group_id": "hydra",
+        "software_installable": true,
+        "state": "missing"
+      },
+      "title": "Ssh Brute",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_ssh_brute_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-ssh-hydra-live-lab-20260506.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.png"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-ssrf-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "ssrf-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "ssrf-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.ssrf_probe.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Ssrf Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_ssrf_probe_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-221-ssrf-probe-runner-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-ssti-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "ssti-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "ssti-probe-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.ssti_probe.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Ssti Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_ssti_probe_runner.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-228-ssti-probe-runner-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-vuln-components",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "vuln-components",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "vuln-components-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.web_depth.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Vuln Components",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-217-vulnerable-components-runner-20260504.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "blocked",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-wifi-survey",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.",
+        "Passive wireless survey support does not enable deauth, rogue AP, WPS brute force, or RF jamming.",
+        "Hardware proof remains separate from software installation readiness."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": "No deterministic hardware lab or monitor-mode adapter proof is recorded in this task.",
+      "hardware_readiness": {
+        "blocker": "No deterministic hardware lab or monitor-mode adapter proof is recorded in this task.",
+        "kind": "wireless_adapter",
+        "required": true
+      },
+      "id": "wifi-survey",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [
+        "No deterministic hardware lab or monitor-mode adapter proof is recorded in this task."
+      ],
+      "output_contract": {
+        "artifact_names": [
+          "wifi-survey-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.wifi_survey.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "aircrack-ng": "/usr/bin/aircrack-ng",
+          "airodump-ng": "/usr/sbin/airodump-ng",
+          "iw": "/usr/sbin/iw"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "iw"
+          ],
+          [
+            "airodump-ng"
+          ],
+          [
+            "aircrack-ng"
+          ]
+        ],
+        "settings_tool_group_id": "wifi",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Wifi Survey",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_release_readiness.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_wifi_assessment.py",
+          "workers/tests/test_runner_tool_certification_matrix.py",
+          "workers/tests/test_wifi_survey_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-164-wifi-readiness-20260501.md",
+          "codex/results/backlog-180-launch-authorization-auto-advance-contract-20260502.md",
+          "codex/results/backlog-240-runner-tool-certification-matrix-20260505.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-xss-extended",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "xss-extended",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "xss-extended-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.xss_extended.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Xss Extended",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_xss_extended_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-219-ai-attack-chain-reasoning-web-context-20260506.md",
+          "codex/results/backlog-220-xss-extended-runner-20260504.md",
+          "codex/results/backlog-241-authorized-gruyere-xss-extended-validation-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-xxe-probe",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "xxe-probe",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "xxe-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.web_depth.runner",
+      "software_readiness": {
+        "detected_paths": {},
+        "missing_binary_groups": [],
+        "required_binary_groups": [],
+        "settings_tool_group_id": null,
+        "software_installable": false,
+        "state": "not-required"
+      },
+      "title": "Xxe Probe",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_web_depth_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-214-xxe-injection-runner-20260504.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 2,
+        "run_classes": [
+          "active",
+          "intrusive"
+        ],
+        "status": "intrusive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "active-web-safe",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": null,
+          "name": "active-web-zap-active",
+          "required_approvals": 1,
+          "run_class": "active"
+        },
+        {
+          "approval_step_id": null,
+          "name": "intrusive-validation",
+          "required_approvals": 2,
+          "run_class": "intrusive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "zap",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "zap-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.zap.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "zap.sh": "/usr/local/bin/zap.sh",
+          "zaproxy": "/usr/local/bin/zaproxy"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "zaproxy",
+            "zap.sh",
+            "zap-baseline.py"
+          ]
+        ],
+        "settings_tool_group_id": "zap",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Zap",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_acceptance_harness.py",
+          "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_ai_finding_enrichment.py",
+          "api/tests/test_attack_paths.py",
+          "api/tests/test_benchmark_ai_eval.py",
+          "api/tests/test_codex_lane.py",
+          "api/tests/test_codex_tasks.py",
+          "api/tests/test_internal_validations.py",
+          "api/tests/test_kill_chain_progress.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_reports.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "api/tests/test_threat_intel.py",
+          "api/tests/test_ui_support.py",
+          "api/tests/test_zap_dispatch.py",
+          "scripts/tests/test_benchmark_coverage.py",
+          "scripts/tests/test_validation_runner.py",
+          "workers/tests/test_findings_contract.py",
+          "workers/tests/test_graphql_probe_runner.py",
+          "workers/tests/test_headers_security_runner.py",
+          "workers/tests/test_runner_contract.py",
+          "workers/tests/test_web_depth_runner.py",
+          "workers/tests/test_xss_extended_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-181-full-system-audit.json",
+          "codex/results/backlog-181-ia-audit.json",
+          "codex/results/backlog-194-local-zap-start-and-run-start-truth-20260503.md",
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/backlog-213-gruyere-webgoat-coverage-20260504.md",
+          "codex/results/backlog-214-xxe-injection-runner-20260504.md",
+          "codex/results/backlog-220-xss-extended-runner-20260504.md",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json",
+          "codex/results/benchmark-coverage-latest.json",
+          "codex/results/coverage_report.json",
+          "codex/results/production-deployment-proof-latest.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    }
+  ]
+}

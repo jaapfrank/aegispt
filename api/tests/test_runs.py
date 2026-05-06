@@ -447,6 +447,7 @@ def test_list_run_profiles(client) -> None:
         "active-lan-camera-audit",
         "active-lan-default-creds-audit",
         "active-lan-segmentation-test",
+        "active-lan-ssh-brute",
         "active-llm-application-probe",
         "active-offline-hash-crack",
         "active-web-auth-flow",
@@ -1356,6 +1357,75 @@ def test_iot_default_creds_profile_requires_approval_and_passes_inventory(client
     assert limits["script_args"]["brute.firstonly"] == "true"
     assert limits["script_args"]["unpwdb.timelimit"] == "15s"
     assert nmap_task["params_json"]["target_kind"] == "host"
+
+
+def test_ssh_brute_profile_requires_approval_and_passes_inventory_services(client) -> None:
+    from api.app.models import InventorySnapshot
+
+    engagement_id = create_engagement_with_host_scope(client, ["10.0.20.10"])
+
+    with client.app.state.session_factory() as session:
+        inventory_snapshot = InventorySnapshot(
+            engagement_id=UUID(engagement_id),
+            requested_by="planner",
+            status="completed",
+            source_tools_json=["nmap"],
+            raw_inputs_json={},
+            normalized_inventory_json={
+                "hosts": [{"host": "10.0.20.10", "source": "nmap"}],
+                "services": [
+                    {"host": "10.0.20.10", "port": 22, "protocol": "tcp", "service": "ssh"}
+                ],
+            },
+            summary_json={},
+            environment_notes_json=[],
+            assumptions_json=[],
+            confidence_score=0.84,
+        )
+        session.add(inventory_snapshot)
+        session.commit()
+        inventory_id = str(inventory_snapshot.id)
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-lan-ssh-brute",
+            "source_inventory_snapshot_id": inventory_id,
+            "configuration_json": {
+                "ssh_brute": {
+                    "usernames": ["root"],
+                    "password_candidates": ["password"],
+                }
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["approval_step_id"] == "active-lan-ssh-brute"
+    assert created_payload["tasks"] == []
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver"},
+        json={"step_id": "active-lan-ssh-brute", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "ssh-brute"
+    assert task["params_json"]["source_inventory_snapshot_id"] == inventory_id
+    assert task["params_json"]["inventory"]["services"][0]["service"] == "ssh"
+    assert task["params_json"]["usernames"] == ["root"]
+    assert task["params_json"]["password_candidates"] == ["password"]
+    assert task["params_json"]["rate_limit_per_second"] == 5.0
+    assert task["params_json"]["lockout_stop_threshold"] == 3
+    assert task["params_json"]["max_attempts_per_service"] == 200
 
 
 def test_camera_audit_profile_requires_approval_and_queues_read_only_task(client) -> None:

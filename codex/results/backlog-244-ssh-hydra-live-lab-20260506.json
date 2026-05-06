@@ -1,0 +1,61 @@
+{
+  "accepted": true,
+  "artifact_name": "ssh-brute-results.json",
+  "exit_code": 0,
+  "finding_titles": [
+    "Weak Credential: SSH ac0:password on 127.0.0.1:2222"
+  ],
+  "metadata": {
+    "finding_count": 1,
+    "lockout_stop_threshold": 3,
+    "rate_limit_per_second": 5.0,
+    "runner_digest": "workers.ssh_brute.runner:v1",
+    "tool_version": "Hydra v9.5 (c) 2023 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway)."
+  },
+  "protected_output_count": 1,
+  "safety": {
+    "approved_scope_enforced": true,
+    "hydra_invoked": true,
+    "large_wordlists_enabled": false,
+    "lockout_stop_threshold": 3,
+    "max_attempts_per_service": 5,
+    "rate_limit_per_second": 5.0,
+    "rockyou_used": false,
+    "supported_protocols": [
+      "ftp",
+      "rdp",
+      "ssh",
+      "telnet"
+    ]
+  },
+  "stderr": "",
+  "stdout": "SSH 127.0.0.1:2222: 1 credential(s), 1 attempt(s)",
+  "summary": {
+    "attempt_count": 1,
+    "finding_count": 1,
+    "lockout_signal_count": 0,
+    "service_count": 1,
+    "terminated_by_kill_switch": false
+  },
+  "target_statuses": [
+    {
+      "attempt_count": 1,
+      "attempt_results": [
+        "accepted"
+      ],
+      "host": "127.0.0.1",
+      "lockout_signal_count": 0,
+      "port": 2222,
+      "service": "ssh",
+      "status": "credential_found",
+      "success_count": 1
+    }
+  ],
+  "tool": "ssh-brute",
+  "wordlists": [
+    {
+      "count": 50,
+      "name": "top-50-common"
+    }
+  ]
+}

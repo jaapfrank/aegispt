@@ -40,6 +40,7 @@ TOOL_GROUP_BY_RUNNER_TOOL = {
     "semgrep": "semgrep",
     "snmp-enum": "snmp",
     "sqlmap": "sqlmap",
+    "ssh-brute": "hydra",
     "wifi-survey": "wifi",
     "zap": "zap",
 }
@@ -49,6 +50,7 @@ REQUIRED_BINARY_GROUPS = {
     "content-discovery": [["ffuf"]],
     "crypto-audit": [["testssl.sh", "testssl"], ["ssh-audit"]],
     "hashcat": [["hashcat"]],
+    "hydra": [["hydra"]],
     "httpx": [["httpx-toolkit", "httpx"]],
     "impacket": [
         ["secretsdump.py", "impacket-secretsdump"],
@@ -124,6 +126,7 @@ ARTIFACT_NAMES_BY_TOOL = {
     "smart-home": ["smart-home-results.json"],
     "snmp-enum": ["snmp-enum-results.json"],
     "sqlmap": ["sqlmap-results.json"],
+    "ssh-brute": ["ssh-brute-results.json"],
     "ssrf-probe": ["ssrf-results.json"],
     "ssti-probe": ["ssti-probe-results.json"],
     "vuln-components": ["vuln-components-results.json"],
@@ -150,6 +153,7 @@ RUNNER_MODULE_BY_TOOL = {
     "priv-esc-linux": "workers.runners.priv_esc_linux.runner",
     "session-security": "workers.runners.session_security.runner",
     "snmp-enum": "workers.runners.snmp_enum.runner",
+    "ssh-brute": "workers.runners.ssh_brute.runner",
     "ssrf-probe": "workers.runners.ssrf_probe.runner",
     "ssti-probe": "workers.runners.ssti_probe.runner",
     "vuln-components": "workers.runners.web_depth.runner",
@@ -177,6 +181,10 @@ SAFETY_GUARDRAILS = {
     "responder": [
         "LLMNR/NBT-NS capture remains time-limited, CIDR-scoped, and intrusive approval-gated.",
         "This matrix does not authorize poisoning on live networks.",
+    ],
+    "ssh-brute": [
+        "Hydra execution is approval-gated, scoped to approved LAN service targets, capped at five attempts per second, and stopped after lockout signals.",
+        "Only the built-in top-50 password tier plus explicitly configured bounded candidates are certified; large wordlists remain out of scope.",
     ],
     "wifi-survey": [
         "Passive wireless survey support does not enable deauth, rogue AP, WPS brute force, or RF jamming.",
