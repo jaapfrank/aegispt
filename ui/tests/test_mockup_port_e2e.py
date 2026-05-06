@@ -23,7 +23,7 @@ def test_exact_mockup_port_tiles_sidebar_stepper_and_cinema(loaded_page: Page) -
 
     expect(loaded_page.locator(".steps")).to_be_visible()
     expect(loaded_page.locator(".step-dot.active")).to_be_visible()
-    expect(loaded_page.get_by_test_id("bottom-screen-nav")).to_contain_text("Agents")
+    expect(loaded_page.get_by_test_id("bottom-screen-nav")).to_have_count(0)
     expect(loaded_page.get_by_test_id("wizard-assessment-tile-grid")).to_have_class("tile-grid")
     expect(loaded_page.get_by_test_id("wizard-assessment-tile-external-web")).to_contain_text("🌐")
     expect(loaded_page.get_by_test_id("wizard-assessment-tile-external-web")).to_contain_text("Popular")
@@ -52,7 +52,7 @@ def test_exact_mockup_port_tiles_sidebar_stepper_and_cinema(loaded_page: Page) -
     loaded_page.get_by_test_id("mission-view-agents").click()
     expect(loaded_page.get_by_test_id("screen-agents")).to_be_visible()
     expect(loaded_page.get_by_test_id("agents-content")).to_be_visible()
-    loaded_page.get_by_test_id("bottom-nav-mission-control").click()
+    loaded_page.get_by_test_id("nav-mission-control").click()
     expect(loaded_page.get_by_test_id("cinema-mode-open")).to_be_visible()
     loaded_page.keyboard.press("f")
     expect(loaded_page.get_by_test_id("cinema-overlay")).to_be_visible()

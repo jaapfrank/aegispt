@@ -10443,24 +10443,6 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   flex-wrap: wrap;
 }
 
-.app-screen-switcher {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 4px;
-  width: auto;
-  max-width: calc(100vw - 24px);
-  margin: 0;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 24px;
-  padding: 4px 6px;
-  z-index: 300;
-  box-shadow: var(--shadow-md);
-}
-
 .nav-row {
   display: flex;
   justify-content: space-between;
@@ -11436,12 +11418,6 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
 }
 
 @media (max-width: 860px) {
-  .app-screen-switcher {
-    width: calc(100vw - 16px);
-    overflow-x: auto;
-    justify-content: flex-start;
-  }
-
   .sidebar-section-label,
   .sidebar-nav-spacer,
   .sidebar-run-card {

@@ -37,18 +37,11 @@ def test_operator_console_fast_navigation_smoke(loaded_page: Page) -> None:
     expect(loaded_page.get_by_test_id("wizard-bottom-stepper")).to_be_visible()
     loaded_page.get_by_test_id("nav-mission-control").click()
 
-    bottom_screens = {
-        "bottom-nav-mission-control": "screen-mission-control",
-        "bottom-nav-agents": "screen-agents",
-        "bottom-nav-findings-theater": "screen-findings-theater",
-        "bottom-nav-report-center": "screen-report-center",
-        "bottom-nav-settings": "screen-settings",
-    }
-    for nav_test_id, screen_test_id in bottom_screens.items():
-        nav = loaded_page.get_by_test_id(nav_test_id)
-        expect(nav).to_be_visible()
-        nav.click()
-        expect(loaded_page.get_by_test_id(screen_test_id)).to_be_visible()
+    expect(loaded_page.get_by_test_id("bottom-screen-nav")).to_have_count(0)
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    expect(loaded_page.get_by_test_id("mission-view-agents")).to_be_visible()
+    loaded_page.get_by_test_id("mission-view-agents").click()
+    expect(loaded_page.get_by_test_id("screen-agents")).to_be_visible()
 
 
 def test_topbar_engagement_cleanup_label_matches_delete_modal(loaded_page: Page) -> None:
@@ -398,7 +391,6 @@ def test_application_shell_has_no_repeated_marketing_subtitle(loaded_page: Page)
         "nav-dashboard": "screen-dashboard",
         "nav-wizard": "screen-wizard",
         "nav-mission-control": "screen-mission-control",
-        "bottom-nav-agents": "screen-agents",
         "nav-findings": "screen-findings-theater",
         "nav-reports": "screen-report-center",
         "nav-history": "screen-history",
@@ -410,6 +402,11 @@ def test_application_shell_has_no_repeated_marketing_subtitle(loaded_page: Page)
         loaded_page.get_by_test_id(nav_test_id).click()
         expect(loaded_page.get_by_test_id(screen_test_id)).to_be_visible()
         expect(loaded_page.locator("body")).not_to_contain_text(long_subtitle)
+
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.get_by_test_id("mission-view-agents").click()
+    expect(loaded_page.get_by_test_id("screen-agents")).to_be_visible()
+    expect(loaded_page.locator("body")).not_to_contain_text(long_subtitle)
 
     topbar_box = loaded_page.get_by_test_id("topbar").bounding_box()
     assert topbar_box is not None
@@ -3726,7 +3723,8 @@ def test_live_agents_prioritizes_running_task_and_uses_dispatch_label(loaded_pag
         }
         """
     )
-    loaded_page.evaluate("() => document.querySelector('[data-testid=\"bottom-nav-agents\"]')?.click()")
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.get_by_test_id("mission-view-agents").click()
 
     expect(loaded_page.get_by_test_id("agents-live-focus")).to_contain_text("10.0.20.2")
     expect(loaded_page.get_by_test_id("agents-live-terminal")).to_contain_text("Starting Nmap")

@@ -153,15 +153,6 @@ const NAV_GROUPS = [
   { screen: "settings", label: "Settings", icon: "⚙", testId: "nav-settings", utility: true },
 ];
 
-const BOTTOM_NAV_ITEMS = [
-  { screen: "wizard", label: "Intake" },
-  { screen: "mission-control", label: "Mission Control" },
-  { screen: "agents", label: "Agents" },
-  { screen: "findings-theater", label: "Findings" },
-  { screen: "report-center", label: "Reports" },
-  { screen: "settings", label: "Settings" },
-];
-
 document.addEventListener("DOMContentLoaded", () => {
   bindDom();
   initializeModules();
@@ -196,7 +187,6 @@ function bindDom() {
   dom.sidebarNewMissionBtn = document.getElementById("sidebar-new-mission-btn");
   dom.sidebarNav = document.getElementById("sidebar-nav");
   dom.sidebarCompatibilityNav = document.getElementById("sidebar-compatibility-nav");
-  dom.bottomScreenNav = document.getElementById("bottom-screen-nav");
   dom.nextActions = document.getElementById("next-actions");
   dom.engagementSelect = document.getElementById("engagement-select");
   dom.manageEngagementsBtn = document.getElementById("manage-engagements-btn");
@@ -3144,27 +3134,6 @@ function renderFlowOverview() {
             <span class="sb-left"><span class="sb-icon">${escapeHtml(item.icon)}</span>${escapeHtml(item.label)}</span>
             ${proposalBadge || badge}
           </button>
-        `;
-      })
-      .join("");
-  }
-  if (dom.bottomScreenNav) {
-    const proposalCount = pendingAiProposalCount();
-    dom.bottomScreenNav.classList.toggle("hidden", state.activeScreen === "wizard");
-    dom.bottomScreenNav.innerHTML = BOTTOM_NAV_ITEMS
-      .map((item) => {
-        const active = item.screen === state.activeScreen;
-        const label = item.screen === "mission-control" && proposalCount
-          ? `${item.label} ● ${proposalCount}`
-          : item.label;
-        return `
-          <button
-            class="demo-tab ${active ? "active on" : ""}"
-            type="button"
-            data-nav-screen="${escapeHtml(item.screen)}"
-            data-testid="bottom-nav-${escapeHtml(item.screen)}"
-            aria-current="${active ? "page" : "false"}"
-          >${escapeHtml(label)}</button>
         `;
       })
       .join("");

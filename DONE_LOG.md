@@ -1,5 +1,44 @@
 # Done Log
 
+- 2026-05-06: completed backlog-200 `Bottom navigation bar: remove redundant duplicate of sidebar navigation`:
+  - rationale:
+    - the sticky bottom navigation duplicated desktop navigation, created a second competing navigation system, and consumed fixed vertical space on every page
+    - the active package preferred complete removal because there is no current mobile-first product story requiring a mobile-only bottom bar
+  - implementation:
+    - removed the bottom-screen `<nav>` host from `ui/index.html`
+    - removed `BOTTOM_NAV_ITEMS`, bottom-nav DOM binding, and the render path from `ui/assets/app.js`
+    - removed `.app-screen-switcher` desktop and responsive CSS from `ui/assets/styles.css`
+    - bumped the served `styles.css` and `app.js` asset query strings to `20260506-bottom-nav-removal-1` so restarted `/app/` hosts serve current code
+    - updated UI E2E tests to assert the bottom nav is absent and to navigate through the sidebar plus the existing Mission Control Agents view control
+  - files:
+    - `ui/index.html`
+    - `ui/assets/app.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_mockup_port_e2e.py`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-200-bottom-nav-removal-8000.json`
+    - `codex/results/backlog-200-bottom-nav-removed-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - ES module syntax check passed with `node --input-type=module --check < ui/assets/app.js`; plain `node --check ui/assets/app.js` is not claimed because this browser bundle uses ES module imports without a Node package module marker
+    - focused Playwright tests passed for navigation smoke, repeated-subtitle regression, live Agents view routing, and mockup-port navigation/cinema coverage
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `bash scripts/run_ui_fast_tests.sh -q` passed, proving the fast E2E lane no longer depends on bottom-nav controls
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed after implementation
+    - `http://127.0.0.1:8000` was relevant and was restarted onto current working-tree code with `scripts/restart_local_inline_host.sh`; current-code browser acceptance on a 1280px viewport proved zero bottom-nav hosts/buttons, zero `.app-screen-switcher` nodes, all sidebar nav items opening their screens, and Agents reachable through Mission Control
+  - evidence:
+    - `codex/results/backlog-200-bottom-nav-removal-8000.json`
+    - `codex/results/backlog-200-bottom-nav-removed-8000.png`
+  - exceptions and boundaries:
+    - the package says the bottom nav duplicates the sidebar including Agents, but the existing sidebar does not include an Agents item and the task forbids changing sidebar navigation; Agents remains reachable through the existing Mission Control `mission-view-agents` control instead of adding a new sidebar route
+    - first browser acceptance attempt proved the bottom-nav criteria but failed on existing Jira-integration 404 console noise during Settings navigation and was not claimed green; the accepted evidence records that unrelated noise while asserting only the active criteria
+    - no topbar layout, screen routing logic, backend API, sidebar navigation, pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill-switch paths were changed or bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; browser acceptance used local UI rendering only
+  - remaining risks:
+    - mobile-specific navigation was not redesigned because no active mobile story exists and the preferred package path was desktop removal
+    - the existing local Settings/Jira integration 404 noise remains outside this active task
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-201 `Remove 'Complete Assessment Wizard' CTA from wizard screen itself and from active-run screens`
+
 - 2026-05-06: completed backlog-199 `CSS design system tokens`:
   - rationale:
     - `ui/assets/styles.css` had duplicate `:root` token definitions and repeated spacing literals across the main operator-console/wizard layout
