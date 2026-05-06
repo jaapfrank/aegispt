@@ -70,7 +70,9 @@ RUN_PROFILE_TOOL_HINTS = {
     "intrusive-credential-priv-esc-linux": ["priv-esc-linux"],
     "intrusive-validation": ["zap", "nuclei"],
     "active-lan-ssh-brute": ["ssh-brute"],
+    "passive-lan-network-capture": ["network-capture"],
 }
+PROFILE_TOOL_MAP = RUN_PROFILE_TOOL_HINTS
 TERMINAL_RUN_STATUSES = {
     "completed",
     "completed_with_errors",

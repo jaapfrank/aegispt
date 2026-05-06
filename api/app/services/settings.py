@@ -149,6 +149,15 @@ TOOL_READINESS_DEFINITIONS: tuple[ToolReadinessDefinition, ...] = (
         missing_next_step="Install Responder before enabling intrusive LAN credential capture.",
     ),
     ToolReadinessDefinition(
+        id="network-capture",
+        title="Network capture tools",
+        binary_names=("tcpdump", "arping", "arpspoof"),
+        affected_assessment_families=("Passive LAN traffic capture", "ARP consistency review"),
+        required=False,
+        missing_next_step="Install tcpdump, arping, and dsniff/arpspoof before enabling host-backed network capture checks.",
+        required_binary_groups=(("tcpdump",), ("arping",), ("arpspoof",)),
+    ),
+    ToolReadinessDefinition(
         id="netexec",
         title="NetExec / CrackMapExec",
         binary_names=("nxc", "netexec", "crackmapexec"),

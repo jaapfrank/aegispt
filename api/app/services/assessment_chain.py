@@ -71,6 +71,7 @@ HOST_FOLLOW_UP_PROFILES = {
     "active-lan-ssh-brute",
     "passive-lan-segmentation-check",
     "passive-lan-ipv6-discovery",
+    "passive-lan-network-capture",
     "passive-identity-ldap-enum",
     "passive-lan-smb-enum",
     "active-ad-bloodhound",
@@ -131,6 +132,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 profiles=(
                     "passive-network-discovery",
                     "passive-lan-iot-discovery",
+                    "passive-lan-network-capture",
                 ),
             ),
             AssessmentChainPhaseDefinition(
@@ -192,6 +194,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 profiles=(
                     "passive-network-discovery",
                     "passive-lan-iot-discovery",
+                    "passive-lan-network-capture",
                 ),
             ),
             AssessmentChainPhaseDefinition(
@@ -1053,6 +1056,25 @@ def _phase_step_run_configuration(
             raise ValueError(
                 "passive-identity-ldap-enum requires a discovered LDAP service or AD domain target"
             )
+    elif profile_name == "passive-lan-network-capture":
+        discovered_hosts = _hosts_from_inventory_snapshots(chain_snapshots)
+        cidr_targets = _cidr_targets_from_configuration(configuration)
+        if discovered_hosts:
+            _set_follow_up_targets(configuration, hosts=discovered_hosts)
+        elif not cidr_targets and not _configuration_has_host_targets(configuration):
+            raise ValueError(
+                "passive-lan-network-capture requires discovered hosts or configured approved CIDR targets"
+            )
+        if cidr_targets:
+            network_capture = dict(configuration.get("network_capture") or {})
+            if not str(network_capture.get("interface") or configuration.get("network_capture_interface") or "").strip():
+                for cidr in cidr_targets:
+                    interface = _route_interface_for_target(cidr)
+                    if interface:
+                        network_capture["interface"] = interface
+                        network_capture.setdefault("interface_source", "route-auto-detected")
+                        configuration["network_capture"] = network_capture
+                        break
     elif profile_name in HOST_FOLLOW_UP_PROFILES:
         discovered_hosts = _hosts_from_inventory_snapshots(chain_snapshots)
         if discovered_hosts:

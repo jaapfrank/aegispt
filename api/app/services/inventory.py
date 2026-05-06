@@ -610,6 +610,49 @@ def snmp_enum_observation_from_json(
     }
 
 
+def network_capture_observation_from_json(
+    *,
+    json_bytes: bytes,
+    target_id: str | None = None,
+) -> dict[str, Any]:
+    payload = json.loads(json_bytes.decode("utf-8", errors="replace"))
+    if not isinstance(payload, dict):
+        raise ValueError("Network capture payload must be a JSON object")
+
+    inventory = payload.get("inventory")
+    if not isinstance(inventory, dict):
+        inventory = {}
+
+    return {
+        "tool": "network-capture",
+        "kind": "inventory",
+        "data": {
+            "hosts": (
+                list(inventory.get("hosts", []))
+                if isinstance(inventory.get("hosts"), list)
+                else ([target_id] if target_id else [])
+            ),
+            "services": (
+                list(inventory.get("services", []))
+                if isinstance(inventory.get("services"), list)
+                else []
+            ),
+            "arp_table": (
+                list(inventory.get("arp_table", []))
+                if isinstance(inventory.get("arp_table"), list)
+                else []
+            ),
+            "cleartext_protocols": (
+                list(payload.get("cleartext_protocols", []))
+                if isinstance(payload.get("cleartext_protocols"), list)
+                else []
+            ),
+            "capture": payload.get("capture") if isinstance(payload.get("capture"), dict) else {},
+            "confidence": _bounded_confidence(inventory.get("confidence"), default=0.68),
+        },
+    }
+
+
 def smart_home_observation_from_json(
     *,
     json_bytes: bytes,

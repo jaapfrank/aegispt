@@ -2,36 +2,38 @@
 
 ## Title
 
-Network traffic capture runner: tcpdump passive capture + ARP poisoning detection to cover AutoPenBench NS4/NS5
+sqlmap blind and advanced SQLi: cover AutoPenBench WS4 complex SQL injection with filtered inputs using bounded approval-gated sqlmap profile improvements
 
 ## Promoted From
 
-`codex/tasks/backlog-246-network-traffic-capture-arp-runner.json`
+`codex/tasks/backlog-247-sqlmap-blind-and-advanced-sqli.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-246-network-traffic-capture-arp-runner.json` so AegisPT gains a governed network-capture runner for passive traffic capture and ARP poisoning detection, while keeping intrusive ARP spoof proof explicitly gated.
+Implement the active backlog package `codex/tasks/backlog-247-sqlmap-blind-and-advanced-sqli.json` so AegisPT improves sqlmap coverage for complex/blind SQL injection with input filters while preserving the existing approval gate, scope handling, runtime binding, and no-dump safety posture.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-246-network-traffic-capture-arp-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-247-sqlmap-blind-and-advanced-sqli.json`.
 
 Expected slice:
 
-- add a `network-capture` runner with passive tcpdump capture mode
-- detect cleartext credentials or tokens in bounded captured traffic evidence
-- add ARP consistency checks that can report possible ARP poisoning / missing Dynamic ARP Inspection
-- keep optional ARP spoof proof intrusive-gated, time-bounded, single-target, and restorative
-- register `passive-lan-network-capture` and wire it into the specified internal LAN / IoT planning surfaces
-- keep capture duration, packet counts, scope, approval, runtime binding, deployment, credential, ROE, and kill-switch behavior intact
+- keep Phase A quick sqlmap detection at level 1 / risk 1
+- add Phase B advanced sqlmap mode at level 3 / risk 2 for possible endpoints
+- add bounded tamper support for `space2comment`, `between`, and `randomcase`
+- add WAF detection with `--identify-waf`
+- include time-based blind detection in Phase B through `--technique=T`
+- preserve existing parameter selection and finding schema behavior
+- never dump database contents, never use `--risk 3`, and never enable sqlmap OS shell behavior
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Keep passive capture time-limited and interface/scope approved.
-- ARP spoof proof, if implemented, must remain intrusive-tier only with explicit gate and immediate restoration.
-- Do not store captured cleartext credentials beyond governed finding/evidence handling.
+- Do not change how parameters are selected or how findings are stored.
 - Do not bypass approvals, scope, ROE, deployment, runtime binding, credential gates, or kill switch.
+- Max sqlmap risk is `2`; do not use `--risk 3`.
+- Do not dump database contents.
+- Do not add sqlmap OS shell behavior.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
 
@@ -43,9 +45,10 @@ Expected slice:
 
 ## Acceptance
 
-- `network-capture` is in supported tools.
-- Passive tcpdump capture mode works in bounded approved-scope form.
-- ARP consistency checks can produce the intended finding.
-- Any ARP spoof proof remains explicitly gated and bounded.
-- `passive-lan-network-capture` is registered and reachable through required planning/wizard surfaces.
-- Existing tests do not regress.
+- Phase A/B split is implemented for sqlmap.
+- Phase B uses level 3 / risk 2 with the bounded tamper scripts.
+- Phase B includes time-based blind detection.
+- WAF detection and auto-tamper selection are implemented.
+- Blind SQLi can be detected on the approved test target or deterministic equivalent.
+- Findings do not contain database dumps.
+- Existing SQLi tests do not regress.

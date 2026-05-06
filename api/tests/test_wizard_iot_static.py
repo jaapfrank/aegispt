@@ -15,6 +15,7 @@ def test_wizard_exposes_smart_home_lan_tile_and_full_lan_iot_chain_preview() -> 
     assert "FULL-LAN-IOT" in wizard_source
     assert "Full LAN + IoT" in wizard_source
     assert "passive-lan-iot-discovery" in wizard_source
+    assert "passive-lan-network-capture" in wizard_source
     assert "passive-lan-nse-full" in wizard_source
     assert "passive-lan-snmp-enum" in wizard_source
     assert "passive-lan-smart-home-audit" in wizard_source

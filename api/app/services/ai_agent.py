@@ -119,6 +119,7 @@ TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS = {
     "metasploit",
     "mobile-android",
     "netexec",
+    "network-capture",
     "network-segmentation",
     "nmap",
     "nikto",

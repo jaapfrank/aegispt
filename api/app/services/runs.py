@@ -3761,6 +3761,9 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
     if tool == "network-segmentation":
         return [target for target in targets if target["kind"] in {"host", "cidr", "target"}]
 
+    if tool == "network-capture":
+        return [target for target in targets if target["kind"] in {"host", "cidr", "target"}]
+
     if tool == "snmp-enum":
         return [target for target in targets if target["kind"] in {"host", "cidr", "target"}]
 
@@ -5021,6 +5024,75 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             if run_configuration.get("vlan_interface")
                             else None
                         ),
+                    }
+                )
+            if tool == "network-capture":
+                snapshot = (
+                    session.get(InventorySnapshot, run.source_inventory_snapshot_id)
+                    if run.source_inventory_snapshot_id is not None
+                    else None
+                )
+                inventory = (
+                    dict(snapshot.normalized_inventory_json)
+                    if snapshot is not None and isinstance(snapshot.normalized_inventory_json, dict)
+                    else {}
+                )
+                network_capture_config = (
+                    run_configuration.get("network_capture")
+                    if isinstance(run_configuration.get("network_capture"), dict)
+                    else {}
+                )
+                capture_seconds = int(
+                    network_capture_config.get(
+                        "capture_seconds",
+                        normalized_limits.get("capture_seconds") or 60,
+                    )
+                )
+                max_capture_seconds = int(normalized_limits.get("max_capture_seconds") or 120)
+                packet_limit = int(
+                    network_capture_config.get(
+                        "packet_limit",
+                        normalized_limits.get("packet_limit") or 10000,
+                    )
+                )
+                task_params.update(
+                    {
+                        "source_inventory_snapshot_id": (
+                            str(run.source_inventory_snapshot_id)
+                            if run.source_inventory_snapshot_id
+                            else None
+                        ),
+                        "inventory": inventory,
+                        "mode": str(normalized_limits.get("mode") or "passive").strip()
+                        or "passive",
+                        "interface": (
+                            str(
+                                network_capture_config.get("interface")
+                                or run_configuration.get("network_capture_interface")
+                                or ""
+                            ).strip()
+                            or None
+                        ),
+                        "capture_seconds": max(1, min(capture_seconds, max_capture_seconds, 120)),
+                        "packet_limit": max(1, min(packet_limit, 10000)),
+                        "arp_probe_enabled": bool(normalized_limits.get("arp_probe_enabled", True)),
+                        "arp_probe_count": max(
+                            1,
+                            min(int(normalized_limits.get("arp_probe_count") or 1), 3),
+                        ),
+                        "gateway_ip": (
+                            str(network_capture_config.get("gateway_ip")).strip()
+                            if network_capture_config.get("gateway_ip")
+                            else None
+                        ),
+                        "expected_gateway_mac": (
+                            str(network_capture_config.get("expected_gateway_mac")).strip()
+                            if network_capture_config.get("expected_gateway_mac")
+                            else None
+                        ),
+                        "arp_spoof_enabled": False,
+                        "allow_arp_spoof_proof": False,
+                        "intrusive_authorized": False,
                     }
                 )
             if tool == "snmp-enum":

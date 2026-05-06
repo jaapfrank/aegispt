@@ -33,6 +33,7 @@ TOOL_GROUP_BY_RUNNER_TOOL = {
     "impacket-lateral": "impacket",
     "metasploit": "metasploit",
     "netexec": "netexec",
+    "network-capture": "network-capture",
     "nikto": "nikto",
     "nmap": "nmap",
     "nuclei": "nuclei",
@@ -61,6 +62,7 @@ REQUIRED_BINARY_GROUPS = {
     ],
     "metasploit": [["msfconsole"], ["msfrpcd"]],
     "netexec": [["nxc", "netexec", "crackmapexec"]],
+    "network-capture": [["tcpdump"], ["arping"], ["arpspoof"]],
     "nikto": [["nikto"]],
     "nmap": [["nmap"]],
     "nuclei": [["nuclei"]],
@@ -106,6 +108,7 @@ ARTIFACT_NAMES_BY_TOOL = {
     "mdns-ssdp": ["mdns-ssdp-results.json"],
     "metasploit": ["metasploit-results.json", "metasploit-session.log"],
     "mobile-android": ["mobile-android-results.json", "mobile-android-inventory.json"],
+    "network-capture": ["network-capture-results.json"],
     "network-segmentation": ["network-segmentation-results.json"],
     "nmap": ["nmap-results.xml"],
     "netexec": ["netexec-results.json", "netexec-session.log"],
@@ -150,6 +153,7 @@ RUNNER_MODULE_BY_TOOL = {
     "jwt-probe": "workers.runners.web_depth.runner",
     "llm-probe": "workers.runners.llm_probe",
     "mdns-ssdp": "workers.runners.mdns_ssdp.runner",
+    "network-capture": "workers.runners.network_capture.runner",
     "priv-esc-linux": "workers.runners.priv_esc_linux.runner",
     "session-security": "workers.runners.session_security.runner",
     "snmp-enum": "workers.runners.snmp_enum.runner",
@@ -181,6 +185,10 @@ SAFETY_GUARDRAILS = {
     "responder": [
         "LLMNR/NBT-NS capture remains time-limited, CIDR-scoped, and intrusive approval-gated.",
         "This matrix does not authorize poisoning on live networks.",
+    ],
+    "network-capture": [
+        "Passive capture is bounded by approved interface, host/CIDR filter, time, and packet count limits.",
+        "Captured cleartext credential values are redacted from stored artifacts; ARP spoof proof remains fail-closed without explicit intrusive authorization.",
     ],
     "ssh-brute": [
         "Hydra execution is approval-gated, scoped to approved LAN service targets, capped at five attempts per second, and stopped after lockout signals.",

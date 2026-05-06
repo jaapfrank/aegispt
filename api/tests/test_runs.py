@@ -494,6 +494,7 @@ def test_list_run_profiles(client) -> None:
         "passive-lan-infrastructure-audit",
         "passive-lan-iot-discovery",
         "passive-lan-ipv6-discovery",
+        "passive-lan-network-capture",
         "passive-lan-nse-full",
         "passive-lan-segmentation-check",
         "passive-lan-smart-home-audit",
@@ -1575,6 +1576,66 @@ def test_network_segmentation_profiles_pass_inventory_and_authorization_boundari
     assert active_task["params_json"]["native_vlan"] == 1
     assert active_task["params_json"]["target_vlan"] == 20
     assert active_task["params_json"]["vlan_interface"] == "eth0"
+
+
+def test_network_capture_profile_queues_passive_bounded_task(client) -> None:
+    from api.app.models import InventorySnapshot
+
+    engagement_id = create_engagement_with_cidr_scope(client, "10.0.20.0/30")
+
+    with client.app.state.session_factory() as session:
+        inventory_snapshot = InventorySnapshot(
+            engagement_id=UUID(engagement_id),
+            requested_by="planner",
+            status="completed",
+            source_tools_json=["nmap", "snmp-enum"],
+            raw_inputs_json={},
+            normalized_inventory_json={
+                "arp_table": [{"ip": "10.0.20.1", "mac": "00:11:22:33:44:55"}],
+            },
+            summary_json={},
+            environment_notes_json=[],
+            assumptions_json=[],
+            confidence_score=0.74,
+        )
+        session.add(inventory_snapshot)
+        session.commit()
+        inventory_id = str(inventory_snapshot.id)
+
+    response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-lan-network-capture",
+            "source_inventory_snapshot_id": inventory_id,
+            "configuration_json": {
+                "network_capture": {
+                    "interface": "eth0",
+                    "capture_seconds": 999,
+                    "packet_limit": 999999,
+                    "gateway_ip": "10.0.20.1",
+                    "expected_gateway_mac": "00:11:22:33:44:55",
+                }
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "queued"
+    assert len(payload["tasks"]) == 1
+    task = payload["tasks"][0]
+    assert task["tool"] == "network-capture"
+    assert task["target_id"] == "10.0.20.0/30"
+    assert task["params_json"]["mode"] == "passive"
+    assert task["params_json"]["source_inventory_snapshot_id"] == inventory_id
+    assert task["params_json"]["inventory"]["arp_table"][0]["ip"] == "10.0.20.1"
+    assert task["params_json"]["interface"] == "eth0"
+    assert task["params_json"]["capture_seconds"] == 120
+    assert task["params_json"]["packet_limit"] == 10000
+    assert task["params_json"]["arp_probe_enabled"] is True
+    assert task["params_json"]["arp_spoof_enabled"] is False
+    assert task["params_json"]["allow_arp_spoof_proof"] is False
 
 
 def test_snmp_enum_profile_queues_read_only_bounded_default_community_task(client) -> None:

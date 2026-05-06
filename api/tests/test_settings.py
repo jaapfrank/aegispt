@@ -298,6 +298,9 @@ def test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately
         "airodump-ng",
         "aircrack-ng",
         "responder",
+        "tcpdump",
+        "arping",
+        "arpspoof",
     }
 
     def fake_which(binary: str) -> str | None:
@@ -318,6 +321,12 @@ def test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately
     assert tools["netexec"]["detected_path"] == "/usr/local/bin/nxc"
     assert tools["impacket"]["installed"] is True
     assert tools["impacket"]["missing_binaries"] == []
+    assert tools["network-capture"]["installed"] is True
+    assert tools["network-capture"]["required_binary_groups"] == [
+        ["tcpdump"],
+        ["arping"],
+        ["arpspoof"],
+    ]
     assert tools["wifi"]["installed"] is True
 
     capabilities = {item["id"]: item for item in payload["capabilities"]}

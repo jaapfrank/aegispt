@@ -125,7 +125,11 @@ def test_full_lan_iot_chain_definition_matches_required_phase_contract() -> None
     assert [(phase.key, phase.profiles) for phase in definition.phases] == [
         (
             "iot-discovery",
-            ("passive-network-discovery", "passive-lan-iot-discovery"),
+            (
+                "passive-network-discovery",
+                "passive-lan-iot-discovery",
+                "passive-lan-network-capture",
+            ),
         ),
         (
             "iot-enumeration",
@@ -176,6 +180,8 @@ def test_full_external_web_chain_includes_crypto_logging_and_oauth_probe() -> No
 def test_full_internal_lan_chain_includes_linux_privilege_escalation_enumeration() -> None:
     definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-INTERNAL-LAN"]
 
+    assert definition.phases[0].key == "passive-discovery"
+    assert "passive-lan-network-capture" in definition.phases[0].profiles
     assert definition.phases[1].key == "active-enrichment"
     assert "active-lan-ssh-brute" in definition.phases[1].profiles
     assert definition.phases[2].key == "intrusive-credential"
@@ -501,6 +507,20 @@ def test_internal_lan_chain_service_enumeration_uses_discovered_hosts(client) ->
         )
         session.commit()
         assert chain is not None
+        assert chain.status == "active"
+        capture_run = session.get(Run, chain.current_run_id)
+        assert capture_run is not None and capture_run.profile is not None
+        assert capture_run.profile.name == "passive-lan-network-capture"
+
+        capture_run.status = "completed"
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=capture_run.id,
+            actor="runner:network-capture",
+            settings=get_settings(),
+        )
+        session.commit()
+        assert chain is not None
         assert chain.status == "pending_phase_approval"
 
     approval_response = client.post(
@@ -577,6 +597,7 @@ def test_full_lan_iot_follow_up_profiles_use_discovered_hosts() -> None:
         "active-lan-ssh-brute",
         "passive-lan-segmentation-check",
         "passive-lan-ipv6-discovery",
+        "passive-lan-network-capture",
         "passive-lan-infrastructure-audit",
     }.issubset(assessment_chain_service.HOST_FOLLOW_UP_PROFILES)
 
@@ -645,10 +666,21 @@ def test_internal_lan_chain_web_follow_up_aggregates_all_service_inventory_snaps
         assert iot_run is not None and iot_run.profile is not None
         assert iot_run.profile.name == "passive-lan-iot-discovery"
         iot_run.status = "completed"
-        advance_assessment_chain_for_completed_run(
+        chain = advance_assessment_chain_for_completed_run(
             session,
             run_id=iot_run.id,
             actor="runner:mdns-ssdp",
+            settings=get_settings(),
+        )
+        assert chain is not None and chain.current_run_id is not None
+        capture_run = session.get(Run, chain.current_run_id)
+        assert capture_run is not None and capture_run.profile is not None
+        assert capture_run.profile.name == "passive-lan-network-capture"
+        capture_run.status = "completed"
+        advance_assessment_chain_for_completed_run(
+            session,
+            run_id=capture_run.id,
+            actor="runner:network-capture",
             settings=get_settings(),
         )
         session.commit()
@@ -1521,12 +1553,32 @@ def test_assessment_chain_skips_zero_target_follow_up_steps_without_failing(clie
         assert passive_phase["status"] == "active"
         assert passive_phase["steps"][0]["status"] == "completed"
         assert passive_phase["steps"][1]["status"] == "running"
+        assert passive_phase["steps"][2]["profile_name"] == "passive-lan-network-capture"
 
         iot_run.status = "completed"
         chain = advance_assessment_chain_for_completed_run(
             session,
             run_id=iot_run.id,
             actor="runner:mdns-ssdp",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None
+        assert chain.status == "active"
+        assert chain.current_run_id is not None
+        capture_run = session.get(Run, chain.current_run_id)
+        assert capture_run is not None and capture_run.profile is not None
+        assert capture_run.profile.name == "passive-lan-network-capture"
+        passive_phase = chain.phases_json[0]
+        assert passive_phase["steps"][1]["status"] == "completed"
+        assert passive_phase["steps"][2]["status"] == "running"
+
+        capture_run.status = "completed"
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=capture_run.id,
+            actor="runner:network-capture",
             settings=get_settings(),
         )
         session.commit()

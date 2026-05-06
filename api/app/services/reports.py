@@ -1754,6 +1754,7 @@ SURFACE_COVERAGE_RULES: tuple[dict[str, object], ...] = (
             "rtsp",
             "default-creds",
             "segmentation",
+            "network-capture",
             "ipv6",
         ),
         "sections": ("iot_security_summary", "network_discovery", "host_inventory"),

@@ -299,6 +299,21 @@ def test_snmp_enum_command_preview_includes_configured_ports() -> None:
     assert "10.0.20.8" in preview
 
 
+def test_network_capture_command_preview_is_bounded_and_redacted() -> None:
+    preview = _runner_command_preview(
+        "network-capture",
+        ["10.0.20.0/24"],
+        {"interface": "eth0", "capture_seconds": 60, "packet_limit": 10000},
+    )
+
+    assert "--tcpdump-passive" in preview
+    assert "--redact-secrets" in preview
+    assert "--seconds 60" in preview
+    assert "--packet-limit 10000" in preview
+    assert "--arp-consistency" in preview
+    assert "10.0.20.0/24" in preview
+
+
 def test_crypto_audit_command_preview_names_safe_tooling() -> None:
     preview = _runner_command_preview(
         "crypto-audit",

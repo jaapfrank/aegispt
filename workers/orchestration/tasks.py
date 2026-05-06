@@ -53,6 +53,7 @@ from api.app.services.inventory import (
     ldap_enum_observation_from_json,
     mdns_ssdp_observation_from_json,
     mobile_android_observation_from_json,
+    network_capture_observation_from_json,
     nmap_observation_from_xml,
     smart_home_observation_from_json,
     snmp_enum_observation_from_json,
@@ -144,6 +145,10 @@ from workers.runners.mobile_android.runner import (
     execute_mobile_android_static,
 )
 from workers.runners.netexec.runner import execute_netexec_smb
+from workers.runners.network_capture.runner import (
+    NETWORK_CAPTURE_RESULTS_ARTIFACT_NAME,
+    execute_network_capture_assessment,
+)
 from workers.runners.network_segmentation.runner import execute_network_segmentation_assessment
 from workers.runners.nmap.runner import execute_nmap_scan
 from workers.runners.nuclei.runner import execute_nuclei_scan
@@ -217,6 +222,7 @@ SUPPORTED_TOOLS = {
     "metasploit",
     "mdns-ssdp",
     "mobile-android",
+    "network-capture",
     "network-segmentation",
     "nmap",
     "netexec",
@@ -982,6 +988,92 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if isinstance(request.params.get("vlan_target_ip"), str)
                 else None
             ),
+        )
+    if request.tool == "network-capture":
+        return execute_network_capture_assessment(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            inventory=(
+                request.params.get("inventory")
+                if isinstance(request.params.get("inventory"), dict)
+                else None
+            ),
+            mode=(
+                request.params.get("mode")
+                if isinstance(request.params.get("mode"), str)
+                else "passive"
+            ),
+            interface=(
+                request.params.get("interface")
+                if isinstance(request.params.get("interface"), str)
+                else None
+            ),
+            capture_seconds=(
+                int(request.params.get("capture_seconds"))
+                if isinstance(request.params.get("capture_seconds"), int)
+                else 60
+            ),
+            packet_limit=(
+                int(request.params.get("packet_limit"))
+                if isinstance(request.params.get("packet_limit"), int)
+                else 10000
+            ),
+            packet_text=(
+                request.params.get("fixture_packet_text")
+                if isinstance(request.params.get("fixture_packet_text"), str)
+                else None
+            ),
+            ip_neigh_text=(
+                request.params.get("fixture_ip_neigh_text")
+                if isinstance(request.params.get("fixture_ip_neigh_text"), str)
+                else None
+            ),
+            arp_probe_text=(
+                request.params.get("fixture_arp_probe_text")
+                if isinstance(request.params.get("fixture_arp_probe_text"), str)
+                else None
+            ),
+            arp_table=(
+                request.params.get("arp_table")
+                if isinstance(request.params.get("arp_table"), list)
+                else None
+            ),
+            arp_probe_enabled=bool(request.params.get("arp_probe_enabled", True)),
+            arp_probe_count=(
+                int(request.params.get("arp_probe_count"))
+                if isinstance(request.params.get("arp_probe_count"), int)
+                else 1
+            ),
+            gateway_ip=(
+                request.params.get("gateway_ip")
+                if isinstance(request.params.get("gateway_ip"), str)
+                else None
+            ),
+            expected_gateway_mac=(
+                request.params.get("expected_gateway_mac")
+                if isinstance(request.params.get("expected_gateway_mac"), str)
+                else None
+            ),
+            arp_spoof_proof_requested=bool(
+                request.params.get("arp_spoof_proof_requested")
+                or request.params.get("arp_spoof_enabled")
+            ),
+            allow_arp_spoof_proof=bool(request.params.get("allow_arp_spoof_proof")),
+            intrusive_authorized=bool(request.params.get("intrusive_authorized")),
+            arp_spoof_duration_seconds=(
+                int(request.params.get("arp_spoof_duration_seconds"))
+                if isinstance(request.params.get("arp_spoof_duration_seconds"), int)
+                else 10
+            ),
+            arp_spoof_target=(
+                request.params.get("arp_spoof_target")
+                if isinstance(request.params.get("arp_spoof_target"), str)
+                else None
+            ),
+            tcpdump_binary=os.getenv("TCPDUMP_BINARY", "tcpdump"),
+            ip_binary=os.getenv("IP_BINARY", "ip"),
+            arping_binary=os.getenv("ARPING_BINARY", "arping"),
+            arpspoof_binary=os.getenv("ARPSPOOF_BINARY", "arpspoof"),
         )
     if request.tool == "snmp-enum":
         return execute_snmp_enumeration(
@@ -2826,6 +2918,17 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
                 f"--approved-scope {target_label}{extra}"
             )
         return f"$ network-segmentation --subnet-discovery --reachability --approved-scope {target_label}{extra}"
+    if tool == "network-capture":
+        capture_seconds = effective_params.get("capture_seconds")
+        capture_label = int(capture_seconds) if isinstance(capture_seconds, (int, float)) else 60
+        packet_limit = effective_params.get("packet_limit")
+        packet_label = int(packet_limit) if isinstance(packet_limit, (int, float)) else 10000
+        interface = str(effective_params.get("interface") or "approved-interface").strip()
+        return (
+            "$ network-capture --tcpdump-passive --no-pcap-store --redact-secrets "
+            f"--interface {shlex.quote(interface)} --seconds {capture_label} "
+            f"--packet-limit {packet_label} --arp-consistency --approved-scope {target_label}{extra}"
+        )
     if tool == "snmp-enum":
         communities = effective_params.get("community_strings")
         community_count = len(communities) if isinstance(communities, list) else 8
@@ -3524,6 +3627,38 @@ def _store_inventory_snapshot_from_execution(
         assumptions = [
             "Only passive wireless survey metadata emitted by the runner is reflected in this snapshot.",
             "The WiFi foundation runner does not deauthenticate clients, capture handshakes, brute-force WPS, jam RF, or create rogue access points.",
+        ]
+    elif task.tool == "network-capture":
+        artifact_pair = next(
+            (
+                (artifact, artifact_record)
+                for artifact, artifact_record in artifact_pairs
+                if artifact.name == NETWORK_CAPTURE_RESULTS_ARTIFACT_NAME
+            ),
+            None,
+        )
+        if artifact_pair is None:
+            return None
+
+        artifact, artifact_record = artifact_pair
+        if not artifact.data:
+            return None
+
+        try:
+            observation = network_capture_observation_from_json(
+                json_bytes=artifact.data,
+                target_id=task.target_id,
+            )
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+        notes = [
+            f"Passive network capture imported from task {task.id}.",
+            f"Run {task.run_id} target {task.target_id}.",
+        ]
+        assumptions = [
+            "Only redacted passive capture metadata, cleartext protocol indicators, and ARP consistency entries emitted by the runner are reflected in this snapshot.",
+            "Raw packet payloads and captured credential values are not stored in the inventory snapshot.",
         ]
     elif task.tool == "snmp-enum":
         artifact_pair = next(

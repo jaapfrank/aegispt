@@ -89,6 +89,14 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
       tools: ["ssh-brute"],
     },
   },
+  "passive-lan-network-capture": {
+    run_class: "passive",
+    limits_json: {
+      description: "Passive LAN tcpdump capture and ARP consistency review with redacted credential evidence.",
+      required_approvals: 0,
+      tools: ["network-capture"],
+    },
+  },
   "intrusive-validation": {
     run_class: "intrusive",
     limits_json: {

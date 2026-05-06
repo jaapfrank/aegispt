@@ -374,6 +374,7 @@ const TOOL_ICON_LABELS = {
   "logging-probe": "LOG",
   "priv-esc-linux": "PRIV",
   "ssh-brute": "HYD",
+  "network-capture": "CAP",
 };
 
 const PROFILE_TARGET_GROUPS = {
@@ -407,6 +408,7 @@ const PROFILE_TARGET_GROUPS = {
   "intrusive-impacket-dcsync": ["directory"],
   "active-llm-application-probe": ["ai", "web"],
   "passive-wifi-survey": ["wireless"],
+  "passive-lan-network-capture": ["network"],
 };
 
 const LAN_DISCOVERY_EXECUTION_PROFILES = new Set([
@@ -453,6 +455,35 @@ const PROFILE_EXPECTATION_COPY = {
   "active-lan-ssh-brute": "Hydra-backed SSH, FTP, Telnet, and RDP weak-credential validation with top-50 passwords first.",
   "passive-lan-segmentation-check": "Segmentation, route, ARP, and cross-segment reachability evidence.",
   "passive-lan-ipv6-discovery": "IPv6 neighbor, router, and link-local reachability evidence.",
+  "passive-lan-network-capture": "Bounded passive packet capture, cleartext credential indicators, and ARP consistency evidence.",
+};
+
+const GUIDED_PROFILE_LABELS = {
+  "passive-network-discovery": "Host discovery",
+  "passive-lan-iot-discovery": "Device discovery",
+  "passive-lan-network-capture": "Network capture + ARP",
+  "passive-identity-ldap-enum": "Identity enum",
+  "passive-easm-discovery": "External surface map",
+  "passive-network-service-enumeration": "Service enumeration",
+  "passive-web-baseline": "Web baseline",
+  "passive-web-nuclei-audit": "Nuclei safe scan",
+  "active-ad-bloodhound": "Path analysis",
+  "active-lan-ssh-brute": "SSH weak-password check",
+  "passive-lan-smb-enum": "Posture",
+};
+
+const GUIDED_PROFILE_ICONS = {
+  "passive-network-discovery": "NMAP",
+  "passive-lan-iot-discovery": "IOT",
+  "passive-lan-network-capture": "CAP",
+  "passive-identity-ldap-enum": "LDAP",
+  "passive-easm-discovery": "EASM",
+  "passive-network-service-enumeration": "NMAP",
+  "passive-web-baseline": "HTTPX",
+  "passive-web-nuclei-audit": "NUCL",
+  "active-ad-bloodhound": "BLOOD",
+  "active-lan-ssh-brute": "HYD",
+  "passive-lan-smb-enum": "SMB",
 };
 
 const MISSION_PREVIEW_DEFINITIONS = {
@@ -467,7 +498,13 @@ const MISSION_PREVIEW_DEFINITIONS = {
         icon: "DISC",
         estimatedMinutes: 20,
         findingCopy: "Hosts, services, and initial directory posture.",
-        profiles: ["passive-network-discovery", "passive-identity-ldap-enum", "passive-easm-discovery"],
+        profiles: [
+          "passive-network-discovery",
+          "passive-lan-iot-discovery",
+          "passive-lan-network-capture",
+          "passive-identity-ldap-enum",
+          "passive-easm-discovery",
+        ],
       },
       {
         key: "active-enrichment",
@@ -529,7 +566,7 @@ const MISSION_PREVIEW_DEFINITIONS = {
         icon: "DISC",
         estimatedMinutes: 20,
         findingCopy: "LAN hosts plus mDNS/SSDP smart-device inventory.",
-        profiles: ["passive-network-discovery", "passive-lan-iot-discovery"],
+        profiles: ["passive-network-discovery", "passive-lan-iot-discovery", "passive-lan-network-capture"],
       },
       {
         key: "iot-enumeration",
@@ -1478,7 +1515,9 @@ function guidedAssessmentModeForSelection({
 } = {}) {
   const compatibleModes = compatibleAssessmentModesForSelection(keys, selectedTile);
   if (String(depthChoice || "").trim() === "passive") {
-    return compatibleModes[0] === "FULL-EXTERNAL-WEB" ? "FULL-EXTERNAL-WEB" : "";
+    return ["FULL-EXTERNAL-WEB", "FULL-INTERNAL-LAN", "FULL-LAN-IOT"].includes(compatibleModes[0])
+      ? compatibleModes[0]
+      : "";
   }
   return compatibleModes[0] || "";
 }
@@ -2528,6 +2567,37 @@ export function createWizardModule() {
     `;
   }
 
+  function guidedPreviewDefinition(data = state.wizard.data) {
+    const configuredMode = String(data.assessment_mode?.mode || "").trim().toUpperCase();
+    const keys = selectedAssessmentTileKeys(state.wizard);
+    const inferredMode = guidedAssessmentModeForSelection({
+      keys,
+      selectedTile: assessmentTileByKey(primaryAssessmentTileKey(keys)),
+      depthChoice: state.wizard.intake.flowDepthChoice || "active",
+    });
+    const mode = configuredMode || inferredMode;
+    return MISSION_PREVIEW_DEFINITIONS[mode] || null;
+  }
+
+  function guidedPreviewPhaseLimit(depth = flowDepthConfig(), definition = null) {
+    const available = Array.isArray(definition?.phases) ? definition.phases.length : guidedPhaseLimit(depth);
+    if (depth.authorization === "passive") return Math.min(1, available);
+    if (depth.authorization === "full") return available;
+    return Math.min(2, available);
+  }
+
+  function guidedPreviewPhaseSummary(definition, depth = flowDepthConfig()) {
+    if (!definition) return depth.phases;
+    const visiblePhases = definition.phases.slice(0, guidedPreviewPhaseLimit(depth, definition));
+    const runnerCount = visiblePhases.reduce((total, phase) => total + (phase.profiles?.length || 0), 0);
+    return `${visiblePhases.length} phase${visiblePhases.length === 1 ? "" : "s"} · ${runnerCount} runner${runnerCount === 1 ? "" : "s"}`;
+  }
+
+  function guidedPreviewLaneSummary(definition, depth = flowDepthConfig(), plan = executionPlanForProfile(estimateMission(state.wizard.data).execution_profile, state.runProfiles)) {
+    if (!definition) return `${plan.profileName} · ${plan.toolsLabel}`;
+    return `${definition.label} · ${guidedPreviewPhaseSummary(definition, depth)}`;
+  }
+
   function renderGuidedPreviewStep() {
     const target = flowTargetValue();
     const depth = flowDepthConfig();
@@ -2539,6 +2609,7 @@ export function createWizardModule() {
     const plan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
     const family = guidedPhaseFamily(state.wizard.data, plan);
     const fullAuthCopy = guidedFullAuthorizationCopy(family);
+    const previewDefinition = guidedPreviewDefinition(state.wizard.data);
     return `
       <div class="wizard-flow-step wizard-preview-step" data-testid="conversation-question">
         <div class="page-h">Mission Preview</div>
@@ -2550,8 +2621,8 @@ export function createWizardModule() {
             <div class="preview-chips">
               <span class="p-chip">🎯 ${escapeHtml(target)}</span>
               <span class="p-chip">⏱ ${escapeHtml(depth.eta)}</span>
-              <span class="p-chip">${escapeHtml(depth.phases)}</span>
-              <span class="p-chip" data-testid="wizard-preview-execution-lane">${escapeHtml(plan.profileName)} · ${escapeHtml(plan.toolsLabel)}</span>
+              <span class="p-chip">${escapeHtml(guidedPreviewPhaseSummary(previewDefinition, depth))}</span>
+              <span class="p-chip" data-testid="wizard-preview-execution-lane">${escapeHtml(guidedPreviewLaneSummary(previewDefinition, depth, plan))}</span>
             </div>
           </div>
           <div class="tgt-bar">
@@ -2559,7 +2630,7 @@ export function createWizardModule() {
             <span class="tgt-node">🌐 ${escapeHtml(target)}</span>
             <span class="tgt-note">Hosts discovered in Phase 1 are automatically included in later phases.</span>
           </div>
-          ${renderGuidedPhaseDiagram(state.wizard.data, depth, plan)}
+          ${renderGuidedPhaseDiagram(state.wizard.data, depth, plan, previewDefinition)}
           ${renderAccessUnlockerGate(state.wizard.data)}
           <div class="auth-area" data-testid="wizard-authorization-selector">
             <div class="auth-title">How far should AegisPT go?</div>
@@ -2738,6 +2809,32 @@ export function createWizardModule() {
     return templates[family] || templates.web;
   }
 
+  function guidedDefinitionPhaseTemplates(definition) {
+    const styleByTier = {
+      passive: { cls: "ph-p", icon: "🟢", approval: "no approval" },
+      active: { cls: "ph-a", icon: "🔵", approval: "phase approval" },
+      "intrusive-credential": { cls: "ph-c", icon: "🟠", approval: "credential gate" },
+      "intrusive-exploitation": { cls: "ph-e", icon: "🔴", approval: "explicit gate" },
+    };
+    return (definition?.phases || []).map((phase) => {
+      const style = styleByTier[phase.tier] || styleByTier.passive;
+      const phaseName = String(phase.label || "Phase").replace(/^Phase\s+\d+\s+·\s+/i, "");
+      return {
+        cls: style.cls,
+        num: phase.label || "Planned Phase",
+        name: `${style.icon} ${phaseName}`,
+        tools: (phase.profiles || []).map((profileName) => {
+          const plan = executionPlanForProfile(profileName, state.runProfiles);
+          const primaryTool = plan.tools[0] || "runner";
+          const icon = GUIDED_PROFILE_ICONS[profileName] || TOOL_ICON_LABELS[primaryTool] || "RUN";
+          const label = GUIDED_PROFILE_LABELS[profileName] || humanizeProfileName(profileName);
+          return `${icon} ${label}`;
+        }),
+        dur: `~${phase.estimatedMinutes || 15} min · ${style.approval}`,
+      };
+    });
+  }
+
   function guidedFullAuthorizationCopy(family = "web") {
     const copy = {
       web: {
@@ -2773,9 +2870,17 @@ export function createWizardModule() {
     return columns.join(" ");
   }
 
-  function renderGuidedPhaseDiagram(data = state.wizard.data, depth = flowDepthConfig(), plan = executionPlanForProfile(estimateMission(data).execution_profile, state.runProfiles)) {
+  function renderGuidedPhaseDiagram(
+    data = state.wizard.data,
+    depth = flowDepthConfig(),
+    plan = executionPlanForProfile(estimateMission(data).execution_profile, state.runProfiles),
+    previewDefinition = guidedPreviewDefinition(data),
+  ) {
     const family = guidedPhaseFamily(data, plan);
-    const phases = guidedPhaseTemplates(family).slice(0, guidedPhaseLimit(depth));
+    const definitionPhases = previewDefinition
+      ? guidedDefinitionPhaseTemplates(previewDefinition).slice(0, guidedPreviewPhaseLimit(depth, previewDefinition))
+      : [];
+    const phases = definitionPhases.length ? definitionPhases : guidedPhaseTemplates(family).slice(0, guidedPhaseLimit(depth));
     const gridTemplate = phaseGridTemplate(phases.length);
     return `
       <div class="phase-diagram" data-testid="wizard-mission-preview-diagram">

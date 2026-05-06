@@ -1,5 +1,79 @@
 # Done Log
 
+- 2026-05-06: completed backlog-246 `Network traffic capture runner: tcpdump passive capture + ARP poisoning detection to cover AutoPenBench NS4/NS5`:
+  - rationale:
+    - AutoPenBench NS4/NS5 coverage required governed LAN traffic-capture evidence and ARP poisoning exposure detection without turning passive LAN discovery into uncontrolled live spoofing
+    - the active package asked for bounded tcpdump capture, cleartext credential/token indicators, ARP consistency findings, and an optional ARP spoof proof that remains intrusive-gated, single-target, time-bounded, and restorative
+    - `http://127.0.0.1:8000` was relevant because the task changed run profiles, assessment-chain planning, wizard prediction/preview surfaces, tool catalog display, and cache-busted browser assets
+  - implementation:
+    - added `workers.runners.network_capture.runner` with `network-capture-results.json`, passive tcpdump command construction, duration/packet caps, approved scope BPF filters, raw payload suppression, credential-value redaction, and cleartext HTTP Basic/Bearer/API-key/FTP/Telnet signal detection
+    - added ARP table parsing from inventory, `ip neigh`, and arping-style output; duplicate MAC, multiple MACs for one IP, and gateway MAC mismatch anomalies produce `ARP Poisoning Possible - No ARP Inspection Detected`
+    - implemented optional ARP spoof proof behind explicit `allow_arp_spoof_proof`, `intrusive_authorized`, approved interface, single target, gateway, scope check, max 30-second bound, and graceful SIGINT restoration attempt
+    - wired `network-capture` into worker support, dispatch, command previews, inventory import, finding extraction, report routing, settings/readiness, installer/host verification, runner/tool certification, AI tool listing, and acceptance harness mapping
+    - registered `passive-lan-network-capture` as a passive profile and inserted it into FULL-INTERNAL-LAN, FULL-LAN-IOT, host follow-up planning, wizard prediction matrix, visible guided wizard preview, shared fallback planning, and packs/tool surfaces
+    - fixed the chain follow-up path so `passive-lan-network-capture` can run from configured approved CIDR scope when no discovered host inventory exists yet, instead of being skipped as a host-only follow-up
+  - files:
+    - `workers/runners/network_capture/runner.py`
+    - `workers/runners/network_capture/__init__.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/tests/test_network_capture_runner.py`
+    - `workers/tests/test_runner_contract.py`
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/assessment_chain.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/inventory.py`
+    - `api/app/services/reports.py`
+    - `api/app/services/settings.py`
+    - `api/app/services/ai_agent.py`
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `api/tests/test_settings.py`
+    - `api/tests/test_wizard_iot_static.py`
+    - `scripts/acceptance_harness.py`
+    - `scripts/build_runner_tool_certification_matrix.py`
+    - `scripts/install_security_tools.sh`
+    - `scripts/verify_host.sh`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/modules/shared.js`
+    - `ui/assets/modules/packs.js`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `codex/results/backlog-246-network-capture-runner-20260506.md`
+    - `codex/results/backlog-246-network-capture-live-10-0-20-20260506.json`
+    - `codex/results/backlog-246-wizard-network-capture-8000.json`
+    - `codex/results/backlog-246-wizard-network-capture-8000.png`
+    - `codex/results/backlog-246-wizard-network-capture-preview-8000.json`
+    - `codex/results/backlog-246-wizard-network-capture-preview-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - Python compile checks passed for the new runner, orchestration, API services, and certification script
+    - ES module syntax checks passed for the touched wizard/shared/packs/app browser modules
+    - `bash -n scripts/install_security_tools.sh scripts/verify_host.sh` passed
+    - focused `source .venv/bin/activate && python -m pytest workers/tests/test_network_capture_runner.py workers/tests/test_runner_contract.py workers/tests/test_runner_tool_certification_matrix.py -q` passed
+    - focused API/static checks for network-capture profile registration, chain planning, settings readiness, and wizard static wiring passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/ -q` passed on the rerun after fixing the CIDR-only chain follow-up regression; only existing Alembic deprecation warnings were printed
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion with 251 queued task packages mapped one-to-one and exactly one active task
+    - `git diff --check` passed before promotion
+    - local browser acceptance on `http://127.0.0.1:8000/app/` confirmed current asset key `20260506-network-capture-1`, Internal LAN and Smart Home / IoT LAN prediction matrix coverage, visible Internal LAN preview for `10.0.20.0/24`, `CAP Network capture + ARP`, no stale `RUNNE` fallback label, and no page errors
+  - evidence:
+    - `codex/results/backlog-246-network-capture-runner-20260506.md`
+    - `codex/results/backlog-246-network-capture-live-10-0-20-20260506.json`
+    - `codex/results/backlog-246-wizard-network-capture-8000.json`
+    - `codex/results/backlog-246-wizard-network-capture-8000.png`
+    - `codex/results/backlog-246-wizard-network-capture-preview-8000.json`
+    - `codex/results/backlog-246-wizard-network-capture-preview-8000.png`
+  - exceptions and boundaries:
+    - the operator authorized `10.0.20.0/24`; safe discovery found 27 hosts and `ip neigh` provided 28 usable ARP entries for real runner parsing
+    - host `tcpdump`, `arping`, and `arpspoof` are not installed, so live passive packet capture and live ARP spoof proof are recorded as blocked/missing host capability, not green; install/readiness wiring now covers those binaries
+    - an initial full API test run failed because network-capture was treated as host-only chain follow-up and skipped CIDR-only scope; this was fixed by making the profile CIDR-capable and the full API suite was rerun successfully
+    - no live ARP spoofing, public/customer/third-party target traffic capture, raw packet payload storage, credential value storage, database/content extraction, pack-registry bypass, validation bypass, approval bypass, deployment bypass, runtime-binding bypass, scope bypass, ROE bypass, credential-gate bypass, kill-switch bypass, runtime self-modification, or uncontrolled plugin installation occurred
+  - remaining risks:
+    - real tcpdump/arping/arpspoof execution on this host still requires installing the declared tools through the governed host install/readiness path
+    - live ARP spoof proof remains intentionally intrusive-gated and should use a single explicit target/interface/gateway with restoration context, not a whole-subnet free-for-all
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-247 `sqlmap blind and advanced SQLi`
+
 - 2026-05-06: completed backlog-244 `SSH/service brute force runner via Hydra: cover AutoPenBench AC0 weak-password task`:
   - rationale:
     - AutoPenBench AC0-style weak SSH password coverage required a bounded service brute-force runner, while the existing `credential-attacks` lane is AD/Kerberos-specific

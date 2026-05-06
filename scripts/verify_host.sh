@@ -140,6 +140,9 @@ proxy_safe_semgrep
 verify_command "ssh-audit" ssh-audit -h
 verify_command "AWS CLI" aws --version
 verify_command "Responder" responder --version
+verify_command "tcpdump" tcpdump --version
+verify_any_command_allow_nonzero "arping" "arping -h" "arping -V"
+verify_any_command_allow_nonzero "arpspoof" "arpspoof -h" "arpspoof"
 verify_any_command_allow_nonzero "NetExec" "nxc --version" "netexec --version" "crackmapexec --version"
 verify_command "hashcat" hashcat --version
 verify_command "Metasploit console" msfconsole -v

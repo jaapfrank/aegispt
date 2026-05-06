@@ -127,11 +127,13 @@ $SUDO apt install -y \
   curl unzip tar ca-certificates pipx git python3-venv python3-aioquic \
   openjdk-17-jre-headless \
   nmap ffuf gobuster nikto sqlmap hydra testssl.sh hashcat ssh-audit sshpass ldap-utils \
-  snmp iw aircrack-ng wireless-tools
+  snmp tcpdump iw aircrack-ng wireless-tools
 
 install_apt_if_available "impacket-scripts"
 install_apt_if_available "netexec"
 install_apt_if_available "bloodhound.py"
+install_apt_if_available "iputils-arping"
+install_apt_if_available "dsniff"
 
 if command -v testssl >/dev/null 2>&1 && ! command -v testssl.sh >/dev/null 2>&1; then
   $SUDO ln -sf "$(command -v testssl)" /usr/local/bin/testssl.sh

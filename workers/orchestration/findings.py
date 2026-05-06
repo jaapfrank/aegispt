@@ -43,6 +43,7 @@ from workers.runners.mdns_ssdp.runner import MDNS_SSDP_ARTIFACT_NAME
 from workers.runners.metasploit.runner import METASPLOIT_RESULTS_ARTIFACT_NAME
 from workers.runners.mobile_android.runner import MOBILE_ANDROID_RESULTS_ARTIFACT_NAME
 from workers.runners.netexec.runner import NETEXEC_RESULTS_ARTIFACT_NAME
+from workers.runners.network_capture.runner import NETWORK_CAPTURE_RESULTS_ARTIFACT_NAME
 from workers.runners.network_segmentation.runner import NETWORK_SEGMENTATION_ARTIFACT_NAME
 from workers.runners.oauth_probe.runner import OAUTH_PROBE_RESULTS_ARTIFACT_NAME
 from workers.runners.playwright_web.runner import PLAYWRIGHT_WEB_RESULTS_ARTIFACT_NAME
@@ -419,6 +420,12 @@ def extract_findings(
         )
     if task.tool == "network-segmentation":
         return extract_network_segmentation_findings(
+            target_id=task.target_id,
+            artifact=artifact,
+            artifact_record=artifact_record,
+        )
+    if task.tool == "network-capture":
+        return extract_network_capture_findings(
             target_id=task.target_id,
             artifact=artifact,
             artifact_record=artifact_record,
@@ -1765,6 +1772,55 @@ def extract_network_segmentation_findings(
         if not isinstance(item, dict):
             continue
         title = str(item.get("title") or "Network segmentation signal").strip()
+        matched_target = str(item.get("target_id") or target_id).strip() or target_id
+        dedupe_key = (title.lower(), matched_target.lower())
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
+        findings.append(
+            NormalizedFinding(
+                title=title,
+                severity=normalize_severity(str(item.get("severity") or "info")),
+                target_id=matched_target,
+                evidence_ref=artifact_record.uri,
+                summary=str(item.get("summary") or "").strip() or None,
+                methodology_tags=tuple(
+                    tag
+                    for tag in item.get("methodology_tags", [])
+                    if isinstance(tag, str) and tag.strip()
+                ),
+                ptes_phase=str(item.get("ptes_phase") or "").strip() or None,
+                nist_phase=str(item.get("nist_phase") or "").strip() or None,
+                wstg_id=str(item.get("wstg_id") or "").strip() or None,
+                control_family=str(item.get("control_family") or "").strip() or None,
+            )
+        )
+    return findings
+
+
+def extract_network_capture_findings(
+    *,
+    target_id: str,
+    artifact: EvidenceArtifact,
+    artifact_record: EvidenceArtifactRecord,
+) -> list[NormalizedFinding]:
+    if artifact.name != NETWORK_CAPTURE_RESULTS_ARTIFACT_NAME:
+        return []
+
+    payload = json.loads(artifact.data.decode("utf-8", errors="replace"))
+    if not isinstance(payload, dict):
+        return []
+
+    findings: list[NormalizedFinding] = []
+    seen_keys: set[tuple[str, str]] = set()
+    for item in (
+        payload.get("analysis_findings", [])
+        if isinstance(payload.get("analysis_findings"), list)
+        else []
+    ):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "Network capture signal").strip()
         matched_target = str(item.get("target_id") or target_id).strip() or target_id
         dedupe_key = (title.lower(), matched_target.lower())
         if dedupe_key in seen_keys:

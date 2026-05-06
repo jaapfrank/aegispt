@@ -388,6 +388,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["Internal LAN", "Network segmentation"],
   },
   {
+    id: "network-capture",
+    name: "Network Capture",
+    category: "Discovery",
+    tier: "passive",
+    description: "Runs bounded passive tcpdump capture and ARP consistency review with stored secrets redacted.",
+    findings: ["Cleartext credential traffic", "Token leakage", "ARP poisoning indicators"],
+    prerequisites: ["Approved LAN segment", "Approved local interface", "tcpdump available"],
+    chains: ["Internal LAN", "Smart home", "IoT discovery"],
+  },
+  {
     id: "aws-inventory",
     name: "AWS Inventory",
     category: "Cloud",
