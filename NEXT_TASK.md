@@ -2,43 +2,37 @@
 
 ## Title
 
-AI Free Bash Execution: let the AI agent run arbitrary shell commands on authorized targets via SSH, with operator-per-command approval
+RCE detection Nuclei template expansion: cover AutoPenBench WS5/WS6 and real-world CVE RCE tasks
 
 ## Promoted From
 
-`codex/tasks/backlog-248-ai-free-bash-execution-runner.json`
+`codex/tasks/backlog-249-rce-detection-nuclei-templates-expansion.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-248-ai-free-bash-execution-runner.json` so AegisPT can support AI-proposed SSH shell commands on approved engagement targets while preserving per-command operator approval, scope enforcement, auditability, kill-switch control, and the existing predefined runner model.
+Implement the active backlog package `codex/tasks/backlog-249-rce-detection-nuclei-templates-expansion.json` so AegisPT improves detection-only RCE coverage for AutoPenBench WS5/WS6 and real-world CVE RCE classes through governed Nuclei template expansion, OOB callback support where safely configured, and service-aware template selection.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-248-ai-free-bash-execution-runner.json`.
+Implement the active backlog package `codex/tasks/backlog-249-rce-detection-nuclei-templates-expansion.json`.
 
 Expected slice:
 
-- add an `ai-shell` runner that executes a single approved SSH command on an approved engagement target
-- allow the AI agent to propose shell-type actions with exact command, target, SSH credential reference, and reasoning
-- surface shell proposals in Mission Control with the exact command visible before approval
-- execute only after operator approval of that individual command
-- cap command output and store durable proposed/approved/rejected/executed audit evidence
-- enforce a banned-command list before SSH execution
-- enforce approved target scope before SSH execution
-- add a per-engagement kill switch or disable control for `ai-shell`
-- add the `active-ai-shell` run profile and dispatch mapping required by the package
-- keep the existing manual/predefined runners intact
+- verify and enable detection-only Nuclei coverage for listed RCE CVEs such as Log4Shell, Spring4Shell, GeoServer, Jenkins CLI RCE, Druid RCE, Grafana path traversal/file read, Bludit RCE, and SambaCry
+- add or wire generic detection-only RCE templates for common command-injection parameters, PHP file-inclusion/code-execution signals, SSTI math-expression probes, and safe deserialization callback probes
+- support OOB/Interactsh-style blind RCE detection only through governed configuration and detection-only callbacks
+- update Nuclei templates before scans where this can be done without bypassing existing tool validation and approval controls
+- auto-match Nuclei templates to discovered service evidence from existing inventory/nmap/httpx artifacts to reduce noise
+- preserve existing Nuclei safety validation and approval gates
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Do not execute shell commands on the AegisPT host itself.
-- Only execute via SSH on approved engagement targets.
-- Every shell command requires individual operator approval; no batch approval and no auto-run shell mode.
-- Enforce the banned-command list before execution: destructive disk operations, reboot/shutdown, firewall flush, password/user changes, crontab removal, and external `wget`/`curl` outside scope.
-- Do not bypass approvals, scope, ROE, deployment, runtime binding, credential gates, or kill switch.
+- Detection templates only; no RCE exploitation, payload delivery, file writes, persistence, webshell upload, or shell execution.
+- Nuclei templates must remain detection-only and pass existing safety validation.
+- Do not use templates with uncontrolled `attack` behavior or unsafe body payloads.
+- Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - Do not weaken intrusive exploitation gates.
-- Do not change existing predefined runner behavior except where explicitly required to register `ai-shell`.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
 
@@ -50,13 +44,9 @@ Expected slice:
 
 ## Acceptance
 
-- AI can propose shell-type actions with command, target, SSH credential reference, and reasoning.
-- Mission Control shows the exact proposed command before approval.
-- Approval executes exactly one SSH command on an in-scope target.
-- Rejection does not execute.
-- Banned commands are blocked before SSH execution.
-- Out-of-scope targets are blocked before SSH execution.
-- Output is capped and returned for the next AI analysis cycle.
-- Audit log records proposed, approved/rejected, executed, output hash, and blocker states.
-- Engagement kill switch disables `ai-shell`.
-- Existing AI agent, proposal, runner, approval, and dispatch tests do not regress.
+- Listed CVE RCE templates are verified present/enabled or gaps are explicitly documented.
+- OOB/Interactsh blind RCE detection is configured or safely blocked with clear operator evidence.
+- `nuclei -update-templates` behavior is governed and does not bypass safety validation.
+- Template selection can use discovered service evidence to select relevant RCE checks.
+- Existing Nuclei tests do not regress.
+- No exploitation, payload delivery, file write, or webshell behavior is introduced.

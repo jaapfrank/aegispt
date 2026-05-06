@@ -25,6 +25,7 @@ STATUS_GAP = "supported-with-gap"
 STATUS_BLOCKED = "blocked"
 
 TOOL_GROUP_BY_RUNNER_TOOL = {
+    "ai-shell": "ssh-client",
     "bloodhound-collect": "bloodhound",
     "content-discovery": "content-discovery",
     "credential-attacks": "hashcat",
@@ -70,16 +71,22 @@ REQUIRED_BINARY_GROUPS = {
     "semgrep": [["semgrep"]],
     "snmp": [["snmpwalk"]],
     "sqlmap": [["sqlmap"]],
+    "ssh-client": [["ssh"]],
     "wifi": [["iw"], ["airodump-ng"], ["aircrack-ng"]],
     "zap": [["zaproxy", "zap.sh", "zap-baseline.py"]],
 }
 
 ARTIFACT_NAMES_BY_TOOL = {
+    "ai-shell": ["ai-shell-results.json"],
     "api-assessment": ["api-assessment-results.json", "api-assessment-inventory.json"],
     "auth-flow": ["auth-flow-results.json"],
     "aws-inventory": ["aws-inventory-results.json"],
     "biz-logic-probe": ["biz-logic-results.json"],
-    "bloodhound-collect": ["bloodhound-results.json", "bloodhound-collection.zip", "bloodhound-session.log"],
+    "bloodhound-collect": [
+        "bloodhound-results.json",
+        "bloodhound-collection.zip",
+        "bloodhound-session.log",
+    ],
     "burp": ["burp-results.json"],
     "camera-test": ["camera-test-results.json"],
     "cicd-security": ["cicd-security-results.json", "cicd-security-inventory.json"],
@@ -174,6 +181,11 @@ HARDWARE_REQUIREMENTS = {
 }
 
 SAFETY_GUARDRAILS = {
+    "ai-shell": [
+        "AI shell execution is SSH-only and requires an exact operator-reviewed command plus a credential reference.",
+        "The runner blocks loopback/AegisPT host execution, banned destructive command patterns, and out-of-scope curl/wget URLs before execution.",
+        "Runner output is capped at 8000 characters and every executed command records a command hash and output hash in audit metadata.",
+    ],
     "credential-attacks": [
         "Spray and offline cracking modes remain approval-gated and bounded by lockout policy inputs.",
         "Plaintext credentials and captured secrets must remain encrypted or redacted outside evidence custody.",
@@ -228,7 +240,9 @@ def _literal_set_from_assignment(relative_path: str, assignment_name: str) -> se
     for node in tree.body:
         if not isinstance(node, ast.Assign):
             continue
-        if not any(isinstance(target, ast.Name) and target.id == assignment_name for target in node.targets):
+        if not any(
+            isinstance(target, ast.Name) and target.id == assignment_name for target in node.targets
+        ):
             continue
         value = ast.literal_eval(node.value)
         return {str(item) for item in value}
@@ -272,10 +286,15 @@ def _default_run_profiles() -> list[dict[str, Any]]:
     for node in tree.body:
         value_node: ast.AST | None = None
         if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "DEFAULT_RUN_PROFILES" for target in node.targets
+            isinstance(target, ast.Name) and target.id == "DEFAULT_RUN_PROFILES"
+            for target in node.targets
         ):
             value_node = node.value
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == "DEFAULT_RUN_PROFILES":
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "DEFAULT_RUN_PROFILES"
+        ):
             value_node = node.value
         if value_node is None:
             continue
@@ -294,7 +313,10 @@ def _profiles_by_tool() -> dict[str, list[ProfileUse]]:
         if not isinstance(tools, list):
             continue
         run_class = str(profile.get("run_class") or "passive")
-        required_approvals = int(limits.get("required_approvals") or (2 if run_class == "intrusive" else 1 if run_class == "active" else 0))
+        required_approvals = int(
+            limits.get("required_approvals")
+            or (2 if run_class == "intrusive" else 1 if run_class == "active" else 0)
+        )
         approval_step_id = limits.get("approval_step_id")
         for tool in tools:
             if isinstance(tool, str) and tool.strip():
@@ -346,7 +368,11 @@ def _evidence_paths_for_tool(tool: str, artifact_names: list[str]) -> dict[str, 
 
 def _has_finding_mapping(tool: str) -> bool:
     text = _read_text(FINDINGS_SOURCE)
-    return f'task.tool == "{tool}"' in text or f'"{tool}"' in text and "extract_standard_json_findings" in text
+    return (
+        f'task.tool == "{tool}"' in text
+        or f'"{tool}"' in text
+        and "extract_standard_json_findings" in text
+    )
 
 
 def _has_inventory_mapping(tool: str) -> bool:
@@ -368,7 +394,9 @@ def _host_binary_state(binary_groups: list[list[str]]) -> dict[str, Any]:
         for binary in group
         if (path := shutil.which(binary))
     }
-    missing = [group for group in binary_groups if not any(binary in detected_paths for binary in group)]
+    missing = [
+        group for group in binary_groups if not any(binary in detected_paths for binary in group)
+    ]
     return {
         "state": "ready" if not missing else "missing",
         "required_binary_groups": binary_groups,
@@ -395,7 +423,9 @@ def _authorization_tier(profile_uses: list[ProfileUse]) -> dict[str, Any]:
     return {
         "run_classes": classes,
         "max_required_approvals": max(use.required_approvals for use in profile_uses),
-        "approval_step_ids": sorted({use.approval_step_id for use in profile_uses if use.approval_step_id}),
+        "approval_step_ids": sorted(
+            {use.approval_step_id for use in profile_uses if use.approval_step_id}
+        ),
         "status": classes[-1] if classes else "unknown",
     }
 
@@ -406,11 +436,17 @@ def _guardrails(tool: str, profile_uses: list[ProfileUse], finding_mapping: bool
         "Certification records evidence only and does not dispatch tools or authorize live target actions.",
     ]
     if any(use.required_approvals for use in profile_uses):
-        items.append("Mapped default profiles require explicit approval before active or intrusive execution.")
+        items.append(
+            "Mapped default profiles require explicit approval before active or intrusive execution."
+        )
     if finding_mapping:
-        items.append("Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.")
+        items.append(
+            "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name."
+        )
     else:
-        items.append("No normalized finding parser is claimed; output is treated as inventory/raw evidence unless another mapping is recorded.")
+        items.append(
+            "No normalized finding parser is claimed; output is treated as inventory/raw evidence unless another mapping is recorded."
+        )
     items.extend(SAFETY_GUARDRAILS.get(tool, []))
     return items
 
@@ -435,11 +471,16 @@ def _status_for_entry(
         missing.append("finding, inventory, or report mapping proof")
     if missing:
         return STATUS_GAP, "Missing " + ", ".join(missing) + "."
-    return STATUS_CERTIFIED, "Deterministic evidence, output contract, and reportable mapping are present."
+    return (
+        STATUS_CERTIFIED,
+        "Deterministic evidence, output contract, and reportable mapping are present.",
+    )
 
 
 def build_matrix() -> dict[str, Any]:
-    supported_tools = sorted(_literal_set_from_assignment(SUPPORTED_TOOLS_SOURCE, "SUPPORTED_TOOLS"))
+    supported_tools = sorted(
+        _literal_set_from_assignment(SUPPORTED_TOOLS_SOURCE, "SUPPORTED_TOOLS")
+    )
     profiles_by_tool = _profiles_by_tool()
     tools: list[dict[str, Any]] = []
     for tool in supported_tools:
@@ -471,7 +512,9 @@ def build_matrix() -> dict[str, Any]:
         if software_state["state"] == "missing":
             limitations.append("Required host binaries were not fully detected on this build host.")
         if not profile_uses:
-            limitations.append("Runner is supported by the dispatcher but not mapped to a default run profile.")
+            limitations.append(
+                "Runner is supported by the dispatcher but not mapped to a default run profile."
+            )
         tools.append(
             {
                 "id": tool,
@@ -533,16 +576,17 @@ def build_matrix() -> dict[str, Any]:
     non_hardware_blocked = [
         tool["id"]
         for tool in tools
-        if tool["certification_status"] == STATUS_BLOCKED and not tool["hardware_readiness"].get("blocker")
+        if tool["certification_status"] == STATUS_BLOCKED
+        and not tool["hardware_readiness"].get("blocker")
     ]
     overall_status = (
         "blocked"
         if non_hardware_blocked
-        else "ready_with_hardware_limitation"
-        if hardware_blockers
-        else "supported-with-gap"
-        if status_counts.get(STATUS_GAP, 0)
-        else "ready"
+        else (
+            "ready_with_hardware_limitation"
+            if hardware_blockers
+            else "supported-with-gap" if status_counts.get(STATUS_GAP, 0) else "ready"
+        )
     )
     return {
         "kind": "aegispt.runner_tool_certification_matrix",
@@ -600,14 +644,20 @@ def render_markdown(matrix: dict[str, Any]) -> str:
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for tool in matrix["tools"]:
-        evidence_count = len(tool["validation_evidence"]["deterministic_tests"]) + len(tool["validation_evidence"]["fixture_or_lab_evidence"])
+        evidence_count = len(tool["validation_evidence"]["deterministic_tests"]) + len(
+            tool["validation_evidence"]["fixture_or_lab_evidence"]
+        )
         mapping = []
         if tool["finding_mapping"]["verified"]:
             mapping.append("finding")
         if tool["inventory_mapping"]["verified"]:
             mapping.append("inventory")
         mapping_text = ", ".join(mapping) if mapping else "gap"
-        limitation = "; ".join(tool["limitations"]) if tool["limitations"] else "No recorded certification gap."
+        limitation = (
+            "; ".join(tool["limitations"])
+            if tool["limitations"]
+            else "No recorded certification gap."
+        )
         auth = tool["authorization_tier"]["status"]
         lines.append(
             "| "
@@ -649,7 +699,9 @@ def write_matrix(matrix: dict[str, Any], *, output_json: Path, output_md: Path) 
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build the AegisPT runner/tool certification matrix.")
+    parser = argparse.ArgumentParser(
+        description="Build the AegisPT runner/tool certification matrix."
+    )
     parser.add_argument(
         "--output-json",
         default=str(REPO_ROOT / "codex" / "results" / "runner-tool-certification-matrix.json"),

@@ -2,8 +2,8 @@
   "id": "backlog-262-mission-control-ai-loop-ui",
   "task_file": "codex/tasks/backlog-262-mission-control-ai-loop-ui.json",
   "task_type": "product_slice",
-  "title": "Mission Control AI loop UI: conditional adaptive operations view for run_mode=ai_loop only — existing Scan Map/Tasks/AI Signal layout unchanged for all other runs",
-  "goal": "When a run has run_mode=ai_loop, Mission Control switches to the adaptive operations view. For all other run modes (manual, fixed-chain), the existing Scan Map/Tasks/AI Signal layout renders unchanged. The gate condition is: if (selectedRun.run_mode === 'ai_loop') render AI loop view else render existing view. AI LOOP VIEW layout: TOP STATUS BAR: 'AI Assessment · Iteration 5 of 20 · [target] · Tier: Active · Runtime: 12m'. Four panels: (1) LEFT — Current Action: tool name, specific target URL/host, progress indicator, estimated time. No emoji — use existing icon set (spinner, tool icon, target icon). (2) CENTRE — What We Know: growing list of confirmed signals and findings, each timestamped with iteration number and evidence ref. Items have confidence indicator. Text uses professional ROE-aware language: not 'admin cookie extracted' but 'session token exposure risk confirmed (canary evidence, iteration 3)'. Critical/High findings highlighted. (3) RIGHT — AI Reasoning: current decision text from AgentReasoning.thought_text, next planned action. Always tied to specific evidence refs: 'Based on: [finding-id-123] file-upload-endpoint + [finding-id-124] reflected-xss'. (4) BOTTOM — Iteration Timeline: horizontal timeline, one node per iteration, shows tool used and key finding at each node. Click node to expand evidence. TIER ESCALATION OVERLAY (full-width, blocks interaction): appears when AI wants to escalate tier. Shows: tool, specific target, AI reasoning text (from reasoning record), risk tier badge, estimated time. Three buttons: [Approve and continue loop] [Skip this step, continue] [Stop assessment]. All copy uses tier-appropriate language: active tier says 'controlled active scan', intrusive says 'intrusive test — requires explicit authorization'. KILL SWITCH: 'Stop Assessment' button always visible in top-right. Stops loop immediately, marks run completed_with_operator_stop. PREREQUISITE: run_mode field must exist on runs (from backlog-260). If field absent, fall back to existing layout.",
+  "title": "Mission Control AI loop UI: conditional adaptive operations view for run_mode=ai_loop only \u2014 existing Scan Map/Tasks/AI Signal layout unchanged for all other runs",
+  "goal": "When a run has run_mode=ai_loop, Mission Control switches to the adaptive operations view. For all other run modes (manual, fixed-chain), the existing Scan Map/Tasks/AI Signal layout renders unchanged. The gate condition is: if (selectedRun.run_mode === 'ai_loop') render AI loop view else render existing view. AI LOOP VIEW layout: TOP STATUS BAR: 'AI Assessment \u00b7 Iteration 5 of 20 \u00b7 [target] \u00b7 Tier: Active \u00b7 Runtime: 12m'. Four panels: (1) LEFT \u2014 Current Action: tool name, specific target URL/host, progress indicator, estimated time. No emoji \u2014 use existing icon set (spinner, tool icon, target icon). (2) CENTRE \u2014 What We Know: growing list of confirmed signals and findings, each timestamped with iteration number and evidence ref. Items have confidence indicator. Text uses professional ROE-aware language: not 'admin cookie extracted' but 'session token exposure risk confirmed (canary evidence, iteration 3)'. Critical/High findings highlighted. (3) RIGHT \u2014 AI Reasoning: current decision text from AgentReasoning.thought_text, next planned action. Always tied to specific evidence refs: 'Based on: [finding-id-123] file-upload-endpoint + [finding-id-124] reflected-xss'. (4) BOTTOM \u2014 Iteration Timeline: horizontal timeline, one node per iteration, shows tool used and key finding at each node. Click node to expand evidence. TIER ESCALATION OVERLAY (full-width, blocks interaction): appears when AI wants to escalate tier. Shows: tool, specific target, AI reasoning text (from reasoning record), risk tier badge, estimated time. Three buttons: [Approve and continue loop] [Skip this step, continue] [Stop assessment]. All copy uses tier-appropriate language: active tier says 'controlled active scan', intrusive says 'intrusive test \u2014 requires explicit authorization'. KILL SWITCH: 'Stop Assessment' button always visible in top-right. Stops loop immediately, marks run completed_with_operator_stop. PREREQUISITE: run_mode field must exist on runs (from backlog-260). If field absent, fall back to existing layout.",
   "scope": "ChatGPT review 2026-05-06: Mission Control must not be globally replaced. Only runs with run_mode=ai_loop get the new UI. Existing Scan Map/Tasks/AI Signal stays for manual and fixed-chain runs. ROE-proof language required for all AI reasoning text visible to operators.",
   "status": "queued",
   "generated_by": "ui-loop-audit-2026-05-06-corrected",
@@ -16,12 +16,15 @@
       "codex/tasks/backlog-261-assessment-loop-wizard-mode.json",
       "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-260 must be completed first — run_mode=ai_loop field and loop state API must exist before this UI can render correctly.",
+    "prerequisite_backlog": "backlog-260 must be completed first \u2014 run_mode=ai_loop field and loop state API must exist before this UI can render correctly.",
     "broader_theme": "ai_loop_mission_control_conditional_ui",
     "source_documents": [
       "ui/assets/modules/mission-control.js",
@@ -33,7 +36,7 @@
     "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
-    "scope_creep_guard": "ONLY renders when selectedRun.run_mode === 'ai_loop'. Must not change any rendering for manual or fixed-chain runs. Use existing project icon set — no emoji in UI.",
+    "scope_creep_guard": "ONLY renders when selectedRun.run_mode === 'ai_loop'. Must not change any rendering for manual or fixed-chain runs. Use existing project icon set \u2014 no emoji in UI.",
     "roe_language": "All AI reasoning text visible to operators must use tier-appropriate professional language. Active tier: 'controlled active scan evidence'. Intrusive: 'controlled proof under authorized intrusive scope'. Never 'exploit', 'hack', 'steal' in operator-facing copy unless explicitly under exploitation tier ROE.",
     "runtime_mutation": false
   },
@@ -42,17 +45,18 @@
     "Fixed-chain run: Mission Control renders existing layout unchanged.",
     "ai_loop run: Mission Control renders adaptive operations view with all 4 panels.",
     "Tier escalation overlay appears full-width only for ai_loop runs.",
-    "All copy uses professional ROE-aware language — no raw exploit terminology.",
+    "All copy uses professional ROE-aware language \u2014 no raw exploit terminology.",
     "AI Reasoning text includes evidence refs (finding IDs or iteration refs), not free-floating claims.",
     "Stop Assessment button always visible during ai_loop run.",
-    "No emoji in any UI component — use existing project icon system.",
+    "No emoji in any UI component \u2014 use existing project icon system.",
     "No regression in manual and fixed-chain Mission Control E2E tests."
   ],
   "likely_touched_files": [
     "ui/assets/modules/mission-control.js",
     "ui/index.html",
     "ui/assets/styles.css",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Scan Map panel",
@@ -83,7 +87,11 @@
       "python3 scripts/validate_backlog_tasks.py passes.",
       "backlog-260 completed."
     ],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
   "out_of_scope": [
     "Changing manual or fixed-chain Mission Control",
@@ -91,8 +99,10 @@
     "Emoji or decorative icons outside project icon system"
   ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

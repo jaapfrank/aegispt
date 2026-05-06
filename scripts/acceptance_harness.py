@@ -53,6 +53,7 @@ DEFAULT_SAFETY = {
     "max_validation_depth": "standard",
 }
 RUN_PROFILE_TOOL_HINTS = {
+    "active-ai-shell": ["ai-shell"],
     "passive-network-discovery": ["nmap"],
     "passive-web-baseline": ["httpx"],
     "passive-crypto-audit": ["crypto-audit"],

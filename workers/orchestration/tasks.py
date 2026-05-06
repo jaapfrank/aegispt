@@ -6,6 +6,7 @@ import shlex
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from hashlib import sha256
 from uuid import UUID
 
 import dramatiq
@@ -18,6 +19,11 @@ from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
 from api.app.models import InventorySnapshot, Run, Scope, SecretRef, Task, ToolExecution
 from api.app.policy.engine import execution_kill_switch_enabled
 from api.app.services.ai_agent import run_post_task_analysis_for_task
+from api.app.services.ai_shell_safety import (
+    AiShellSafetyError,
+    ai_shell_command_preview,
+    normalize_ai_shell_params,
+)
 from api.app.services.artifact_storage import (
     artifact_storage_config_from_settings,
     store_artifact_bytes_with_fallback,
@@ -59,12 +65,12 @@ from api.app.services.inventory import (
     snmp_enum_observation_from_json,
     wifi_survey_observation_from_json,
 )
-from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_task
 from api.app.services.notification_delivery import (
     deliver_critical_finding_notifications,
     deliver_phase_approval_needed_notifications,
     deliver_run_completion_notifications,
 )
+from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_task
 from api.app.services.redaction import redact_artifact_bytes, redact_text
 from api.app.services.run_drift import compute_run_drift
 from api.app.services.runs import latest_scope_query, target_is_allowed
@@ -83,10 +89,12 @@ from api.app.services.soft_delete import purge_expired_soft_deleted_runs
 from api.app.services.task_dispatch import dispatch_task_batch
 from workers.orchestration.findings import store_findings
 from workers.orchestration.runtime import session_scope
+from workers.runners.ai_shell.runner import execute_ai_shell_command
 from workers.runners.api_assessment.runner import (
     API_ASSESSMENT_INVENTORY_ARTIFACT_NAME,
     execute_api_assessment,
 )
+from workers.runners.auth_flow.runner import execute_auth_flow_analysis
 from workers.runners.aws_inventory.runner import execute_aws_inventory
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution, RunnerRequest
 from workers.runners.base.stdout_stream import (
@@ -95,7 +103,6 @@ from workers.runners.base.stdout_stream import (
     mark_task_stdout_unavailable,
     reset_task_stdout_stream,
 )
-from workers.runners.auth_flow.runner import execute_auth_flow_analysis
 from workers.runners.biz_logic.runner import execute_biz_logic_probe
 from workers.runners.bloodhound.runner import execute_bloodhound_collect
 from workers.runners.burp.runner import execute_burp_scan
@@ -103,29 +110,28 @@ from workers.runners.camera_test.runner import (
     CAMERA_TEST_RESULTS_ARTIFACT_NAME,
     execute_camera_test,
 )
-from workers.runners.client_state.runner import execute_client_state_analysis
 from workers.runners.cicd_security.runner import (
     CICD_SECURITY_INVENTORY_ARTIFACT_NAME,
     execute_cicd_security_assessment,
 )
+from workers.runners.client_state.runner import execute_client_state_analysis
 from workers.runners.cloud_native.runner import (
     CLOUD_NATIVE_INVENTORY_ARTIFACT_NAME,
     execute_cloud_native_assessment,
 )
 from workers.runners.credential_attacks.runner import execute_credential_attacks
 from workers.runners.crypto_audit.runner import execute_crypto_audit
+from workers.runners.deserialization_probe.runner import execute_deserialization_probe
 from workers.runners.desktop_client.runner import (
     DESKTOP_CLIENT_INVENTORY_ARTIFACT_NAME,
     execute_desktop_client_assessment,
 )
-from workers.runners.deserialization_probe.runner import execute_deserialization_probe
 from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
-from workers.runners.headers_security.runner import execute_headers_security_analysis
 from workers.runners.graphql_probe.runner import execute_graphql_probe
+from workers.runners.headers_security.runner import execute_headers_security_analysis
 from workers.runners.http_smuggling.runner import execute_http_smuggling_probe
 from workers.runners.httpx.runner import execute_httpx_probe
-from workers.runners.logging_probe.runner import execute_logging_probe
 from workers.runners.idor_bac.runner import execute_idor_bac_probe
 from workers.runners.impacket.runner import execute_impacket_lateral
 from workers.runners.iot_default_creds.runner import execute_iot_default_credential_audit
@@ -135,6 +141,7 @@ from workers.runners.ipv6_discovery.runner import (
 )
 from workers.runners.ldap_enum.runner import execute_ldap_enum
 from workers.runners.llm_probe import execute_llm_probe
+from workers.runners.logging_probe.runner import execute_logging_probe
 from workers.runners.mdns_ssdp.runner import (
     MDNS_SSDP_ARTIFACT_NAME,
     execute_mdns_ssdp_discovery,
@@ -162,18 +169,13 @@ from workers.runners.smart_home.runner import (
     SMART_HOME_RESULTS_ARTIFACT_NAME,
     execute_smart_home_audit,
 )
-from workers.runners.ssh_brute.runner import execute_ssh_brute_force
-from workers.runners.ssti_probe.runner import execute_ssti_probe
-from workers.runners.ssrf_probe.runner import execute_ssrf_probe
 from workers.runners.snmp_enum.runner import (
     SNMP_ENUM_RESULTS_ARTIFACT_NAME,
     execute_snmp_enumeration,
 )
-from workers.runners.wifi_survey.runner import (
-    WIFI_SURVEY_RESULTS_ARTIFACT_NAME,
-    execute_wifi_survey,
-)
-from workers.runners.xss_extended.runner import execute_xss_extended_scan
+from workers.runners.ssh_brute.runner import execute_ssh_brute_force
+from workers.runners.ssrf_probe.runner import execute_ssrf_probe
+from workers.runners.ssti_probe.runner import execute_ssti_probe
 from workers.runners.web_depth.runner import (
     execute_content_discovery,
     execute_external_osint_recon,
@@ -183,12 +185,18 @@ from workers.runners.web_depth.runner import (
     execute_vuln_components_scan,
     execute_xxe_probe,
 )
+from workers.runners.wifi_survey.runner import (
+    WIFI_SURVEY_RESULTS_ARTIFACT_NAME,
+    execute_wifi_survey,
+)
+from workers.runners.xss_extended.runner import execute_xss_extended_scan
 from workers.runners.zap.runner import execute_zap_scan
 
 redis_broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 dramatiq.set_broker(redis_broker)
 
 SUPPORTED_TOOLS = {
+    "ai-shell",
     "api-assessment",
     "auth-flow",
     "aws-inventory",
@@ -843,6 +851,48 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if isinstance(request.params.get("http_headers_by_target"), dict)
                 else None
             ),
+        )
+    if request.tool == "ai-shell":
+        ai_shell_control = (
+            request.params.get("ai_shell")
+            if isinstance(request.params.get("ai_shell"), dict)
+            else {}
+        )
+
+        def ai_shell_kill_switch() -> bool:
+            return bool(
+                request.params.get("ai_shell_disabled")
+                or ai_shell_control.get("enabled") is False
+                or ai_shell_control.get("kill_switch") is True
+            )
+
+        return execute_ai_shell_command(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            command=(
+                request.params.get("command")
+                if isinstance(request.params.get("command"), str)
+                else None
+            ),
+            via=str(request.params.get("via") or "ssh"),
+            credentials_ref=(
+                request.params.get("credentials_ref")
+                if isinstance(request.params.get("credentials_ref"), str)
+                else None
+            ),
+            username=(
+                request.params.get("username")
+                if isinstance(request.params.get("username"), str)
+                else None
+            ),
+            ssh_port=(
+                int(request.params["ssh_port"])
+                if isinstance(request.params.get("ssh_port"), int)
+                else None
+            ),
+            output_cap_chars=int(request.params.get("output_cap_chars") or 8000),
+            timeout_seconds=timeout_seconds,
+            kill_switch_check=ai_shell_kill_switch,
         )
     if request.tool == "external-infra":
         return execute_external_infra_assessment(
@@ -2480,6 +2530,16 @@ def _effective_command_preview_params(params: dict[str, object]) -> dict[str, ob
 def _runner_command_preview(tool: str, targets: list[str], params: dict[str, object]) -> str:
     normalized_targets = [str(target).strip() for target in targets if str(target).strip()]
     effective_params = _effective_command_preview_params(params)
+    if tool == "ai-shell":
+        try:
+            contract = normalize_ai_shell_params(
+                params=effective_params,
+                proposed_target=normalized_targets[0] if normalized_targets else "",
+                require_runtime_scope=False,
+            )
+            return ai_shell_command_preview(contract=contract)
+        except AiShellSafetyError as exc:
+            return f"$ ai-shell --blocked {shlex.quote(exc.reason)} --approved-scope"
     if tool == "nmap":
         command = [os.getenv("NMAP_BINARY", "nmap"), "-n", "-oX", "<evidence>/nmap-results.xml"]
         if bool(effective_params.get("ipv6", False)):
@@ -3138,6 +3198,28 @@ def _store_execution(session, task: Task, execution: RunnerExecution) -> StoredE
         )
         execution_record.artifacts.append(artifact_record)
         stored_artifact_pairs.append((redacted_contract_artifact, artifact_record))
+
+    if task.tool == "ai-shell":
+        output_material = f"{redacted_stdout.text or ''}\n{redacted_stderr.text or ''}"
+        write_audit_event(
+            session=session,
+            actor=f"runner:{task.tool}",
+            action="ai_shell.command_executed",
+            object_type="tool_execution",
+            object_id=str(execution_record.id),
+            metadata={
+                "run_id": str(task.run_id) if task.run_id else None,
+                "task_id": str(task.id),
+                "target_id": task.target_id,
+                "exit_code": execution.exit_code,
+                "status": execution.metadata.get("status"),
+                "command_sha256": execution.metadata.get("command_sha256"),
+                "output_sha256": sha256(output_material.encode("utf-8")).hexdigest(),
+                "stdout_truncated": bool(execution.metadata.get("stdout_truncated")),
+                "stderr_truncated": bool(execution.metadata.get("stderr_truncated")),
+                "per_command_approval_required": True,
+            },
+        )
 
     if is_validation_task(task):
         finalize_validation_for_task(

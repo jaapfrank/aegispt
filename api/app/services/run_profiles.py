@@ -135,6 +135,24 @@ PASSIVE_LAN_NSE_FULL_SCRIPTS: tuple[str, ...] = (
 
 DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
     {
+        "name": "active-ai-shell",
+        "run_class": RunClass.ACTIVE.value,
+        "limits_json": {
+            "description": "Operator-per-command approved AI shell execution over SSH for explicitly scoped targets and referenced credentials only.",
+            "required_approvals": 1,
+            "approval_step_id": "active-ai-shell",
+            "tools": ["ai-shell"],
+            "max_rps": 1,
+            "max_concurrency": 1,
+            "ssh_only": True,
+            "requires_credentials_ref": True,
+            "per_command_approval_required": True,
+            "output_cap_chars": 8000,
+            "banned_command_patterns_enforced": True,
+            "not_wizard_triggered": True,
+        },
+    },
+    {
         "name": "active-business-logic",
         "run_class": RunClass.ACTIVE.value,
         "limits_json": {

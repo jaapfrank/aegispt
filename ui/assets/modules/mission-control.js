@@ -2251,6 +2251,7 @@ export function createMissionModule() {
         </div>
         <h4>${escapeHtml(proposal.proposed_target || "selected target")}</h4>
         <p>${escapeHtml(reason)}</p>
+        ${renderAiShellCommandPreview(proposal)}
         ${renderBadgeList(
           [
             proposal.proposed_tool ? `Tool ${proposal.proposed_tool}` : null,
@@ -2268,6 +2269,34 @@ export function createMissionModule() {
           </button>
         </div>
       </article>
+    `;
+  }
+
+  function renderAiShellCommandPreview(proposal) {
+    if (String(proposal?.proposed_tool || "").toLowerCase() !== "ai-shell") return "";
+    const params = proposal?.proposed_params_json && typeof proposal.proposed_params_json === "object"
+      ? proposal.proposed_params_json
+      : {};
+    const command = String(params.command || "").trim();
+    const via = String(params.via || "ssh").trim() || "ssh";
+    const credentialsRef = String(params.credentials_ref || "").trim();
+    const outputCap = Number(params.output_cap_chars || 8000);
+    if (!command) return "";
+    return `
+      <div class="ai-shell-command-preview split-top" data-testid="ai-shell-command-preview">
+        <div class="ai-shell-command-label">
+          <span>${escapeHtml("AI Shell Command")}</span>
+          <small>${escapeHtml(via.toUpperCase())}</small>
+        </div>
+        <code>${escapeHtml(command)}</code>
+        <p class="micro-copy">${escapeHtml(
+          [
+            proposal.proposed_target ? `target ${proposal.proposed_target}` : null,
+            credentialsRef ? `credential ${credentialsRef}` : "credential reference required",
+            `output cap ${Number.isFinite(outputCap) ? outputCap : 8000} chars`,
+          ].filter(Boolean).join(" · ")
+        )}</p>
+      </div>
     `;
   }
 
@@ -2815,6 +2844,7 @@ export function createMissionModule() {
         </div>
         <h4>${escapeHtml(title)}</h4>
         <p>${renderAiTypedText(proposal.reasoning_text || "No proposal rationale was recorded.", typing, true)}</p>
+        ${renderAiShellCommandPreview(proposal)}
         ${renderBadgeList(
           [
             repairProposal ? "AI repair lane" : null,
@@ -3615,6 +3645,7 @@ export function createMissionModule() {
           ${Number.isFinite(confidence) ? `<span>${escapeHtml(toPercent(confidence))}</span>` : ""}
         </div>
         <p>${escapeHtml(proposal?.reasoning_text || "Review this suggested action before approving any follow-up.")}</p>
+        ${renderAiShellCommandPreview(proposal)}
         ${
           pending
             ? `
@@ -7266,6 +7297,7 @@ function describeTaskStatus(status) {
 
 function formatToolLabel(tool) {
   const mapping = {
+    "ai-shell": "AI shell",
     httpx: "HTTP probe",
     nmap: "Network discovery",
     nuclei: "Template validation",

@@ -33,6 +33,7 @@ from api.app.services.ai_enrichment import (
     store_agent_proposal_record,
     store_agent_reasoning_record,
 )
+from api.app.services.ai_shell_safety import ai_shell_command_sha256
 
 
 def _seed_run_with_task(
@@ -59,7 +60,10 @@ def _seed_run_with_task(
         profile=profile,
         requested_by="ledger-operator",
         status="running",
-        configuration_json={"targets": {"hosts": ["10.0.0.5"]}, "safety": {"active_checks": "reviewed"}},
+        configuration_json={
+            "targets": {"hosts": ["10.0.0.5"]},
+            "safety": {"active_checks": "reviewed"},
+        },
         autonomous_mode=autonomous_mode,
         autonomous_intrusive_allowed=autonomous_intrusive_allowed,
     )
@@ -236,7 +240,9 @@ def test_agent_reasoning_and_proposal_records_are_additive_and_auditable(client)
                 "task_id": str(task.id),
                 "evidence_refs": ["tool_execution.stdout_text"],
             },
-            observations=[{"summary": "HTTPS is exposed", "evidence_ref": "tool_execution.stdout_text"}],
+            observations=[
+                {"summary": "HTTPS is exposed", "evidence_ref": "tool_execution.stdout_text"}
+            ],
             hypotheses=[{"summary": "Service fingerprinting may be useful", "confidence": 0.73}],
             proposals=[{"tool": "httpx", "target": "10.0.0.5", "risk_tier": "passive"}],
             provider="deterministic-ledger-test",
@@ -475,8 +481,13 @@ def test_post_task_analysis_disabled_by_default_skips_without_records(client) ->
 
         assert outcome.status == "skipped"
         assert outcome.reason == "disabled"
-        assert session.scalar(select(func.count()).select_from(AgentReasoning)) == reasoning_count_before
-        assert session.scalar(select(func.count()).select_from(AgentProposal)) == proposal_count_before
+        assert (
+            session.scalar(select(func.count()).select_from(AgentReasoning))
+            == reasoning_count_before
+        )
+        assert (
+            session.scalar(select(func.count()).select_from(AgentProposal)) == proposal_count_before
+        )
         assert run.status == "running"
         assert task.status == "completed"
 
@@ -579,9 +590,15 @@ def test_post_task_analysis_stores_pending_review_proposal_without_execution(cli
         assert outcome.status == "succeeded"
         assert outcome.stored_proposal_count == 1
         assert reasoning_records[0].summary_text == f"Task {task.id} completed with tool nmap."
-        assert reasoning_records[0].thought_text == "A bounded follow-up may help the operator review task output."
+        assert (
+            reasoning_records[0].thought_text
+            == "A bounded follow-up may help the operator review task output."
+        )
         assert "httpx follow-up" in reasoning_records[0].action_text
-        assert reasoning_records[0].metadata_json["analysis_steps"]["action"] == reasoning_records[0].action_text
+        assert (
+            reasoning_records[0].metadata_json["analysis_steps"]["action"]
+            == reasoning_records[0].action_text
+        )
         assert len(proposals) == 1
         assert proposals[0].status == "pending_review"
         assert proposals[0].approved_by is None
@@ -722,12 +739,13 @@ def test_post_task_analysis_includes_bounded_engagement_working_memory(client) -
         latest_reasoning = next(
             record for record in reasoning_records if record.provider == "working-memory-test"
         )
-        assert latest_reasoning.context_snapshot_json["engagement_context"]["prior_task_analyses"] == prior
+        assert (
+            latest_reasoning.context_snapshot_json["engagement_context"]["prior_task_analyses"]
+            == prior
+        )
         proposals = list_agent_proposals_for_run(session=session, run_id=run.id)
         working_memory_proposals = [
-            proposal
-            for proposal in proposals
-            if proposal.metadata_json.get("working_memory_test")
+            proposal for proposal in proposals if proposal.metadata_json.get("working_memory_test")
         ]
         assert len(working_memory_proposals) == 1
         assert "Prior analysis 5" in str(working_memory_proposals[0].reasoning_text)
@@ -775,7 +793,9 @@ def test_post_task_analysis_creates_engagement_scoped_upload_xss_chain_proposal(
         assert chain_params["safe_boundaries"]["credential_theft"] is False
         assert chain_params["safe_boundaries"]["exploit_chaining"] is False
         assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
-        assert reasoning_records[0].context_snapshot_json["run"]["engagement_id"] == str(run.engagement_id)
+        assert reasoning_records[0].context_snapshot_json["run"]["engagement_id"] == str(
+            run.engagement_id
+        )
         assert len(reasoning_records[0].context_snapshot_json["engagement_findings"]) == 2
         assert reasoning_records[0].context_snapshot_json["finding_chains"][0]["pattern_id"] == (
             "web-file-upload-plus-stored-xss"
@@ -1030,6 +1050,7 @@ def _seed_review_proposal(
     *,
     proposed_tool: str = "httpx",
     proposed_target: str | None = None,
+    proposed_params: dict[str, object] | None = None,
     risk_tier: str = "passive",
     reasoning_text: str = "Operator review is required before any follow-up.",
 ) -> tuple[Run, Task, AgentProposal]:
@@ -1041,9 +1062,13 @@ def _seed_review_proposal(
         reasoning_type="post_task_analysis",
         status="succeeded",
         context_snapshot={"task_id": str(task.id), "review_only": True},
-        observations=[{"summary": "Task output suggests a bounded follow-up.", "evidence_ref": "task.status"}],
+        observations=[
+            {"summary": "Task output suggests a bounded follow-up.", "evidence_ref": "task.status"}
+        ],
         hypotheses=[{"summary": "A passive probe may help review.", "confidence": 0.71}],
-        proposals=[{"proposed_tool": proposed_tool, "proposed_target": proposed_target or task.target_id}],
+        proposals=[
+            {"proposed_tool": proposed_tool, "proposed_target": proposed_target or task.target_id}
+        ],
         provider="deterministic",
         model="deterministic",
         metadata={"dispatches_work": False},
@@ -1053,7 +1078,11 @@ def _seed_review_proposal(
         reasoning=reasoning,
         proposed_tool=proposed_tool,
         proposed_target=proposed_target or task.target_id,
-        proposed_params={"source_task_id": str(task.id), "review_required": True},
+        proposed_params={
+            "source_task_id": str(task.id),
+            "review_required": True,
+            **dict(proposed_params or {}),
+        },
         reasoning_text=reasoning_text,
         risk_tier=risk_tier,
         priority=20,
@@ -1175,6 +1204,144 @@ def test_ai_proposal_approval_is_auditable_and_queues_follow_up_task(client) -> 
         )
         assert task_audit is not None
         assert task_audit.metadata_json["dispatch_mode"] == "queued_not_dispatched"
+
+
+def test_ai_shell_proposal_approval_queues_exact_command_with_per_command_audit(client) -> None:
+    command = "id"
+    with client.app.state.session_factory() as session:
+        run, _task, proposal = _seed_review_proposal(
+            session,
+            proposed_tool="ai-shell",
+            risk_tier="active",
+            proposed_params={
+                "command": command,
+                "via": "ssh",
+                "credentials_ref": "vault://engagement/linux-admin",
+                "username": "operator",
+            },
+            reasoning_text="SSH command can collect bounded identity context after operator review.",
+        )
+        session.add(
+            Approval(
+                run=run,
+                step_id="run.launch",
+                approver_id="launch-approver",
+                decision="approved",
+            )
+        )
+        session.commit()
+        run_id = run.id
+        proposal_id = proposal.id
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review",
+        json={"decision": "approved", "note": "Authorized single SSH command."},
+        headers={"X-Actor": "reviewer-ai-shell"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    queued_task_id = payload["metadata_json"]["queued_task_id"]
+    expected_hash = ai_shell_command_sha256(command)
+    assert payload["metadata_json"]["ai_shell_command_sha256"] == expected_hash
+    assert payload["metadata_json"]["ai_shell_per_command_approval"] is True
+
+    with client.app.state.session_factory() as session:
+        queued_task = session.get(Task, UUID(queued_task_id))
+        assert queued_task is not None
+        assert queued_task.tool == "ai-shell"
+        assert queued_task.params_json["command"] == command
+        assert queued_task.params_json["via"] == "ssh"
+        assert queued_task.params_json["credentials_ref"] == "vault://engagement/linux-admin"
+        assert queued_task.params_json["ai_shell"]["per_command_approval_required"] is True
+        assert queued_task.params_json["ai_shell"]["command_sha256"] == expected_hash
+        assert queued_task.params_json["ai_proposal"]["dispatch_mode"] == "queued_not_dispatched"
+        audit = session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.action == "agent_proposal.reviewed",
+                AuditEvent.object_id == str(proposal_id),
+            )
+        )
+        assert audit is not None
+        assert audit.metadata_json["ai_shell_command_sha256"] == expected_hash
+
+
+def test_ai_shell_proposal_approval_blocks_banned_command(client) -> None:
+    with client.app.state.session_factory() as session:
+        run, _task, proposal = _seed_review_proposal(
+            session,
+            proposed_tool="ai-shell",
+            risk_tier="active",
+            proposed_params={
+                "command": "sudo rm -rf /tmp/aegispt-proof",
+                "via": "ssh",
+                "credentials_ref": "vault://engagement/linux-admin",
+            },
+        )
+        session.add(
+            Approval(
+                run=run,
+                step_id="run.launch",
+                approver_id="launch-approver",
+                decision="approved",
+            )
+        )
+        task_count_before = session.scalar(select(func.count()).select_from(Task))
+        session.commit()
+        run_id = run.id
+        proposal_id = proposal.id
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review",
+        json={"decision": "approved"},
+        headers={"X-Actor": "reviewer-ai-shell"},
+    )
+
+    assert response.status_code == 409
+    assert "banned command" in response.json()["detail"]
+    with client.app.state.session_factory() as session:
+        refreshed = session.get(AgentProposal, proposal_id)
+        assert refreshed is not None
+        assert refreshed.status == "pending_review"
+        assert session.scalar(select(func.count()).select_from(Task)) == task_count_before
+
+
+def test_ai_shell_proposal_approval_respects_run_kill_switch(client) -> None:
+    with client.app.state.session_factory() as session:
+        run, _task, proposal = _seed_review_proposal(
+            session,
+            proposed_tool="ai-shell",
+            risk_tier="active",
+            proposed_params={
+                "command": "id",
+                "via": "ssh",
+                "credentials_ref": "vault://engagement/linux-admin",
+            },
+        )
+        run.configuration_json = {
+            **run.configuration_json,
+            "ai_shell": {"enabled": False, "kill_switch": True},
+        }
+        session.add(
+            Approval(
+                run=run,
+                step_id="run.launch",
+                approver_id="launch-approver",
+                decision="approved",
+            )
+        )
+        session.commit()
+        run_id = run.id
+        proposal_id = proposal.id
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review",
+        json={"decision": "approved"},
+        headers={"X-Actor": "reviewer-ai-shell"},
+    )
+
+    assert response.status_code == 409
+    assert "disabled" in response.json()["detail"]
 
 
 def test_ai_proposal_rejection_is_auditable_without_approval_fields(client) -> None:
@@ -1335,7 +1502,9 @@ def test_tool_library_manual_proposal_is_review_only_and_auditable(client) -> No
                 select(AuditEvent.action)
                 .where(
                     AuditEvent.object_id == proposal_id,
-                    AuditEvent.action.in_(["tool_library.proposal_created", "agent_proposal.reviewed"]),
+                    AuditEvent.action.in_(
+                        ["tool_library.proposal_created", "agent_proposal.reviewed"]
+                    ),
                 )
                 .order_by(AuditEvent.created_at, AuditEvent.id)
             )

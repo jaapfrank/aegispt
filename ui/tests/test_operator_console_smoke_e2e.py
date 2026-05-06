@@ -2199,6 +2199,113 @@ def test_mission_control_ai_proposals_inbox_badge_and_review_actions(loaded_page
     ]
 
 
+def test_mission_control_ai_shell_proposal_shows_exact_command(loaded_page: Page) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const now = '2026-05-05T21:00:00Z';
+          const runId = 'run-ai-shell-proposal';
+          const proposal = {
+            id: 'proposal-ai-shell',
+            run_id: runId,
+            agent_reasoning_id: 'reasoning-ai-shell',
+            proposed_tool: 'ai-shell',
+            proposed_target: '10.0.20.44',
+            proposed_params_json: {
+              source_task_id: 'task-ai-shell-source',
+              review_required: true,
+              command: 'sudo -l',
+              via: 'ssh',
+              credentials_ref: 'vault://engagement/linux-admin',
+              username: 'operator',
+              output_cap_chars: 8000,
+            },
+            reasoning_text: 'SSH service evidence supports a single operator-approved identity command.',
+            risk_tier: 'active',
+            priority: 10,
+            confidence_score: 0.76,
+            status: 'pending_review',
+            approved_by: null,
+            approved_at: null,
+            metadata_json: { requires_operator_review: true, dispatches_work: false },
+            created_at: now,
+            updated_at: now,
+          };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedEngagementId: 'eng-ai-shell-proposal',
+            selectedRunId: runId,
+            selectedTaskId: 'task-ai-shell-source',
+            selectedAiInsights: {
+              run_id: runId,
+              post_task_analysis_enabled: true,
+              provider: 'deterministic',
+              provider_status: { mode: 'deterministic', label: 'Review mode', status: 'fallback', connected: false },
+              reasoning_records: [{
+                id: 'reasoning-ai-shell',
+                run_id: runId,
+                task_id: 'task-ai-shell-source',
+                reasoning_type: 'post_task_analysis',
+                status: 'succeeded',
+                context_snapshot_json: {},
+                observations_json: [],
+                hypotheses_json: [],
+                proposals_json: [],
+                summary_text: 'SSH service is available on the approved host.',
+                thought_text: 'A bounded shell command may collect identity context.',
+                action_text: 'Review the exact shell command before queueing.',
+                provider: 'deterministic',
+                model: 'deterministic',
+                llm_tokens_used: 0,
+                confidence_score: 0.76,
+                failure_reason: null,
+                metadata_json: {},
+                proposals: [proposal],
+                created_at: now,
+                updated_at: now,
+              }],
+              proposals: [proposal],
+              review_boundary: { approved_proposals_dispatch_work: true },
+              operator_workbench: {},
+            },
+            selectedRun: {
+              id: runId,
+              status: 'running',
+              requested_by: 'operator-ui',
+              created_at: now,
+              updated_at: now,
+              configuration_json: { targets: { hosts: ['10.0.20.44'] } },
+              profile: { id: 'profile-ai-shell', name: 'active-ai-shell', run_class: 'active', limits_json: {} },
+              tasks: [{
+                id: 'task-ai-shell-source',
+                tool: 'nmap',
+                target_id: '10.0.20.44',
+                status: 'completed',
+                params_json: {},
+                created_at: now,
+                updated_at: now,
+              }],
+              findings: { finding_count: 0, findings_by_severity: {}, findings_by_status: {} },
+            },
+          }, 'ui.test.aiShellProposal');
+          runtimeModule.runtime.actions.renderFlowOverview?.();
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    preview = loaded_page.get_by_test_id("ai-shell-command-preview").first
+    expect(preview).to_be_visible()
+    expect(preview).to_contain_text("sudo -l")
+    expect(preview).to_contain_text(
+        "credential vault://engagement/linux-admin"
+    )
+    expect(loaded_page.get_by_test_id("ai-proposals-inbox")).to_contain_text("AI shell")
+
+
 def test_mission_control_cve_refresh_surfaces_ai_proposal_inbox(loaded_page: Page) -> None:
     refresh_requests: list[dict[str, object]] = []
     now = "2026-05-05T21:50:00Z"

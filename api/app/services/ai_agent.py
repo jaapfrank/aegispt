@@ -20,6 +20,13 @@ from api.app.services.ai_enrichment import (
     store_agent_proposal_record,
     store_agent_reasoning_record,
 )
+from api.app.services.ai_shell_safety import (
+    AI_SHELL_DEFAULT_OUTPUT_CAP_CHARS,
+    AI_SHELL_TOOL_ID,
+    AiShellSafetyError,
+    ai_shell_command_sha256,
+    normalize_ai_shell_params,
+)
 from api.app.services.audit import write_audit_event
 from api.app.services.chatgpt_oauth import (
     CHATGPT_OAUTH_PROVIDER,
@@ -53,6 +60,7 @@ class AgentProposalReviewError(RuntimeError):
 
 
 SUPPORTED_AI_PROPOSAL_TOOLS = {
+    AI_SHELL_TOOL_ID,
     "auth-flow",
     "aws-inventory",
     "client-state",
@@ -305,7 +313,11 @@ class DeterministicPostTaskAnalysisProvider:
 
         chain_proposals = _compound_chain_proposal_drafts(context=context, task_target=task_target)
         if chain_proposals:
-            chain_count = len(context.get("finding_chains") if isinstance(context.get("finding_chains"), list) else [])
+            chain_count = len(
+                context.get("finding_chains")
+                if isinstance(context.get("finding_chains"), list)
+                else []
+            )
             summary_text = (
                 f"Task {task.get('id')} completed and the current engagement contains "
                 f"{chain_count} compound attack-chain signal(s)."
@@ -553,7 +565,7 @@ def run_post_task_analysis_for_task(
         reasoning_dispatches_work = autonomous_dispatch_count > 0
     else:
         for draft in accepted_drafts:
-            store_agent_proposal_record(
+            proposal = store_agent_proposal_record(
                 session=session,
                 reasoning=reasoning,
                 proposed_tool=draft.proposed_tool,
@@ -569,6 +581,24 @@ def run_post_task_analysis_for_task(
                     "requires_operator_review": True,
                 },
             )
+            if proposal.proposed_tool == AI_SHELL_TOOL_ID:
+                command = str(draft.proposed_params.get("command") or "").strip()
+                write_audit_event(
+                    session=session,
+                    actor="ai-agent",
+                    action="ai_shell.command_proposed",
+                    object_type="agent_proposal",
+                    object_id=str(proposal.id),
+                    metadata={
+                        "run_id": str(task.run.id),
+                        "agent_reasoning_id": str(reasoning.id),
+                        "proposed_target": proposal.proposed_target,
+                        "risk_tier": proposal.risk_tier,
+                        "command_sha256": ai_shell_command_sha256(command) if command else None,
+                        "requires_operator_review": True,
+                        "dispatches_work": False,
+                    },
+                )
 
     reasoning.proposals_json = proposal_payloads
     reasoning.metadata_json = {
@@ -922,6 +952,16 @@ def review_agent_proposal(
             )
 
     creates_task = queued_task is not None
+    ai_shell_review_metadata: dict[str, Any] = {}
+    if proposal.proposed_tool == AI_SHELL_TOOL_ID:
+        command = str(_safe_json_object(proposal.proposed_params_json).get("command") or "").strip()
+        if command:
+            ai_shell_review_metadata = {
+                "ai_shell_command_sha256": ai_shell_command_sha256(command),
+                "ai_shell_per_command_approval": True,
+                "ai_shell_ssh_only": True,
+                "ai_shell_output_cap_chars": AI_SHELL_DEFAULT_OUTPUT_CAP_CHARS,
+            }
     proposal.metadata_json = {
         **_safe_json_object(proposal.metadata_json),
         "requires_operator_review": True,
@@ -940,6 +980,7 @@ def review_agent_proposal(
             if creates_task
             else AI_PROPOSAL_REVIEW_BOUNDARY["approval_effect"]
         ),
+        **ai_shell_review_metadata,
     }
     write_audit_event(
         session=session,
@@ -957,6 +998,7 @@ def review_agent_proposal(
             "creates_tasks": creates_task,
             "queued_task_id": str(queued_task.id) if queued_task is not None else None,
             "operator_controlled_flow_only": True,
+            **ai_shell_review_metadata,
         },
     )
     session.flush()
@@ -1025,10 +1067,7 @@ def _build_analysis_context(
             "params_json": _safe_json_object(task.params_json),
         },
         "findings": [_finding_context(finding) for finding in list(run.findings or [])[:25]],
-        "engagement_findings": [
-            _finding_context(finding)
-            for finding in engagement_findings
-        ],
+        "engagement_findings": [_finding_context(finding) for finding in engagement_findings],
         "engagement_context": engagement_context,
         "finding_chains": [
             _finding_chain_context(chain)
@@ -1219,7 +1258,9 @@ def _proposal_memory_summary(
             "creates_tasks": bool(metadata.get("creates_tasks")),
             "queued_task_id": str(queued_task.id) if queued_task is not None else queued_task_id,
             "queued_task_status": (
-                queued_task.status if queued_task is not None else metadata.get("queued_task_status")
+                queued_task.status
+                if queued_task is not None
+                else metadata.get("queued_task_status")
             ),
             "finding_outcome": finding_outcome,
         },
@@ -1271,7 +1312,9 @@ def _proposal_finding_outcome(
 
 def _engagement_finding_summary_context(findings: list[Finding]) -> dict[str, Any]:
     severity_counts = _severity_counts(findings)
-    target_ids = sorted({str(finding.target_id) for finding in findings if str(finding.target_id).strip()})
+    target_ids = sorted(
+        {str(finding.target_id) for finding in findings if str(finding.target_id).strip()}
+    )
     high_priority = [
         _high_priority_finding_summary(finding)
         for finding in sorted(
@@ -1304,9 +1347,7 @@ def _attack_narrative_context(
     severity_counts = finding_summary.get("severity_counts")
     if isinstance(severity_counts, dict) and finding_summary.get("total"):
         counts = ", ".join(
-            f"{severity}={count}"
-            for severity, count in severity_counts.items()
-            if count
+            f"{severity}={count}" for severity, count in severity_counts.items() if count
         )
         sentences.append(
             f"The engagement currently has {finding_summary.get('total')} recorded finding(s)"
@@ -1323,8 +1364,7 @@ def _attack_narrative_context(
     )
     if first_analysis is not None:
         sentences.append(
-            "Recent task memory: "
-            f"{_sentence_fragment(first_analysis.get('summary_text'))}."
+            "Recent task memory: " f"{_sentence_fragment(first_analysis.get('summary_text'))}."
         )
 
     high_priority = finding_summary.get("high_priority_findings")
@@ -1336,8 +1376,7 @@ def _attack_narrative_context(
         ]
         if top_titles:
             sentences.append(
-                "High-priority evidence centers on "
-                f"{_sentence_fragment('; '.join(top_titles))}."
+                "High-priority evidence centers on " f"{_sentence_fragment('; '.join(top_titles))}."
             )
 
     if approved_proposals:
@@ -1615,6 +1654,40 @@ def _assert_proposal_is_review_approvable(
             f"AI proposal target is outside approved scope or denied: {target}",
             reason="out_of_scope_target",
         )
+    if tool == AI_SHELL_TOOL_ID:
+        _assert_ai_shell_proposal_contract(
+            proposal=proposal,
+            allowed_targets=allowed_targets,
+        )
+
+
+def _assert_ai_shell_proposal_contract(
+    *,
+    proposal: AgentProposal,
+    allowed_targets: list[dict[str, str]],
+) -> None:
+    try:
+        normalize_ai_shell_params(
+            params=_safe_json_object(proposal.proposed_params_json),
+            proposed_target=str(proposal.proposed_target or ""),
+            allowed_target_entries=allowed_targets,
+            require_runtime_scope=False,
+        )
+    except AiShellSafetyError as exc:
+        raise AgentProposalReviewError(str(exc), reason=exc.reason) from exc
+
+
+def _ai_shell_disabled_for_run(run: Run) -> bool:
+    configuration = _safe_json_object(run.configuration_json)
+    ai_shell = (
+        configuration.get("ai_shell") if isinstance(configuration.get("ai_shell"), dict) else {}
+    )
+    safety = configuration.get("safety") if isinstance(configuration.get("safety"), dict) else {}
+    return bool(
+        ai_shell.get("enabled") is False
+        or ai_shell.get("kill_switch") is True
+        or safety.get("ai_shell_enabled") is False
+    )
 
 
 def _proposal_review_creates_queued_task(proposal: AgentProposal) -> bool:
@@ -1643,6 +1716,11 @@ def _assert_proposal_can_queue_task(*, run: Run, proposal: AgentProposal) -> Non
             f"unsupported execution tool cannot be queued from AI proposal: {tool}",
             reason="unsupported_tool",
         )
+    if tool == AI_SHELL_TOOL_ID and _ai_shell_disabled_for_run(run):
+        raise AgentProposalReviewError(
+            "ai-shell is disabled for this engagement/run by configuration",
+            reason="ai_shell_disabled",
+        )
 
     proposal_risk = _normalized_risk_tier(proposal.risk_tier)
     profile_risk = _normalized_risk_tier(run.profile.run_class if run.profile is not None else None)
@@ -1661,11 +1739,14 @@ def _assert_proposal_can_queue_task(*, run: Run, proposal: AgentProposal) -> Non
             reason="pending_run_approval",
         )
 
-    if _find_existing_task_for_proposal(
-        run=run,
-        proposed_tool=proposal.proposed_tool,
-        proposed_target=proposal.proposed_target,
-    ) is not None:
+    if (
+        _find_existing_task_for_proposal(
+            run=run,
+            proposed_tool=proposal.proposed_tool,
+            proposed_target=proposal.proposed_target,
+        )
+        is not None
+    ):
         raise AgentProposalReviewError(
             "AI proposal already has a matching task on this run",
             reason="duplicate_task_exists",
@@ -1775,6 +1856,35 @@ def _approved_proposal_task_params(
     params.pop("review_required", None)
     if proposal.proposed_tool == "zap":
         params["targets"] = [proposal.proposed_target]
+    if proposal.proposed_tool == AI_SHELL_TOOL_ID:
+        contract = normalize_ai_shell_params(
+            params=params,
+            proposed_target=proposal.proposed_target,
+            require_runtime_scope=False,
+        )
+        params.update(
+            {
+                "command": contract.command,
+                "via": contract.via,
+                "credentials_ref": contract.credentials_ref,
+                "target": contract.target,
+                "ssh_port": contract.ssh_port,
+                "output_cap_chars": contract.output_cap_chars,
+                "ai_shell": {
+                    "enabled": True,
+                    "ssh_only": True,
+                    "requires_credentials_ref": True,
+                    "per_command_approval_required": True,
+                    "approved_by": actor,
+                    "approved_at": queued_at.isoformat(),
+                    "command_sha256": contract.command_sha256,
+                    "output_cap_chars": contract.output_cap_chars,
+                    "approval_effect": "operator_approved_queued_task",
+                },
+            }
+        )
+        if contract.username:
+            params["username"] = contract.username
     return params
 
 
@@ -1816,6 +1926,23 @@ def _filter_proposal_drafts(
                 }
             )
             continue
+        if tool == AI_SHELL_TOOL_ID:
+            try:
+                normalize_ai_shell_params(
+                    params=draft.proposed_params,
+                    proposed_target=target,
+                    allowed_target_entries=allowed_targets,
+                    require_runtime_scope=False,
+                )
+            except AiShellSafetyError as exc:
+                blocked.append(
+                    {
+                        "reason": exc.reason,
+                        "proposed_tool": tool,
+                        "proposed_target": target,
+                    }
+                )
+                continue
         accepted.append(draft)
 
     return accepted, blocked
@@ -1906,6 +2033,30 @@ def _materialize_autonomous_proposals(
             "source_tool": source_task.tool,
             "source_target": source_task.target_id,
         }
+
+        if draft.proposed_tool == AI_SHELL_TOOL_ID:
+            proposal = store_agent_proposal_record(
+                session=session,
+                reasoning=reasoning,
+                proposed_tool=draft.proposed_tool,
+                proposed_target=draft.proposed_target,
+                proposed_params=draft.proposed_params,
+                reasoning_text=draft.reasoning_text,
+                risk_tier=normalized_risk,
+                priority=draft.priority,
+                confidence_score=draft.confidence_score,
+                status="pending_review",
+                metadata={
+                    **base_metadata,
+                    "dispatches_work": False,
+                    "requires_operator_review": True,
+                    "autonomous_block_reason": "ai_shell_per_command_review_required",
+                    "per_command_approval_required": True,
+                },
+            )
+            proposal_payloads.append(_proposal_record_payload(proposal))
+            skipped_count += 1
+            continue
 
         if normalized_risk == RunClass.INTRUSIVE.value and not run.autonomous_intrusive_allowed:
             proposal = store_agent_proposal_record(
@@ -2122,7 +2273,9 @@ def _compound_chain_proposal_drafts(
     if run_context.get("autonomous_mode") is True:
         return []
 
-    chains = context.get("finding_chains") if isinstance(context.get("finding_chains"), list) else []
+    chains = (
+        context.get("finding_chains") if isinstance(context.get("finding_chains"), list) else []
+    )
     drafts: list[AgentProposalDraft] = []
     for chain in chains:
         if not isinstance(chain, dict):
@@ -2132,8 +2285,14 @@ def _compound_chain_proposal_drafts(
         if template is None:
             continue
         target = _chain_proposal_target(chain=chain, fallback_target=task_target)
-        component_ids = [str(item) for item in list(chain.get("component_finding_ids") or []) if str(item).strip()]
-        evidence_refs = [str(item) for item in list(chain.get("evidence_refs") or []) if str(item).strip()]
+        component_ids = [
+            str(item)
+            for item in list(chain.get("component_finding_ids") or [])
+            if str(item).strip()
+        ]
+        evidence_refs = [
+            str(item) for item in list(chain.get("evidence_refs") or []) if str(item).strip()
+        ]
         confidence = _chain_confidence(chain)
         title = str(template["title"])
         summary = str(template["summary"])
@@ -2146,9 +2305,11 @@ def _compound_chain_proposal_drafts(
                     "title": title,
                     "summary": summary,
                     "review_required": True,
-                    "source_task_id": context.get("task", {}).get("id")
-                    if isinstance(context.get("task"), dict)
-                    else None,
+                    "source_task_id": (
+                        context.get("task", {}).get("id")
+                        if isinstance(context.get("task"), dict)
+                        else None
+                    ),
                     "compound_attack_chain": {
                         "chain_id": chain.get("id"),
                         "pattern_id": pattern_id,
@@ -2196,7 +2357,9 @@ def _compound_chain_proposal_drafts(
 
 
 def _chain_proposal_target(*, chain: dict[str, Any], fallback_target: str) -> str:
-    components = chain.get("component_findings") if isinstance(chain.get("component_findings"), list) else []
+    components = (
+        chain.get("component_findings") if isinstance(chain.get("component_findings"), list) else []
+    )
     targets = [
         str(component.get("target_id") or "").strip()
         for component in components
@@ -2297,7 +2460,9 @@ def _finding_chain_context(chain: FindingChain) -> dict[str, Any]:
         "pattern_id": chain.pattern_id,
         "title": chain.title,
         "status": chain.status,
-        "component_finding_ids": [str(item) for item in list(chain.component_finding_ids_json or [])],
+        "component_finding_ids": [
+            str(item) for item in list(chain.component_finding_ids_json or [])
+        ],
         "component_findings": component_findings,
         "confidence_score": chain.confidence_score,
         "combined_impact": chain.combined_impact_text,

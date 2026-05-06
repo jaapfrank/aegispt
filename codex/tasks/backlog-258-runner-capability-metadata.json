@@ -3,20 +3,23 @@
   "task_file": "codex/tasks/backlog-258-runner-capability-metadata.json",
   "task_type": "product_slice",
   "title": "Runner capability metadata: each runner declares its prerequisites, signal triggers, blockers, risk, cost, expected evidence output, and follow-up tools",
-  "goal": "The Adaptive Assessment Planner (backlog-255) cannot score runners intelligently without knowing what each runner needs and produces. Currently runners have no machine-readable capability declaration — the planner would have to hard-code knowledge about every runner. Implement runner capability metadata: for each runner in workers/runners/, create or update a capabilities.json file (or a capabilities() function in runner.py) that declares: { 'name': 'jwt-probe', 'category': 'authentication', 'risk_tier': 'active', 'required_approvals': 1, 'estimated_minutes': 8, 'triggers': ['jwt_in_response', 'authorization_bearer_header', 'access_token_in_cookie'], 'weak_triggers': ['api_endpoint_present'], 'blockers': ['no_web_target', 'no_http_service'], 'prerequisites': ['phase1_recon_complete'], 'expected_evidence': ['jwt_algorithm_confusion', 'weak_jwt_secret', 'none_algorithm_accepted'], 'follow_up_tools': ['auth-flow'], 'cost': 'low', 'false_positive_rate': 'low', 'description': 'Tests JWT algorithm confusion, weak secrets, and claims manipulation on JWT-protected endpoints.' }. For sqlmap specifically: 'triggers': ['injectable_parameter_found', 'sql_error_in_response', 'form_with_post_action'], 'blockers': ['no_injectable_parameter', 'no_web_forms'] — meaning sqlmap REQUIRES at least one concrete trigger signal, NOT just PHP+MySQL detection. The metadata is loaded at startup into a RunnerRegistry. The planner reads RunnerRegistry to score each runner against the SignalProfile. Create capabilities metadata for all 47 runners. The metadata is the single source of truth for what each runner needs — no more scattered knowledge in planning code.",
-  "scope": "ChatGPT review 2026-05-06: 'Runner metadata — each tool must declare prerequisites, triggers, blockers, risk, cost, expected evidence, follow-up outputs.' This is the critical missing layer between signal fingerprinting and adaptive planning.",
+  "goal": "The Adaptive Assessment Planner (backlog-255) cannot score runners intelligently without knowing what each runner needs and produces. Currently runners have no machine-readable capability declaration \u2014 the planner would have to hard-code knowledge about every runner. Implement runner capability metadata: for each runner in workers/runners/, create or update a capabilities.json file (or a capabilities() function in runner.py) that declares: { 'name': 'jwt-probe', 'category': 'authentication', 'risk_tier': 'active', 'required_approvals': 1, 'estimated_minutes': 8, 'triggers': ['jwt_in_response', 'authorization_bearer_header', 'access_token_in_cookie'], 'weak_triggers': ['api_endpoint_present'], 'blockers': ['no_web_target', 'no_http_service'], 'prerequisites': ['phase1_recon_complete'], 'expected_evidence': ['jwt_algorithm_confusion', 'weak_jwt_secret', 'none_algorithm_accepted'], 'follow_up_tools': ['auth-flow'], 'cost': 'low', 'false_positive_rate': 'low', 'description': 'Tests JWT algorithm confusion, weak secrets, and claims manipulation on JWT-protected endpoints.' }. For sqlmap specifically: 'triggers': ['injectable_parameter_found', 'sql_error_in_response', 'form_with_post_action'], 'blockers': ['no_injectable_parameter', 'no_web_forms'] \u2014 meaning sqlmap REQUIRES at least one concrete trigger signal, NOT just PHP+MySQL detection. The metadata is loaded at startup into a RunnerRegistry. The planner reads RunnerRegistry to score each runner against the SignalProfile. Create capabilities metadata for all 47 runners. The metadata is the single source of truth for what each runner needs \u2014 no more scattered knowledge in planning code.",
+  "scope": "ChatGPT review 2026-05-06: 'Runner metadata \u2014 each tool must declare prerequisites, triggers, blockers, risk, cost, expected evidence, follow-up outputs.' This is the critical missing layer between signal fingerprinting and adaptive planning.",
   "status": "queued",
   "generated_by": "architectural-review-2026-05-06",
-  "generation_reason": "ChatGPT identified runner capability metadata as the missing piece — without it the planner cannot score runners based on evidence. Must come before the planner.",
+  "generation_reason": "ChatGPT identified runner capability metadata as the missing piece \u2014 without it the planner cannot score runners based on evidence. Must come before the planner.",
   "source_context": {
-    "queue_index": 258,
+    "queue_index": 256,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",
       "codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -37,7 +40,7 @@
   "success_criteria": [
     "All 47 runners have a capabilities.json or capabilities() declaration.",
     "RunnerRegistry loads all metadata at startup.",
-    "sqlmap metadata requires injectable_parameter OR sql_error signal — not PHP+MySQL alone.",
+    "sqlmap metadata requires injectable_parameter OR sql_error signal \u2014 not PHP+MySQL alone.",
     "jwt-probe metadata lists jwt_in_response as primary trigger.",
     "deserialization-probe metadata lists java_indicators as primary trigger.",
     "Each metadata entry has: triggers, blockers, prerequisites, expected_evidence, follow_up_tools, estimated_minutes.",
@@ -48,7 +51,8 @@
     "workers/runners/*/capabilities.json",
     "api/app/services/runner_registry.py",
     "api/app/routers/runs.py",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Runner logic",
@@ -70,13 +74,26 @@
     ]
   },
   "promotion_requirements": {
-    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Changing runner logic", "New runners", "Changing approval thresholds"],
+  "out_of_scope": [
+    "Changing runner logic",
+    "New runners",
+    "Changing approval thresholds"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

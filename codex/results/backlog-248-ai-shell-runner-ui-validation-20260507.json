@@ -1,0 +1,48 @@
+{
+  "task": "backlog-248-ai-free-bash-execution-runner",
+  "validated_at": "2026-05-07",
+  "http_127_0_0_1_8000_relevant": true,
+  "implementation_summary": {
+    "runner": "workers.runners.ai_shell.runner executes one SSH command after task dispatch with scope, transport, credential-ref, local-host, banned-command, out-of-scope download URL, kill-switch and output-cap checks.",
+    "proposal_review": "ai-shell AgentProposal records are accepted only with exact command, SSH transport, credential reference, approved target and safe command contract; approval creates one queued ai-shell task through the existing AI proposal/runtime boundary.",
+    "ui": "Mission Control AI proposal cards and Suggested Next Steps show the exact proposed command before approval.",
+    "audit": "Proposal review stores command hash/per-command metadata; worker execution stores command hash and output hash audit metadata."
+  },
+  "validation": [
+    {
+      "command": "python3 scripts/validate_backlog_tasks.py",
+      "status": "passed",
+      "evidence": "Backlog validation passed with exactly one active NEXT_TASK and queue/package one-to-one mapping."
+    },
+    {
+      "command": "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "status": "passed",
+      "evidence": "Full API suite completed exit code 0 after adding active-ai-shell to the expected profile list."
+    },
+    {
+      "command": "source .venv/bin/activate && python -m pytest workers/tests/test_ai_shell_runner.py workers/tests/test_runner_tool_certification_matrix.py -q",
+      "status": "passed",
+      "evidence": "Runner contract covers SSH command construction, output cap, banned command blocking, out-of-scope curl blocking, localhost blocking and dispatcher registration."
+    },
+    {
+      "command": "source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_proposals_inbox_badge_and_review_actions ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_shell_proposal_shows_exact_command -q",
+      "status": "passed",
+      "evidence": "Playwright confirmed the existing AI proposal review flow still works and the ai-shell proposal shows `sudo -l` plus credential reference before approval."
+    }
+  ],
+  "not_claimed_green": [
+    "No real SSH command was run against a live customer/public/third-party target.",
+    "No local or remote live SSH lab acceptance was claimed; deterministic runner tests used a fake command runner.",
+    "Approval still uses the existing AI proposal contract: approval queues one task and execution happens through existing task dispatch, not by bypassing runtime controls."
+  ],
+  "safety_boundaries": [
+    "SSH-only transport",
+    "no AegisPT host or loopback execution",
+    "per-command operator approval metadata",
+    "approved engagement scope required at proposal review and runtime",
+    "credential reference required; raw secrets are not surfaced by the runner",
+    "banned destructive/system-changing command patterns blocked before SSH",
+    "out-of-scope curl/wget URLs blocked before SSH",
+    "output capped at 8000 characters"
+  ]
+}

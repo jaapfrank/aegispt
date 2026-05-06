@@ -2,12 +2,12 @@
   "id": "backlog-259-adaptive-execution-waves",
   "task_file": "codex/tasks/backlog-259-adaptive-execution-waves.json",
   "task_type": "product_slice",
-  "title": "Adaptive execution waves: run tools in evidence-driven batches, re-evaluate after each wave, update plan based on new signals — not one big serial queue",
-  "goal": "Even with adaptive tool selection, running all RUN-column tools in one parallel batch misses chaining opportunities. A better model is adaptive execution waves: after each wave completes, the SignalProfile is updated with new findings and the planner re-evaluates WAIT runners to see if they now have evidence to move to RUN. Implement: (1) Wave 0 (low-impact recon): nmap + httpx → produces SignalProfile v1. (2) Planner scores all runners → RUN Wave 1 / WAIT / SKIP. (3) Wave 1 execution: run RUN tools in parallel (e.g. xss-extended, vuln-components, headers-security). (4) After Wave 1 completes: update SignalProfile v2 with new findings. Planner re-scores WAIT runners. Example: sqlmap was WAIT in Wave 1 (no injectable_parameter signal). After Wave 1, xss-extended found a form with a text field that echoed back input — this is a new signal. Planner re-scores: sqlmap moves to RUN Wave 2. (5) Wave 2: run new RUN tools. (6) After each wave, AI (via backlog-219 compound chain reasoning) checks for compound chains: 'Wave 1 found file-upload + stored-XSS. This combination enables CSRF cookie theft. Propose Wave 2: auth-flow + xss-extended on admin endpoint.' (7) Continue until no more WAIT runners can be unblocked or operator stops. Mission Control shows wave progress: 'Wave 1 complete: 5 runners done. Wave 2: 3 runners promoted from WAIT. 4 runners still SKIP.' The UI target from ChatGPT review: '7 selected, 11 skipped with reason, 5 waiting for evidence/approval' is the per-wave view. PREREQUISITE: backlog-256 (SignalProfile), backlog-258 (RunnerMetadata), backlog-255 (Planner).",
-  "scope": "ChatGPT review 2026-05-06: 'Adaptive Execution Waves — not everything in one series, but batches: run relevant checks, process evidence, plan next wave.' This is the key architectural difference between AegisPT and simple scanners: continuous evidence-driven replanning.",
+  "title": "Adaptive execution waves: run tools in evidence-driven batches, re-evaluate after each wave, update plan based on new signals \u2014 not one big serial queue",
+  "goal": "Even with adaptive tool selection, running all RUN-column tools in one parallel batch misses chaining opportunities. A better model is adaptive execution waves: after each wave completes, the SignalProfile is updated with new findings and the planner re-evaluates WAIT runners to see if they now have evidence to move to RUN. Implement: (1) Wave 0 (low-impact recon): nmap + httpx \u2192 produces SignalProfile v1. (2) Planner scores all runners \u2192 RUN Wave 1 / WAIT / SKIP. (3) Wave 1 execution: run RUN tools in parallel (e.g. xss-extended, vuln-components, headers-security). (4) After Wave 1 completes: update SignalProfile v2 with new findings. Planner re-scores WAIT runners. Example: sqlmap was WAIT in Wave 1 (no injectable_parameter signal). After Wave 1, xss-extended found a form with a text field that echoed back input \u2014 this is a new signal. Planner re-scores: sqlmap moves to RUN Wave 2. (5) Wave 2: run new RUN tools. (6) After each wave, AI (via backlog-219 compound chain reasoning) checks for compound chains: 'Wave 1 found file-upload + stored-XSS. This combination enables CSRF cookie theft. Propose Wave 2: auth-flow + xss-extended on admin endpoint.' (7) Continue until no more WAIT runners can be unblocked or operator stops. Mission Control shows wave progress: 'Wave 1 complete: 5 runners done. Wave 2: 3 runners promoted from WAIT. 4 runners still SKIP.' The UI target from ChatGPT review: '7 selected, 11 skipped with reason, 5 waiting for evidence/approval' is the per-wave view. PREREQUISITE: backlog-256 (SignalProfile), backlog-258 (RunnerMetadata), backlog-255 (Planner).",
+  "scope": "ChatGPT review 2026-05-06: 'Adaptive Execution Waves \u2014 not everything in one series, but batches: run relevant checks, process evidence, plan next wave.' This is the key architectural difference between AegisPT and simple scanners: continuous evidence-driven replanning.",
   "status": "queued",
   "generated_by": "architectural-review-2026-05-06",
-  "generation_reason": "ChatGPT identified adaptive waves as the final piece — one batch then stop is still suboptimal. Evidence from Wave 1 must feed Wave 2 planning so WAIT runners can be promoted.",
+  "generation_reason": "ChatGPT identified adaptive waves as the final piece \u2014 one batch then stop is still suboptimal. Evidence from Wave 1 must feed Wave 2 planning so WAIT runners can be promoted.",
   "source_context": {
     "queue_index": 259,
     "queue_file": "TASK_QUEUE.md",
@@ -18,8 +18,11 @@
       "codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json",
       "codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -46,7 +49,7 @@
     "Runners promoted from WAIT to RUN appear as new proposals for operator approval.",
     "Mission Control shows: 'Wave N complete. N runners promoted from WAIT. N still SKIP.'",
     "sqlmap promoted from WAIT to RUN when Wave 1 finds form field with reflected input.",
-    "AI compound chain reasoning triggers wave proposals: 'file-upload + stored-XSS → CSRF cookie theft possible, propose auth-flow in next wave'.",
+    "AI compound chain reasoning triggers wave proposals: 'file-upload + stored-XSS \u2192 CSRF cookie theft possible, propose auth-flow in next wave'.",
     "Maximum 5 waves enforced.",
     "Each wave requires operator approval before launching.",
     "SKIP decisions persist across waves unless new contradicting signals found.",
@@ -57,7 +60,8 @@
     "api/app/services/assessment_chain.py",
     "api/app/services/ai_agent.py",
     "ui/assets/modules/mission-control.js",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Intrusive approval gates",
@@ -86,12 +90,22 @@
       "python3 scripts/validate_backlog_tasks.py passes.",
       "backlog-255, backlog-256, backlog-258 completed."
     ],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Autonomous wave execution without approval", "Unlimited waves", "New runner creation"],
+  "out_of_scope": [
+    "Autonomous wave execution without approval",
+    "Unlimited waves",
+    "New runner creation"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

@@ -2,22 +2,25 @@
   "id": "backlog-257-adaptive-recon-first-wizard-flow",
   "task_file": "codex/tasks/backlog-257-adaptive-recon-first-wizard-flow.json",
   "task_type": "product_slice",
-  "title": "Recon-first wizard flow: wizard default starts low-impact recon, then shows evidence-based assessment plan before any active scanning — expert pentester workflow",
-  "goal": "Complete the adaptive workflow by wiring the recon-first path into the wizard. IMPORTANT LANGUAGE CORRECTION: nmap and httpx are NOT passive — they send active network traffic. They are LOW-IMPACT recon (no exploitation, no fuzzing, no payloads) but still create network connections to the target. The wizard must be clear about this. New wizard flow: (1) Wizard Step 2 shows two options: 'Start with quick recon (recommended, ~5 min, low-impact active recon: nmap port scan + HTTP fingerprinting)' OR 'I already know what to test (pick depth now)'. The recon option must state clearly it sends network traffic to the target. (2) Operator approves the recon step (one explicit approval for nmap + httpx). (3) Mission Control shows recon running. When complete, shows SignalProfile summary: 'Found: Apache 2.4.49 · PHP 7.2 · WordPress 5.8 · Login form at /wp-login.php · File upload at /wp-content/uploads · No JWT tokens · No GraphQL endpoint'. (4) AssessmentPlan shown (from backlog-255): RUN (7) / WAIT (5) / SKIP (11) columns. (5) Operator reviews, adjusts, approves. Only RUN items execute. This is how good pentesters work: understand the target before picking tools. The 'I know what I want' path (current depth selection) remains fully functional — no existing functionality removed.",
-  "scope": "ChatGPT review 2026-05-06: nmap+httpx is not passive, it is low-impact active recon. Wizard must be honest about this. The expert pentester workflow is: low-impact recon → evidence signals → targeted tool selection → operator approval → execution.",
+  "title": "Recon-first wizard flow: wizard default starts low-impact recon, then shows evidence-based assessment plan before any active scanning \u2014 expert pentester workflow",
+  "goal": "Complete the adaptive workflow by wiring the recon-first path into the wizard. IMPORTANT LANGUAGE CORRECTION: nmap and httpx are NOT passive \u2014 they send active network traffic. They are LOW-IMPACT recon (no exploitation, no fuzzing, no payloads) but still create network connections to the target. The wizard must be clear about this. New wizard flow: (1) Wizard Step 2 shows two options: 'Start with quick recon (recommended, ~5 min, low-impact active recon: nmap port scan + HTTP fingerprinting)' OR 'I already know what to test (pick depth now)'. The recon option must state clearly it sends network traffic to the target. (2) Operator approves the recon step (one explicit approval for nmap + httpx). (3) Mission Control shows recon running. When complete, shows SignalProfile summary: 'Found: Apache 2.4.49 \u00b7 PHP 7.2 \u00b7 WordPress 5.8 \u00b7 Login form at /wp-login.php \u00b7 File upload at /wp-content/uploads \u00b7 No JWT tokens \u00b7 No GraphQL endpoint'. (4) AssessmentPlan shown (from backlog-255): RUN (7) / WAIT (5) / SKIP (11) columns. (5) Operator reviews, adjusts, approves. Only RUN items execute. This is how good pentesters work: understand the target before picking tools. The 'I know what I want' path (current depth selection) remains fully functional \u2014 no existing functionality removed.",
+  "scope": "ChatGPT review 2026-05-06: nmap+httpx is not passive, it is low-impact active recon. Wizard must be honest about this. The expert pentester workflow is: low-impact recon \u2192 evidence signals \u2192 targeted tool selection \u2192 operator approval \u2192 execution.",
   "status": "queued",
   "generated_by": "architectural-review-2026-05-06",
   "generation_reason": "Recon-first wizard flow wires the adaptive planner into the user experience. Correct terminology: low-impact active recon, not passive. Expert pentester workflow.",
   "source_context": {
-    "queue_index": 257,
+    "queue_index": 258,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",
       "codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json",
       "codex/tasks/backlog-258-runner-capability-metadata.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -51,7 +54,8 @@
     "ui/assets/modules/wizard.js",
     "api/app/services/assessment_chain.py",
     "ui/assets/modules/mission-control.js",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Existing depth selection (Passive/Active/Full Pentest)",
@@ -81,12 +85,22 @@
       "python3 scripts/validate_backlog_tasks.py passes.",
       "backlog-255, backlog-256, backlog-258 completed."
     ],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Removing existing depth selection", "New runner implementations", "Autonomous execution"],
+  "out_of_scope": [
+    "Removing existing depth selection",
+    "New runner implementations",
+    "Autonomous execution"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

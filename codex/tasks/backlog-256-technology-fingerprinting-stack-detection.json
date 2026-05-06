@@ -3,20 +3,23 @@
   "task_file": "codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json",
   "task_type": "product_slice",
   "title": "Technology and signal fingerprinting: extract structured evidence signals (tech, routes, forms, auth patterns, JWT, GraphQL, parameters) from recon artifacts to feed the adaptive planner",
-  "goal": "The Adaptive Assessment Planner (backlog-255) needs structured evidence signals — not just tech stack labels, but concrete indicators that justify choosing specific runners. Implement a Signal Fingerprinting layer that runs as a post-processor after recon artifacts are collected and produces a structured SignalProfile. The SignalProfile is not a high-level summary but a list of concrete evidence signals: { signals: [ { key: 'login_form_found', value: '/wp-login.php', confidence: 1.0, source: 'httpx_spider' }, { key: 'sql_error_pattern', value: 'You have an error in your SQL syntax', confidence: 0.9, source: 'httpx_response_body' }, { key: 'jwt_in_response', value: false, confidence: 1.0, source: 'httpx_headers' }, { key: 'injectable_parameter', value: '?id=', confidence: 0.7, source: 'httpx_url_patterns' }, { key: 'file_upload_endpoint', value: '/upload', confidence: 1.0, source: 'httpx_spider' }, { key: 'graphql_endpoint', value: false, confidence: 1.0, source: 'httpx_spider' }, { key: 'wordpress_cms', value: true, confidence: 0.95, source: 'response_headers_generator' }, { key: 'java_indicators', value: false, confidence: 0.95, source: 'jsessionid_absent_tomcat_absent' }, { key: 'serialized_cookie', value: false, confidence: 1.0, source: 'cookie_analysis' } ] }. Note: signals like 'injectable_parameter' require pattern matching on URL structures, form actions, and error responses — not just technology detection. The signal 'sql_error_pattern' requires checking actual response bodies, not just detecting PHP+MySQL. IMPORTANT: The planner uses these signals to justify runner selection. sqlmap requires BOTH 'injectable_parameter' OR 'sql_error_pattern' signals — PHP+MySQL alone is insufficient evidence. Sources: (1) HTTP response headers (Server, X-Powered-By, X-Generator, Set-Cookie). (2) Response body patterns (generator meta, wp-content paths, error messages). (3) nmap service fingerprints (product/version). (4) URL patterns from spider (/graphql, /api/, /admin, ?id=, ?page=). (5) Form analysis (action attributes, input names, file inputs). (6) Cookie header analysis (JWT structure, PHPSESSID, JSESSIONID). Store SignalProfile in inventory snapshot. Show in Mission Control recon summary.",
+  "goal": "The Adaptive Assessment Planner (backlog-255) needs structured evidence signals \u2014 not just tech stack labels, but concrete indicators that justify choosing specific runners. Implement a Signal Fingerprinting layer that runs as a post-processor after recon artifacts are collected and produces a structured SignalProfile. The SignalProfile is not a high-level summary but a list of concrete evidence signals: { signals: [ { key: 'login_form_found', value: '/wp-login.php', confidence: 1.0, source: 'httpx_spider' }, { key: 'sql_error_pattern', value: 'You have an error in your SQL syntax', confidence: 0.9, source: 'httpx_response_body' }, { key: 'jwt_in_response', value: false, confidence: 1.0, source: 'httpx_headers' }, { key: 'injectable_parameter', value: '?id=', confidence: 0.7, source: 'httpx_url_patterns' }, { key: 'file_upload_endpoint', value: '/upload', confidence: 1.0, source: 'httpx_spider' }, { key: 'graphql_endpoint', value: false, confidence: 1.0, source: 'httpx_spider' }, { key: 'wordpress_cms', value: true, confidence: 0.95, source: 'response_headers_generator' }, { key: 'java_indicators', value: false, confidence: 0.95, source: 'jsessionid_absent_tomcat_absent' }, { key: 'serialized_cookie', value: false, confidence: 1.0, source: 'cookie_analysis' } ] }. Note: signals like 'injectable_parameter' require pattern matching on URL structures, form actions, and error responses \u2014 not just technology detection. The signal 'sql_error_pattern' requires checking actual response bodies, not just detecting PHP+MySQL. IMPORTANT: The planner uses these signals to justify runner selection. sqlmap requires BOTH 'injectable_parameter' OR 'sql_error_pattern' signals \u2014 PHP+MySQL alone is insufficient evidence. Sources: (1) HTTP response headers (Server, X-Powered-By, X-Generator, Set-Cookie). (2) Response body patterns (generator meta, wp-content paths, error messages). (3) nmap service fingerprints (product/version). (4) URL patterns from spider (/graphql, /api/, /admin, ?id=, ?page=). (5) Form analysis (action attributes, input names, file inputs). (6) Cookie header analysis (JWT structure, PHPSESSID, JSESSIONID). Store SignalProfile in inventory snapshot. Show in Mission Control recon summary.",
   "scope": "The adaptive planner (backlog-255) needs structured tech-stack data. Currently httpx returns raw HTTP data but no structured framework detection. WhatWeb-style fingerprinting is the standard tool for this. This is the data layer that makes adaptive tool selection possible.",
   "status": "queued",
   "generated_by": "architectural-review-2026-05-06",
   "generation_reason": "Adaptive tool selection requires knowing what's on the target. Technology fingerprinting is the data layer that feeds the AI planner and makes 'skip JWT probe if no JWT' possible.",
   "source_context": {
-    "queue_index": 256,
+    "queue_index": 255,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",
       "codex/tasks/backlog-93-on-demand-cve-intelligence.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -33,7 +36,7 @@
     "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
-    "scope_creep_guard": "Fingerprinting only — read HTTP responses, extract patterns. Do not send additional HTTP requests beyond what httpx already collected. Use existing response data only.",
+    "scope_creep_guard": "Fingerprinting only \u2014 read HTTP responses, extract patterns. Do not send additional HTTP requests beyond what httpx already collected. Use existing response data only.",
     "runtime_mutation": false
   },
   "success_criteria": [
@@ -44,7 +47,7 @@
     "JWT presence detected from Authorization: Bearer responses or cookie patterns.",
     "GraphQL endpoint detected from /graphql response or Content-Type: application/graphql.",
     "TechStackProfile shown in Mission Control Phase 1 summary card.",
-    "No additional HTTP requests needed — uses existing httpx response data.",
+    "No additional HTTP requests needed \u2014 uses existing httpx response data.",
     "No regression in Phase 1 or httpx tests."
   ],
   "likely_touched_files": [
@@ -53,9 +56,14 @@
     "api/app/models/control.py",
     "ui/assets/modules/mission-control.js",
     "scripts/install_security_tools.sh",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
-  "must_not_touch": ["Existing httpx scanning logic", "nmap output processing", "Approval gates"],
+  "must_not_touch": [
+    "Existing httpx scanning logic",
+    "nmap output processing",
+    "Approval gates"
+  ],
   "validation": {
     "required_checks": [
       "python3 scripts/validate_backlog_tasks.py",
@@ -64,20 +72,33 @@
     ],
     "acceptance_criteria": [
       "TechStackProfile generated after Phase 1.",
-      "WordPress test: wp-content in URL → cms='WordPress' in profile.",
-      "JWT test: Authorization Bearer header → jwt_present=True.",
+      "WordPress test: wp-content in URL \u2192 cms='WordPress' in profile.",
+      "JWT test: Authorization Bearer header \u2192 jwt_present=True.",
       "No extra HTTP requests needed.",
       "E2E tests pass."
     ]
   },
   "promotion_requirements": {
-    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Active fingerprinting probes", "Full WhatWeb integration", "Commercial fingerprint databases"],
+  "out_of_scope": [
+    "Active fingerprinting probes",
+    "Full WhatWeb integration",
+    "Commercial fingerprint databases"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

@@ -440,6 +440,7 @@ def test_list_run_profiles(client) -> None:
         "active-ad-asreproast",
         "active-ad-bloodhound",
         "active-ad-kerberoast",
+        "active-ai-shell",
         "active-api-assessment",
         "active-browser-validation",
         "active-business-logic",

@@ -6530,6 +6530,49 @@ select option {
   overflow-wrap: anywhere;
 }
 
+.ai-shell-command-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+  padding: 0.62rem 0.72rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(15, 25, 35, 0.14);
+  background: #f8fafc;
+}
+
+.ai-shell-command-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ai-shell-command-label small {
+  padding: 0.18rem 0.42rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  color: var(--cyan);
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.ai-shell-command-preview code {
+  display: block;
+  padding: 0.55rem 0.62rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(15, 25, 35, 0.12);
+  background: #0f172a;
+  color: #e5edf7;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .ai-signal-entry-footer {
   margin-top: 0.55rem;
   letter-spacing: 0.03em;

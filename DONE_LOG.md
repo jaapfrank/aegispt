@@ -1,5 +1,62 @@
 # Done Log
 
+- 2026-05-07: completed backlog-248 `AI Free Bash Execution: let the AI agent run arbitrary shell commands on authorized targets via SSH, with operator-per-command approval`:
+  - rationale:
+    - AI-driven chaining needs a controlled way to request a single remote shell command without giving the AI direct host access or bypassing AegisPT runtime controls
+    - the safe slice was to keep execution inside the existing AgentProposal -> queued Task -> registered runner path, while adding SSH-only command safety, exact-command visibility, credential references, output caps, kill-switch handling, and audit hashes
+    - `http://127.0.0.1:8000` was relevant because Mission Control proposal rendering changed; Playwright acceptance was run against the UI fixture
+  - implementation:
+    - added shared `ai_shell` safety validation for exact command, SSH-only transport, required `credentials_ref`, target/proposal match, no loopback/AegisPT host execution, approved scope, banned destructive/system-changing command patterns, and out-of-scope `curl`/`wget` URLs
+    - added `workers.runners.ai_shell.runner` to execute one SSH command with `BatchMode=yes`, output capped at 8000 chars, JSON evidence artifact, command hash metadata, and pre-execution blocked artifacts
+    - registered `ai-shell` in worker dispatch, command preview, runner/tool certification, acceptance harness, and the new `active-ai-shell` run profile
+    - allowed AI proposals for `ai-shell` while forcing per-command operator review; autonomous mode stores `ai-shell` proposals as pending review instead of auto-dispatching them
+    - approval stores per-command metadata and queues exactly one `ai-shell` task under the existing proposal boundary; runtime execution remains through existing task dispatch, scope checks, approvals, credentials, and kill-switch controls
+    - Mission Control now shows the exact proposed `ai-shell` command, transport, target, credential reference, and output cap in both Suggested Next Steps and task analysis proposal cards before approval
+    - added `risico.md` and `extra_tests.md` updates for residual live-proof gaps
+  - files:
+    - `api/app/services/ai_shell_safety.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/services/run_profiles.py`
+    - `api/tests/test_ai_agent_reasoning.py`
+    - `api/tests/test_runs.py`
+    - `workers/runners/ai_shell/__init__.py`
+    - `workers/runners/ai_shell/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/tests/test_ai_shell_runner.py`
+    - `scripts/acceptance_harness.py`
+    - `scripts/build_runner_tool_certification_matrix.py`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-248-ai-shell-runner-ui-validation-20260507.json`
+    - `risico.md`
+    - `extra_tests.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed during implementation and after promotion with exactly one active task
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_ai_shell_runner.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_shell_proposal_shows_exact_command -q` initially failed because the test did not navigate to Mission Control; after the test fixture was corrected it passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_proposals_inbox_badge_and_review_actions ui/tests/test_operator_console_smoke_e2e.py::test_mission_control_ai_shell_proposal_shows_exact_command -q` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_ai_shell_runner.py workers/tests/test_runner_tool_certification_matrix.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` initially exposed that `active-ai-shell` had to be added to the expected run-profile list; after that fix the full API suite passed with exit code 0
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js` passed
+  - proof:
+    - deterministic runner tests prove SSH command construction, exact remote command forwarding, output cap/truncation metadata, banned command blocking before execution, out-of-scope download URL blocking, loopback blocking, and worker dispatch registration
+    - API tests prove `ai-shell` proposals queue a single reviewed task with command hash/per-command metadata, banned commands remain pending and unqueued, and run-level `ai_shell` disable/kill-switch settings block approval
+    - Playwright proves Mission Control shows the exact `sudo -l` proposal command and `vault://engagement/linux-admin` credential reference before approval
+    - evidence is recorded in `codex/results/backlog-248-ai-shell-runner-ui-validation-20260507.json`
+  - exceptions:
+    - no real SSH command was executed against a live/customer/public/third-party target in this build-lane slice; live SSH proof is listed in `extra_tests.md`
+    - approval uses the existing AegisPT AI proposal boundary: it creates a queued `ai-shell` task and execution occurs through the existing task dispatch path rather than bypassing runtime controls from the review endpoint
+    - the worktree contained existing queue/task-package updates for backlog-255 through backlog-267; they were preserved as repo context and final backlog validation accepts 267 queued packages
+  - remaining risks:
+    - `ai-shell` still needs a scoped, explicitly authorized SSH lab dispatch proof with a benign command, artifact, audit output hash, and kill-switch proof
+    - future work must not weaken `ai-shell` SSH-only, scope, credential-ref, banned-command, output-cap, per-command review, or kill-switch boundaries
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-249 `RCE detection Nuclei template expansion`
+
 - 2026-05-06: completed backlog-247 `sqlmap blind and advanced SQLi: cover AutoPenBench WS4 complex SQL injection with filtered inputs`:
   - rationale:
     - AutoPenBench WS4-style filtered/blind SQLi needs a stronger sqlmap confirmation pass than the previous level 1/risk 1-only command

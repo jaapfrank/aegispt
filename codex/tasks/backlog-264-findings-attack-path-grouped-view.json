@@ -2,9 +2,9 @@
   "id": "backlog-264-findings-attack-path-grouped-view",
   "task_file": "codex/tasks/backlog-264-findings-attack-path-grouped-view.json",
   "task_type": "product_slice",
-  "title": "Findings Theater attack path view: evidence-backed chain tab rendered only from real chain data (iteration refs, evidence refs, causal AgentReasoning links) — no fabricated connections",
-  "goal": "Add an 'Attack Path' tab to Findings Theater that shows AI loop findings as a connected chain. CRITICAL CONSTRAINT: this tab only renders when real chain data exists. Chain data means: each finding has an iteration_number, each causal link has an evidence_ref pointing to actual runner output or artifact, and the AgentReasoning record explicitly references both the source finding and the derived finding as a compound_chain record. If chain data is absent or incomplete, the tab does not appear. No AI-generated story drawing based on co-occurrence or assumption. The chain shown must match exactly what happened: iteration sequence, tools used, evidence captured. RENDERING: Each chain node shows: finding title, severity badge, tool that produced it, iteration number, evidence ref (click to open Evidence Replay). Arrows between nodes show: the AgentReasoning text that explains the causal link — verbatim from the stored reasoning record, not AI-generated retrospectively. Nodes without a chain link shown as 'Independent findings'. LANGUAGE: All node labels use tier-appropriate professional language. Active tier findings: 'session token exposure risk (controlled active test)'. Intrusive: 'privilege escalation vector confirmed (controlled proof under authorized scope)'. Never retrospectively escalate language — if the run was active tier, label says active tier. The chain is a factual record, not a narrative embellishment. IMPLEMENTATION: Read chain data from compound_chain_id field on findings + AgentReasoning chain_context records. Only render the tab if at least two findings share a compound_chain_id with a causal_link_ref.",
-  "scope": "ChatGPT review 2026-05-06: 'Findings attack path must not be fabricated — only appear when there is real chain data: iterations, evidence refs, causal links. No AI story drawn from assumptions.' Evidence-backed only. ROE-proof language.",
+  "title": "Findings Theater attack path view: evidence-backed chain tab rendered only from real chain data (iteration refs, evidence refs, causal AgentReasoning links) \u2014 no fabricated connections",
+  "goal": "Add an 'Attack Path' tab to Findings Theater that shows AI loop findings as a connected chain. CRITICAL CONSTRAINT: this tab only renders when real chain data exists. Chain data means: each finding has an iteration_number, each causal link has an evidence_ref pointing to actual runner output or artifact, and the AgentReasoning record explicitly references both the source finding and the derived finding as a compound_chain record. If chain data is absent or incomplete, the tab does not appear. No AI-generated story drawing based on co-occurrence or assumption. The chain shown must match exactly what happened: iteration sequence, tools used, evidence captured. RENDERING: Each chain node shows: finding title, severity badge, tool that produced it, iteration number, evidence ref (click to open Evidence Replay). Arrows between nodes show: the AgentReasoning text that explains the causal link \u2014 verbatim from the stored reasoning record, not AI-generated retrospectively. Nodes without a chain link shown as 'Independent findings'. LANGUAGE: All node labels use tier-appropriate professional language. Active tier findings: 'session token exposure risk (controlled active test)'. Intrusive: 'privilege escalation vector confirmed (controlled proof under authorized scope)'. Never retrospectively escalate language \u2014 if the run was active tier, label says active tier. The chain is a factual record, not a narrative embellishment. IMPLEMENTATION: Read chain data from compound_chain_id field on findings + AgentReasoning chain_context records. Only render the tab if at least two findings share a compound_chain_id with a causal_link_ref.",
+  "scope": "ChatGPT review 2026-05-06: 'Findings attack path must not be fabricated \u2014 only appear when there is real chain data: iterations, evidence refs, causal links. No AI story drawn from assumptions.' Evidence-backed only. ROE-proof language.",
   "status": "queued",
   "generated_by": "ui-loop-audit-2026-05-06-corrected",
   "generation_reason": "Attack path view is only valuable if it reflects real evidence. Fabricated chains based on co-occurrence would mislead operators and clients.",
@@ -15,8 +15,11 @@
       "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",
       "codex/tasks/backlog-43-vulnerability-chain-detection-foundation.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -50,7 +53,8 @@
     "ui/assets/modules/findings.js",
     "api/app/routers/findings.py",
     "ui/assets/styles.css",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Existing flat findings view",
@@ -67,18 +71,31 @@
       "No chain tab for manual assessment (regression test).",
       "Chain tab appears for ai_loop run with compound_chain data.",
       "Every arrow has AgentReasoning ref.",
-      "No generated causal text — verbatim only.",
+      "No generated causal text \u2014 verbatim only.",
       "E2E tests pass."
     ]
   },
   "promotion_requirements": {
-    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Full attack graph with D3", "Fabricated causal links", "Retroactive AI chain generation"],
+  "out_of_scope": [
+    "Full attack graph with D3",
+    "Fabricated causal links",
+    "Retroactive AI chain generation"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"
