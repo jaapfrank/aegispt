@@ -1,5 +1,41 @@
 # Done Log
 
+- 2026-05-06: completed backlog-201 `Remove 'Complete Assessment Wizard' CTA from wizard screen itself and from active-run screens`:
+  - rationale:
+    - the topbar `Complete Assessment Wizard` CTA was visible in the wizard itself, making the action self-referential
+    - the same CTA could appear when run context already existed, which implied operators should leave active run/review context to redo intake
+    - the active package required a narrow visibility predicate change only, without changing topbar layout, wizard navigation, backend API, dispatch, approvals, scope, ROE, credentials, or kill-switch behavior
+  - implementation:
+    - changed `shouldShowWizardCompletionCta()` so the CTA renders only on Dashboard when there are no engagements and no run context
+    - extended run-context detection to include selected runs, dashboard active run, current mission runs, and engagement `run_count`/run-list metadata
+    - updated the focused smoke test to prove the CTA is hidden on the wizard screen, hidden after clicking through to wizard, hidden with running or queued run context, hidden when an engagement has runs, and visible only on Dashboard with no engagements
+    - bumped the served `app.js` asset query string to `20260506-wizard-cta-scope-1` so restarted `/app/` hosts serve current code
+  - files:
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-201-complete-assessment-wizard-cta-8000.json`
+    - `codex/results/backlog-201-cta-wizard-hidden-8000.png`
+    - `codex/results/backlog-201-cta-dashboard-visible-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - ES module syntax check passed with `node --input-type=module --check < ui/assets/app.js`
+    - focused `test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context` passed
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `bash scripts/run_ui_fast_tests.sh -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed after implementation
+    - `http://127.0.0.1:8000` was relevant and was restarted onto current working-tree code with `scripts/restart_local_inline_host.sh`; current-code browser acceptance passed with no console errors or bad responses and proved all active CTA visibility criteria
+  - evidence:
+    - `codex/results/backlog-201-complete-assessment-wizard-cta-8000.json`
+    - `codex/results/backlog-201-cta-wizard-hidden-8000.png`
+    - `codex/results/backlog-201-cta-dashboard-visible-8000.png`
+  - boundaries:
+    - no topbar layout, wizard navigation, backend API, run dispatch/cancellation, pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill-switch paths were changed or bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; browser acceptance used local UI state only
+  - remaining risks:
+    - the CTA is now intentionally Dashboard-only for first-run/no-engagement context; engagement-without-run empty-state refinement remains for the next Mission Control empty-state task
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-202 `Mission Control empty state`
+
 - 2026-05-06: completed backlog-200 `Bottom navigation bar: remove redundant duplicate of sidebar navigation`:
   - rationale:
     - the sticky bottom navigation duplicated desktop navigation, created a second competing navigation system, and consumed fixed vertical space on every page

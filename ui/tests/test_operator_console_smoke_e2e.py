@@ -1385,11 +1385,8 @@ def test_wizard_advanced_step_labels_are_short_and_do_not_wrap(loaded_page: Page
 
 
 def test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context(loaded_page: Page) -> None:
-    cta = loaded_page.get_by_test_id("complete-assessment-wizard-cta")
-
     expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
-    expect(cta).to_be_visible()
-    expect(cta).to_have_text("Complete Assessment Wizard")
+    expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_count(0)
     expect(loaded_page.get_by_test_id("nav-wizard")).to_be_visible()
 
     loaded_page.evaluate(
@@ -1397,6 +1394,8 @@ def test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context(loaded_
         async () => {
           const { runtime } = await import('/app/assets/modules/runtime.js');
           runtime.state.activeScreen = 'dashboard';
+          runtime.state.engagements = [];
+          runtime.state.selectedEngagementId = null;
           runtime.state.selectedRun = null;
           runtime.state.selectedRunId = null;
           runtime.state.dashboard = { active_run: null, open_problems: {}, risk_score: {} };
@@ -1414,8 +1413,10 @@ def test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context(loaded_
         """
     )
     expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_be_visible()
+    expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_text("Complete Assessment Wizard")
     loaded_page.get_by_test_id("complete-assessment-wizard-cta").click()
     expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
+    expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_count(0)
 
     run = {
         "id": "run-cta-scope",
@@ -1453,6 +1454,62 @@ def test_complete_assessment_wizard_cta_is_scoped_to_missing_run_context(loaded_
             {"screen": screen, "run": run},
         )
         expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_count(0)
+
+    queued_run = {**run, "id": "run-cta-queued", "status": "queued"}
+    loaded_page.evaluate(
+        """
+        async ({ run }) => {
+          const { runtime } = await import('/app/assets/modules/runtime.js');
+          runtime.state.activeScreen = 'dashboard';
+          runtime.state.engagements = [];
+          runtime.state.selectedEngagementId = null;
+          runtime.state.selectedRun = run;
+          runtime.state.selectedRunId = run.id;
+          runtime.state.dashboard = {
+            active_run: { id: run.id, status: run.status, tasks_running: 0 },
+            open_problems: {},
+            risk_score: {},
+          };
+          runtime.state.mission = {
+            scope: null,
+            inventory: [],
+            relevance: [],
+            packs: [],
+            runs: [run],
+            internalValidations: [],
+            findingsByRun: {},
+          };
+          runtime.actions.renderAll();
+        }
+        """,
+        {"run": queued_run},
+    )
+    expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_count(0)
+
+    loaded_page.evaluate(
+        """
+        async () => {
+          const { runtime } = await import('/app/assets/modules/runtime.js');
+          runtime.state.activeScreen = 'dashboard';
+          runtime.state.engagements = [{ id: 'engagement-with-run', name: 'Existing mission', run_count: 1 }];
+          runtime.state.selectedEngagementId = 'engagement-with-run';
+          runtime.state.selectedRun = null;
+          runtime.state.selectedRunId = null;
+          runtime.state.dashboard = { active_run: null, open_problems: {}, risk_score: {} };
+          runtime.state.mission = {
+            scope: null,
+            inventory: [],
+            relevance: [],
+            packs: [],
+            runs: [],
+            internalValidations: [],
+            findingsByRun: {},
+          };
+          runtime.actions.renderAll();
+        }
+        """
+    )
+    expect(loaded_page.get_by_test_id("complete-assessment-wizard-cta")).to_have_count(0)
 
     loaded_page.get_by_test_id("nav-wizard").click()
     expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()

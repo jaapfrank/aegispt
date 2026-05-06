@@ -122,12 +122,6 @@ const RUN_STREAM_TERMINAL_STATUSES = new Set([
   "cancelled",
   "rejected",
 ]);
-const WIZARD_COMPLETION_CTA_BLOCKED_SCREENS = new Set([
-  "mission-control",
-  "findings-theater",
-  "report-center",
-  "history",
-]);
 const TASK_STDOUT_SCREENS = new Set(["mission-control", "agents"]);
 const TASK_STDOUT_POLL_INTERVAL_MS = 3000;
 
@@ -2444,18 +2438,19 @@ function isFirstRunStartState() {
 }
 
 function hasRunContextForWizardCompletionCta() {
+  const engagementHasRuns = (engagement) =>
+    Number(engagement?.run_count || engagement?.runs_count || engagement?.total_runs || 0) > 0 ||
+    (Array.isArray(engagement?.runs) && engagement.runs.length > 0);
   return Boolean(state.selectedRun) ||
     Boolean(state.dashboard?.active_run) ||
-    (Array.isArray(state.mission?.runs) && state.mission.runs.length > 0);
+    (Array.isArray(state.mission?.runs) && state.mission.runs.length > 0) ||
+    (Array.isArray(state.engagements) && state.engagements.some(engagementHasRuns));
 }
 
 function shouldShowWizardCompletionCta() {
-  if (state.activeScreen === "wizard") return true;
-  if (state.activeScreen === "dashboard") return !hasRunContextForWizardCompletionCta();
-  if (WIZARD_COMPLETION_CTA_BLOCKED_SCREENS.has(state.activeScreen)) {
-    return !hasRunContextForWizardCompletionCta();
-  }
-  return false;
+  return state.activeScreen === "dashboard" &&
+    !state.engagements.length &&
+    !hasRunContextForWizardCompletionCta();
 }
 
 function findOperatorSettingValue(key) {

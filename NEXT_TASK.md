@@ -2,35 +2,36 @@
 
 ## Title
 
-Remove 'Complete Assessment Wizard' CTA from wizard screen itself and from active-run screens
+Mission Control empty state: replace large whitespace and fragmented panels with a single focused onboarding card
 
 ## Promoted From
 
-`codex/tasks/backlog-201-complete-assessment-wizard-cta-everywhere.json`
+`codex/tasks/backlog-202-mission-control-empty-state-layout.json`
 
 ## Goal
 
-Scope the topbar `Complete Assessment Wizard` CTA so it appears only when it helps first-run setup and is hidden when the operator is already in the wizard or already has run context.
+Improve Mission Control empty states so no-engagement context shows one focused onboarding card, engagement-without-run context shows useful ready-state panel messages, and run-backed Mission Control behavior remains unchanged.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-201-complete-assessment-wizard-cta-everywhere.json`.
+Implement the active backlog package `codex/tasks/backlog-202-mission-control-empty-state-layout.json`.
 
 Expected slice:
 
-- find the current topbar CTA rendering path in `ui/assets/app.js`
-- hide the CTA when the active screen is `wizard`
-- hide the CTA when a run is queued or running
-- hide the CTA when engagements with runs exist
-- keep it visible on the Dashboard only when no engagements exist or first-run setup genuinely needs intake
+- update Mission Control empty-state rendering in `ui/assets/modules/mission-control.js`
+- when no engagement exists, collapse the fragmented panels and show one centred `Start Mission Intake` onboarding card
+- when an engagement exists but no run has started, keep the main panels visible with contextual ready-state messages
+- hide lower Mission Control panels when no run data exists
+- keep active-run Mission Control rendering unchanged
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Only change the visibility condition of the CTA.
-- Do not change topbar layout.
-- Do not change wizard navigation.
+- Change only empty-state rendering.
+- Do not change Mission Control behavior when a run is active.
+- Do not change run dispatch or cancellation logic.
 - Do not change backend APIs.
+- Do not add new panel types beyond the focused empty-state slice.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -43,8 +44,8 @@ Expected slice:
 
 ## Acceptance
 
-- CTA is hidden on the wizard screen.
-- CTA is hidden when a run is queued or running.
-- CTA is hidden when engagements with runs exist.
-- CTA is visible on Dashboard when no engagements exist.
+- No-engagement Mission Control shows a single focused CTA card.
+- Engagement-without-run Mission Control shows contextual ready-state messages without large whitespace.
+- Active-run Mission Control remains unchanged.
+- Bottom panels are hidden when no run data exists.
 - E2E tests pass.
