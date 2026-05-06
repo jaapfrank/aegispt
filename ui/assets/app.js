@@ -4,7 +4,7 @@ import { createCustomVulnerabilitiesModule } from "./modules/custom-vulnerabilit
 import { createDashboardModule } from "./modules/dashboard.js";
 import { createExplorerHistoryModule } from "./modules/explorer-history.js?v=20260506-kill-chain-1";
 import { createFindingsModule } from "./modules/findings.js?v=20260429-auto-enrichment-1";
-import { createMissionModule } from "./modules/mission-control.js?v=20260506-kill-chain-1";
+import { createMissionModule } from "./modules/mission-control.js?v=20260506-mission-empty-state-1";
 import { createPacksModule } from "./modules/packs.js";
 import { createProblemsModule } from "./modules/problems.js";
 import { createResearchModule } from "./modules/research.js";

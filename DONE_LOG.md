@@ -1,5 +1,48 @@
 # Done Log
 
+- 2026-05-06: completed backlog-202 `Mission Control empty state: replace large whitespace and fragmented panels with a single focused onboarding card`:
+  - rationale:
+    - Mission Control showed fragmented no-run empty messages across Scan Map, Tasks, AI Signal, and lower context panels, which made a fresh install or pre-run engagement look broken
+    - the active package required only empty-state rendering changes, while preserving active-run Mission Control behavior and all dispatch, cancellation, backend, approval, scope, ROE, credential, and kill-switch boundaries
+  - implementation:
+    - added a Mission Control layout mode for no-engagement, engagement-without-run, and run-backed states
+    - collapsed no-engagement Mission Control to one centred card with `Start a new mission to see live scan activity here.` and a `Start Mission Intake` CTA
+    - kept engagement-without-run Mission Control on the three main panels with contextual ready messages: `Waiting for discovery to start.`, `Start Validation to begin.`, and `Analysis will appear once a run is active.`
+    - hid run-backed lower context panels when no run exists, and restored them when a selected run is present
+    - updated smoke coverage to prove no-engagement, engagement-without-run, and active-run layout progression; older no-run AI Signal tests now assert the engagement-ready state rather than pre-run inbox/provider controls
+    - bumped served `styles.css`, `app.js`, and Mission Control module query strings to `20260506-mission-empty-state-1` so restarted `/app/` hosts serve current code
+  - files:
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-202-mission-control-empty-state-8000.json`
+    - `codex/results/backlog-202-mission-empty-no-engagement-8000.png`
+    - `codex/results/backlog-202-mission-empty-ready-8000.png`
+    - `codex/results/backlog-202-mission-active-run-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - ES module syntax checks passed for `ui/assets/modules/mission-control.js` and `ui/assets/app.js`
+    - focused `test_mission_control_empty_states_progress_from_intake_to_ready_to_run` passed
+    - focused AI Signal no-run ready-state tests passed for connected and disconnected ChatGPT settings contexts
+    - required `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `bash scripts/run_ui_fast_tests.sh -q` passed after updating the older no-run AI Signal expectations to the new empty-state product truth
+    - `python3 scripts/validate_backlog_tasks.py` and `git diff --check` passed after implementation
+    - `http://127.0.0.1:8000` was relevant and was restarted onto current working-tree code with `scripts/restart_local_inline_host.sh`; current-code browser acceptance passed with no console errors, page errors, or bad responses
+  - evidence:
+    - `codex/results/backlog-202-mission-control-empty-state-8000.json`
+    - `codex/results/backlog-202-mission-empty-no-engagement-8000.png`
+    - `codex/results/backlog-202-mission-empty-ready-8000.png`
+    - `codex/results/backlog-202-mission-active-run-8000.png`
+  - boundaries:
+    - no active-run dispatch/cancellation behavior, backend API, panel content for run-backed execution, pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill-switch paths were changed or bypassed
+    - no live Gruyere, customer, public internet, or third-party target was contacted; browser acceptance used local UI state only
+  - remaining risks:
+    - this is a focused empty-state slice, not a full Mission Control redesign
+    - pre-run AI Signal now shows the package-required ready message in engagement-without-run context rather than provider/inbox controls before any run exists
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-203 `Settings page navigation overhaul`
+
 - 2026-05-06: completed backlog-201 `Remove 'Complete Assessment Wizard' CTA from wizard screen itself and from active-run screens`:
   - rationale:
     - the topbar `Complete Assessment Wizard` CTA was visible in the wizard itself, making the action self-referential

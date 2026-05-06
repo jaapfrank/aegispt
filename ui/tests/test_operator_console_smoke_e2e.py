@@ -44,6 +44,165 @@ def test_operator_console_fast_navigation_smoke(loaded_page: Page) -> None:
     expect(loaded_page.get_by_test_id("screen-agents")).to_be_visible()
 
 
+def test_mission_control_empty_states_progress_from_intake_to_ready_to_run(
+    loaded_page: Page,
+) -> None:
+    loaded_page.get_by_test_id("nav-mission-control").click()
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            engagements: [],
+            selectedEngagementId: null,
+            selectedRunId: null,
+            selectedRun: null,
+            selectedTaskId: null,
+            selectedAiInsights: null,
+            selectedAiSignalStream: null,
+            mission: {
+              scope: null,
+              inventory: [],
+              relevance: [],
+              packs: [],
+              runs: [],
+              internalValidations: [],
+              findingsByRun: {},
+            },
+          }, 'ui.test.missionEmptyNoEngagement');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("mission-control-empty-intake-card")).to_be_visible()
+    expect(loaded_page.get_by_test_id("mission-control-empty-intake-card")).to_contain_text(
+        "Start a new mission to see live scan activity here."
+    )
+    expect(loaded_page.get_by_test_id("mission-control-empty-intake-action")).to_have_text(
+        "Start Mission Intake"
+    )
+    expect(loaded_page.locator("#screen-mission-control .mission-task-panel")).to_be_hidden()
+    expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).to_be_hidden()
+
+    loaded_page.get_by_test_id("mission-control-empty-intake-action").click()
+    expect(loaded_page.get_by_test_id("screen-wizard")).to_be_visible()
+    loaded_page.get_by_test_id("nav-mission-control").click()
+
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const engagement = { id: 'eng-ready-state', name: 'Ready State Engagement' };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            engagements: [engagement],
+            selectedEngagementId: engagement.id,
+            selectedRunId: null,
+            selectedRun: null,
+            selectedTaskId: null,
+            selectedAiInsights: null,
+            selectedAiSignalStream: null,
+            mission: {
+              scope: { allowlist_json: { urls: ['https://app.example.test'] }, denylist_json: {} },
+              inventory: [],
+              relevance: [],
+              packs: [],
+              runs: [],
+              internalValidations: [],
+              findingsByRun: {},
+            },
+          }, 'ui.test.missionEmptyEngagementReady');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("mission-control-empty-intake-card")).to_have_count(0)
+    expect(loaded_page.locator("#screen-mission-control .mission-task-panel")).to_be_visible()
+    expect(loaded_page.get_by_test_id("mission-ai-signal-panel")).to_be_visible()
+    expect(loaded_page.get_by_test_id("mission-ready-scan-map")).to_contain_text(
+        "Waiting for discovery to start."
+    )
+    expect(loaded_page.get_by_test_id("mission-ready-task-panel")).to_contain_text(
+        "Start Validation to begin."
+    )
+    expect(loaded_page.get_by_test_id("mission-ready-ai-signal")).to_contain_text(
+        "Analysis will appear once a run is active."
+    )
+    expect(loaded_page.get_by_test_id("mission-snapshot-panel")).to_be_hidden()
+    expect(loaded_page.get_by_test_id("mission-support-panel")).to_be_hidden()
+
+    loaded_page.evaluate(
+        """
+        async () => {
+          const runtimeModule = await import('/app/assets/modules/runtime.js');
+          const missionModule = await import('/app/assets/modules/mission-control.js');
+          const now = new Date().toISOString();
+          const run = {
+            id: 'run-ready-state-active',
+            status: 'queued',
+            requested_by: 'operator-ui',
+            created_at: now,
+            updated_at: now,
+            configuration_json: {
+              targets: { cidr_ranges: ['10.0.20.0/24'] },
+              assessment_type: 'Internal Range / LAN',
+              test_profile: 'Internal Validation',
+              modules: {},
+              safety: {},
+            },
+            profile: { name: 'Passive Network Discovery', run_class: 'discovery', limits_json: {} },
+            tasks: [{
+              id: 'task-ready-state-active',
+              tool: 'nmap',
+              target_id: '10.0.20.0/24',
+              status: 'queued',
+              params_json: {},
+              created_at: now,
+              updated_at: now,
+            }],
+          };
+          runtimeModule.patchState({
+            activeScreen: 'mission-control',
+            selectedRunId: run.id,
+            selectedRun: run,
+            selectedTaskId: run.tasks[0].id,
+            selectedAiInsights: null,
+            selectedAiSignalStream: null,
+            mission: {
+              ...runtimeModule.state.mission,
+              runs: [run],
+              findingsByRun: { [run.id]: [] },
+            },
+          }, 'ui.test.missionEmptyActiveRun');
+          missionModule.createMissionModule().renderMissionControl();
+        }
+        """
+    )
+
+    expect(loaded_page.get_by_test_id("mission-ready-scan-map")).to_have_count(0)
+    expect(loaded_page.get_by_test_id("mission-active-target-scan-map")).to_be_visible()
+    expect(loaded_page.get_by_test_id("mission-run-activity")).to_contain_text("Task List")
+    active_layout = loaded_page.evaluate(
+        """
+        () => ({
+          gridClass: document.querySelector('#screen-mission-control .mission-grid')?.className || '',
+          supportClass: document.querySelector('#screen-mission-control .mission-ai-support-stack')?.className || '',
+          aiClass: document.querySelector('#screen-mission-control .mission-ai-panel')?.className || '',
+        })
+        """
+    )
+    assert "mission-grid-run-backed" in active_layout["gridClass"]
+    assert "hidden" not in active_layout["supportClass"]
+    assert "hidden" not in active_layout["aiClass"]
+    expect(loaded_page.get_by_test_id("mission-snapshot-panel")).to_be_visible()
+    expect(loaded_page.get_by_test_id("mission-support-panel")).to_be_visible()
+
+
 def test_topbar_engagement_cleanup_label_matches_delete_modal(loaded_page: Page) -> None:
     cleanup_button = loaded_page.get_by_test_id("manage-engagements")
     expect(cleanup_button).to_have_text("Cleanup")
@@ -2086,7 +2245,7 @@ def test_mission_control_cve_refresh_surfaces_ai_proposal_inbox(loaded_page: Pag
     assert refresh_requests == [{"live_nvd_lookup": False}]
 
 
-def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run(
+def test_mission_control_ai_signal_ready_state_when_chatgpt_connected_without_run(
     loaded_page: Page,
 ) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
@@ -2095,12 +2254,24 @@ def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
           const missionModule = await import('/app/assets/modules/mission-control.js');
+          const engagement = { id: 'eng-ai-ready-connected', name: 'AI Ready Connected' };
           runtimeModule.patchState({
+            engagements: [engagement],
+            selectedEngagementId: engagement.id,
             selectedRunId: null,
             selectedRun: null,
             selectedTaskId: null,
             selectedAiInsights: null,
             selectedAiSignalStream: null,
+            mission: {
+              scope: { allowlist_json: { urls: ['https://app.example.test'] }, denylist_json: {} },
+              inventory: [],
+              relevance: [],
+              packs: [],
+              runs: [],
+              internalValidations: [],
+              findingsByRun: {},
+            },
             operatorSettings: {
               sections: [{
                 id: 'ai_provider',
@@ -2115,14 +2286,14 @@ def test_mission_control_ai_signal_select_run_when_chatgpt_connected_without_run
     )
 
     panel = loaded_page.get_by_test_id("mission-ai-signal-panel")
-    expect(panel).to_contain_text("ChatGPT connected")
-    expect(panel).to_contain_text("Select a run to see AI analysis.")
+    expect(panel).to_be_visible()
+    expect(panel).to_contain_text("Analysis will appear once a run is active.")
     expect(panel).not_to_contain_text("Connect ChatGPT in Settings")
     expect(panel).not_to_contain_text("AI Review Workspace")
     expect(panel).not_to_contain_text("AI Signal Inbox")
 
 
-def test_mission_control_ai_signal_connect_chatgpt_when_provider_disconnected_without_run(
+def test_mission_control_ai_signal_ready_state_when_provider_disconnected_without_run(
     loaded_page: Page,
 ) -> None:
     loaded_page.get_by_test_id("nav-mission-control").click()
@@ -2131,12 +2302,24 @@ def test_mission_control_ai_signal_connect_chatgpt_when_provider_disconnected_wi
         async () => {
           const runtimeModule = await import('/app/assets/modules/runtime.js');
           const missionModule = await import('/app/assets/modules/mission-control.js');
+          const engagement = { id: 'eng-ai-ready-disconnected', name: 'AI Ready Disconnected' };
           runtimeModule.patchState({
+            engagements: [engagement],
+            selectedEngagementId: engagement.id,
             selectedRunId: null,
             selectedRun: null,
             selectedTaskId: null,
             selectedAiInsights: null,
             selectedAiSignalStream: null,
+            mission: {
+              scope: { allowlist_json: { urls: ['https://app.example.test'] }, denylist_json: {} },
+              inventory: [],
+              relevance: [],
+              packs: [],
+              runs: [],
+              internalValidations: [],
+              findingsByRun: {},
+            },
             operatorSettings: {
               sections: [{
                 id: 'ai_provider',
@@ -2151,7 +2334,8 @@ def test_mission_control_ai_signal_connect_chatgpt_when_provider_disconnected_wi
     )
 
     panel = loaded_page.get_by_test_id("mission-ai-signal-panel")
-    expect(panel).to_contain_text("Select a run to see AI analysis.")
+    expect(panel).to_be_visible()
+    expect(panel).to_contain_text("Analysis will appear once a run is active.")
     expect(panel).not_to_contain_text("Connect ChatGPT in Settings")
     expect(loaded_page.get_by_test_id("ai-signal-open-settings")).to_have_count(0)
 

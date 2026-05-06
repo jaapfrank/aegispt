@@ -981,6 +981,37 @@ export function createMissionModule() {
     const phases = buildMissionPhases();
     const activity = deriveCurrentActivity(phases);
     const run = state.selectedRun;
+    const layoutMode = run ? "run" : hasMissionEngagementContext() ? "ready" : "onboarding";
+    setMissionControlLayoutMode(layoutMode);
+
+    if (!run) {
+      dom.missionActivity.innerHTML =
+        layoutMode === "onboarding"
+          ? renderMissionEmptyOnboardingCard()
+          : renderMissionReadyPanelState("mission-ready-scan-map", "Waiting for discovery to start.", {
+              label: "Open Mission Intake",
+              screen: "wizard",
+              testId: "mission-ready-scan-map-action",
+            });
+      dom.missionTimeline.innerHTML = "";
+      dom.missionRunActivity.innerHTML =
+        layoutMode === "onboarding"
+          ? ""
+          : renderMissionReadyPanelState("mission-ready-task-panel", "Start Validation to begin.", {
+              label: "Start Mission Intake",
+              screen: "wizard",
+              testId: "mission-ready-task-action",
+              className: "primary",
+            });
+      dom.missionAiNarrative.innerHTML =
+        layoutMode === "onboarding"
+          ? ""
+          : renderMissionReadyPanelState("mission-ready-ai-signal", "Analysis will appear once a run is active.");
+      clearMissionRunBackedPanels();
+      ensureAiSignalStream();
+      return;
+    }
+
     const tasks = [...(run?.tasks || [])];
     const findings = selectedRunFindingsForMission();
     const counts = summarizeTaskStatuses(tasks);
@@ -1049,6 +1080,66 @@ export function createMissionModule() {
     attachMissionRunActivityHandlers();
     attachMissionSupportHandlers();
     ensureAiSignalStream();
+  }
+
+  function hasMissionEngagementContext() {
+    return Boolean(state.selectedEngagementId) || (Array.isArray(state.engagements) && state.engagements.length > 0);
+  }
+
+  function setMissionControlLayoutMode(mode) {
+    const grid = dom.missionActivity?.closest(".mission-grid");
+    if (!grid) return;
+    grid.classList.remove("mission-grid-onboarding", "mission-grid-ready", "mission-grid-run-backed");
+    grid.classList.add(
+      mode === "onboarding"
+        ? "mission-grid-onboarding"
+        : mode === "ready"
+          ? "mission-grid-ready"
+          : "mission-grid-run-backed"
+    );
+
+    const taskPanel = grid.querySelector(".mission-task-panel");
+    const aiPanel = grid.querySelector(".mission-ai-panel");
+    const supportStack = grid.querySelector(".mission-ai-support-stack");
+    taskPanel?.classList.toggle("hidden", mode === "onboarding");
+    aiPanel?.classList.toggle("hidden", mode === "onboarding");
+    supportStack?.classList.toggle("hidden", mode !== "run");
+  }
+
+  function clearMissionRunBackedPanels() {
+    [
+      dom.missionGood,
+      dom.missionBad,
+      dom.missionUnknown,
+      dom.missionEta,
+      dom.missionFindingsPulse,
+      dom.missionExposureScore,
+      dom.missionPackStatus,
+      dom.missionScopeSummary,
+    ].forEach((node) => {
+      if (node) node.innerHTML = "";
+    });
+  }
+
+  function renderMissionEmptyOnboardingCard() {
+    return `
+      <div class="mission-empty-onboarding-card" data-testid="mission-control-empty-intake-card">
+        <p class="eyebrow">${escapeHtml("Mission Control")}</p>
+        <h3>${escapeHtml("Start a new mission to see live scan activity here.")}</h3>
+        <p>${escapeHtml("Mission Control fills with scan maps, task output, and AI analysis after Intake creates the first run dossier.")}</p>
+        <button class="action primary" type="button" data-nav-screen="wizard" data-testid="mission-control-empty-intake-action">
+          ${escapeHtml("Start Mission Intake")}
+        </button>
+      </div>
+    `;
+  }
+
+  function renderMissionReadyPanelState(testId, message, action = null) {
+    return `
+      <div class="mission-ready-state" data-testid="${escapeHtml(testId)}">
+        ${emptyState(message, action)}
+      </div>
+    `;
   }
 
   function renderMissionMapColumn({ activity, run, tasks, findings, counts }) {

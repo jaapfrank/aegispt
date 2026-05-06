@@ -2,36 +2,36 @@
 
 ## Title
 
-Mission Control empty state: replace large whitespace and fragmented panels with a single focused onboarding card
+Settings page navigation overhaul: replace 28-panel vertical list with tabbed category navigation
 
 ## Promoted From
 
-`codex/tasks/backlog-202-mission-control-empty-state-layout.json`
+`codex/tasks/backlog-203-settings-page-navigation-overhaul.json`
 
 ## Goal
 
-Improve Mission Control empty states so no-engagement context shows one focused onboarding card, engagement-without-run context shows useful ready-state panel messages, and run-backed Mission Control behavior remains unchanged.
+Improve the Settings screen so operators can navigate the existing settings panels through five focused tabs and a search/filter input, while preserving the existing panel content, panel rendering model, and settings save/load behavior.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-202-mission-control-empty-state-layout.json`.
+Implement the active backlog package `codex/tasks/backlog-203-settings-page-navigation-overhaul.json`.
 
 Expected slice:
 
-- update Mission Control empty-state rendering in `ui/assets/modules/mission-control.js`
-- when no engagement exists, collapse the fragmented panels and show one centred `Start Mission Intake` onboarding card
-- when an engagement exists but no run has started, keep the main panels visible with contextual ready-state messages
-- hide lower Mission Control panels when no run data exists
-- keep active-run Mission Control rendering unchanged
+- add a five-tab navigation bar at the top of Settings content
+- use the categories `AI & Provider`, `Tools & Runtime`, `Integrations`, `Data & Security`, and `Identity & Users`
+- show only panels relevant to the selected tab, with no more than six panels per tab
+- keep existing expand/collapse behavior within each tab
+- add a prominent `Find a setting...` search/filter input that highlights matching panels across tabs
+- preserve the existing `DEFAULT_SETTINGS_PANELS` object and panel rendering content
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Change only empty-state rendering.
-- Do not change Mission Control behavior when a run is active.
-- Do not change run dispatch or cancellation logic.
-- Do not change backend APIs.
-- Do not add new panel types beyond the focused empty-state slice.
+- Add tab navigation and search only.
+- Do not change panel content.
+- Do not change settings save/load logic.
+- Do not change backend settings APIs.
 - Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
 - No runtime self-modification.
 - No uncontrolled plugin installation.
@@ -44,8 +44,9 @@ Expected slice:
 
 ## Acceptance
 
-- No-engagement Mission Control shows a single focused CTA card.
-- Engagement-without-run Mission Control shows contextual ready-state messages without large whitespace.
-- Active-run Mission Control remains unchanged.
-- Bottom panels are hidden when no run data exists.
+- Settings screen shows a 5-tab navigation bar at top.
+- Each tab shows only the panels relevant to its category.
+- All existing panels remain accessible through tabs or search.
+- Search input narrows/highlights visible panels across tabs.
+- Settings screen no longer requires 10+ viewport scrolls to see all panels.
 - E2E tests pass.

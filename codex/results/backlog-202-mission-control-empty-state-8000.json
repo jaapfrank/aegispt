@@ -1,0 +1,57 @@
+{
+  "active_acceptance_passed": true,
+  "active_criteria": {
+    "active_run_map_and_tasks_visible": true,
+    "active_run_ready_messages_removed": true,
+    "active_run_support_panels_visible": true,
+    "bottom_panels_hidden_without_run": true,
+    "cta_click_opens_wizard": true,
+    "current_app_asset_version_served": true,
+    "engagement_no_run_contextual_messages": true,
+    "engagement_no_run_three_panels_visible": true,
+    "no_engagement_cta_card_visible": true,
+    "no_engagement_secondary_panels_hidden": true,
+    "no_engagement_single_visible_panel": true
+  },
+  "active_run_metrics": {
+    "activeMapVisible": true,
+    "gridClass": "grid mission-grid mission-grid-run-backed",
+    "readyMessagesRemoved": true,
+    "snapshotVisible": true,
+    "supportVisible": true,
+    "taskListVisible": true
+  },
+  "asset_versions": {
+    "appScript": "./assets/app.js?v=20260506-mission-empty-state-1",
+    "stylesheet": "./assets/styles.css?v=20260506-mission-empty-state-1"
+  },
+  "base_url": "http://127.0.0.1:8000",
+  "no_engagement_metrics": {
+    "aiPanelVisible": false,
+    "cardText": "Mission Control Start a new mission to see live scan activity here. Mission Control fills with scan maps, task output, and AI analysis after Intake creates the first run dossier. Start Mission Intake",
+    "gridClass": "grid mission-grid mission-grid-onboarding",
+    "taskPanelVisible": false,
+    "visiblePanelCount": 1
+  },
+  "observed_bad_responses": [],
+  "observed_console_messages": [],
+  "observed_page_errors": [],
+  "ready_metrics": {
+    "gridClass": "grid mission-grid mission-grid-ready",
+    "readyAiText": "Analysis will appear once a run is active.",
+    "readyScanText": "Waiting for discovery to start. Open Mission Intake",
+    "readyTaskText": "Start Validation to begin. Start Mission Intake",
+    "snapshotVisible": false,
+    "supportVisible": false,
+    "visiblePanelCount": 3
+  },
+  "screenshots": [
+    "codex/results/backlog-202-mission-empty-no-engagement-8000.png",
+    "codex/results/backlog-202-mission-empty-ready-8000.png",
+    "codex/results/backlog-202-mission-active-run-8000.png"
+  ],
+  "viewport": {
+    "height": 900,
+    "width": 1280
+  }
+}
