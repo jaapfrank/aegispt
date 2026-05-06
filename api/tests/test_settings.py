@@ -334,7 +334,13 @@ def test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately
     assert wireless["status"] == "blocked"
     assert wireless["metadata"]["tool_group_installed"] is True
     assert wireless["metadata"]["hardware_blocked"] is True
-    assert "Attach authorized wireless hardware" in wireless["operator_next_step"]
+    assert "monitor-mode capable USB WiFi adapter" in wireless["operator_next_step"]
+    assert "Alfa AWUS036ACH" in wireless["operator_next_step"]
+
+    certification = capabilities["runner_tool_certification"]
+    assert certification["status"] == "ready_with_hardware_limitation"
+    assert certification["metadata"]["hardware_limited_tool_count"] == 1
+    assert "hardware-only limitation" in certification["summary"]
 
 
 def test_settings_readiness_simulated_production_deployment_hardening(client) -> None:

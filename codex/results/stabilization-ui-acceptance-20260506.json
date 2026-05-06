@@ -1,0 +1,51 @@
+{
+  "base_url": "http://127.0.0.1:8000",
+  "diagnostics": {
+    "overall_status": "degraded",
+    "queue_state": {
+      "status": "ready",
+      "summary": "0 queued, 0 running, 0 failed task(s)."
+    },
+    "run_stuck": {
+      "status": "ready",
+      "summary": "0 active-like run(s), 0 older than 30 minutes without update."
+    },
+    "runner_tool_certification": {
+      "status": "ready_with_hardware_limitation",
+      "summary": "Runner/tool certification is software-ready with a hardware-only limitation."
+    }
+  },
+  "external_web_active_preview": {
+    "expected_terms_found": [
+      "XXE",
+      "JWT",
+      "SSRF",
+      "GraphQL",
+      "SSTI",
+      "HTTP smuggling",
+      "IDOR",
+      "Headers security"
+    ],
+    "mission_preview_visible": true,
+    "preview_excerpt": "External Web\n\ud83c\udfaf https://portal.example.com\n\u23f1 ~60-90 min\n2 phases \u00b7 23 runners\nFull External Web \u00b7 2 phases \u00b7 23 runners\nTARGETS\n\ud83c\udf10 https://portal.example.com\nHosts discovered in Phase 1 are automatically included in later phases.\nPHASE 1 \u00b7 PASSIVE SURFACE MAPPING\n\ud83d\udfe2 Passive Surface Mapping\nEASM External surface map\nHTTPX Web baseline\nCRYP Passive Crypto Audit\nLOG Passive Web Logging Probe\n~16 min \u00b7 no approval\n\u2192\nPHASE 2 \u00b7 ACTIVE WEB VALIDATION\n\ud83d\udd35 Active Web Validation\nNUCL Nuclei safe scan\nZAP Active Web Safe\nBURP Passive Web Burp\nRUN Active Business Logic\nOAUTH Active Web Oauth Probe\nXXE XXE probe",
+    "runner_count_visible": true
+  },
+  "generated_at": "2026-05-06T16:10:27.185612+00:00",
+  "mission_control_ui": {
+    "mission_control_visible": true,
+    "queued_or_running_absent": true,
+    "queued_task_badge_absent": true,
+    "stale_running_callout_absent_for_cancelled_task": true
+  },
+  "settings_readiness_api": {
+    "overall_status": "blocked",
+    "runner_tool_certification_status": "ready_with_hardware_limitation",
+    "wireless_next_step": "Attach an authorized monitor-mode capable USB WiFi adapter, for example Alfa AWUS036ACH; software installation is already satisfied.",
+    "wireless_status": "blocked"
+  },
+  "settings_readiness_ui": {
+    "hardware_limited_label_visible": true,
+    "raw_ready_with_hardware_limitation_visible": false,
+    "wireless_hardware_guidance_visible": true
+  }
+}

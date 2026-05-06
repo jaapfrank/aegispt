@@ -176,6 +176,8 @@ def _runner_tool_matrix_summary(payload: dict[str, Any]) -> dict[str, Any]:
     tools = payload.get("tools") if isinstance(payload.get("tools"), list) else []
     statuses: dict[str, int] = {}
     software_states: dict[str, int] = {}
+    hardware_blocker_tool_ids: list[str] = []
+    non_hardware_blocked_tool_ids: list[str] = []
     for tool in tools:
         if not isinstance(tool, dict):
             continue
@@ -184,11 +186,22 @@ def _runner_tool_matrix_summary(payload: dict[str, Any]) -> dict[str, Any]:
         readiness = tool.get("software_readiness") if isinstance(tool.get("software_readiness"), dict) else {}
         software_state = str(readiness.get("state") or "unknown")
         software_states[software_state] = software_states.get(software_state, 0) + 1
+        hardware = tool.get("hardware_readiness") if isinstance(tool.get("hardware_readiness"), dict) else {}
+        if hardware.get("blocker"):
+            hardware_blocker_tool_ids.append(str(tool.get("id") or "unknown"))
+        elif status == "blocked":
+            non_hardware_blocked_tool_ids.append(str(tool.get("id") or "unknown"))
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
     return {
         "tool_count": len(tools),
         "status_counts": statuses,
         "software_ready_state_counts": software_states,
+        "overall_status": str(summary.get("overall_status") or "unknown"),
+        "hardware_blocker_tool_ids": hardware_blocker_tool_ids,
+        "non_hardware_blocked_tool_ids": non_hardware_blocked_tool_ids,
         "blocked_tool_count": statuses.get("blocked", 0),
+        "non_hardware_blocked_tool_count": len(non_hardware_blocked_tool_ids),
+        "hardware_limited_tool_count": len(hardware_blocker_tool_ids),
         "supported_with_gap_tool_count": statuses.get("supported-with-gap", 0),
         "certified_tool_count": statuses.get("certified", 0),
     }
@@ -322,8 +335,16 @@ def build_release_readiness_report(repo_root: Path | None = None) -> dict[str, A
             tool_gaps.append(
                 f"Certification matrix records {runner_tool_metrics['supported_with_gap_tool_count']} supported-with-gap runner(s)."
             )
-        if runner_tool_metrics["blocked_tool_count"]:
-            tool_gaps.append(f"Certification matrix records {runner_tool_metrics['blocked_tool_count']} blocked runner(s).")
+        if runner_tool_metrics["non_hardware_blocked_tool_count"]:
+            tool_gaps.append(
+                f"Certification matrix records {runner_tool_metrics['non_hardware_blocked_tool_count']} non-hardware blocked runner(s)."
+            )
+        if runner_tool_metrics["hardware_limited_tool_count"]:
+            tool_gaps.append(
+                f"Certification matrix records {runner_tool_metrics['hardware_limited_tool_count']} hardware-limited runner(s): "
+                + ", ".join(runner_tool_metrics["hardware_blocker_tool_ids"])
+                + "."
+            )
     claims.append(
         _claim(
             claim_id="runner_tool_readiness",

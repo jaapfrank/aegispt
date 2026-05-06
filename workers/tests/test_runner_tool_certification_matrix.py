@@ -28,6 +28,9 @@ def test_certification_matrix_separates_hardware_blockers_from_software_readines
     matrix = build_matrix()
     wifi = {entry["id"]: entry for entry in matrix["tools"]}["wifi-survey"]
 
+    assert matrix["summary"]["overall_status"] == "ready_with_hardware_limitation"
+    assert matrix["summary"]["hardware_blocker_tool_ids"] == ["wifi-survey"]
+    assert matrix["summary"]["non_hardware_blocked_tool_ids"] == []
     assert wifi["certification_status"] == "blocked"
     assert wifi["software_readiness"]["settings_tool_group_id"] == "wifi"
     assert wifi["software_readiness"]["software_installable"] is True

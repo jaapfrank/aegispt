@@ -134,7 +134,7 @@ verify_any_command "gobuster" "gobuster version" "gobuster --version"
 verify_command "feroxbuster" feroxbuster --version
 verify_command "nikto" nikto -Version
 verify_command "sqlmap" sqlmap --version
-verify_command "Hydra" hydra -h
+verify_command_allow_nonzero "Hydra" hydra -h
 verify_testssl
 proxy_safe_semgrep
 verify_command "ssh-audit" ssh-audit -h

@@ -2166,20 +2166,24 @@ function renderReadinessActions(actions) {
 
 function readinessStatusChip(status) {
   const normalized = String(status || "unknown").toLowerCase();
+  const label = normalized === "ready_with_hardware_limitation" ? "hardware limited" : normalized;
   const theme =
     normalized === "ready"
       ? "success"
+      : normalized === "ready_with_hardware_limitation"
+        ? "warning"
       : normalized === "blocked" || normalized === "missing"
         ? "danger"
         : normalized === "degraded"
           ? "warning"
           : "info";
-  return `<span class="status-chip ${theme}">${escapeHtml(normalized)}</span>`;
+  return `<span class="status-chip ${theme}">${escapeHtml(label)}</span>`;
 }
 
 function statusDotForReadiness(status) {
   const normalized = String(status || "").toLowerCase();
   if (normalized === "ready") return "completed";
+  if (normalized === "ready_with_hardware_limitation") return "queued";
   if (normalized === "blocked" || normalized === "missing") return "failed";
   return "queued";
 }

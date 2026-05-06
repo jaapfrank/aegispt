@@ -1686,6 +1686,8 @@ def _runner_tool_certification_readiness() -> ReadinessCapabilityRead:
     status = str(summary["readiness_status"])
     if status == "ready":
         headline = "Runner/tool certification matrix has no recorded certification gaps."
+    elif status == "ready_with_hardware_limitation":
+        headline = "Runner/tool certification is software-ready with a hardware-only limitation."
     elif status == "missing":
         headline = "Runner/tool certification matrix is not available."
     else:
@@ -1701,11 +1703,14 @@ def _runner_tool_certification_readiness() -> ReadinessCapabilityRead:
         details=[
             f"Matrix path: {summary['path']}.",
             f"{summary['certified_tool_count']} of {summary['tool_count']} tracked runners are certified by deterministic evidence.",
+            "Hardware-only limitations require compatible lab equipment and do not mean software tools are missing.",
             "Gaps and hardware blockers are evidence records only; they do not install tools or authorize execution.",
         ],
         operator_next_step=(
             "Run python3 scripts/build_runner_tool_certification_matrix.py and review codex/results/runner-tool-certification-matrix.md."
             if status == "missing"
+            else "Attach compatible authorized hardware for hardware-limited runners; use Settings tool readiness for current host binary state."
+            if status == "ready_with_hardware_limitation"
             else "Review certification gaps before making support claims; use Settings tool readiness for current host binary state."
         ),
         metadata=summary,
@@ -1744,9 +1749,9 @@ def _wireless_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabilityRe
             else "No wireless adapter is detected on this host; WiFi analysis software tooling is also incomplete."
         )
         next_step = (
-            "Attach authorized wireless hardware; software installation is already satisfied."
+            "Attach an authorized monitor-mode capable USB WiFi adapter, for example Alfa AWUS036ACH; software installation is already satisfied."
             if installed
-            else "Run the official tool installer, then attach authorized wireless hardware for host-backed WiFi readiness."
+            else "Run the official tool installer, then attach an authorized monitor-mode capable USB WiFi adapter, for example Alfa AWUS036ACH."
         )
     return _capability(
         capability_id="wireless_readiness",
@@ -1755,6 +1760,7 @@ def _wireless_readiness(tools: list[ToolReadinessRead]) -> ReadinessCapabilityRe
         summary=summary,
         details=[
             "Foundation WiFi support is passive-only.",
+            "Host-backed WiFi assessment requires a monitor-mode capable USB WiFi adapter such as Alfa AWUS036ACH, attached under explicit wireless ROE.",
             "AegisPT does not enable monitor mode, deauthenticate clients, capture handshakes, brute-force WPS, jam RF, or create rogue APs in this slice.",
             "Monitor-mode capability and channel support are reported as unknown until a future explicit lab validation task adds safe hardware probing.",
         ],

@@ -177,6 +177,31 @@ def test_full_external_web_chain_includes_crypto_logging_and_oauth_probe() -> No
     assert "active-web-oauth-probe" in definition.phases[1].profiles
 
 
+def test_full_external_web_chain_dispatches_new_web_security_profiles() -> None:
+    definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-EXTERNAL-WEB"]
+    active_profiles = set(definition.phases[1].profiles)
+
+    expected = {
+        "active-web-xxe-probe",
+        "active-web-jwt-probe",
+        "active-web-vuln-components",
+        "active-web-xss-extended",
+        "active-web-ssrf-probe",
+        "active-web-deserialization-probe",
+        "active-web-session-security",
+        "active-web-auth-flow",
+        "active-web-client-state",
+        "active-web-headers-security",
+        "active-web-graphql-probe",
+        "active-web-ssti-probe",
+        "active-web-http-smuggling",
+        "active-web-idor-bac",
+    }
+
+    assert expected.issubset(active_profiles)
+    assert expected.issubset(assessment_chain_service.WEB_FOLLOW_UP_PROFILES)
+
+
 def test_full_internal_lan_chain_includes_linux_privilege_escalation_enumeration() -> None:
     definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-INTERNAL-LAN"]
 

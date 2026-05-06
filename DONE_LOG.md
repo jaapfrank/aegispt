@@ -1,5 +1,75 @@
 # Done Log
 
+- 2026-05-06: completed current stabilization pass before continuing backlog-247:
+  - rationale:
+    - the operator asked to stop backlog progression and fix current problems first
+    - the active backlog-247 task was not implemented; this was a narrow corrective stabilization pass for host readiness, stale evidence, queue hygiene, verification, and visible UI/runtime readiness problems
+    - live-verification had generated temporary backlog-252/backlog-253 queue entries for missing Full External Web runner dispatch and WiFi hardware blocker copy; those reported issues were fixed in this pass and the temporary queue entries were removed instead of leaving stale future work
+  - implementation:
+    - installed and verified host binaries previously missing from readiness/evidence: `tcpdump`, `arping`, `arpspoof`, `gobuster`, `nikto`, `sqlmap`, and `hydra`
+    - changed `scripts/verify_host.sh` to accept Hydra help output even though this Hydra build exits non-zero for `-h`
+    - wired the already-registered new web security profiles into `FULL-EXTERNAL-WEB` active validation and the Wizard mission preview: XXE, JWT, vulnerable components, extended XSS, SSRF, deserialization, session security, auth flow, client-state, headers security, GraphQL, SSTI, HTTP smuggling, and IDOR/BAC
+    - regenerated runner/tool certification and enterprise release-readiness artifacts after host software installation
+    - added hardware-only runner/tool certification status `ready_with_hardware_limitation` for the case where the only blocked certification item is hardware-specific WiFi lab proof
+    - updated Settings/Wireless readiness guidance to say that host-backed WiFi assessment requires an authorized monitor-mode capable USB WiFi adapter such as Alfa AWUS036ACH
+    - closed six stale local development run records through existing governed runtime endpoints: three via `/api/v1/runs/{run_id}/stale-recovery` where task eligibility allowed audit-backed recovery, and three via `/api/v1/runs/{run_id}/cancel` where the run was still marked running but all tasks were already terminal
+    - removed a generated non-queue `codex/tasks/task-20260506155714-pack-refinement-18f617e8.json` package so repository task state stays queue-backed and unambiguous
+    - hid stale-recovery guidance for non-running Mission Control tasks so cancelled task focus no longer says `Normal running task`
+  - files:
+    - `api/app/services/assessment_chain.py`
+    - `api/app/services/settings.py`
+    - `api/app/services/tool_certification.py`
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_settings.py`
+    - `workers/tests/test_runner_tool_certification_matrix.py`
+    - `scripts/verify_host.sh`
+    - `scripts/build_runner_tool_certification_matrix.py`
+    - `scripts/run_enterprise_release_readiness.py`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/modules/settings.js`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/app.js`
+    - `ui/index.html`
+    - `codex/results/runner-tool-certification-matrix.json`
+    - `codex/results/runner-tool-certification-matrix.md`
+    - `codex/results/enterprise-release-readiness.json`
+    - `codex/results/enterprise-release-readiness.md`
+    - `codex/results/current-stabilization-host-ui-readiness-20260506.md`
+    - `codex/results/stabilization-stale-run-recovery-20260506.json`
+    - `codex/results/stabilization-run-cancel-cleanup-20260506.json`
+    - `codex/results/stabilization-ui-acceptance-20260506.json`
+    - `codex/results/stabilization-web-chain-preview-20260506.png`
+    - `codex/results/stabilization-settings-readiness-20260506.png`
+    - `codex/results/stabilization-mission-control-20260506.png`
+  - validation:
+    - `bash scripts/verify_host.sh`
+    - `python3 scripts/build_runner_tool_certification_matrix.py --output-json codex/results/runner-tool-certification-matrix.json --output-md codex/results/runner-tool-certification-matrix.md`
+    - `python3 scripts/run_enterprise_release_readiness.py --output-json codex/results/enterprise-release-readiness.json --output-md codex/results/enterprise-release-readiness.md`
+    - `python3 -m compileall api/app/services/assessment_chain.py api/app/services/tool_certification.py api/app/services/settings.py scripts/build_runner_tool_certification_matrix.py scripts/run_enterprise_release_readiness.py`
+    - `node --input-type=module --check < ui/assets/modules/wizard.js`
+    - `node --input-type=module --check < ui/assets/modules/settings.js`
+    - `node --input-type=module --check < ui/assets/modules/mission-control.js`
+    - `node --input-type=module --check < ui/assets/app.js`
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py::test_full_external_web_chain_includes_crypto_logging_and_oauth_probe api/tests/test_assessment_chain.py::test_full_external_web_chain_dispatches_new_web_security_profiles workers/tests/test_runner_tool_certification_matrix.py api/tests/test_settings.py::test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately api/tests/test_release_readiness.py -q`
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_implementation_verification_2026_05_05.py::test_wizard_active_depth_triggers_new_profiles_in_preview -q` before removing the temporary generated verification file
+    - current-code Playwright acceptance on `http://127.0.0.1:8000/app/` for External Web Active preview, Settings readiness, Mission Control queued/stale-run cleanup state, and absence of the cancelled-task stale-running callout
+    - `python3 scripts/validate_backlog_tasks.py`
+    - `git diff --check`
+  - proof:
+    - host verification completed through every tracked security tool group
+    - runner/tool certification now reports `overall_status=ready_with_hardware_limitation`, `software_ready_state_counts={"not-required": 37, "ready": 19}`, `certified_tool_count=55`, and only `wifi-survey` as hardware-limited
+    - Playwright preview evidence shows External Web Active has `23 runners` and exposes XXE, JWT, SSRF, GraphQL, SSTI, HTTP smuggling, IDOR, and Headers security
+    - Settings readiness evidence shows `runner_tool_certification.status=ready_with_hardware_limitation`, `wireless_readiness.status=blocked`, and explicit WiFi hardware guidance
+    - diagnostics evidence shows `queue_state.status=ready` with `0 queued, 0 running, 0 failed task(s)` and `run_stuck.status=ready` with `0 active-like run(s)`
+    - Mission Control screenshot evidence shows no queued-task badge and no stale-running callout on the selected cancelled task
+  - exceptions:
+    - this pass intentionally did not execute the active backlog-247 implementation because the operator explicitly requested current-problem stabilization before continuing tasks
+    - temporary live-verification backlog-252/backlog-253 task files and the generated non-queue pack-refinement task file were removed after their issues were fixed or identified as out-of-scope generated state, so no stale queue items remain for already-resolved problems
+  - remaining risks:
+    - `wifi-survey` remains hardware-limited until authorized monitor-mode WiFi hardware and lab proof exist
+    - enterprise release-readiness remains `blocked` for known-vulnerability detection accuracy and FP/FN posture
+    - `NEXT_TASK.md` remains exactly one active task, backlog-247 `sqlmap blind and advanced SQLi`
+
 - 2026-05-06: completed backlog-246 `Network traffic capture runner: tcpdump passive capture + ARP poisoning detection to cover AutoPenBench NS4/NS5`:
   - rationale:
     - AutoPenBench NS4/NS5 coverage required governed LAN traffic-capture evidence and ARP poisoning exposure detection without turning passive LAN discovery into uncontrolled live spoofing

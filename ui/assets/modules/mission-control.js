@@ -7109,6 +7109,9 @@ function renderStaleTaskRecoveryNotice(selectedTaskSummary) {
       </div>
     `;
   }
+  if (String(selectedTaskSummary?.status || "").toLowerCase() !== "running") {
+    return "";
+  }
   if (!recovery?.eligible && !recovery?.blocked_reasons?.length) {
     return "";
   }

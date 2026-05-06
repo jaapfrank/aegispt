@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-05T17:53:25.279471+00:00",
+  "generated_at": "2026-05-06T15:47:31.098789+00:00",
   "inputs": {
     "finding_mapping": "workers/orchestration/findings.py",
     "inventory_mapping": "api/app/services/inventory.py",
@@ -12,21 +12,23 @@
   "source_task": "codex/tasks/backlog-240-runner-tool-certification-matrix.json",
   "summary": {
     "blocked_tool_count": 1,
-    "certified_tool_count": 53,
+    "certified_tool_count": 55,
     "hardware_blocker_tool_ids": [
       "wifi-survey"
     ],
+    "hardware_limited_tool_count": 1,
+    "non_hardware_blocked_tool_ids": [],
+    "overall_status": "ready_with_hardware_limitation",
     "software_ready_state_counts": {
-      "missing": 2,
       "not-required": 37,
-      "ready": 15
+      "ready": 19
     },
     "status_counts": {
       "blocked": 1,
-      "certified": 53
+      "certified": 55
     },
     "supported_with_gap_tool_count": 0,
-    "tool_count": 54
+    "tool_count": 56
   },
   "support_boundary": {
     "live_target_actions": false,
@@ -115,7 +117,12 @@
           "workers/tests/test_graphql_probe_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json"
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -191,13 +198,18 @@
       "title": "Auth Flow",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_auth_flow_runner.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-224-auth-flow-runner-20260505.md"
+          "codex/results/backlog-224-auth-flow-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -275,7 +287,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_aws_inventory_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -353,7 +370,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_biz_logic_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -440,7 +462,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_bloodhound_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -523,7 +550,11 @@
         "fixture_or_lab_evidence": [
           "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
           "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
-          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md"
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -606,7 +637,12 @@
           "workers/tests/test_camera_test_runner.py",
           "workers/tests/test_runner_contract.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -685,7 +721,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_cicd_security_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -760,6 +801,7 @@
       "title": "Client State",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_client_state_runner.py",
@@ -767,8 +809,12 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/backlog-225-client-state-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
           "codex/results/benchmark-coverage-latest.json",
-          "codex/results/coverage_report.json"
+          "codex/results/coverage_report.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -847,7 +893,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_cloud_native_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -935,7 +986,11 @@
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md"
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1048,7 +1103,12 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/backlog-209-tool-capability-guide-20260504.md",
-          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md"
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-ssh-hydra-brute-force-runner-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1144,7 +1204,12 @@
           "workers/tests/test_runner_tool_certification_matrix.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-236-cryptographic-weakness-detection-runner-20260505.md"
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-236-cryptographic-weakness-detection-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1220,13 +1285,18 @@
       "title": "Deserialization Probe",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_deserialization_probe_runner.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-222-deserialization-probe-runner-20260505.md"
+          "codex/results/backlog-222-deserialization-probe-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1305,7 +1375,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_desktop_client_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -1388,7 +1463,14 @@
         "fixture_or_lab_evidence": [
           "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
           "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
-          "codex/results/backlog-231-insufficient-logging-detection-20260505.md"
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-preview-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1485,7 +1567,11 @@
           "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
           "codex/results/backlog-181-ia-audit.json",
           "codex/results/backlog-209-tool-capability-guide-20260504.md",
-          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md"
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1565,7 +1651,11 @@
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md"
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1641,13 +1731,20 @@
       "title": "Graphql Probe",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_graphql_probe_runner.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-227-graphql-probe-runner-20260505.md"
+          "codex/results/backlog-227-graphql-probe-runner-20260505.md",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1723,13 +1820,18 @@
       "title": "Headers Security",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_headers_security_runner.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-226-headers-security-runner-20260505.md"
+          "codex/results/backlog-226-headers-security-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1805,13 +1907,18 @@
       "title": "Http Smuggling",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_http_smuggling_runner.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-229-http-smuggling-runner-20260505.md"
+          "codex/results/backlog-229-http-smuggling-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -1950,7 +2057,13 @@
           "codex/results/backlog-218-idor-bac-runner-20260504.md",
           "codex/results/backlog-225-client-state-runner-20260505.md",
           "codex/results/backlog-230-oauth-probe-runner-20260505.md",
-          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md"
+          "codex/results/backlog-232-ai-reasoning-transparency-summary-thought-action-20260506.md",
+          "codex/results/backlog-241-authorized-gruyere-xss-extended-validation-20260506.md",
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -2026,12 +2139,17 @@
       "title": "Idor Bac",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_idor_bac_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-218-idor-bac-runner-20260504.md"
+          "codex/results/backlog-218-idor-bac-runner-20260504.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -2154,7 +2272,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_impacket_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -2234,7 +2357,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_iot_default_creds_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -2314,7 +2442,13 @@
           "workers/tests/test_ipv6_discovery_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json"
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -2390,12 +2524,17 @@
       "title": "Jwt Probe",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-216-jwt-vulnerability-runner-20260504.md"
+          "codex/results/backlog-216-jwt-vulnerability-runner-20260504.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -2477,7 +2616,14 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
-          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json"
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-preview-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -2555,7 +2701,12 @@
         "deterministic_tests": [
           "api/tests/test_llm_probe.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -2637,7 +2788,11 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
-          "codex/results/backlog-231-insufficient-logging-detection-20260505.md"
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -2717,7 +2872,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_mdns_ssdp_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -2808,12 +2968,18 @@
       "validation_evidence": {
         "deterministic_tests": [
           "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_kill_chain_progress.py",
           "api/tests/test_reports.py",
           "api/tests/test_runs.py",
           "api/tests/test_settings.py",
           "workers/tests/test_metasploit_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -2891,7 +3057,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_mobile_android_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -2993,7 +3164,116 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/backlog-181-full-system-audit.json",
-          "codex/results/backlog-215-tool-install-enable-control-plane-20260504.md"
+          "codex/results/backlog-215-tool-install-enable-control-plane-20260504.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [],
+        "max_required_approvals": 0,
+        "run_classes": [
+          "passive"
+        ],
+        "status": "passive"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": null,
+          "name": "passive-lan-network-capture",
+          "required_approvals": 0,
+          "run_class": "passive"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.",
+        "Passive capture is bounded by approved interface, host/CIDR filter, time, and packet count limits.",
+        "Captured cleartext credential values are redacted from stored artifacts; ARP spoof proof remains fail-closed without explicit intrusive authorization."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "network-capture",
+      "inventory_mapping": {
+        "source": "api/app/services/inventory.py",
+        "verified": true
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "network-capture-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.network_capture.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "arping": "/usr/bin/arping",
+          "arpspoof": "/usr/sbin/arpspoof",
+          "tcpdump": "/usr/bin/tcpdump"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "tcpdump"
+          ],
+          [
+            "arping"
+          ],
+          [
+            "arpspoof"
+          ]
+        ],
+        "settings_tool_group_id": "network-capture",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Network Capture",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "api/tests/test_settings.py",
+          "api/tests/test_wizard_iot_static.py",
+          "workers/tests/test_network_capture_runner.py",
+          "workers/tests/test_runner_contract.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-246-network-capture-live-10-0-20-20260506.json",
+          "codex/results/backlog-246-network-capture-runner-20260506.md",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-8000.png",
+          "codex/results/backlog-246-wizard-network-capture-preview-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-preview-8000.png"
         ]
       }
     },
@@ -3081,7 +3361,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_network_segmentation_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -3126,9 +3411,7 @@
         "source": null,
         "verified": false
       },
-      "limitations": [
-        "Required host binaries were not fully detected on this build host."
-      ],
+      "limitations": [],
       "output_contract": {
         "artifact_names": [
           "nikto-results.json"
@@ -3147,12 +3430,10 @@
       },
       "runner_module": "workers.runners.nikto.runner",
       "software_readiness": {
-        "detected_paths": {},
-        "missing_binary_groups": [
-          [
-            "nikto"
-          ]
-        ],
+        "detected_paths": {
+          "nikto": "/usr/bin/nikto"
+        },
+        "missing_binary_groups": [],
         "required_binary_groups": [
           [
             "nikto"
@@ -3160,7 +3441,7 @@
         ],
         "settings_tool_group_id": "nikto",
         "software_installable": true,
-        "state": "missing"
+        "state": "ready"
       },
       "title": "Nikto",
       "validation_evidence": {
@@ -3170,7 +3451,12 @@
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md"
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/backlog-240-runner-tool-certification-matrix-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -3287,6 +3573,7 @@
           "api/tests/test_codex_lane.py",
           "api/tests/test_diagnostics.py",
           "api/tests/test_gdpr_data_handling.py",
+          "api/tests/test_kill_chain_progress.py",
           "api/tests/test_live_ai_signal_stream.py",
           "api/tests/test_nmap_dispatch.py",
           "api/tests/test_on_demand_cve_intel.py",
@@ -3294,6 +3581,7 @@
           "api/tests/test_reports.py",
           "api/tests/test_runs.py",
           "api/tests/test_settings.py",
+          "api/tests/test_wizard_iot_static.py",
           "workers/tests/test_external_infra_runner.py",
           "workers/tests/test_ipv6_discovery_runner.py",
           "workers/tests/test_network_segmentation_runner.py",
@@ -3302,7 +3590,17 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
-          "codex/results/backlog-181-full-system-audit.json"
+          "codex/results/backlog-181-full-system-audit.json",
+          "codex/results/backlog-232-ai-reasoning-transparency-summary-thought-action-20260506.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-245-nmap-snmp-port-depth-20260506.md",
+          "codex/results/backlog-245-wizard-nmap-scan-depth-8000.json",
+          "codex/results/backlog-245-wizard-nmap-scan-depth-8000.png",
+          "codex/results/backlog-246-network-capture-live-10-0-20-20260506.json",
+          "codex/results/backlog-246-network-capture-runner-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -3393,6 +3691,7 @@
         "deterministic_tests": [
           "api/tests/test_ai_agent_reasoning.py",
           "api/tests/test_ai_finding_enrichment.py",
+          "api/tests/test_ai_research.py",
           "api/tests/test_assessment_chain.py",
           "api/tests/test_custom_vulnerabilities.py",
           "api/tests/test_cve_sync.py",
@@ -3400,6 +3699,7 @@
           "api/tests/test_diagnostics.py",
           "api/tests/test_evidence_integrity.py",
           "api/tests/test_finding_validator.py",
+          "api/tests/test_kill_chain_progress.py",
           "api/tests/test_nuclei_dispatch.py",
           "api/tests/test_on_demand_cve_intel.py",
           "api/tests/test_product_feature_matrix.py",
@@ -3417,11 +3717,19 @@
           "codex/results/backlog-181-full-system-audit.json",
           "codex/results/backlog-181-full-system-audit.md",
           "codex/results/backlog-181-ia-audit.json",
+          "codex/results/backlog-206-cve-to-test-auto-queue-20260505.md",
           "codex/results/backlog-213-gruyere-webgoat-coverage-20260504.md",
           "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-preview-8000.json",
           "codex/results/benchmark-coverage-latest.json",
           "codex/results/coverage_report.json",
-          "codex/results/github-ci-pr-gate-correction-20260501.md"
+          "codex/results/github-ci-pr-gate-correction-20260501.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -3508,7 +3816,11 @@
         "fixture_or_lab_evidence": [
           "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
           "codex/results/backlog-230-oauth-probe-runner-20260505.md",
-          "codex/results/backlog-231-insufficient-logging-detection-20260505.md"
+          "codex/results/backlog-231-insufficient-logging-detection-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -3600,7 +3912,12 @@
           "api/tests/test_runs.py",
           "workers/tests/test_playwright_web_runner.py"
         ],
-        "fixture_or_lab_evidence": []
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
       }
     },
     {
@@ -3685,7 +4002,15 @@
         "fixture_or_lab_evidence": [
           "codex/results/active-task-priv-esc-linux-browser-acceptance-20260505.json",
           "codex/results/active-task-priv-esc-linux-wizard-preview-20260505.png",
-          "codex/results/backlog-234-linux-priv-esc-runner-20260505.md"
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-234-linux-priv-esc-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-preview-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -3780,7 +4105,11 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/backlog-181-full-system-audit.json",
-          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md"
+          "codex/results/backlog-243-mission-launch-auto-dispatch-unified-flow-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -3867,7 +4196,11 @@
           "workers/tests/test_runner_contract.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/github-ci-pr-gate-correction-20260501.md"
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/github-ci-pr-gate-correction-20260501.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -3943,6 +4276,7 @@
       "title": "Session Security",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_session_security_runner.py",
@@ -3950,8 +4284,12 @@
         ],
         "fixture_or_lab_evidence": [
           "codex/results/backlog-223-session-security-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
           "codex/results/benchmark-coverage-latest.json",
-          "codex/results/coverage_report.json"
+          "codex/results/coverage_report.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4037,7 +4375,14 @@
         "fixture_or_lab_evidence": [
           "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
           "codex/results/backlog-181-ia-audit.json",
-          "codex/results/live-mission-and-github-ci-check-20260501.md"
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-ssh-hydra-brute-force-runner-20260506.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/live-mission-and-github-ci-check-20260501.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4121,10 +4466,18 @@
           "api/tests/test_assessment_chain.py",
           "api/tests/test_runs.py",
           "api/tests/test_wizard_iot_static.py",
+          "workers/tests/test_runner_contract.py",
           "workers/tests/test_snmp_enum_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json"
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-245-nmap-snmp-port-depth-20260506.md",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4171,9 +4524,7 @@
         "source": null,
         "verified": false
       },
-      "limitations": [
-        "Required host binaries were not fully detected on this build host."
-      ],
+      "limitations": [],
       "output_contract": {
         "artifact_names": [
           "sqlmap-results.json"
@@ -4192,12 +4543,10 @@
       },
       "runner_module": "workers.runners.sqlmap.runner",
       "software_readiness": {
-        "detected_paths": {},
-        "missing_binary_groups": [
-          [
-            "sqlmap"
-          ]
-        ],
+        "detected_paths": {
+          "sqlmap": "/usr/bin/sqlmap"
+        },
+        "missing_binary_groups": [],
         "required_binary_groups": [
           [
             "sqlmap"
@@ -4205,7 +4554,7 @@
         ],
         "settings_tool_group_id": "sqlmap",
         "software_installable": true,
-        "state": "missing"
+        "state": "ready"
       },
       "title": "Sqlmap",
       "validation_evidence": {
@@ -4216,7 +4565,112 @@
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md"
+          "codex/results/backlog-211-pentest-depth-additional-tools-20260504.md",
+          "codex/results/backlog-240-runner-tool-certification-matrix-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
+        ]
+      }
+    },
+    {
+      "authorization_tier": {
+        "approval_step_ids": [
+          "active-lan-ssh-brute"
+        ],
+        "max_required_approvals": 1,
+        "run_classes": [
+          "active"
+        ],
+        "status": "active"
+      },
+      "certification_status": "certified",
+      "default_run_profiles": [
+        {
+          "approval_step_id": "active-lan-ssh-brute",
+          "name": "active-lan-ssh-brute",
+          "required_approvals": 1,
+          "run_class": "active"
+        }
+      ],
+      "diagnostics_reference": {
+        "diagnostics_subsystem_id": "runner_tool_certification",
+        "settings_capability_id": "runner_tool_certification"
+      },
+      "false_positive_guardrails": [
+        "Execution still goes through existing scope, ROE, approval, runtime binding, credential, and kill-switch gates.",
+        "Certification records evidence only and does not dispatch tools or authorize live target actions.",
+        "Mapped default profiles require explicit approval before active or intrusive execution.",
+        "Findings are only reportable after the existing normalized artifact parser accepts the expected artifact name.",
+        "Hydra execution is approval-gated, scoped to approved LAN service targets, capped at five attempts per second, and stopped after lockout signals.",
+        "Only the built-in top-50 password tier plus explicitly configured bounded candidates are certified; large wordlists remain out of scope."
+      ],
+      "finding_mapping": {
+        "source": "workers/orchestration/findings.py",
+        "verified": true
+      },
+      "gap_reason": null,
+      "hardware_readiness": {
+        "blocker": null,
+        "kind": null,
+        "required": false
+      },
+      "id": "ssh-brute",
+      "inventory_mapping": {
+        "source": null,
+        "verified": false
+      },
+      "limitations": [],
+      "output_contract": {
+        "artifact_names": [
+          "ssh-brute-results.json"
+        ],
+        "artifact_schema": "RunnerExecution artifacts with JSON/JSONL/XML contracts recorded by runner tests or parser mapping.",
+        "normalized_output_verified": true
+      },
+      "release_readiness_reference": {
+        "claim_id": "runner_tool_readiness",
+        "matrix_path": "codex/results/runner-tool-certification-matrix.json"
+      },
+      "report_mapping": {
+        "note": "Reports consume stored findings, tasks, evidence artifacts, and inventory snapshots rather than raw runner output directly.",
+        "source": "api/app/services/reports.py",
+        "verified": true
+      },
+      "runner_module": "workers.runners.ssh_brute.runner",
+      "software_readiness": {
+        "detected_paths": {
+          "hydra": "/usr/bin/hydra"
+        },
+        "missing_binary_groups": [],
+        "required_binary_groups": [
+          [
+            "hydra"
+          ]
+        ],
+        "settings_tool_group_id": "hydra",
+        "software_installable": true,
+        "state": "ready"
+      },
+      "title": "Ssh Brute",
+      "validation_evidence": {
+        "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
+          "api/tests/test_pentest_depth_registration.py",
+          "api/tests/test_runs.py",
+          "workers/tests/test_ssh_brute_runner.py"
+        ],
+        "fixture_or_lab_evidence": [
+          "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/backlog-244-ssh-hydra-brute-force-runner-20260506.md",
+          "codex/results/backlog-244-ssh-hydra-live-lab-20260506.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.json",
+          "codex/results/backlog-244-wizard-ssh-brute-8000.png",
+          "codex/results/backlog-246-wizard-network-capture-8000.json",
+          "codex/results/backlog-246-wizard-network-capture-preview-8000.json"
         ]
       }
     },
@@ -4292,13 +4746,18 @@
       "title": "Ssrf Probe",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_ssrf_probe_runner.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-221-ssrf-probe-runner-20260505.md"
+          "codex/results/backlog-221-ssrf-probe-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4374,13 +4833,18 @@
       "title": "Ssti Probe",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_ssti_probe_runner.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-228-ssti-probe-runner-20260505.md"
+          "codex/results/backlog-228-ssti-probe-runner-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4456,12 +4920,17 @@
       "title": "Vuln Components",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-217-vulnerable-components-runner-20260504.md"
+          "codex/results/backlog-217-vulnerable-components-runner-20260504.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4563,7 +5032,12 @@
         "fixture_or_lab_evidence": [
           "codex/results/backlog-151-wizard-input-prediction-matrix-20260430.json",
           "codex/results/backlog-164-wifi-readiness-20260501.md",
-          "codex/results/backlog-180-launch-authorization-auto-advance-contract-20260502.md"
+          "codex/results/backlog-180-launch-authorization-auto-advance-contract-20260502.md",
+          "codex/results/backlog-240-runner-tool-certification-matrix-20260505.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4639,12 +5113,20 @@
       "title": "Xss Extended",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_ai_agent_reasoning.py",
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_xss_extended_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-220-xss-extended-runner-20260504.md"
+          "codex/results/backlog-219-ai-attack-chain-reasoning-web-context-20260506.md",
+          "codex/results/backlog-220-xss-extended-runner-20260504.md",
+          "codex/results/backlog-241-authorized-gruyere-xss-extended-validation-20260506.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4720,12 +5202,17 @@
       "title": "Xxe Probe",
       "validation_evidence": {
         "deterministic_tests": [
+          "api/tests/test_assessment_chain.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_runs.py",
           "workers/tests/test_web_depth_runner.py"
         ],
         "fixture_or_lab_evidence": [
-          "codex/results/backlog-214-xxe-injection-runner-20260504.md"
+          "codex/results/backlog-214-xxe-injection-runner-20260504.md",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     },
@@ -4831,6 +5318,7 @@
           "api/tests/test_codex_lane.py",
           "api/tests/test_codex_tasks.py",
           "api/tests/test_internal_validations.py",
+          "api/tests/test_kill_chain_progress.py",
           "api/tests/test_pentest_depth_registration.py",
           "api/tests/test_reports.py",
           "api/tests/test_runs.py",
@@ -4855,8 +5343,14 @@
           "codex/results/backlog-213-gruyere-webgoat-coverage-20260504.md",
           "codex/results/backlog-214-xxe-injection-runner-20260504.md",
           "codex/results/backlog-220-xss-extended-runner-20260504.md",
+          "codex/results/backlog-242-authorized-dvga-graphql-live-lab-validation-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.json",
+          "codex/results/backlog-244-runner-tool-certification-matrix-20260506.md",
           "codex/results/benchmark-coverage-latest.json",
-          "codex/results/coverage_report.json"
+          "codex/results/coverage_report.json",
+          "codex/results/production-deployment-proof-latest.json",
+          "codex/results/runner-tool-certification-matrix.json",
+          "codex/results/runner-tool-certification-matrix.md"
         ]
       }
     }

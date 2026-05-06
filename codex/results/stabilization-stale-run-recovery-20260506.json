@@ -1,0 +1,180 @@
+{
+  "active_run_ids_before": [
+    "8b8dca53-c13e-48a3-8779-fd8329269f2f",
+    "1c0beb97-44f7-4691-8d89-788789c6cfc5",
+    "c321e826-e102-4ada-860b-98918aa1adab",
+    "47fe4db1-44a2-40c2-a761-a6b318a1257b",
+    "d61ef1f3-cbe2-4f03-b911-f5020314cedf",
+    "df20cf21-e836-4a9b-a9b3-90362d828be3"
+  ],
+  "base_url": "http://127.0.0.1:8000",
+  "final_diagnostics_status": 200,
+  "final_overall_status": "blocked",
+  "final_subsystems": [
+    {
+      "id": "queue_state",
+      "metadata": {
+        "task_status_counts": {
+          "cancelled": 9,
+          "completed": 23
+        }
+      },
+      "status": "ready",
+      "summary": "0 queued, 0 running, 0 failed task(s)."
+    },
+    {
+      "id": "run_stuck",
+      "metadata": {
+        "active_run_ids": [
+          "47fe4db1-44a2-40c2-a761-a6b318a1257b",
+          "d61ef1f3-cbe2-4f03-b911-f5020314cedf",
+          "df20cf21-e836-4a9b-a9b3-90362d828be3"
+        ],
+        "stuck_after_minutes": 30,
+        "stuck_run_ids": [
+          "47fe4db1-44a2-40c2-a761-a6b318a1257b",
+          "d61ef1f3-cbe2-4f03-b911-f5020314cedf",
+          "df20cf21-e836-4a9b-a9b3-90362d828be3"
+        ]
+      },
+      "status": "blocked",
+      "summary": "3 active-like run(s), 3 older than 30 minutes without update."
+    },
+    {
+      "id": "tool_readiness",
+      "metadata": {
+        "container_rebuild_command": "docker compose -f infra/compose/docker-compose.yml build --no-cache",
+        "degraded_count": 0,
+        "host_installer_command": "sudo bash scripts/install_security_tools.sh",
+        "missing_count": 0,
+        "missing_tools": [],
+        "ready_count": 19
+      },
+      "status": "ready",
+      "summary": "All tracked tool groups are available."
+    },
+    {
+      "id": "runner_tool_certification",
+      "metadata": {
+        "blocked_tool_count": 1,
+        "certified_tool_count": 55,
+        "generated_at": "2026-05-06T15:47:31.098789+00:00",
+        "hardware_blockers": [
+          {
+            "blocker": "No deterministic hardware lab or monitor-mode adapter proof is recorded in this task.",
+            "id": "wifi-survey"
+          }
+        ],
+        "hardware_limited_tool_count": 1,
+        "path": "codex/results/runner-tool-certification-matrix.json",
+        "raw_matrix_available": true,
+        "readiness_status": "ready_with_hardware_limitation",
+        "software_ready_state_counts": {
+          "not-required": 37,
+          "ready": 19
+        },
+        "status_counts": {
+          "blocked": 1,
+          "certified": 55
+        },
+        "supported_with_gap_tool_count": 0,
+        "tool_count": 56
+      },
+      "status": "ready_with_hardware_limitation",
+      "summary": "Runner/tool certification is software-ready with a hardware-only limitation."
+    }
+  ],
+  "generated_at": "2026-05-06T16:05:02.471325+00:00",
+  "initial_diagnostics_status": 200,
+  "reason": "Operator confirmed local development stale runner state during stabilization: diagnostics marked the run older than the recovery threshold, no external executor or tool process is active on this host, and stale recovery eligibility required no task execution evidence.",
+  "runs": [
+    {
+      "eligible_task_ids": [
+        "a3e8d191-a440-49b4-a69c-a199d1c9f0f4"
+      ],
+      "error": null,
+      "final_status": "cancelled",
+      "initial_get_status": 200,
+      "initial_status": "running",
+      "recovered_task_statuses": [
+        {
+          "id": "a3e8d191-a440-49b4-a69c-a199d1c9f0f4",
+          "status": "cancelled",
+          "tool": "httpx"
+        }
+      ],
+      "recovery_post_status": 200,
+      "run_id": "8b8dca53-c13e-48a3-8779-fd8329269f2f",
+      "stale_recovery_available": true
+    },
+    {
+      "eligible_task_ids": [
+        "70d5fe52-9a38-4249-a873-596b832d365e"
+      ],
+      "error": null,
+      "final_status": "cancelled",
+      "initial_get_status": 200,
+      "initial_status": "running",
+      "recovered_task_statuses": [
+        {
+          "id": "70d5fe52-9a38-4249-a873-596b832d365e",
+          "status": "cancelled",
+          "tool": "httpx"
+        }
+      ],
+      "recovery_post_status": 200,
+      "run_id": "1c0beb97-44f7-4691-8d89-788789c6cfc5",
+      "stale_recovery_available": true
+    },
+    {
+      "eligible_task_ids": [
+        "6423057d-535d-416f-90e2-46fa0a913cf4"
+      ],
+      "error": null,
+      "final_status": "cancelled",
+      "initial_get_status": 200,
+      "initial_status": "running",
+      "recovered_task_statuses": [
+        {
+          "id": "6423057d-535d-416f-90e2-46fa0a913cf4",
+          "status": "cancelled",
+          "tool": "httpx"
+        }
+      ],
+      "recovery_post_status": 200,
+      "run_id": "c321e826-e102-4ada-860b-98918aa1adab",
+      "stale_recovery_available": true
+    },
+    {
+      "eligible_task_ids": [],
+      "initial_get_status": 200,
+      "initial_status": "running",
+      "run_id": "47fe4db1-44a2-40c2-a761-a6b318a1257b",
+      "skipped_reason": [
+        "no running task meets stale recovery criteria"
+      ],
+      "stale_recovery_available": false
+    },
+    {
+      "eligible_task_ids": [],
+      "initial_get_status": 200,
+      "initial_status": "running",
+      "run_id": "d61ef1f3-cbe2-4f03-b911-f5020314cedf",
+      "skipped_reason": [
+        "no running task meets stale recovery criteria"
+      ],
+      "stale_recovery_available": false
+    },
+    {
+      "eligible_task_ids": [],
+      "initial_get_status": 200,
+      "initial_status": "running",
+      "run_id": "df20cf21-e836-4a9b-a9b3-90362d828be3",
+      "skipped_reason": [
+        "no running task meets stale recovery criteria"
+      ],
+      "stale_recovery_available": false
+    }
+  ],
+  "used_endpoint": "/api/v1/runs/{run_id}/stale-recovery"
+}

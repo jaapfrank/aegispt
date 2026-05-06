@@ -5,7 +5,7 @@
     "supported-with-gap": 11,
     "unsupported": 1
   },
-  "generated_at": "2026-05-05T18:39:56.147072+00:00",
+  "generated_at": "2026-05-06T15:48:10.928584+00:00",
   "inputs": {
     "operator_assurance_matrix": "docs/operator_product_operational_assurance.md",
     "product_acceptance_matrix": "codex/tasks/product_acceptance_matrix.json",
@@ -200,24 +200,30 @@
       ],
       "gaps": [
         "Tool availability depends on installed host binaries, adapters, and worker/inline mode.",
-        "Certification matrix records 1 blocked runner(s)."
+        "Certification matrix records 1 hardware-limited runner(s): wifi-survey."
       ],
       "id": "runner_tool_readiness",
       "metrics": {
         "runner_tool_certification_matrix": {
           "blocked_tool_count": 1,
-          "certified_tool_count": 53,
+          "certified_tool_count": 55,
+          "hardware_blocker_tool_ids": [
+            "wifi-survey"
+          ],
+          "hardware_limited_tool_count": 1,
+          "non_hardware_blocked_tool_count": 0,
+          "non_hardware_blocked_tool_ids": [],
+          "overall_status": "ready_with_hardware_limitation",
           "software_ready_state_counts": {
-            "missing": 2,
             "not-required": 37,
-            "ready": 15
+            "ready": 19
           },
           "status_counts": {
             "blocked": 1,
-            "certified": 53
+            "certified": 55
           },
           "supported_with_gap_tool_count": 0,
-          "tool_count": 54
+          "tool_count": 56
         }
       },
       "next_task_refs": [

@@ -74,14 +74,6 @@ def summarize_runner_tool_certification_matrix(path: Path | None = None) -> dict
     blocked = int(status_counts.get("blocked", 0))
     gaps = int(status_counts.get("supported-with-gap", 0))
     certified = int(status_counts.get("certified", 0))
-    if matrix.get("missing") or matrix.get("parse_error") or matrix.get("invalid_payload"):
-        readiness_status = "missing"
-    elif blocked:
-        readiness_status = "blocked"
-    elif gaps:
-        readiness_status = "degraded"
-    else:
-        readiness_status = "ready"
     hardware_blockers = []
     for tool in tools:
         if not isinstance(tool, dict):
@@ -89,6 +81,26 @@ def summarize_runner_tool_certification_matrix(path: Path | None = None) -> dict
         hardware = tool.get("hardware_readiness") if isinstance(tool.get("hardware_readiness"), dict) else {}
         if hardware.get("blocker"):
             hardware_blockers.append({"id": tool.get("id"), "blocker": hardware.get("blocker")})
+    hardware_blocker_ids = {str(item.get("id")) for item in hardware_blockers}
+    blocked_ids = {
+        str(tool.get("id"))
+        for tool in tools
+        if isinstance(tool, dict) and str(tool.get("certification_status") or "") == "blocked"
+    }
+    blocked_only_by_hardware = bool(blocked_ids) and blocked_ids.issubset(hardware_blocker_ids)
+    summary_status = str(matrix.get("summary", {}).get("overall_status") or "").strip()
+    if matrix.get("missing") or matrix.get("parse_error") or matrix.get("invalid_payload"):
+        readiness_status = "missing"
+    elif summary_status:
+        readiness_status = summary_status
+    elif blocked_only_by_hardware:
+        readiness_status = "ready_with_hardware_limitation"
+    elif blocked:
+        readiness_status = "blocked"
+    elif gaps:
+        readiness_status = "degraded"
+    else:
+        readiness_status = "ready"
     return {
         "path": matrix.get("path", str(DEFAULT_CERTIFICATION_MATRIX_PATH.relative_to(REPO_ROOT))),
         "generated_at": matrix.get("generated_at"),
@@ -100,5 +112,6 @@ def summarize_runner_tool_certification_matrix(path: Path | None = None) -> dict
         "status_counts": dict(sorted(status_counts.items())),
         "software_ready_state_counts": matrix.get("summary", {}).get("software_ready_state_counts", {}),
         "hardware_blockers": hardware_blockers,
+        "hardware_limited_tool_count": len(hardware_blockers),
         "raw_matrix_available": not (matrix.get("missing") or matrix.get("parse_error") or matrix.get("invalid_payload")),
     }

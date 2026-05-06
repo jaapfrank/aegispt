@@ -530,6 +530,20 @@ def build_matrix() -> dict[str, Any]:
     status_counts = Counter(tool["certification_status"] for tool in tools)
     software_counts = Counter(tool["software_readiness"]["state"] for tool in tools)
     hardware_blockers = [tool["id"] for tool in tools if tool["hardware_readiness"].get("blocker")]
+    non_hardware_blocked = [
+        tool["id"]
+        for tool in tools
+        if tool["certification_status"] == STATUS_BLOCKED and not tool["hardware_readiness"].get("blocker")
+    ]
+    overall_status = (
+        "blocked"
+        if non_hardware_blocked
+        else "ready_with_hardware_limitation"
+        if hardware_blockers
+        else "supported-with-gap"
+        if status_counts.get(STATUS_GAP, 0)
+        else "ready"
+    )
     return {
         "kind": "aegispt.runner_tool_certification_matrix",
         "schema_version": 1,
@@ -549,13 +563,16 @@ def build_matrix() -> dict[str, Any]:
             "settings_readiness": SETTINGS_SOURCE,
         },
         "summary": {
+            "overall_status": overall_status,
             "tool_count": len(tools),
             "status_counts": dict(sorted(status_counts.items())),
             "software_ready_state_counts": dict(sorted(software_counts.items())),
             "hardware_blocker_tool_ids": hardware_blockers,
+            "non_hardware_blocked_tool_ids": non_hardware_blocked,
             "certified_tool_count": status_counts.get(STATUS_CERTIFIED, 0),
             "supported_with_gap_tool_count": status_counts.get(STATUS_GAP, 0),
             "blocked_tool_count": status_counts.get(STATUS_BLOCKED, 0),
+            "hardware_limited_tool_count": len(hardware_blockers),
         },
         "tools": tools,
     }
@@ -569,9 +586,11 @@ def render_markdown(matrix: dict[str, Any]) -> str:
         f"- Generated: `{matrix['generated_at']}`",
         f"- Source task: `{matrix['source_task']}`",
         f"- Tool count: `{summary['tool_count']}`",
+        f"- Overall status: `{summary.get('overall_status', 'unknown')}`",
         f"- Certified: `{summary['certified_tool_count']}`",
         f"- Supported with gap: `{summary['supported_with_gap_tool_count']}`",
         f"- Blocked: `{summary['blocked_tool_count']}`",
+        f"- Hardware-limited: `{summary.get('hardware_limited_tool_count', 0)}`",
         "",
         "This artifact is evidence-only. It does not dispatch tools, install software, grant approval, expand scope, or mutate runtime state.",
         "",

@@ -4,12 +4,12 @@ import { createCustomVulnerabilitiesModule } from "./modules/custom-vulnerabilit
 import { createDashboardModule } from "./modules/dashboard.js";
 import { createExplorerHistoryModule } from "./modules/explorer-history.js?v=20260506-kill-chain-1";
 import { createFindingsModule } from "./modules/findings.js?v=20260429-auto-enrichment-1";
-import { createMissionModule } from "./modules/mission-control.js?v=20260506-mission-empty-state-1";
+import { createMissionModule } from "./modules/mission-control.js?v=20260506-stabilize-readiness-1";
 import { createPacksModule } from "./modules/packs.js";
 import { createProblemsModule } from "./modules/problems.js";
 import { createResearchModule } from "./modules/research.js";
 import { createReportsModule } from "./modules/reports.js";
-import { createSettingsModule } from "./modules/settings.js?v=20260506-settings-tabs-1";
+import { createSettingsModule } from "./modules/settings.js?v=20260506-stabilize-readiness-1";
 import {
   buildEmptyOnboardingState,
   buildEmptyWizardState,
@@ -38,7 +38,7 @@ import {
   renderTargetSummary,
   statusPill,
 } from "./modules/shared.js";
-import { createWizardModule, estimateMission } from "./modules/wizard.js?v=20260506-network-capture-1";
+import { createWizardModule, estimateMission } from "./modules/wizard.js?v=20260506-stabilize-web-chain-1";
 
 let wizardModule;
 let dashboardModule;
