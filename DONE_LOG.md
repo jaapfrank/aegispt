@@ -1,5 +1,52 @@
 # Done Log
 
+- 2026-05-07: completed backlog-269 `React v2 Mission Control: three-panel live operations screen with real run data, task output, AI proposals, and phase chain`:
+  - rationale:
+    - the React v2 foundation needed a real Mission Control screen that reads selected-run truth from the store/API client instead of the placeholder in `App.tsx`
+    - `http://127.0.0.1:8000` was relevant because this slice validates v2 UI behavior against live FastAPI run/task/inventory/AI/chain endpoints through the Vite proxy
+    - prerequisite check passed because `inputs.prerequisite_backlog` is `REQUIRES: backlog-268 completed first.` and `DONE_LOG.md` contains the completed backlog-268 entry
+  - implementation:
+    - moved Mission Control out of the inline `App.tsx` placeholder into `ui-v2/src/components/screens/MissionControl.tsx`
+    - added a three-panel live operations layout for run thread metrics, backend task output, scan map, assessment phase chain, AI proposals, and evidence links
+    - added bounded polling every three seconds for active runs using existing run, findings, inventory, and AI insights endpoints
+    - added typed frontend API helpers for run dispatch, task detail/stdout, AI proposal review, and assessment-chain phase decisions
+    - wired `Kill Run` to the existing cancel endpoint and `Start Queued Checks` to the existing dispatch endpoint
+    - kept old `/app/`, old `ui/`, `api/`, `workers/`, manual/wizard flows, runner registry, approvals, scope, ROE, credentials, provenance, reports, runtime binding, and kill switch untouched
+    - kept Cinema Mode behind a real-data guard because current `ui-v2/src/components/CinemaMode.tsx` contains mock targets and mock event streams and the task forbids touching that file
+  - files:
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `codex/results/backlog-269-react-v2-mission-control-20260507.md`
+    - `codex/results/backlog-269-react-v2-mission-control-playwright.json`
+    - `codex/results/backlog-269-react-v2-mission-control-1440.png`
+    - `codex/results/backlog-269-react-v2-mission-control-1024.png`
+    - `codex/results/backlog-269-react-v2-mission-control-768.png`
+    - `codex/results/backlog-269-react-v2-mission-control-375.png`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+    - `extra_tests.md`
+    - `risico.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 228 queued task packages and exactly one active task
+    - prerequisite check passed for completed backlog-268
+    - `cd ui-v2 && npm run build` passed
+    - `curl -sS -o /tmp/aegis_health.out -w '%{http_code}' http://127.0.0.1:8000/api/v1/engagements` returned `200`
+    - Playwright acceptance passed on 1440px, 1024px, 768px, and 375px against `http://127.0.0.1:5173/mission-control`, proving real backend run-data copy, Task Output, AI Proposals, Phase Chain, Scan Map, task expansion, and Cinema real-data guard with no page or console errors
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - final `git diff --check` passed
+  - proof:
+    - the live backend selected run rendered by Mission Control was `ef952159-2c93-4da7-ac3e-8574fde0bc52`, profile `passive-easm-discovery`, with a running stale `easm-discover` task and `has_execution_evidence=false`; Mission Control shows that state as backend truth rather than inventing output
+    - screenshots and structured Playwright JSON are recorded under `codex/results/`
+  - exceptions:
+    - the task asked for Cinema Mode integration while forbidding changes to `ui-v2/src/components/CinemaMode.tsx`; repo truth shows that component still contains mock event streams, so Mission Control uses a guard and does not present mock 3D data as evidence-backed runtime truth
+  - remaining risks:
+    - real Cinema Mode runtime with live run data remains tracked in `risico.md` R-017 and `extra_tests.md` XT-020
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-270 `React v2 Intake`, from `codex/tasks/backlog-270-react-v2-intake-wizard.json`
+
 - 2026-05-07: completed backlog-268 `React v2 foundation: Zustand store, typed API client, React Router v6, and actor header injection`:
   - rationale:
     - the new React v2 UI needed a real foundation before screen-specific work could continue

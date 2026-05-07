@@ -10,12 +10,15 @@ import type {
   Run,
   RunAiInsights,
   RunCreateInput,
+  RunDispatch,
   ScopeInput,
   Settings,
   SettingsEnvelope,
   SettingsReadiness,
   Task,
+  TaskDetail,
   UUID,
+  AgentProposalReviewInput,
 } from './types';
 
 type ApiOptions = RequestInit & {
@@ -194,7 +197,43 @@ export async function cancelRun(runId: UUID): Promise<Run> {
   });
 }
 
+export async function dispatchRun(runId: UUID): Promise<RunDispatch> {
+  return api<RunDispatch>(`/api/v1/runs/${runId}/dispatch`, {
+    method: 'POST',
+  });
+}
+
 export async function getRunProposals(runId: UUID): Promise<AgentProposal[]> {
   const insights = await getRunAiInsights(runId);
   return insights.proposals;
+}
+
+export async function reviewAgentProposal(
+  runId: UUID,
+  proposalId: UUID,
+  data: AgentProposalReviewInput,
+): Promise<AgentProposal> {
+  return api<AgentProposal>(`/api/v1/runs/${runId}/ai-proposals/${proposalId}/review`, {
+    method: 'POST',
+    json: data,
+  });
+}
+
+export async function getTaskDetail(taskId: UUID): Promise<TaskDetail> {
+  return api<TaskDetail>(`/api/v1/tasks/${taskId}`);
+}
+
+export async function getAssessmentChain(chainId: UUID): Promise<JsonMap> {
+  return api<JsonMap>(`/api/v1/assessment-chains/${chainId}`);
+}
+
+export async function decideAssessmentChainPhase(
+  chainId: UUID,
+  phaseKey: string,
+  decision: 'approved' | 'rejected' = 'approved',
+): Promise<JsonMap> {
+  return api<JsonMap>(`/api/v1/assessment-chains/${chainId}/phases/${phaseKey}/decision`, {
+    method: 'POST',
+    json: { decision },
+  });
 }

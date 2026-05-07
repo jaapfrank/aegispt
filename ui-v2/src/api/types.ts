@@ -45,14 +45,35 @@ export interface Task {
 
 export interface TaskExecution {
   id: UUID;
-  task_id: UUID;
-  status: string;
+  runner_digest: string;
+  tool_version: string;
   exit_code: number | null;
-  started_at: IsoDateTime | null;
-  completed_at: IsoDateTime | null;
-  stdout_ref?: string | null;
-  stderr_ref?: string | null;
-  metadata_json?: JsonMap;
+  stdout_text: string | null;
+  stderr_text: string | null;
+  created_at: IsoDateTime;
+  artifacts: JsonMap[];
+}
+
+export interface TaskStdoutLine {
+  sequence?: number;
+  text?: string;
+}
+
+export interface TaskStdoutSnapshot {
+  task_id?: UUID;
+  status?: string;
+  source?: string;
+  reason?: string;
+  task_status?: string;
+  stream_terminal?: boolean;
+  updated_at?: IsoDateTime;
+  lines?: TaskStdoutLine[];
+}
+
+export interface TaskDetail extends Task {
+  run_id: UUID | null;
+  executions: TaskExecution[];
+  stdout_snapshot: TaskStdoutSnapshot;
 }
 
 export interface FindingSummary {
@@ -187,6 +208,17 @@ export interface AssessmentChain {
   operator_state: JsonMap;
   created_at: IsoDateTime;
   updated_at: IsoDateTime;
+}
+
+export interface RunDispatch {
+  run: Run;
+  dispatch_mode: string;
+  dispatched_task_ids: UUID[];
+}
+
+export interface AgentProposalReviewInput {
+  decision: 'approved' | 'rejected';
+  note?: string | null;
 }
 
 export interface Run {

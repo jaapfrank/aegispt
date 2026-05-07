@@ -1,16 +1,15 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import {
   Activity,
   BadgeAlert,
   Box,
   ChevronDown,
-  Clock,
   Crosshair,
   FileText,
   FlaskConical,
   Gauge,
   History,
-  MonitorPlay,
   Plus,
   ScrollText,
   Settings,
@@ -21,6 +20,7 @@ import { Link, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Intake from './components/Intake';
+import MissionControl from './components/screens/MissionControl';
 import {
   getEngagements,
   getRunAiInsights,
@@ -30,8 +30,6 @@ import {
   getSettings,
 } from './api/client';
 import { useAegisStore } from './store';
-
-const CinemaMode = lazy(() => import('./components/CinemaMode'));
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -352,7 +350,7 @@ function NavItem({
   badge,
   showLivingPulse,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   to: string;
   badge?: string;
@@ -437,61 +435,6 @@ function IntakeScreen() {
   );
 }
 
-function MissionControl() {
-  const selectedRun = useAegisStore((state) => state.selectedRun);
-  const tasks = useAegisStore((state) => state.tasks);
-  const findings = useAegisStore((state) => state.findings);
-  const loading = useAegisStore((state) => state.loading);
-  const [isCinemaModeOpen, setIsCinemaModeOpen] = useState(false);
-
-  return (
-    <>
-      {isCinemaModeOpen && (
-        <Suspense fallback={null}>
-          <CinemaMode onClose={() => setIsCinemaModeOpen(false)} />
-        </Suspense>
-      )}
-      <section className="max-w-5xl">
-        <div className="flex items-center justify-between mb-8 gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold mb-2">Live Operations</h1>
-            <p className="text-muted text-[13px]">
-              {selectedRun
-                ? `Selected run ${selectedRun.profile.name} is ${selectedRun.status}.`
-                : loading.runs
-                  ? 'Loading runs from the selected engagement.'
-                  : 'Select or create a run to begin live operations.'}
-            </p>
-          </div>
-          <button
-            onClick={() => setIsCinemaModeOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[rgba(14,165,233,0.1)] border border-cyan/30 text-cyan rounded-lg text-sm font-semibold hover:bg-cyan/20 transition-all shadow-[0_0_15px_rgba(94,207,255,0.15)]"
-          >
-            <MonitorPlay size={16} />
-            Launch Cinema Mode
-          </button>
-        </div>
-
-        <div className="glass-panel rounded-lg p-6 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-cyan flex items-center gap-2">
-              <Activity size={14} className={selectedRun?.status === 'running' ? 'animate-pulse' : ''} />
-              Active Run Thread
-            </h2>
-            <span className="text-[11px] text-muted">{selectedRun?.updated_at ?? 'No run selected'}</span>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <MetricCard icon={<Activity size={16} />} label="Tasks" value={tasks.length} />
-            <MetricCard icon={<ShieldAlert size={16} />} label="Findings" value={findings.length} />
-            <MetricCard icon={<Clock size={16} />} label="Status" value={selectedRun?.status ?? 'Idle'} />
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
 function PlaceholderScreen({ title, detail }: { title: string; detail: string }) {
   return (
     <section className="max-w-4xl">
@@ -501,7 +444,7 @@ function PlaceholderScreen({ title, detail }: { title: string; detail: string })
   );
 }
 
-function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string | number }) {
   return (
     <div className="glass-panel rounded-lg p-4">
       <div className="mb-3 flex items-center gap-2 text-cyan">
