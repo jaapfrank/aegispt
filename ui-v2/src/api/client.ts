@@ -11,6 +11,8 @@ import type {
   RunAiInsights,
   RunCreateInput,
   RunDispatch,
+  RunIntakeInterpretation,
+  RunIntakeInterpretationInput,
   ScopeInput,
   Settings,
   SettingsEnvelope,
@@ -200,6 +202,15 @@ export async function cancelRun(runId: UUID): Promise<Run> {
 export async function dispatchRun(runId: UUID): Promise<RunDispatch> {
   return api<RunDispatch>(`/api/v1/runs/${runId}/dispatch`, {
     method: 'POST',
+  });
+}
+
+export async function postRunIntakeInterpretation(
+  data: RunIntakeInterpretationInput,
+): Promise<RunIntakeInterpretation> {
+  return api<RunIntakeInterpretation>('/api/v1/intake/interpretation', {
+    method: 'POST',
+    json: data,
   });
 }
 

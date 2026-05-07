@@ -1,5 +1,56 @@
 # Done Log
 
+- 2026-05-07: completed backlog-270 `React v2 Intake: connect existing chat UI and wizard to real backend — AI Intake calls wizard API, Manual Wizard calls existing assessment tile flow, both create real missions`:
+  - rationale:
+    - the React v2 Intake screen still simulated AI responses and had a placeholder manual wizard, so it could not create real backend engagements, scopes, inventory snapshots, or runs
+    - `http://127.0.0.1:8000` was relevant because React v2 Intake uses the Vite proxy to call live FastAPI engagement, scope, inventory, run, authorization, and intake interpretation endpoints
+    - prerequisite check passed because `inputs.prerequisite_backlog` is `REQUIRES: backlog-268 completed first.` and `DONE_LOG.md` contains completed backlog-268
+  - implementation:
+    - rewired `ui-v2/src/components/Intake.tsx` so AI Intake calls `POST /api/v1/intake/interpretation` and creates an engagement on first answer when none exists
+    - replaced simulated AI extraction with backend-boundary calls plus deterministic operator-confirmed mission fields when the backend reports provider-disabled/failure truth
+    - added real launch flow that confirms authorization when needed, writes engagement scope, creates an inventory snapshot, creates a run with `dispatch_after_create=true`, updates the v2 store, and navigates to `/mission-control`
+    - replaced the placeholder manual wizard with a three-step tile grid, target/depth selection, preview, and written-authorization gate using 13 assessment tiles
+    - persisted selected Intake mode in `localStorage` under `aegispt-v2-intake-mode`
+    - added typed frontend API support for intake interpretation
+    - kept old `/app/`, old `ui/`, `api/`, `workers/`, runner registry, approvals, scope, ROE, credentials, provenance, reports, runtime binding, and kill switch untouched
+  - files:
+    - `ui-v2/src/components/Intake.tsx`
+    - `ui-v2/src/components/wizard/AssessmentTiles.tsx`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `codex/results/backlog-270-react-v2-intake-wizard-20260507.md`
+    - `codex/results/backlog-270-react-v2-intake-wizard-playwright.json`
+    - `codex/results/backlog-270-react-v2-intake-wizard-ai-1440.png`
+    - `codex/results/backlog-270-react-v2-intake-wizard-manual-1024.png`
+    - `codex/results/backlog-270-react-v2-intake-wizard-1440.png`
+    - `codex/results/backlog-270-react-v2-intake-wizard-768.png`
+    - `codex/results/backlog-270-react-v2-intake-wizard-375.png`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+    - `extra_tests.md`
+    - `risico.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check passed for completed backlog-268
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000` onto the current checkout
+    - `POST /api/v1/intake/interpretation` returned HTTP 200 from the live backend with provider-disabled truth, proving the real endpoint path while keeping deterministic fallback honest
+    - Playwright acceptance passed through `http://127.0.0.1:5173/intake` against the live backend and Vite proxy for AI Intake and Manual Wizard
+    - Playwright viewport validation passed at 1440px, 1024px, 768px, and 375px with no horizontal overflow
+    - `cd ui-v2 && npm run build` passed
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - final `git diff --check` passed
+  - proof:
+    - AI flow forced an empty engagement list, then proved real `POST /api/v1/engagements`, 4 real intake interpretation calls, real scope creation, real inventory creation, real run creation, Mission Control navigation, and run profile visibility
+    - Manual Wizard proved real scope creation, real inventory creation, real run creation, Mission Control navigation, all 13 assessment tiles, and authorization-gated launch
+    - screenshots and structured Playwright JSON are recorded under `codex/results/`
+  - exceptions:
+    - the ChatGPT intake interpretation provider was disabled in the live backend, so real LLM-quality interpretation was not claimed; the UI records backend disabled/failure truth and still uses operator-confirmed mission fields
+  - remaining risks:
+    - real provider-enabled AI intake interpretation quality remains tracked in `risico.md` R-018 and `extra_tests.md` XT-021
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-271 `React v2 Findings Theater`, from `codex/tasks/backlog-271-react-v2-findings-theater.json`
+
 - 2026-05-07: completed backlog-269 `React v2 Mission Control: three-panel live operations screen with real run data, task output, AI proposals, and phase chain`:
   - rationale:
     - the React v2 foundation needed a real Mission Control screen that reads selected-run truth from the store/API client instead of the placeholder in `App.tsx`

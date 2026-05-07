@@ -216,6 +216,34 @@ export interface RunDispatch {
   dispatched_task_ids: UUID[];
 }
 
+export interface RunIntakeInterpretationInput {
+  question_id?: string | null;
+  answer?: string | null;
+  engagement_id?: UUID | null;
+  configuration_json?: JsonMap;
+}
+
+export interface RunIntakeInterpretation {
+  status: string;
+  available: boolean;
+  provider: string;
+  generated_at: string;
+  question_id: string;
+  warnings: string[];
+  safe_inferences: JsonMap[];
+  follow_up_questions: JsonMap[];
+  methodology_suggestions: JsonMap[];
+  pack_suggestions: JsonMap[];
+  blocked_suggestions: JsonMap[];
+  boundary: JsonMap;
+  operator_confirmation_required: boolean;
+  deterministic_intake_preserved: boolean;
+  scope_expansion_blocked: boolean;
+  failure_reason: string | null;
+  provider_metadata: JsonMap;
+  explicit_target_count?: number | null;
+}
+
 export interface AgentProposalReviewInput {
   decision: 'approved' | 'rejected';
   note?: string | null;
