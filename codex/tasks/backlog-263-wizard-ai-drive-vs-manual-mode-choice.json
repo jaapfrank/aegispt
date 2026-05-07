@@ -9,7 +9,7 @@
   "generated_by": "ui-loop-audit-2026-05-06-corrected",
   "generation_reason": "Wizard mode choice UI. Functional only after backlog-260/261 complete. Shows disabled state otherwise. No emoji \u2014 project icon system.",
   "source_context": {
-    "queue_index": 263,
+    "queue_index": 262,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",

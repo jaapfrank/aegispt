@@ -9,7 +9,7 @@
   "generated_by": "ui-loop-audit-2026-05-06-corrected",
   "generation_reason": "AI loop runs need an adaptive operations view. Manual and fixed-chain runs keep existing layout. run_mode gate controls the switch.",
   "source_context": {
-    "queue_index": 262,
+    "queue_index": 261,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",

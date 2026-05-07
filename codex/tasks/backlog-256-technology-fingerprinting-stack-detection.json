@@ -9,7 +9,7 @@
   "generated_by": "architectural-review-2026-05-06",
   "generation_reason": "Adaptive tool selection requires knowing what's on the target. Technology fingerprinting is the data layer that feeds the AI planner and makes 'skip JWT probe if no JWT' possible.",
   "source_context": {
-    "queue_index": 255,
+    "queue_index": 254,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",

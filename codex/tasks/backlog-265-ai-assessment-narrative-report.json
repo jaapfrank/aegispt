@@ -9,7 +9,7 @@
   "generated_by": "ui-loop-audit-2026-05-06-corrected",
   "generation_reason": "AI narrative report must be verifiable. Every claim has a source ref. AI summarises evidence, never invents. ROE-proof language throughout.",
   "source_context": {
-    "queue_index": 265,
+    "queue_index": 264,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",

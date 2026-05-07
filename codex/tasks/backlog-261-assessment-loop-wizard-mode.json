@@ -9,7 +9,7 @@
   "generated_by": "architectural-vision-2026-05-06",
   "generation_reason": "AI loop needs a simple wizard entry point. Three questions: target + max tier + credentials. AI handles everything else. Non-expert-friendly.",
   "source_context": {
-    "queue_index": 261,
+    "queue_index": 260,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-260-ai-continuous-assessment-loop.json"

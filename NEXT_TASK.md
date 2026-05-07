@@ -2,48 +2,51 @@
 
 ## Title
 
-Gruyere multi-step chain acceptance test: prove all 6 Gruyere vulnerability layers detectable by chaining AI proposals and Free Bash execution
+Technology and signal fingerprinting: extract structured evidence signals from recon artifacts to feed the adaptive planner
 
 ## Promoted From
 
-`codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json`
+`codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json` so AegisPT has a local-only Gruyere acceptance test proving how chained AI proposals plus approved execution discover all six Gruyere vulnerability layers.
+Implement the active backlog package `codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json` so AegisPT extracts concrete technology and security signals from existing recon artifacts for later adaptive planning.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json`.
+Implement the active backlog package `codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json`.
 
 Expected slice:
 
-- add a safe local Docker Gruyere lab target for acceptance validation
-- add a test script or pytest coverage that runs AegisPT against the local Gruyere fixture and records per-layer detection status
-- verify layers 1-2 through existing scanner paths without AI shell execution
-- verify layers 3-6 through AI proposal -> approval -> registered execution chain when the existing Free Bash/AI shell capability is available
-- produce `gruyere-chain-acceptance-report.json` with per-layer status, proposal rationale, approved execution steps, findings, and evidence links
-- preserve existing AI proposal review, runner registry, approval gates, scope enforcement, ROE, credentials, runtime binding, provenance, reporting, and kill-switch behavior
+- add a SignalProfile / technology-fingerprinting layer using existing recon response data
+- extract concrete signals such as server/language/CMS, login forms, file upload endpoints, JWT presence, GraphQL endpoints, Java/Spring indicators, URL parameters, SQL error patterns, and serialized-cookie hints
+- store the profile with inventory/recon state without changing existing finding schema fields
+- expose the profile in the Mission Control recon summary when relevant
+- use existing httpx/nmap/artifact data only; do not add extra active fingerprinting requests
+- preserve existing runner registry, approvals, scope, ROE, credentials, runtime binding, reports, provenance, and kill switch
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Work only against the local Gruyere Docker instance; never test against `google-gruyere.appspot.com` or any other live public target.
-- Do not bypass AI Free Bash approval gates, runner registration, scope enforcement, ROE, credential prerequisites, provenance, report generation, or kill switch behavior.
-- Do not silently mark layers 3-6 green if the AI proposal/execution prerequisite is missing, skipped, blocked, timed out, or not executed.
-- All shell/proof steps must stay inside explicit local engagement scope.
-- If the package is partially blocked or obsolete because current code has different prerequisites, document that truth in `DONE_LOG.md`, `CURRENT_STATE.md`, `risico.md`, and `extra_tests.md` rather than faking acceptance.
+- Work only on technology/signal extraction and presentation for existing recon data.
+- Do not add active probing beyond already collected httpx/nmap/recon artifacts.
+- Do not treat PHP+MySQL or broad stack labels alone as injectable-parameter evidence.
+- Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
+- Keep the existing manual/wizard path intact.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest ui/tests/test_gruyere_chain_acceptance.py -v`
+- `source .venv/bin/activate && python -m pytest api/tests/ -q`
 - `git diff --check`
 
 ## Acceptance
 
-- Local Gruyere Docker instance runs in the test environment.
-- Layers 1-2, reflected XSS and stored XSS, are found without AI shell execution.
-- Layers 3-6 are found through AI proposal, operator/test approval, and registered shell execution chain.
-- `gruyere-chain-acceptance-report.json` documents all six layers, proposal rationale, executed commands, and evidence/finding links.
-- No live public Gruyere target is touched.
+- Inventory/recon state includes a structured signal profile with concrete evidence-backed signals.
+- WordPress can be detected from `wp-content` or generator evidence.
+- PHP can be detected from `X-Powered-By` or `PHPSESSID` evidence.
+- Java/Spring can be detected from `JSESSIONID` or Spring-style headers.
+- JWT presence can be detected from bearer/cookie token patterns.
+- GraphQL endpoints can be detected from existing route/content evidence.
+- File upload and login forms are extracted from existing form evidence.
+- No extra HTTP requests are required for the fingerprinting layer.

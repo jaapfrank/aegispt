@@ -9,7 +9,7 @@
   "generated_by": "architectural-vision-2026-05-06",
   "generation_reason": "User: AI should drive the assessment \u2014 observe, decide, execute, repeat until deepest possible state reached. Works for any target type. This is the core intelligence layer.",
   "source_context": {
-    "queue_index": 260,
+    "queue_index": 259,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-248-ai-free-bash-execution-runner.json",
@@ -17,7 +17,6 @@
       "codex/tasks/backlog-258-runner-capability-metadata.json",
       "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json",
       "codex/tasks/backlog-233-ai-cross-task-working-memory.json",
-      "codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json",
       "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json"
     ],
     "pack_id": null,
@@ -81,7 +80,7 @@
     "required_checks": [
       "python3 scripts/validate_backlog_tasks.py",
       "source .venv/bin/activate && python -m pytest api/tests/ -q",
-      "source .venv/bin/activate && python -m pytest ui/tests/test_gruyere_chain_acceptance.py -v",
+      "source .venv/bin/activate && python -m pytest ui/tests/test_ai_loop_chain_acceptance.py -v",
       "git diff --check"
     ],
     "acceptance_criteria": [
@@ -89,8 +88,9 @@
       "Stuck detection works after 3 no-result iterations.",
       "Passive actions auto-proceed.",
       "Active tier approval visible in Mission Control.",
-      "Gruyere acceptance test passes at least layers 1-4.",
-      "LAN target reaches service discovery \u2192 credential testing loop.",
+      "Chain acceptance test (test_ai_loop_chain_acceptance.py) passes: loop reaches at least 4 connected findings on any lab target (WebGoat, DVWA, or custom Docker vulnerable app).",
+      "Chain test is target-agnostic \u2014 does not depend on Gruyere specifically.",
+      "LAN target reaches service discovery \u2192 credential testing in at least 2 loop iterations.",
       "E2E tests pass."
     ]
   },

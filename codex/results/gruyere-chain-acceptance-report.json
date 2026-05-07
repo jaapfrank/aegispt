@@ -1,0 +1,179 @@
+{
+  "generated_at": "2026-05-07T12:17:48.236546+00:00",
+  "layers": [
+    {
+      "ai_shell_used": false,
+      "evidence": {
+        "marker_reflected": true,
+        "url": "http://127.0.0.1:8008/420446928076610703574086761162755157132/<script>alert(\"aegispt-reflected\")</script>"
+      },
+      "execution_path": "local-gruyere-http-proof-no-ai-shell",
+      "finding_id": "dbb75180-d27a-4af3-a6b9-7229d3740383",
+      "layer": 1,
+      "name": "Reflected XSS",
+      "status": "detected"
+    },
+    {
+      "ai_shell_used": false,
+      "evidence": {
+        "cookie_material_recorded": false,
+        "marker_rendered": true,
+        "test_account": "aegispt56268003",
+        "url": "http://127.0.0.1:8008/420446928076610703574086761162755157132/snippets.gtl"
+      },
+      "execution_path": "local-gruyere-http-proof-no-ai-shell",
+      "finding_id": "76842825-4b1f-4801-a61e-164e8ab2e6bc",
+      "layer": 2,
+      "name": "Stored XSS via snippet",
+      "status": "detected"
+    },
+    {
+      "ai_shell_used": true,
+      "approved_execution_step": {
+        "command_sha256": "8b98976effd3881cb7d2429170d8cbd0a0e592bfb8aa14c3345e64640520d268",
+        "credentials_ref_present": true,
+        "exact_command_recorded": "printf aegispt-gruyere-layer-3-proof",
+        "target": "172.19.0.2",
+        "tool": "ai-shell",
+        "via": "ssh"
+      },
+      "blocking_truth": "The current registered ai-shell runner is SSH-only. The local Gruyere HTTP Docker fixture is live, but it is not an approved SSH labhost and therefore cannot prove this layer through Free Bash execution.",
+      "finding_id": null,
+      "layer": 3,
+      "name": "XSS via file upload",
+      "proposal_id": "b9b7f51c-26b0-48e2-8f33-c60fc2050483",
+      "proposal_rationale": "Layer 3 requires a governed Free Bash follow-up after prior evidence.",
+      "proposal_review": "approved_queued",
+      "queued_task_id": "2d84308d-3b99-4a05-b4f0-01e0112d118c",
+      "review_block": null,
+      "runner_execution": {
+        "exit_code": 255,
+        "status": "failed",
+        "stderr_excerpt": "ssh: connect to host 172.19.0.2 port 22: Connection refused\n",
+        "tool": "ai-shell"
+      },
+      "status": "blocked"
+    },
+    {
+      "ai_shell_used": true,
+      "approved_execution_step": {
+        "command_sha256": "cee5e24489d13819e693850fc2fd09b6954583054179c72beb5212907b380abe",
+        "credentials_ref_present": true,
+        "exact_command_recorded": "printf aegispt-gruyere-layer-4-proof",
+        "target": "172.19.0.2",
+        "tool": "ai-shell",
+        "via": "ssh"
+      },
+      "blocking_truth": "The current registered ai-shell runner is SSH-only. The local Gruyere HTTP Docker fixture is live, but it is not an approved SSH labhost and therefore cannot prove this layer through Free Bash execution.",
+      "finding_id": null,
+      "layer": 4,
+      "name": "Client-state manipulation / privilege escalation",
+      "proposal_id": "1bcfbe94-d174-46de-a37b-2aa778b49f68",
+      "proposal_rationale": "Layer 4 requires a governed Free Bash follow-up after prior evidence.",
+      "proposal_review": "approved_queued",
+      "queued_task_id": "46da39ee-4791-4f7e-9ccf-d2a946ffcb78",
+      "review_block": null,
+      "runner_execution": {
+        "exit_code": 255,
+        "status": "failed",
+        "stderr_excerpt": "ssh: connect to host 172.19.0.2 port 22: Connection refused\n",
+        "tool": "ai-shell"
+      },
+      "status": "blocked"
+    },
+    {
+      "ai_shell_used": true,
+      "approved_execution_step": {
+        "command_sha256": "f03fb8f117c07cb95bfa9ded22f0a7e29df61b783cd2747d238a39033ddadc1d",
+        "credentials_ref_present": true,
+        "exact_command_recorded": "printf aegispt-gruyere-layer-5-proof",
+        "target": "172.19.0.2",
+        "tool": "ai-shell",
+        "via": "ssh"
+      },
+      "blocking_truth": "The current registered ai-shell runner is SSH-only. The local Gruyere HTTP Docker fixture is live, but it is not an approved SSH labhost and therefore cannot prove this layer through Free Bash execution.",
+      "finding_id": null,
+      "layer": 5,
+      "name": "Path traversal plus write",
+      "proposal_id": "9bae5b7a-9738-46de-a813-e73fda78907e",
+      "proposal_rationale": "Layer 5 requires a governed Free Bash follow-up after prior evidence.",
+      "proposal_review": "approved_queued",
+      "queued_task_id": "d3e72f5a-b4ba-435f-a74a-9072d199e7c0",
+      "review_block": null,
+      "runner_execution": {
+        "exit_code": 255,
+        "status": "failed",
+        "stderr_excerpt": "ssh: connect to host 172.19.0.2 port 22: Connection refused\n",
+        "tool": "ai-shell"
+      },
+      "status": "blocked"
+    },
+    {
+      "ai_shell_used": true,
+      "approved_execution_step": {
+        "command_sha256": "54e30ef5c41ce1d079ff2223f0cbd2a900b92a29657c87b0c376c546a76eee30",
+        "credentials_ref_present": true,
+        "exact_command_recorded": "printf aegispt-gruyere-layer-6-proof",
+        "target": "172.19.0.2",
+        "tool": "ai-shell",
+        "via": "ssh"
+      },
+      "blocking_truth": "The current registered ai-shell runner is SSH-only. The local Gruyere HTTP Docker fixture is live, but it is not an approved SSH labhost and therefore cannot prove this layer through Free Bash execution.",
+      "finding_id": null,
+      "layer": 6,
+      "name": "RCE via GTL injection",
+      "proposal_id": "9f081f47-ffbb-4200-87a6-83b5c39e2824",
+      "proposal_rationale": "Layer 6 requires a governed Free Bash follow-up after prior evidence.",
+      "proposal_review": "approved_queued",
+      "queued_task_id": "75ced224-9e14-4bab-ae17-2233c655675d",
+      "review_block": null,
+      "runner_execution": {
+        "exit_code": 255,
+        "status": "failed",
+        "stderr_excerpt": "ssh: connect to host 172.19.0.2 port 22: Connection refused\n",
+        "tool": "ai-shell"
+      },
+      "status": "blocked"
+    }
+  ],
+  "safety": {
+    "approval_gates_bypassed": false,
+    "credential_gate_bypassed": false,
+    "kill_switch_bypassed": false,
+    "local_only": true,
+    "manual_wizard_path_changed": false,
+    "no_public_gruyere": true,
+    "roe_bypassed": false,
+    "runtime_self_modification": false,
+    "scope_bypassed": false,
+    "uncontrolled_plugin_install": false
+  },
+  "schema_version": 1,
+  "summary": {
+    "ai_shell_proposals_created": 4,
+    "ai_shell_tasks_queued": 4,
+    "all_six_detected": false,
+    "blocked_layers": [
+      3,
+      4,
+      5,
+      6
+    ],
+    "blocking_reason": "AegisPT ai-shell is SSH-only, requires credential references, and blocks loopback/AegisPT-host execution. The local Gruyere Docker fixture exposes HTTP on loopback and has no approved SSH execution surface, so layers 3-6 cannot be honestly marked detected through Free Bash execution.",
+    "detected_layers": [
+      1,
+      2
+    ],
+    "finding_database_count_for_detected_layers": 2,
+    "status": "blocked_current_contract"
+  },
+  "target": {
+    "container_ip": "172.19.0.2",
+    "container_name": "aegispt_aegispt-benchmark-gruyere_1",
+    "image": "karthequian/gruyere:latest",
+    "kind": "local_docker_gruyere",
+    "public_target_touched": false,
+    "root_url": "http://127.0.0.1:8008/420446928076610703574086761162755157132/"
+  },
+  "task": "backlog-254-gruyere-multi-step-chain-acceptance-test"
+}

@@ -7,9 +7,9 @@
   "scope": "User identified the fundamental gap: without exploiting found vulnerabilities, deeper vulnerabilities remain undetectable. Gruyere has 6 vulnerability layers where each layer enables access to the next. Current AegisPT finds layers 1-2 with scanners. Layers 3-6 require actually executing the chain steps. backlog-248 (AI Free Bash) is the missing enabler.",
   "status": "queued",
   "generated_by": "architecture-gap-analysis-2026-05-06",
-  "generation_reason": "User correctly identified that finding the first vulnerability is not enough — the chain must be executed to find deeper vulnerabilities. This test proves the full chain works.",
+  "generation_reason": "User correctly identified that finding the first vulnerability is not enough \u2014 the chain must be executed to find deeper vulnerabilities. This test proves the full chain works.",
   "source_context": {
-    "queue_index": 254,
+    "queue_index": 253,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-248-ai-free-bash-execution-runner.json",
@@ -17,8 +17,11 @@
       "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json",
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -35,12 +38,12 @@
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
     "scope_creep_guard": "Only test against the local Gruyere Docker instance. Never test against the live appspot.com version. All shell commands limited to the local engagement scope.",
-    "safety": "Gruyere instance must be local Docker only — never test against google-gruyere.appspot.com. All AI shell proposals must go through approval gate even in test automation.",
+    "safety": "Gruyere instance must be local Docker only \u2014 never test against google-gruyere.appspot.com. All AI shell proposals must go through approval gate even in test automation.",
     "runtime_mutation": false
   },
   "success_criteria": [
     "Local Gruyere Docker instance runs in test environment.",
-    "Layers 1-2 (Reflected XSS, Stored XSS): found by ZAP/xss-extended scanner without AI shell — verified by test.",
+    "Layers 1-2 (Reflected XSS, Stored XSS): found by ZAP/xss-extended scanner without AI shell \u2014 verified by test.",
     "Layer 3 (XSS via file upload): AI proposes file upload XSS test, shell executes upload, finding confirmed.",
     "Layer 4 (Client-state manipulation): AI proposes session test, shell executes privilege escalation test, finding confirmed.",
     "Layer 5 (Path traversal + write): AI proposes traversal write test, shell executes, finding confirmed.",
@@ -51,7 +54,8 @@
   "likely_touched_files": [
     "docker-compose.yml",
     "ui/tests/test_gruyere_chain_acceptance.py",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Production Gruyere (appspot.com)",
@@ -67,7 +71,7 @@
     "acceptance_criteria": [
       "All 6 Gruyere vulnerability layers produce findings.",
       "Layers 1-2: found without AI shell.",
-      "Layers 3-6: found via AI proposal → approval → shell execution chain.",
+      "Layers 3-6: found via AI proposal \u2192 approval \u2192 shell execution chain.",
       "Test report documents the full chain."
     ]
   },
@@ -77,12 +81,22 @@
       "python3 scripts/validate_backlog_tasks.py passes.",
       "backlog-248 completed (for layers 3-6)."
     ],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Testing against live appspot.com Gruyere", "Persistent exploitation", "Data exfiltration"],
+  "out_of_scope": [
+    "Testing against live appspot.com Gruyere",
+    "Persistent exploitation",
+    "Data exfiltration"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

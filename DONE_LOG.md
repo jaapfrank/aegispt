@@ -12535,3 +12535,40 @@
     - `wifi-survey` still needs an authorized monitor-mode adapter and wireless lab proof before claiming runtime WiFi support beyond software readiness
     - `extra_tests.md` XT-012 and `risico.md` R-004 track the required hardware/lab validation
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-254 `Gruyere multi-step chain acceptance test`, from `codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json`
+
+- 2026-05-07: completed backlog-254 `Gruyere multi-step chain acceptance test` as an honest local-lab acceptance and blocker-proof slice:
+  - rationale:
+    - the active task requires all six Gruyere layers to be proven locally and forbids silently marking Layers 3-6 green when AI proposal/execution prerequisites are missing, skipped, blocked, timed out, or not executed
+    - current repo truth showed the named task package was already deleted from the live queued backlog and archived as absorbed into later AI loop work, so the task package was read from Git `HEAD` plus `codex/tasks/archived-backlog-254-gruyere-absorbed-into-260.json`
+    - current `ai-shell` is SSH-only, requires a credential reference, blocks loopback/AegisPT-host execution, and the local Gruyere Docker fixture exposes HTTP only, so the safe route was to prove the boundary and not fake deeper chain success
+    - `http://127.0.0.1:8000` was not relevant because no AegisPT browser UI module or operator-console flow changed; the live validation target was local Docker Gruyere on `127.0.0.1:8008`
+  - implementation:
+    - added `ui/tests/test_gruyere_chain_acceptance.py`
+    - the test starts/verifies the existing Docker Compose `aegispt-benchmark-gruyere` service and refuses public Gruyere/appspot use
+    - Layer 1 reflected XSS and Layer 2 stored snippet XSS are proven with local HTTP evidence and no AI shell execution; the test stores two AegisPT findings in the isolated test database
+    - Layers 3-6 create real `AgentReasoning` and `AgentProposal` records, approve them through `review_agent_proposal`, queue four registered `ai-shell` tasks, and invoke the registered `ai-shell` runner boundary with benign `printf` commands
+    - `codex/results/gruyere-chain-acceptance-report.json` records per-layer status, proposal rationale, queued task IDs, command hashes, benign exact commands, runner failure excerpts, finding IDs, and safety flags
+  - files:
+    - `ui/tests/test_gruyere_chain_acceptance.py`
+    - `codex/results/gruyere-chain-acceptance-report.json`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `risico.md`
+    - `extra_tests.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 266 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_gruyere_chain_acceptance.py -v` passed
+    - `git diff --check` passed
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed
+  - proof:
+    - report status is `blocked_current_contract`, with `detected_layers=[1,2]`, `blocked_layers=[3,4,5,6]`, `ai_shell_proposals_created=4`, `ai_shell_tasks_queued=4`, `finding_database_count_for_detected_layers=2`, and `public_target_touched=false`
+    - the local Gruyere target in evidence is `http://127.0.0.1:8008/...`, container image `karthequian/gruyere:latest`; no public appspot target was touched
+  - exceptions:
+    - all six layers are not claimed green because current `ai-shell` cannot honestly execute HTTP/browser/file-chain Gruyere steps against the loopback-only HTTP fixture
+    - Layers 1-2 are proven by local HTTP acceptance probes in this slice rather than a live ZAP daemon path; this keeps the proof deterministic and avoids broadening runtime scanner behavior outside the active task
+    - the active task package path in `NEXT_TASK.md` was missing from the working tree at task start due to the existing queue reorganization; the archived task package and Git `HEAD` copy were used as the package source
+  - remaining risks:
+    - full six-layer Gruyere proof still needs a purpose-built approved local lab path or future ai_loop/registered HTTP/browser execution support that can continue chains without abusing SSH-only `ai-shell`
+    - `extra_tests.md` XT-013 and `risico.md` R-011 track the missing six-layer live chain proof
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-256 `Technology and signal fingerprinting`, from `codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json`
