@@ -1,0 +1,55 @@
+[
+  {
+    "flow": "report-center-live-api-actions",
+    "width": 1440,
+    "report_catalog_loaded": true,
+    "card_click_loaded_preview": true,
+    "markdown_preview_rendered": true,
+    "html_download_triggered": true,
+    "pdf_download_triggered": true,
+    "compare_with_earlier_run_visible": true,
+    "dossier_repo_truth_fallback_visible": true,
+    "dossier_timeline_visible": true,
+    "evidence_hash_disclosure_visible": true,
+    "report_hash_length": 64,
+    "mission_control_jump_from_dossier": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-1440.png",
+    "dossier_screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-dossier-1440.png"
+  },
+  {
+    "flow": "responsive-report-center",
+    "width": 1024,
+    "report_catalog_loaded": true,
+    "dossier_visible": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-1024.png",
+    "dossier_screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-dossier-1024.png"
+  },
+  {
+    "flow": "responsive-report-center",
+    "width": 768,
+    "report_catalog_loaded": true,
+    "dossier_visible": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-768.png",
+    "dossier_screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-dossier-768.png"
+  },
+  {
+    "flow": "responsive-report-center",
+    "width": 375,
+    "report_catalog_loaded": true,
+    "dossier_visible": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-375.png",
+    "dossier_screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-272-react-v2-report-center-dossier-375.png"
+  }
+]

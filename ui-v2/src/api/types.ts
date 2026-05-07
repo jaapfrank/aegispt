@@ -185,6 +185,36 @@ export interface FindingTheater {
   risk_snapshot: JsonMap;
 }
 
+export interface RunReportCatalogItem {
+  variant: string;
+  title: string;
+  description: string;
+  source_run_id: UUID;
+  generated_at: IsoDateTime;
+  available_formats: string[];
+  methodology_references: string[];
+  source_scope_profile: JsonMap;
+  included_findings: JsonMap;
+  included_inventory: JsonMap;
+  evidence_status: JsonMap;
+  compliance_summary: JsonMap;
+  assurance_summary: JsonMap;
+  adaptive_change_summary: JsonMap;
+  ai_draft_summary: JsonMap;
+  run_narrative_summary: JsonMap;
+  version_label: string;
+  content_sha256: string;
+  availability_status: string;
+  availability_label: string;
+  availability_reason: string;
+  preview_allowed: boolean;
+  export_allowed: boolean;
+  draft_allowed: boolean;
+  lifecycle_summary: JsonMap;
+  export_paths: Record<string, string>;
+  download_names: Record<string, string>;
+}
+
 export interface InventorySnapshot {
   id: UUID;
   engagement_id: UUID;

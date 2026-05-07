@@ -10,6 +10,7 @@ import type {
   InventoryRunCreateInput,
   InventorySnapshot,
   JsonMap,
+  RunReportCatalogItem,
   Run,
   RunAiInsights,
   RunCreateInput,
@@ -100,6 +101,38 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   return payload as T;
 }
 
+export async function apiBlob(path: string, options: ApiOptions = {}): Promise<Blob> {
+  const { json, headers: optionHeaders, ...requestOptions } = options;
+  const state = useAegisStore.getState();
+  const headers = new Headers(optionHeaders);
+  headers.set('X-Actor', state.actor.name || 'operator-ui');
+
+  const tenantId = selectedTenantId();
+  if (tenantId) {
+    headers.set('X-Tenant-ID', tenantId);
+  }
+
+  let body = requestOptions.body;
+  if (json !== undefined) {
+    headers.set('Content-Type', 'application/json');
+    body = JSON.stringify(json);
+  }
+
+  const response = await fetch(requestUrl(path), {
+    ...requestOptions,
+    headers,
+    body,
+  });
+
+  if (!response.ok) {
+    const contentType = response.headers.get('Content-Type') ?? '';
+    const detail = contentType.includes('application/json') ? await response.json() : await response.text();
+    throw new ApiError(`AegisPT API request failed: ${response.status}`, response.status, detail);
+  }
+
+  return response.blob();
+}
+
 export async function getEngagements(): Promise<Engagement[]> {
   return api<Engagement[]>('/api/v1/engagements');
 }
@@ -123,6 +156,18 @@ export async function getRunFindings(runId: UUID): Promise<Finding[]> {
 
 export async function getRunTheaterFindings(runId: UUID): Promise<Finding[]> {
   return api<Finding[]>(`/api/v1/runs/${runId}/findings?theater=true`);
+}
+
+export async function getRunReports(runId: UUID): Promise<RunReportCatalogItem[]> {
+  return api<RunReportCatalogItem[]>(`/api/v1/runs/${runId}/reports`);
+}
+
+export async function getRunReportMarkdown(runId: UUID, variant: string): Promise<string> {
+  return api<string>(`/api/v1/runs/${runId}/report?format=markdown&variant=${encodeURIComponent(variant)}`);
+}
+
+export async function downloadRunReport(runId: UUID, variant: string, format: 'html' | 'pdf'): Promise<Blob> {
+  return apiBlob(`/api/v1/runs/${runId}/report?format=${format}&variant=${encodeURIComponent(variant)}`);
 }
 
 export async function getFindingTheater(findingId: UUID): Promise<FindingTheater> {

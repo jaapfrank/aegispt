@@ -2,44 +2,48 @@
 
 ## Title
 
-React v2 Report Center: run selector, adaptive report catalog, markdown/HTML/PDF preview, and download actions
+React v2 Settings: five-tab navigation with AI & Provider, Tools & Runtime, Integrations, Data & Security, Identity & Users panels
 
 ## Promoted From
 
-`codex/tasks/backlog-272-react-v2-report-center.json`
+`codex/tasks/backlog-273-react-v2-settings.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-272-react-v2-report-center.json` so the React v2 Report Center loads real report catalog data, previews, downloads, comparison context, and dossier timeline from existing backend APIs.
+Implement the active backlog package `codex/tasks/backlog-273-react-v2-settings.json` so the React v2 Settings screen exposes the five-tab configuration surface with real API calls and collapsed summaries.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-272-react-v2-report-center.json`.
+Implement the active backlog package `codex/tasks/backlog-273-react-v2-settings.json`.
 
-Expected React v2 Report Center slice:
+Expected React v2 Settings slice:
 
-- build `ui-v2/src/components/screens/ReportCenter.tsx`
-- provide top-level `Reports` and `Dossier` tabs
-- show selected-run strip with profile, date, and status
-- load available reports from `GET /api/v1/runs/{runId}/reports`
-- render report cards with icon, title, availability status, and short description
-- select a report and load/generate preview through existing report endpoints
-- provide Markdown preview, HTML download, and PDF download actions
-- render markdown preview with a small local renderer, without adding external libraries
-- compare the selected run with earlier runs for the same engagement
-- load dossier data from `GET /api/v1/engagements/{engId}/dossier` where available, or document repo-truth fallback if the endpoint does not exist
-- show evidence hash in a collapsed disclosure when the backend exposes it
+- build `ui-v2/src/components/screens/Settings.tsx`
+- provide top summary chips for tenant, selected engagement, model, and actor role
+- provide five tabs:
+  - `AI & Provider`
+  - `Tools & Runtime`
+  - `Integrations`
+  - `Data & Security`
+  - `Identity & Users`
+- load ChatGPT OAuth status and provider settings from existing backend APIs where available
+- load runtime readiness from `GET /api/v1/settings/readiness`
+- render readiness rows with ready/degraded/blocked states and expandable details
+- render integration/data/security/identity sections with collapsed one-line summaries
+- save settings through existing settings APIs where available
+- persist actor name to local storage and the v2 Zustand store so `X-Actor` continues to reflect operator identity
+- keep disabled/unavailable states honest when backend APIs are not present or not configured
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
 - This task depends on completed backlog-268.
-- Work only in the React v2 Report Center scope.
+- Work only in the React v2 Settings screen scope.
 - Do not touch `api/`, `workers/`, or old `ui/`.
 - Do not bypass existing backend scope, ROE, approval, runner registry, provenance, report, credential, runtime binding, or kill-switch behavior.
 - Do not create runtime self-modification or uncontrolled plugin installation.
 - Production UI must use existing icon patterns and no emoji.
-- Reports and narratives must stay evidence-backed and must not invent findings, coverage, or certification claims.
+- Settings writes must use existing backend settings contracts and must not silently install, enable, or run capabilities.
 
 ## Validation
 
@@ -49,11 +53,11 @@ Expected React v2 Report Center slice:
 
 ## Acceptance
 
-- Report catalog loads from real backend data.
-- Clicking a report card loads a preview.
-- Generate Markdown Preview shows formatted markdown.
-- Download HTML and PDF trigger file downloads or honest backend unavailable states.
-- Compare with Earlier Run shows a real diff summary.
-- Dossier tab shows engagement timeline from backend data.
-- Evidence hash is shown in a collapsed disclosure when available.
+- Five tabs render.
+- Collapsed sections show current value summaries.
+- ChatGPT OAuth status and connect/refresh actions use real backend states or honest unavailable states.
+- Runtime readiness loads from `GET /api/v1/settings/readiness`.
+- Integration/settings forms save through existing settings APIs where available.
+- Actor name persists to local storage and updates the Zustand store.
+- API key surfaces use real backend states or honest unavailable states.
 - Build passes with no TypeScript errors.

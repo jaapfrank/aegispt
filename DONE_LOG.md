@@ -1,5 +1,56 @@
 # Done Log
 
+- 2026-05-07: completed backlog-272 `React v2 Report Center: run selector, adaptive report catalog, markdown/HTML/PDF preview, and download actions`:
+  - rationale:
+    - the React v2 Reports route still used a placeholder, so operators could not preview, compare, or download evidence-backed report outputs in the rebuilt UI
+    - `http://127.0.0.1:8000` was relevant because Report Center validates through the Vite proxy against live FastAPI report catalog, report export, run list, and finding list endpoints
+    - prerequisite check passed because `inputs.prerequisite_backlog` is `REQUIRES: backlog-268 completed first.` and `DONE_LOG.md` contains completed backlog-268
+  - implementation:
+    - added `ui-v2/src/components/screens/ReportCenter.tsx` and routed `/reports` to it
+    - added top-level `Reports` and `Dossier` tabs, selected-run strip, report catalog cards, Markdown preview, HTML/PDF download actions, evidence hash disclosure, earlier-run comparison, and a dossier timeline
+    - added typed React v2 API support for report catalog, Markdown report export, and raw HTML/PDF blob downloads through existing backend endpoints
+    - implemented a small local Markdown renderer without adding external libraries
+    - kept old `/app/`, old `ui/`, `api/`, `workers/`, runner registry, approvals, scope, ROE, credentials, provenance, report generation, runtime binding, and kill switch untouched
+  - files:
+    - `ui-v2/src/components/screens/ReportCenter.tsx`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `codex/results/backlog-272-react-v2-report-center-20260507.md`
+    - `codex/results/backlog-272-react-v2-report-center-playwright.json`
+    - `codex/results/backlog-272-react-v2-report-center-1440.png`
+    - `codex/results/backlog-272-react-v2-report-center-1024.png`
+    - `codex/results/backlog-272-react-v2-report-center-768.png`
+    - `codex/results/backlog-272-react-v2-report-center-375.png`
+    - `codex/results/backlog-272-react-v2-report-center-dossier-1440.png`
+    - `codex/results/backlog-272-react-v2-report-center-dossier-1024.png`
+    - `codex/results/backlog-272-react-v2-report-center-dossier-768.png`
+    - `codex/results/backlog-272-react-v2-report-center-dossier-375.png`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check passed for completed backlog-268
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000` onto the current checkout
+    - `cd ui-v2 && npm run build` passed
+    - Playwright acceptance passed through `http://127.0.0.1:5173/reports` against live backend endpoints and Vite proxy
+    - Playwright viewport validation passed at 1440px, 1024px, 768px, and 375px for Reports and Dossier surfaces with no horizontal overflow, no page errors, and no console errors
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - final `git diff --check` passed
+  - proof:
+    - live API/browser proof used seeded local validation engagement `a412bab7-e93d-4717-a253-def0f598ded6`
+    - current report run `0b9d6123-078d-4bf5-8074-b3032d4981a3` and earlier run `c02cbf4f-2252-40c7-b17f-e71e0b23afd9` backed preview, downloads, comparison, and dossier timeline validation
+    - Playwright proved real report catalog loading, Markdown preview generation, HTML/PDF download triggers, report content hash disclosure, earlier-run comparison, and Dossier-to-Mission-Control navigation
+    - screenshots and structured Playwright JSON are recorded under `codex/results/`
+  - exceptions:
+    - the task package named `POST` preview generation, but repo truth exposes existing report export as `GET /api/v1/runs/{run_id}/report?format=markdown&variant={variant}`; the UI uses the existing endpoint
+    - the task package named `/api/v1/engagements/{engId}/dossier`, but repo truth has no dossier endpoint in the current backend; the Dossier tab documents that fallback and uses real engagement/run data from existing APIs
+  - remaining risks:
+    - no new open risk was introduced; no untested runner or live target path was added
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-273 `React v2 Settings`, from `codex/tasks/backlog-273-react-v2-settings.json`
+
 - 2026-05-07: completed backlog-271 `React v2 Findings Theater: two-column list + slide-in drawer with evidence, AI enrichment, CVSS, OWASP, and attack path tab`:
   - rationale:
     - the React v2 Findings route still used a placeholder, so operators could not review real selected-run findings, evidence, enrichment, or remediation state in the rebuilt UI
