@@ -83,6 +83,70 @@ export function createMissionModule() {
     );
   }
 
+  function signalProfileForSnapshot(snapshot) {
+    const inventory = snapshot?.normalized_inventory_json || {};
+    const profile = inventory.signal_profile || {};
+    const stack = inventory.tech_stack_profile || profile.tech_stack_profile || {};
+    const signals = Array.isArray(profile.signals) ? profile.signals : [];
+    return { profile, stack, signals };
+  }
+
+  function renderSignalProfileSummary(snapshot) {
+    const { stack, signals } = signalProfileForSnapshot(snapshot);
+    if (!signals.length && !Object.keys(stack || {}).length) return "";
+
+    const stackItems = [
+      ["CMS", (stack.cms || []).join(", ")],
+      ["Language", (stack.language || []).join(", ")],
+      ["Server", (stack.server || []).join(", ")],
+      ["API", stack.graphql_present ? "GraphQL" : ""],
+      ["Runtime", stack.java_present ? "Java/Spring" : ""],
+    ].filter(([, value]) => value);
+    const loginForms = Array.isArray(stack.login_forms) ? stack.login_forms.length : 0;
+    const uploadForms = Array.isArray(stack.file_upload_endpoints) ? stack.file_upload_endpoints.length : 0;
+    const injectableParameters = Array.isArray(stack.injectable_parameters) ? stack.injectable_parameters.length : 0;
+    const sqlErrors = Array.isArray(stack.sql_error_patterns) ? stack.sql_error_patterns.length : 0;
+    const serializedCookies = Array.isArray(stack.serialized_cookie_hints) ? stack.serialized_cookie_hints.length : 0;
+    const signalKeys = [...new Set(signals.map((signal) => signal.key).filter(Boolean))].slice(0, 8);
+
+    return `
+      <div class="detail-surface emphasis-surface split-top signal-profile-summary" data-testid="mission-signal-profile-summary">
+        <div class="task-activity-header">
+          <div>
+            <h4>Signal Profile</h4>
+            <p class="mission-status-subline">${escapeHtml("Passive recon signals extracted from stored response, route, form, cookie, and service evidence.")}</p>
+          </div>
+          <div class="inline-metrics">
+            <span class="metric-pill">${escapeHtml(`${signals.length} signal${signals.length === 1 ? "" : "s"}`)}</span>
+            ${stack.jwt_present ? `<span class="metric-pill">JWT present</span>` : ""}
+            ${loginForms ? `<span class="metric-pill">${escapeHtml(`${loginForms} login form${loginForms === 1 ? "" : "s"}`)}</span>` : ""}
+            ${uploadForms ? `<span class="metric-pill">${escapeHtml(`${uploadForms} upload endpoint${uploadForms === 1 ? "" : "s"}`)}</span>` : ""}
+          </div>
+        </div>
+        ${
+          stackItems.length
+            ? `<div class="signal-profile-grid">
+                ${stackItems
+                  .map(
+                    ([label, value]) => `
+                      <div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>
+                    `
+                  )
+                  .join("")}
+              </div>`
+            : ""
+        }
+        <div class="inline-metrics split-top">
+          ${injectableParameters ? `<span class="metric-pill">${escapeHtml(`${injectableParameters} parameter signal${injectableParameters === 1 ? "" : "s"}`)}</span>` : ""}
+          ${sqlErrors ? `<span class="metric-pill">${escapeHtml(`${sqlErrors} SQL error pattern${sqlErrors === 1 ? "" : "s"}`)}</span>` : ""}
+          ${serializedCookies ? `<span class="metric-pill">${escapeHtml(`${serializedCookies} serialized cookie hint${serializedCookies === 1 ? "" : "s"}`)}</span>` : ""}
+          ${signalKeys.map((key) => `<span class="metric-pill">${escapeHtml(key.replace(/_/g, " "))}</span>`).join("")}
+        </div>
+        <p class="micro-copy">${escapeHtml("Future adaptive planning can use these evidence-backed signals, but runner execution still requires the existing registry, approval gates, ROE, and kill switch.")}</p>
+      </div>
+    `;
+  }
+
   function approvalStateForRun(run) {
     return {
       required: Math.max(0, Number(run?.required_approvals || 0)),
@@ -3412,6 +3476,7 @@ export function createMissionModule() {
         </div>
         ${renderRunStreamStatus(run)}
       </div>
+      ${inventorySnapshot && !inventorySeedOnly ? renderSignalProfileSummary(inventorySnapshot) : ""}
       ${renderDriftSummaryBanner(run)}
       ${killChainProgress}
       ${compactTaskList}

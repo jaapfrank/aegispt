@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
 from api.app.models import InventorySnapshot
+from api.app.services.fingerprinting import build_signal_profile
 
 
 def _bounded_confidence(value: Any, default: float = 0.5) -> float:
@@ -1469,6 +1470,7 @@ def normalize_inventory_observations(
     environment_notes: Iterable[str],
     assumptions: Iterable[str],
 ) -> dict[str, Any]:
+    observation_list = list(observations)
     hosts: list[dict[str, Any]] = []
     services: list[dict[str, Any]] = []
     endpoints: list[dict[str, Any]] = []
@@ -2473,7 +2475,7 @@ def normalize_inventory_observations(
             }
         )
 
-    for observation in observations:
+    for observation in observation_list:
         source = str(observation.get("tool") or "unknown").strip() or "unknown"
         payload = observation.get("data")
         if not isinstance(payload, dict):
@@ -3151,7 +3153,7 @@ def normalize_inventory_observations(
         else 0.0
     )
 
-    return {
+    normalized_inventory = {
         "hosts": hosts,
         "services": services,
         "http_endpoints": endpoints,
@@ -3184,11 +3186,24 @@ def normalize_inventory_observations(
         "assumptions": list(dict.fromkeys(_normalize_str_list(list(assumptions)))),
         "confidence_score": inventory_confidence,
     }
+    signal_profile = build_signal_profile(
+        observations=observation_list,
+        normalized_inventory=normalized_inventory,
+    )
+    normalized_inventory["signal_profile"] = signal_profile
+    normalized_inventory["tech_stack_profile"] = signal_profile.get("tech_stack_profile", {})
+    return normalized_inventory
 
 
 def inventory_summary_from_normalized(normalized_inventory: dict[str, Any]) -> dict[str, Any]:
     fingerprints = normalized_inventory.get("vendor_product_fingerprints", [])
     tls_posture = normalized_inventory.get("tls_posture", {})
+    signal_profile = (
+        normalized_inventory.get("signal_profile")
+        if isinstance(normalized_inventory.get("signal_profile"), dict)
+        else {}
+    )
+    signal_entries = signal_profile.get("signals", []) if isinstance(signal_profile, dict) else []
     device_types = sorted(
         {
             str(host.get("device_type")).strip()
@@ -3231,6 +3246,17 @@ def inventory_summary_from_normalized(normalized_inventory: dict[str, Any]) -> d
             tls_posture.get("issues", []) if isinstance(tls_posture, dict) else []
         ),
         "vendor_product_count": len(fingerprints),
+        "signal_count": len(signal_entries) if isinstance(signal_entries, list) else 0,
+        "signal_keys": sorted(
+            {
+                str(signal.get("key")).strip()
+                for signal in signal_entries
+                if isinstance(signal, dict) and str(signal.get("key") or "").strip()
+            }
+        )
+        if isinstance(signal_entries, list)
+        else [],
+        "tech_stack_profile": normalized_inventory.get("tech_stack_profile", {}),
         "detected_products": sorted(
             {
                 str(fingerprint.get("product")).strip()
@@ -3394,6 +3420,16 @@ def observation_from_normalized_inventory(
                 for entry in normalized_inventory.get("vendor_product_fingerprints", [])
                 if isinstance(entry, dict)
             ],
+            "signal_profile": (
+                normalized_inventory.get("signal_profile")
+                if isinstance(normalized_inventory.get("signal_profile"), dict)
+                else {}
+            ),
+            "tech_stack_profile": (
+                normalized_inventory.get("tech_stack_profile")
+                if isinstance(normalized_inventory.get("tech_stack_profile"), dict)
+                else {}
+            ),
             "confidence": float(normalized_inventory.get("confidence_score") or 0.0),
         },
     }

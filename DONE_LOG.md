@@ -12572,3 +12572,51 @@
     - full six-layer Gruyere proof still needs a purpose-built approved local lab path or future ai_loop/registered HTTP/browser execution support that can continue chains without abusing SSH-only `ai-shell`
     - `extra_tests.md` XT-013 and `risico.md` R-011 track the missing six-layer live chain proof
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-256 `Technology and signal fingerprinting`, from `codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json`
+
+- 2026-05-07: completed backlog-256 `Technology and signal fingerprinting: extract structured evidence signals from recon artifacts`:
+  - rationale:
+    - the adaptive planner needs concrete evidence-backed signals, not broad stack labels, before it can justify runner selection
+    - the task package prerequisite was informational (`INFO: backlog-255 ... can run concurrently or start after this task`) under the current prerequisite rule, so it was logged and did not block implementation
+    - `http://127.0.0.1:8000` was relevant because Mission Control UI changed; poort 8000 was already occupied, so browser acceptance ran against a temporary current-code server at `http://127.0.0.1:8017/app/`
+  - implementation:
+    - added `api/app/services/fingerprinting.py` to build a SignalProfile from existing observations and normalized inventory
+    - inventory snapshots now store `signal_profile` and `tech_stack_profile`, and summary JSON exposes `signal_count`, `signal_keys`, and `tech_stack_profile`
+    - httpx runner output now records passive response headers, capped body excerpt, form/link extraction, and cookie metadata without storing cookie values; no additional HTTP requests are made
+    - Mission Control now renders a responsive Signal Profile panel for non-seed inventory snapshots with concrete signals
+    - added regressions for WordPress/PHP/Java/JWT/GraphQL/login/upload/SQL-error/serialized-cookie signals and for the rule that PHP+MySQL alone does not create injectable-parameter evidence
+  - files:
+    - `api/app/services/fingerprinting.py`
+    - `api/app/services/inventory.py`
+    - `workers/runners/httpx/runner.py`
+    - `workers/tests/test_runner_contract.py`
+    - `api/tests/test_signal_fingerprinting.py`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `codex/results/backlog-256-technology-fingerprinting-stack-detection-20260507.md`
+    - `codex/results/backlog-256-signal-profile-ui-1440px-20260507.png`
+    - `codex/results/backlog-256-signal-profile-ui-1024px-20260507.png`
+    - `codex/results/backlog-256-signal-profile-ui-768px-20260507.png`
+    - `codex/results/backlog-256-signal-profile-ui-375px-20260507.png`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `extra_tests.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 266 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_signal_fingerprinting.py -q` passed
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_runner_contract.py -q` passed
+    - `python3 -m compileall api/app/services/fingerprinting.py api/app/services/inventory.py workers/runners/httpx/runner.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed
+    - `node --check --input-type=module < ui/assets/modules/mission-control.js` passed
+    - Playwright acceptance passed on 1440px, 1024px, 768px, and 375px against `http://127.0.0.1:8017/app/`
+    - `git diff --check` passed after documentation and promotion updates
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed
+  - proof:
+    - evidence file `codex/results/backlog-256-technology-fingerprinting-stack-detection-20260507.md` records behavior, validation, browser proof, and boundaries
+    - Playwright screenshots prove Mission Control renders the Signal Profile panel with WordPress, JWT and upload endpoint signals without horizontal overflow on the required viewports
+  - exceptions:
+    - no live runner-dispatch proof was performed for every possible signal variant; `extra_tests.md` XT-014 tracks that broader live fixture matrix
+    - the current code avoids raw cookie value storage in httpx output and records only cookie metadata/value shape for JWT or serialized-cookie evidence
+  - remaining risks:
+    - no new open product risk was added; the remaining live-runner proof gap is tracked as an extra test
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-258 `Runner capability metadata`, from `codex/tasks/backlog-258-runner-capability-metadata.json`

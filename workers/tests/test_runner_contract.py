@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from workers.orchestration.tasks import _runner_command_preview
@@ -80,6 +81,62 @@ def test_httpx_probe_accepts_untrusted_internal_tls(monkeypatch) -> None:
     assert execution.exit_code == 0
     assert execution.metadata["verify_tls"] is False
     assert "10.0.20.96" in execution.stdout
+
+
+def test_httpx_probe_records_passive_response_signals_without_extra_requests(monkeypatch) -> None:
+    captured: dict[str, object] = {"requests": 0}
+
+    class FakeHeaders(dict):
+        def get_list(self, key: str) -> list[str]:
+            value = self.get(key, "")
+            return [value] if value else []
+
+    class FakeResponse:
+        status_code = 200
+        reason_phrase = "OK"
+        headers = FakeHeaders(
+            {
+                "content-type": "text/html",
+                "server": "nginx",
+                "x-powered-by": "PHP/8.2",
+                "set-cookie": "PHPSESSID=abc; HttpOnly; Secure",
+            }
+        )
+        content = (
+            b"<html><form action='/login' method='post'>"
+            b"<input name='user'>"
+            b"<input name='password' type='password'>"
+            b"</form><a href='/graphql'>GraphQL</a></html>"
+        )
+
+        def __init__(self, url: str) -> None:
+            self.url = url
+
+    class FakeClient:
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def get(self, request_url: str) -> FakeResponse:
+            captured["requests"] = int(captured["requests"]) + 1
+            return FakeResponse(request_url)
+
+    monkeypatch.setattr("workers.runners.httpx.runner.httpx_client.Client", FakeClient)
+
+    execution = execute_httpx_probe(["https://app.example.test"], timeout_seconds=3)
+    payload = json.loads(execution.stdout)["results"][0]
+
+    assert captured["requests"] == 1
+    assert payload["response_headers"]["server"] == "nginx"
+    assert payload["cookies"][0]["name"] == "PHPSESSID"
+    assert payload["forms"][0]["action"] == "https://app.example.test/login"
+    assert payload["forms"][0]["inputs"][1]["type"] == "password"
+    assert payload["links"] == ["https://app.example.test/graphql"]
 
 
 def test_burp_api_url_is_structured() -> None:

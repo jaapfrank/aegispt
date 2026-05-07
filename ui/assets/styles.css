@@ -9123,6 +9123,51 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   text-transform: uppercase;
 }
 
+.signal-profile-summary {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.signal-profile-summary .task-activity-header,
+.signal-profile-summary .inline-metrics {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.signal-profile-summary .metric-pill {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.signal-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+}
+
+.signal-profile-grid div {
+  min-width: 0;
+}
+
+.signal-profile-grid span,
+.signal-profile-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.signal-profile-grid span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.signal-profile-grid strong {
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
 .ai-provider-badge.connected {
   color: var(--cyan);
   border-color: rgba(14, 165, 233, 0.32);
@@ -10163,7 +10208,11 @@ body[data-phase-layout="focus"] .conversation-ribbon span {
   .history-grid,
   .settings-grid,
   .wizard-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-grid > * {
+    min-width: 0;
   }
 
   .settings-summary-row {
