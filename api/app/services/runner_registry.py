@@ -130,6 +130,6 @@ def runner_capability_registry() -> dict[str, Any]:
         "registered_tools": registered_tools,
         "missing_tools": missing_tools,
         "unexpected_tools": unexpected_tools,
-        "complete": not missing_tools,
+        "complete": not missing_tools and not unexpected_tools,
         "capabilities": capabilities,
     }

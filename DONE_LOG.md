@@ -1,5 +1,49 @@
 # Done Log
 
+- 2026-05-07: completed backlog-258 `Runner capability metadata: each runner declares prerequisites, signal triggers, blockers, risk, cost, expected evidence, and follow-up tools`:
+  - rationale:
+    - the adaptive planner needs a repo-backed metadata source for runner prerequisites, triggers, blockers, risk, cost, expected evidence, and follow-up tooling instead of hard-coded planner knowledge
+    - the slice keeps metadata additive and informational so no runner execution logic, profiles, dispatch, approvals, scope, ROE, credentials, runtime binding, reports, provenance, or kill-switch behavior changes
+    - `http://127.0.0.1:8000` was relevant because the task adds an API endpoint; the already-running port 8000 server was stale and returned 404 for the new endpoint, so current-code API acceptance used a temporary server on `127.0.0.1:8018`
+  - implementation:
+    - added `api/app/services/runner_registry.py` to discover registered runner tools from worker dispatch registration, load capability metadata, validate required fields, normalize list/numeric fields, detect missing and unexpected metadata, and expose a cached registry payload
+    - added `workers/runners/capabilities.json` with metadata for all 58 currently registered runners
+    - exposed `GET /api/v1/runners/capabilities` behind the existing operator/admin role dependency
+    - removed a non-registered `web_depth` metadata entry so registry completeness now requires exact registered-runner coverage with no unexpected tools
+    - added API regressions proving 58/58 coverage, required field presence, endpoint response, `sqlmap` concrete signal gating, `jwt_in_response`, and `java_indicators`
+    - recorded the unrelated EASM/Website-chain stale-run observation as risk/follow-up rather than changing runtime behavior inside this metadata-only task
+  - files:
+    - `api/app/services/runner_registry.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_runner_capabilities.py`
+    - `workers/runners/capabilities.json`
+    - `codex/results/backlog-258-runner-capability-metadata-20260507.md`
+    - `risico.md`
+    - `extra_tests.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check: `inputs.prerequisite_backlog` is absent in the backlog-258 package, so no prerequisite blocker applied
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runner_capabilities.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0
+    - current-code API acceptance on temporary `http://127.0.0.1:8018` passed: `complete=True`, `registered=58`, `capabilities=58`, `missing=[]`, `unexpected=[]`, `sqlmap` present, `jwt_in_response` present, and `java_indicators` present
+    - `git diff --check` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-255 into `NEXT_TASK.md`
+  - proof:
+    - direct registry inspection returned 58 registered runners, 58 metadata entries, no missing tools, no unexpected tools, and `complete=True`
+    - `sqlmap` triggers are `injectable_parameter`, `sql_error_pattern`, and `form_with_post_action`; PHP/MySQL labels are not accepted as sufficient primary triggers
+    - evidence is recorded in `codex/results/backlog-258-runner-capability-metadata-20260507.md`
+  - exceptions:
+    - the task package text still says "47 runners", but current dispatch registration contains 58 runners; implementation followed actual repo truth and covered all 58 registered runners
+    - the live server on port 8000 was stale relative to the checkout and returned 404 for the new endpoint; current-code acceptance used a temporary local server and did not claim port 8000 green for this endpoint
+    - the observed stuck Website/Web App mission in `passive-easm-discovery` was not fixed in this metadata-only task; it is tracked in `risico.md` and `extra_tests.md`
+  - remaining risks:
+    - adaptive planner scoring and UI are not implemented by this task; backlog-255 is now the active task and has hard prerequisites on backlog-256 and backlog-258
+    - Website/Web App runs can currently be routed into `FULL-EXTERNAL-WEB` EASM-first chain state and become stale without execution evidence; this needs a separate governed fix
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-255 `Evidence-driven Adaptive Assessment Planner`
+
 - 2026-05-07: completed backlog-249 `RCE detection Nuclei template expansion: cover AutoPenBench WS5/WS6 and real-world CVE RCE tasks`:
   - rationale:
     - RCE coverage needed to become reachable through governed Nuclei selection without turning passive Nuclei audit into unsafe exploitation or broad OOB behavior

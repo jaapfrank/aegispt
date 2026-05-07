@@ -1597,35 +1597,6 @@
     },
     {
       "blockers": [
-        "no_web_target"
-      ],
-      "category": "web",
-      "cost": "medium",
-      "description": "Performs bounded deeper web crawling for approved targets.",
-      "estimated_minutes": 15,
-      "expected_evidence": [
-        "crawl_route_inventory",
-        "form_inventory"
-      ],
-      "false_positive_rate": "medium",
-      "follow_up_tools": [
-        "content-discovery",
-        "playwright-web"
-      ],
-      "name": "web_depth",
-      "prerequisites": [
-        "approved_scope"
-      ],
-      "required_approvals": 1,
-      "risk_tier": "active",
-      "triggers": [
-        "web_target_present",
-        "deep_crawl_requested"
-      ],
-      "weak_triggers": []
-    },
-    {
-      "blockers": [
         "no_wireless_adapter",
         "no_wireless_site_context"
       ],
