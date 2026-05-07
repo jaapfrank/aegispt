@@ -187,8 +187,13 @@ def test_full_external_web_chain_includes_crypto_logging_and_oauth_probe() -> No
 
 def test_full_external_web_chain_dispatches_new_web_security_profiles() -> None:
     definition = assessment_chain_service.ASSESSMENT_CHAIN_DEFINITIONS["FULL-EXTERNAL-WEB"]
+    passive_profiles = set(definition.phases[0].profiles)
     active_profiles = set(definition.phases[1].profiles)
 
+    expected_passive = {
+        "passive-web-vuln-components",
+        "passive-web-headers-security",
+    }
     expected = {
         "active-web-xxe-probe",
         "active-web-jwt-probe",
@@ -207,13 +212,14 @@ def test_full_external_web_chain_dispatches_new_web_security_profiles() -> None:
         "active-web-rce-nuclei-audit",
     }
 
+    assert expected_passive.issubset(passive_profiles)
     assert expected.issubset(active_profiles)
     assert expected.issubset(assessment_chain_service.WEB_FOLLOW_UP_PROFILES)
-    assert {
-        "passive-web-vuln-components",
-        "passive-web-headers-security",
-        "passive-web-nikto-scan",
-    }.issubset(assessment_chain_service.WEB_FOLLOW_UP_PROFILES)
+    assert (expected_passive | {"passive-web-nikto-scan"}).issubset(
+        assessment_chain_service.WEB_FOLLOW_UP_PROFILES
+    )
+    for phase in definition.phases:
+        assert len(phase.profiles) == len(set(phase.profiles))
 
 
 def test_full_internal_lan_chain_includes_linux_privilege_escalation_enumeration() -> None:

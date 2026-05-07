@@ -12454,3 +12454,42 @@
     - this is intentionally local DVGA proof, not broad command-injection exploitation coverage for public/customer GraphQL targets
     - non-default allowlisted commands and full worker-dispatch live execution are tracked in `extra_tests.md`
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-252 `Add 14 missing new security runners to FULL-EXTERNAL-WEB chain`, from `codex/tasks/backlog-252-full-external-web-chain-missing-new-runners.json`
+
+- 2026-05-07: completed backlog-252 `Add 14 missing new security runners to FULL-EXTERNAL-WEB chain so they are actually dispatched`:
+  - rationale:
+    - the active package claimed the Full External Web chain still lacked the new security profiles, but repo truth showed backlog-250 had already wired them into chain phases, follow-up profile routing, wizard preview definitions, and API Security's Full External Web assessment mode
+    - the safest completion path was to avoid duplicate dispatch and add regression proof for the exact stale failure mode
+  - implementation:
+    - strengthened `api/tests/test_assessment_chain.py` so Full External Web Phase 1 must contain the package passive profiles, Phase 2 must contain the listed active profiles, and every phase must avoid duplicate profile entries
+    - strengthened `api/tests/test_pentest_depth_registration.py` so auth-context profiles remain explicitly gated through `requires_auth_context=True`
+    - did not change runner implementations, run profile definitions, approval counts, scope checks, runtime binding, ROE, credential handling, or kill-switch behavior
+  - files:
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `risico.md`
+    - `extra_tests.md`
+    - `NEXT_TASK.md`
+    - `codex/results/backlog-252-full-external-web-api-preview-8000.json`
+    - `codex/results/backlog-252-external-web-active-preview-8000.png`
+    - `codex/results/backlog-252-api-security-active-preview-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 267 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py::test_full_external_web_chain_dispatches_new_web_security_profiles api/tests/test_pentest_depth_registration.py::test_new_depth_profiles_are_declared -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed
+    - `bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000/app/`
+    - Playwright acceptance passed for External Web Active and API Security Active previews, both showing `Full External Web - 2 phases - 27 runners` with all package-listed profile IDs present in the wizard matrix and all expected visible labels present in the preview
+    - `git diff --check` passed before documentation/promotion updates
+  - proof:
+    - Full External Web matrix profile list contains 29 all-phase profiles, including the 27 profiles visible for active-depth Phase 1 and Phase 2 preview
+    - API Security Active routes to assessment mode `FULL-EXTERNAL-WEB` and therefore uses the same dispatchable chain profile path; its single execution estimate remains `active-api-assessment`, while chain dispatch uses the assessment-chain current step
+    - auth-context profiles remain visible as gated coverage and still require credential/session context before the corresponding runner validations can run
+  - exceptions:
+    - the task package was partially obsolete after backlog-250, so no chain or wizard production code needed duplicate edits
+    - one local Playwright attempt failed because the assertion expected outdated label text; that run is not claimed green, and the accepted rerun used current UI copy plus profile-ID checks
+    - one runtime-generated non-queue `codex/tasks/task-20260507...pack-refinement...json` file appeared during local browser/runtime interaction and was removed as generated state
+  - remaining risks:
+    - this slice proves dispatch reachability and preview truth, not live execution of every newly reachable runner against vulnerable fixtures
+    - `extra_tests.md` XT-009 and `risico.md` R-009 continue to track per-runner live lab proof
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-253 `WiFi certification hardware blocker`, from `codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json`

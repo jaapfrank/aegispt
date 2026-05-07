@@ -2,45 +2,45 @@
 
 ## Title
 
-Add 14 missing new security runners to FULL-EXTERNAL-WEB chain so they are actually dispatched
+WiFi certification hardware blocker: show amber informational status when only hardware limitations remain
 
 ## Promoted From
 
-`codex/tasks/backlog-252-full-external-web-chain-missing-new-runners.json`
+`codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-252-full-external-web-chain-missing-new-runners.json` so the FULL-EXTERNAL-WEB chain and API Security wizard plan dispatch the already-registered runner profiles listed in that package.
+Implement the active backlog package `codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json` so WiFi certification/readiness distinguishes software-ready-with-hardware-limitation from a red blocked state.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-252-full-external-web-chain-missing-new-runners.json`.
+Implement the active backlog package `codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json`.
 
 Expected slice:
 
-- reconcile current product truth against the package before editing, because backlog-250 already wired several related profiles
-- ensure FULL-EXTERNAL-WEB passive and active phases include the package-listed profiles where still missing
-- keep auth-context-dependent profiles gated on configured auth context
-- update the API Security wizard execution plan only where the package still applies
-- preserve existing run profiles, runner implementations, approval gates, scope checks, runtime binding, and kill-switch behavior
+- reconcile current diagnostics/readiness truth before editing, because recent stabilization may already have part of this behavior
+- show WiFi hardware-only limitation as amber/informational rather than red/blocked when all software tooling is otherwise ready
+- keep overall certification status from becoming `blocked` when the only blocker is WiFi hardware/lab availability
+- add or preserve guidance text that explains the required monitor-mode WiFi adapter/lab condition
+- preserve existing runner/tool certification, diagnostics, settings, approval, scope, runtime binding, ROE, credential, and kill-switch behavior
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Work only on chain/wizard dispatch completeness described by the active package.
-- Do not change runner implementations or weaken run-profile approval/scope/ROE constraints.
-- Do not add fake runner coverage: any preview or chain entry must map to an existing RunProfile/tool path.
+- Work only on WiFi readiness/certification blocker presentation and supporting API truth described by the active package.
+- Do not weaken WiFi ROE, hardware, monitor-mode, adapter, scope, approval, or credential boundaries.
+- Do not claim WiFi live support beyond software readiness unless an authorized adapter/lab proof exists.
 - If the package is partially obsolete because current code already implements an item, document that truth in `DONE_LOG.md` and `CURRENT_STATE.md` rather than duplicating entries.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/ -q`
+- `source .venv/bin/activate && python -m pytest api/tests/test_diagnostics.py -q`
 - `git diff --check`
 
 ## Acceptance
 
-- FULL-EXTERNAL-WEB chain contains the still-applicable package-listed profiles without duplicate dispatch.
-- Auth-context runners remain gated and do not silently run without credentials/context.
-- Wizard/API Security previews match actual dispatchable profile/tool paths.
-- Existing manual wizard path, approval model, scope enforcement, runtime binding, and kill switch remain intact.
+- WiFi hardware blocker shows amber/informational, not red/blocked.
+- Overall certification status is not `blocked` when only hardware limitations remain.
+- Guidance text explains what adapter/lab condition is needed.
+- Existing manual wizard path, runner/tool certification, diagnostics, approval model, scope enforcement, runtime binding, and kill switch remain intact.
