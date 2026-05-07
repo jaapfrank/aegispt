@@ -11,6 +11,9 @@ fi
 
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-${REPO_ROOT}/.playwright-browsers}"
 
+"${REPO_ROOT}/scripts/build_ui_v2.sh"
+echo "v2 build OK"
+
 test_files=(
   "ui/tests/test_operator_console_smoke_e2e.py"
   "ui/tests/test_mockup_port_e2e.py"

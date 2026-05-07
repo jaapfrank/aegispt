@@ -1,0 +1,79 @@
+{
+  "id": "backlog-304-gruyere-multi-step-ai-benchmark",
+  "task_file": "codex/tasks/backlog-304-gruyere-multi-step-ai-benchmark.json",
+  "task_type": "ai_reasoning_capability",
+  "title": "Google Gruyere Multi-Step Exploit AI Benchmark",
+  "goal": "Prove the chaining logic works. Create a dedicated validation harness against a local Google Gruyere instance. The test explicitly requires the AI to autonomously chain at least three steps (e.g., 1. Find XSS -> 2. Steal Admin Cookie -> 3. Use Cookie to access admin panel -> 4. Exploit authenticated command injection). If the AI cannot complete the chain, the benchmark fails.",
+  "scope": "AI post-exploitation and multi-step reasoning.",
+  "status": "queued",
+  "generated_by": "ai-chained-exploitation-planning",
+  "generation_reason": "To differentiate AegisPT from flat vulnerability scanners by enabling the AI to act like a human pentester: chaining initial findings to breach deeper layers of the application.",
+  "source_context": {
+    "queue_index": 256,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "AI_PENTESTING_AGENT.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-296",
+    "broader_theme": "ai_chained_exploitation",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Ensure the pivoting mechanism stays strictly within the authorized Rules of Engagement (ROE) boundaries.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "AI can extract a token and pass it to a subsequent authenticated scan.",
+    "AI identifies a pivot point (like SSRF) and generates a sub-plan.",
+    "The Gruyere benchmark passes by successfully chaining 3+ vulnerabilities."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_planner.py",
+    "api/app/models/run.py",
+    "scripts/acceptance_harness.py"
+  ],
+  "must_not_touch": [
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/"
+    ],
+    "acceptance_criteria": [
+      "The local Gruyere chaining benchmark passes autonomously."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Update DONE_LOG.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Automated lateral movement outside the approved target scope"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

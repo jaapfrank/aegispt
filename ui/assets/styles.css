@@ -1283,6 +1283,9 @@ body {
 }
 
 .topbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 2.1rem;
   border: 1px solid rgba(120, 177, 212, 0.18);
   border-radius: 999px;
@@ -1292,6 +1295,8 @@ body {
   font: inherit;
   font-size: 0.78rem;
   cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .topbar-button:hover {

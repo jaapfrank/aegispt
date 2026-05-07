@@ -65,6 +65,23 @@ const emptySettings: SettingsEnvelope = {
   tool_readiness: {},
 };
 
+export const ACTOR_STORAGE_KEY = 'aegispt-actor';
+export const V2_ACTOR_STORAGE_KEY = 'aegispt-v2-actor-name';
+
+function readStoredActorName(): string {
+  if (typeof window === 'undefined') return 'operator-ui';
+  const sharedActor = window.localStorage.getItem(ACTOR_STORAGE_KEY);
+  const v2Actor = window.localStorage.getItem(V2_ACTOR_STORAGE_KEY);
+  return (sharedActor || v2Actor || 'operator-ui').trim() || 'operator-ui';
+}
+
+function persistActorName(actorName: string) {
+  if (typeof window === 'undefined') return;
+  const normalized = actorName.trim() || 'operator-ui';
+  window.localStorage.setItem(ACTOR_STORAGE_KEY, normalized);
+  window.localStorage.setItem(V2_ACTOR_STORAGE_KEY, normalized);
+}
+
 const useAegisStoreBase = create<AegisStore>()(
   devtools(
     (set, get) => ({
@@ -81,7 +98,7 @@ const useAegisStoreBase = create<AegisStore>()(
       aiInsights: null,
       proposals: [],
       actor: {
-        name: 'operator-ui',
+        name: readStoredActorName(),
         role: 'admin',
       },
       settings: emptySettings,
@@ -184,17 +201,16 @@ const useAegisStoreBase = create<AegisStore>()(
           false,
           'ai-insights/set',
         ),
-      setActor: (actor) =>
-        set(
-          {
-            actor: {
-              ...get().actor,
-              ...actor,
-            },
-          },
-          false,
-          'actor/set',
-        ),
+      setActor: (actor) => {
+        const nextActor = {
+          ...get().actor,
+          ...actor,
+        };
+        if (actor.name !== undefined) {
+          persistActorName(nextActor.name);
+        }
+        set({ actor: nextActor }, false, 'actor/set');
+      },
       setSettings: (settings) => set({ settings }, false, 'settings/set'),
       setRunStream: (runStream) =>
         set(

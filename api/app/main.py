@@ -6,8 +6,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.app.config import Settings, get_settings
@@ -48,6 +49,16 @@ DATABASE_UNENCRYPTED_WARNING = (
 )
 DEVELOPMENT_ENVS = {"development", "dev", "local", "test", "testing"}
 DEFAULT_ALLOWED_ORIGINS = ("http://localhost:8000", "http://127.0.0.1:8000")
+
+
+class ReactAppStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
 
 
 def effective_app_env(settings: Settings) -> str:
@@ -186,7 +197,19 @@ def create_app() -> FastAPI:
 
     ui_v2_dir = Path(__file__).resolve().parents[2] / "ui-v2" / "dist"
     if ui_v2_dir.exists():
-        app.mount("/v2", StaticFiles(directory=str(ui_v2_dir), html=True), name="app-ui-v2")
+        @app.get("/app-v2/health", include_in_schema=False)
+        def app_v2_health() -> dict[str, str]:
+            return {"status": "ok", "version": "v2"}
+
+        @app.get("/v2", include_in_schema=False)
+        def legacy_app_v2_redirect() -> RedirectResponse:
+            return RedirectResponse(url="/app-v2/")
+
+        @app.get("/v2/{path:path}", include_in_schema=False)
+        def legacy_app_v2_path_redirect(path: str) -> RedirectResponse:
+            return RedirectResponse(url=f"/app-v2/{path}")
+
+        app.mount("/app-v2", ReactAppStaticFiles(directory=str(ui_v2_dir), html=True), name="app-ui-v2")
 
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:

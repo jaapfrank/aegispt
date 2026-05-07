@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Crosshair,
   Database,
+  ExternalLink,
   FileText,
   FlaskConical,
   History,
@@ -296,6 +297,14 @@ function AppShell() {
             )}
 
             <div className="flex h-full items-center gap-4 pl-4 border-l border-border">
+              <a
+                href="/app/"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-surface/60 px-2 py-1 text-[12px] font-medium text-muted transition-colors hover:border-cyan/40 hover:text-cyan"
+                data-testid="switch-to-classic-ui"
+              >
+                <ExternalLink size={13} />
+                Classic UI
+              </a>
               <NavLink to="/settings" className="text-muted hover:text-text transition-colors" aria-label="Settings">
                 <Settings size={16} />
               </NavLink>

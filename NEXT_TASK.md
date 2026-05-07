@@ -2,53 +2,48 @@
 
 ## Title
 
-React v2 deployment: build React app and serve from FastAPI at /app-v2/ alongside existing /app/ — gradual migration path
+React v2 Living Intake Wizard: Split-path wizard with modern 3D card flips and mission launch ceremony
 
 ## Promoted From
 
-`codex/tasks/backlog-276-react-v2-deployment-fastapi-serve.json`
+`codex/tasks/backlog-277-react-v2-living-intake-wizard.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-276-react-v2-deployment-fastapi-serve.json` so React v2 is built and served by FastAPI at `/app-v2/` while the existing classic UI remains available at `/app/`.
+Implement the active backlog package `codex/tasks/backlog-277-react-v2-living-intake-wizard.json` so the React v2 Intake screen becomes a living split-path intake experience while preserving the existing backend mission submission logic.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-276-react-v2-deployment-fastapi-serve.json`.
+Implement the active backlog package `codex/tasks/backlog-277-react-v2-living-intake-wizard.json`.
 
-Expected React v2 deployment slice:
+Expected React v2 intake slice:
 
-- add a build script for `ui-v2`
-- configure Vite for `/app-v2/` asset paths
-- serve the built React app from FastAPI at `/app-v2/`
-- keep the existing `/app/` classic UI unchanged and reachable
-- add UI switcher links between classic and v2
-- preserve shared local actor identity between both UIs where current repo truth supports it
+- show a clear split between conversational AI intake and visual tile wizard
+- use tactile 3D CSS card flip feedback for assessment type selection
+- add the full-screen mission launch ceremony when the wizard submits
+- keep transition into Mission Control seamless and animated
+- preserve the existing real engagement/run creation and authorization flow
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- This task depends on completed backlog-268 through backlog-275.
-- Work only in the React v2 deployment scope.
-- Do not remove, break, or replace the existing `/app/` route or old vanilla JS UI.
-- Do not touch `ui/assets/`, `api/app/routers/`, or `workers/` unless repo truth makes a narrow deployment-only exception unavoidable; document any exception before implementation.
+- This task depends on completed backlog-270.
+- Work only in the React v2 Intake visual presentation and transition scope.
+- Do not change underlying backend submission logic.
+- Do not touch `api/app/routers/runs.py` or `workers/`.
 - Do not bypass existing backend scope, ROE, approval, runner registry, provenance, report, credential, runtime binding, or kill-switch behavior.
 - Do not create runtime self-modification or uncontrolled plugin installation.
 - Production UI must use existing icon patterns and no emoji.
 
 ## Validation
 
-- `python3 scripts/validate_backlog_tasks.py`
 - `cd ui-v2 && npm run build`
-- `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q`
-- `curl -s http://127.0.0.1:8000/app-v2/ | grep -c 'AegisPT'`
+- `python3 scripts/validate_backlog_tasks.py`
 - `git diff --check`
 
 ## Acceptance
 
-- `/app-v2/` serves the React v2 app from FastAPI.
-- Direct route load such as `/app-v2/findings` works for React Router.
-- `/app/` still serves the existing classic UI.
-- Both UIs expose switcher links.
-- Actor name persists between UI switches where current localStorage contract supports it.
-- Build passes with no TypeScript errors.
+- Intake shows a clear split between AI chat and visual tiles.
+- Clicking an assessment type tile performs a 3D flip animation.
+- Submitting the wizard triggers the full-screen deploying overlay.
+- Transition to Mission Control is seamless and animated.

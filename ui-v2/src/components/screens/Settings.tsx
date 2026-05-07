@@ -45,13 +45,11 @@ import type {
   SettingsEnvelope,
   UUID,
 } from '../../api/types';
-import { useAegisStore } from '../../store';
+import { ACTOR_STORAGE_KEY, V2_ACTOR_STORAGE_KEY, useAegisStore } from '../../store';
 
 type SettingsTab = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity';
 type SaveScope = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity';
 type PendingAction = SaveScope | 'chatgpt-status' | 'chatgpt-connect' | 'api-key-create' | 'data-export' | 'schedule' | null;
-
-const ACTOR_STORAGE_KEY = 'aegispt-v2-actor-name';
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: typeof Bot }> = [
   { id: 'ai', label: 'AI & Provider', icon: Bot },
@@ -149,7 +147,8 @@ export default function SettingsScreen() {
   const modelLabel = String(readSettingValue(modelSetting, draftValues) || 'not configured');
 
   useEffect(() => {
-    const storedActor = window.localStorage.getItem(ACTOR_STORAGE_KEY);
+    const storedActor =
+      window.localStorage.getItem(ACTOR_STORAGE_KEY) ?? window.localStorage.getItem(V2_ACTOR_STORAGE_KEY);
     if (storedActor && storedActor !== actor.name) {
       setActorName(storedActor);
       setActor({ name: storedActor });
@@ -284,6 +283,7 @@ export default function SettingsScreen() {
   function saveActorName() {
     const nextActor = actorName.trim() || 'operator-ui';
     window.localStorage.setItem(ACTOR_STORAGE_KEY, nextActor);
+    window.localStorage.setItem(V2_ACTOR_STORAGE_KEY, nextActor);
     setActor({ name: nextActor });
     setToast('Actor name saved for future API requests.');
   }

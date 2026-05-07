@@ -1,5 +1,52 @@
 # Done Log
 
+- 2026-05-08: completed backlog-276 `React v2 deployment: build React app and serve from FastAPI at /app-v2/ alongside existing /app/`:
+  - rationale:
+    - React v2 needed a real production-like FastAPI serving path before the side-by-side migration can continue.
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-268 through 275 completed first.` and all required tasks are present in this log.
+    - `http://127.0.0.1:8000` was relevant because FastAPI static serving and browser routing were changed.
+  - implementation:
+    - added `scripts/build_ui_v2.sh` and wired `scripts/run_ui_fast_tests.sh` to build React v2 before the fast UI suite
+    - configured Vite with `base: '/app-v2/'` and React Router with basename `/app-v2`
+    - served `ui-v2/dist` from FastAPI at `/app-v2` with a React Router fallback and `/app-v2/health`
+    - preserved the existing `/app/` classic UI route and added a classic topbar switcher to `/app-v2/`
+    - added a React v2 topbar switcher back to `/app/`
+    - aligned React v2 actor startup with the shared classic localStorage key `aegispt-actor` while preserving the earlier v2 compatibility key
+    - redirected the earlier local `/v2` development path to `/app-v2/` so old local links are not stranded after the base-path change
+  - files:
+    - `api/app/main.py`
+    - `scripts/build_ui_v2.sh`
+    - `scripts/run_ui_fast_tests.sh`
+    - `ui/index.html`
+    - `ui/assets/styles.css`
+    - `ui-v2/index.html`
+    - `ui-v2/vite.config.ts`
+    - `ui-v2/src/main.tsx`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/store/index.ts`
+    - `ui-v2/src/components/screens/Settings.tsx`
+    - `codex/results/backlog-276-react-v2-deployment-fastapi-serve-20260508.md`
+    - `codex/results/playwright-backlog-276-app-v2/`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `cd ui-v2 && npm run build` passed
+    - `bash scripts/build_ui_v2.sh` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_health.py -q` passed
+    - `curl -s http://127.0.0.1:8000/app-v2/ | grep -c 'AegisPT'` returned `1`
+    - `/app-v2/health` returned `{"status":"ok","version":"v2"}`
+    - `/app-v2/findings` returned HTTP 200 text/html and direct React Router load worked
+    - Playwright acceptance passed for `/app/`, `/app-v2/`, `/app-v2/findings`, switcher links, actor localStorage handoff, and no horizontal overflow at 1440px, 1024px, 768px, and 375px
+    - focused Playwright after the final FastAPI restart confirmed `/app-v2/findings` direct load and `/v2/findings` redirect at 375px
+    - `git diff --check` passed
+  - proof:
+    - evidence file `codex/results/backlog-276-react-v2-deployment-fastapi-serve-20260508.md`
+    - screenshots under `codex/results/playwright-backlog-276-app-v2/`
+  - risks / exceptions:
+    - Vite still reports the existing large chunk-size warning for the app and Cinema chunks; build completed successfully and this is not a serving failure.
+    - Classic UI may still display actor identity from backend operator settings in some flows; this task aligned the shared `aegispt-actor` localStorage handoff without changing classic Settings behavior.
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-277 `React v2 Living Intake Wizard`, from `codex/tasks/backlog-277-react-v2-living-intake-wizard.json`.
+
 - 2026-05-08: completed backlog-275 `React v2 Cinema Mode: replace hardcoded EVENT_STREAM with real run data — hosts as 3D nodes, live task stdout, local fonts`:
   - rationale:
     - the active task required replacing the existing Cinema Mode mock targets, mock event stream, and external font URL with selected-run inventory, task stdout, findings, AI proposal counters, and local font assets
