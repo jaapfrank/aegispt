@@ -10,7 +10,7 @@
   "generation_reason": "Operator evidence shows Mission Control can show empty Tasks after failures, duplicate Start Validation actions, unclear blocked states, and Live Agents cards that do not make active work observable. Existing liveness and AI-repair tasks did not close the full run-lifecycle contract.",
   "queue_index": 150,
   "source_context": {
-    "queue_index": 150,
+    "queue_index": 147,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md"

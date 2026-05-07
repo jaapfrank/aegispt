@@ -9,7 +9,7 @@
   "generated_by": "full-system-assessment-2026-04-30",
   "generation_reason": "Discovered during full-system assessment: product feature matrix timed out/not green and an existing unqueued task package captured the stale report catalog assertion after adaptive report consolidation.",
   "source_context": {
-    "queue_index": 148,
+    "queue_index": 145,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md",

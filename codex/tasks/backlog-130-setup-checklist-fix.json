@@ -10,7 +10,7 @@
   "generation_reason": "The Setup Checklist is permanently stuck at 3/4 complete because item 4 requires findings that cannot exist before a scan. This creates a persistent visual bug on every Dashboard view.",
   "queue_index": 130,
   "source_context": {
-    "queue_index": 130,
+    "queue_index": 128,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

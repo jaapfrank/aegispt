@@ -10,7 +10,7 @@
   "generation_reason": "X-Actor header is not authentication. Any client on the network can scan as any actor. No ROE enforcement means scans can start without legal authorization.",
   "queue_index": 120,
   "source_context": {
-    "queue_index": 120,
+    "queue_index": 119,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

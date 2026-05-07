@@ -9,7 +9,7 @@
   "generated_by": "enterprise-queue-review-2026-05-04",
   "generation_reason": "The existing release-readiness gate is blocked because accuracy evidence is stale or not executed. Enterprise readiness needs a dedicated closure task after tool/runners work, not another broad roadmap item.",
   "source_context": {
-    "queue_index": 223,
+    "queue_index": 191,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-99-known-vulnerability-validation-matrix.json",

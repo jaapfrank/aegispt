@@ -10,7 +10,7 @@
   "generation_reason": "Unifi APs, switches, routers, NAS devices, and many IoT gateways respond to SNMP. The ARP table from a gateway router reveals ALL devices on the network including those that don't respond to pings. Current AegisPT has no SNMP capability despite settings referencing it.",
   "queue_index": 136,
   "source_context": {
-    "queue_index": 136,
+    "queue_index": 134,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

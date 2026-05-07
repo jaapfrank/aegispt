@@ -9,7 +9,7 @@
   "generated_by": "enterprise-readiness-audit-2026-05-01",
   "generation_reason": "Enterprise readiness requires disaster recovery and upgrade rollback proof. Existing docs mention backup paths, but no repo-backed task proves a full backup/restore/rollback drill with evidence and migration validation.",
   "source_context": {
-    "queue_index": 183,
+    "queue_index": 159,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-81-installation-package.json",

@@ -9,7 +9,7 @@
   "generated_by": "autopenBench-inVitro-gap-2026-05-05",
   "generation_reason": "AutoPenBench NS4 (traffic sniffing) and NS5 (ARP spoofing) require tcpdump and arpspoof \u2014 not implemented. Both are standard LAN pentest capabilities.",
   "source_context": {
-    "queue_index": 246,
+    "queue_index": 206,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-70-responder-llmnr-poisoning-runner.json",

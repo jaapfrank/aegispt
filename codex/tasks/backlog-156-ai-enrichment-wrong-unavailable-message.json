@@ -9,7 +9,7 @@
   "generated_by": "ui-walkthrough-2026-04-30",
   "generation_reason": "Walkthrough 2026-04-30: Finding drawer shows 'Enrichment unavailable - Connect or enable an AI provider' even though ChatGPT OAuth IS connected (google-oauth2, gpt-5.4, finding_enrichment_enabled=true",
   "source_context": {
-    "queue_index": 156,
+    "queue_index": 153,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/ui-walkthrough-20260430.md"

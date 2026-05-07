@@ -10,7 +10,7 @@
   "generation_reason": "No SLA enforcement means critical findings can sit open indefinitely with no alert. No false positive documentation means decisions are undocumented and unreviewable.",
   "queue_index": 121,
   "source_context": {
-    "queue_index": 121,
+    "queue_index": 120,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

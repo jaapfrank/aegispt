@@ -4,12 +4,12 @@
   "task_type": "product_slice",
   "title": "SSRF dedicated runner: server-side request forgery detection via OOB callbacks and internal service probing",
   "goal": "WebGoat has a dedicated SSRF module. ZAP has basic SSRF checks (scanner 40022) but misses many variants. Implement a dedicated ssrf-probe runner: (1) Parameter-based SSRF: inject OOB callback URLs into all URL-consuming parameters (url=, redirect=, callback=, webhook=, proxy=, fetch=, load=, src=, href=, target=, domain=, host=, endpoint=). Use Interactsh or a self-hosted callback server to detect blind SSRF. (2) Header-based SSRF: inject callback URLs into Host, X-Forwarded-Host, X-Forwarded-For, Referer headers. (3) File/path SSRF: inject file:// and dict:// protocols alongside http://. (4) Internal service detection: attempt requests to http://169.254.169.254 (AWS metadata), http://metadata.google.internal (GCP), http://localhost:80/admin, common internal IPs. Record any 200 responses with internal content. (5) PDF/image conversion SSRF: if PDF/image generation endpoints found (common in modern apps), inject SSRF payload in document URL. All SSRF tests require active tier approval. Findings: 'SSRF - Blind (OOB Confirmed)', 'SSRF - Internal Service Accessible', 'SSRF - Cloud Metadata Exposed'.",
-  "scope": "WebGoat ssrf module + gap analysis: ZAP scanner 40022 covers basic SSRF but misses blind OOB SSRF, header injection SSRF, and cloud metadata endpoints. SSRF is OWASP A10:2021. Current coverage ⚠️ (partial).",
+  "scope": "WebGoat ssrf module + gap analysis: ZAP scanner 40022 covers basic SSRF but misses blind OOB SSRF, header injection SSRF, and cloud metadata endpoints. SSRF is OWASP A10:2021. Current coverage \u26a0\ufe0f (partial).",
   "status": "queued",
   "generated_by": "coverage-gap-analysis-2026-05-03",
-  "generation_reason": "SSRF partial coverage — ZAP misses blind OOB, header SSRF, and cloud metadata variants. WebGoat SSRF module confirms the gap.",
+  "generation_reason": "SSRF partial coverage \u2014 ZAP misses blind OOB, header SSRF, and cloud metadata variants. WebGoat SSRF module confirms the gap.",
   "source_context": {
-    "queue_index": 208,
+    "queue_index": 176,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
@@ -31,7 +31,7 @@
     "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
-    "scope_creep_guard": "SSRF detection only — do not follow SSRF chains to internal services beyond basic response fingerprinting.",
+    "scope_creep_guard": "SSRF detection only \u2014 do not follow SSRF chains to internal services beyond basic response fingerprinting.",
     "runtime_mutation": false,
     "safety": "Never use real internal IPs outside the engagement's approved CIDR. Cloud metadata probes only when target is confirmed cloud-hosted."
   },
@@ -40,7 +40,7 @@
     "Detects parameter-based SSRF in common URL params.",
     "Detects header-based SSRF (Host/X-Forwarded-Host).",
     "Cloud metadata SSRF produces Critical finding.",
-    "Active tier — requires approval.",
+    "Active tier \u2014 requires approval.",
     "No regression in existing tests."
   ],
   "likely_touched_files": [

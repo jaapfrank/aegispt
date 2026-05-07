@@ -9,7 +9,7 @@
   "generated_by": "ui-loop-audit-2026-05-06-corrected",
   "generation_reason": "Attack path view is only valuable if it reflects real evidence. Fabricated chains based on co-occurrence would mislead operators and clients.",
   "source_context": {
-    "queue_index": 263,
+    "queue_index": 220,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-260-ai-continuous-assessment-loop.json",

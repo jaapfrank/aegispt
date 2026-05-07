@@ -9,7 +9,7 @@
   "generated_by": "enterprise-readiness-audit-2026-05-01",
   "generation_reason": "During the enterprise readiness audit, `/health/live` returned 200 after restart but both `scripts/run_full_system_acceptance_audit.py` and `scripts/run_enterprise_ia_audit.py` later failed with timeouts. The host log showed `Shutting down` and `Waiting for connections to close` while port 8000 remained occupied. This blocks reliable product validation and mirrors operator reports of empty/hung screens.",
   "source_context": {
-    "queue_index": 181,
+    "queue_index": 157,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-124-dashboard-and-mc-liveness.json",

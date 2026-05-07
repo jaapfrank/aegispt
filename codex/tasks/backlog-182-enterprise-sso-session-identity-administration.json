@@ -9,7 +9,7 @@
   "generated_by": "enterprise-readiness-audit-2026-05-01",
   "generation_reason": "Enterprise operators need real identity administration. Existing tasks cover API keys, ROE, and RBAC, while docs explicitly note SSO and tenant membership are still gaps. A topbar editable actor/local identity model is not enough for enterprise readiness.",
   "source_context": {
-    "queue_index": 182,
+    "queue_index": 158,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-120-authentication-and-roe-gate.json",

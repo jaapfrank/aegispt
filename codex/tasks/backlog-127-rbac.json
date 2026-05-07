@@ -10,7 +10,7 @@
   "generation_reason": "All actors currently have identical permissions. Enterprise clients need to share reports with stakeholders without giving them scan access. Consultants need scan access without admin rights.",
   "queue_index": 127,
   "source_context": {
-    "queue_index": 127,
+    "queue_index": 126,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

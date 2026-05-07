@@ -3,13 +3,13 @@
   "task_file": "codex/tasks/backlog-142-roe-authorization-checkbox-test-helper.json",
   "task_type": "corrective_test_slice",
   "title": "Fix ROE authorization checkbox not handled in _launch_guided_mission_from_preview test helper",
-  "goal": "In both test files, update the _launch_guided_mission_from_preview helper to also handle the wizard-roe-authorization-checkbox case. After advancing to step 4, before clicking Create Mission, check if the button is disabled and if the wizard-roe-authorization-checkbox is present and unchecked — if so, check it. This is the correct product behavior (authorization must be acknowledged) so the fix is in the tests, not the wizard.",
+  "goal": "In both test files, update the _launch_guided_mission_from_preview helper to also handle the wizard-roe-authorization-checkbox case. After advancing to step 4, before clicking Create Mission, check if the button is disabled and if the wizard-roe-authorization-checkbox is present and unchecked \u2014 if so, check it. This is the correct product behavior (authorization must be acknowledged) so the fix is in the tests, not the wizard.",
   "scope": "After backlog-120 added the ROE gate, the wizard shows an authorization checkbox (wizard-roe-authorization-checkbox) when a new mission is created without an ROE reference. The Create Mission button stays disabled until the checkbox is checked. The _launch_guided_mission_from_preview helper in both test_operator_console_e2e.py and test_product_feature_matrix_e2e.py handles the 'wizard-full-authorization-input' (typed target confirmation) case but NOT the 'wizard-roe-authorization-checkbox' case. This causes over 30 E2E tests to fail with TimeoutError: Locator.click: Timeout 15000ms exceeded on [data-wizard-create-mission=true] because the button is disabled.",
   "status": "queued",
   "generated_by": "full-system-assessment-2026-04-30",
   "generation_reason": "After backlog-120 added the ROE gate, the wizard shows an authorization checkbox (wizard-roe-authorization-checkbox) when a new mission is created without an ROE reference. The Create Mission button stays disabled until the checkbox is checked. The _launch_guided_mission_from_preview helper in both test_operator_console_e2e.py and test_product_feature_matrix_e2e.py handles the 'wizard-full-authorization-input' (typed target confirmation) case but NOT the 'wizard-roe-authorization-checkbox' case. This causes over 30 E2E tests to fail with TimeoutError: Locator.click: Timeout 15000ms exceeded on [data-wizard-create-mission=true] because the button is disabled.",
   "source_context": {
-    "queue_index": 142,
+    "queue_index": 140,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md"

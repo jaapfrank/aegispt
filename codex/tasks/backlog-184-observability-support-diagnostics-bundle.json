@@ -9,7 +9,7 @@
   "generated_by": "enterprise-readiness-audit-2026-05-01",
   "generation_reason": "The audit required shell inspection of `/tmp/aegispt-inline-host.log`, process state, `ss`, curl, and failed Python tracebacks to understand why the app was hanging. Enterprise users need these diagnostics in-product and exportable safely.",
   "source_context": {
-    "queue_index": 184,
+    "queue_index": 160,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",

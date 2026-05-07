@@ -9,7 +9,7 @@
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "Gruyere's GTL template injection + general SSTI absence from AegisPT tooling \u2014 mathematical expression injection is the standard detection approach, leads to Critical RCE findings.",
   "source_context": {
-    "queue_index": 216,
+    "queue_index": 184,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"

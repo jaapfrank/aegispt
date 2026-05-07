@@ -9,7 +9,7 @@
   "generated_by": "live-runtime-diagnosis-2026-05-03",
   "generation_reason": "The immediate ZAP startup bug was fixed in backlog-194, but stale running/cancelling rows still need an audited recovery path instead of direct database mutation.",
   "source_context": {
-    "queue_index": 195,
+    "queue_index": 165,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "docs/ui_mission_control.md",

@@ -10,7 +10,7 @@
   "generation_reason": "The operator reported that many buttons and options do not work or are unclear. Existing tests are broad but do not systematically prove every visible control and field. This is not a duplicate of backlog-117; backlog-117 fixed selected clarity gaps, while this task creates a durable full-system acceptance harness and defect inventory gate.",
   "queue_index": 149,
   "source_context": {
-    "queue_index": 149,
+    "queue_index": 146,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md",

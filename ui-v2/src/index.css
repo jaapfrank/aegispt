@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #070e1a;
+    --surface: #0c1524;
+    --border: rgba(120, 177, 212, 0.12);
+    --cyan: #5ecfff;
+    --amber: #fbbf24;
+    --green: #10b981;
+    --red: #ef4444;
+    --violet: #8b5cf6;
+    --text: #e4eeff;
+    --muted: rgba(160, 185, 220, 0.55);
+  }
+
+  html, body, #root {
+    height: 100%;
+    background-color: var(--bg);
+    color: var(--text);
+  }
+}
+
+@layer utilities {
+  .animate-pulse-fast {
+    animation: pulse-fast 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-fast {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .glass-panel {
+    background: rgba(12, 21, 36, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+  }
+}

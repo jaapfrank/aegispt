@@ -10,7 +10,7 @@
   "generation_reason": "User has IoT devices, cameras, home automation, and entertainment systems on the same or nearby network segments. VLAN hopping and subnet discovery are standard enterprise pentest tests that are completely absent from AegisPT. A network that allows VLAN hopping means a compromised IoT device can reach the corporate LAN.",
   "queue_index": 135,
   "source_context": {
-    "queue_index": 135,
+    "queue_index": 133,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

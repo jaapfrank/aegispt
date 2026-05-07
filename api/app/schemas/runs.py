@@ -285,6 +285,14 @@ class AssessmentPlanQueueCreate(BaseModel):
     operator_note: str | None = Field(default=None, max_length=1000)
 
 
+class AssessmentPlanWaveCompleteCreate(BaseModel):
+    operator_note: str | None = Field(default=None, max_length=1000)
+
+
+class AssessmentLoopAdvanceCreate(BaseModel):
+    operator_note: str | None = Field(default=None, max_length=1000)
+
+
 class RunRead(BaseModel):
     id: UUID
     engagement_id: UUID
@@ -320,6 +328,39 @@ class AssessmentPlanQueueRead(BaseModel):
     assessment_plan: dict[str, Any] = Field(default_factory=dict)
     queued_task_ids: list[UUID] = Field(default_factory=list)
     blocked: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AssessmentPlanWaveCompleteRead(BaseModel):
+    run: RunRead
+    assessment_plan: dict[str, Any] = Field(default_factory=dict)
+    adaptive_execution_waves: dict[str, Any] = Field(default_factory=dict)
+    proposal_ids: list[UUID] = Field(default_factory=list)
+    reasoning_id: UUID | None = None
+
+
+class AssessmentLoopRead(BaseModel):
+    available: bool = True
+    run_id: UUID
+    run_mode: str = "ai_loop"
+    loop_version: str
+    status: str
+    stop_reason: str | None = None
+    iteration_count: int
+    max_iterations: int
+    stuck_threshold: int
+    no_new_signal_iterations: int
+    current_state: dict[str, Any] = Field(default_factory=dict)
+    latest_next_action: dict[str, Any] | None = None
+    active_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    assessment_plan_summary: dict[str, Any] = Field(default_factory=dict)
+    iterations: list[dict[str, Any]] = Field(default_factory=list)
+    dispatches_work_directly: bool = False
+    manual_chain_alternative_preserved: bool = True
+    fixed_phase_chains_replaced_globally: bool = False
+    next_action: dict[str, Any] | None = None
+    queued_task_id: UUID | None = None
+    proposal_id: UUID | None = None
+    reasoning_id: UUID | None = None
 
 
 class RunStaleRecoveryCreate(BaseModel):

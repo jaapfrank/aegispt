@@ -9,7 +9,7 @@
   "generated_by": "full-system-assessment-2026-04-30",
   "generation_reason": "Multiple wizard flow tests fail with disabled Create Mission button (same root cause as backlog-142). These tests are identified separately because they test specific advanced wizard flows: test_edit_token_after_advanced_api_detail_reopens_detail_draft_and_preserves_api_access, test_clearing_advanced_scope_from_confirmation_returns_to_scope_with_visible_validation_feedback, test_authenticated_only_advanced_profile_from_confirmation_reopens_access_before_confirm. These tests likely also call _launch_guided_mission_from_preview or directly call [data-wizard-create-mission] without first checking/clicking wizard-roe-authorization-checkbox.",
   "source_context": {
-    "queue_index": 147,
+    "queue_index": 144,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md"

@@ -8,7 +8,7 @@
   "generated_by": "operator-priority-decision-2026-04-29",
   "generation_reason": "The operator tried to fix a failed run with AI, but reviewing the repair proposal did not continue the run or change any outcome. The current UI implies an AI fix while backlog-116 intentionally only records review intent. This gap makes AI feel useless and blocks trust in the product.",
   "source_context": {
-    "queue_index": 132,
+    "queue_index": 130,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/backlog-116-ai-isolated-repair-lane-20260429.md",

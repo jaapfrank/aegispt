@@ -10,7 +10,7 @@
   "generation_reason": "AegisPT uses zero NSE scripts. This means: no HTTP banner grabbing, no SSL certificate inspection, no SNMP enumeration via nmap, no SMB security mode check, no FTP anonymous access check, no RTSP stream discovery. Adding targeted safe scripts transforms the nmap scan from a port counter into a real reconnaissance tool.",
   "queue_index": 137,
   "source_context": {
-    "queue_index": 137,
+    "queue_index": 135,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

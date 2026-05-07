@@ -184,6 +184,10 @@ def create_app() -> FastAPI:
     if ui_dir.exists():
         app.mount("/app", StaticFiles(directory=str(ui_dir), html=True), name="app-ui")
 
+    ui_v2_dir = Path(__file__).resolve().parents[2] / "ui-v2" / "dist"
+    if ui_v2_dir.exists():
+        app.mount("/v2", StaticFiles(directory=str(ui_v2_dir), html=True), name="app-ui-v2")
+
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:
         return {

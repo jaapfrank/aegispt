@@ -10,7 +10,7 @@
   "generation_reason": "Continuous testing is the key differentiator of modern security tools (DEFION positions this as their core product). Scheduled scans and drift detection give clients ongoing security assurance instead of point-in-time snapshots.",
   "queue_index": 126,
   "source_context": {
-    "queue_index": 126,
+    "queue_index": 125,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

@@ -10,7 +10,7 @@
   "generation_reason": "Modern home networks and enterprise networks have IPv6 enabled by default. Many IoT devices (Unifi, Philips Hue, Home Assistant) support IPv6. A common bypass technique is to access a host via its IPv6 link-local address even when IPv4 firewall blocks it. AegisPT has zero IPv6 support.",
   "queue_index": 138,
   "source_context": {
-    "queue_index": 138,
+    "queue_index": 136,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

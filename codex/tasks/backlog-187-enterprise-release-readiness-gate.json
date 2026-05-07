@@ -9,7 +9,7 @@
   "generated_by": "enterprise-readiness-audit-2026-05-01",
   "generation_reason": "The backlog already contains many validation and readiness tasks, but enterprise readiness needs a final support-claim ledger that aggregates them and prevents overclaiming. This is the answer to 'does it actually do what it says and are results reliable?' at release time.",
   "source_context": {
-    "queue_index": 187,
+    "queue_index": 163,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-11-operational-assurance-matrix-foundation.json",

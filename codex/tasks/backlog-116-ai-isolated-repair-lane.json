@@ -9,7 +9,7 @@
   "generated_by": "operator-request-2026-04-28",
   "generation_reason": "The operator asked why AI cannot add or change code and suggested a separate folder so AI can help fix failed tools without breaking the system. This task captures that product idea as a governed future slice instead of weakening runtime safety constraints during active assessments.",
   "source_context": {
-    "queue_index": 116,
+    "queue_index": 115,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "AGENTS.md",

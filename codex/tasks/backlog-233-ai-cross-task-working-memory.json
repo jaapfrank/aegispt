@@ -4,12 +4,12 @@
   "task_type": "product_slice",
   "title": "AI cross-task working memory: accumulate analysis context across all tasks in an engagement for compound reasoning",
   "goal": "AutoPenBench's agent maintains working memory across all steps in a task chain. AegisPT's ai_agent.py runs per-task analysis but _build_analysis_context() only includes findings from the current run (capped at 25, line 742). Prior task analyses, proposals, and reasoning are NOT fed into subsequent task analyses. This prevents compound reasoning. Fix: Extend _build_analysis_context() to include: (1) Prior task analyses for the engagement: last 5 AgentReasoning records for the engagement (summary_text, hypotheses, confirmed_proposals). (2) Prior approved proposals and their outcomes: which proposals were approved, which found vulnerabilities. (3) Engagement-level finding summary: critical/high findings already discovered, targets already enumerated. (4) Running 'attack narrative': a short (5-sentence) rolling summary of the engagement's security story so far, updated after each task. This matches AutoPenBench's Summary procedure which 'condenses task history to reduce hallucinations'. Implementation: in ai_agent.py _build_analysis_context(), add an 'engagement_context' section. Load the last 5 AgentReasoning records for the engagement. Load the engagement-level finding count by severity. Generate attack_narrative by calling a lightweight summarization prompt. Cap total context to avoid token limits.",
-  "scope": "AutoPenBench code audit: _build_analysis_context() line 742 only passes run.findings[:25] — no prior task analysis, no approved proposals, no engagement narrative. AutoPenBench shows this working memory is what enables compound reasoning and 64% assisted agent success.",
+  "scope": "AutoPenBench code audit: _build_analysis_context() line 742 only passes run.findings[:25] \u2014 no prior task analysis, no approved proposals, no engagement narrative. AutoPenBench shows this working memory is what enables compound reasoning and 64% assisted agent success.",
   "status": "queued",
   "generated_by": "autoPenBench-gap-analysis-2026-05-03",
-  "generation_reason": "AI agent analyzes each task in isolation — no memory of prior analyses. AutoPenBench's working memory is the key enabler of compound reasoning. Must be added to reach 60%+ effective AI guidance.",
+  "generation_reason": "AI agent analyzes each task in isolation \u2014 no memory of prior analyses. AutoPenBench's working memory is the key enabler of compound reasoning. Must be added to reach 60%+ effective AI guidance.",
   "source_context": {
-    "queue_index": 233,
+    "queue_index": 200,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-218-ai-attack-chain-reasoning-web-context.json",

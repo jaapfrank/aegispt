@@ -9,7 +9,7 @@
   "generated_by": "operator-request-2026-04-29",
   "generation_reason": "The operator requested a complete check of all possibilities, fields, settings, unclear states, broken behaviors, and configurable parallel execution because several UI and runtime flows still felt unclear or unreliable after the prior backlog was exhausted.",
   "source_context": {
-    "queue_index": 117,
+    "queue_index": 116,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "AGENTS.md",

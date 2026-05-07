@@ -1,0 +1,103 @@
+{
+  "id": "backlog-268-react-v2-foundation-store-api-routing",
+  "task_file": "codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json",
+  "task_type": "product_slice",
+  "title": "React v2 foundation: Zustand store, typed API client, React Router v6, and actor/tenant header injection",
+  "goal": "The ui-v2 directory contains a Vite + React 18 + TypeScript + Tailwind shell with 3 components (App.tsx, Intake.tsx, CinemaMode.tsx). Before any screen can be built with real data, three foundational layers are required. (1) ZUSTAND STORE — install zustand and create src/store/index.ts with the following slices: engagements (list, selectedId), runs (list for selected engagement, selectedRunId, selectedRun), tasks (for selected run), findings (for selected run), inventory (snapshot for selected run), actor (name: string, role: string), settings (chatgpt_connected: bool, tool_readiness: object), runStream (status: 'connected'|'disconnected', runId: string|null). Each slice has set/get actions. Use Zustand devtools in development. (2) API CLIENT — create src/api/client.ts that exports a typed fetch wrapper: api(path: string, options?). The function reads actor name from Zustand store and injects X-Actor header on every request. Base URL is import.meta.env.VITE_API_BASE_URL defaulting to 'http://127.0.0.1:8000'. Create typed response interfaces in src/api/types.ts mirroring the FastAPI schemas for: Engagement, Run, Task, TaskExecution, Finding, InventorySnapshot, RunProfile, AgentProposal, AssessmentChain. Create named API functions: getEngagements(), getRunsForEngagement(id), getRun(id), getRunTasks(id), getRunFindings(id), getRunInventory(id), getRunAiInsights(id), getSettings(), postEngagement(data), postRun(engagementId, data), patchConfirmAuthorization(engagementId), postScope(engagementId, data), postInventoryRun(data), cancelRun(id). (3) REACT ROUTER v6 — install react-router-dom. Create routes: / → Dashboard, /intake → Intake, /mission-control → MissionControl, /findings → FindingsTheater, /reports → ReportCenter, /settings → Settings, /history → History, /problems → ProblemsCenter, /packs → Packs, /research → Research. The App.tsx sidebar NavItems use <Link> instead of onClick setState. (4) ENGAGEMENT BOOTSTRAP — on app load, call getEngagements() and hydrate the store. Auto-select the most recent engagement. Watch selectedEngagementId and reload runs when it changes. (5) VITE PROXY — configure vite.config.ts to proxy /api/* to http://127.0.0.1:8000 in development so CORS is not an issue.",
+  "scope": "ui-v2 currently has no state management, no API integration, and no routing. Every screen would be a dead end without this foundation. Must be the first task completed before any other ui-v2 task.",
+  "status": "queued",
+  "generated_by": "react-v2-planning-2026-05-07",
+  "generation_reason": "React v2 foundation layer required before any screen can show real data.",
+  "source_context": {
+    "queue_index": 220,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "react_v2_foundation",
+    "source_documents": [
+      "ui-v2/src/App.tsx",
+      "ui-v2/src/components/Intake.tsx",
+      "ui-v2/vite.config.ts",
+      "ui-v2/package.json"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Foundation only: store, API client, router. Do not build screen content in this task.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "zustand installed in ui-v2/package.json.",
+    "src/store/index.ts exports useStore with engagement/run/task/findings/actor/settings slices.",
+    "src/api/client.ts exports api() that injects X-Actor header from store.",
+    "src/api/types.ts has typed interfaces for all major API objects.",
+    "React Router v6 routes defined and working — navigating to /findings shows FindingsTheater placeholder.",
+    "App.tsx sidebar uses <Link> components.",
+    "On load, getEngagements() is called and store is hydrated.",
+    "vite.config.ts proxies /api/* to localhost:8000.",
+    "npm run dev starts without errors.",
+    "npm run build succeeds with no TypeScript errors."
+  ],
+  "likely_touched_files": [
+    "ui-v2/package.json",
+    "ui-v2/src/store/index.ts",
+    "ui-v2/src/api/client.ts",
+    "ui-v2/src/api/types.ts",
+    "ui-v2/src/App.tsx",
+    "ui-v2/vite.config.ts",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run lint",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Build succeeds with no TypeScript errors.",
+      "Store hydrates on load.",
+      "Router navigates between routes.",
+      "API client sends X-Actor header."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Screen content",
+    "CSS changes",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

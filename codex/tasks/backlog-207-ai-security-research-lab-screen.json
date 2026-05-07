@@ -3,20 +3,23 @@
   "task_file": "codex/tasks/backlog-207-ai-security-research-lab-screen.json",
   "task_type": "product_slice",
   "title": "AI Security Research Lab screen: let AI invent new Nuclei templates, scripts, and test ideas from CVEs and findings",
-  "goal": "Create a dedicated 'Research' screen (accessible from the BUILD section of the sidebar) that exposes AegisPT's AI-driven capability creation. This is the screen where AI 'invents' new security tests. The screen has three panels: (1) CVE → Template Generator: Operator selects a CVE from the threat intel library, clicks 'Generate Detection Template'. The system calls cve_template_generator.py which uses ChatGPT OAuth to produce a detection-only Nuclei YAML. The result is shown with a diff-style preview. Operator reviews and submits to Pack Forge for approval/deployment. (2) Custom Script Ideas: The operator describes a target scenario in plain language (e.g. 'Check if MQTT broker allows anonymous subscribe on port 1883'). AI generates a Nuclei YAML or Python detection script, validated against the same safety rules. Stored in Custom CVE Library or Pack Forge staging. (3) Research Proposals: A read-only log of all AI-generated templates and ideas, with status (draft/staged/deployed/rejected) and the reasoning that led to each. This exposes what the AI system is 'thinking' — it shows its research output. Implementation: Wire up the existing cve_template_generator.py API endpoint (/api/v1/threat-intel/{id}/generate-nuclei-template) to a clear UI flow. The Custom Script Ideas panel uses a new endpoint POST /api/v1/ai/research/generate-script that calls the same ChatGPT OAuth provider with a custom system prompt.",
+  "goal": "Create a dedicated 'Research' screen (accessible from the BUILD section of the sidebar) that exposes AegisPT's AI-driven capability creation. This is the screen where AI 'invents' new security tests. The screen has three panels: (1) CVE \u2192 Template Generator: Operator selects a CVE from the threat intel library, clicks 'Generate Detection Template'. The system calls cve_template_generator.py which uses ChatGPT OAuth to produce a detection-only Nuclei YAML. The result is shown with a diff-style preview. Operator reviews and submits to Pack Forge for approval/deployment. (2) Custom Script Ideas: The operator describes a target scenario in plain language (e.g. 'Check if MQTT broker allows anonymous subscribe on port 1883'). AI generates a Nuclei YAML or Python detection script, validated against the same safety rules. Stored in Custom CVE Library or Pack Forge staging. (3) Research Proposals: A read-only log of all AI-generated templates and ideas, with status (draft/staged/deployed/rejected) and the reasoning that led to each. This exposes what the AI system is 'thinking' \u2014 it shows its research output. Implementation: Wire up the existing cve_template_generator.py API endpoint (/api/v1/threat-intel/{id}/generate-nuclei-template) to a clear UI flow. The Custom Script Ideas panel uses a new endpoint POST /api/v1/ai/research/generate-script that calls the same ChatGPT OAuth provider with a custom system prompt.",
   "scope": "Code audit 2026-05-03: cve_template_generator.py is 421 lines, fully implementing AI-driven Nuclei template generation with safety validation (blocked protocols, banned payloads, GET/HEAD only). The API endpoint exists. The UI provides no clear entry point or workflow for this capability. Operators cannot 'ask AI to invent a new test'.",
   "status": "queued",
   "generated_by": "ai-code-audit-2026-05-03",
-  "generation_reason": "421-line CVE template generator with full safety validation exists but has no accessible UI workflow — operators cannot use AI to create new tests.",
+  "generation_reason": "421-line CVE template generator with full safety validation exists but has no accessible UI workflow \u2014 operators cannot use AI to create new tests.",
   "source_context": {
-    "queue_index": 230,
+    "queue_index": 197,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-91-ai-nuclei-template-generation.json",
       "codex/tasks/backlog-92-custom-cve-library.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -37,7 +40,7 @@
   },
   "success_criteria": [
     "A 'Research' screen is accessible from sidebar under BUILD section.",
-    "Operator can select a CVE and click 'Generate Template' — result appears in preview within 30s.",
+    "Operator can select a CVE and click 'Generate Template' \u2014 result appears in preview within 30s.",
     "Generated template shows YAML preview with safety summary.",
     "Operator can submit template to Pack Forge for review.",
     "Custom script idea input allows plain-language description and returns detection script.",
@@ -50,7 +53,8 @@
     "ui/assets/modules/custom-vulnerabilities.js",
     "api/app/routers/threat_intel.py",
     "ui/assets/styles.css",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Safety validation in cve_template_generator.py",
@@ -71,13 +75,26 @@
     ]
   },
   "promotion_requirements": {
-    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Active exploit generation", "External template downloads", "Runtime self-modification"],
+  "out_of_scope": [
+    "Active exploit generation",
+    "External template downloads",
+    "Runtime self-modification"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

@@ -3,16 +3,37 @@
   "task_file": "codex/tasks/backlog-245-nmap-full-port-scan-and-snmp-nonstandard.json",
   "task_type": "corrective_product_slice",
   "title": "Full port scan by default + SNMP non-standard port support: cover AutoPenBench NS1 and NS3",
-  "goal": "AutoPenBench NS1 (SSH on non-standard port) and NS3 (SNMP on non-standard port) fail because: (1) nmap uses --top-ports by default and misses services on non-standard ports. (2) SNMP runner is hard-coded to port 161 (workers/runners/snmp_enum/runner.py line 146). Fix both: (1) Nmap: For active-tier scans, enable full port scan (-p-) by default, or at minimum scan top-10000 ports instead of top-1000. Add a wizard/settings option: 'Scan depth: Top 1000 ports / Top 10000 ports / All 65535 ports'. The full_port_scan flag already exists in nmap/runner.py line 164 but defaults to False — change default for active-tier to scan top-10000. (2) SNMP: Remove hardcoded port 161 from workers/runners/snmp_enum/runner.py line 146. Replace with a configurable port list defaulting to [161] but expandable via engagement settings (e.g. 161, 1161, 1610, 16100). Also: detect SNMP service on any port from nmap results and probe that port.",
+  "goal": "AutoPenBench NS1 (SSH on non-standard port) and NS3 (SNMP on non-standard port) fail because: (1) nmap uses --top-ports by default and misses services on non-standard ports. (2) SNMP runner is hard-coded to port 161 (workers/runners/snmp_enum/runner.py line 146). Fix both: (1) Nmap: For active-tier scans, enable full port scan (-p-) by default, or at minimum scan top-10000 ports instead of top-1000. Add a wizard/settings option: 'Scan depth: Top 1000 ports / Top 10000 ports / All 65535 ports'. The full_port_scan flag already exists in nmap/runner.py line 164 but defaults to False \u2014 change default for active-tier to scan top-10000. (2) SNMP: Remove hardcoded port 161 from workers/runners/snmp_enum/runner.py line 146. Replace with a configurable port list defaulting to [161] but expandable via engagement settings (e.g. 161, 1161, 1610, 16100). Also: detect SNMP service on any port from nmap results and probe that port.",
   "scope": "AutoPenBench NS1 and NS3 fail due to non-standard ports. Code audit: nmap defaults to top-N ports (misses custom ports), SNMP hard-coded to 161. These are trivial config fixes with significant AutoPenBench coverage impact (+2 tasks = +9% in-vitro).",
   "status": "queued",
   "generated_by": "autopenBench-inVitro-gap-2026-05-05",
   "generation_reason": "AutoPenBench NS1+NS3 miss non-standard SSH/SNMP ports. Simple config fixes: nmap top-10000 default for active tier, SNMP configurable port.",
-  "source_context": { "queue_index": 245, "queue_file": "TASK_QUEUE.md", "alignment_docs": [], "pack_id": null, "pack_version": null, "inventory_snapshot_id": null, "relevance_decision_id": null, "threat_intel_refs": [] },
-  "inputs": { "prerequisite_active_task": "NEXT_TASK.md", "broader_theme": "port_scan_completeness", "source_documents": ["workers/runners/nmap/runner.py", "workers/runners/snmp_enum/runner.py", "workers/orchestration/tasks.py"] },
-  "constraints": { "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.", "no_silent_reprioritization": true, "no_untracked_future_work": true,
+  "source_context": {
+    "queue_index": 205,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "port_scan_completeness",
+    "source_documents": [
+      "workers/runners/nmap/runner.py",
+      "workers/runners/snmp_enum/runner.py",
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
     "scope_creep_guard": "Only change nmap default port range and SNMP port config. Do not change any other scanner behavior.",
-    "runtime_mutation": false },
+    "runtime_mutation": false
+  },
   "success_criteria": [
     "Active-tier nmap scans use top-10000 ports by default (not top-1000).",
     "Full port scan (-p-) available as a wizard/settings option.",
@@ -22,11 +43,50 @@
     "AutoPenBench NS3 (SNMP on custom port) detected.",
     "No regression in existing nmap/SNMP tests."
   ],
-  "likely_touched_files": ["workers/runners/nmap/runner.py", "workers/runners/snmp_enum/runner.py", "workers/orchestration/tasks.py", "CURRENT_STATE.md", "DONE_LOG.md"],
-  "must_not_touch": ["Core dispatch logic", "Approval gates"],
-  "validation": { "required_checks": ["python3 scripts/validate_backlog_tasks.py", "source .venv/bin/activate && python -m pytest api/tests/ -q", "git diff --check"], "acceptance_criteria": ["nmap defaults to top-10000.", "SNMP supports non-standard port.", "E2E tests pass."] },
-  "promotion_requirements": { "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."], "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."] },
-  "out_of_scope": ["UDP port scanning", "Full 65535 port scan as default (too slow)"],
-  "expected_output": { "decision_complete": true, "task_package_type": "single_clear_slice", "validation_required": true, "docs_update_required": true },
-  "validation_status": "task_package_ready", "approval_status": "queued_not_promoted"
+  "likely_touched_files": [
+    "workers/runners/nmap/runner.py",
+    "workers/runners/snmp_enum/runner.py",
+    "workers/orchestration/tasks.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "Core dispatch logic",
+    "Approval gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "nmap defaults to top-10000.",
+      "SNMP supports non-standard port.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "UDP port scanning",
+    "Full 65535 port scan as default (too slow)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
 }

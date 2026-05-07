@@ -9,7 +9,7 @@
   "generated_by": "enterprise-queue-review-2026-05-04",
   "generation_reason": "Enterprise readiness still lists OIDC/SAML browser enforcement, SCIM, tenant membership, and hosted RBAC as gaps. The product needs an explicit proof task after foundation work instead of leaving these as vague future work.",
   "source_context": {
-    "queue_index": 225,
+    "queue_index": 193,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-120-authentication-and-roe-gate.json",

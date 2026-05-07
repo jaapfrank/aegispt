@@ -1,0 +1,97 @@
+{
+  "id": "backlog-272-react-v2-report-center",
+  "task_file": "codex/tasks/backlog-272-react-v2-report-center.json",
+  "task_type": "product_slice",
+  "title": "React v2 Report Center: run selector, adaptive report catalog, markdown/HTML/PDF preview, and download actions",
+  "goal": "Build src/components/screens/ReportCenter.tsx. REQUIRES backlog-268. Layout: two tabs at top ('Reports' | 'Dossier'). REPORTS TAB — Left column (report catalog, 40%): Run selector strip at top showing the selected run (profile name, date, status). Below: card grid of available reports from GET /api/v1/runs/{runId}/reports. Each card shows: report type icon (FileText, Shield, BarChart3 from Lucide), report title, availability status badge (export_ready/generating/unavailable), short description. Clicking a card: select it, load preview. Right column (report preview + actions, 60%): When report selected: show report metadata header (title, run reference, generated date). Three action buttons: 'Generate Markdown Preview' (POST to generate, then show in <pre> block), 'Download HTML' (calls download endpoint), 'Download PDF' (calls pdf endpoint). Below action buttons: inline preview area showing the markdown as formatted HTML (use a simple markdown-to-html renderer, no external libraries needed — just handle # headers, ** bold, - lists, ``` code blocks). Compare section at bottom: 'Compare with Earlier Run' selector — dropdown of previous runs for the same engagement, on select shows a diff summary (N new findings, N resolved findings). DOSSIER TAB: Call GET /api/v1/engagements/{engId}/dossier. Show: engagement name, client, all runs as a timeline (date, profile, status, findings count). Click a run to jump to it in Mission Control. No report generation here, just history overview. Evidence hash for each report shown as a collapsed disclosure: 'Show SHA-256' opens the raw hash. Evidence is verified: shown as 'Evidence hash: verified' with a green checkmark.",
+  "scope": "React v2 Report Center replaces the old reports.js.",
+  "status": "queued",
+  "generated_by": "react-v2-planning-2026-05-07",
+  "generation_reason": "Report Center is the output delivery screen. Must show real reports with download and preview.",
+  "source_context": {
+    "queue_index": 224,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-268 completed first.",
+    "broader_theme": "react_v2_reports",
+    "source_documents": [
+      "ui-v2/src/api/client.ts",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Report Center screen only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Report catalog renders from GET /api/v1/runs/{id}/reports.",
+    "Clicking a report card loads preview.",
+    "Generate Markdown Preview button shows formatted markdown.",
+    "Download HTML and PDF trigger file downloads.",
+    "Compare with Earlier Run shows diff summary.",
+    "Dossier tab shows engagement timeline.",
+    "Evidence hash shown in collapsed disclosure.",
+    "Build succeeds."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/ReportCenter.tsx",
+    "ui-v2/src/api/client.ts",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Report catalog loads.",
+      "Preview renders.",
+      "Downloads work.",
+      "Build passes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-268 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Other screens",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

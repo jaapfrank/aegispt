@@ -9,7 +9,7 @@
   "generated_by": "architectural-review-2026-05-06",
   "generation_reason": "Recon-first wizard flow wires the adaptive planner into the user experience. Correct terminology: low-impact active recon, not passive. Expert pentester workflow.",
   "source_context": {
-    "queue_index": 257,
+    "queue_index": 217,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",

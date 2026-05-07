@@ -10,7 +10,7 @@
   "generation_reason": "The operator repeatedly found wizard regressions: cards that could not be selected, wrong mission launched, confusing phase selection, unclear prerequisites, and launch controls that did not reliably open Mission Control. Existing wizard tests are broad but not matrix-driven across all visible choices.",
   "queue_index": 151,
   "source_context": {
-    "queue_index": 151,
+    "queue_index": 148,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md"

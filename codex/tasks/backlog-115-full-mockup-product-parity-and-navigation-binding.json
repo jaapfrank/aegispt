@@ -9,7 +9,7 @@
   "generated_by": "operator-review-2026-04-25",
   "generation_reason": "The previous exact mockup port was too narrow and only covered a few surfaces. The operator explicitly authorized deviating from the currently promoted backlog task because the whole product must be consistent with the root mockups and all missing menu items/screens must be included and wired.",
   "source_context": {
-    "queue_index": 115,
+    "queue_index": 114,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "wizard_mockup.html",

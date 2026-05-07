@@ -10,7 +10,7 @@
   "generation_reason": "NFIR defines the Dutch pentest standard. Clients increasingly require NFIR-aligned reports. Current reports do not map to NFIR 7 phases or include authorization references.",
   "queue_index": 125,
   "source_context": {
-    "queue_index": 125,
+    "queue_index": 124,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

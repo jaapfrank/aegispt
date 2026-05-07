@@ -9,7 +9,7 @@
   "generated_by": "architectural-vision-2026-05-06",
   "generation_reason": "User: AI should drive the assessment \u2014 observe, decide, execute, repeat until deepest possible state reached. Works for any target type. This is the core intelligence layer.",
   "source_context": {
-    "queue_index": 259,
+    "queue_index": 219,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-248-ai-free-bash-execution-runner.json",

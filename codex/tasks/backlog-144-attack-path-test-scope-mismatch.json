@@ -9,7 +9,7 @@
   "generated_by": "full-system-assessment-2026-04-30",
   "generation_reason": "api/tests/test_attack_paths.py has two failing tests: test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges and test_attack_path_summary_retains_unmatched_findings_as_low_confidence. Both fail with KeyError: 'id' when accessing run['id'] after creating a run. The actual cause is the run creation returns HTTP 400 with 'configured target 10.0.1.10 is outside the approved engagement scope'. The engagement scope allows hosts=['app.example.test', 'api.example.test'] but the run configuration uses targets={'hosts': ['10.0.1.10']}. The target IP is not in the scope allowlist, so the run creation is correctly rejected by the scope guard added in backlog-100.",
   "source_context": {
-    "queue_index": 144,
+    "queue_index": 142,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md"

@@ -8,12 +8,33 @@
   "status": "queued",
   "generated_by": "autopenBench-inVitro-gap-2026-05-05",
   "generation_reason": "AutoPenBench WS4 fails because sqlmap runs level 1/risk 1. Blind SQLi needs level 3 + tampers. Simple config upgrade with major detection impact.",
-  "source_context": { "queue_index": 247, "queue_file": "TASK_QUEUE.md", "alignment_docs": ["codex/tasks/backlog-211-pentest-depth-additional-tools.json"], "pack_id": null, "pack_version": null, "inventory_snapshot_id": null, "relevance_decision_id": null, "threat_intel_refs": [] },
-  "inputs": { "prerequisite_active_task": "NEXT_TASK.md", "broader_theme": "sqli_blind_coverage", "source_documents": ["workers/runners/web_depth/runner.py"] },
-  "constraints": { "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.", "no_silent_reprioritization": true, "no_untracked_future_work": true,
+  "source_context": {
+    "queue_index": 207,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-211-pentest-depth-additional-tools.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "sqli_blind_coverage",
+    "source_documents": [
+      "workers/runners/web_depth/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
     "scope_creep_guard": "Only change sqlmap level/risk and add tamper + WAF detection. Do not change how parameters are selected or how findings are stored.",
     "safety": "Never use --risk 3 (which includes heavy queries that may damage data). Max --risk 2. Never dump database contents. Stop after confirmation, do not extract.",
-    "runtime_mutation": false },
+    "runtime_mutation": false
+  },
   "success_criteria": [
     "sqlmap Phase A: level 1/risk 1 for quick detection.",
     "sqlmap Phase B: level 3/risk 2 with tamper scripts for confirmed possible endpoints.",
@@ -23,11 +44,51 @@
     "Never dumps database contents.",
     "No regression in existing SQLi tests."
   ],
-  "likely_touched_files": ["workers/runners/web_depth/runner.py", "CURRENT_STATE.md", "DONE_LOG.md"],
-  "must_not_touch": ["How parameters are fed to sqlmap", "Finding schema", "Approval gates"],
-  "validation": { "required_checks": ["python3 scripts/validate_backlog_tasks.py", "source .venv/bin/activate && python -m pytest api/tests/ -q", "git diff --check"], "acceptance_criteria": ["Phase A/B split implemented.", "Blind injection detected on test target.", "No data dump in findings.", "E2E tests pass."] },
-  "promotion_requirements": { "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."], "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."] },
-  "out_of_scope": ["Database content extraction", "--risk 3 heavy queries", "sqlmap OS shell"],
-  "expected_output": { "decision_complete": true, "task_package_type": "single_clear_slice", "validation_required": true, "docs_update_required": true },
-  "validation_status": "task_package_ready", "approval_status": "queued_not_promoted"
+  "likely_touched_files": [
+    "workers/runners/web_depth/runner.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "How parameters are fed to sqlmap",
+    "Finding schema",
+    "Approval gates"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "source .venv/bin/activate && python -m pytest api/tests/ -q",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Phase A/B split implemented.",
+      "Blind injection detected on test target.",
+      "No data dump in findings.",
+      "E2E tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Database content extraction",
+    "--risk 3 heavy queries",
+    "sqlmap OS shell"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
 }

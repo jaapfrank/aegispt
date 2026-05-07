@@ -2,55 +2,51 @@
 
 ## Title
 
-Adaptive execution waves: run tools in evidence-driven batches, re-evaluate after each wave, update plan based on new signals
+React v2 foundation: Zustand store, typed API client, React Router v6, and actor header injection
 
 ## Promoted From
 
-`codex/tasks/backlog-259-adaptive-execution-waves.json`
+`codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-259-adaptive-execution-waves.json` so adaptive assessments run in operator-approved evidence waves, update SignalProfile after each wave, and re-plan WAIT runners without autonomous launch.
+Implement the active backlog package `codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json` so the new React v2 operator UI has a production-ready frontend foundation before any screen-specific work continues.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-259-adaptive-execution-waves.json`.
+Implement the active backlog package `codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json`.
 
-Expected slice:
+Expected foundation slice:
 
-- model bounded adaptive execution waves after recon and planner output
-- update SignalProfile with new evidence after each completed wave
-- re-score WAIT runners against the updated SignalProfile
-- show promoted WAIT-to-RUN runners as new operator-review proposals
-- show Mission Control wave progress
-- enforce the maximum wave limit and approval gate for each wave
-- keep intrusive runners behind their existing explicit gates
+- install and wire Zustand for global app state
+- install and wire React Router v6 for new v2 routes
+- create typed API client functions for existing FastAPI endpoints used by upcoming v2 screens
+- inject `X-Actor` from the frontend store on API requests
+- bootstrap engagements/runs from the backend without mock mission data becoming product truth
+- configure Vite proxy for `/api/*` to `http://127.0.0.1:8000`
+- keep existing `/app/` and manual/wizard/backend flows untouched
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Prerequisites are hard-gated: backlog-255, backlog-256, and backlog-258 must be complete in `DONE_LOG.md`.
-- Waves are re-planning passes, not autonomous execution.
-- Each wave requires operator approval before launching.
-- WAIT promotions are proposals, not auto-dispatched work.
-- Maximum 5 waves per engagement.
-- Do not bypass runner registry, approval gates, provenance, reports, runtime binding, scope, ROE, credentials, or kill switch.
-- Do not create new runners.
-- Do not change intrusive approval gates.
+- This task starts the new `ui-v2` foundation; do not patch old UI modules as a substitute.
+- Do not replace Mission Control globally.
+- Do not bypass existing backend scope, ROE, approval, runner registry, provenance, report, credential, runtime binding, or kill-switch behavior.
+- Do not create runtime self-modification or uncontrolled plugin installation.
+- Production UI must use existing icon patterns and no emoji.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/ -q`
+- `cd ui-v2 && npm run build`
+- `cd ui-v2 && npm run lint`
 - `git diff --check`
 
 ## Acceptance
 
-- Wave completion updates SignalProfile with new evidence.
-- WAIT runners are re-scored after each wave.
-- Promoted runners appear as new proposals for operator approval.
-- Mission Control shows wave progress.
-- Maximum 5 waves is enforced.
-- Each wave requires approval.
-- SKIP decisions persist unless contradicted by new evidence.
-- Existing chain and planner tests do not regress.
+- React v2 routes work through React Router without breaking current `/app/`.
+- Global store persists selected actor, engagement, selected run, and loading/error state.
+- API client calls existing backend endpoints through `/api/v1/*` with `X-Actor`.
+- Vite dev proxy targets `http://127.0.0.1:8000`.
+- Mock-only mission state is clearly separated from real backend bootstrap.
+- No old UI task is promoted ahead of the v2 foundation.

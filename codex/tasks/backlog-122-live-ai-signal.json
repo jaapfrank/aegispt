@@ -10,7 +10,7 @@
   "generation_reason": "AI Signal panel shows static deterministic text. ChatGPT is connected but never actually called for real-time analysis. This is the primary reason the system does not feel alive.",
   "queue_index": 122,
   "source_context": {
-    "queue_index": 122,
+    "queue_index": 121,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

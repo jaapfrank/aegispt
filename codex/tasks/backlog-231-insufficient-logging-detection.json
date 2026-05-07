@@ -9,7 +9,7 @@
   "generated_by": "coverage-gap-analysis-2026-05-03",
   "generation_reason": "OWASP A09 (Logging/Monitoring Failures) not tested \u2014 WebGoat has dedicated module, stack traces and Spring Actuator exposure are common enterprise findings.",
   "source_context": {
-    "queue_index": 219,
+    "queue_index": 187,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json",

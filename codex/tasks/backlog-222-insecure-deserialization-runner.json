@@ -3,13 +3,13 @@
   "task_file": "codex/tasks/backlog-222-insecure-deserialization-runner.json",
   "task_type": "product_slice",
   "title": "Insecure deserialization runner: detect vulnerable Java, PHP, Python, and .NET deserialization endpoints",
-  "goal": "WebGoat has a dedicated deserialization module. Insecure deserialization is OWASP A08:2021 and has enabled some of the most severe RCE exploits (Java Apache Commons Collections, PHP object injection, Python pickle). Implement a deserialization-probe runner: (1) Java detection: identify Java serialized object markers (0xACED0005 in base64: rO0AB) in request parameters, cookies, or headers. Send known gadget-chain payloads from ysoserial (URLDNS probe only — DNS callback, NOT RCE). If DNS callback received → confirmed deserialization endpoint. Finding: 'Java Deserialization - Potential RCE (ysoserial URLDNS confirmed)'. (2) PHP object injection: inject PHP serialized strings (O:4:'Test':0:{}) into request parameters. Check for serialization errors in response indicating eval of attacker-controlled data. (3) Python pickle: check for endpoints accepting pickle data (Content-Type: application/x-python-pickle or cookie values starting with base64-encoded pickle magic bytes). (4) .NET ViewState: check for unencrypted/unsigned ViewState by decoding base64 ViewState and checking for absence of HMAC signature. (5) Node.js: check for node-serialize package usage patterns. All probes use detection-only payloads — URLDNS for Java (no command execution), error analysis for others. Active tier.",
-  "scope": "WebGoat deserialization module + OWASP A08:2021. Current coverage: ❌ Not implemented. Java ysoserial URLDNS is the standard detection-only deserialization probe used by all major scanners.",
+  "goal": "WebGoat has a dedicated deserialization module. Insecure deserialization is OWASP A08:2021 and has enabled some of the most severe RCE exploits (Java Apache Commons Collections, PHP object injection, Python pickle). Implement a deserialization-probe runner: (1) Java detection: identify Java serialized object markers (0xACED0005 in base64: rO0AB) in request parameters, cookies, or headers. Send known gadget-chain payloads from ysoserial (URLDNS probe only \u2014 DNS callback, NOT RCE). If DNS callback received \u2192 confirmed deserialization endpoint. Finding: 'Java Deserialization - Potential RCE (ysoserial URLDNS confirmed)'. (2) PHP object injection: inject PHP serialized strings (O:4:'Test':0:{}) into request parameters. Check for serialization errors in response indicating eval of attacker-controlled data. (3) Python pickle: check for endpoints accepting pickle data (Content-Type: application/x-python-pickle or cookie values starting with base64-encoded pickle magic bytes). (4) .NET ViewState: check for unencrypted/unsigned ViewState by decoding base64 ViewState and checking for absence of HMAC signature. (5) Node.js: check for node-serialize package usage patterns. All probes use detection-only payloads \u2014 URLDNS for Java (no command execution), error analysis for others. Active tier.",
+  "scope": "WebGoat deserialization module + OWASP A08:2021. Current coverage: \u274c Not implemented. Java ysoserial URLDNS is the standard detection-only deserialization probe used by all major scanners.",
   "status": "queued",
   "generated_by": "coverage-gap-analysis-2026-05-03",
-  "generation_reason": "Insecure deserialization (OWASP A08) not implemented — WebGoat has dedicated module, major scanners all detect this. Gap must be closed for 80%+ coverage.",
+  "generation_reason": "Insecure deserialization (OWASP A08) not implemented \u2014 WebGoat has dedicated module, major scanners all detect this. Gap must be closed for 80%+ coverage.",
   "source_context": {
-    "queue_index": 209,
+    "queue_index": 177,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-213-gruyere-webgoat-benchmark-coverage-gap.json"
@@ -32,7 +32,7 @@
     "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
-    "scope_creep_guard": "Detection only — URLDNS probe for Java (DNS callback, NO RCE payload), error analysis for others. Never send command execution payloads.",
+    "scope_creep_guard": "Detection only \u2014 URLDNS probe for Java (DNS callback, NO RCE payload), error analysis for others. Never send command execution payloads.",
     "safety": "Java ysoserial payload MUST be URLDNS gadget chain only. No CommonsCollections or other RCE chains.",
     "runtime_mutation": false
   },
@@ -41,8 +41,8 @@
     "PHP object injection probe produces error-based detection.",
     "ViewState unprotected detection works.",
     "Detects on local WebGoat instance.",
-    "Active tier — requires approval.",
-    "NEVER sends RCE payloads — DNS-only confirmation for Java.",
+    "Active tier \u2014 requires approval.",
+    "NEVER sends RCE payloads \u2014 DNS-only confirmation for Java.",
     "No regression in existing tests."
   ],
   "likely_touched_files": [

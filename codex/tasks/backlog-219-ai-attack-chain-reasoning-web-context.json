@@ -9,7 +9,7 @@
   "generated_by": "benchmark-gap-analysis-2026-05-03",
   "generation_reason": "Gruyere compound attack paths (file upload+XSS, path traversal+RCE) require cross-task AI reasoning \u2014 current AI analyses one task at a time without compound chain awareness.",
   "source_context": {
-    "queue_index": 231,
+    "queue_index": 198,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-43-vulnerability-chain-detection-foundation.json",

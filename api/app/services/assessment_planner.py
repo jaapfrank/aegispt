@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -9,13 +10,18 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.app.models import InventorySnapshot, Run, Scope, Task
+from api.app.models import AgentProposal, FindingChain, InventorySnapshot, Run, Scope, Task
+from api.app.services.ai_enrichment import store_agent_proposal_record, store_agent_reasoning_record
 from api.app.services.audit import write_audit_event
+from api.app.services.finding_chains import refresh_finding_chains_for_run
+from api.app.services.fingerprinting import build_signal_profile
 from api.app.services.runner_registry import runner_capability_registry
 from api.app.services.runs import granted_approvals, pending_approvals, queue_run_tasks
 
 
 PLANNER_VERSION = "2026-05-07.1"
+ADAPTIVE_WAVE_VERSION = "2026-05-07.1"
+ADAPTIVE_WAVE_MAX = 5
 RUN_CONFIDENCE_THRESHOLD = 0.7
 INTRUSIVE_TIERS = {"intrusive"}
 WEB_SIGNALS = {
@@ -27,6 +33,8 @@ WEB_SIGNALS = {
     "graphql_endpoint",
     "api_endpoint_present",
 }
+ACTIVE_TASK_STATUSES = {"queued", "pending", "running", "dispatching", "in_progress", "started"}
+TERMINAL_TASK_STATUSES = {"completed", "failed", "cancelled", "skipped"}
 SQLMAP_EVIDENCE = {"injectable_parameter", "sql_error_pattern"}
 SQLMAP_WEAK_EVIDENCE = {
     "php_language",
@@ -61,6 +69,61 @@ def _as_list(value: object) -> list[Any]:
     if isinstance(value, tuple):
         return list(value)
     return [value]
+
+
+def _as_dict(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _plan_decisions(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    decisions: dict[str, dict[str, Any]] = {}
+    for item in plan.get("runners", []):
+        if not isinstance(item, dict):
+            continue
+        runner = str(item.get("runner") or "").strip()
+        if not runner:
+            continue
+        decisions[runner] = {
+            "decision": str(item.get("decision") or "").upper(),
+            "confidence": item.get("confidence"),
+            "matched_triggers": list(item.get("matched_triggers") or []),
+            "matched_weak_triggers": list(item.get("matched_weak_triggers") or []),
+            "missing_triggers": list(item.get("missing_triggers") or []),
+            "risk_tier": item.get("risk_tier"),
+            "required_approvals": item.get("required_approvals"),
+            "summary": item.get("summary"),
+        }
+    return decisions
+
+
+def _adaptive_wave_state(configuration: dict[str, Any]) -> dict[str, Any]:
+    state = _as_dict(configuration.get("adaptive_execution_waves"))
+    waves = state.get("waves") if isinstance(state.get("waves"), list) else []
+    return {
+        "enabled": True,
+        "version": str(state.get("version") or ADAPTIVE_WAVE_VERSION),
+        "max_waves": int(state.get("max_waves") or ADAPTIVE_WAVE_MAX),
+        "operator_approval_required": True,
+        "dispatches_work": False,
+        "waves": [dict(wave) for wave in waves if isinstance(wave, dict)],
+        "pending_wave": _as_dict(state.get("pending_wave")) or None,
+        "last_plan_decisions": _as_dict(state.get("last_plan_decisions")),
+        "latest_plan_summary": _as_dict(state.get("latest_plan_summary")),
+    }
+
+
+def _store_adaptive_wave_state(configuration: dict[str, Any], state: dict[str, Any]) -> None:
+    configuration["adaptive_execution_waves"] = {
+        "enabled": True,
+        "version": ADAPTIVE_WAVE_VERSION,
+        "max_waves": int(state.get("max_waves") or ADAPTIVE_WAVE_MAX),
+        "operator_approval_required": True,
+        "dispatches_work": False,
+        "waves": list(state.get("waves") or []),
+        "pending_wave": state.get("pending_wave"),
+        "last_plan_decisions": _as_dict(state.get("last_plan_decisions")),
+        "latest_plan_summary": _as_dict(state.get("latest_plan_summary")),
+    }
 
 
 def _boolish(value: object) -> bool:
@@ -344,6 +407,617 @@ def build_assessment_plan_for_run(session: Session, run: Run) -> dict[str, Any]:
     }
 
 
+def _active_wave_task_statuses(run: Run) -> list[dict[str, str]]:
+    active: list[dict[str, str]] = []
+    for task in list(run.tasks or []):
+        status = str(task.status or "").strip().lower()
+        if status in ACTIVE_TASK_STATUSES:
+            active.append({"task_id": str(task.id), "tool": task.tool, "status": status})
+    return active
+
+
+def _completed_wave_tasks(run: Run, wave_number: int) -> list[Task]:
+    scoped: list[Task] = []
+    fallback: list[Task] = []
+    for task in list(run.tasks or []):
+        status = str(task.status or "").strip().lower()
+        if status not in TERMINAL_TASK_STATUSES:
+            continue
+        fallback.append(task)
+        params = task.params_json if isinstance(task.params_json, dict) else {}
+        wave = params.get("adaptive_execution_wave")
+        if isinstance(wave, dict) and int(wave.get("wave_number") or 0) == wave_number:
+            scoped.append(task)
+    return scoped or fallback
+
+
+def _append_signal(signals: list[dict[str, Any]], seen: set[tuple[str, str, str]], signal: dict[str, Any]) -> None:
+    key = str(signal.get("key") or "").strip()
+    source = str(signal.get("source") or "adaptive_wave").strip()
+    value = signal.get("value")
+    if not key or value in (None, ""):
+        return
+    marker = (key, str(value), source)
+    if marker in seen:
+        return
+    seen.add(marker)
+    confidence = signal.get("confidence")
+    try:
+        normalized_confidence = round(max(0.0, min(float(confidence), 1.0)), 3)
+    except (TypeError, ValueError):
+        normalized_confidence = 0.7
+    signals.append({"key": key, "value": value, "confidence": normalized_confidence, "source": source})
+
+
+def _signals_from_text(*, text: str, source: str, target: str) -> list[dict[str, Any]]:
+    lowered = text.lower()
+    signals: list[dict[str, Any]] = []
+    if "reflected" in lowered and any(token in lowered for token in ("parameter", "input", "field", "query")):
+        signals.append(
+            {
+                "key": "injectable_parameter",
+                "value": target or "reflected-input",
+                "confidence": 0.72,
+                "source": source,
+            }
+        )
+        signals.append(
+            {
+                "key": "reflected_parameter",
+                "value": target or "reflected-input",
+                "confidence": 0.72,
+                "source": source,
+            }
+        )
+    if "form" in lowered or "input field" in lowered or "text field" in lowered:
+        signals.append(
+            {
+                "key": "form_inputs_present",
+                "value": target or True,
+                "confidence": 0.7,
+                "source": source,
+            }
+        )
+    if "post action" in lowered or ("form" in lowered and "post" in lowered):
+        signals.append(
+            {
+                "key": "form_with_post_action",
+                "value": target or True,
+                "confidence": 0.72,
+                "source": source,
+            }
+        )
+    if "login" in lowered or "auth flow" in lowered or "authentication flow" in lowered:
+        signals.append(
+            {
+                "key": "login_form_found",
+                "value": target or True,
+                "confidence": 0.74,
+                "source": source,
+            }
+        )
+        signals.append(
+            {
+                "key": "auth_flow_present",
+                "value": target or True,
+                "confidence": 0.68,
+                "source": source,
+            }
+        )
+    if "session cookie" in lowered or "set-cookie" in lowered:
+        signals.append(
+            {
+                "key": "session_cookie_present",
+                "value": target or True,
+                "confidence": 0.76,
+                "source": source,
+            }
+        )
+    if "file upload" in lowered or "upload endpoint" in lowered:
+        signals.append(
+            {
+                "key": "file_upload_endpoint",
+                "value": target or True,
+                "confidence": 0.82,
+                "source": source,
+            }
+        )
+    return signals
+
+
+def _wave_evidence_signals(run: Run, tasks: list[Task]) -> list[dict[str, Any]]:
+    signals: list[dict[str, Any]] = []
+    task_ids = {task.id for task in tasks}
+    for finding in list(run.findings or []):
+        text = " ".join(
+            [
+                str(finding.title or ""),
+                str(finding.summary or ""),
+                " ".join(str(tag) for tag in list(finding.methodology_tags or [])),
+                str(finding.evidence_ref or ""),
+            ]
+        )
+        signals.extend(
+            _signals_from_text(
+                text=text,
+                source=f"finding:{finding.id}",
+                target=str(finding.target_id or ""),
+            )
+        )
+    for task in tasks:
+        for execution in list(task.executions or []):
+            text = " ".join([str(execution.stdout_text or ""), str(execution.stderr_text or "")])
+            signals.extend(
+                _signals_from_text(
+                    text=text,
+                    source=f"tool_execution:{execution.id}",
+                    target=str(task.target_id or ""),
+                )
+            )
+    if not task_ids:
+        return signals
+    return signals
+
+
+def _create_wave_signal_snapshot(
+    *,
+    session: Session,
+    run: Run,
+    actor: str,
+    wave_number: int,
+    tasks: list[Task],
+) -> InventorySnapshot:
+    base_snapshot = _load_source_inventory_snapshot(session, run)
+    base_inventory = (
+        deepcopy(base_snapshot.normalized_inventory_json)
+        if base_snapshot is not None and isinstance(base_snapshot.normalized_inventory_json, dict)
+        else {}
+    )
+    base_summary = (
+        deepcopy(base_snapshot.summary_json)
+        if base_snapshot is not None and isinstance(base_snapshot.summary_json, dict)
+        else {}
+    )
+    profile = base_inventory.get("signal_profile")
+    profile = profile if isinstance(profile, dict) else {}
+    existing_signals = [dict(item) for item in _as_list(profile.get("signals")) if isinstance(item, dict)]
+    merged_signals: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for signal in existing_signals + _wave_evidence_signals(run, tasks):
+        _append_signal(merged_signals, seen, signal)
+
+    rebuilt_profile = build_signal_profile(
+        observations=[
+            {
+                "tool": "adaptive-wave-evidence",
+                "kind": "signal_profile",
+                "data": {"signal_profile": {"signals": merged_signals}},
+            }
+        ],
+        normalized_inventory=base_inventory,
+    )
+    base_inventory["signal_profile"] = rebuilt_profile
+    base_inventory["tech_stack_profile"] = rebuilt_profile.get("tech_stack_profile", {})
+    base_inventory["adaptive_execution_wave"] = {
+        "wave_number": wave_number,
+        "source_run_id": str(run.id),
+        "source_inventory_snapshot_id": str(base_snapshot.id) if base_snapshot is not None else None,
+        "completed_task_ids": [str(task.id) for task in tasks],
+        "derived_signal_count": max(0, len(merged_signals) - len(existing_signals)),
+        "operator_controlled_replan": True,
+    }
+    base_summary = {
+        **base_summary,
+        "signal_count": len(rebuilt_profile.get("signals") or []),
+        "adaptive_wave_number": wave_number,
+        "adaptive_wave_completed_task_count": len(tasks),
+    }
+    snapshot = InventorySnapshot(
+        engagement_id=run.engagement_id,
+        requested_by=actor,
+        status="completed",
+        source_tools_json=sorted(
+            set(
+                [
+                    *(
+                        list(base_snapshot.source_tools_json or [])
+                        if base_snapshot is not None and isinstance(base_snapshot.source_tools_json, list)
+                        else []
+                    ),
+                    "adaptive-wave-evidence",
+                ]
+            )
+        ),
+        raw_inputs_json={
+            "adaptive_wave": {
+                "wave_number": wave_number,
+                "run_id": str(run.id),
+                "source_inventory_snapshot_id": str(base_snapshot.id) if base_snapshot is not None else None,
+                "completed_task_ids": [str(task.id) for task in tasks],
+            }
+        },
+        normalized_inventory_json=base_inventory,
+        summary_json=base_summary,
+        environment_notes_json=list(base_snapshot.environment_notes_json or []) if base_snapshot is not None else [],
+        assumptions_json=list(base_snapshot.assumptions_json or []) if base_snapshot is not None else [],
+        confidence_score=float(base_snapshot.confidence_score if base_snapshot is not None else 0.72),
+    )
+    session.add(snapshot)
+    session.flush()
+    run.source_inventory_snapshot_id = snapshot.id
+    run.source_inventory_snapshot = snapshot
+    return snapshot
+
+
+def _proposal_target_for_run(run: Run, fallback: str | None = None) -> str:
+    configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
+    targets = configuration.get("targets") if isinstance(configuration.get("targets"), dict) else {}
+    for key in ("urls", "hosts", "ip_addresses", "domains", "cidr_ranges"):
+        values = targets.get(key)
+        if isinstance(values, list):
+            for value in values:
+                text = str(value or "").strip()
+                if text:
+                    return text
+    return str(fallback or run.id)
+
+
+def _existing_adaptive_proposal(
+    *,
+    session: Session,
+    run: Run,
+    proposal_kind: str,
+    wave_number: int,
+    runner: str | None = None,
+    finding_chain_id: str | None = None,
+) -> AgentProposal | None:
+    proposals = session.scalars(
+        select(AgentProposal).where(
+            AgentProposal.run_id == run.id,
+            AgentProposal.status == "pending_review",
+        )
+    ).all()
+    for proposal in proposals:
+        metadata = proposal.metadata_json if isinstance(proposal.metadata_json, dict) else {}
+        if metadata.get("proposal_kind") != proposal_kind:
+            continue
+        if int(metadata.get("source_wave_number") or 0) != wave_number:
+            continue
+        if runner and proposal.proposed_tool != runner:
+            continue
+        if finding_chain_id and str(metadata.get("finding_chain_id") or "") != finding_chain_id:
+            continue
+        return proposal
+    return None
+
+
+def _store_promoted_runner_proposals(
+    *,
+    session: Session,
+    run: Run,
+    reasoning,
+    wave_number: int,
+    snapshot: InventorySnapshot,
+    promoted_items: list[dict[str, Any]],
+) -> list[AgentProposal]:
+    proposals: list[AgentProposal] = []
+    target = _proposal_target_for_run(run)
+    for item in promoted_items:
+        runner = str(item.get("runner") or "").strip()
+        if not runner:
+            continue
+        if _existing_adaptive_proposal(
+            session=session,
+            run=run,
+            proposal_kind="adaptive_execution_wave",
+            wave_number=wave_number,
+            runner=runner,
+        ):
+            continue
+        proposals.append(
+            store_agent_proposal_record(
+                session=session,
+                reasoning=reasoning,
+                proposed_tool=runner,
+                proposed_target=target,
+                proposed_params={
+                    "source_inventory_snapshot_id": str(snapshot.id),
+                    "adaptive_execution_wave": {
+                        "source_wave_number": wave_number,
+                        "proposed_wave_number": wave_number + 1,
+                        "previous_decision": "WAIT",
+                        "current_decision": "RUN",
+                        "matched_triggers": list(item.get("matched_triggers") or []),
+                        "operator_approval_required": True,
+                        "dispatches_work": False,
+                    },
+                    "review_required": True,
+                },
+                reasoning_text=(
+                    f"{runner} moved from WAIT to RUN after wave {wave_number} updated the "
+                    "SignalProfile with evidence-backed signals. Queueing still requires explicit operator review."
+                ),
+                risk_tier=str(item.get("risk_tier") or "active"),
+                priority=20,
+                confidence_score=float(item.get("confidence") or 0.0),
+                metadata={
+                    "proposal_kind": "adaptive_execution_wave",
+                    "source_wave_number": wave_number,
+                    "proposed_wave_number": wave_number + 1,
+                    "source_inventory_snapshot_id": str(snapshot.id),
+                    "dispatches_work": False,
+                    "requires_operator_review": True,
+                    "operator_controlled_flow_only": True,
+                    "autonomous_wave_dispatch_allowed": False,
+                },
+            )
+        )
+    return proposals
+
+
+def _chain_target(chain: FindingChain, run: Run) -> str:
+    for finding in list(run.findings or []):
+        if str(finding.id) in {str(item) for item in list(chain.component_finding_ids_json or [])}:
+            target = str(finding.target_id or "").strip()
+            if target:
+                return target
+    return _proposal_target_for_run(run)
+
+
+def _store_compound_chain_wave_proposals(
+    *,
+    session: Session,
+    run: Run,
+    reasoning,
+    wave_number: int,
+    snapshot: InventorySnapshot,
+    chains: list[FindingChain],
+) -> list[AgentProposal]:
+    proposals: list[AgentProposal] = []
+    for chain in chains:
+        if chain.pattern_id != "web-file-upload-plus-stored-xss":
+            continue
+        if _existing_adaptive_proposal(
+            session=session,
+            run=run,
+            proposal_kind="adaptive_execution_wave_compound_chain",
+            wave_number=wave_number,
+            finding_chain_id=str(chain.id),
+        ):
+            continue
+        proposals.append(
+            store_agent_proposal_record(
+                session=session,
+                reasoning=reasoning,
+                proposed_tool="auth-flow",
+                proposed_target=_chain_target(chain, run),
+                proposed_params={
+                    "source_inventory_snapshot_id": str(snapshot.id),
+                    "adaptive_execution_wave": {
+                        "source_wave_number": wave_number,
+                        "proposed_wave_number": wave_number + 1,
+                        "finding_chain_id": str(chain.id),
+                        "pattern_id": chain.pattern_id,
+                        "component_finding_ids": list(chain.component_finding_ids_json or []),
+                        "operator_approval_required": True,
+                        "dispatches_work": False,
+                        "safe_boundaries": {
+                            "controlled_proof_only": True,
+                            "canary_evidence_only": True,
+                            "credential_collection": False,
+                            "session_exposure_claim_requires_evidence": True,
+                        },
+                    },
+                    "review_required": True,
+                },
+                reasoning_text=(
+                    "Wave evidence links file-upload and stored-XSS findings. Review auth-flow as a "
+                    "controlled proof proposal for session exposure risk; no task is queued until approved."
+                ),
+                risk_tier="active",
+                priority=25,
+                confidence_score=float(chain.confidence_score or 0.0),
+                metadata={
+                    "proposal_kind": "adaptive_execution_wave_compound_chain",
+                    "source_wave_number": wave_number,
+                    "proposed_wave_number": wave_number + 1,
+                    "finding_chain_id": str(chain.id),
+                    "pattern_id": chain.pattern_id,
+                    "source_inventory_snapshot_id": str(snapshot.id),
+                    "dispatches_work": False,
+                    "requires_operator_review": True,
+                    "operator_controlled_flow_only": True,
+                    "autonomous_wave_dispatch_allowed": False,
+                },
+            )
+        )
+    return proposals
+
+
+def complete_adaptive_execution_wave(
+    session: Session,
+    *,
+    run: Run,
+    actor: str,
+    operator_note: str | None = None,
+) -> dict[str, Any]:
+    active_tasks = _active_wave_task_statuses(run)
+    if active_tasks:
+        raise ValueError("adaptive wave completion requires all queued or running tasks to finish first")
+
+    configuration = dict(run.configuration_json or {})
+    wave_state = _adaptive_wave_state(configuration)
+    waves = list(wave_state.get("waves") or [])
+    max_waves = int(wave_state.get("max_waves") or ADAPTIVE_WAVE_MAX)
+    if len(waves) >= max_waves:
+        raise ValueError(f"adaptive execution waves are capped at {max_waves} per engagement")
+
+    pending_wave = wave_state.get("pending_wave") if isinstance(wave_state.get("pending_wave"), dict) else {}
+    wave_number = int(pending_wave.get("wave_number") or (len(waves) + 1))
+    previous_decisions = _as_dict(wave_state.get("last_plan_decisions"))
+    if not previous_decisions:
+        previous_decisions = _plan_decisions(build_assessment_plan_for_run(session, run))
+
+    completed_tasks = _completed_wave_tasks(run, wave_number)
+    snapshot = _create_wave_signal_snapshot(
+        session=session,
+        run=run,
+        actor=actor,
+        wave_number=wave_number,
+        tasks=completed_tasks,
+    )
+    current_plan = build_assessment_plan_for_run(session, run)
+    current_decisions = _plan_decisions(current_plan)
+    promoted_items = [
+        item
+        for item in current_plan.get("runners", [])
+        if isinstance(item, dict)
+        and str(item.get("decision") or "").upper() == "RUN"
+        and _as_dict(previous_decisions.get(str(item.get("runner") or ""))).get("decision") == "WAIT"
+    ]
+    persisted_skip_count = sum(
+        1
+        for runner, previous in previous_decisions.items()
+        if _as_dict(previous).get("decision") == "SKIP"
+        and _as_dict(current_decisions.get(runner)).get("decision") == "SKIP"
+    )
+    skip_contradicted = [
+        runner
+        for runner, previous in previous_decisions.items()
+        if _as_dict(previous).get("decision") == "SKIP"
+        and _as_dict(current_decisions.get(runner)).get("decision") != "SKIP"
+    ]
+    chains = refresh_finding_chains_for_run(session=session, run_id=run.id)
+    promoted_runners = [str(item.get("runner")) for item in promoted_items]
+    observations = [
+        {
+            "summary": (
+                f"Wave {wave_number} complete: {len(completed_tasks)} runner task(s) finished; "
+                f"{len(promoted_runners)} runner(s) moved from WAIT to RUN."
+            ),
+            "evidence_ref": "inventory_snapshot.signal_profile",
+            "source_inventory_snapshot_id": str(snapshot.id),
+        }
+    ]
+    hypotheses = [
+        {
+            "summary": "WAIT runners were re-scored against the updated SignalProfile; promoted runners remain proposals until operator approval.",
+            "confidence": 0.82,
+        }
+    ]
+    reasoning = store_agent_reasoning_record(
+        session=session,
+        run=run,
+        reasoning_type="adaptive_execution_wave",
+        status="succeeded",
+        context_snapshot={
+            "run_id": str(run.id),
+            "wave_number": wave_number,
+            "previous_plan_decisions": previous_decisions,
+            "current_plan_summary": current_plan.get("summary", {}),
+            "source_inventory_snapshot_id": str(snapshot.id),
+            "completed_task_ids": [str(task.id) for task in completed_tasks],
+            "finding_chain_ids": [str(chain.id) for chain in chains],
+            "boundary": {
+                "dispatches_work": False,
+                "creates_tasks": False,
+                "operator_approval_required": True,
+                "max_waves": max_waves,
+            },
+        },
+        observations=observations,
+        hypotheses=hypotheses,
+        proposals=[
+            {"tool": item.get("runner"), "target": _proposal_target_for_run(run), "summary": item.get("summary")}
+            for item in promoted_items
+        ],
+        summary_text=observations[0]["summary"],
+        thought_text=hypotheses[0]["summary"],
+        action_text=(
+            "Review promoted runner proposals before queueing the next evidence wave."
+            if promoted_items or chains
+            else "No WAIT runner was unblocked; the operator can stop or wait for new evidence."
+        ),
+        provider="deterministic-adaptive-wave",
+        model="none",
+        llm_tokens_used=0,
+        confidence_score=0.82,
+        metadata={
+            "provider_mode": "deterministic",
+            "dispatches_work": False,
+            "operator_controlled_flow_only": True,
+            "wave_number": wave_number,
+            "source_inventory_snapshot_id": str(snapshot.id),
+        },
+    )
+    runner_proposals = _store_promoted_runner_proposals(
+        session=session,
+        run=run,
+        reasoning=reasoning,
+        wave_number=wave_number,
+        snapshot=snapshot,
+        promoted_items=promoted_items,
+    )
+    chain_proposals = _store_compound_chain_wave_proposals(
+        session=session,
+        run=run,
+        reasoning=reasoning,
+        wave_number=wave_number,
+        snapshot=snapshot,
+        chains=chains,
+    )
+    proposal_ids = [str(proposal.id) for proposal in [*runner_proposals, *chain_proposals]]
+    wave_record = {
+        "wave_number": wave_number,
+        "status": "completed",
+        "completed_at": datetime.now(UTC).isoformat(),
+        "completed_task_ids": [str(task.id) for task in completed_tasks],
+        "completed_runner_count": len({task.tool for task in completed_tasks}),
+        "source_inventory_snapshot_id": str(snapshot.id),
+        "signal_count": current_plan.get("signal_count"),
+        "promoted_runners": promoted_runners,
+        "promoted_count": len(promoted_runners),
+        "proposal_ids": proposal_ids,
+        "wait_count": int(_as_dict(current_plan.get("summary")).get("wait_count") or 0),
+        "skip_count": int(_as_dict(current_plan.get("summary")).get("skip_count") or 0),
+        "persisted_skip_count": persisted_skip_count,
+        "skip_contradicted_runners": skip_contradicted,
+        "compound_chain_count": len(chains),
+        "operator_approval_required": True,
+        "dispatches_work": False,
+        "operator_note": (operator_note or "").strip() or None,
+    }
+    waves.append(wave_record)
+    wave_state["waves"] = waves
+    wave_state["pending_wave"] = None
+    wave_state["last_plan_decisions"] = current_decisions
+    wave_state["latest_plan_summary"] = dict(current_plan.get("summary") or {})
+    _store_adaptive_wave_state(configuration, wave_state)
+    run.configuration_json = configuration
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="assessment_plan.adaptive_wave_completed",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={
+            "wave_number": wave_number,
+            "source_inventory_snapshot_id": str(snapshot.id),
+            "promoted_runners": promoted_runners,
+            "proposal_ids": proposal_ids,
+            "dispatches_work": False,
+            "operator_controlled_flow_only": True,
+        },
+    )
+    return {
+        "run": run,
+        "assessment_plan": current_plan,
+        "adaptive_execution_waves": configuration["adaptive_execution_waves"],
+        "proposal_ids": proposal_ids,
+        "reasoning_id": str(reasoning.id),
+    }
+
+
 def _selected_plan_items(plan: dict[str, Any], approved_runners: list[str]) -> list[dict[str, Any]]:
     requested = {str(runner or "").strip() for runner in approved_runners if str(runner or "").strip()}
     return [
@@ -421,6 +1095,34 @@ def queue_assessment_plan_tasks(
     queued_tasks: list[Task] = queue_run_tasks(session, run, scope, planner_profile)  # type: ignore[arg-type]
     queued_runner_names = sorted({task.tool for task in queued_tasks})
     configuration = dict(run.configuration_json or {})
+    wave_state = _adaptive_wave_state(configuration)
+    waves = list(wave_state.get("waves") or [])
+    next_wave_number = min(len(waves) + 1, int(wave_state.get("max_waves") or ADAPTIVE_WAVE_MAX))
+    wave_state["pending_wave"] = {
+        "wave_number": next_wave_number,
+        "status": "queued",
+        "queued_at": datetime.now(UTC).isoformat(),
+        "approved_by": actor,
+        "approved_runners": launchable,
+        "queued_runners": queued_runner_names,
+        "source_inventory_snapshot_id": plan.get("source_inventory_snapshot_id"),
+        "operator_approval_required": True,
+        "dispatches_work": False,
+    }
+    wave_state["last_plan_decisions"] = _plan_decisions(plan)
+    wave_state["latest_plan_summary"] = dict(plan.get("summary") or {})
+    _store_adaptive_wave_state(configuration, wave_state)
+    for task in queued_tasks:
+        params = dict(task.params_json or {})
+        params["adaptive_execution_wave"] = {
+            "wave_number": next_wave_number,
+            "approved_by": actor,
+            "approved_at": wave_state["pending_wave"]["queued_at"],
+            "source_inventory_snapshot_id": plan.get("source_inventory_snapshot_id"),
+            "operator_approval_required": True,
+            "dispatch_mode": "queued_not_dispatched",
+        }
+        task.params_json = params
     configuration["assessment_plan"] = {
         "planner_version": plan["planner_version"],
         "source_inventory_snapshot_id": plan.get("source_inventory_snapshot_id"),

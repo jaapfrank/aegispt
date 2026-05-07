@@ -9,7 +9,7 @@
   "generated_by": "user-request-2026-05-05",
   "generation_reason": "User explicitly requested free Bash execution for AI. AutoPenBench proves this is the key capability difference. Per-command approval gate keeps the human in control.",
   "source_context": {
-    "queue_index": 248,
+    "queue_index": 208,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json",

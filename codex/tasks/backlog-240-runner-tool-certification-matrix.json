@@ -9,7 +9,7 @@
   "generated_by": "enterprise-queue-review-2026-05-04",
   "generation_reason": "Settings/tool readiness currently says whether binaries exist, but enterprise clients need proof that each supported runner actually produces reliable evidence and report output under safe validation conditions.",
   "source_context": {
-    "queue_index": 222,
+    "queue_index": 190,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-154-settings-environment-and-tool-readiness-control-plane.json",

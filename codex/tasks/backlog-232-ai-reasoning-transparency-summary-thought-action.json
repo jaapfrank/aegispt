@@ -9,7 +9,7 @@
   "generated_by": "autopenBench-gap-analysis-2026-05-03",
   "generation_reason": "AutoPenBench proves Summary\u2192Thought\u2192Action separation reduces hallucinations. AegisPT stores reasoning_text but never shows it. Critical for operator trust in AI proposals.",
   "source_context": {
-    "queue_index": 232,
+    "queue_index": 199,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-205-ai-proposals-inbox-operator-visibility.json"

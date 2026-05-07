@@ -9,7 +9,7 @@
   "generated_by": "operator-feedback-2026-05-01",
   "generation_reason": "Operator feedback after repo-state push: per-phase confirmation after already authorizing a full mission is confusing and inefficient. The system must preserve safety gates while honoring launch-time authorization and explaining any remaining required approval.",
   "source_context": {
-    "queue_index": 180,
+    "queue_index": 156,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-76-assessment-mode-automated-chain.json",

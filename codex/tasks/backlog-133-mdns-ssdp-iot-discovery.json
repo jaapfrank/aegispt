@@ -10,7 +10,7 @@
   "generation_reason": "Smart home and IoT devices (Philips Hue, Home Assistant, Unifi cameras, Denon receiver, smart appliances) are completely invisible to the current nmap-based scan. They announce themselves via mDNS and SSDP but AegisPT never listens for these protocols.",
   "queue_index": 133,
   "source_context": {
-    "queue_index": 133,
+    "queue_index": 131,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

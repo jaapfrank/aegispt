@@ -9,7 +9,7 @@
   "generated_by": "full-system-assessment-2026-04-30",
   "generation_reason": "api/tests/test_assessment_chain.py::test_assessment_chain_skips_zero_target_follow_up_steps_without_failing fails with 'AssertionError: assert active == pending_phase_approval'. The test creates a run for 'passive-network-discovery' (Phase 1, Step 1 of FULL-INTERNAL-LAN), marks it completed, calls advance_assessment_chain_for_completed_run, and expects the chain to move to pending_phase_approval (Phase 2 requires active-tier approval). But since backlog-133 added 'passive-lan-iot-discovery' as a second step in Phase 1, the chain advances to start Step 2 within Phase 1 rather than completing Phase 1 and requesting Phase 2 approval. The chain status is therefore 'active' (running passive-lan-iot-discovery), not 'pending_phase_approval'.",
   "source_context": {
-    "queue_index": 143,
+    "queue_index": 141,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md"

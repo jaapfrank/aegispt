@@ -10,7 +10,7 @@
   "generation_reason": "Finding enrichment exists in the codebase but must be manually triggered. Automatic enrichment on creation is the expected behaviour that makes findings immediately actionable.",
   "queue_index": 123,
   "source_context": {
-    "queue_index": 123,
+    "queue_index": 122,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

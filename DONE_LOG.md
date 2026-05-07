@@ -1,5 +1,107 @@
 # Done Log
 
+- 2026-05-07: completed backlog-260 `AI Continuous Assessment Loop: AI drives the full assessment as an observe-decide-execute cycle for any target type`:
+  - rationale:
+    - the fixed assessment planner/wave model needed a bounded `ai_loop` controller that can observe current run evidence, choose one registered runner action, and either queue safe passive work or create review-only proposals for higher tiers
+    - the loop must reuse existing runner registry, SignalProfile, runner metadata, AgentReasoning, AgentProposal, audit, scope, ROE, approvals, provenance, reports, and kill-switch contracts rather than inventing a second execution lane
+    - `http://127.0.0.1:8000` was not relevant because this slice intentionally changed backend/API behavior only and the user directed that UI work is being rebuilt in `ui-v2`
+  - implementation:
+    - added `api/app/services/assessment_loop.py` with persisted loop state under `run.configuration_json.ai_assessment_loop`
+    - added `GET /api/v1/runs/{run_id}/assessment-loop` to expose AssessmentState from approved targets, inventory/SignalProfile, findings, tested paths, open proposals, active loop tasks, iteration counters, and latest NextAction
+    - added `POST /api/v1/runs/{run_id}/assessment-loop/iterate` to create exactly one observe-decide-execute iteration
+    - NextAction records include exact tool, target, params, tier, reasoning, confidence, follow-up hints, expected evidence, and approval metadata
+    - URL targets seed with `httpx`, CIDR/IP targets seed with `nmap`, and domain targets can seed with `easm-discover` without creating a fixed assessment chain
+    - passive/low-impact zero-approval actions create queued `Task` records only through registered runner names and remain `queued_not_dispatched`; active/intrusive actions create pending `AgentProposal` records only
+    - the loop refuses to advance while selected-run approvals are pending or loop tasks are still queued/running
+    - enforced stuck detection after the configured no-new-signal threshold and a default maximum of 20 iterations
+    - preserved fixed-phase/manual assessment chains as an alternative by recording `manual_chain_alternative_preserved=true` and `fixed_phase_chains_replaced_globally=false`
+    - per the user's UI rebuild instruction, archived old UI follow-up task packages backlog-264 and backlog-265 and promoted React v2 foundation as the next active task
+  - files:
+    - `api/app/services/assessment_loop.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/tests/test_assessment_loop.py`
+    - `codex/results/backlog-260-ai-continuous-assessment-loop-20260507.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+    - `TASK_QUEUE.md`
+    - `codex/tasks/archived-old-ui/backlog-264-findings-attack-path-grouped-view.json`
+    - `codex/tasks/archived-old-ui/backlog-265-ai-assessment-narrative-report.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check: `inputs.prerequisite_backlog` starts with `REQUIRES:` and `DONE_LOG.md` contains completed backlog-248, backlog-256, backlog-258, and backlog-205
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_loop.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_planner.py api/tests/test_ai_agent_reasoning.py::test_ai_proposal_approval_is_auditable_and_queues_follow_up_task api/tests/test_runs.py::test_autonomous_profile_defaults_run_flags_on_create -q` passed
+    - `source .venv/bin/activate && python -m compileall -q api/app/services/assessment_loop.py api/app/routers/runs.py api/app/schemas/runs.py api/tests/test_assessment_loop.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with warnings only
+    - `cd ui-v2 && npm run build` passed for the existing React v2 scaffold after minimal type/lint cleanup; Vite reported only a large chunk warning
+    - `cd ui-v2 && npm run lint` passed for the existing React v2 scaffold
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with 228 queued task packages and exactly one active task
+  - proof:
+    - tests prove URL-scope ai_loop runs seed a passive `httpx` NextAction and queue a task with `queued_not_dispatched` provenance
+    - tests prove active `auth-flow` evidence creates a pending review-only proposal and no task before approval
+    - tests prove CIDR-scope ai_loop runs seed `nmap` without creating a fixed-phase chain
+    - tests prove no-new-signal stuck detection stops at threshold 3 and maximum 20 iterations is enforced
+    - evidence is recorded in `codex/results/backlog-260-ai-continuous-assessment-loop-20260507.md`
+  - exceptions:
+    - the original package referenced old Mission Control/UI acceptance and `ui/tests/test_ai_loop_chain_acceptance.py`; UI implementation is explicitly out of scope and that test file is not present in this repo
+    - no live worker dispatch against WebGoat/DVWA/DVGA was run for this backend controller; this is tracked in `extra_tests.md` XT-019
+    - existing local non-task worktree item `api/app/main.py` and Claude's `ui-v2/` scaffold were not modified by this slice
+  - remaining risks:
+    - real multi-iteration ai_loop dispatch still needs local lab proof with actual runner artifacts/finding creation; tracked in `extra_tests.md` XT-019
+    - React v2 foundation is now the active UI rebuild task; old UI follow-up tasks backlog-264 and backlog-265 were archived rather than promoted
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-268 `React v2 foundation`, from `codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json`
+
+- 2026-05-07: completed backlog-259 `Adaptive execution waves: run tools in evidence-driven batches, re-evaluate after each wave, update plan based on new signals`:
+  - rationale:
+    - a single planner batch misses chaining opportunities; completed wave evidence must update SignalProfile and re-score WAIT runners before proposing the next step
+    - wave promotions must stay operator-reviewed and must not auto-dispatch runner work
+    - `http://127.0.0.1:8000` was not relevant because this slice intentionally excluded UI work after the user's 2026-05-07 instruction that the UI will be rebuilt
+  - implementation:
+    - added adaptive wave state under `run.configuration_json.adaptive_execution_waves` with max-wave, pending-wave, previous-plan, and completed-wave provenance
+    - planner queueing now tags queued tasks with `params_json.adaptive_execution_wave` while still using existing registered runner task creation and approval state
+    - added `POST /api/v1/runs/{run_id}/assessment-plan/waves/complete` to complete a wave only after queued/running tasks are done
+    - wave completion creates a new evidence-backed `InventorySnapshot`, rebuilds SignalProfile from stored finding/task evidence, and re-scores the AssessmentPlan
+    - WAIT-to-RUN promotions are written as pending `AgentProposal` records with `dispatches_work=false`; queued task creation happens only after explicit proposal approval through the existing review flow
+    - compound file-upload plus stored-XSS chains create review-only `auth-flow` proposals with controlled-proof, canary-evidence, and session-exposure-risk boundaries
+    - enforced the five-wave cap and recorded audit/reasoning evidence for wave completion
+  - files:
+    - `api/app/services/assessment_planner.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/tests/test_assessment_planner.py`
+    - `codex/results/backlog-259-adaptive-execution-waves-20260507.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+    - `risico.md`
+    - `extra_tests.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check: `inputs.prerequisite_backlog` starts with `REQUIRES:` and `DONE_LOG.md` contains completed backlog-255, backlog-256, and backlog-258
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_planner.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_agent_reasoning.py::test_ai_proposal_approval_is_auditable_and_queues_follow_up_task -q` passed
+    - `source .venv/bin/activate && python -m compileall -q api/app/services/assessment_planner.py api/app/routers/runs.py api/app/schemas/runs.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_planner.py api/tests/test_runner_capabilities.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0
+  - proof:
+    - tests prove `sqlmap` remains WAIT on weak PHP/CMS/login hints, then moves to RUN only after wave evidence adds reflected concrete parameter evidence to the rebuilt SignalProfile
+    - promoted `sqlmap` is a pending review-only proposal and no `sqlmap` task exists before explicit proposal approval
+    - approving the proposal through the existing AI proposal review endpoint queues `sqlmap` with `queued_not_dispatched` provenance
+    - tests prove the five-wave cap returns HTTP 409 and compound file-upload plus stored-XSS creates a review-only `auth-flow` wave proposal without queueing work
+    - evidence is recorded in `codex/results/backlog-259-adaptive-execution-waves-20260507.md`
+  - exceptions:
+    - Mission Control/UI acceptance from the original package was excluded by explicit user direction because the UI will be rebuilt; no frontend files were touched and no Playwright run was needed
+    - no live multi-wave worker dispatch against a local vulnerable lab was run in this slice; this is tracked in `extra_tests.md` XT-018
+    - existing local non-task worktree items `api/app/main.py` and `ui-v2/` were left untouched
+  - remaining risks:
+    - future queued packages still contain UI/Mission Control wording; this is tracked in `risico.md` R-015 so upcoming tasks can remain backend/runtime-only until the rebuilt UI scope is explicitly reintroduced
+    - live adaptive wave calibration across real runner artifacts still needs lab proof; tracked in `extra_tests.md` XT-018
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-260 `AI Continuous Assessment Loop`, from `codex/tasks/backlog-260-ai-continuous-assessment-loop.json`
+
 - 2026-05-07: completed backlog-257 `Recon-first wizard flow: wizard default starts low-impact recon, then shows SignalProfile summary and evidence-based assessment plan`:
   - rationale:
     - Website/Web App operators need an honest evidence-first default that starts with low-impact active recon before choosing deeper tools

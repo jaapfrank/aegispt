@@ -1,0 +1,102 @@
+{
+  "id": "backlog-275-react-v2-cinema-mode-real-data",
+  "task_file": "codex/tasks/backlog-275-react-v2-cinema-mode-real-data.json",
+  "task_type": "product_slice",
+  "title": "React v2 Cinema Mode: replace hardcoded EVENT_STREAM with real run data — hosts as 3D nodes, live task stdout, local fonts",
+  "goal": "Update ui-v2/src/components/CinemaMode.tsx to use real data from the Zustand store + API. REQUIRES backlog-268 and 269. (1) REAL NODE DATA: Instead of hardcoded TARGETS array, read discovered hosts from the inventory snapshot: use selectedRunInventory from Zustand store. Each host in normalized_inventory_json.hosts becomes a node. Node color: red for hosts with critical findings, amber for high findings, cyan for discovered only. If no inventory: show the existing empty node as a 'waiting for discovery' fallback. Node positions are deterministic based on host index so they don't jump on re-render (use seeded pseudo-random position from hostname hash). (2) REAL EVENT STREAM: Instead of hardcoded EVENT_STREAM, poll GET /api/v1/runs/{runId}/tasks every 4 seconds. For each running or recently completed task: extract the last 2 lines from task.executions[last].stdout_text. Build the event as { tool: task.tool.toUpperCase(), target: task.target_id, msg: lastStdoutLine }. Only emit events when stdout actually changes (compare with previous). Limit displayed log to last 10 events. Show real tool names (NMAP, HTTPX, NUCLEI, ZAP, etc.). (3) LOCAL FONTS: The 3D Text components use a Google Fonts URL for Fira Mono. Download the Fira Mono woff2 file and place it at ui-v2/public/fonts/FiraMono.woff2. Update the font prop in all Text components to '/fonts/FiraMono.woff2'. This ensures Cinema Mode works offline and in airgapped deployments. (4) BOTTOM HUD: Make the bottom-left HUD data real — ACTIVE.TOOL shows the actual running task tool, TARGET shows actual task.target_id. (5) CAMERA FLIGHT: The camera currently lerps to the activeIndex node. Make this follow the actual active task's target: find the node index whose hostname/IP matches activeEvent.target. If no match: orbit slowly around the center. (6) STATS OVERLAY: Add a bottom-right overlay showing 4 counters (matching the existing Cinema Mode stats): Critical findings count, High findings count, Hosts discovered count, AI Proposals pending count — all from the Zustand store, updating in real time.",
+  "scope": "Cinema Mode already has excellent 3D visualization. This task makes it show real data instead of mock data and fixes the font dependency.",
+  "status": "queued",
+  "generated_by": "react-v2-planning-2026-05-07",
+  "generation_reason": "Cinema Mode 3D is the best feature in ui-v2. It must use real data to be useful in production.",
+  "source_context": {
+    "queue_index": 227,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json",
+      "codex/tasks/backlog-269-react-v2-mission-control.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-268 and backlog-269 completed first.",
+    "broader_theme": "react_v2_cinema_real_data",
+    "source_documents": [
+      "ui-v2/src/components/CinemaMode.tsx",
+      "ui-v2/src/store/index.ts",
+      "ui-v2/src/api/client.ts"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "CinemaMode.tsx only. No other screens.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "3D nodes come from real inventory hosts, not hardcoded TARGETS.",
+    "Event stream shows real task stdout from polling API.",
+    "Fira Mono font loaded from /fonts/FiraMono.woff2 (local file).",
+    "Bottom HUD shows real tool and target names.",
+    "Camera follows actual running task's target node.",
+    "Stats overlay shows real critical/high/hosts/proposals counts.",
+    "Cinema Mode works when offline (no external font URLs).",
+    "Build succeeds."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/CinemaMode.tsx",
+    "ui-v2/public/fonts/FiraMono.woff2",
+    "ui-v2/src/store/index.ts",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/",
+    "ui-v2/src/components/Intake.tsx"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Cinema Mode opens with real nodes.",
+      "No Google Fonts URL.",
+      "Stats show real data.",
+      "Build passes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-268 and 269 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Other screens",
+    "Backend changes",
+    "3D scene redesign"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

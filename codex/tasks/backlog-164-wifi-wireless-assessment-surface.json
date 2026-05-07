@@ -10,7 +10,7 @@
   "generation_reason": "The operator identified WiFi analysis as a missing pentest-suite capability. The repo search found no existing first-class WiFi assessment lane beyond incidental wireless-AP device labels in IoT default credentials.",
   "queue_index": 164,
   "source_context": {
-    "queue_index": 164,
+    "queue_index": 154,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "CURRENT_STATE.md",

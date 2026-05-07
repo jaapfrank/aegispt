@@ -9,7 +9,7 @@
   "generated_by": "live-runtime-diagnosis-2026-05-03",
   "generation_reason": "A mission lifecycle defect made Start look inert for local ZAP-backed active web runs; the repo needs a bounded local ZAP readiness check and truthful started_at state when a runner starts.",
   "source_context": {
-    "queue_index": 194,
+    "queue_index": 164,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "docs/host_service_install.md",

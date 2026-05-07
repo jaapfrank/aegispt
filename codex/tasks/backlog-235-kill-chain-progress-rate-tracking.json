@@ -3,13 +3,13 @@
   "task_file": "codex/tasks/backlog-235-kill-chain-progress-rate-tracking.json",
   "task_type": "product_slice",
   "title": "Kill chain progress rate tracking: map findings and phase completions to MITRE ATT&CK stages and show progress gauge",
-  "goal": "AutoPenBench measures Progress Rate (PR) — how far an agent progressed through the kill chain even if it didn't fully succeed. AegisPT has MITRE ATT&CK data in threat intelligence but NO kill chain progress tracking per engagement. MITRE ATT&CK records are already imported (threat_intel.py). Implement kill chain progress tracking: (1) Map each finding type to a MITRE ATT&CK tactic: nmap scan finding → Reconnaissance (TA0043), service vulnerability → Initial Access (TA0001), credential finding → Credential Access (TA0006), SUID escalation → Privilege Escalation (TA0004), lateral movement finding → Lateral Movement (TA0008), etc. This mapping is static and stored in a FINDING_ATT&CK_MAP in ai_agent.py or a new constants file. (2) Per engagement, compute a Kill Chain Progress gauge: what percentage of the ATT&CK kill chain has been reached. Example: 'Reached: Reconnaissance ✓ → Initial Access ✓ → Execution ✓ → Privilege Escalation ○ → Persistence ○ → Lateral Movement ○'. (3) Show this in Mission Control as a horizontal kill chain strip. Completed stages are green, current stage is amber, future stages are grey. (4) In the engagement dossier (Explorer), show full MITRE ATT&CK matrix view with confirmed vs tested vs untested techniques. This matches AutoPenBench's PR metric and gives operators an enterprise-grade view of assessment completeness.",
+  "goal": "AutoPenBench measures Progress Rate (PR) \u2014 how far an agent progressed through the kill chain even if it didn't fully succeed. AegisPT has MITRE ATT&CK data in threat intelligence but NO kill chain progress tracking per engagement. MITRE ATT&CK records are already imported (threat_intel.py). Implement kill chain progress tracking: (1) Map each finding type to a MITRE ATT&CK tactic: nmap scan finding \u2192 Reconnaissance (TA0043), service vulnerability \u2192 Initial Access (TA0001), credential finding \u2192 Credential Access (TA0006), SUID escalation \u2192 Privilege Escalation (TA0004), lateral movement finding \u2192 Lateral Movement (TA0008), etc. This mapping is static and stored in a FINDING_ATT&CK_MAP in ai_agent.py or a new constants file. (2) Per engagement, compute a Kill Chain Progress gauge: what percentage of the ATT&CK kill chain has been reached. Example: 'Reached: Reconnaissance \u2713 \u2192 Initial Access \u2713 \u2192 Execution \u2713 \u2192 Privilege Escalation \u25cb \u2192 Persistence \u25cb \u2192 Lateral Movement \u25cb'. (3) Show this in Mission Control as a horizontal kill chain strip. Completed stages are green, current stage is amber, future stages are grey. (4) In the engagement dossier (Explorer), show full MITRE ATT&CK matrix view with confirmed vs tested vs untested techniques. This matches AutoPenBench's PR metric and gives operators an enterprise-grade view of assessment completeness.",
   "scope": "AutoPenBench: Progress Rate (PR) measures kill chain advancement. AegisPT has custom phase tiers but no standardized kill chain progress. MITRE ATT&CK data already imported in threat_intel.py but not connected to findings.",
   "status": "queued",
   "generated_by": "autoPenBench-gap-analysis-2026-05-03",
   "generation_reason": "AutoPenBench PR metric + MITRE ATT&CK mapping is the enterprise-standard way to communicate assessment depth. AegisPT has the data but not the connection.",
   "source_context": {
-    "queue_index": 234,
+    "queue_index": 201,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-208-chain-phase-visibility-mission-control.json"
@@ -38,7 +38,7 @@
   },
   "success_criteria": [
     "Each finding type maps to a MITRE ATT&CK tactic.",
-    "Mission Control shows a kill chain progress strip (Recon → Initial Access → Execution → etc.).",
+    "Mission Control shows a kill chain progress strip (Recon \u2192 Initial Access \u2192 Execution \u2192 etc.).",
     "Completed stages shown green, current amber, untested grey.",
     "Explorer dossier shows MITRE ATT&CK matrix coverage.",
     "Progress percentage computed and shown numerically.",

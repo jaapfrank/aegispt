@@ -10,7 +10,7 @@
   "generation_reason": "The operator reports that AI still has little practical value: ChatGPT OAuth appears disconnected or repeatedly requires login, repair proposals do not continue runs, and signals are hard to inspect or address. This task extends backlog-132 rather than duplicating it by making AI operationally useful across all AI entry points.",
   "queue_index": 152,
   "source_context": {
-    "queue_index": 152,
+    "queue_index": 149,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md",

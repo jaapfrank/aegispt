@@ -3,21 +3,24 @@
   "task_file": "codex/tasks/backlog-212-finding-quality-enrichment-and-remediation-proof.json",
   "task_type": "product_slice",
   "title": "Finding quality: add CVSS score, OWASP mapping, business impact, step-by-step remediation, and proof-of-concept reference to every finding",
-  "goal": "Enterprise pentest reports require structured finding data that AegisPT currently partially provides. Enhance finding quality: (1) CVSS Score — add CVSS 3.1 base score calculation or lookup. When a CVE is matched, pull CVSS from NVD. When no CVE, calculate from severity/impact/exploitability fields that the runner already provides. Show CVSS gauge in Finding drawer. (2) OWASP mapping — map each finding to the relevant OWASP category: OWASP Top 10 (for web), OWASP API Security Top 10 (for API), OWASP Mobile Top 10 (for mobile). This mapping is deterministic by finding type — do it in the finding creation layer. (3) Business Impact — AI enrichment (via ChatGPT OAuth) fills a short business impact statement: 'An attacker exploiting this could gain access to customer payment data.' Stored as ai_business_impact field. (4) Step-by-step remediation — AI fills concrete remediation steps per technology stack. Not generic advice — stack-aware: 'On Apache 2.4.49, apply patch CVE-2021-41773 via apt upgrade apache2 or rebuild the container with base image apache:2.4.54+.' (5) Proof of concept reference — when a runner captures proof (HTTP request/response, nmap output, hash), link it explicitly from the finding with a 'Reproduce' button that shows the exact evidence with timestamps.",
+  "goal": "Enterprise pentest reports require structured finding data that AegisPT currently partially provides. Enhance finding quality: (1) CVSS Score \u2014 add CVSS 3.1 base score calculation or lookup. When a CVE is matched, pull CVSS from NVD. When no CVE, calculate from severity/impact/exploitability fields that the runner already provides. Show CVSS gauge in Finding drawer. (2) OWASP mapping \u2014 map each finding to the relevant OWASP category: OWASP Top 10 (for web), OWASP API Security Top 10 (for API), OWASP Mobile Top 10 (for mobile). This mapping is deterministic by finding type \u2014 do it in the finding creation layer. (3) Business Impact \u2014 AI enrichment (via ChatGPT OAuth) fills a short business impact statement: 'An attacker exploiting this could gain access to customer payment data.' Stored as ai_business_impact field. (4) Step-by-step remediation \u2014 AI fills concrete remediation steps per technology stack. Not generic advice \u2014 stack-aware: 'On Apache 2.4.49, apply patch CVE-2021-41773 via apt upgrade apache2 or rebuild the container with base image apache:2.4.54+.' (5) Proof of concept reference \u2014 when a runner captures proof (HTTP request/response, nmap output, hash), link it explicitly from the finding with a 'Reproduce' button that shows the exact evidence with timestamps.",
   "scope": "Competitive analysis: Burp Suite findings include request/response proof. Nessus findings include CVSS scores and detailed remediation. Commercial pentest reports include OWASP mapping, business impact, and step-by-step remediation. AegisPT findings have severity, title, and description but lack structured CVSS, OWASP mapping, and AI-enriched business context.",
   "status": "queued",
   "generated_by": "competitive-analysis-2026-05-03",
-  "generation_reason": "Gap vs Burp/Nessus: findings lack CVSS scores, OWASP mapping, AI business impact, and stack-aware remediation — required for enterprise-grade pentest reports.",
+  "generation_reason": "Gap vs Burp/Nessus: findings lack CVSS scores, OWASP mapping, AI business impact, and stack-aware remediation \u2014 required for enterprise-grade pentest reports.",
   "source_context": {
-    "queue_index": 200,
+    "queue_index": 168,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-98-evidence-completeness-guarantor.json",
       "codex/tasks/backlog-94-report-quality-overhaul.json",
       "codex/tasks/backlog-123-automatic-finding-enrichment.json"
     ],
-    "pack_id": null, "pack_version": null, "inventory_snapshot_id": null,
-    "relevance_decision_id": null, "threat_intel_refs": []
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
@@ -46,7 +49,8 @@
     "api/app/routers/findings.py",
     "api/app/services/ai_enrichment.py",
     "ui/assets/modules/findings.js",
-    "CURRENT_STATE.md", "DONE_LOG.md"
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
   ],
   "must_not_touch": [
     "Finding severity model",
@@ -67,13 +71,26 @@
     ]
   },
   "promotion_requirements": {
-    "before_promotion": ["NEXT_TASK.md must contain this task.", "python3 scripts/validate_backlog_tasks.py passes."],
-    "after_completion": ["Update DONE_LOG.md.", "Update CURRENT_STATE.md.", "Promote next task into NEXT_TASK.md."]
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
   },
-  "out_of_scope": ["Report layout changes", "New finding types", "Exploitation guidance"],
+  "out_of_scope": [
+    "Report layout changes",
+    "New finding types",
+    "Exploitation guidance"
+  ],
   "expected_output": {
-    "decision_complete": true, "task_package_type": "single_clear_slice",
-    "validation_required": true, "docs_update_required": true
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
   },
   "validation_status": "task_package_ready",
   "approval_status": "queued_not_promoted"

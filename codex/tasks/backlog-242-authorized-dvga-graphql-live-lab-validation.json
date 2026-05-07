@@ -9,7 +9,7 @@
   "generated_by": "operator-requested-graphql-live-lab-proof-2026-05-05",
   "generation_reason": "The operator correctly noted that a pentesting suite should prove GraphQL behavior against a real authorized vulnerable target, not only fixtures. This queued task captures that follow-up without interrupting the current active SSTI task.",
   "source_context": {
-    "queue_index": 243,
+    "queue_index": 203,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-227-graphql-security-runner.json",

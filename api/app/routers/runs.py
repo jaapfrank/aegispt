@@ -48,8 +48,12 @@ from api.app.schemas.runs import (
     AiRepairProposalRead,
     ApprovalCreate,
     ApprovalRead,
+    AssessmentLoopAdvanceCreate,
+    AssessmentLoopRead,
     AssessmentPlanQueueCreate,
     AssessmentPlanQueueRead,
+    AssessmentPlanWaveCompleteCreate,
+    AssessmentPlanWaveCompleteRead,
     AssessmentChainPhaseDecisionCreate,
     AssessmentChainRead,
     FindingSummaryRead,
@@ -96,8 +100,10 @@ from api.app.services.assessment_chain import (
     load_assessment_chain,
     normalize_assessment_mode,
 )
+from api.app.services.assessment_loop import advance_assessment_loop, build_assessment_loop_state
 from api.app.services.assessment_planner import (
     build_assessment_plan_for_run,
+    complete_adaptive_execution_wave,
     queue_assessment_plan_tasks,
 )
 from api.app.services.attack_paths import build_attack_path_summary
@@ -1085,6 +1091,92 @@ def queue_run_assessment_plan(
         queued_task_ids=[task.id for task in queued_tasks],
         blocked=list(outcome.get("blocked") or []),
     )
+
+
+@router.post("/runs/{run_id}/assessment-plan/waves/complete", response_model=AssessmentPlanWaveCompleteRead)
+def complete_run_assessment_plan_wave(
+    run_id: UUID,
+    payload: AssessmentPlanWaveCompleteCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> AssessmentPlanWaveCompleteRead:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    try:
+        outcome = complete_adaptive_execution_wave(
+            session,
+            run=run,
+            actor=actor,
+            operator_note=payload.operator_note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session.commit()
+    hydrated_run = load_run(session, run.id)
+    if hydrated_run is None:
+        raise HTTPException(status_code=500, detail="run could not be reloaded after adaptive wave completion")
+    return AssessmentPlanWaveCompleteRead(
+        run=serialize_run(hydrated_run, session=session),
+        assessment_plan=build_assessment_plan_for_run(session, hydrated_run),
+        adaptive_execution_waves=dict(outcome.get("adaptive_execution_waves") or {}),
+        proposal_ids=[UUID(str(item)) for item in list(outcome.get("proposal_ids") or [])],
+        reasoning_id=UUID(str(outcome["reasoning_id"])) if outcome.get("reasoning_id") else None,
+    )
+
+
+@router.get("/runs/{run_id}/assessment-loop", response_model=AssessmentLoopRead)
+def get_run_assessment_loop(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    _actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> AssessmentLoopRead:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    scope = session.scalar(latest_scope_query(run.engagement_id))
+    if scope is None:
+        raise HTTPException(status_code=409, detail="engagement scope missing during assessment loop")
+    return AssessmentLoopRead.model_validate(
+        build_assessment_loop_state(session=session, run=run, scope=scope)
+    )
+
+
+@router.post("/runs/{run_id}/assessment-loop/iterate", response_model=AssessmentLoopRead)
+def advance_run_assessment_loop(
+    run_id: UUID,
+    payload: AssessmentLoopAdvanceCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> AssessmentLoopRead:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    scope = session.scalar(latest_scope_query(run.engagement_id))
+    if scope is None:
+        raise HTTPException(status_code=409, detail="engagement scope missing during assessment loop")
+    try:
+        outcome = advance_assessment_loop(
+            session=session,
+            run=run,
+            scope=scope,
+            actor=actor,
+            operator_note=payload.operator_note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session.commit()
+    hydrated_run = load_run(session, run.id)
+    if hydrated_run is None:
+        raise HTTPException(status_code=500, detail="run could not be reloaded after assessment loop iteration")
+    hydrated_scope = session.scalar(latest_scope_query(hydrated_run.engagement_id))
+    if hydrated_scope is None:
+        raise HTTPException(status_code=409, detail="engagement scope missing during assessment loop")
+    response = {
+        **build_assessment_loop_state(session=session, run=hydrated_run, scope=hydrated_scope),
+        "next_action": outcome.get("next_action"),
+        "queued_task_id": outcome.get("queued_task_id"),
+        "proposal_id": outcome.get("proposal_id"),
+        "reasoning_id": outcome.get("reasoning_id"),
+    }
+    return AssessmentLoopRead.model_validate(response)
 
 
 @router.get("/runs/{run_id}/cve-intelligence", response_model=RunCveIntelRead)

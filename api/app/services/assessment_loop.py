@@ -1,0 +1,790 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from api.app.models import AgentProposal, Run, Scope, Task
+from api.app.policy.engine import normalize_profile_limits
+from api.app.services.ai_enrichment import store_agent_proposal_record, store_agent_reasoning_record
+from api.app.services.assessment_planner import build_assessment_plan_for_run
+from api.app.services.audit import write_audit_event
+from api.app.services.runs import (
+    derive_targets_for_run,
+    pending_approvals,
+    planned_targets_for_tool,
+    target_value_is_allowed,
+)
+from api.app.services.task_dispatch import supported_execution_tools
+
+
+LOOP_VERSION = "2026-05-07.1"
+LOOP_CONFIG_KEY = "ai_assessment_loop"
+LOOP_MAX_ITERATIONS = 20
+LOOP_STUCK_THRESHOLD = 3
+LOOP_ACTIVE_TASK_STATUSES = {"queued", "pending", "running", "dispatching", "in_progress", "started"}
+LOOP_TERMINAL_STATUSES = {"completed", "failed", "cancelled", "skipped"}
+LOOP_PROPOSAL_KIND = "assessment_loop_next_action"
+LOOP_SEED_TOOLS_BY_TARGET_KIND = {
+    "url": "httpx",
+    "host": "nmap",
+    "cidr": "nmap",
+    "domain": "easm-discover",
+    "target": "httpx",
+}
+LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx", "nmap", "easm-discover", "external-osint", "aws-inventory"}
+
+
+@dataclass(frozen=True)
+class LoopCandidate:
+    tool: str
+    target: str
+    params: dict[str, Any]
+    tier: str
+    reasoning: str
+    confidence: float
+    follow_up_hints: list[str]
+    expected_evidence: list[str]
+    required_approvals: int
+    decision_source: str
+
+
+def _as_dict(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _as_list(value: object) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _loop_state(configuration: dict[str, Any]) -> dict[str, Any]:
+    state = _as_dict(configuration.get(LOOP_CONFIG_KEY))
+    iterations = [dict(item) for item in _as_list(state.get("iterations")) if isinstance(item, dict)]
+    return {
+        "enabled": bool(state.get("enabled", True)),
+        "run_mode": "ai_loop",
+        "version": str(state.get("version") or LOOP_VERSION),
+        "max_iterations": int(state.get("max_iterations") or LOOP_MAX_ITERATIONS),
+        "stuck_threshold": int(state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD),
+        "iteration_count": int(state.get("iteration_count") or len(iterations)),
+        "no_new_signal_iterations": int(state.get("no_new_signal_iterations") or 0),
+        "status": str(state.get("status") or "ready"),
+        "stop_reason": state.get("stop_reason"),
+        "latest_evidence_fingerprint": str(state.get("latest_evidence_fingerprint") or ""),
+        "latest_next_action": _as_dict(state.get("latest_next_action")) or None,
+        "iterations": iterations,
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+    }
+
+
+def _store_loop_state(configuration: dict[str, Any], state: dict[str, Any]) -> None:
+    configuration[LOOP_CONFIG_KEY] = {
+        "enabled": True,
+        "run_mode": "ai_loop",
+        "version": LOOP_VERSION,
+        "max_iterations": int(state.get("max_iterations") or LOOP_MAX_ITERATIONS),
+        "stuck_threshold": int(state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD),
+        "iteration_count": int(state.get("iteration_count") or 0),
+        "no_new_signal_iterations": int(state.get("no_new_signal_iterations") or 0),
+        "status": str(state.get("status") or "ready"),
+        "stop_reason": state.get("stop_reason"),
+        "latest_evidence_fingerprint": str(state.get("latest_evidence_fingerprint") or ""),
+        "latest_next_action": state.get("latest_next_action"),
+        "iterations": list(state.get("iterations") or []),
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+    }
+
+
+def _targets_for_loop(scope: Scope, run: Run) -> list[dict[str, str]]:
+    targets = derive_targets_for_run(scope, run)
+    return [target for target in targets if str(target.get("value") or "").strip()]
+
+
+def _target_type(targets: list[dict[str, str]]) -> str:
+    kinds = {str(target.get("kind") or "") for target in targets}
+    if "cidr" in kinds:
+        return "cidr"
+    if "url" in kinds:
+        return "url"
+    if "host" in kinds:
+        return "ip_or_host"
+    if "domain" in kinds:
+        return "domain"
+    return "unknown"
+
+
+def _task_key(tool: str, target: str) -> str:
+    return f"{str(tool).strip()}::{str(target).strip()}"
+
+
+def _tested_action_keys(run: Run) -> set[str]:
+    keys: set[str] = set()
+    for task in list(run.tasks or []):
+        keys.add(_task_key(task.tool, task.target_id))
+    for proposal in list(run.agent_proposals or []):
+        metadata = _as_dict(proposal.metadata_json)
+        if metadata.get("proposal_kind") == LOOP_PROPOSAL_KIND:
+            keys.add(_task_key(proposal.proposed_tool, proposal.proposed_target))
+    configuration = _as_dict(run.configuration_json)
+    state = _loop_state(configuration)
+    for iteration in state.get("iterations", []):
+        action = _as_dict(iteration.get("next_action"))
+        tool = str(action.get("tool") or "").strip()
+        target = str(action.get("target") or "").strip()
+        if tool and target:
+            keys.add(_task_key(tool, target))
+    return keys
+
+
+def _active_loop_tasks(run: Run) -> list[dict[str, str]]:
+    active: list[dict[str, str]] = []
+    for task in list(run.tasks or []):
+        status = str(task.status or "").strip().lower()
+        params = _as_dict(task.params_json)
+        if status in LOOP_ACTIVE_TASK_STATUSES and (
+            isinstance(params.get("assessment_loop"), dict)
+            or isinstance(params.get("ai_proposal"), dict)
+        ):
+            active.append({"task_id": str(task.id), "tool": task.tool, "target": task.target_id, "status": status})
+    return active
+
+
+def _evidence_fingerprint(run: Run) -> str:
+    task_bits = [
+        f"task:{task.id}:{task.tool}:{task.target_id}:{task.status}"
+        for task in sorted(list(run.tasks or []), key=lambda item: str(item.id))
+        if str(task.status or "").lower() in LOOP_TERMINAL_STATUSES
+    ]
+    finding_bits = [
+        f"finding:{finding.id}:{finding.title}:{finding.target_id}:{finding.evidence_ref}"
+        for finding in sorted(list(run.findings or []), key=lambda item: str(item.id))
+    ]
+    snapshot = run.source_inventory_snapshot
+    snapshot_bits: list[str] = []
+    if snapshot is not None:
+        inventory = _as_dict(snapshot.normalized_inventory_json)
+        profile = _as_dict(inventory.get("signal_profile"))
+        signal_keys = [
+            str(item.get("key") or "")
+            for item in _as_list(profile.get("signals"))
+            if isinstance(item, dict)
+        ]
+        snapshot_bits.append(f"snapshot:{snapshot.id}:{','.join(sorted(signal_keys))}")
+    return "|".join([*task_bits, *finding_bits, *snapshot_bits]) or "no-evidence"
+
+
+def _current_state_payload(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    evidence_fingerprint: str,
+) -> dict[str, Any]:
+    inventory_snapshot = run.source_inventory_snapshot
+    inventory = (
+        _as_dict(inventory_snapshot.normalized_inventory_json)
+        if inventory_snapshot is not None
+        else {}
+    )
+    signal_profile = _as_dict(inventory.get("signal_profile"))
+    return {
+        "target_type": _target_type(targets),
+        "targets": targets,
+        "inventory_snapshot_id": str(inventory_snapshot.id) if inventory_snapshot is not None else None,
+        "signal_count": len(_as_list(signal_profile.get("signals"))),
+        "finding_count": len(list(run.findings or [])),
+        "task_count": len(list(run.tasks or [])),
+        "tested_paths": [
+            {"tool": task.tool, "target": task.target_id, "status": task.status}
+            for task in list(run.tasks or [])
+        ],
+        "open_threads": [
+            {
+                "proposal_id": str(proposal.id),
+                "tool": proposal.proposed_tool,
+                "target": proposal.proposed_target,
+                "status": proposal.status,
+            }
+            for proposal in list(run.agent_proposals or [])
+            if proposal.status == "pending_review"
+        ],
+        "evidence_fingerprint": evidence_fingerprint,
+        "scope_enforced": True,
+        "roe_required": bool(scope.roe_ref if hasattr(scope, "roe_ref") else True),
+    }
+
+
+def _capability_item(plan: dict[str, Any], tool: str) -> dict[str, Any]:
+    for item in plan.get("runners", []):
+        if isinstance(item, dict) and str(item.get("runner") or "") == tool:
+            return item
+    return {}
+
+
+def _tier_from_capability(item: dict[str, Any], tool: str) -> str:
+    risk_tier = str(item.get("risk_tier") or "active").strip().lower()
+    required_approvals = int(item.get("required_approvals") or 0)
+    if risk_tier == "intrusive" or required_approvals >= 2:
+        return "intrusive"
+    if required_approvals >= 1:
+        return "active"
+    if tool in LOOP_LOW_IMPACT_AUTO_TOOLS:
+        return "passive"
+    return "active"
+
+
+def _scope_target_allowed(scope: Scope, target: str) -> bool:
+    if target_value_is_allowed(scope.denylist_json, target):
+        return False
+    return target_value_is_allowed(scope.allowlist_json, target)
+
+
+def _seed_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    if tested_keys:
+        return None
+    for target in targets:
+        kind = str(target.get("kind") or "").strip()
+        value = str(target.get("value") or "").strip()
+        tool = LOOP_SEED_TOOLS_BY_TARGET_KIND.get(kind)
+        if not tool or not value:
+            continue
+        planned_targets = planned_targets_for_tool(
+            tool,
+            targets,
+            derive_url_hosts_for_nmap=True,
+        )
+        chosen_target = next((item for item in planned_targets if item.get("value")), target)
+        target_value = str(chosen_target.get("value") or value).strip()
+        if not _scope_target_allowed(scope, target_value):
+            continue
+        if _task_key(tool, target_value) in tested_keys:
+            continue
+        plan_item = _capability_item(plan, tool)
+        tier = _tier_from_capability(plan_item, tool)
+        return LoopCandidate(
+            tool=tool,
+            target=target_value,
+            params={
+                "loop_seed": True,
+                "target_kind": chosen_target.get("kind") or kind,
+                "source": "assessment_loop_seed",
+            },
+            tier=tier,
+            reasoning=(
+                f"Start the AI loop with {tool} against the approved {chosen_target.get('kind') or kind} "
+                "to collect the first evidence-backed inventory signals."
+            ),
+            confidence=0.78,
+            follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(plan_item.get("expected_evidence") or []),
+            required_approvals=int(plan_item.get("required_approvals") or 0),
+            decision_source="seed_target_type",
+        )
+    return None
+
+
+def _plan_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    for item in plan.get("runners", []):
+        if not isinstance(item, dict):
+            continue
+        decision = str(item.get("decision") or "").upper()
+        if decision not in {"RUN", "NEEDS_APPROVAL"}:
+            continue
+        tool = str(item.get("runner") or item.get("tool") or "").strip()
+        if not tool or tool not in supported_execution_tools():
+            continue
+        planned_targets = planned_targets_for_tool(
+            tool,
+            targets,
+            derive_url_hosts_for_nmap=True,
+        )
+        for target in planned_targets:
+            target_value = str(target.get("value") or "").strip()
+            if not target_value:
+                continue
+            if _task_key(tool, target_value) in tested_keys:
+                continue
+            if not _scope_target_allowed(scope, target_value):
+                continue
+            tier = _tier_from_capability(item, tool)
+            return LoopCandidate(
+                tool=tool,
+                target=target_value,
+                params={
+                    "target_kind": target.get("kind"),
+                    "matched_triggers": list(item.get("matched_triggers") or []),
+                    "matched_weak_triggers": list(item.get("matched_weak_triggers") or []),
+                    "source": "assessment_loop_plan",
+                },
+                tier=tier,
+                reasoning=str(item.get("summary") or f"{tool} is the highest value next action."),
+                confidence=float(item.get("confidence") or 0.0),
+                follow_up_hints=list(item.get("follow_up_tools") or []),
+                expected_evidence=list(item.get("expected_evidence") or []),
+                required_approvals=int(item.get("required_approvals") or 0),
+                decision_source="assessment_plan",
+            )
+    return None
+
+
+def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
+    return {
+        "tool": candidate.tool,
+        "target": candidate.target,
+        "params": dict(candidate.params),
+        "tier": candidate.tier,
+        "reasoning": candidate.reasoning,
+        "confidence": round(float(candidate.confidence), 3),
+        "follow_up_hints": list(candidate.follow_up_hints),
+        "expected_evidence": list(candidate.expected_evidence),
+        "required_approvals": int(candidate.required_approvals),
+        "decision_source": candidate.decision_source,
+    }
+
+
+def _queue_passive_loop_task(
+    *,
+    session: Session,
+    run: Run,
+    candidate: LoopCandidate,
+    actor: str,
+    iteration_number: int,
+) -> Task:
+    if candidate.tool not in supported_execution_tools():
+        raise ValueError(f"assessment loop selected unsupported runner: {candidate.tool}")
+    normalized_limits = normalize_profile_limits(
+        candidate.tier,
+        {
+            **(_as_dict(run.profile.limits_json) if run.profile is not None else {}),
+            "tools": [candidate.tool],
+        },
+    )
+    task = Task(
+        run=run,
+        tool=candidate.tool,
+        target_id=candidate.target,
+        status="queued",
+        params_json={
+            **candidate.params,
+            "target_kind": candidate.params.get("target_kind"),
+            "profile_name": run.profile.name if run.profile is not None else "ai-loop",
+            "run_class": candidate.tier,
+            "limits": normalized_limits,
+            "assessment_loop": {
+                "enabled": True,
+                "run_mode": "ai_loop",
+                "iteration": iteration_number,
+                "tool": candidate.tool,
+                "target": candidate.target,
+                "tier": candidate.tier,
+                "reasoning": candidate.reasoning,
+                "confidence": round(float(candidate.confidence), 3),
+                "approval_effect": "passive_auto_queued",
+                "dispatch_mode": "queued_not_dispatched",
+                "registered_runner_required": True,
+                "scope_enforced": True,
+                "kill_switch_still_authoritative": True,
+            },
+        },
+    )
+    session.add(task)
+    session.flush()
+    if str(run.status or "").lower() not in {"cancelled", "cancelling", "rejected"}:
+        run.status = "queued"
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="assessment_loop.passive_task_queued",
+        object_type="task",
+        object_id=str(task.id),
+        metadata={
+            "run_id": str(run.id),
+            "iteration": iteration_number,
+            "tool": candidate.tool,
+            "target": candidate.target,
+            "tier": candidate.tier,
+            "dispatch_mode": "queued_not_dispatched",
+            "operator_controlled_flow_only": True,
+        },
+    )
+    return task
+
+
+def _store_next_action_proposal(
+    *,
+    session: Session,
+    run: Run,
+    reasoning,
+    candidate: LoopCandidate,
+    actor: str,
+    iteration_number: int,
+) -> AgentProposal:
+    proposal = store_agent_proposal_record(
+        session=session,
+        reasoning=reasoning,
+        proposed_tool=candidate.tool,
+        proposed_target=candidate.target,
+        proposed_params={
+            **candidate.params,
+            "assessment_loop": {
+                "enabled": True,
+                "run_mode": "ai_loop",
+                "iteration": iteration_number,
+                "tier": candidate.tier,
+                "required_approvals": candidate.required_approvals,
+                "approval_required": candidate.tier in {"active", "intrusive"},
+                "dispatches_work": False,
+                "registered_runner_required": True,
+                "scope_enforced": True,
+                "roe_enforced": True,
+                "kill_switch_still_authoritative": True,
+            },
+            "review_required": True,
+        },
+        reasoning_text=candidate.reasoning,
+        risk_tier=candidate.tier,
+        priority=10 if candidate.tier == "active" else 5,
+        confidence_score=float(candidate.confidence),
+        status="pending_review",
+        metadata={
+            "proposal_kind": LOOP_PROPOSAL_KIND,
+            "run_mode": "ai_loop",
+            "iteration": iteration_number,
+            "created_by": actor,
+            "requires_operator_review": True,
+            "dispatches_work": False,
+            "operator_controlled_flow_only": True,
+            "active_runtime_mutated": False,
+            "approval_boundary": (
+                "per_action_explicit_approval"
+                if candidate.tier == "intrusive"
+                else "active_wave_approval"
+            ),
+        },
+    )
+    return proposal
+
+
+def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> dict[str, Any]:
+    configuration = _as_dict(run.configuration_json)
+    loop_state = _loop_state(configuration)
+    targets = _targets_for_loop(scope, run)
+    evidence_fingerprint = _evidence_fingerprint(run)
+    current_state = _current_state_payload(
+        run=run,
+        scope=scope,
+        targets=targets,
+        evidence_fingerprint=evidence_fingerprint,
+    )
+    plan = build_assessment_plan_for_run(session, run)
+    return {
+        "available": True,
+        "run_id": str(run.id),
+        "run_mode": "ai_loop",
+        "loop_version": LOOP_VERSION,
+        "status": loop_state["status"],
+        "stop_reason": loop_state.get("stop_reason"),
+        "iteration_count": loop_state["iteration_count"],
+        "max_iterations": loop_state["max_iterations"],
+        "stuck_threshold": loop_state["stuck_threshold"],
+        "no_new_signal_iterations": loop_state["no_new_signal_iterations"],
+        "current_state": current_state,
+        "latest_next_action": loop_state.get("latest_next_action"),
+        "active_tasks": _active_loop_tasks(run),
+        "assessment_plan_summary": plan.get("summary", {}),
+        "iterations": list(loop_state.get("iterations") or []),
+        "dispatches_work_directly": False,
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+    }
+
+
+def advance_assessment_loop(
+    session: Session,
+    *,
+    run: Run,
+    scope: Scope,
+    actor: str,
+    operator_note: str | None = None,
+) -> dict[str, Any]:
+    if run.profile is not None and pending_approvals(run, run.profile) > 0:
+        raise ValueError("assessment loop cannot advance while the selected run still has pending approvals")
+    active_tasks = _active_loop_tasks(run)
+    configuration = _as_dict(run.configuration_json)
+    loop_state = _loop_state(configuration)
+    targets = _targets_for_loop(scope, run)
+    if not targets:
+        raise ValueError("assessment loop requires at least one approved target in scope")
+
+    evidence_fingerprint = _evidence_fingerprint(run)
+    previous_fingerprint = str(loop_state.get("latest_evidence_fingerprint") or "")
+    no_new_signal_iterations = int(loop_state.get("no_new_signal_iterations") or 0)
+    if previous_fingerprint and previous_fingerprint == evidence_fingerprint:
+        no_new_signal_iterations += 1
+    else:
+        no_new_signal_iterations = 0
+    loop_state["no_new_signal_iterations"] = no_new_signal_iterations
+    loop_state["latest_evidence_fingerprint"] = evidence_fingerprint
+
+    if active_tasks:
+        loop_state["status"] = "waiting_for_execution"
+        loop_state["stop_reason"] = None
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
+    max_iterations = int(loop_state.get("max_iterations") or LOOP_MAX_ITERATIONS)
+    stuck_threshold = int(loop_state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD)
+    if int(loop_state.get("iteration_count") or 0) >= max_iterations:
+        loop_state["status"] = "stopped"
+        loop_state["stop_reason"] = "max_iterations_reached"
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={"reason": "max_iterations_reached", "max_iterations": max_iterations},
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+    if no_new_signal_iterations >= stuck_threshold:
+        loop_state["status"] = "stopped"
+        loop_state["stop_reason"] = "stuck_no_new_signals"
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={"reason": "stuck_no_new_signals", "threshold": stuck_threshold},
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
+    plan = build_assessment_plan_for_run(session, run)
+    tested_keys = _tested_action_keys(run)
+    candidate = _seed_candidate(
+        run=run,
+        scope=scope,
+        targets=targets,
+        plan=plan,
+        tested_keys=tested_keys,
+    ) or _plan_candidate(
+        run=run,
+        scope=scope,
+        targets=targets,
+        plan=plan,
+        tested_keys=tested_keys,
+    )
+    if candidate is None:
+        loop_state["status"] = "stopped"
+        loop_state["stop_reason"] = "no_registered_runner_candidate"
+        _store_loop_state(configuration, loop_state)
+        run.configuration_json = configuration
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_loop.stopped",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={"reason": "no_registered_runner_candidate"},
+        )
+        return build_assessment_loop_state(session, run=run, scope=scope)
+
+    iteration_number = int(loop_state.get("iteration_count") or 0) + 1
+    current_state = _current_state_payload(
+        run=run,
+        scope=scope,
+        targets=targets,
+        evidence_fingerprint=evidence_fingerprint,
+    )
+    next_action = _next_action_payload(candidate)
+    reasoning = store_agent_reasoning_record(
+        session=session,
+        run=run,
+        reasoning_type="assessment_loop_next_action",
+        status="recorded",
+        context_snapshot={
+            "run_id": str(run.id),
+            "run_mode": "ai_loop",
+            "iteration": iteration_number,
+            "assessment_state": current_state,
+            "assessment_plan_summary": plan.get("summary", {}),
+            "scope_enforced": True,
+            "fixed_phase_chains_replaced_globally": False,
+        },
+        observations=[
+            {
+                "summary": (
+                    f"Assessment loop observed {current_state['task_count']} task(s), "
+                    f"{current_state['finding_count']} finding(s), and "
+                    f"{current_state['signal_count']} signal(s)."
+                ),
+                "target_type": current_state["target_type"],
+                "no_new_signal_iterations": no_new_signal_iterations,
+            }
+        ],
+        hypotheses=[
+            {
+                "summary": candidate.reasoning,
+                "tool": candidate.tool,
+                "target": candidate.target,
+                "tier": candidate.tier,
+                "confidence": round(float(candidate.confidence), 3),
+            }
+        ],
+        proposals=[next_action],
+        summary_text=f"Iteration {iteration_number}: selected {candidate.tool} for {candidate.target}.",
+        thought_text=candidate.reasoning,
+        action_text=(
+            "Queue passive action through the registered runner path."
+            if candidate.tier == "passive"
+            else "Create a reviewable AI proposal; execution waits for existing approval flow."
+        ),
+        provider="deterministic-assessment-loop",
+        model=None,
+        llm_tokens_used=0,
+        confidence_score=float(candidate.confidence),
+        metadata={
+            "proposal_kind": LOOP_PROPOSAL_KIND,
+            "run_mode": "ai_loop",
+            "iteration": iteration_number,
+            "operator_note": operator_note,
+            "dispatches_work": candidate.tier == "passive",
+            "direct_dispatch": False,
+            "registered_runner_required": True,
+            "scope_enforced": True,
+            "roe_enforced": True,
+            "kill_switch_still_authoritative": True,
+            "manual_chain_alternative_preserved": True,
+        },
+    )
+    queued_task: Task | None = None
+    proposal: AgentProposal | None = None
+    action_status = "pending_review"
+    if candidate.tier == "passive":
+        queued_task = _queue_passive_loop_task(
+            session=session,
+            run=run,
+            candidate=candidate,
+            actor=actor,
+            iteration_number=iteration_number,
+        )
+        proposal = store_agent_proposal_record(
+            session=session,
+            reasoning=reasoning,
+            proposed_tool=candidate.tool,
+            proposed_target=candidate.target,
+            proposed_params={
+                **candidate.params,
+                "assessment_loop": {
+                    "enabled": True,
+                    "run_mode": "ai_loop",
+                    "iteration": iteration_number,
+                    "queued_task_id": str(queued_task.id),
+                    "dispatch_mode": "queued_not_dispatched",
+                },
+            },
+            reasoning_text=candidate.reasoning,
+            risk_tier="passive",
+            priority=20,
+            confidence_score=float(candidate.confidence),
+            status="approved",
+            metadata={
+                "proposal_kind": LOOP_PROPOSAL_KIND,
+                "run_mode": "ai_loop",
+                "iteration": iteration_number,
+                "dispatches_work": True,
+                "queued_task_id": str(queued_task.id),
+                "approval_boundary": "passive_auto_queued",
+                "operator_controlled_flow_only": True,
+                "active_runtime_mutated": False,
+            },
+        )
+        proposal.approved_by = actor
+        proposal.approved_at = datetime.now(UTC)
+        action_status = "queued"
+    else:
+        proposal = _store_next_action_proposal(
+            session=session,
+            run=run,
+            reasoning=reasoning,
+            candidate=candidate,
+            actor=actor,
+            iteration_number=iteration_number,
+        )
+
+    iteration = {
+        "iteration": iteration_number,
+        "status": action_status,
+        "created_at": _now(),
+        "reasoning_id": str(reasoning.id),
+        "proposal_id": str(proposal.id) if proposal is not None else None,
+        "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+        "next_action": next_action,
+        "evidence_fingerprint": evidence_fingerprint,
+    }
+    loop_state["iteration_count"] = iteration_number
+    loop_state["status"] = "waiting_for_execution" if queued_task is not None else "waiting_for_approval"
+    loop_state["stop_reason"] = None
+    loop_state["latest_next_action"] = next_action
+    loop_state["iterations"] = [*list(loop_state.get("iterations") or []), iteration]
+    _store_loop_state(configuration, loop_state)
+    run.configuration_json = configuration
+
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="assessment_loop.iteration_created",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={
+            "iteration": iteration_number,
+            "tool": candidate.tool,
+            "target": candidate.target,
+            "tier": candidate.tier,
+            "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+            "proposal_id": str(proposal.id) if proposal is not None else None,
+            "dispatch_mode": "queued_not_dispatched" if queued_task is not None else "review_only",
+        },
+    )
+
+    return {
+        **build_assessment_loop_state(session, run=run, scope=scope),
+        "next_action": next_action,
+        "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+        "proposal_id": str(proposal.id) if proposal is not None else None,
+        "reasoning_id": str(reasoning.id),
+    }

@@ -3,13 +3,13 @@
   "task_file": "codex/tasks/backlog-217-vulnerable-components-dependency-check.json",
   "task_type": "product_slice",
   "title": "Vulnerable components runner: detect known CVEs in running web application libraries via response fingerprinting and dependency analysis",
-  "goal": "WebGoat has a 'vulnerablecomponents' module (OWASP A06:2021 - Vulnerable and Outdated Components). AegisPT has CVE matching for discovered hosts/services but no web application component fingerprinting. Implement a vuln-components runner: (1) HTTP Response Fingerprinting: analyse HTTP response headers (X-Powered-By, Server, X-AspNet-Version), HTML comments, and JavaScript files to identify framework versions (jQuery 1.6.4, Spring 4.3.18, Apache Struts 2.3.x, etc.). (2) JavaScript library version detection: scan all linked JS files for version strings (jquery.min.js?v=1.6.4, bootstrap version comments). Match against CVE database. (3) npm/package.json exposure: check for accidentally exposed package.json, yarn.lock, package-lock.json files at common paths. Extract dependency list and match against CVE database. (4) Maven/Gradle exposure: check for exposed pom.xml (common on Java apps like WebGoat). (5) Match found versions against local CVE feed (using existing cve_sync infrastructure). (6) Tool: use RetireJS for JavaScript library scanning, OWASP Dependency Check for Java apps (passive — reads exposed files, no active exploitation). (7) Produces findings: 'Outdated Library: jQuery 1.6.4 (CVE-2019-11358 - prototype pollution)', 'Exposed package.json with vulnerable dependencies'. Active tier.",
+  "goal": "WebGoat has a 'vulnerablecomponents' module (OWASP A06:2021 - Vulnerable and Outdated Components). AegisPT has CVE matching for discovered hosts/services but no web application component fingerprinting. Implement a vuln-components runner: (1) HTTP Response Fingerprinting: analyse HTTP response headers (X-Powered-By, Server, X-AspNet-Version), HTML comments, and JavaScript files to identify framework versions (jQuery 1.6.4, Spring 4.3.18, Apache Struts 2.3.x, etc.). (2) JavaScript library version detection: scan all linked JS files for version strings (jquery.min.js?v=1.6.4, bootstrap version comments). Match against CVE database. (3) npm/package.json exposure: check for accidentally exposed package.json, yarn.lock, package-lock.json files at common paths. Extract dependency list and match against CVE database. (4) Maven/Gradle exposure: check for exposed pom.xml (common on Java apps like WebGoat). (5) Match found versions against local CVE feed (using existing cve_sync infrastructure). (6) Tool: use RetireJS for JavaScript library scanning, OWASP Dependency Check for Java apps (passive \u2014 reads exposed files, no active exploitation). (7) Produces findings: 'Outdated Library: jQuery 1.6.4 (CVE-2019-11358 - prototype pollution)', 'Exposed package.json with vulnerable dependencies'. Active tier.",
   "scope": "Gap analysis 2026-05-03: WebGoat vulnerablecomponents module. OWASP A06:2021 is a top-10 category. AegisPT currently has no capability to detect vulnerable web application libraries. Burp Suite + Retire.js extension does this automatically. This is a high-value, relatively low-risk addition.",
   "status": "queued",
   "generated_by": "benchmark-gap-analysis-2026-05-03",
-  "generation_reason": "OWASP A06 (Vulnerable Components) missing from AegisPT — WebGoat has dedicated module and Burp Suite detects automatically via Retire.js.",
+  "generation_reason": "OWASP A06 (Vulnerable Components) missing from AegisPT \u2014 WebGoat has dedicated module and Burp Suite detects automatically via Retire.js.",
   "source_context": {
-    "queue_index": 205,
+    "queue_index": 173,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-93-on-demand-cve-intelligence.json",
@@ -33,7 +33,7 @@
     "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
-    "scope_creep_guard": "Read-only detection only — fingerprint versions, match CVEs, produce findings. No exploitation of identified vulnerabilities.",
+    "scope_creep_guard": "Read-only detection only \u2014 fingerprint versions, match CVEs, produce findings. No exploitation of identified vulnerabilities.",
     "runtime_mutation": false
   },
   "success_criteria": [

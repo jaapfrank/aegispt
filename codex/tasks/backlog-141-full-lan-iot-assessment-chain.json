@@ -10,7 +10,7 @@
   "generation_reason": "All the individual IoT/LAN runners (backlog-132 through 139) need to be orchestrated into a coherent assessment flow. A consultant should be able to select Smart Home / IoT LAN in the wizard and get a complete phase-by-phase assessment of the entire smart home network.",
   "queue_index": 141,
   "source_context": {
-    "queue_index": 141,
+    "queue_index": 139,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

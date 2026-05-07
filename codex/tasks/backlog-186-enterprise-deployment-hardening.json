@@ -9,7 +9,7 @@
   "generated_by": "enterprise-readiness-audit-2026-05-01",
   "generation_reason": "AegisPT targets enterprise/MKB use, but enterprise deployment requires production-grade TLS, proxy, offline, certificate, encryption, and update posture checks. Existing install and DB encryption tasks cover pieces, not a single production hardening readiness gate.",
   "source_context": {
-    "queue_index": 186,
+    "queue_index": 162,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-81-installation-package.json",

@@ -1,0 +1,105 @@
+{
+  "id": "backlog-269-react-v2-mission-control",
+  "task_file": "codex/tasks/backlog-269-react-v2-mission-control.json",
+  "task_type": "product_slice",
+  "title": "React v2 Mission Control: three-panel live operations screen with real run data, task output, AI proposals, and phase chain",
+  "goal": "Build src/components/screens/MissionControl.tsx as a full three-panel screen. REQUIRES backlog-268 foundation (Zustand store + API client). The screen has three columns: LEFT PANEL (scan-map-panel, 30%): Shows discovered targets as nodes. When a run is selected, read inventory snapshot from store (hosts + endpoints). Render each discovered host as a positioned circle with hostname/IP label, colored by status (grey=discovered, cyan=active, green=completed, red=finding). If no run: show 'Start a new mission to see live scan activity here' with a single 'Start Mission Intake' button that navigates to /intake. If run but no inventory: show 'Discovery in progress...' with a loading spinner. Use SVG for the node graph — no external graph libraries. CENTRE PANEL (tasks-panel, 40%): Header shows: run profile name, run status badge (queued/running/completed), elapsed time. Phase chain strip: if run has assessment_chain_id, call GET /api/v1/runs/{id}/chain and show horizontal phase bar: Phase 1 [✓ done] → Phase 2 [⚡ active] → Phase 3 [⏳ approval needed] → Phase 4. Each phase node is a small pill. 'Approve Phase N' button appears when status=pending_phase_approval. Task list: call GET /api/v1/runs/{runId}/tasks. Render each task as a row: [status-dot] [tool icon] [target] [status badge] [duration]. Clicking a task row expands it inline to show the last 500 chars of stdout_text from its latest execution (monospace, dark bg). Kill Run button (red) and Start Queued Checks button (primary) — both POST to /api/v1/runs/{id}/cancel and /api/v1/runs/{id}/dispatch respectively. RIGHT PANEL (ai-signal-panel, 30%): Header 'AI Signal'. Call GET /api/v1/runs/{runId}/ai-insights on load. Show: pending proposal count badge. Proposals list: each proposal is a card showing tool, target, confidence bar (0-100), reasoning text (truncated to 3 lines, expand on click). Approve button (POST /api/v1/runs/{runId}/proposals/{proposalId}/review with decision=approved) and Reject button (decision=rejected). Below proposals: last 3 AgentReasoning records (summary_text, thought_text). Show 'Select a run to see AI analysis' when no run selected. TOPBAR ACTIONS for this screen: Kill Run, Start Queued Checks, View Findings (→ /findings), Cinema Mode (opens CinemaMode component). LIVE UPDATES: poll GET /api/v1/runs/{runId} every 3 seconds when run status is 'running' or 'queued'. On new data, update store and re-render. Cinema Mode: when button clicked, open existing CinemaMode.tsx component overlaid but pass real run data from store instead of EVENT_STREAM mock.",
+  "scope": "React v2 Mission Control replaces the old 7289-line mission-control.js. Must show real data from the AegisPT API. This is the primary operational screen.",
+  "status": "queued",
+  "generated_by": "react-v2-planning-2026-05-07",
+  "generation_reason": "Core operational screen for React v2. Must show live run data, tasks, AI proposals, and phase chain.",
+  "source_context": {
+    "queue_index": 221,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-268 completed first.",
+    "broader_theme": "react_v2_mission_control",
+    "source_documents": [
+      "ui-v2/src/App.tsx",
+      "ui-v2/src/store/index.ts",
+      "ui-v2/src/api/client.ts",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Build only Mission Control screen. No other screens in this task.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "src/components/screens/MissionControl.tsx renders three panels.",
+    "When run selected: left panel shows discovered host nodes from real inventory API.",
+    "Centre panel shows tasks from GET /api/v1/runs/{id}/tasks with correct status dots.",
+    "Clicking a task row expands stdout_text from latest execution.",
+    "Right panel shows AI proposals from GET /api/v1/runs/{id}/ai-insights.",
+    "Approve/Reject buttons POST to proposals review endpoint.",
+    "Phase chain strip shows phases when assessment_chain_id exists.",
+    "Kill Run button POSTs to cancel endpoint.",
+    "Polls every 3s during active run.",
+    "Empty state shown when no run selected.",
+    "Cinema Mode opens CinemaMode.tsx with real run data."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/MissionControl.tsx",
+    "ui-v2/src/store/index.ts",
+    "ui-v2/src/api/client.ts",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/",
+    "ui-v2/src/components/CinemaMode.tsx"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Mission Control renders with real data.",
+      "Tasks expand on click.",
+      "Proposals approvable.",
+      "Build succeeds."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-268 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Other screens",
+    "Backend changes",
+    "Old ui/ directory changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

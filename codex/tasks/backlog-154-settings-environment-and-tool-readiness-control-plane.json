@@ -10,7 +10,7 @@
   "generation_reason": "The operator needs settings that explain what can be entered and what it affects, including concurrency limits and tool availability. Earlier settings tasks added pieces, but not a unified readiness/control-plane view.",
   "queue_index": 154,
   "source_context": {
-    "queue_index": 154,
+    "queue_index": 151,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md",

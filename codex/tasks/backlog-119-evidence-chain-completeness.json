@@ -10,7 +10,7 @@
   "generation_reason": "RFC 3161 timestamp column does not exist in DB. Zero finding audit events in 3050 total events. CVSS field missing. These three gaps prevent the system from being legally defensible.",
   "queue_index": 119,
   "source_context": {
-    "queue_index": 119,
+    "queue_index": 118,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "api/app/services/evidence_integrity.py",

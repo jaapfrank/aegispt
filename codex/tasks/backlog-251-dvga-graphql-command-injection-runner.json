@@ -9,7 +9,7 @@
   "generated_by": "operator-requested-dvga-command-injection-follow-up-2026-05-06",
   "generation_reason": "The operator asked to create a separate task for DVGA GraphQL OS-command-injection coverage after backlog-242 kept systemDiagnostics out of the generic graphql-probe runner.",
   "source_context": {
-    "queue_index": 251,
+    "queue_index": 211,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-242-authorized-dvga-graphql-live-lab-validation.json",

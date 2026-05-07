@@ -9,7 +9,7 @@
   "generated_by": "enterprise-queue-review-2026-05-04",
   "generation_reason": "Backlog-186 made deployment hardening visible, but enterprise readiness still needs proof that the hardened deployment path actually works beyond development-mode diagnostics.",
   "source_context": {
-    "queue_index": 224,
+    "queue_index": 192,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-183-backup-restore-upgrade-rollback-drill.json",

@@ -10,7 +10,7 @@
   "generation_reason": "Database is plain SQLite with no encryption. All pentest findings, IP addresses, credential hashes, and vulnerability details are readable by anyone with filesystem access. GDPR requires appropriate technical measures for sensitive data.",
   "queue_index": 128,
   "source_context": {
-    "queue_index": 128,
+    "queue_index": 127,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

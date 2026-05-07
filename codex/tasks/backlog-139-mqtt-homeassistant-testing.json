@@ -10,7 +10,7 @@
   "generation_reason": "Home Assistant (port 8123) and MQTT brokers (port 1883) are present in the user's network. MQTT with anonymous access exposes ALL smart home device states, commands, and potentially sensitive data. Home Assistant without authentication gives complete smart home control. Neither is currently tested.",
   "queue_index": 139,
   "source_context": {
-    "queue_index": 139,
+    "queue_index": 137,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

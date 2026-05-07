@@ -1,0 +1,99 @@
+{
+  "id": "backlog-271-react-v2-findings-theater",
+  "task_file": "codex/tasks/backlog-271-react-v2-findings-theater.json",
+  "task_type": "product_slice",
+  "title": "React v2 Findings Theater: two-column list + slide-in drawer with evidence, AI enrichment, CVSS, OWASP, and attack path tab",
+  "goal": "Build src/components/screens/FindingsTheater.tsx. REQUIRES backlog-268. Layout: two columns — LEFT (findings list, 55%) and RIGHT (finding detail drawer, 45%, hidden when no finding selected). FINDINGS LIST: Filter bar at top with: severity filter (All/Critical/High/Medium/Low/Info), status filter (all/open/false-positive/fixed), search text input. Call GET /api/v1/runs/{runId}/findings?theater=true from the API. Group findings by severity. Each finding row shows: colored severity badge (Critical=red, High=amber, Medium=yellow, Low=cyan, Info=grey), finding title, tool that found it (small tag), target (truncated to 30 chars), status badge. Clicking a row: set selectedFindingId in store, load detail. FINDING DETAIL DRAWER — slides in from right using Framer Motion. Header: finding title + severity badge. Sections (collapsible): (a) SUMMARY: description text. CVSS score gauge (0-10 scale, color-coded). OWASP category badge (e.g. 'A01:2021 Broken Access Control'). (b) TECHNICAL EVIDENCE: the finding's raw_evidence text in a monospace code block with copy button. SHA-256 hash shown below. (c) AI ENRICHMENT: business_impact and remediation_steps from ai_enrichment data (if available). If not available and ChatGPT connected: 'Enrich Now' button that POSTs to /api/v1/runs/{runId}/findings/{findingId}/enrich. If not connected: 'Connect ChatGPT in Settings to enable'. (d) REMEDIATION: step-by-step fix list. 'Mark as Fixed' button (PATCH /api/v1/findings/{id} with status=fixed). 'Mark as False Positive' button. (e) PUSH TO JIRA: button visible if Jira configured in settings. POSTs to integration endpoint. (f) ATTACK PATH TAB: only visible when finding has compound_chain_id. Shows the chain as a horizontal flow: [Finding A] → [caused] → [Finding B] → [enabled] → [Finding C]. Each node shows title, severity, tool. Arrows show the causal reasoning text from AgentReasoning. Close button (X) on drawer hides it.",
+  "scope": "React v2 Findings Theater replaces the old findings.js. Two-column layout with slide-in drawer.",
+  "status": "queued",
+  "generated_by": "react-v2-planning-2026-05-07",
+  "generation_reason": "Findings Theater is the primary analysis screen. Must show real findings with evidence, CVSS, OWASP, AI enrichment.",
+  "source_context": {
+    "queue_index": 223,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "codex/tasks/backlog-268-react-v2-foundation-store-api-routing.json"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-268 completed first.",
+    "broader_theme": "react_v2_findings",
+    "source_documents": [
+      "ui-v2/src/api/client.ts",
+      "api/app/routers/findings.py",
+      "api/app/routers/runs.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Findings screen only.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Findings list renders from real GET /api/v1/runs/{id}/findings?theater=true.",
+    "Filter bar filters by severity and status.",
+    "Clicking finding opens drawer with Framer Motion slide-in.",
+    "Drawer shows raw_evidence in monospace code block with hash.",
+    "AI enrichment shown when available, 'Enrich Now' when not.",
+    "Mark as Fixed and False Positive buttons PATCH the finding.",
+    "Attack path tab shown only when compound_chain_id exists.",
+    "Drawer closes with X button.",
+    "Build succeeds."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/FindingsTheater.tsx",
+    "ui-v2/src/api/client.ts",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/",
+    "ui/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Findings list loads from API.",
+      "Drawer opens/closes.",
+      "Evidence displayed.",
+      "Build passes."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task.",
+      "python3 scripts/validate_backlog_tasks.py passes.",
+      "backlog-268 completed."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Other screens",
+    "Backend changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

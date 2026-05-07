@@ -9,7 +9,7 @@
   "generated_by": "architectural-review-2026-05-06",
   "generation_reason": "ChatGPT identified adaptive waves as the final piece \u2014 one batch then stop is still suboptimal. Evidence from Wave 1 must feed Wave 2 planning so WAIT runners can be promoted.",
   "source_context": {
-    "queue_index": 258,
+    "queue_index": 218,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-255-ai-adaptive-assessment-planner.json",

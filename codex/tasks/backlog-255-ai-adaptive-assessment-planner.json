@@ -9,7 +9,7 @@
   "generated_by": "architectural-review-2026-05-06",
   "generation_reason": "Evidence-driven tool selection: stop running all 20 tools always. Planner reads signals, scores runners by evidence match, shows operator 7 selected / 11 skipped / 5 waiting plan.",
   "source_context": {
-    "queue_index": 256,
+    "queue_index": 216,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/tasks/backlog-256-technology-fingerprinting-stack-detection.json",

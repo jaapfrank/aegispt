@@ -10,7 +10,7 @@
   "generation_reason": "The operator observed mismatches such as Findings showing nothing while Problems or run state imply data, History being low-value, and reports/actions appearing available for runs that are queued or incomplete. This task closes lifecycle consistency across post-run surfaces.",
   "queue_index": 155,
   "source_context": {
-    "queue_index": 155,
+    "queue_index": 152,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [
       "codex/results/full-system-audit-and-task-plan-20260430.md"
