@@ -1,6 +1,18 @@
 import { useAegisStore } from '../store';
 import type {
   AgentProposal,
+  AiResearchGeneration,
+  AiResearchGenerationInput,
+  AiResearchLab,
+  CapabilityPack,
+  CapabilityPackArtifact,
+  CapabilityPackDeployment,
+  CapabilityPackValidation,
+  CustomVulnerability,
+  CustomVulnerabilityExport,
+  CustomVulnerabilityInput,
+  CustomVulnerabilityList,
+  DashboardRead,
   Engagement,
   EngagementCreateInput,
   ApiKeyCreateInput,
@@ -16,6 +28,11 @@ import type {
   InventoryRunCreateInput,
   InventorySnapshot,
   JsonMap,
+  PortfolioRun,
+  ProblemBulkUpdateInput,
+  ProblemBulkUpdateRead,
+  ProblemsQuery,
+  ProblemsRead,
   RunReportCatalogItem,
   Run,
   RunAiInsights,
@@ -145,8 +162,28 @@ export async function getEngagements(): Promise<Engagement[]> {
   return api<Engagement[]>('/api/v1/engagements');
 }
 
+export async function getDashboard(engagementId?: UUID | null): Promise<DashboardRead> {
+  const query = engagementId ? `?engagement_id=${encodeURIComponent(engagementId)}` : '';
+  return api<DashboardRead>(`/api/v1/dashboard${query}`);
+}
+
 export async function getRunsForEngagement(engagementId: UUID): Promise<Run[]> {
   return api<Run[]>(`/api/v1/engagements/${engagementId}/runs`);
+}
+
+export async function getPortfolioRuns(): Promise<PortfolioRun[]> {
+  const engagements = await getEngagements();
+  const runGroups = await Promise.all(
+    engagements.map(async (engagement) => {
+      const runs = await getRunsForEngagement(engagement.id);
+      return runs.map((run) => ({
+        ...run,
+        engagement_name: engagement.name,
+        engagement_client: engagement.client,
+      }));
+    }),
+  );
+  return runGroups.flat().sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at));
 }
 
 export async function getRun(runId: UUID): Promise<Run> {
@@ -212,6 +249,15 @@ export async function getRunInventory(runId: UUID): Promise<InventorySnapshot | 
   }
 
   const snapshots = await api<InventorySnapshot[]>(`/api/v1/engagements/${run.engagement_id}/inventory`);
+  return snapshots[0] ?? null;
+}
+
+export async function getEngagementInventory(engagementId: UUID): Promise<InventorySnapshot[]> {
+  return api<InventorySnapshot[]>(`/api/v1/engagements/${engagementId}/inventory`);
+}
+
+export async function getLatestEngagementInventory(engagementId: UUID): Promise<InventorySnapshot | null> {
+  const snapshots = await getEngagementInventory(engagementId);
   return snapshots[0] ?? null;
 }
 
@@ -300,6 +346,110 @@ export async function resumeScheduledRun(engagementId: UUID, scheduleId: UUID): 
 
 export async function exportEngagementData(engagementId: UUID): Promise<JsonMap> {
   return api<JsonMap>(`/api/v1/engagements/${engagementId}/data-export`);
+}
+
+export async function getProblems(query: ProblemsQuery = {}): Promise<ProblemsRead> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, String(value));
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return api<ProblemsRead>(`/api/v1/problems${suffix}`);
+}
+
+export async function bulkUpdateProblems(data: ProblemBulkUpdateInput): Promise<ProblemBulkUpdateRead> {
+  return api<ProblemBulkUpdateRead>('/api/v1/problems/bulk', {
+    method: 'PATCH',
+    json: data,
+  });
+}
+
+export async function getEngagementPacks(engagementId: UUID): Promise<CapabilityPack[]> {
+  return api<CapabilityPack[]>(`/api/v1/engagements/${engagementId}/packs`);
+}
+
+export async function getPackArtifacts(packId: UUID): Promise<CapabilityPackArtifact[]> {
+  return api<CapabilityPackArtifact[]>(`/api/v1/packs/${packId}/artifacts`);
+}
+
+export async function validatePack(packId: UUID): Promise<CapabilityPackValidation> {
+  return api<CapabilityPackValidation>(`/api/v1/packs/${packId}/validate`, {
+    method: 'POST',
+  });
+}
+
+export async function approvePack(packId: UUID): Promise<CapabilityPack> {
+  return api<CapabilityPack>(`/api/v1/packs/${packId}/approve?notes=${encodeURIComponent('React v2 operator approval')}`, {
+    method: 'POST',
+  });
+}
+
+export async function deployPack(packId: UUID, engagementId: UUID): Promise<CapabilityPackDeployment> {
+  return api<CapabilityPackDeployment>(`/api/v1/packs/${packId}/deploy`, {
+    method: 'POST',
+    json: {
+      engagement_id: engagementId,
+      deployment_target: 'engagement-runtime',
+      notes: 'React v2 operator deployment request',
+    },
+  });
+}
+
+export async function downloadArtifactContent(artifactId: UUID): Promise<Blob> {
+  return apiBlob(`/api/v1/artifacts/${artifactId}/content`);
+}
+
+export async function getCustomVulnerabilities(): Promise<CustomVulnerabilityList> {
+  return api<CustomVulnerabilityList>('/api/v1/custom-vulnerabilities');
+}
+
+export async function createCustomVulnerability(data: CustomVulnerabilityInput): Promise<CustomVulnerability> {
+  return api<CustomVulnerability>('/api/v1/custom-vulnerabilities', {
+    method: 'POST',
+    json: data,
+  });
+}
+
+export async function updateCustomVulnerability(id: UUID, data: Partial<CustomVulnerabilityInput>): Promise<CustomVulnerability> {
+  return api<CustomVulnerability>(`/api/v1/custom-vulnerabilities/${id}`, {
+    method: 'PATCH',
+    json: data,
+  });
+}
+
+export async function deleteCustomVulnerability(id: UUID): Promise<CustomVulnerability> {
+  return api<CustomVulnerability>(`/api/v1/custom-vulnerabilities/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function importCustomVulnerabilities(payload: string): Promise<JsonMap> {
+  return api<JsonMap>('/api/v1/custom-vulnerabilities/import', {
+    method: 'POST',
+    json: {
+      format: 'plain_text',
+      payload,
+      use_ai: false,
+      default_status: 'draft',
+    },
+  });
+}
+
+export async function exportCustomVulnerabilities(): Promise<CustomVulnerabilityExport> {
+  return api<CustomVulnerabilityExport>('/api/v1/custom-vulnerabilities/export');
+}
+
+export async function getAiResearchLab(engagementId: UUID): Promise<AiResearchLab> {
+  return api<AiResearchLab>(`/api/v1/ai/research?engagement_id=${engagementId}`);
+}
+
+export async function generateAiResearchScript(data: AiResearchGenerationInput): Promise<AiResearchGeneration> {
+  return api<AiResearchGeneration>('/api/v1/ai/research/generate-script', {
+    method: 'POST',
+    json: data,
+  });
 }
 
 export async function postEngagement(data: EngagementCreateInput): Promise<Engagement> {

@@ -2,16 +2,18 @@ import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import {
   Activity,
+  Archive,
   BadgeAlert,
   Box,
   ChevronDown,
   Crosshair,
+  Database,
   FileText,
   FlaskConical,
-  Gauge,
   History,
+  LayoutDashboard,
+  Map,
   Plus,
-  ScrollText,
   Settings,
   Shield,
   ShieldAlert,
@@ -20,10 +22,18 @@ import { Link, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Intake from './components/Intake';
+import CustomCVELibrary from './components/screens/CustomCVELibrary';
+import DashboardScreen from './components/screens/Dashboard';
+import EvidenceReplay from './components/screens/EvidenceReplay';
 import FindingsTheater from './components/screens/FindingsTheater';
+import HistoryScreen from './components/screens/History';
 import MissionControl from './components/screens/MissionControl';
+import PacksScreen from './components/screens/Packs';
+import ProblemsCenter from './components/screens/ProblemsCenter';
+import ResearchScreen from './components/screens/Research';
 import ReportCenter from './components/screens/ReportCenter';
 import SettingsScreen from './components/screens/Settings';
+import SurfaceMap from './components/screens/SurfaceMap';
 import {
   getEngagements,
   getRunAiInsights,
@@ -55,6 +65,7 @@ const navSections: NavSection[] = [
   {
     label: 'Operate',
     items: [
+      { to: '/', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/intake', label: 'Intake', icon: Crosshair },
       { to: '/mission-control', label: 'Mission Control', icon: Activity, pulse: true },
     ],
@@ -62,6 +73,8 @@ const navSections: NavSection[] = [
   {
     label: 'Analyze',
     items: [
+      { to: '/surface-map', label: 'Surface Map', icon: Map },
+      { to: '/evidence', label: 'Evidence Replay', icon: Archive },
       { to: '/findings', label: 'Findings', icon: ShieldAlert, badgeKey: 'findings' },
       { to: '/reports', label: 'Reports', icon: FileText },
       { to: '/history', label: 'History', icon: History },
@@ -72,6 +85,7 @@ const navSections: NavSection[] = [
     label: 'Build',
     items: [
       { to: '/packs', label: 'Packs', icon: Box },
+      { to: '/cve-library', label: 'CVE Library', icon: Database },
       { to: '/research', label: 'Research', icon: FlaskConical },
     ],
   },
@@ -81,16 +95,19 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<DashboardScreen />} />
         <Route path="intake" element={<IntakeScreen />} />
         <Route path="mission-control" element={<MissionControl />} />
+        <Route path="surface-map" element={<SurfaceMap />} />
+        <Route path="evidence" element={<EvidenceReplay />} />
         <Route path="findings" element={<FindingsTheater />} />
         <Route path="reports" element={<ReportCenter />} />
+        <Route path="history" element={<HistoryScreen />} />
+        <Route path="problems" element={<ProblemsCenter />} />
+        <Route path="packs" element={<PacksScreen />} />
+        <Route path="cve-library" element={<CustomCVELibrary />} />
+        <Route path="research" element={<ResearchScreen />} />
         <Route path="settings" element={<SettingsScreen />} />
-        <Route path="history" element={<PlaceholderScreen title="History" detail="Historical runs will use the shared engagement and run store." />} />
-        <Route path="problems" element={<PlaceholderScreen title="Problems Center" detail="Cross-engagement finding workflow arrives in a later v2 slice." />} />
-        <Route path="packs" element={<PlaceholderScreen title="Packs" detail="Pack lifecycle screens will call the existing governed APIs." />} />
-        <Route path="research" element={<PlaceholderScreen title="Research" detail="AI research workflows remain operator-reviewed and evidence-backed." />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
@@ -396,34 +413,6 @@ function NavItem({
   );
 }
 
-function Dashboard() {
-  const engagements = useAegisStore((state) => state.engagements);
-  const runs = useAegisStore((state) => state.runs);
-  const selectedEngagement = useAegisStore((state) => state.selectedEngagement);
-  const loading = useAegisStore((state) => state.loading);
-
-  return (
-    <section className="max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
-        <p className="text-muted text-[13px]">
-          {selectedEngagement
-            ? `Backend bootstrap selected ${selectedEngagement.name}.`
-            : loading.bootstrap
-              ? 'Loading engagements from AegisPT.'
-              : 'No engagement data returned from the backend.'}
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard icon={<Gauge size={16} />} label="Engagements" value={engagements.length} />
-        <MetricCard icon={<Activity size={16} />} label="Runs" value={runs.length} />
-        <MetricCard icon={<ScrollText size={16} />} label="Source" value="Backend" />
-      </div>
-    </section>
-  );
-}
-
 function IntakeScreen() {
   return (
     <div className="h-full w-full flex flex-col">
@@ -434,27 +423,6 @@ function IntakeScreen() {
       <div className="flex-1 min-h-0">
         <Intake />
       </div>
-    </div>
-  );
-}
-
-function PlaceholderScreen({ title, detail }: { title: string; detail: string }) {
-  return (
-    <section className="max-w-4xl">
-      <h1 className="text-xl font-semibold mb-2">{title}</h1>
-      <p className="text-muted text-[13px]">{detail}</p>
-    </section>
-  );
-}
-
-function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string | number }) {
-  return (
-    <div className="glass-panel rounded-lg p-4">
-      <div className="mb-3 flex items-center gap-2 text-cyan">
-        {icon}
-        <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
-      </div>
-      <div className="text-2xl font-semibold text-text">{value}</div>
     </div>
   );
 }

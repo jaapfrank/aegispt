@@ -1,5 +1,51 @@
 # Done Log
 
+- 2026-05-08: completed backlog-274 `React v2 remaining screens: Dashboard, History, Problems Center, Surface Map, Packs, Evidence Replay, Custom CVE Library, Research`:
+  - rationale:
+    - the active task required replacing the remaining React v2 placeholders with eight real-data screens while keeping the rebuilt UI inside the existing backend safety and provenance contracts
+    - `inputs.prerequisite_backlog` was `REQUIRES: backlog-268 through backlog-273 completed first.` and all six prerequisites are present in this log
+    - `http://127.0.0.1:8000` was relevant because the v2 screens validate through the Vite proxy against live FastAPI endpoints
+  - implementation:
+    - added separate React v2 screens for Dashboard, History, Problems Center, Surface Map, Packs, Evidence Replay, Custom CVE Library, and Research
+    - wired all eight screens into `ui-v2/src/App.tsx` sidebar navigation and routes
+    - extended the v2 API client/types for dashboard, portfolio run aggregation, problems, inventory snapshots, pack lifecycle, artifact content, custom vulnerabilities, and AI research
+    - added shared v2 screen primitives for headers, panels, metric cards, badges, fields, buttons, formatting, and JSON download
+    - documented repo-truth endpoint differences: History uses engagement-scoped run endpoints, Surface Map selects the latest returned engagement inventory snapshot, and Packs uses engagement-scoped pack APIs
+    - kept old `/app/`, old `ui/`, `api/`, `workers/`, runner registry, approvals, scope, ROE, credentials, provenance, reports, runtime binding, and kill switch untouched
+  - files:
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `ui-v2/src/components/screens/Dashboard.tsx`
+    - `ui-v2/src/components/screens/History.tsx`
+    - `ui-v2/src/components/screens/ProblemsCenter.tsx`
+    - `ui-v2/src/components/screens/SurfaceMap.tsx`
+    - `ui-v2/src/components/screens/Packs.tsx`
+    - `ui-v2/src/components/screens/EvidenceReplay.tsx`
+    - `ui-v2/src/components/screens/CustomCVELibrary.tsx`
+    - `ui-v2/src/components/screens/Research.tsx`
+    - `ui-v2/src/components/screens/screenPrimitives.tsx`
+    - `codex/results/backlog-274-react-v2-remaining-screens-20260508.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `extra_tests.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `cd ui-v2 && npm run build` passed with no TypeScript errors; Vite emitted only the existing chunk-size warning
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000`
+    - Playwright acceptance passed against `http://127.0.0.1:5173` with all eight routes on 1440px, 1024px, 768px, and 375px
+    - Playwright observed 836 real `/api/v1/` responses, zero API 5xx responses, no console errors, and no horizontal overflow
+    - Playwright proved the History Compare control, Custom CVE create/edit/delete, and Research generation control wiring
+  - proof:
+    - evidence file `codex/results/backlog-274-react-v2-remaining-screens-20260508.md` records behavior, endpoint exceptions, validation, browser proof, and safety boundaries
+  - exceptions:
+    - pack validate/approve/deploy and Problems bulk mutation controls were wired to existing APIs but not live-executed in browser acceptance to avoid unintended lifecycle changes in the shared local dataset; tracked in `extra_tests.md`
+    - Research provider-enabled generation quality is not claimed beyond endpoint/control wiring; tracked in `extra_tests.md`
+  - remaining risks:
+    - no new open product risk was added; non-live mutation/provider proof gaps are tracked as extra tests
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-275 `React v2 Cinema Mode real data`, from `codex/tasks/backlog-275-react-v2-cinema-mode-real-data.json`
+
 - 2026-05-07: completed backlog-272 `React v2 Report Center: run selector, adaptive report catalog, markdown/HTML/PDF preview, and download actions`:
   - rationale:
     - the React v2 Reports route still used a placeholder, so operators could not preview, compare, or download evidence-backed report outputs in the rebuilt UI

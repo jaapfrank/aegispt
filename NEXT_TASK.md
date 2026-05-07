@@ -2,41 +2,34 @@
 
 ## Title
 
-React v2 remaining screens: Dashboard, History, Problems Center, Surface Map, Packs, Evidence Replay, Custom CVE Library, Research
+React v2 Cinema Mode: replace hardcoded EVENT_STREAM with real run data — hosts as 3D nodes, live task stdout, local fonts
 
 ## Promoted From
 
-`codex/tasks/backlog-274-react-v2-remaining-screens.json`
+`codex/tasks/backlog-275-react-v2-cinema-mode-real-data.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-274-react-v2-remaining-screens.json` so the React v2 application exposes the remaining real-data screens after the foundation, Mission Control, Intake, Findings Theater, Report Center, and Settings slices.
+Implement the active backlog package `codex/tasks/backlog-275-react-v2-cinema-mode-real-data.json` so React v2 Cinema Mode uses real inventory, task stdout, findings, and AI proposal data instead of hardcoded mock streams.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-274-react-v2-remaining-screens.json`.
+Implement the active backlog package `codex/tasks/backlog-275-react-v2-cinema-mode-real-data.json`.
 
-Expected React v2 remaining screens slice:
+Expected React v2 Cinema Mode slice:
 
-- build separate files under `ui-v2/src/components/screens/` for:
-  - `Dashboard.tsx`
-  - `History.tsx`
-  - `ProblemsCenter.tsx`
-  - `SurfaceMap.tsx`
-  - `Packs.tsx`
-  - `EvidenceReplay.tsx`
-  - `CustomCVELibrary.tsx`
-  - `Research.tsx`
-- wire all eight screens into `ui-v2/src/App.tsx`
-- use real backend APIs where available and keep unavailable states honest where repo truth does not expose a matching endpoint
-- keep each screen within React v2 UI scope and preserve existing backend safety controls
+- replace hardcoded target/node data in `ui-v2/src/components/CinemaMode.tsx` with real hosts from the selected run inventory snapshot
+- replace the hardcoded event stream with real task stdout polling from existing run/task APIs
+- load Fira Mono locally from `ui-v2/public/fonts/FiraMono.woff2`
+- make the bottom HUD and stats overlay reflect real selected-run data
+- keep camera movement deterministic and tied to the active task target where possible
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- This task depends on completed backlog-268 through backlog-273.
-- Work only in the React v2 remaining screens scope.
-- Do not touch `api/`, `workers/`, or old `ui/` unless the task package and repo truth make a narrow typed API addition unavoidable; document any exception before implementation.
+- This task depends on completed backlog-268 and backlog-269.
+- Work only in the React v2 Cinema Mode real-data scope.
+- Do not touch `api/`, `workers/`, old `ui/`, or unrelated React v2 screens unless repo truth makes a narrow typed store/API addition unavoidable; document any exception before implementation.
 - Do not bypass existing backend scope, ROE, approval, runner registry, provenance, report, credential, runtime binding, or kill-switch behavior.
 - Do not create runtime self-modification or uncontrolled plugin installation.
 - Production UI must use existing icon patterns and no emoji.
@@ -50,12 +43,11 @@ Expected React v2 remaining screens slice:
 
 ## Acceptance
 
-- All eight remaining screens render and are reachable from navigation.
-- Dashboard uses real dashboard/engagement/run/finding data where available.
-- History loads real runs with filters where backend contracts support them.
-- Problems Center shows real finding lifecycle data where backend contracts support it.
-- Surface Map uses real inventory data where available.
-- Packs list uses real pack data where available.
-- Evidence Replay shows real task execution/stdout/artifact data where available.
-- Custom CVE Library and Research screens keep unavailable backend states honest rather than using fake data.
+- Cinema Mode opens with real inventory hosts as 3D nodes when inventory exists.
+- Cinema Mode shows a truthful waiting/discovery fallback when no inventory exists.
+- Event stream uses real task stdout changes, not hardcoded `EVENT_STREAM`.
+- Local font path `/fonts/FiraMono.woff2` is used; no Google Fonts URL remains.
+- Bottom HUD shows real active tool and target names.
+- Camera follows the actual running task target node where possible.
+- Stats overlay shows real critical findings, high findings, host count, and pending AI proposal count.
 - Build passes with no TypeScript errors.
