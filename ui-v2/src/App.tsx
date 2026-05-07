@@ -23,6 +23,7 @@ import Intake from './components/Intake';
 import FindingsTheater from './components/screens/FindingsTheater';
 import MissionControl from './components/screens/MissionControl';
 import ReportCenter from './components/screens/ReportCenter';
+import SettingsScreen from './components/screens/Settings';
 import {
   getEngagements,
   getRunAiInsights,
@@ -85,7 +86,7 @@ export default function App() {
         <Route path="mission-control" element={<MissionControl />} />
         <Route path="findings" element={<FindingsTheater />} />
         <Route path="reports" element={<ReportCenter />} />
-        <Route path="settings" element={<PlaceholderScreen title="Settings" detail="Instance and operator settings are already bootstrapped into the store." />} />
+        <Route path="settings" element={<SettingsScreen />} />
         <Route path="history" element={<PlaceholderScreen title="History" detail="Historical runs will use the shared engagement and run store." />} />
         <Route path="problems" element={<PlaceholderScreen title="Problems Center" detail="Cross-engagement finding workflow arrives in a later v2 slice." />} />
         <Route path="packs" element={<PlaceholderScreen title="Packs" detail="Pack lifecycle screens will call the existing governed APIs." />} />

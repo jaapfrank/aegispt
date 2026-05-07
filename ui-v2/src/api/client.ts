@@ -3,6 +3,12 @@ import type {
   AgentProposal,
   Engagement,
   EngagementCreateInput,
+  ApiKeyCreateInput,
+  ApiKeyCreateRead,
+  ApiKeyRead,
+  ChatGptOAuthAuthorize,
+  ChatGptOAuthStatus,
+  EnterpriseIdentityStatus,
   Finding,
   FindingEvidenceReplay,
   FindingStatusUpdateInput,
@@ -18,8 +24,10 @@ import type {
   RunIntakeInterpretation,
   RunIntakeInterpretationInput,
   ScopeInput,
+  ScheduledRun,
   Settings,
   SettingsEnvelope,
+  SettingsPatchInput,
   SettingsReadiness,
   Task,
   TaskDetail,
@@ -236,6 +244,62 @@ export async function getSettings(): Promise<SettingsEnvelope> {
     chatgpt_connected: chatgptValue === true || chatgptValue === 'true',
     tool_readiness: Object.fromEntries((readiness?.tools ?? []).map((tool) => [tool.id, tool])),
   };
+}
+
+export async function patchSettings(data: SettingsPatchInput): Promise<Settings> {
+  return api<Settings>('/api/v1/settings', {
+    method: 'PATCH',
+    json: data,
+  });
+}
+
+export async function getChatGptOAuthStatus(engagementId: UUID): Promise<ChatGptOAuthStatus> {
+  return api<ChatGptOAuthStatus>(`/api/v1/auth/chatgpt/status?engagement_id=${engagementId}`);
+}
+
+export async function authorizeChatGptOAuth(engagementId: UUID): Promise<ChatGptOAuthAuthorize> {
+  return api<ChatGptOAuthAuthorize>(`/api/v1/auth/chatgpt/authorize?engagement_id=${engagementId}`);
+}
+
+export async function getApiKeys(): Promise<ApiKeyRead[]> {
+  return api<ApiKeyRead[]>('/api/v1/auth/keys');
+}
+
+export async function createApiKey(data: ApiKeyCreateInput): Promise<ApiKeyCreateRead> {
+  return api<ApiKeyCreateRead>('/api/v1/auth/keys', {
+    method: 'POST',
+    json: data,
+  });
+}
+
+export async function revokeApiKey(keyId: UUID): Promise<ApiKeyRead> {
+  return api<ApiKeyRead>(`/api/v1/auth/keys/${keyId}/revoke`, {
+    method: 'POST',
+  });
+}
+
+export async function getEnterpriseIdentityStatus(): Promise<EnterpriseIdentityStatus> {
+  return api<EnterpriseIdentityStatus>('/api/v1/auth/identity/status');
+}
+
+export async function getScheduledRuns(engagementId: UUID): Promise<ScheduledRun[]> {
+  return api<ScheduledRun[]>(`/api/v1/engagements/${engagementId}/schedules`);
+}
+
+export async function pauseScheduledRun(engagementId: UUID, scheduleId: UUID): Promise<ScheduledRun> {
+  return api<ScheduledRun>(`/api/v1/engagements/${engagementId}/schedules/${scheduleId}/pause`, {
+    method: 'POST',
+  });
+}
+
+export async function resumeScheduledRun(engagementId: UUID, scheduleId: UUID): Promise<ScheduledRun> {
+  return api<ScheduledRun>(`/api/v1/engagements/${engagementId}/schedules/${scheduleId}/resume`, {
+    method: 'POST',
+  });
+}
+
+export async function exportEngagementData(engagementId: UUID): Promise<JsonMap> {
+  return api<JsonMap>(`/api/v1/engagements/${engagementId}/data-export`);
 }
 
 export async function postEngagement(data: EngagementCreateInput): Promise<Engagement> {

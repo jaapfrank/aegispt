@@ -13156,3 +13156,41 @@
   - remaining risks:
     - no new open product risk was added; the remaining live-runner proof gap is tracked as an extra test
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-258 `Runner capability metadata`, from `codex/tasks/backlog-258-runner-capability-metadata.json`
+- 2026-05-08: completed backlog-273 `React v2 Settings: five-tab navigation with AI & Provider, Tools & Runtime, Integrations, Data & Security, Identity & Users panels`:
+  - rationale:
+    - the active task required replacing the React v2 Settings placeholder with a five-tab, real-API configuration surface while preserving existing backend settings/auth/readiness contracts
+    - prerequisite `REQUIRES: backlog-268 completed first.` was satisfied in `DONE_LOG.md`
+    - `http://127.0.0.1:8000` was relevant because Settings calls live API endpoints through the Vite proxy
+  - implementation:
+    - added `ui-v2/src/components/screens/Settings.tsx` with summary chips, five tabs, collapsible sections, readiness status rows, Settings PATCH save handling, ChatGPT status/authorize actions, API key list/create/revoke, actor localStorage/Zustand persistence, scheduled scan visibility, and data export controls
+    - wired `/settings` in `ui-v2/src/App.tsx`
+    - extended the v2 API client/types for Settings PATCH, ChatGPT OAuth, API keys, enterprise identity, scheduled scans, and engagement data export
+    - kept unavailable CI/CD webhook and purge actions honest/read-only where current repo truth does not expose a matching Settings-screen contract
+  - files:
+    - `ui-v2/src/components/screens/Settings.tsx`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `codex/results/backlog-273-react-v2-settings-20260508.md`
+    - `codex/results/playwright-backlog-273-settings/`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `extra_tests.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `cd ui-v2 && npm run build` passed
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000`
+    - Playwright acceptance passed against `http://127.0.0.1:5173/settings` on 1440px, 1024px, 768px, and 375px, including real Settings/Auth/Readiness/Data API calls
+    - Playwright proof passed for the `Connect ChatGPT` control calling the real authorize endpoint and returning an honest backend state without completing external provider login
+    - separate Playwright proof passed for `PATCH /api/v1/settings`
+  - proof:
+    - evidence file `codex/results/backlog-273-react-v2-settings-20260508.md` records behavior, boundaries, API calls, and browser artifacts
+    - screenshots prove the Settings screen on the required viewports and after actor/API-key/data-export actions
+    - exported engagement data JSON proves the Settings data-export path used the existing backend endpoint
+  - exceptions:
+    - full external ChatGPT login was not completed in automated browser acceptance; status refresh and the governed authorize control are wired to the real backend, and the remaining provider-login proof is tracked in `extra_tests.md` XT-022
+    - CI/CD webhook and typed purge controls stay disabled because current repo truth does not expose safe direct Settings-screen endpoints for them
+  - remaining risks:
+    - no new open product risk was added; remaining live provider-login proof is tracked as an extra test
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-274 `React v2 remaining screens`, from `codex/tasks/backlog-274-react-v2-remaining-screens.json`

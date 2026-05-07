@@ -419,17 +419,40 @@ export interface Settings {
 export interface ToolReadiness {
   id: string;
   title: string;
+  binary_names?: string[];
+  required_binary_groups?: string[][];
   status: string;
+  required?: boolean;
   installed: boolean;
+  detected_path?: string | null;
+  detected_paths?: Record<string, string>;
   missing_binaries: string[];
+  affected_assessment_families?: string[];
   operator_next_step: string;
+  install_command?: string | null;
+  repair_command?: string | null;
+  repair_action_label?: string | null;
+  repair_action_kind?: string;
+  software_installable?: boolean;
+  hardware_required?: boolean;
+}
+
+export interface ReadinessCapability {
+  id: string;
+  title: string;
+  status: string;
+  summary: string;
+  details: string[];
+  operator_next_step: string;
+  affected_assessment_families: string[];
+  metadata: JsonMap;
 }
 
 export interface SettingsReadiness {
   tenant_id: string;
   generated_at: IsoDateTime;
   overall_status: string;
-  capabilities: JsonMap[];
+  capabilities: ReadinessCapability[];
   tools: ToolReadiness[];
   artifact: JsonMap;
 }
@@ -439,6 +462,87 @@ export interface SettingsEnvelope {
   readiness: SettingsReadiness | null;
   chatgpt_connected: boolean;
   tool_readiness: Record<string, ToolReadiness>;
+}
+
+export interface SettingsPatchInput {
+  settings: Record<string, unknown>;
+}
+
+export interface ChatGptOAuthStatus {
+  provider?: string;
+  status?: string;
+  configured?: boolean;
+  connected?: boolean;
+  available?: boolean;
+  account_id?: string | null;
+  model?: string | null;
+  token_count?: number | null;
+  reusable_session_count?: number | null;
+  failure_reason?: string | null;
+  message?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ChatGptOAuthAuthorize {
+  provider: string;
+  reused?: boolean;
+  authorization_url?: string | null;
+  state?: string;
+  redirect_uri?: string;
+  local_callback_listener?: JsonMap;
+  status?: JsonMap;
+  token_exposed?: boolean;
+  message?: string;
+}
+
+export interface ApiKeyRead {
+  id: UUID;
+  actor_name: string;
+  role: string;
+  created_at: IsoDateTime;
+  last_used_at: IsoDateTime | null;
+  revoked_at: IsoDateTime | null;
+}
+
+export interface ApiKeyCreateInput {
+  actor_name?: string | null;
+  role: 'admin' | 'operator' | 'reviewer';
+}
+
+export interface ApiKeyCreateRead extends ApiKeyRead {
+  api_key: string;
+  token_exposed_once: boolean;
+}
+
+export interface EnterpriseIdentityStatus {
+  tenant_id: string;
+  provider: string;
+  status: string;
+  configured: boolean;
+  summary: string;
+  operator_next_step: string;
+  missing_fields: string[];
+  configured_secret_labels: string[];
+  session_policy: JsonMap;
+  local_auth: JsonMap;
+  access_boundaries: JsonMap;
+  current_actor: JsonMap;
+  users: JsonMap[];
+  metadata: JsonMap;
+}
+
+export interface ScheduledRun {
+  id: UUID;
+  engagement_id: UUID;
+  profile_name: string;
+  source_inventory_snapshot_id: UUID | null;
+  cadence: string;
+  cron_expression: string;
+  timezone: string;
+  status: string;
+  next_run_at: IsoDateTime;
+  last_run_at: IsoDateTime | null;
+  last_launched_run_id: UUID | null;
 }
 
 export interface EngagementCreateInput {
