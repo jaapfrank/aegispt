@@ -3817,7 +3817,27 @@ def _target_preference(kind: str) -> int:
     return order.get(kind, len(order))
 
 
-def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[dict[str, str]]:
+def _host_targets_from_urls(targets: list[dict[str, str]]) -> list[dict[str, str]]:
+    host_targets: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for target in targets:
+        if target.get("kind") != "url":
+            continue
+        parsed = urlparse(target.get("value", ""))
+        host = str(parsed.hostname or "").strip().lower()
+        if not host or host in seen:
+            continue
+        seen.add(host)
+        host_targets.append({"kind": "host", "value": host})
+    return host_targets
+
+
+def planned_targets_for_tool(
+    tool: str,
+    targets: list[dict[str, str]],
+    *,
+    derive_url_hosts_for_nmap: bool = False,
+) -> list[dict[str, str]]:
     if tool == "external-infra":
         return [
             target
@@ -3877,9 +3897,12 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         return [target for target in targets if target["kind"] in {"host", "url", "target"}]
 
     if tool == "nmap":
-        return [
+        nmap_targets = [
             target for target in targets if target["kind"] in {"host", "cidr", "domain", "target"}
         ]
+        if nmap_targets or not derive_url_hosts_for_nmap:
+            return nmap_targets
+        return _host_targets_from_urls(targets)
 
     if tool == "mdns-ssdp":
         return [target for target in targets if target["kind"] in {"host", "cidr", "target"}]
@@ -4228,7 +4251,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
         )
 
     for tool in tools:
-        tool_targets = planned_targets_for_tool(tool, targets)
+        tool_targets = planned_targets_for_tool(
+            tool,
+            targets,
+            derive_url_hosts_for_nmap=bool(normalized_limits.get("derive_url_hosts_for_nmap")),
+        )
         if tool == "biz-logic-probe":
             validate_business_logic_run_configuration(
                 scope=scope,

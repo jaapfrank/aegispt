@@ -4,7 +4,7 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
   "passive-network-discovery": {
     run_class: "passive",
     limits_json: {
-      description: "Passive-safe host and range discovery using Nmap ping scan semantics.",
+      description: "Low-impact host and range discovery using Nmap ping scan semantics. This sends network traffic and does not perform exploitation.",
       required_approvals: 0,
       tools: ["nmap"],
     },
@@ -12,7 +12,7 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
   "passive-network-service-enumeration": {
     run_class: "passive",
     limits_json: {
-      description: "Passive-safe service identification across discovered hosts using Nmap top-port and service detection.",
+      description: "Low-impact service identification across discovered hosts using Nmap top-port and service detection.",
       required_approvals: 0,
       tools: ["nmap"],
     },
@@ -20,7 +20,7 @@ const RUN_PROFILE_PLAN_FALLBACKS = {
   "passive-web-baseline": {
     run_class: "passive",
     limits_json: {
-      description: "Passive HTTP fingerprinting with the Python httpx runner.",
+      description: "Low-impact HTTP fingerprinting with the Python httpx runner. This sends network traffic and does not perform exploitation.",
       required_approvals: 0,
       tools: ["httpx"],
     },

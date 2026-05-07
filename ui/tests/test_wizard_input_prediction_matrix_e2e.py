@@ -360,6 +360,47 @@ def test_wizard_prediction_matrix_covers_visible_tiles_and_toggle_contract(loade
         expect(loaded_page.locator(".sel-chip")).to_have_count(0)
 
 
+def test_external_web_wizard_offers_recon_first_without_removing_depth_selection(
+    loaded_page: Page,
+) -> None:
+    _reset_wizard(loaded_page)
+    _select_tile(loaded_page, "external-web")
+    _click_selector(loaded_page, "[data-assessment-submit-selection]")
+    target_input = loaded_page.locator('[data-testid="wizard-target-input"]:visible')
+    expect(target_input).to_be_visible()
+    target_input.fill("https://portal.example.com")
+
+    recon_option = loaded_page.get_by_test_id("wizard-depth-tile-quick-recon")
+    expect(recon_option).to_be_visible()
+    expect(recon_option).to_contain_text("Start with quick recon (recommended)")
+    expect(recon_option).to_contain_text(
+        "Sends network traffic to target (nmap port scan + HTTP fingerprinting). No exploitation. ~5 minutes."
+    )
+    expect(loaded_page.get_by_test_id("wizard-depth-card")).to_contain_text(
+        "I already know what to test (pick depth now)"
+    )
+    for depth in ("passive", "active", "full"):
+        expect(loaded_page.get_by_test_id(f"wizard-depth-tile-{depth}")).to_be_visible()
+
+    recon_option.click()
+    _click_selector(loaded_page, "[data-wizard-preview]")
+    preview = loaded_page.locator('[data-testid="wizard-mission-preview"]:visible')
+    expect(preview).to_be_visible()
+    expect(loaded_page.get_by_test_id("wizard-preview-execution-lane")).to_contain_text(
+        "active-low-impact-web-recon"
+    )
+    page_text = loaded_page.locator("body").inner_text().lower()
+    assert "passive nmap" not in page_text
+    assert "passive httpx" not in page_text
+
+    _click_selector(loaded_page, '[data-wizard-flow-step="2"]')
+    loaded_page.get_by_test_id("wizard-depth-tile-active").click()
+    _click_selector(loaded_page, "[data-wizard-preview]")
+    expect(loaded_page.get_by_test_id("wizard-mission-preview")).to_contain_text(
+        "Full External Web"
+    )
+
+
 def test_ssl_tls_and_authenticated_app_tiles_reach_specialized_preview(loaded_page: Page) -> None:
     matrix = _wizard_matrix(loaded_page)
     tile_lookup = {tile["key"]: tile for tile in matrix["assessment_tiles"]}

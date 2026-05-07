@@ -1,5 +1,63 @@
 # Done Log
 
+- 2026-05-07: completed backlog-257 `Recon-first wizard flow: wizard default starts low-impact recon, then shows SignalProfile summary and evidence-based assessment plan`:
+  - rationale:
+    - Website/Web App operators need an honest evidence-first default that starts with low-impact active recon before choosing deeper tools
+    - nmap and httpx are active network-traffic tools, so the wizard now says exactly that and requires explicit approval before recon tasks are queued
+    - the existing `I already know what to test` depth path remains available and still uses the existing fixed-chain/manual wizard flow
+    - `http://127.0.0.1:8000` was relevant because wizard UI/runtime behavior changed; current-code browser acceptance used an isolated temporary server on `127.0.0.1:8765`
+  - implementation:
+    - added `active-low-impact-web-recon`, an approval-gated RunProfile using existing registered `nmap` and `httpx` runners with bounded top-1000 nmap service detection and no exploitation/fuzzing/payload/form submission flags
+    - added scoped URL-host derivation for nmap only when a profile explicitly sets `derive_url_hosts_for_nmap`, so URL-only website recon queues nmap against the approved URL host and httpx against the approved URL
+    - added the wizard Step 2 `Start with quick recon (recommended)` option with copy: `Sends network traffic to target (nmap port scan + HTTP fingerprinting). No exploitation. ~5 minutes.`
+    - kept the existing passive/active/full depth tiles under `I already know what to test (pick depth now)`
+    - recon-first preview creates a single `active-low-impact-web-recon` mission without enabling `FULL-EXTERNAL-WEB`; deeper assessment remains operator-reviewed through SignalProfile and the backlog-255 AssessmentPlan
+    - synchronized the frontend External Web preview/matrix with backend URL-only routing so URL-scope web chains no longer expect EASM first
+    - updated operator-facing nmap/httpx catalogue/profile descriptions away from passive wording toward low-impact active network-traffic language
+  - files:
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/runs.py`
+    - `api/tests/test_runs.py`
+    - `ui/assets/modules/wizard.js`
+    - `ui/assets/modules/packs.js`
+    - `ui/assets/modules/shared.js`
+    - `ui/tests/test_wizard_input_prediction_matrix_e2e.py`
+    - `codex/results/backlog-257-adaptive-recon-first-wizard-flow-20260507.md`
+    - `codex/results/backlog-257-adaptive-recon-first-wizard-flow-playwright-20260507.json`
+    - `codex/results/backlog-257-adaptive-recon-first-wizard-flow-1440-20260507.png`
+    - `codex/results/backlog-257-adaptive-recon-first-wizard-flow-1024-20260507.png`
+    - `codex/results/backlog-257-adaptive-recon-first-wizard-flow-768-20260507.png`
+    - `codex/results/backlog-257-adaptive-recon-first-wizard-flow-375-20260507.png`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+    - `risico.md`
+    - `extra_tests.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check: `inputs.prerequisite_backlog` starts with `REQUIRES:` and `DONE_LOG.md` contains completed backlog-255, backlog-256, and backlog-258
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py::test_low_impact_web_recon_requires_approval_and_queues_nmap_plus_httpx_for_url_scope ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_external_web_wizard_offers_recon_first_without_removing_depth_selection -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_runs.py::test_list_run_profiles api/tests/test_runs.py::test_low_impact_web_recon_requires_approval_and_queues_nmap_plus_httpx_for_url_scope -q` passed
+    - `source .venv/bin/activate && python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_wizard_launch_flow_matches_matrix_for_each_assessment_family ui/tests/test_wizard_input_prediction_matrix_e2e.py::test_external_web_wizard_offers_recon_first_without_removing_depth_selection -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0
+    - Playwright acceptance passed on a temporary current-code server at `http://127.0.0.1:8765/app/` for 1440px, 1024px, 768px, and 375px, proving the recon option, preserved depth tiles, and `active-low-impact-web-recon` preview lane
+    - full `source .venv/bin/activate && python -m pytest ui/tests/ -q` was executed and is not green: it failed in legacy/full-system audit and conversational-flow tests unrelated to this slice; the task-relevant wizard matrix tests passed after the URL-only EASM expectation was corrected
+  - proof:
+    - API regression proves recon run creation remains `pending_approval` with no tasks until approval, then queues exactly `nmap` and `httpx`
+    - URL-only `https://example.com` recon approval queues nmap against host `example.com` and httpx against the approved URL
+    - 4-viewport screenshots and JSON evidence prove the Step 2 recon option and preserved depth path in the browser
+    - evidence is recorded in `codex/results/backlog-257-adaptive-recon-first-wizard-flow-20260507.md`
+  - exceptions:
+    - no new runner implementation was created; the new profile only composes existing registered runners
+    - no live nmap/httpx worker dispatch was run against a vulnerable lab target in this slice; this is tracked in `extra_tests.md` XT-017
+    - existing local non-task worktree items `api/app/main.py` and `ui-v2/` were left untouched
+    - the full UI suite remains not green due pre-existing/out-of-scope failures, including `scripts/run_full_system_acceptance_audit.py` using `field.get` instead of the loop variable and many older wizard audit expectations that do not match the current tile-first wizard
+  - remaining risks:
+    - live recon artifact-to-SignalProfile-to-AssessmentPlan proof still needs a real local lab dispatch with nmap/httpx worker artifacts; tracked in `extra_tests.md` XT-017
+    - full UI suite health remains a product/release risk until legacy audit/conversation tests are reconciled with the current wizard; tracked in `risico.md` R-014
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-259 `Adaptive execution waves`, from `codex/tasks/backlog-259-adaptive-execution-waves.json`
+
 - 2026-05-07: fixed EASM-first routing for URL-only Website/Web App chains:
   - rationale:
     - a Website/Web App mission with URL-only scope should not start in `passive-easm-discovery`; EASM is for domain/root-domain external surface mapping, not ordinary URL-only website validation

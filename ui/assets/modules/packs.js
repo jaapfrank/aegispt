@@ -52,6 +52,7 @@ const TOOL_CATALOG = Object.freeze([
     name: "Nmap",
     category: "Discovery",
     tier: "passive",
+    displayTier: "low-impact active",
     description: "Discovers approved hosts and fingerprints exposed services with bounded NSE profiles.",
     findings: ["Open service exposure", "Weak SMB/security-mode signals", "Service fingerprint evidence"],
     prerequisites: ["Approved host, IP, or CIDR target", "Nmap available on the host", "Profile limits selected by the run"],
@@ -626,9 +627,10 @@ const TOOL_CATALOG = Object.freeze([
     name: "httpx",
     category: "Discovery",
     tier: "passive",
+    displayTier: "low-impact active",
     description: "Fingerprints approved HTTP services with lightweight status, title, and technology evidence.",
     findings: ["HTTP service inventory", "Technology fingerprint", "Reachability and title evidence"],
-    prerequisites: ["Approved URL or host target", "ProjectDiscovery httpx-toolkit or fallback runner", "Passive limits"],
+    prerequisites: ["Approved URL or host target", "ProjectDiscovery httpx-toolkit or fallback runner", "Low-impact active limits"],
     chains: ["External Web", "Autonomous Web", "External attack surface"],
   },
 ]);
@@ -724,6 +726,7 @@ function renderLifecycleCard(title, status, summary) {
 }
 
 function toolTierLabel(tool) {
+  if (tool.displayTier) return tool.displayTier;
   if (tool.tier === "exploitation") return "exploitation";
   return tool.tier || "passive";
 }

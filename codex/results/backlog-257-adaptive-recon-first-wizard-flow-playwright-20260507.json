@@ -1,0 +1,49 @@
+{
+  "base_url": "http://127.0.0.1:8765",
+  "viewports": [
+    {
+      "viewport_width": 1440,
+      "screenshot": "codex/results/backlog-257-adaptive-recon-first-wizard-flow-1440-20260507.png",
+      "recon_option_visible": true,
+      "existing_depth_tiles_visible": [
+        "passive",
+        "active",
+        "full"
+      ],
+      "preview_execution_lane": "active-low-impact-web-recon"
+    },
+    {
+      "viewport_width": 1024,
+      "screenshot": "codex/results/backlog-257-adaptive-recon-first-wizard-flow-1024-20260507.png",
+      "recon_option_visible": true,
+      "existing_depth_tiles_visible": [
+        "passive",
+        "active",
+        "full"
+      ],
+      "preview_execution_lane": "active-low-impact-web-recon"
+    },
+    {
+      "viewport_width": 768,
+      "screenshot": "codex/results/backlog-257-adaptive-recon-first-wizard-flow-768-20260507.png",
+      "recon_option_visible": true,
+      "existing_depth_tiles_visible": [
+        "passive",
+        "active",
+        "full"
+      ],
+      "preview_execution_lane": "active-low-impact-web-recon"
+    },
+    {
+      "viewport_width": 375,
+      "screenshot": "codex/results/backlog-257-adaptive-recon-first-wizard-flow-375-20260507.png",
+      "recon_option_visible": true,
+      "existing_depth_tiles_visible": [
+        "passive",
+        "active",
+        "full"
+      ],
+      "preview_execution_lane": "active-low-impact-web-recon"
+    }
+  ]
+}

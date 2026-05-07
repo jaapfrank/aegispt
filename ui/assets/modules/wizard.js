@@ -522,6 +522,7 @@ const GUIDED_PROFILE_LABELS = {
   "passive-web-headers-security": "Header posture",
   "passive-web-nikto-scan": "Nikto config scan",
   "passive-web-nuclei-audit": "Nuclei safe scan",
+  "active-low-impact-web-recon": "Quick recon",
   "active-web-rce-nuclei-audit": "RCE template audit",
   "active-ad-bloodhound": "Path analysis",
   "active-lan-ssh-brute": "SSH weak-password check",
@@ -555,6 +556,7 @@ const GUIDED_PROFILE_ICONS = {
   "passive-web-headers-security": "HEAD",
   "passive-web-nikto-scan": "NIKTO",
   "passive-web-nuclei-audit": "NUCL",
+  "active-low-impact-web-recon": "RC",
   "active-web-rce-nuclei-audit": "RCE",
   "active-ad-bloodhound": "BLOOD",
   "active-lan-ssh-brute": "HYD",
@@ -856,6 +858,18 @@ const WIZARD_FLOW_DEPTH_OPTIONS = {
   },
 };
 
+const RECON_FIRST_DEPTH_CHOICE = "quick-recon";
+const RECON_FIRST_EXECUTION_PROFILE = "active-low-impact-web-recon";
+const RECON_FIRST_DEPTH_CONFIG = {
+  goal: "inventory-first",
+  safetyPosture: "balanced",
+  authorization: "active",
+  profile: "Standard",
+  title: "Quick recon first",
+  eta: "~5 min",
+  phases: "1 approval-gated recon step",
+};
+
 const WIZARD_TARGET_GUIDANCE = {
   "external-web": {
     question: "What is the target website or app?",
@@ -973,7 +987,22 @@ const MULTI_TILE_TARGET_GUIDANCE = {
 };
 
 function wizardDepthConfig(choice = "active") {
+  if (String(choice || "").trim() === RECON_FIRST_DEPTH_CHOICE) return RECON_FIRST_DEPTH_CONFIG;
   return WIZARD_FLOW_DEPTH_OPTIONS[String(choice || "active").trim()] || WIZARD_FLOW_DEPTH_OPTIONS.full;
+}
+
+function isReconFirstDepthChoice(choice = state.wizard?.intake?.flowDepthChoice || "") {
+  return String(choice || "").trim() === RECON_FIRST_DEPTH_CHOICE;
+}
+
+function supportsReconFirstFlow(keys = selectedAssessmentTileKeys(state.wizard), selectedTile = assessmentTileByKey(primaryAssessmentTileKey(keys))) {
+  const normalizedKeys = normalizeAssessmentTileKeys(keys);
+  return (
+    normalizedKeys.includes("external-web") ||
+    normalizedKeys.includes("authenticated-app") ||
+    selectedTile?.assessmentType === "Website / Web App" ||
+    selectedTile?.assessmentType === "Authenticated App"
+  );
 }
 
 function guidedTilePlanningOverride(tileKey = "", depthChoice = "active") {
@@ -1158,7 +1187,13 @@ export function buildWizardInputPredictionMatrix() {
         depths: Object.keys(WIZARD_FLOW_DEPTH_OPTIONS).map((depthKey) => {
           const depth = wizardDepthConfig(depthKey);
           const chain = wizardMatrixAssessmentMode(tile.key, depthKey);
-          const profiles = chain ? MISSION_PREVIEW_DEFINITIONS[chain]?.phases.flatMap((phase) => phase.profiles) || [] : [];
+          const matrixData = {
+            targets: buildWizardTargetsForTileValue(exampleTarget, tile.key),
+          };
+          const definition = chain ? MISSION_PREVIEW_DEFINITIONS[chain] : null;
+          const profiles = definition
+            ? definition.phases.flatMap((phase) => missionPreviewPhaseProfiles(phase, definition, matrixData))
+            : [];
           return {
             key: depthKey,
             goal: depth.goal,
@@ -2487,6 +2522,7 @@ export function createWizardModule() {
     const keys = selectedAssessmentTileKeys(state.wizard);
     const primaryKey = primaryAssessmentTileKey(keys);
     const selectedTile = assessmentTileByKey(primaryKey);
+    const reconFirst = isReconFirstDepthChoice(depthChoice) && supportsReconFirstFlow(keys, selectedTile);
     const depth = flowDepthConfig(depthChoice);
     const overrides = state.wizard.intake.overrides || {};
     const preserveAssessmentTypeOverride = Boolean(overrides.assessment_type);
@@ -2499,9 +2535,10 @@ export function createWizardModule() {
     const wirelessParts = primaryKey === "wifi-wireless"
       ? String(targetValue || "").split("|").map((item) => item.trim())
       : [];
-    const guidedAssessmentMode =
-      compatibleSelectedAssessmentMode ||
-      guidedAssessmentModeForSelection({ keys, selectedTile, depthChoice });
+    const guidedAssessmentMode = reconFirst
+      ? ""
+      : compatibleSelectedAssessmentMode ||
+        guidedAssessmentModeForSelection({ keys, selectedTile, depthChoice });
     const nextData = {
       ...state.wizard.data,
       engagement_name: state.wizard.data.engagement_name || assessmentSelectionLabel(keys) || selectedTile?.label || "AegisPT Assessment",
@@ -2598,8 +2635,30 @@ export function createWizardModule() {
     ) {
       applyInventoryGoalTuning(state.wizard.data.intake_preferences.primary_goal);
     }
+    if (reconFirst) {
+      Object.assign(state.wizard.data.modules, moduleState(["discovery"]));
+      Object.assign(state.wizard.data.safety, {
+        rate_limit_rps: Math.min(state.wizard.data.safety.rate_limit_rps || 2, 2),
+        concurrency: 1,
+        active_checks: "guarded",
+        max_validation_depth: "light",
+        nmap_scan_depth: "top-1000",
+        adaptive_generation: false,
+      });
+      state.wizard.data.assessment_mode = {
+        ...state.wizard.data.assessment_mode,
+        mode: "",
+        authorization_level: "active",
+        typed_scope_confirmation: "",
+      };
+      state.wizard.data.intake_preferences.primary_goal = "inventory-first";
+      state.wizard.data.intake_preferences.safety_posture = "balanced";
+      state.wizard.data.test_profile = "Standard";
+    }
     enforceDiscoveryFirstSafetyGuardrails(state.wizard.data);
-    state.wizard.data.assessment_mode = nextData.assessment_mode;
+    if (!reconFirst) {
+      state.wizard.data.assessment_mode = nextData.assessment_mode;
+    }
     state.wizard.data.targets = nextData.targets;
     state.wizard.data.wireless = nextData.wireless;
     if (primaryKey === "wifi-wireless") {
@@ -2608,7 +2667,9 @@ export function createWizardModule() {
       state.wizard.data.safety.max_validation_depth = "light";
       state.wizard.data.test_profile = "Standard";
     }
-    applyGuidedTilePlanningOverride(primaryKey, depthChoice);
+    if (!reconFirst) {
+      applyGuidedTilePlanningOverride(primaryKey, depthChoice);
+    }
     refreshSuggestedEngagementNameIfAutomatic(snapshotEngagementNameContext(state.wizard.data), state.wizard.data);
   }
 
@@ -2672,12 +2733,25 @@ export function createWizardModule() {
 
   function renderDepthTilesForFlow(selectedChoice = "active") {
     const activeDescription = activeDepthDescriptionForSelection(selectedAssessmentTileKeys(state.wizard), state.wizard.data);
+    const reconFirstSupported = supportsReconFirstFlow(selectedAssessmentTileKeys(state.wizard), selectedAssessmentTile(state.wizard));
+    const reconSelected = selectedChoice === RECON_FIRST_DEPTH_CHOICE;
     const options = [
       { key: "passive", icon: "🔍", title: "Passive", desc: "Discovery and enumeration only", tags: [{ label: "Phase 1", cls: "tag-p" }] },
       { key: "active", icon: "⚡", title: "Active Scan", desc: activeDescription, tags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }] },
       { key: "full", icon: "🎯", title: "Full Pentest", desc: "Credential attacks + exploitation", tags: [{ label: "P1", cls: "tag-p" }, { label: "P2", cls: "tag-a" }, { label: "P3", cls: "tag-c" }, { label: "P4", cls: "tag-e" }] },
     ];
     return `
+      ${reconFirstSupported ? `
+        <div class="depth-grid recon-depth-grid" data-testid="wizard-recon-first-options">
+          <button class="d-tile recon-first-tile ${reconSelected ? "dsel" : ""}" type="button" data-wizard-depth-choice="${RECON_FIRST_DEPTH_CHOICE}" data-testid="wizard-depth-tile-${RECON_FIRST_DEPTH_CHOICE}" aria-pressed="${reconSelected ? "true" : "false"}">
+            <div class="d-icon">RC</div>
+            <div class="d-title">Start with quick recon (recommended)</div>
+            <div class="d-desc">Sends network traffic to target (nmap port scan + HTTP fingerprinting). No exploitation. ~5 minutes.</div>
+            <div class="d-phases"><span class="tag tag-a">Approval required</span><span class="tag tag-p">nmap + httpx</span></div>
+          </button>
+        </div>
+        <div class="q-hint depth-path-hint">I already know what to test (pick depth now)</div>
+      ` : ""}
       <div class="depth-grid" data-testid="conversation-quick-replies">
         ${options.map((option) => `
           <button class="d-tile ${option.key === selectedChoice ? `dsel ${option.key === "full" ? "damber" : ""}` : ""}" type="button" data-wizard-depth-choice="${escapeHtml(option.key)}" data-testid="wizard-depth-tile-${escapeHtml(option.key)}" aria-pressed="${option.key === selectedChoice ? "true" : "false"}">
@@ -2692,6 +2766,7 @@ export function createWizardModule() {
   }
 
   function guidedPreviewDefinition(data = state.wizard.data) {
+    if (isReconFirstDepthChoice()) return null;
     const configuredMode = String(data.assessment_mode?.mode || "").trim().toUpperCase();
     const keys = selectedAssessmentTileKeys(state.wizard);
     const inferredMode = guidedAssessmentModeForSelection({
@@ -6517,6 +6592,7 @@ export function buildRunConfiguration(data, estimate) {
   const plan = executionPlanForProfile(estimate.execution_profile, state.runProfiles);
   const engagementRoute = currentEngagementRouteContext(data);
   const assessmentMode = String(data.assessment_mode?.mode || "").trim();
+  const reconFirst = estimate.execution_profile === RECON_FIRST_EXECUTION_PROFILE && isReconFirstDepthChoice();
   const authorizationLevel = selectedAuthorizationLevel(data);
   const authorizationScopeToken = missionScopeConfirmationToken(data);
   const authorizationScopeSummary = missionScopeConfirmationSummary(data);
@@ -6553,7 +6629,21 @@ export function buildRunConfiguration(data, estimate) {
     },
     modules: data.modules,
     safety: data.safety,
-    nmap: nmapConfigurationFromSafety(data.safety),
+    nmap: reconFirst
+      ? {
+          scan_depth: "top-1000",
+          top_ports: 1000,
+          full_port_scan: false,
+          discovery_only: false,
+          service_detection: true,
+          skip_discovery: true,
+          version_intensity: 2,
+          timing_template: "T3",
+          max_retries: 1,
+          host_timeout_seconds: 30,
+          timeout_seconds: 300,
+        }
+      : nmapConfigurationFromSafety(data.safety),
     wireless: data.assessment_type === "WiFi / Wireless"
       ? {
           site: data.wireless?.site || data.targets?.wireless_sites?.[0] || null,
@@ -6599,6 +6689,16 @@ export function buildRunConfiguration(data, estimate) {
             authorizationLevel === "full"
               ? valueOrNull(data.assessment_mode?.typed_scope_confirmation)
               : null,
+        }
+      : {
+          enabled: false,
+        },
+    adaptive_recon_first: reconFirst
+      ? {
+          enabled: true,
+          copy: "Low-impact active recon sends network traffic to the target with nmap and httpx, without exploitation.",
+          approval_step_id: "low-impact-web-recon.launch",
+          tools: ["nmap", "httpx"],
         }
       : {
           enabled: false,
@@ -6786,6 +6886,9 @@ export function estimateMission(data) {
 }
 
 function resolveExecutionProfile(data) {
+  if (isReconFirstDepthChoice() && supportsReconFirstFlow(selectedAssessmentTileKeys(state.wizard), selectedAssessmentTile(state.wizard))) {
+    return RECON_FIRST_EXECUTION_PROFILE;
+  }
   const selectedTileKeys = selectedAssessmentTileKeys(state.wizard);
   const selectedTileKey = deriveAssessmentTileKey(data, state.wizard?.intake || {});
   if (data.assessment_type === "API" || selectedTileKey === "api-security" || selectedTileKeys.includes("api-security")) {
@@ -8269,6 +8372,32 @@ function buildMissionPreviewTargets(targets = state.wizard.data.targets) {
     : [{ label: "Approved scope", group: "summary", summary: true }];
 }
 
+function fullExternalWebPreviewIncludesEasm(data = state.wizard.data) {
+  const targets = data.targets || {};
+  const domainValues = [
+    ...(Array.isArray(targets.domains) ? targets.domains : []),
+    ...(Array.isArray(targets.subdomains) ? targets.subdomains : []),
+  ].filter(Boolean);
+  if (domainValues.length) return true;
+  const urlValues = [
+    ...(Array.isArray(targets.urls) ? targets.urls : []),
+    ...(Array.isArray(targets.api_base_urls) ? targets.api_base_urls : []),
+  ].filter(Boolean);
+  return urlValues.length === 0;
+}
+
+function missionPreviewPhaseProfiles(phase, definition, data = state.wizard.data) {
+  const profiles = Array.isArray(phase?.profiles) ? phase.profiles : [];
+  if (
+    definition?.mode === "FULL-EXTERNAL-WEB" &&
+    phase?.key === "passive-surface" &&
+    !fullExternalWebPreviewIncludesEasm(data)
+  ) {
+    return profiles.filter((profileName) => profileName !== "passive-easm-discovery");
+  }
+  return profiles;
+}
+
 function missionPreviewDefinition(data = state.wizard.data, estimate = estimateMission(data)) {
   const configuredMode = String(data.assessment_mode?.mode || "").trim().toUpperCase();
   if (configuredMode && MISSION_PREVIEW_DEFINITIONS[configuredMode]) {
@@ -8298,9 +8427,11 @@ function missionPreviewDefinition(data = state.wizard.data, estimate = estimateM
 }
 
 function buildMissionPreviewPhases(data = state.wizard.data, estimate = estimateMission(data)) {
-  return missionPreviewDefinition(data, estimate).phases.map((phase) => ({
+  const definition = missionPreviewDefinition(data, estimate);
+  return definition.phases.map((phase) => ({
     ...phase,
-    tools: phase.profiles.map((profileName) => {
+    profiles: missionPreviewPhaseProfiles(phase, definition, data),
+    tools: missionPreviewPhaseProfiles(phase, definition, data).map((profileName) => {
       const plan = executionPlanForProfile(profileName, state.runProfiles);
       const primaryTool = plan.tools[0] || "runner";
       return {
@@ -8662,6 +8793,12 @@ function renderConfirmationScopeGuardrails(data = state.wizard.data) {
 }
 
 function buildConfirmationSafetyLine(data = state.wizard.data, executionProfile = estimateMission(data).execution_profile) {
+  if (executionProfile === RECON_FIRST_EXECUTION_PROFILE && isReconFirstDepthChoice()) {
+    const boundaryLine = data.exclusions.notes
+      ? `Boundary note: ${data.exclusions.notes}`
+      : "No extra boundary note is currently recorded.";
+    return `This mission starts with low-impact active recon only: bounded nmap port scan plus HTTP fingerprinting through registered runners after explicit approval. No exploitation, fuzzing, payload delivery, or form submission is enabled. ${boundaryLine}`;
+  }
   const stagedInternalValidation = data.assessment_type === "Internal Range / LAN" && data.test_profile === "Internal Validation";
   if (stagedInternalValidation) {
     const boundaryLine = data.exclusions.notes

@@ -450,6 +450,7 @@ def test_list_run_profiles(client) -> None:
         "active-lan-segmentation-test",
         "active-lan-ssh-brute",
         "active-llm-application-probe",
+        "active-low-impact-web-recon",
         "active-offline-hash-crack",
         "active-web-auth-flow",
         "active-web-client-state",
@@ -6200,6 +6201,65 @@ def test_active_run_requires_approval_before_queueing(client) -> None:
     )
     assert approval_payload["configuration_json"]["runtime_dispatch"]["queued_task_count"] == 1
     assert approval_payload["findings"]["finding_count"] == 0
+
+
+def test_low_impact_web_recon_requires_approval_and_queues_nmap_plus_httpx_for_url_scope(client) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "https://example.com")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-low-impact-web-recon",
+            "dispatch_after_create": True,
+            "configuration_json": {
+                "assessment_type": "Website / Web App",
+                "test_profile": "Standard",
+                "execution_profile": "active-low-impact-web-recon",
+                "targets": {"urls": ["https://example.com"]},
+                "adaptive_recon_first": {
+                    "enabled": True,
+                    "tools": ["nmap", "httpx"],
+                    "approval_step_id": "low-impact-web-recon.launch",
+                },
+                "nmap": {
+                    "discovery_only": False,
+                    "service_detection": True,
+                    "skip_discovery": True,
+                    "top_ports": 1000,
+                    "version_intensity": 2,
+                    "timing_template": "T3",
+                    "max_retries": 1,
+                    "host_timeout_seconds": 30,
+                    "timeout_seconds": 300,
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["required_approvals"] == 1
+    assert created_payload["tasks"] == []
+
+    approval_response = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver-1"},
+        json={"step_id": "low-impact-web-recon.launch", "decision": "approved"},
+    )
+
+    assert approval_response.status_code == 200
+    approval_payload = approval_response.json()
+    assert approval_payload["status"] == "queued"
+    tasks_by_tool = {task["tool"]: task for task in approval_payload["tasks"]}
+    assert set(tasks_by_tool) == {"nmap", "httpx"}
+    assert tasks_by_tool["nmap"]["target_id"] == "example.com"
+    assert tasks_by_tool["nmap"]["params_json"]["target_kind"] == "host"
+    assert tasks_by_tool["nmap"]["params_json"]["service_detection"] is True
+    assert tasks_by_tool["nmap"]["params_json"]["top_ports"] == 1000
+    assert tasks_by_tool["httpx"]["target_id"] == "https://example.com"
+    assert tasks_by_tool["httpx"]["params_json"]["limits"]["low_impact_recon"] is True
 
 
 def test_rejected_run_stays_blocked(client) -> None:
