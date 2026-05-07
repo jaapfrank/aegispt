@@ -632,9 +632,73 @@ def _annotate_chain_phase_operator_contract(
     return annotated
 
 
-def _phase_states_for_definition(definition: AssessmentChainDefinition) -> list[dict[str, Any]]:
+def _target_values_from_configuration(
+    configuration_json: dict[str, Any] | None,
+    *keys: str,
+) -> list[str]:
+    if not isinstance(configuration_json, dict):
+        return []
+    targets = configuration_json.get("targets")
+    if not isinstance(targets, dict):
+        return []
+    values: list[str] = []
+    for key in keys:
+        value = targets.get(key)
+        if isinstance(value, str) and value.strip():
+            values.append(value.strip())
+        elif isinstance(value, list):
+            values.extend(str(item).strip() for item in value if str(item).strip())
+    return values
+
+
+def _full_external_web_should_include_easm(configuration_json: dict[str, Any] | None) -> bool:
+    if not isinstance(configuration_json, dict):
+        return False
+    domain_targets = _target_values_from_configuration(
+        configuration_json,
+        "domains",
+        "root_domains",
+        "apex_domains",
+    )
+    if domain_targets:
+        return True
+    execution_profile = str(configuration_json.get("execution_profile") or "").strip().lower()
+    assessment_type = str(configuration_json.get("assessment_type") or "").strip().lower()
+    test_profile = str(configuration_json.get("test_profile") or "").strip().lower()
+    explicit_easm_intent = (
+        execution_profile == "passive-easm-discovery"
+        or "easm" in assessment_type
+        or "easm" in test_profile
+        or "external surface" in test_profile
+    )
+    return explicit_easm_intent and bool(domain_targets)
+
+
+def _phase_profiles_for_configuration(
+    definition: AssessmentChainDefinition,
+    phase: AssessmentChainPhaseDefinition,
+    configuration_json: dict[str, Any] | None,
+) -> tuple[str, ...]:
+    profiles = tuple(phase.profiles)
+    if definition.mode != "FULL-EXTERNAL-WEB":
+        return profiles
+    if _full_external_web_should_include_easm(configuration_json):
+        return profiles
+    return tuple(profile for profile in profiles if profile != "passive-easm-discovery")
+
+
+def _phase_states_for_definition(
+    definition: AssessmentChainDefinition,
+    *,
+    configuration_json: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     states: list[dict[str, Any]] = []
     for index, phase in enumerate(definition.phases):
+        phase_profiles = _phase_profiles_for_configuration(
+            definition,
+            phase,
+            configuration_json,
+        )
         states.append(
             {
                 "key": phase.key,
@@ -654,7 +718,7 @@ def _phase_states_for_definition(definition: AssessmentChainDefinition) -> list[
                         "run_id": None,
                         "skip_reason": None,
                     }
-                    for profile_name in phase.profiles
+                    for profile_name in phase_profiles
                 ],
             }
         )
@@ -1725,7 +1789,10 @@ def create_assessment_chain_launch(
         auto_advance_on_phase_complete=effective_auto_advance,
         halt_requested=False,
         created_by=actor,
-        phases_json=_phase_states_for_definition(definition),
+        phases_json=_phase_states_for_definition(
+            definition,
+            configuration_json=configuration_json,
+        ),
         configuration_json=copy.deepcopy(configuration_json or {}),
         created_at=_now(),
         updated_at=_now(),

@@ -1,5 +1,36 @@
 # Done Log
 
+- 2026-05-07: fixed EASM-first routing for URL-only Website/Web App chains:
+  - rationale:
+    - a Website/Web App mission with URL-only scope should not start in `passive-easm-discovery`; EASM is for domain/root-domain external surface mapping, not ordinary URL-only website validation
+    - the fix prevents `FULL-EXTERNAL-WEB` phase 1 from becoming stale at EASM when the operator requested a website URL test
+  - implementation:
+    - made `FULL-EXTERNAL-WEB` phase construction context-aware in `api/app/services/assessment_chain.py`
+    - removed `passive-easm-discovery` from the phase-1 step list when the chain configuration has no domain/root-domain target
+    - kept `passive-easm-discovery` first for domain/root-domain scope and EASM-style domain intent
+    - added regressions proving URL-only Website/Web App starts with `passive-web-baseline` while domain/EASM scope still starts with EASM
+  - files:
+    - `api/app/services/assessment_chain.py`
+    - `api/tests/test_assessment_chain.py`
+    - `codex/results/easm-url-scope-routing-fix-20260507.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `risico.md`
+    - `extra_tests.md`
+  - validation:
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py::test_full_external_web_url_only_website_starts_with_web_baseline_not_easm api/tests/test_assessment_chain.py::test_full_external_web_domain_scope_keeps_easm_first api/tests/test_assessment_chain.py::test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_httpx_has_no_inventory -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py api/tests/test_easm_dispatch.py api/tests/test_runs.py::test_list_run_profiles -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed
+  - proof:
+    - URL-only Website/Web App chain creates `passive-web-baseline` as the first run and has no `passive-easm-discovery` phase-1 step
+    - domain/EASM chain still creates `passive-easm-discovery` first
+    - evidence is recorded in `codex/results/easm-url-scope-routing-fix-20260507.md`
+  - exceptions:
+    - no browser UI changed, so no Playwright run was needed for this backend routing fix
+    - existing local non-task worktree items `api/app/main.py` and `ui-v2/` were left untouched
+
 - 2026-05-07: completed backlog-255 `Evidence-driven Adaptive Assessment Planner: scores runners using signal evidence and runner metadata, produces run/skip/wait/approval plan with reasoning`:
   - rationale:
     - fixed Phase 2 tool batteries were too broad for an evidence-first platform; AegisPT now needs deterministic runner selection from real recon signals and registered runner metadata

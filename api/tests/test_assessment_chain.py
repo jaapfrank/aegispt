@@ -505,6 +505,117 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         assert active_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
 
 
+def test_full_external_web_url_only_website_starts_with_web_baseline_not_easm(client) -> None:
+    engagement_response = client.post(
+        "/api/v1/engagements",
+        headers={"X-Actor": "operator"},
+        json={
+            "name": "URL-only Website Chain",
+            "client": "Acme Corp",
+            "roe_ref": "ROE-2026-URL-WEB",
+        },
+    )
+    assert engagement_response.status_code == 201
+    engagement_id = engagement_response.json()["id"]
+    scope_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/scope",
+        headers={"X-Actor": "operator"},
+        json={
+            "allowlist_json": {"urls": ["https://portal.example.test"]},
+            "denylist_json": {},
+        },
+    )
+    assert scope_response.status_code == 201
+    configuration = _with_chain_authorization(
+        {
+            "assessment_type": "Website / Web App",
+            "test_profile": "Standard",
+            "execution_profile": "active-web-safe",
+            "targets": {"urls": ["https://portal.example.test"]},
+        },
+        level="active",
+        mode="FULL-EXTERNAL-WEB",
+        confirmation_target="https://portal.example.test",
+        confirmed_scope="https://portal.example.test",
+    )
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "active-web-safe",
+            "assessment_mode": "FULL-EXTERNAL-WEB",
+            "assessment_auto_advance_on_phase_complete": True,
+            "configuration_json": configuration,
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_run = create_response.json()
+    assert created_run["profile"]["name"] == "passive-web-baseline"
+    assert created_run["configuration_json"]["targets"]["urls"] == ["https://portal.example.test"]
+    assert created_run["status"] == "queued"
+    chain = created_run["assessment_chain"]
+    phase_one_steps = chain["phases"][0]["steps"]
+    assert [step["profile_name"] for step in phase_one_steps][0] == "passive-web-baseline"
+    assert "passive-easm-discovery" not in [
+        step["profile_name"] for step in phase_one_steps
+    ]
+
+
+def test_full_external_web_domain_scope_keeps_easm_first(client) -> None:
+    engagement_response = client.post(
+        "/api/v1/engagements",
+        headers={"X-Actor": "operator"},
+        json={
+            "name": "Domain Website Chain",
+            "client": "Acme Corp",
+            "roe_ref": "ROE-2026-DOMAIN-WEB",
+        },
+    )
+    assert engagement_response.status_code == 201
+    engagement_id = engagement_response.json()["id"]
+    scope_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/scope",
+        headers={"X-Actor": "operator"},
+        json={
+            "allowlist_json": {"domains": ["example.test"]},
+            "denylist_json": {},
+        },
+    )
+    assert scope_response.status_code == 201
+    configuration = _with_chain_authorization(
+        {
+            "assessment_type": "Website / Web App",
+            "test_profile": "External Surface Only",
+            "execution_profile": "passive-easm-discovery",
+            "targets": {"domains": ["example.test"]},
+        },
+        level="active",
+        mode="FULL-EXTERNAL-WEB",
+        confirmation_target="example.test",
+        confirmed_scope="example.test",
+    )
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-easm-discovery",
+            "assessment_mode": "FULL-EXTERNAL-WEB",
+            "assessment_auto_advance_on_phase_complete": True,
+            "configuration_json": configuration,
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_run = create_response.json()
+    assert created_run["profile"]["name"] == "passive-easm-discovery"
+    assert created_run["assessment_chain"]["phases"][0]["steps"][0]["profile_name"] == (
+        "passive-easm-discovery"
+    )
+
+
 def test_full_authorization_auto_advances_pre_authorized_non_exploitation_phase(client) -> None:
     engagement_id = _create_engagement_with_assessment_chain_scope(client)
     create_response = client.post(
