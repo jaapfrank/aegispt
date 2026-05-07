@@ -168,6 +168,16 @@ const TOOL_CATALOG = Object.freeze([
     chains: ["API Assessment", "External Web", "Authenticated App"],
   },
   {
+    id: "graphql-command-injection",
+    name: "GraphQL Command Injection",
+    category: "API",
+    tier: "intrusive",
+    description: "Proves the local DVGA systemDiagnostics command-injection challenge with two-person approval and a harmless command allowlist.",
+    findings: ["DVGA GraphQL command injection confirmed", "Local lab OS command proof", "Critical API input validation weakness"],
+    prerequisites: ["Local DVGA lab root on 127.0.0.1:5013 or localhost:5013", "Intrusive two-person approval", "Allowlisted harmless command only"],
+    chains: ["API Assessment", "Injection confirmation", "Local lab validation"],
+  },
+  {
     id: "xxe-probe",
     name: "XXE Probe",
     category: "Web",

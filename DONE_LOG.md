@@ -12400,3 +12400,57 @@
     - no live public/customer target was scanned and no newly wired runner was executed end-to-end against a vulnerable lab in this wiring slice; see `extra_tests.md`
     - intrusive ARP spoof proof remains approval-gated and needs an explicitly authorized LAN lab before product support is claimed beyond queue/preview evidence
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-251 `DVGA GraphQL command-injection runner`
+
+- 2026-05-07: completed backlog-251 `DVGA GraphQL command-injection runner: approval-gated OS command evidence on local lab only`:
+  - rationale:
+    - DVGA command-bearing GraphQL proof belongs in a separate intrusive/local-lab runner, not in the generic `graphql-probe` discovery runner
+    - the runner must prove the real DVGA `systemDiagnostics` challenge while keeping scope, approval, command allowlist, provenance, reporting, cleanup, and kill-switch boundaries explicit
+  - implementation:
+    - added dedicated `graphql-command-injection` runner with local DVGA root enforcement for only `http://127.0.0.1:5013/` or `http://localhost:5013/`
+    - enforced `intrusive_authorized=true`, `allow_command_injection_proof=true`, kill-switch fail-closed behavior, `/graphql` endpoint restriction, and a harmless command allowlist
+    - wired the runner through worker dispatch, command preview, standard finding extraction, run target planning, run configuration validation, run profile registration, acceptance harness hints, and Tool Library catalog data
+    - added `intrusive-web-graphql-command-injection` as a two-approval intrusive profile with explicit local-lab and no reverse-shell/file-write/callback/credential-attack metadata
+    - preserved `graphql-probe` safe behavior; its DVGA regression test still asserts `systemDiagnostics` is not probed by generic GraphQL discovery
+  - files:
+    - `workers/runners/graphql_command_injection/__init__.py`
+    - `workers/runners/graphql_command_injection/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/run_profiles.py`
+    - `scripts/acceptance_harness.py`
+    - `ui/assets/modules/packs.js`
+    - `workers/tests/test_graphql_command_injection_runner.py`
+    - `workers/tests/test_graphql_probe_runner.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `api/tests/test_runs.py`
+    - `ui/tests/test_operator_console_smoke_e2e.py`
+    - `codex/results/backlog-251-dvga-graphql-command-injection-runner-20260507.md`
+    - `codex/results/backlog-251-dvga-graphql-command-injection-runner-20260507.json`
+    - `codex/results/backlog-251-tool-library-graphql-command-injection-8000.json`
+    - `codex/results/backlog-251-tool-library-graphql-command-injection-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 267 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest workers/tests/test_graphql_command_injection_runner.py workers/tests/test_graphql_probe_runner.py api/tests/test_pentest_depth_registration.py -q` passed
+    - focused API approval queue test for `intrusive-web-graphql-command-injection` passed
+    - focused Playwright Tool Library smoke test passed after adding the new catalog card assertion
+    - current-code `http://127.0.0.1:8000/app/` was restarted and Playwright acceptance proved the Tool Library exposes `GraphQL Command Injection` with local-DVGA/intrusive copy
+    - local DVGA live proof passed against only `http://127.0.0.1:5013/` with `confirmed_command_injection_count=1`
+    - first full `source .venv/bin/activate && python -m pytest api/tests/ -q` run failed on the existing explicit run-profile ordering test because the new profile was not in the expected list; the test contract was updated and focused rerun passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed on rerun
+    - `git diff --check` passed
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed
+  - proof:
+    - launched `dolevf/dvga:latest` locally with `docker run -d --rm -p 127.0.0.1:5013:5013 -e WEB_HOST=0.0.0.0 --name aegispt-dvga-backlog251 dolevf/dvga:latest`
+    - the real DVGA schema requires `username`, `password`, and `cmd` for `systemDiagnostics`; the runner uses fixed local-lab default DVGA credentials, records only the credential context/username, and stores no password value in evidence
+    - the command-bearing payload used only allowlist entry `echo aegispt-command-injection-proof`
+    - produced normalized critical finding `DVGA GraphQL Command Injection Confirmed` through the standard JSON finding extraction path
+    - DVGA container `aegispt-dvga-backlog251` was stopped after evidence capture
+  - exceptions:
+    - the task package described `systemDiagnostics(cmd:)`, but live DVGA introspection shows `systemDiagnostics(username, password, cmd)`; implementation follows the real lab contract and documents that product truth
+    - `http://127.0.0.1:8000` was relevant only for Tool Library UI/catalog acceptance, while the command-injection proof itself used the direct runner against local DVGA on port `5013`
+    - two runtime-generated `codex/tasks/task-20260507...pack-refinement...json` files appeared during live runtime/browser interaction; they were not queue-backed backlog packages and were removed as out-of-scope generated state
+  - remaining risks:
+    - this is intentionally local DVGA proof, not broad command-injection exploitation coverage for public/customer GraphQL targets
+    - non-default allowlisted commands and full worker-dispatch live execution are tracked in `extra_tests.md`
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-252 `Add 14 missing new security runners to FULL-EXTERNAL-WEB chain`, from `codex/tasks/backlog-252-full-external-web-chain-missing-new-runners.json`

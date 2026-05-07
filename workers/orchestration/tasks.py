@@ -128,6 +128,7 @@ from workers.runners.desktop_client.runner import (
 )
 from workers.runners.easm.runner import execute_easm_discovery
 from workers.runners.external_infra.runner import execute_external_infra_assessment
+from workers.runners.graphql_command_injection.runner import execute_graphql_command_injection
 from workers.runners.graphql_probe.runner import execute_graphql_probe
 from workers.runners.headers_security.runner import execute_headers_security_analysis
 from workers.runners.http_smuggling.runner import execute_http_smuggling_probe
@@ -215,6 +216,7 @@ SUPPORTED_TOOLS = {
     "easm-discover",
     "external-osint",
     "external-infra",
+    "graphql-command-injection",
     "graphql-probe",
     "headers-security",
     "http-smuggling",
@@ -539,6 +541,32 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if isinstance(request.params.get("max_injection_fields"), int)
                 else 5
             ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "graphql-command-injection":
+        return execute_graphql_command_injection(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            endpoint_path=(
+                request.params.get("endpoint_path")
+                if isinstance(request.params.get("endpoint_path"), str)
+                else "/graphql"
+            ),
+            command=(
+                request.params.get("command")
+                if isinstance(request.params.get("command"), str)
+                else None
+            ),
+            allowed_commands=(
+                request.params.get("allowed_commands")
+                if isinstance(request.params.get("allowed_commands"), list)
+                else None
+            ),
+            intrusive_authorized=bool(request.params.get("intrusive_authorized", False)),
+            allow_command_injection_proof=bool(
+                request.params.get("allow_command_injection_proof", False)
+            ),
+            kill_switch_enabled=execution_kill_switch_enabled(),
             timeout_seconds=timeout_seconds,
         )
     if request.tool == "ssti-probe":
@@ -2818,6 +2846,18 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"{endpoint_count} --discover-ides {ide_count} --introspection --depth {max_depth} "
             "--field-suggestions --argument-injection --batch-size 2 "
             f"--approved-scope {target_label}{extra}"
+        )
+    if tool == "graphql-command-injection":
+        command = str(
+            effective_params.get("command") or "echo aegispt-command-injection-proof"
+        ).strip()
+        endpoint_path = str(effective_params.get("endpoint_path") or "/graphql").strip()
+        return (
+            "$ graphql-command-injection --local-dvga "
+            f"{target_label} --endpoint {shlex.quote(endpoint_path)} "
+            "--field systemDiagnostics --argument cmd "
+            f"--command-allowlist-entry {shlex.quote(command)} "
+            f"--intrusive-approval --approved-scope {target_label}{extra}"
         )
     if tool == "ssti-probe":
         parameter_count = (

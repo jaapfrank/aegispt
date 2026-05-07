@@ -29,6 +29,9 @@ from workers.runners.crypto_audit.runner import CRYPTO_AUDIT_RESULTS_ARTIFACT_NA
 from workers.runners.desktop_client.runner import DESKTOP_CLIENT_RESULTS_ARTIFACT_NAME
 from workers.runners.deserialization_probe.runner import DESERIALIZATION_RESULTS_ARTIFACT_NAME
 from workers.runners.external_infra.runner import EXTERNAL_INFRA_RESULTS_ARTIFACT_NAME
+from workers.runners.graphql_command_injection.runner import (
+    GRAPHQL_COMMAND_INJECTION_RESULTS_ARTIFACT_NAME,
+)
 from workers.runners.graphql_probe.runner import GRAPHQL_RESULTS_ARTIFACT_NAME
 from workers.runners.headers_security.runner import HEADERS_SECURITY_RESULTS_ARTIFACT_NAME
 from workers.runners.http_smuggling.runner import HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME
@@ -543,6 +546,7 @@ def extract_findings(
         "idor-bac",
         "client-state",
         "headers-security",
+        "graphql-command-injection",
         "graphql-probe",
         "ssti-probe",
         "http-smuggling",
@@ -572,6 +576,7 @@ def extract_findings(
                 IDOR_BAC_ARTIFACT_NAME,
                 CLIENT_STATE_RESULTS_ARTIFACT_NAME,
                 HEADERS_SECURITY_RESULTS_ARTIFACT_NAME,
+                GRAPHQL_COMMAND_INJECTION_RESULTS_ARTIFACT_NAME,
                 GRAPHQL_RESULTS_ARTIFACT_NAME,
                 SSTI_RESULTS_ARTIFACT_NAME,
                 HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME,

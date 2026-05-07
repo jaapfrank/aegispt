@@ -483,6 +483,7 @@ def test_list_run_profiles(client) -> None:
         "intrusive-lan-credential-capture",
         "intrusive-lan-smb-auth",
         "intrusive-validation",
+        "intrusive-web-graphql-command-injection",
         "passive-browser-recon",
         "passive-cicd-security-assessment",
         "passive-cloud-aws-inventory",
@@ -2864,6 +2865,75 @@ def test_active_graphql_probe_profile_requires_approval_and_queues_graphql_task(
     assert task["params_json"]["ide_paths"] == ["/graphiql"]
     assert task["params_json"]["max_depth"] == 18
     assert task["params_json"]["max_injection_fields"] == 3
+
+
+def test_intrusive_graphql_command_injection_profile_requires_two_approvals_and_local_lab(
+    client,
+) -> None:
+    engagement_id = create_engagement_with_url_scope(client, "http://127.0.0.1:5013/")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "intrusive-web-graphql-command-injection",
+            "configuration_json": {
+                "targets": {"urls": ["http://127.0.0.1:5013/"]},
+                "graphql_command_injection": {
+                    "command": "echo aegispt-command-injection-proof",
+                    "endpoint_path": "/graphql",
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["approval_step_id"] == "intrusive-web-graphql-command-injection"
+    assert created_payload["required_approvals"] == 2
+    assert created_payload["pending_approvals"] == 2
+    assert created_payload["tasks"] == []
+
+    first_approval = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver-1"},
+        json={
+            "step_id": "intrusive-web-graphql-command-injection",
+            "decision": "approved",
+        },
+    )
+    assert first_approval.status_code == 200
+    assert first_approval.json()["status"] == "pending_approval"
+    assert first_approval.json()["pending_approvals"] == 1
+
+    second_approval = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver-2"},
+        json={
+            "step_id": "intrusive-web-graphql-command-injection",
+            "decision": "approved",
+        },
+    )
+
+    assert second_approval.status_code == 200
+    approval_payload = second_approval.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "graphql-command-injection"
+    assert task["target_id"] == "http://127.0.0.1:5013/"
+    assert task["params_json"]["endpoint_path"] == "/graphql"
+    assert task["params_json"]["command"] == "echo aegispt-command-injection-proof"
+    assert task["params_json"]["allow_command_injection_proof"] is True
+    assert task["params_json"]["intrusive_authorized"] is True
+    assert task["params_json"]["allowed_commands"] == [
+        "echo aegispt-command-injection-proof",
+        "id",
+        "whoami",
+        "uname -a",
+    ]
 
 
 def test_active_ssti_probe_profile_requires_approval_and_queues_ssti_task(client) -> None:

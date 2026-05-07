@@ -81,6 +81,7 @@ RUN_PROFILE_TOOL_HINTS = {
     "active-web-client-state": ["client-state"],
     "active-web-headers-security": ["headers-security"],
     "active-web-graphql-probe": ["graphql-probe"],
+    "intrusive-web-graphql-command-injection": ["graphql-command-injection"],
     "active-web-ssti-probe": ["ssti-probe"],
     "active-web-http-smuggling": ["http-smuggling"],
     "active-web-idor-bac": ["idor-bac"],

@@ -111,6 +111,18 @@ HASHCAT_SOURCE_SECRET_KINDS = {
     "asrep_hash_bundle",
 }
 DEFAULT_APPROVAL_STEP_ID = "run.launch"
+GRAPHQL_COMMAND_INJECTION_ALLOWED_ROOTS = (
+    "http://127.0.0.1:5013/",
+    "http://localhost:5013/",
+)
+GRAPHQL_COMMAND_INJECTION_DEFAULT_COMMAND = "echo aegispt-command-injection-proof"
+GRAPHQL_COMMAND_INJECTION_ALLOWED_COMMANDS = (
+    GRAPHQL_COMMAND_INJECTION_DEFAULT_COMMAND,
+    "id",
+    "whoami",
+    "uname -a",
+)
+GRAPHQL_COMMAND_INJECTION_BLOCKED_SHELL_METACHARS = set(";&|`$<>\n\r")
 
 
 def _uuid_or_none(value: object) -> UUID | None:
@@ -1003,6 +1015,29 @@ def graphql_probe_runner_params_from_configuration(
         result["max_depth"] = min(max(int(settings["max_depth"]), 2), 20)
     if isinstance(settings.get("max_injection_fields"), int):
         result["max_injection_fields"] = min(max(int(settings["max_injection_fields"]), 0), 10)
+    if isinstance(settings.get("timeout_seconds"), (int, float)):
+        result["timeout_seconds"] = float(settings["timeout_seconds"])
+    return result
+
+
+def graphql_command_injection_runner_params_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload = configuration if isinstance(configuration, dict) else {}
+    raw_settings = payload.get("graphql_command_injection")
+    settings = raw_settings if isinstance(raw_settings, dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+
+    result: dict[str, Any] = {}
+    command = str(
+        settings.get("command")
+        or validation.get("command")
+        or GRAPHQL_COMMAND_INJECTION_DEFAULT_COMMAND
+    ).strip()
+    result["command"] = command or GRAPHQL_COMMAND_INJECTION_DEFAULT_COMMAND
+    endpoint_path = str(settings.get("endpoint_path") or validation.get("endpoint_path") or "").strip()
+    if endpoint_path:
+        result["endpoint_path"] = endpoint_path
     if isinstance(settings.get("timeout_seconds"), (int, float)):
         result["timeout_seconds"] = float(settings["timeout_seconds"])
     return result
@@ -2671,6 +2706,70 @@ def validate_graphql_probe_run_configuration(
         raise ValueError("graphql-probe max_depth must be capped at 20")
 
 
+def _normalize_graphql_command_injection_root(value: str) -> str:
+    candidate = normalize_http_target(str(value or "").strip())
+    parsed = urlparse(candidate)
+    if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
+        raise ValueError(
+            "graphql-command-injection is restricted to the local DVGA lab root"
+        )
+    if parsed.port != 5013:
+        raise ValueError(
+            "graphql-command-injection is restricted to the local DVGA lab on port 5013"
+        )
+    if parsed.params or parsed.query or parsed.fragment:
+        raise ValueError("graphql-command-injection target must not include params or query")
+    normalized_path = parsed.path.rstrip("/") or "/"
+    if normalized_path not in {"/", "/graphql"}:
+        raise ValueError(
+            "graphql-command-injection accepts only the local DVGA root or /graphql endpoint"
+        )
+    root = f"{parsed.scheme}://{parsed.netloc}/"
+    if root not in GRAPHQL_COMMAND_INJECTION_ALLOWED_ROOTS:
+        raise ValueError("graphql-command-injection target root is not authorized")
+    return root
+
+
+def validate_graphql_command_injection_run_configuration(
+    *,
+    scope: Scope,
+    configuration: dict[str, Any] | None,
+) -> None:
+    validate_web_depth_run_configuration(
+        scope=scope,
+        configuration=configuration,
+        tool="graphql-command-injection",
+    )
+    params = graphql_command_injection_runner_params_from_configuration(configuration)
+    command = str(params.get("command") or "").strip()
+    if any(character in command for character in GRAPHQL_COMMAND_INJECTION_BLOCKED_SHELL_METACHARS):
+        raise ValueError("graphql-command-injection command contains blocked shell metacharacters")
+    if command not in GRAPHQL_COMMAND_INJECTION_ALLOWED_COMMANDS:
+        raise ValueError("graphql-command-injection command is not in the safe allowlist")
+
+    endpoint_path = str(params.get("endpoint_path") or "/graphql").strip()
+    if "://" in endpoint_path or not endpoint_path.startswith("/"):
+        raise ValueError("graphql-command-injection endpoint_path must be /graphql")
+    if endpoint_path.rstrip("/") != "/graphql":
+        raise ValueError("graphql-command-injection only supports the DVGA /graphql endpoint")
+
+    targets = derive_targets_from_target_map(
+        configuration.get("targets")
+        if isinstance(configuration, dict) and isinstance(configuration.get("targets"), dict)
+        else scope.allowlist_json
+    )
+    tool_targets = planned_targets_for_tool("graphql-command-injection", targets)
+    if not tool_targets:
+        raise ValueError("graphql-command-injection requires a local DVGA URL target")
+    for target in tool_targets:
+        root = _normalize_graphql_command_injection_root(target["value"])
+        endpoint = f"{root.rstrip('/')}/graphql"
+        if not web_target_value_is_allowed_with_path(scope.allowlist_json, root):
+            raise ValueError(f"{root} is outside the approved engagement scope")
+        if not web_target_value_is_allowed_with_path(scope.allowlist_json, endpoint):
+            raise ValueError(f"{endpoint} is outside the approved engagement scope")
+
+
 def _configured_context_targets(item: Any) -> list[str]:
     if isinstance(item, str):
         return [item]
@@ -3846,6 +3945,7 @@ def planned_targets_for_tool(tool: str, targets: list[dict[str, str]]) -> list[d
         "idor-bac",
         "client-state",
         "headers-security",
+        "graphql-command-injection",
         "graphql-probe",
         "ssti-probe",
         "http-smuggling",
@@ -4087,6 +4187,9 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     client_state_params = client_state_runner_params_from_configuration(run_configuration)
     headers_security_params = headers_security_runner_params_from_configuration(run_configuration)
     graphql_probe_params = graphql_probe_runner_params_from_configuration(run_configuration)
+    graphql_command_injection_params = (
+        graphql_command_injection_runner_params_from_configuration(run_configuration)
+    )
     ssti_params = ssti_runner_params_from_configuration(run_configuration)
     http_smuggling_params = http_smuggling_runner_params_from_configuration(run_configuration)
     oauth_probe_params = oauth_probe_runner_params_from_configuration(run_configuration)
@@ -4186,6 +4289,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
         if tool == "graphql-probe":
             validate_graphql_probe_run_configuration(
+                scope=scope,
+                configuration=run_configuration,
+            )
+        if tool == "graphql-command-injection":
+            validate_graphql_command_injection_run_configuration(
                 scope=scope,
                 configuration=run_configuration,
             )
@@ -4603,6 +4711,29 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                     {
                         key: value
                         for key, value in graphql_probe_params.items()
+                        if value not in (None, [], {})
+                    }
+                )
+            if tool == "graphql-command-injection":
+                task_params.update(
+                    {
+                        "endpoint_path": "/graphql",
+                        "command": GRAPHQL_COMMAND_INJECTION_DEFAULT_COMMAND,
+                        "allowed_commands": list(GRAPHQL_COMMAND_INJECTION_ALLOWED_COMMANDS),
+                        "credential_context": "dvga-default-local-lab-admin",
+                        "credential_attack": False,
+                        "credential_discovery": False,
+                        "password_storage": False,
+                        "allow_command_injection_proof": bool(
+                            normalized_limits.get("allow_command_injection_proof", True)
+                        ),
+                        "intrusive_authorized": profile.run_class == "intrusive",
+                    }
+                )
+                task_params.update(
+                    {
+                        key: value
+                        for key, value in graphql_command_injection_params.items()
                         if value not in (None, [], {})
                     }
                 )

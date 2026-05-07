@@ -325,6 +325,7 @@ def test_pack_forge_tool_library_catalogue_and_manual_proposal(loaded_page: Page
     expect(loaded_page.get_by_test_id("tool-library")).to_be_visible()
     tool_card_count = loaded_page.get_by_test_id("tool-card").count()
     expect(loaded_page.get_by_test_id("tool-library-count")).to_have_text(f"{tool_card_count} tools")
+    expect(loaded_page.get_by_text("GraphQL Command Injection", exact=True)).to_be_visible()
     loaded_page.get_by_text("Metasploit", exact=True).click()
     expect(loaded_page.get_by_test_id("tool-detail")).to_contain_text("exploitation")
     expect(loaded_page.get_by_test_id("tool-detail")).to_contain_text("Controlled session proof")
