@@ -1,5 +1,56 @@
 # Done Log
 
+- 2026-05-07: completed backlog-268 `React v2 foundation: Zustand store, typed API client, React Router v6, and actor header injection`:
+  - rationale:
+    - the new React v2 UI needed a real foundation before screen-specific work could continue
+    - mock mission state must not become product truth, so the route shell now bootstraps engagement/run state from existing FastAPI endpoints
+    - `http://127.0.0.1:8000` was relevant because the task added the Vite `/api/*` proxy and browser/API bootstrap behavior
+  - implementation:
+    - installed `zustand` and `react-router-dom` in `ui-v2`
+    - added `ui-v2/src/store/index.ts` with global engagement, run, task, finding, inventory, AI insight/proposal, actor, settings, run-stream, loading, and error state
+    - added `ui-v2/src/api/types.ts` with typed frontend interfaces for Engagement, Run, Task, TaskExecution, Finding, InventorySnapshot, RunProfile, AgentProposal, AssessmentChain, settings, and request payloads
+    - added `ui-v2/src/api/client.ts` with a typed `api()` wrapper, named API functions, `X-Actor` header injection from the store, and `X-Tenant-ID` injection after engagement selection
+    - rewired `ui-v2/src/main.tsx` and `ui-v2/src/App.tsx` to React Router v6 routes for Dashboard, Intake, Mission Control, Findings Theater, Reports, Settings, History, Problems, Packs, and Research
+    - replaced local tab state with `<NavLink>`/`<Link>` navigation and backend bootstrap effects for engagements, selected engagement runs, selected run findings, inventory, AI insights, and settings
+    - configured `ui-v2/vite.config.ts` to proxy `/api` to `http://127.0.0.1:8000`
+    - lazy-loaded the existing Cinema Mode component so React Three dependencies cannot crash the route shell before the overlay is opened
+  - files:
+    - `ui-v2/package.json`
+    - `ui-v2/package-lock.json`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/main.tsx`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `ui-v2/src/store/index.ts`
+    - `ui-v2/vite.config.ts`
+    - `codex/results/backlog-268-react-v2-foundation-store-api-routing-20260507.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check: `inputs.prerequisite_backlog` is absent in the backlog-268 package, so no prerequisite blocker applied
+    - `cd ui-v2 && npm run build` passed; Vite reported only the existing large chunk warning from 3D/cinema dependencies
+    - `cd ui-v2 && npm run lint` passed
+    - `curl -sS -o /tmp/aegispt-health.txt -w '%{http_code}' http://127.0.0.1:8000/health/live` returned `200`
+    - `curl -sS -o /tmp/aegispt-v2-proxy.json -w '%{http_code}' -H 'X-Actor: operator-ui' http://127.0.0.1:5173/api/v1/engagements` returned `200`
+    - Playwright deterministic acceptance passed on 1440px, 1024px, 768px, and 375px, proving route navigation, store hydration, selected-run route state, `X-Actor`, and `X-Tenant-ID`
+    - Playwright live-backend route-shell acceptance through the Vite proxy passed on 1440px, 1024px, 768px, and 375px with no horizontal overflow
+    - `npm audit --omit=dev --json` reported zero production dependency vulnerabilities
+  - proof:
+    - React Router v6 routes load `/`, `/findings`, and `/mission-control` without old UI tab state
+    - deterministic browser acceptance captured 88 API requests with `X-Actor: operator-ui`
+    - deterministic browser acceptance verified `X-Tenant-ID: tenant-a` is sent after engagement selection
+    - Vite proxy proof returned HTTP 200 from `/api/v1/engagements` via `127.0.0.1:5173`
+    - evidence and screenshots are recorded in `codex/results/backlog-268-react-v2-foundation-store-api-routing-20260507.md`
+  - exceptions:
+    - `npm install zustand react-router-dom` initially failed on an existing scaffold peer-dependency conflict because `@react-three/drei@10.7.7` declares React 19 peers while the scaffold uses React 18; the install was completed with `--legacy-peer-deps`
+    - screen-specific content remains intentionally placeholder-level except for foundation bootstrap metrics
+  - remaining risks:
+    - the existing Cinema Mode/React Three dependency peer mismatch should be resolved before the v2 Cinema task relies on real 3D runtime behavior
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-269 `React v2 Mission Control`, from `codex/tasks/backlog-269-react-v2-mission-control.json`
+
 - 2026-05-07: completed backlog-260 `AI Continuous Assessment Loop: AI drives the full assessment as an observe-decide-execute cycle for any target type`:
   - rationale:
     - the fixed assessment planner/wave model needed a bounded `ai_loop` controller that can observe current run evidence, choose one registered runner action, and either queue safe passive work or create review-only proposals for higher tiers

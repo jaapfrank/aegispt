@@ -1,286 +1,521 @@
-import React, { useState, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Activity,
-  Crosshair,
-  ShieldAlert,
-  FileText,
-  History,
+  BadgeAlert,
   Box,
-  Settings,
   ChevronDown,
+  Clock,
+  Crosshair,
+  FileText,
+  FlaskConical,
+  Gauge,
+  History,
+  MonitorPlay,
   Plus,
-  MonitorPlay
+  ScrollText,
+  Settings,
+  Shield,
+  ShieldAlert,
 } from 'lucide-react';
+import { Link, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Intake from './components/Intake';
-import CinemaMode from './components/CinemaMode';
+import {
+  getEngagements,
+  getRunAiInsights,
+  getRunFindings,
+  getRunInventory,
+  getRunsForEngagement,
+  getSettings,
+} from './api/client';
+import { useAegisStore } from './store';
 
-// Utility for cleaner tailwind classes
+const CinemaMode = lazy(() => import('./components/CinemaMode'));
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+type NavEntry = {
+  to: string;
+  label: string;
+  icon: typeof Activity;
+  pulse?: boolean;
+  badgeKey?: 'findings';
+};
+
+type NavSection = {
+  label: string;
+  items: NavEntry[];
+};
+
+const navSections: NavSection[] = [
+  {
+    label: 'Operate',
+    items: [
+      { to: '/intake', label: 'Intake', icon: Crosshair },
+      { to: '/mission-control', label: 'Mission Control', icon: Activity, pulse: true },
+    ],
+  },
+  {
+    label: 'Analyze',
+    items: [
+      { to: '/findings', label: 'Findings', icon: ShieldAlert, badgeKey: 'findings' },
+      { to: '/reports', label: 'Reports', icon: FileText },
+      { to: '/history', label: 'History', icon: History },
+      { to: '/problems', label: 'Problems', icon: BadgeAlert },
+    ],
+  },
+  {
+    label: 'Build',
+    items: [
+      { to: '/packs', label: 'Packs', icon: Box },
+      { to: '/research', label: 'Research', icon: FlaskConical },
+    ],
+  },
+];
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('mission-control');
-  const [isRunning] = useState(true);
-  const [isCinemaModeOpen, setIsCinemaModeOpen] = useState(false);
-
-  // Simulated living system effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Logic for random flashes/updates could go here
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <>
-    {isCinemaModeOpen && <CinemaMode onClose={() => setIsCinemaModeOpen(false)} />}
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-bg text-text font-sans">
-
-      {/* TOPBAR (48px) */}
-      <header className="flex h-[48px] shrink-0 items-center justify-between border-b border-border bg-[rgba(5,9,18,0.97)] px-4 z-50">
-
-        {/* Left: Branding & Engagement */}
-        <div className="flex h-full items-center gap-4">
-          <div className="flex items-center gap-2 pr-4 border-r border-border h-full">
-            <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] bg-cyan text-[11px] font-extrabold text-[#04080f]">
-              ◈
-            </div>
-            <span className="text-[13px] font-bold text-cyan tracking-wide">AegisPT</span>
-          </div>
-
-          <button className="flex items-center gap-2 text-[13px] font-medium text-text hover:text-cyan transition-colors">
-            <span>Customer API v1</span>
-            <ChevronDown size={14} className="text-muted" />
-          </button>
-        </div>
-
-        {/* Right: Living Status & Actor */}
-        <div className="flex h-full items-center gap-6">
-          {isRunning && (
-            <div className="flex items-center gap-2 rounded-full bg-cyan/10 px-3 py-1 border border-cyan/20">
-              <div className="h-[7px] w-[7px] rounded-full bg-cyan animate-pulse-fast shadow-[0_0_8px_rgba(94,207,255,0.8)]" />
-              <span className="text-[12px] font-medium text-cyan">1 run active</span>
-            </div>
-          )}
-
-          <div className="flex h-full items-center gap-4 pl-6 border-l border-border">
-            <button className="text-muted hover:text-text transition-colors">
-              <Settings size={16} />
-            </button>
-            <button className="flex items-center gap-2 text-[13px] font-medium text-text hover:text-cyan transition-colors">
-              <span>operator-ui</span>
-              <ChevronDown size={14} className="text-muted" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* WORKSPACE */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* SIDEBAR (180px) */}
-        <aside className="w-[180px] shrink-0 border-r border-border bg-bg flex flex-col pt-4 overflow-y-auto">
-
-          <div className="px-3 mb-6">
-            <button className="w-full flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/5 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/10 hover:border-cyan/50 transition-all shadow-[0_0_15px_rgba(94,207,255,0.05)]">
-              <Plus size={16} />
-              New Mission
-            </button>
-          </div>
-
-          <nav className="flex flex-col gap-6 px-3">
-            {/* Section: OPERATE */}
-            <div className="flex flex-col gap-1">
-              <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Operate</span>
-              <NavItem
-                icon={<Crosshair size={15} />}
-                label="Intake"
-                active={activeTab === 'intake'}
-                onClick={() => setActiveTab('intake')}
-              />
-              <NavItem
-                icon={<Activity size={15} />}
-                label="Mission Control"
-                active={activeTab === 'mission-control'}
-                onClick={() => setActiveTab('mission-control')}
-                showLivingPulse={isRunning}
-              />
-            </div>
-
-            {/* Section: ANALYZE */}
-            <div className="flex flex-col gap-1">
-              <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Analyze</span>
-              <NavItem
-                icon={<ShieldAlert size={15} />}
-                label="Findings"
-                active={activeTab === 'findings'}
-                onClick={() => setActiveTab('findings')}
-                badge="3"
-              />
-              <NavItem
-                icon={<FileText size={15} />}
-                label="Reports"
-                active={activeTab === 'reports'}
-                onClick={() => setActiveTab('reports')}
-              />
-              <NavItem
-                icon={<History size={15} />}
-                label="History"
-                active={activeTab === 'history'}
-                onClick={() => setActiveTab('history')}
-              />
-            </div>
-
-            {/* Section: BUILD */}
-            <div className="flex flex-col gap-1">
-              <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Build</span>
-              <NavItem
-                icon={<Box size={15} />}
-                label="Packs"
-                active={activeTab === 'packs'}
-                onClick={() => setActiveTab('packs')}
-              />
-            </div>
-          </nav>
-
-        </aside>
-
-        {/* MAIN STAGE */}
-        <main className="flex-1 relative overflow-hidden bg-[#04080f]">
-
-          {/* Cinema-style background grid/web suggestion */}
-          <div className="absolute inset-0 pointer-events-none opacity-20">
-            <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(120,177,212,0.15)" strokeWidth="1"/>
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-            </svg>
-          </div>
-
-          <div className="relative z-10 h-full p-8 overflow-y-auto">
-            {activeTab === 'mission-control' && (
-              <div className="max-w-5xl">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h1 className="text-2xl font-semibold mb-2">Live Operations</h1>
-                    <p className="text-muted text-[13px]">
-                      Watching the spider move through the digital environment.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsCinemaModeOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-[rgba(14,165,233,0.1)] border border-cyan/30 text-cyan rounded-lg text-sm font-semibold hover:bg-cyan/20 transition-all shadow-[0_0_15px_rgba(94,207,255,0.15)]"
-                  >
-                    <MonitorPlay size={16} />
-                    Launch Cinema Mode
-                  </button>
-                </div>
-
-                {/* Example Living Component */}
-                <div className="glass-panel rounded-lg p-6 flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-medium text-cyan flex items-center gap-2">
-                      <Activity size={14} className="animate-pulse" />
-                      Active Run Thread
-                    </h2>
-                    <span className="text-[11px] text-muted">Started 2 mins ago</span>
-                  </div>
-
-                  <div className="h-[2px] w-full bg-border relative rounded-full overflow-hidden">
-                    <div className="absolute top-0 left-0 h-full w-1/3 bg-cyan rounded-full animate-pulse-fast" />
-                    <div className="absolute top-0 right-0 h-full w-1/4 bg-amber rounded-full opacity-50" />
-                  </div>
-
-                  <div className="flex justify-between text-[11px] text-muted">
-                    <span>10.0.20.0/24 mapped</span>
-                    <span>api.example.com queued</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'intake' && (
-              <div className="h-full w-full flex flex-col">
-                <h1 className="text-2xl font-semibold mb-2">New Mission Intake</h1>
-                <p className="text-muted text-[13px] mb-6">
-                  Provide parameters or chat with Aegis Intelligence to configure the next run.
-                </p>
-                <div className="flex-1 min-h-0">
-                  <Intake />
-                </div>
-              </div>
-            )}
-
-            {activeTab !== 'mission-control' && activeTab !== 'intake' && (
-              <div>
-                <h1 className="text-xl font-semibold capitalize">{activeTab.replace('-', ' ')}</h1>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-    </div>
-    </>
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<Dashboard />} />
+        <Route path="intake" element={<IntakeScreen />} />
+        <Route path="mission-control" element={<MissionControl />} />
+        <Route path="findings" element={<PlaceholderScreen title="Findings Theater" detail="Finding data will be rendered from the selected run." />} />
+        <Route path="reports" element={<PlaceholderScreen title="Report Center" detail="Report catalog and export flows attach here after the foundation." />} />
+        <Route path="settings" element={<PlaceholderScreen title="Settings" detail="Instance and operator settings are already bootstrapped into the store." />} />
+        <Route path="history" element={<PlaceholderScreen title="History" detail="Historical runs will use the shared engagement and run store." />} />
+        <Route path="problems" element={<PlaceholderScreen title="Problems Center" detail="Cross-engagement finding workflow arrives in a later v2 slice." />} />
+        <Route path="packs" element={<PlaceholderScreen title="Packs" detail="Pack lifecycle screens will call the existing governed APIs." />} />
+        <Route path="research" element={<PlaceholderScreen title="Research" detail="AI research workflows remain operator-reviewed and evidence-backed." />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }
 
-// Sidebar Nav Item Component
+function AppShell() {
+  const engagements = useAegisStore((state) => state.engagements);
+  const selectedEngagementId = useAegisStore((state) => state.selectedEngagementId);
+  const selectedEngagement = useAegisStore((state) => state.selectedEngagement);
+  const selectedRunId = useAegisStore((state) => state.selectedRunId);
+  const selectedRun = useAegisStore((state) => state.selectedRun);
+  const runs = useAegisStore((state) => state.runs);
+  const findings = useAegisStore((state) => state.findings);
+  const actor = useAegisStore((state) => state.actor);
+  const loading = useAegisStore((state) => state.loading);
+  const error = useAegisStore((state) => state.error);
+  const setEngagements = useAegisStore((state) => state.setEngagements);
+  const selectEngagement = useAegisStore((state) => state.selectEngagement);
+  const setRuns = useAegisStore((state) => state.setRuns);
+  const setSelectedRun = useAegisStore((state) => state.setSelectedRun);
+  const setFindings = useAegisStore((state) => state.setFindings);
+  const setInventory = useAegisStore((state) => state.setInventory);
+  const setAiInsights = useAegisStore((state) => state.setAiInsights);
+  const setSettings = useAegisStore((state) => state.setSettings);
+  const setLoading = useAegisStore((state) => state.setLoading);
+  const setError = useAegisStore((state) => state.setError);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrap() {
+      setLoading('bootstrap', true);
+      setError(null);
+      try {
+        const [engagementPayload, settingsPayload] = await Promise.all([getEngagements(), getSettings()]);
+        if (cancelled) return;
+        setEngagements(engagementPayload);
+        setSettings(settingsPayload);
+      } catch (bootstrapError) {
+        if (cancelled) return;
+        setError(errorMessage(bootstrapError));
+        setEngagements([]);
+      } finally {
+        if (!cancelled) {
+          setLoading('bootstrap', false);
+        }
+      }
+    }
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, [setEngagements, setError, setLoading, setSettings]);
+
+  useEffect(() => {
+    if (!selectedEngagementId) {
+      setRuns([]);
+      return;
+    }
+
+    const engagementId = selectedEngagementId;
+    let cancelled = false;
+    async function loadRuns() {
+      setLoading('runs', true);
+      setError(null);
+      try {
+        const runPayload = await getRunsForEngagement(engagementId);
+        if (!cancelled) {
+          setRuns(runPayload);
+        }
+      } catch (runError) {
+        if (!cancelled) {
+          setError(errorMessage(runError));
+          setRuns([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading('runs', false);
+        }
+      }
+    }
+
+    void loadRuns();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEngagementId, setError, setLoading, setRuns]);
+
+  useEffect(() => {
+    if (!selectedRunId) {
+      setSelectedRun(null);
+      setFindings([]);
+      setInventory(null);
+      setAiInsights(null);
+      return;
+    }
+
+    const runId = selectedRunId;
+    let cancelled = false;
+    async function loadRunScopedData() {
+      setLoading('runScoped', true);
+      setError(null);
+      try {
+        const run = runs.find((candidate) => candidate.id === runId) ?? selectedRun;
+        const [findingsPayload, inventoryPayload, aiInsightsPayload] = await Promise.all([
+          getRunFindings(runId),
+          getRunInventory(runId),
+          getRunAiInsights(runId),
+        ]);
+        if (cancelled) return;
+        setSelectedRun(run ?? null);
+        setFindings(findingsPayload);
+        setInventory(inventoryPayload);
+        setAiInsights(aiInsightsPayload);
+      } catch (runScopedError) {
+        if (!cancelled) {
+          setError(errorMessage(runScopedError));
+          setFindings([]);
+          setInventory(null);
+          setAiInsights(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading('runScoped', false);
+        }
+      }
+    }
+
+    void loadRunScopedData();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    runs,
+    selectedRun,
+    selectedRunId,
+    setAiInsights,
+    setError,
+    setFindings,
+    setInventory,
+    setLoading,
+    setSelectedRun,
+  ]);
+
+  const activeRunCount = runs.filter((run) => ['queued', 'running', 'requested'].includes(run.status)).length;
+  const engagementLabel = selectedEngagement?.name ?? (loading.bootstrap ? 'Loading engagements' : 'No engagement selected');
+
+  return (
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-bg text-text font-sans">
+        <header className="flex h-[48px] shrink-0 items-center justify-between border-b border-border bg-[rgba(5,9,18,0.97)] px-4 z-50">
+          <div className="flex h-full items-center gap-4 min-w-0">
+            <Link to="/" className="flex items-center gap-2 pr-4 border-r border-border h-full">
+              <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] bg-cyan text-[#04080f]">
+                <Shield size={14} strokeWidth={2.5} />
+              </div>
+              <span className="text-[13px] font-bold text-cyan tracking-wide">AegisPT</span>
+            </Link>
+
+            <select
+              aria-label="Selected engagement"
+              value={selectedEngagementId ?? ''}
+              onChange={(event) => selectEngagement(event.target.value || null)}
+              className="max-w-[280px] truncate bg-transparent text-[13px] font-medium text-text outline-none hover:text-cyan transition-colors"
+            >
+              {engagements.length === 0 ? (
+                <option value="">{engagementLabel}</option>
+              ) : (
+                engagements.map((engagement) => (
+                  <option key={engagement.id} value={engagement.id} className="bg-surface text-text">
+                    {engagement.name}
+                  </option>
+                ))
+              )}
+            </select>
+            <ChevronDown size={14} className="text-muted -ml-3 pointer-events-none" />
+          </div>
+
+          <div className="flex h-full items-center gap-4">
+            {activeRunCount > 0 && (
+              <div className="flex items-center gap-2 rounded-full bg-cyan/10 px-3 py-1 border border-cyan/20">
+                <div className="h-[7px] w-[7px] rounded-full bg-cyan animate-pulse-fast shadow-[0_0_8px_rgba(94,207,255,0.8)]" />
+                <span className="text-[12px] font-medium text-cyan">{activeRunCount} active</span>
+              </div>
+            )}
+
+            <div className="flex h-full items-center gap-4 pl-4 border-l border-border">
+              <NavLink to="/settings" className="text-muted hover:text-text transition-colors" aria-label="Settings">
+                <Settings size={16} />
+              </NavLink>
+              <button className="flex items-center gap-2 text-[13px] font-medium text-text hover:text-cyan transition-colors">
+                <span>{actor.name}</span>
+                <ChevronDown size={14} className="text-muted" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex flex-1 overflow-hidden">
+          <aside className="w-[180px] shrink-0 border-r border-border bg-bg flex flex-col pt-4 overflow-y-auto">
+            <div className="px-3 mb-6">
+              <Link className="w-full flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/5 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/10 hover:border-cyan/50 transition-all shadow-[0_0_15px_rgba(94,207,255,0.05)]" to="/intake">
+                <Plus size={16} />
+                New Mission
+              </Link>
+            </div>
+
+            <nav className="flex flex-col gap-6 px-3">
+              {navSections.map((section) => (
+                <div key={section.label} className="flex flex-col gap-1">
+                  <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
+                    {section.label}
+                  </span>
+                  {section.items.map((item) => (
+                    <NavItem
+                      key={item.to}
+                      to={item.to}
+                      icon={<item.icon size={15} />}
+                      label={item.label}
+                      badge={item.badgeKey === 'findings' && findings.length > 0 ? String(findings.length) : undefined}
+                      showLivingPulse={Boolean(item.pulse && activeRunCount > 0)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </nav>
+          </aside>
+
+          <main className="flex-1 relative overflow-hidden bg-[#04080f]">
+            <div className="absolute inset-0 pointer-events-none opacity-20">
+              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(120,177,212,0.15)" strokeWidth="1" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+              </svg>
+            </div>
+
+            <div className="relative z-10 h-full p-8 overflow-y-auto">
+              {error && (
+                <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-4 py-3 text-sm text-amber">
+                  {error}
+                </div>
+              )}
+              <Outlet />
+            </div>
+          </main>
+        </div>
+      </div>
+  );
+}
+
 function NavItem({
   icon,
   label,
-  active,
-  onClick,
+  to,
   badge,
-  showLivingPulse
+  showLivingPulse,
 }: {
   icon: React.ReactNode;
   label: string;
-  active?: boolean;
-  onClick: () => void;
+  to: string;
   badge?: string;
   showLivingPulse?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "group relative flex items-center justify-between w-full rounded-md px-2 py-1.5 text-[13px] font-medium transition-all duration-200",
-        active
-          ? "bg-cyan/10 text-cyan"
-          : "text-muted hover:bg-surface hover:text-text"
-      )}
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          'group relative flex items-center justify-between w-full rounded-md px-2 py-1.5 text-[13px] font-medium transition-all duration-200',
+          isActive ? 'bg-cyan/10 text-cyan' : 'text-muted hover:bg-surface hover:text-text',
+        )
+      }
     >
-      <div className="flex items-center gap-2">
-        <span className={cn(
-          "transition-colors",
-          active ? "text-cyan" : "text-muted group-hover:text-text"
-        )}>
-          {icon}
-        </span>
-        {label}
-      </div>
-
-      <div className="flex items-center gap-2">
-        {badge && (
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red/20 px-1 text-[10px] font-bold text-red">
-            {badge}
-          </span>
-        )}
-        {showLivingPulse && active && (
-          <div className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse shadow-[0_0_5px_rgba(94,207,255,0.8)]" />
-        )}
-      </div>
-
-      {/* Active Indicator Bar */}
-      {active && (
-        <div className="absolute left-0 top-[10%] h-[80%] w-[3px] rounded-r bg-cyan shadow-[0_0_8px_rgba(94,207,255,0.8)]" />
+      {({ isActive }) => (
+        <>
+          <div className="flex items-center gap-2">
+            <span className={cn('transition-colors', isActive ? 'text-cyan' : 'text-muted group-hover:text-text')}>
+              {icon}
+            </span>
+            {label}
+          </div>
+          <div className="flex items-center gap-2">
+            {badge && (
+              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red/20 px-1 text-[10px] font-bold text-red">
+                {badge}
+              </span>
+            )}
+            {showLivingPulse && isActive && (
+              <div className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse shadow-[0_0_5px_rgba(94,207,255,0.8)]" />
+            )}
+          </div>
+          {isActive && (
+            <div className="absolute left-0 top-[10%] h-[80%] w-[3px] rounded-r bg-cyan shadow-[0_0_8px_rgba(94,207,255,0.8)]" />
+          )}
+        </>
       )}
-    </button>
+    </NavLink>
   );
+}
+
+function Dashboard() {
+  const engagements = useAegisStore((state) => state.engagements);
+  const runs = useAegisStore((state) => state.runs);
+  const selectedEngagement = useAegisStore((state) => state.selectedEngagement);
+  const loading = useAegisStore((state) => state.loading);
+
+  return (
+    <section className="max-w-5xl">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
+        <p className="text-muted text-[13px]">
+          {selectedEngagement
+            ? `Backend bootstrap selected ${selectedEngagement.name}.`
+            : loading.bootstrap
+              ? 'Loading engagements from AegisPT.'
+              : 'No engagement data returned from the backend.'}
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard icon={<Gauge size={16} />} label="Engagements" value={engagements.length} />
+        <MetricCard icon={<Activity size={16} />} label="Runs" value={runs.length} />
+        <MetricCard icon={<ScrollText size={16} />} label="Source" value="Backend" />
+      </div>
+    </section>
+  );
+}
+
+function IntakeScreen() {
+  return (
+    <div className="h-full w-full flex flex-col">
+      <h1 className="text-2xl font-semibold mb-2">New Mission Intake</h1>
+      <p className="text-muted text-[13px] mb-6">
+        AI intake and manual wizard paths remain side by side for the v2 rebuild.
+      </p>
+      <div className="flex-1 min-h-0">
+        <Intake />
+      </div>
+    </div>
+  );
+}
+
+function MissionControl() {
+  const selectedRun = useAegisStore((state) => state.selectedRun);
+  const tasks = useAegisStore((state) => state.tasks);
+  const findings = useAegisStore((state) => state.findings);
+  const loading = useAegisStore((state) => state.loading);
+  const [isCinemaModeOpen, setIsCinemaModeOpen] = useState(false);
+
+  return (
+    <>
+      {isCinemaModeOpen && (
+        <Suspense fallback={null}>
+          <CinemaMode onClose={() => setIsCinemaModeOpen(false)} />
+        </Suspense>
+      )}
+      <section className="max-w-5xl">
+        <div className="flex items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold mb-2">Live Operations</h1>
+            <p className="text-muted text-[13px]">
+              {selectedRun
+                ? `Selected run ${selectedRun.profile.name} is ${selectedRun.status}.`
+                : loading.runs
+                  ? 'Loading runs from the selected engagement.'
+                  : 'Select or create a run to begin live operations.'}
+            </p>
+          </div>
+          <button
+            onClick={() => setIsCinemaModeOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[rgba(14,165,233,0.1)] border border-cyan/30 text-cyan rounded-lg text-sm font-semibold hover:bg-cyan/20 transition-all shadow-[0_0_15px_rgba(94,207,255,0.15)]"
+          >
+            <MonitorPlay size={16} />
+            Launch Cinema Mode
+          </button>
+        </div>
+
+        <div className="glass-panel rounded-lg p-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-cyan flex items-center gap-2">
+              <Activity size={14} className={selectedRun?.status === 'running' ? 'animate-pulse' : ''} />
+              Active Run Thread
+            </h2>
+            <span className="text-[11px] text-muted">{selectedRun?.updated_at ?? 'No run selected'}</span>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <MetricCard icon={<Activity size={16} />} label="Tasks" value={tasks.length} />
+            <MetricCard icon={<ShieldAlert size={16} />} label="Findings" value={findings.length} />
+            <MetricCard icon={<Clock size={16} />} label="Status" value={selectedRun?.status ?? 'Idle'} />
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function PlaceholderScreen({ title, detail }: { title: string; detail: string }) {
+  return (
+    <section className="max-w-4xl">
+      <h1 className="text-xl font-semibold mb-2">{title}</h1>
+      <p className="text-muted text-[13px]">{detail}</p>
+    </section>
+  );
+}
+
+function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+  return (
+    <div className="glass-panel rounded-lg p-4">
+      <div className="mb-3 flex items-center gap-2 text-cyan">
+        {icon}
+        <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="text-2xl font-semibold text-text">{value}</div>
+    </div>
+  );
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'AegisPT API request failed.';
 }
