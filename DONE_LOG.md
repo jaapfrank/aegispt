@@ -46,6 +46,7 @@
     - Classic UI may still display actor identity from backend operator settings in some flows; this task aligned the shared `aegispt-actor` localStorage handoff without changing classic Settings behavior.
   - next:
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-277 `React v2 Living Intake Wizard`, from `codex/tasks/backlog-277-react-v2-living-intake-wizard.json`.
+    - external builder note: after this task was committed and pushed, Gemini updated `NEXT_TASK.md` to backlog-294 `AI Contextual Profiling Engine`; that external active-task sync was preserved and committed separately so the shared worktree remains clean.
 
 - 2026-05-08: completed backlog-275 `React v2 Cinema Mode: replace hardcoded EVENT_STREAM with real run data — hosts as 3D nodes, live task stdout, local fonts`:
   - rationale:
