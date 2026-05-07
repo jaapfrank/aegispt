@@ -1,0 +1,51 @@
+[
+  {
+    "flow": "findings-theater-live-api-actions",
+    "width": 1440,
+    "findings_get_theater_query": true,
+    "finding_theater_get": true,
+    "finding_evidence_get": true,
+    "status_patch_resolved": true,
+    "status_patch_false_positive": true,
+    "drawer_opened": true,
+    "evidence_visible": true,
+    "sha_visible": true,
+    "ai_enrichment_available_visible": true,
+    "unenriched_provider_action_visible": true,
+    "attack_path_visible_only_with_chain": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-271-react-v2-findings-theater-1440.png"
+  },
+  {
+    "flow": "responsive-findings-theater",
+    "width": 1024,
+    "list_visible": true,
+    "drawer_visible": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-271-react-v2-findings-theater-1024.png"
+  },
+  {
+    "flow": "responsive-findings-theater",
+    "width": 768,
+    "list_visible": true,
+    "drawer_visible": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-271-react-v2-findings-theater-768.png"
+  },
+  {
+    "flow": "responsive-findings-theater",
+    "width": 375,
+    "list_visible": true,
+    "drawer_visible": true,
+    "no_overflow": true,
+    "console_errors": [],
+    "page_errors": [],
+    "screenshot": "/home/administrator/project/automation skill/AegisPT/codex/results/backlog-271-react-v2-findings-theater-375.png"
+  }
+]

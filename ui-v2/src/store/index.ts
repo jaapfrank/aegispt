@@ -31,6 +31,7 @@ interface AegisStore {
   selectedRun: Run | null;
   tasks: Task[];
   findings: Finding[];
+  selectedFindingId: UUID | null;
   inventory: InventorySnapshot | null;
   aiInsights: RunAiInsights | null;
   proposals: AgentProposal[];
@@ -46,6 +47,7 @@ interface AegisStore {
   setSelectedRun: (run: Run | null) => void;
   setTasks: (tasks: Task[]) => void;
   setFindings: (findings: Finding[]) => void;
+  selectFinding: (findingId: UUID | null) => void;
   setInventory: (inventory: InventorySnapshot | null) => void;
   setAiInsights: (aiInsights: RunAiInsights | null) => void;
   setActor: (actor: Partial<ActorState>) => void;
@@ -74,6 +76,7 @@ const useAegisStoreBase = create<AegisStore>()(
       selectedRun: null,
       tasks: [],
       findings: [],
+      selectedFindingId: null,
       inventory: null,
       aiInsights: null,
       proposals: [],
@@ -114,6 +117,7 @@ const useAegisStoreBase = create<AegisStore>()(
             selectedRun: null,
             tasks: [],
             findings: [],
+            selectedFindingId: null,
             inventory: null,
             aiInsights: null,
             proposals: [],
@@ -143,6 +147,7 @@ const useAegisStoreBase = create<AegisStore>()(
             selectedRun,
             tasks: selectedRun?.tasks ?? [],
             findings: [],
+            selectedFindingId: null,
             inventory: null,
             aiInsights: null,
             proposals: [],
@@ -163,7 +168,12 @@ const useAegisStoreBase = create<AegisStore>()(
         );
       },
       setTasks: (tasks) => set({ tasks }, false, 'tasks/set'),
-      setFindings: (findings) => set({ findings }, false, 'findings/set'),
+      setFindings: (findings) => {
+        const currentId = get().selectedFindingId;
+        const selectedFindingId = findings.some((finding) => finding.id === currentId) ? currentId : findings[0]?.id ?? null;
+        set({ findings, selectedFindingId }, false, 'findings/set');
+      },
+      selectFinding: (findingId) => set({ selectedFindingId: findingId }, false, 'findings/select'),
       setInventory: (inventory) => set({ inventory }, false, 'inventory/set'),
       setAiInsights: (aiInsights) =>
         set(
@@ -216,6 +226,7 @@ const useAegisStoreBase = create<AegisStore>()(
             selectedRun: null,
             tasks: [],
             findings: [],
+            selectedFindingId: null,
             inventory: null,
             aiInsights: null,
             proposals: [],

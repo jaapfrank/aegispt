@@ -2,41 +2,44 @@
 
 ## Title
 
-React v2 Findings Theater: two-column list + slide-in drawer with evidence, AI enrichment, CVSS, OWASP, and attack path tab
+React v2 Report Center: run selector, adaptive report catalog, markdown/HTML/PDF preview, and download actions
 
 ## Promoted From
 
-`codex/tasks/backlog-271-react-v2-findings-theater.json`
+`codex/tasks/backlog-272-react-v2-report-center.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-271-react-v2-findings-theater.json` so the React v2 Findings Theater loads real findings from the backend and presents evidence-backed details in a two-column list plus slide-in drawer.
+Implement the active backlog package `codex/tasks/backlog-272-react-v2-report-center.json` so the React v2 Report Center loads real report catalog data, previews, downloads, comparison context, and dossier timeline from existing backend APIs.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-271-react-v2-findings-theater.json`.
+Implement the active backlog package `codex/tasks/backlog-272-react-v2-report-center.json`.
 
-Expected React v2 Findings Theater slice:
+Expected React v2 Report Center slice:
 
-- build `ui-v2/src/components/screens/FindingsTheater.tsx`
-- load findings from `GET /api/v1/runs/{runId}/findings?theater=true`
-- provide severity, status, and search filters
-- group findings by severity in the list
-- open a Framer Motion slide-in detail drawer when a finding is selected
-- show summary, CVSS, OWASP category, technical evidence, SHA-256 hash, AI enrichment, remediation actions, integration entry points, and attack path data only when backed by real finding/reasoning records
-- PATCH finding status for fixed and false-positive actions through existing backend endpoints
+- build `ui-v2/src/components/screens/ReportCenter.tsx`
+- provide top-level `Reports` and `Dossier` tabs
+- show selected-run strip with profile, date, and status
+- load available reports from `GET /api/v1/runs/{runId}/reports`
+- render report cards with icon, title, availability status, and short description
+- select a report and load/generate preview through existing report endpoints
+- provide Markdown preview, HTML download, and PDF download actions
+- render markdown preview with a small local renderer, without adding external libraries
+- compare the selected run with earlier runs for the same engagement
+- load dossier data from `GET /api/v1/engagements/{engId}/dossier` where available, or document repo-truth fallback if the endpoint does not exist
+- show evidence hash in a collapsed disclosure when the backend exposes it
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
 - This task depends on completed backlog-268.
-- Work only in the React v2 Findings Theater scope.
+- Work only in the React v2 Report Center scope.
 - Do not touch `api/`, `workers/`, or old `ui/`.
 - Do not bypass existing backend scope, ROE, approval, runner registry, provenance, report, credential, runtime binding, or kill-switch behavior.
 - Do not create runtime self-modification or uncontrolled plugin installation.
 - Production UI must use existing icon patterns and no emoji.
-- Attack path UI must only appear when backed by real `compound_chain_id` / AgentReasoning-style data; no fake chains.
-- Narrative or enrichment text must remain evidence-backed and must not invent findings.
+- Reports and narratives must stay evidence-backed and must not invent findings, coverage, or certification claims.
 
 ## Validation
 
@@ -46,12 +49,11 @@ Expected React v2 Findings Theater slice:
 
 ## Acceptance
 
-- Findings list renders from the real API.
-- Filter bar filters by severity and status.
-- Clicking a finding opens a slide-in drawer.
-- Drawer displays raw evidence in a monospace block with hash.
-- AI enrichment is shown when available, or the correct provider/connect action is shown when not.
-- Mark as Fixed and Mark as False Positive actions PATCH the finding through existing APIs.
-- Attack path tab is shown only when real compound-chain data exists.
-- Drawer closes with the close button.
+- Report catalog loads from real backend data.
+- Clicking a report card loads a preview.
+- Generate Markdown Preview shows formatted markdown.
+- Download HTML and PDF trigger file downloads or honest backend unavailable states.
+- Compare with Earlier Run shows a real diff summary.
+- Dossier tab shows engagement timeline from backend data.
+- Evidence hash is shown in a collapsed disclosure when available.
 - Build passes with no TypeScript errors.

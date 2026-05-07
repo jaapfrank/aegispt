@@ -121,6 +121,70 @@ export interface Finding {
   created_at: IsoDateTime;
 }
 
+export interface FindingRelatedArtifact {
+  artifact_id: UUID;
+  kind: string;
+  uri: string;
+  download_path: string;
+  name: string;
+  sha256: string;
+  hash_status: string;
+  timestamp_status: string;
+  timestamp_response_uri: string | null;
+  redaction_state: string;
+  created_at: IsoDateTime;
+}
+
+export interface FindingRelatedExecution {
+  execution_id: UUID;
+  task_id: UUID;
+  tool: string;
+  target_id: string;
+  task_status: string;
+  exit_code: number;
+  tool_version: string;
+  stdout_excerpt: string | null;
+  stderr_excerpt: string | null;
+  created_at: IsoDateTime;
+  artifacts: FindingRelatedArtifact[];
+}
+
+export interface FindingEvidenceReplay {
+  finding: Finding;
+  evidence_ref: string;
+  methodology_references: JsonMap;
+  pack_provenance: JsonMap;
+  inventory_source: JsonMap;
+  relevance_source: JsonMap;
+  validation_history: JsonMap[];
+  related_executions: FindingRelatedExecution[];
+}
+
+export interface FindingTheater {
+  finding: Finding;
+  severity_rank: number;
+  confidence_label: string;
+  exploitability: string | null;
+  business_impact: string;
+  technical_details: string;
+  evidence_summary: string;
+  provenance: JsonMap;
+  methodology: JsonMap;
+  remediation: JsonMap;
+  ai_enrichment: JsonMap;
+  autofix: JsonMap;
+  repository_context: JsonMap;
+  threat_context: JsonMap;
+  detection_engineering: JsonMap;
+  vulnerability_chains: JsonMap;
+  threat_intel_badges: JsonMap;
+  validation: JsonMap;
+  evidence_integrity: JsonMap;
+  verification_status: string;
+  next_steps: string[];
+  risk_snapshot: JsonMap;
+}
+
 export interface InventorySnapshot {
   id: UUID;
   engagement_id: UUID;
@@ -247,6 +311,12 @@ export interface RunIntakeInterpretation {
 export interface AgentProposalReviewInput {
   decision: 'approved' | 'rejected';
   note?: string | null;
+}
+
+export interface FindingStatusUpdateInput {
+  status: 'open' | 'triaged' | 'in_progress' | 'resolved' | 'accepted_risk' | 'false_positive';
+  reason?: string | null;
+  false_positive_reason?: string | null;
 }
 
 export interface Run {

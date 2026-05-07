@@ -1,5 +1,55 @@
 # Done Log
 
+- 2026-05-07: completed backlog-271 `React v2 Findings Theater: two-column list + slide-in drawer with evidence, AI enrichment, CVSS, OWASP, and attack path tab`:
+  - rationale:
+    - the React v2 Findings route still used a placeholder, so operators could not review real selected-run findings, evidence, enrichment, or remediation state in the rebuilt UI
+    - `http://127.0.0.1:8000` was relevant because the screen validates against live FastAPI findings, theater, evidence, enrichment, Jira handoff, and status-update endpoints through the Vite proxy
+    - prerequisite check passed because `inputs.prerequisite_backlog` is `REQUIRES: backlog-268 completed first.` and `DONE_LOG.md` contains completed backlog-268
+  - implementation:
+    - added `ui-v2/src/components/screens/FindingsTheater.tsx` and routed `/findings` to it
+    - added severity/status/search filters, severity grouping, colored badges, source tool tags, target truncation, selected finding storage, and a Framer Motion slide-in drawer
+    - added typed API client support for real `?theater=true` finding lists, finding theater detail, finding evidence replay, AI enrichment, Jira handoff, and finding status PATCH
+    - added `selectedFindingId` and `selectFinding` to the v2 Zustand store
+    - rendered summary, CVSS, OWASP, technical evidence excerpts, stored SHA-256, AI enrichment, remediation actions, Jira handoff when configured, and attack-path data only from real backend detail records
+    - kept old `/app/`, old `ui/`, `api/`, `workers/`, runner registry, approvals, scope, ROE, credentials, provenance, reports, runtime binding, and kill switch untouched
+  - files:
+    - `ui-v2/src/components/screens/FindingsTheater.tsx`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/store/index.ts`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `codex/results/backlog-271-react-v2-findings-theater-20260507.md`
+    - `codex/results/backlog-271-react-v2-findings-theater-playwright.json`
+    - `codex/results/backlog-271-react-v2-findings-theater-1440.png`
+    - `codex/results/backlog-271-react-v2-findings-theater-1024.png`
+    - `codex/results/backlog-271-react-v2-findings-theater-768.png`
+    - `codex/results/backlog-271-react-v2-findings-theater-375.png`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check passed for completed backlog-268
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000` onto the current checkout
+    - `cd ui-v2 && npm run build` passed
+    - Playwright acceptance passed through `http://127.0.0.1:5173/findings` against live backend endpoints and Vite proxy
+    - Playwright viewport validation passed at 1440px, 1024px, 768px, and 375px with no horizontal overflow, no page errors, and no console errors
+    - final `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - final `git diff --check` passed
+  - proof:
+    - live API/browser proof used seeded local validation run `c23cb121-f143-4c64-b4d4-becfa3ab809a` under engagement `a716f96c-41a3-4a1d-af84-84bdc81f0362`
+    - Playwright proved real `GET /api/v1/runs/{run_id}/findings?theater=true`, `GET /api/v1/findings/{finding_id}/theater`, `GET /api/v1/findings/{finding_id}/evidence`, `PATCH status=resolved`, and `PATCH status=false_positive`
+    - drawer evidence showed the stored artifact SHA-256 `64a24648c3955acaa5215678adc1f34b9b6df8cbe1fa6911c7f9c7335bb71fd8`
+    - attack-path UI appeared from the real `vulnerability_chains` payload only
+    - screenshots and structured Playwright JSON are recorded under `codex/results/`
+  - exceptions:
+    - the task package used operator wording `fixed`, but repo truth in `FindingUpdate` accepts `resolved`; the UI label remains `Mark as Fixed` while the API PATCH sends `status=resolved`
+    - the task package named `/api/v1/runs/{runId}/findings/{findingId}/enrich`, but repo truth exposes `/api/v1/findings/{finding_id}/ai-enrich`; the implementation uses the existing backend endpoint
+  - remaining risks:
+    - no new open risk was introduced; provider-enabled live AI enrichment remains governed by existing AI settings and R-018 / XT-021 from backlog-270
+  - queue truth:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-272 `React v2 Report Center`, from `codex/tasks/backlog-272-react-v2-report-center.json`
+
 - 2026-05-07: completed backlog-270 `React v2 Intake: connect existing chat UI and wizard to real backend — AI Intake calls wizard API, Manual Wizard calls existing assessment tile flow, both create real missions`:
   - rationale:
     - the React v2 Intake screen still simulated AI responses and had a placeholder manual wizard, so it could not create real backend engagements, scopes, inventory snapshots, or runs

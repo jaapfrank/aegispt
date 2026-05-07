@@ -20,6 +20,7 @@ import { Link, Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Intake from './components/Intake';
+import FindingsTheater from './components/screens/FindingsTheater';
 import MissionControl from './components/screens/MissionControl';
 import {
   getEngagements,
@@ -81,7 +82,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="intake" element={<IntakeScreen />} />
         <Route path="mission-control" element={<MissionControl />} />
-        <Route path="findings" element={<PlaceholderScreen title="Findings Theater" detail="Finding data will be rendered from the selected run." />} />
+        <Route path="findings" element={<FindingsTheater />} />
         <Route path="reports" element={<PlaceholderScreen title="Report Center" detail="Report catalog and export flows attach here after the foundation." />} />
         <Route path="settings" element={<PlaceholderScreen title="Settings" detail="Instance and operator settings are already bootstrapped into the store." />} />
         <Route path="history" element={<PlaceholderScreen title="History" detail="Historical runs will use the shared engagement and run store." />} />
