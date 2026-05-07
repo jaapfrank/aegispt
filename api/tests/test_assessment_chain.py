@@ -153,7 +153,11 @@ def test_full_lan_iot_chain_definition_matches_required_phase_contract() -> None
         ),
         (
             "iot-intrusive",
-            ("passive-lan-infrastructure-audit", "intrusive-lan-credential-capture"),
+            (
+                "passive-lan-infrastructure-audit",
+                "intrusive-lan-arp-spoof",
+                "intrusive-lan-credential-capture",
+            ),
         ),
     ]
     assert [phase.requires_approval for phase in definition.phases] == [
@@ -173,8 +177,12 @@ def test_full_external_web_chain_includes_crypto_logging_and_oauth_probe() -> No
     assert definition.phases[0].key == "passive-surface"
     assert "passive-crypto-audit" in definition.phases[0].profiles
     assert "passive-web-logging-probe" in definition.phases[0].profiles
+    assert "passive-web-vuln-components" in definition.phases[0].profiles
+    assert "passive-web-headers-security" in definition.phases[0].profiles
+    assert "passive-web-nikto-scan" in definition.phases[0].profiles
     assert definition.phases[1].key == "active-web-validation"
     assert "active-web-oauth-probe" in definition.phases[1].profiles
+    assert "active-web-rce-nuclei-audit" in definition.phases[1].profiles
 
 
 def test_full_external_web_chain_dispatches_new_web_security_profiles() -> None:
@@ -196,10 +204,16 @@ def test_full_external_web_chain_dispatches_new_web_security_profiles() -> None:
         "active-web-ssti-probe",
         "active-web-http-smuggling",
         "active-web-idor-bac",
+        "active-web-rce-nuclei-audit",
     }
 
     assert expected.issubset(active_profiles)
     assert expected.issubset(assessment_chain_service.WEB_FOLLOW_UP_PROFILES)
+    assert {
+        "passive-web-vuln-components",
+        "passive-web-headers-security",
+        "passive-web-nikto-scan",
+    }.issubset(assessment_chain_service.WEB_FOLLOW_UP_PROFILES)
 
 
 def test_full_internal_lan_chain_includes_linux_privilege_escalation_enumeration() -> None:
@@ -211,6 +225,9 @@ def test_full_internal_lan_chain_includes_linux_privilege_escalation_enumeration
     assert "active-lan-ssh-brute" in definition.phases[1].profiles
     assert definition.phases[2].key == "intrusive-credential"
     assert "intrusive-credential-priv-esc-linux" in definition.phases[2].profiles
+    assert definition.phases[3].key == "intrusive-exploitation"
+    assert "intrusive-lan-arp-spoof" in definition.phases[3].profiles
+    assert "intrusive-lan-arp-spoof" in assessment_chain_service.HOST_FOLLOW_UP_PROFILES
 
 
 def test_full_ad_chain_includes_bounded_service_brute_force() -> None:
@@ -386,6 +403,61 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         session.commit()
 
         assert chain is not None and chain.current_run_id is not None
+        component_run = session.get(Run, chain.current_run_id)
+        assert component_run is not None
+        assert component_run.profile is not None
+        assert component_run.profile.name == "passive-web-vuln-components"
+        assert component_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
+
+        component_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=component_run.id,
+            actor="runner:vuln-components",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        headers_run = session.get(Run, chain.current_run_id)
+        assert headers_run is not None
+        assert headers_run.profile is not None
+        assert headers_run.profile.name == "passive-web-headers-security"
+        assert headers_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
+
+        headers_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=headers_run.id,
+            actor="runner:headers-security",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        nikto_run = session.get(Run, chain.current_run_id)
+        assert nikto_run is not None
+        assert nikto_run.profile is not None
+        assert nikto_run.profile.name == "passive-web-nikto-scan"
+        assert nikto_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
+
+        nikto_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=nikto_run.id,
+            actor="runner:nikto",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
         nuclei_run = session.get(Run, chain.current_run_id)
         assert nuclei_run is not None
         assert nuclei_run.profile is not None
@@ -397,6 +469,23 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         chain = advance_assessment_chain_for_completed_run(
             session,
             run_id=nuclei_run.id,
+            actor="runner:nuclei",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        rce_run = session.get(Run, chain.current_run_id)
+        assert rce_run is not None
+        assert rce_run.profile is not None
+        assert rce_run.profile.name == "active-web-rce-nuclei-audit"
+        assert rce_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
+
+        rce_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=rce_run.id,
             actor="runner:nuclei",
             settings=get_settings(),
         )

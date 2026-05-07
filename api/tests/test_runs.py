@@ -479,6 +479,7 @@ def test_list_run_profiles(client) -> None:
         "intrusive-impacket-dcsync",
         "intrusive-impacket-remote-exec",
         "intrusive-impacket-secretsdump",
+        "intrusive-lan-arp-spoof",
         "intrusive-lan-credential-capture",
         "intrusive-lan-smb-auth",
         "intrusive-validation",
@@ -507,9 +508,11 @@ def test_list_run_profiles(client) -> None:
         "passive-network-service-enumeration",
         "passive-web-baseline",
         "passive-web-burp",
+        "passive-web-headers-security",
         "passive-web-logging-probe",
         "passive-web-nikto-scan",
         "passive-web-nuclei-audit",
+        "passive-web-vuln-components",
         "passive-wifi-survey",
     ]
 
@@ -1638,6 +1641,73 @@ def test_network_capture_profile_queues_passive_bounded_task(client) -> None:
     assert task["params_json"]["arp_probe_enabled"] is True
     assert task["params_json"]["arp_spoof_enabled"] is False
     assert task["params_json"]["allow_arp_spoof_proof"] is False
+
+
+def test_intrusive_arp_spoof_profile_requires_intrusive_approval_and_queues_proof_task(
+    client,
+) -> None:
+    engagement_id = create_engagement_with_cidr_scope(client, "10.0.20.0/30")
+
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "intrusive-lan-arp-spoof",
+            "configuration_json": {
+                "targets": {"cidrs": ["10.0.20.0/30"]},
+                "network_capture": {
+                    "interface": "eth0",
+                    "gateway_ip": "10.0.20.1",
+                    "expected_gateway_mac": "00:11:22:33:44:55",
+                    "arp_spoof_target": "10.0.20.2",
+                    "capture_seconds": 999,
+                    "packet_limit": 999999,
+                },
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+    assert created_payload["status"] == "pending_approval"
+    assert created_payload["approval_step_id"] == "intrusive-lan-arp-spoof"
+    assert created_payload["required_approvals"] == 2
+    assert created_payload["pending_approvals"] == 2
+    assert created_payload["tasks"] == []
+
+    first_approval = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver-1"},
+        json={"step_id": "intrusive-lan-arp-spoof", "decision": "approved"},
+    )
+    assert first_approval.status_code == 200
+    assert first_approval.json()["status"] == "pending_approval"
+    assert first_approval.json()["pending_approvals"] == 1
+
+    second_approval = client.post(
+        f"/api/v1/runs/{created_payload['id']}/approvals",
+        headers={"X-Actor": "approver-2"},
+        json={"step_id": "intrusive-lan-arp-spoof", "decision": "approved"},
+    )
+
+    assert second_approval.status_code == 200
+    approval_payload = second_approval.json()
+    assert approval_payload["status"] == "queued"
+    assert approval_payload["pending_approvals"] == 0
+    assert len(approval_payload["tasks"]) == 1
+    task = approval_payload["tasks"][0]
+    assert task["tool"] == "network-capture"
+    assert task["target_id"] == "10.0.20.0/30"
+    assert task["params_json"]["mode"] == "intrusive-arp-proof"
+    assert task["params_json"]["interface"] == "eth0"
+    assert task["params_json"]["capture_seconds"] == 30
+    assert task["params_json"]["packet_limit"] == 1000
+    assert task["params_json"]["gateway_ip"] == "10.0.20.1"
+    assert task["params_json"]["expected_gateway_mac"] == "00:11:22:33:44:55"
+    assert task["params_json"]["arp_spoof_target"] == "10.0.20.2"
+    assert task["params_json"]["arp_spoof_enabled"] is True
+    assert task["params_json"]["allow_arp_spoof_proof"] is True
+    assert task["params_json"]["intrusive_authorized"] is True
 
 
 def test_snmp_enum_profile_queues_read_only_bounded_default_community_task(client) -> None:

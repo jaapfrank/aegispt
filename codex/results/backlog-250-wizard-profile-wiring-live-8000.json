@@ -1,0 +1,41 @@
+{
+  "task": "backlog-250-new-runners-wizard-profile-wiring",
+  "base_url": "http://127.0.0.1:8000/app/",
+  "checked_at": "2026-05-07T00:44:37.850388+00:00",
+  "status": "passed",
+  "external_web_active_required_text": [
+    "Component inventory",
+    "Header posture",
+    "Nikto config scan",
+    "RCE template audit",
+    "XXE probe",
+    "JWT checks",
+    "Component CVE check",
+    "Extended XSS",
+    "SSRF probe",
+    "Headers security",
+    "GraphQL security"
+  ],
+  "internal_lan_full_required_text": [
+    "Network capture + ARP",
+    "SSH weak-password check",
+    "Intrusive Credential Priv Esc Linux",
+    "ARP spoof proof"
+  ],
+  "external_web_active": {
+    "tile": "external-web",
+    "target": "https://portal.example.test",
+    "depth": "active",
+    "lane": "Full External Web \u00b7 2 phases \u00b7 27 runners",
+    "preview_text": "External Web\n\ud83c\udfaf https://portal.example.test\n\u23f1 ~60-90 min\n2 phases \u00b7 27 runners\nFull External Web \u00b7 2 phases \u00b7 27 runners\nTARGETS\n\ud83c\udf10 https://portal.example.test\nHosts discovered in Phase 1 are automatically included in later phases.\nPHASE 1 \u00b7 PASSIVE SURFACE MAPPING\n\ud83d\udfe2 Passive Surface Mapping\nEASM External surface map\nHTTPX Web baseline\nCRYP Passive Crypto Audit\nLOG Passive Web Logging Probe\nCOMP Component inventory\nHEAD Header posture\nNIKTO Nikto config scan\n~16 min \u00b7 no approval\n\u2192\nPHASE 2 \u00b7 ACTIVE WEB VALIDATION\n\ud83d\udd35 Active Web Validation\nNUCL Nuclei safe scan\nRCE RCE template audit\nZAP Active Web Safe\nBURP Passive Web Burp\nRUN Active Business Logic\nOAUTH Active Web Oauth Probe\nXXE XXE probe\nJWT JWT checks\nCOMP Component CVE check\nXSS Extended XSS\nSSRF SSRF probe\nDESER Deserialization probe\nSESS Session security\nAUTH Auth flow\nSTATE Client-state checks\nHEAD Headers security\nGQL GraphQL security\nSSTI SSTI probe\nSMUG HTTP smuggling\nIDOR IDOR/BAC checks\n~26 min \u00b7 phase approval\nAegisPT stores evidence after each phase, keeps approvals explicit, and the kill switch remains available.\nWhat access or prerequisites do you already have?\n\nDiscovery always starts without credentials. Select extra unlockers now so gated tools can run automatically when their phase is reached.\n\n1 selected\nNo credentials available\nRun discovery, service enumeration, safe SMB/LDAP probes, web baseline, and infrastructure checks without secrets.\nUnauthenticated web/API checks\nCredential refs available\nUse stored secret references for authenticated SMB/LDAP/BloodHound style checks.\nCredential/API access\nExploit confirmation authorized\nPermit confirmation with exploitation tools only after Full authorization and exact scope confirmation.\nExploit confirmation\nNeed authenticated coverage?\nAdd credentials in Advanced Configuration ->\n\nAccess prerequisites declared before launch: No credentials available. Missing gated prerequisites remain visible instead of being silently skipped.\n\nHow far should AegisPT go?\n\ud83d\udd0d\nPhases 1 only\nPassive discovery. Stops automatically after Phase 1.\n\u26a1\nPhases 1-2\nDiscovery and active analysis run as one mission. Manual confirmation is required before intrusive credential or exploit phases.\n\ud83c\udfaf\nFull - all 4 phases\nAllows controlled exploit proof for this web target when written authorisation is recorded.",
+    "screenshot": "codex/results/backlog-250-external-web-active-preview-8000.png"
+  },
+  "internal_lan_full": {
+    "tile": "internal-lan",
+    "target": "10.0.20.0/24",
+    "depth": "full",
+    "lane": "Full Internal LAN \u00b7 4 phases \u00b7 23 runners",
+    "preview_text": "Internal LAN\n\ud83c\udfaf 10.0.20.0/24\n\u23f1 ~2-3 hours\n4 phases \u00b7 23 runners\nFull Internal LAN \u00b7 4 phases \u00b7 23 runners\nTARGETS\n\ud83c\udf10 10.0.20.0/24\nHosts discovered in Phase 1 are automatically included in later phases.\nPHASE 1 \u00b7 PASSIVE DISCOVERY\n\ud83d\udfe2 Passive Discovery\nNMAP Host discovery\nIOT Device discovery\nCAP Network capture + ARP\nLDAP Identity enum\nEASM External surface map\n~20 min \u00b7 no approval\n\u2192\nPHASE 2 \u00b7 ACTIVE ENRICHMENT\n\ud83d\udd35 Active Enrichment\nNMAP Service enumeration\nHTTPX Web baseline\nNUCL Nuclei safe scan\nBLOOD Path analysis\nHYD SSH weak-password check\nSMB Posture\n~28 min \u00b7 phase approval\n\u2192\nPHASE 3 \u00b7 INTRUSIVE CREDENTIAL VALIDATION\n\ud83d\udfe0 Intrusive Credential Validation\nRESP Intrusive Lan Credential Capture\nRUN Active Ad Kerberoast\nRUN Active Ad Asreproast\nRUN Active Offline Hash Crack\nPRIV Intrusive Credential Priv Esc Linux\nSMB Intrusive Lan Smb Auth\nRUN Intrusive Ad Password Spray\n~24 min \u00b7 credential gate\n\u2192\nPHASE 4 \u00b7 INTRUSIVE EXPLOITATION\n\ud83d\udd34 Intrusive Exploitation\nMSF Intrusive Exploitation\nARP ARP spoof proof\nRUN Intrusive Impacket Remote Exec\nRUN Intrusive Impacket Secretsdump\nRUN Intrusive Impacket Dcsync\n~18 min \u00b7 explicit gate\nAegisPT stores evidence after each phase, keeps approvals explicit, and the kill switch remains available.\nWhat access or prerequisites do you already have?\n\nDiscovery always starts without credentials. Select extra unlockers now so gated tools can run automatically when their phase is reached.\n\n1 selected\nNo credentials available\nRun discovery, service enumeration, safe SMB/LDAP probes, web baseline, and infrastructure checks without secrets.\nUnauthenticated LAN lane\nAD/domain context known\nUse known domain, DC, DNS, or base DN hints to make LDAP and identity mapping less blind.\nLDAP/AD targeting\nCredential refs available\nUse stored secret references for authenticated SMB/LDAP/BloodHound style checks.\nCredentialed validation\nHashes or password candidates\nUse protected material for Kerberos/NTLM validation and controlled password-audit workflows.\nCredential review\nIntrusive LAN checks authorized\nAllow noisy LAN checks only inside the approved boundary and with the kill switch available.\nIntrusive LAN phase\nExploit confirmation authorized\nPermit confirmation with exploitation tools only after Full authorization and exact scope confirmation.\nExploit confirmation\nNeed authenticated coverage?\nAdd credentials in Advanced Configuration ->\n\nAccess prerequisites declared before launch: No credentials available. Missing gated prerequisites remain visible instead of being silently skipped.\n\nHow far should AegisPT go?\n\ud83d\udd0d\nPhases 1 only\nPassive discovery. Stops automatically after Phase 1.\n\u26a1\nPhases 1-2\nDiscovery and active analysis run as one mission. Manual confirmation is required before intrusive credential or exploit phases.\n\ud83c\udfaf\nFull - all 4 phases\nAllows approved credential and exploitation tooling for this internal environment.\nI confirm I have written authorisation from the system owner to run Metasploit, Impacket, and domain-impact validation tooling against 10.0.20.0/24. AegisPT will execute eligible non-exploitation runners in the authorised phases; exploit confirmation still requires the explicit exploit unlocker and all evidence prerequisites.\nConfirmed",
+    "screenshot": "codex/results/backlog-250-internal-lan-full-preview-8000.png"
+  }
+}

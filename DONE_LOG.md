@@ -12354,3 +12354,49 @@
     - no live customer, public, third-party, or real LAN SNMP/nmap target was scanned; SNMP non-standard behavior is proven through deterministic runner tests and local UI acceptance
     - all-ports nmap can be slow/noisy and remains an explicit governed option rather than a silent default
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-246 `Network traffic capture runner`
+
+- 2026-05-07: completed backlog-250 `Wire all new runners (214-249) into RunProfiles, assessment chains, and wizard depth triggers`:
+  - rationale:
+    - runners added in recent slices were implemented but several profiles were not reachable from run profiles, assessment-chain phases, wizard previews, or the acceptance harness map
+    - the slice kept the existing manual wizard path and approval model intact while making the new capabilities visible and dispatchable through existing flows
+  - implementation:
+    - added passive `vuln-components` and passive `headers-security` profiles, wired active API assessment to JWT/GraphQL/OAuth tool hints, added fail-closed RCE metadata to passive Nuclei, and marked sqlmap Phase B in profile limits
+    - added intrusive `intrusive-lan-arp-spoof` as a gated `network-capture` profile and passed ARP proof params to tasks only for intrusive profiles
+    - assigned the new web profiles to Full External Web phases and the ARP proof to Full Internal LAN and Full LAN + IoT intrusive phases
+    - updated wizard target groups, labels, icons, profile copy, and mission preview definitions so External Web Active and Internal LAN Full show the new runner coverage
+    - updated `scripts/acceptance_harness.py` profile tool hints and added API/static/browser regression tests
+  - files:
+    - `api/app/services/run_profiles.py`
+    - `api/app/services/assessment_chain.py`
+    - `api/app/services/runs.py`
+    - `ui/assets/modules/wizard.js`
+    - `scripts/acceptance_harness.py`
+    - `api/tests/test_assessment_chain.py`
+    - `api/tests/test_runs.py`
+    - `api/tests/test_pentest_depth_registration.py`
+    - `codex/results/backlog-250-wizard-profile-wiring-live-8000.json`
+    - `codex/results/backlog-250-external-web-active-preview-8000.png`
+    - `codex/results/backlog-250-internal-lan-full-preview-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 267 queued task packages and exactly one active task
+    - focused profile/chain/queue tests passed after implementation
+    - first full `source .venv/bin/activate && python -m pytest api/tests/ -q` run failed on an outdated Full External Web chain-order expectation after the new passive web profiles were inserted; the test contract was updated and the full API suite was rerun
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed on rerun
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `python3 scripts/acceptance_harness.py --smoke` passed
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - current-code `http://127.0.0.1:8000/app/` was restarted and Playwright acceptance passed for External Web Active and Internal LAN Full wizard previews
+    - `git diff --check` passed before documentation/promotion updates
+  - proof:
+    - External Web Active preview now shows passive component inventory, passive header posture, Nikto config scan, RCE template audit, XXE, JWT, component CVE, XSS, SSRF, headers, GraphQL, SSTI, smuggling, and IDOR/BAC coverage in the governed two-phase chain
+    - Internal LAN Full preview now shows network capture + ARP in passive discovery, SSH weak-password check in active enrichment, Linux privilege escalation in intrusive credential validation, and ARP spoof proof in the explicit intrusive phase
+    - API tests prove `intrusive-lan-arp-spoof` requires two approvals after central intrusive policy normalization and queues `network-capture` with ARP proof fields only after both approvals
+  - exceptions:
+    - the task package asked for one approval on `intrusive-lan-arp-spoof`, but the central policy normalizes every intrusive profile to two approvals; approval thresholds were not weakened
+    - the task package mentioned `INTRUSIVE_CREDENTIAL` for Linux privilege escalation, but the repo has only passive/active/intrusive run classes; the existing profile was preserved
+    - passive Nuclei stayed fail-closed for RCE/OOB/template updates; the existing active `active-web-rce-nuclei-audit` profile is the gated RCE path
+    - two runtime-generated `codex/tasks/task-20260507...pack-refinement...json` files appeared during live browser/runtime interaction; they were not queue-backed backlog packages and were removed as out-of-scope generated state
+  - remaining risks:
+    - no live public/customer target was scanned and no newly wired runner was executed end-to-end against a vulnerable lab in this wiring slice; see `extra_tests.md`
+    - intrusive ARP spoof proof remains approval-gated and needs an explicitly authorized LAN lab before product support is claimed beyond queue/preview evidence
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-251 `DVGA GraphQL command-injection runner`

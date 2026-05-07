@@ -1211,3 +1211,30 @@ The capability factory is operational and should remain authoritative for pack g
     - export endpoint hard-blocking for unavailable/draft-only runs is not added; this slice makes the report catalog and operator UI truthful
   - queue truth:
     - the single active task is now backlog-156 `Fix AI enrichment Unavailable message when ChatGPT IS connected; add Enrich Now button`
+
+- 2026-05-07 backlog-250 runner wiring truth:
+  - backlog-250 `Wire all new runners (214-249) into RunProfiles, assessment chains, and wizard depth triggers` is complete
+  - Full External Web now includes passive component inventory, passive headers, Nikto config scan, passive Nuclei, active RCE Nuclei, active web safe, Burp, business logic, OAuth, XXE, JWT, vulnerable components, XSS extended, SSRF, deserialization, session security, auth flow, client-state, headers, GraphQL, SSTI, HTTP smuggling, and IDOR/BAC profiles
+  - Full Internal LAN and Full LAN + IoT now include `intrusive-lan-arp-spoof` only in explicit intrusive phases; it uses the existing `network-capture` runner path
+  - `intrusive-lan-arp-spoof` profile metadata declares one approval per task package, but runtime truth is two approvals because central policy normalizes all intrusive profiles to two approvals
+  - passive Nuclei remains fail-closed for RCE template selection, OOB, and template updates; `active-web-rce-nuclei-audit` is the gated RCE-template path
+  - Active API assessment now advertises `api-assessment`, `jwt-probe`, `graphql-probe`, and `oauth-probe` in profile and acceptance-harness tool hints
+  - current-code localhost was restarted at `http://127.0.0.1:8000/app/`; Playwright evidence proves External Web Active and Internal LAN Full previews expose the new profile coverage
+  - evidence is recorded in:
+    - `codex/results/backlog-250-wizard-profile-wiring-live-8000.json`
+    - `codex/results/backlog-250-external-web-active-preview-8000.png`
+    - `codex/results/backlog-250-internal-lan-full-preview-8000.png`
+  - validation truth:
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed after fixing the updated chain-order test contract
+    - `python3 scripts/acceptance_harness.py --smoke` passed
+    - `source .venv/bin/activate && PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" python -m pytest ui/tests/test_wizard_input_prediction_matrix_e2e.py -q` passed
+    - `git diff --check` passed before documentation/promotion updates
+  - exceptions:
+    - generated `codex/tasks/task-20260507...pack-refinement...json` files appeared during browser/runtime proof and were removed because they were not queue-backed backlog packages
+    - no live vulnerable lab execution of every newly wired runner was performed in this wiring slice; those gaps are tracked in `extra_tests.md`
+  - remaining product risks:
+    - newly wired active/intrusive runners still need runner-specific live lab proof before claiming end-to-end coverage beyond queue/preview/API evidence
+    - intrusive ARP spoof proof must stay lab-only/ROE-gated with explicit interface/gateway/target context and two approvals
+  - queue truth:
+    - the single active task is now backlog-251 `DVGA GraphQL command-injection runner`

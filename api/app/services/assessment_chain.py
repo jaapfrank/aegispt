@@ -72,6 +72,7 @@ HOST_FOLLOW_UP_PROFILES = {
     "passive-lan-segmentation-check",
     "passive-lan-ipv6-discovery",
     "passive-lan-network-capture",
+    "intrusive-lan-arp-spoof",
     "passive-identity-ldap-enum",
     "passive-lan-smb-enum",
     "active-ad-bloodhound",
@@ -89,7 +90,11 @@ WEB_FOLLOW_UP_PROFILES = {
     "passive-web-baseline",
     "passive-crypto-audit",
     "passive-web-logging-probe",
+    "passive-web-vuln-components",
+    "passive-web-headers-security",
+    "passive-web-nikto-scan",
     "passive-web-nuclei-audit",
+    "active-web-rce-nuclei-audit",
     "active-web-safe",
     "passive-web-burp",
     "active-business-logic",
@@ -188,6 +193,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 never_auto_start=True,
                 profiles=(
                     "intrusive-exploitation",
+                    "intrusive-lan-arp-spoof",
                     "intrusive-impacket-remote-exec",
                     "intrusive-impacket-secretsdump",
                     "intrusive-impacket-dcsync",
@@ -261,6 +267,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 never_auto_start=True,
                 profiles=(
                     "passive-lan-infrastructure-audit",
+                    "intrusive-lan-arp-spoof",
                     "intrusive-lan-credential-capture",
                 ),
             ),
@@ -280,6 +287,9 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                     "passive-web-baseline",
                     "passive-crypto-audit",
                     "passive-web-logging-probe",
+                    "passive-web-vuln-components",
+                    "passive-web-headers-security",
+                    "passive-web-nikto-scan",
                 ),
             ),
             AssessmentChainPhaseDefinition(
@@ -289,6 +299,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 requires_approval=True,
                 profiles=(
                     "passive-web-nuclei-audit",
+                    "active-web-rce-nuclei-audit",
                     "active-web-safe",
                     "passive-web-burp",
                     "active-business-logic",

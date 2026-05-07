@@ -5125,6 +5125,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                         normalized_limits.get("packet_limit") or 10000,
                     )
                 )
+                packet_limit_cap = int(normalized_limits.get("packet_limit") or 10000)
                 task_params.update(
                     {
                         "source_inventory_snapshot_id": (
@@ -5144,7 +5145,7 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             or None
                         ),
                         "capture_seconds": max(1, min(capture_seconds, max_capture_seconds, 120)),
-                        "packet_limit": max(1, min(packet_limit, 10000)),
+                        "packet_limit": max(1, min(packet_limit, packet_limit_cap, 10000)),
                         "arp_probe_enabled": bool(normalized_limits.get("arp_probe_enabled", True)),
                         "arp_probe_count": max(
                             1,
@@ -5160,9 +5161,26 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                             if network_capture_config.get("expected_gateway_mac")
                             else None
                         ),
-                        "arp_spoof_enabled": False,
-                        "allow_arp_spoof_proof": False,
-                        "intrusive_authorized": False,
+                        "arp_spoof_enabled": bool(
+                            normalized_limits.get("arp_spoof_enabled", False)
+                        )
+                        and profile.run_class == "intrusive",
+                        "allow_arp_spoof_proof": bool(
+                            normalized_limits.get("allow_arp_spoof_proof", False)
+                        )
+                        and profile.run_class == "intrusive",
+                        "intrusive_authorized": bool(
+                            normalized_limits.get("intrusive_authorized", False)
+                        )
+                        and profile.run_class == "intrusive",
+                        "arp_spoof_duration_seconds": int(
+                            normalized_limits.get("capture_seconds") or 30
+                        ),
+                        "arp_spoof_target": (
+                            str(network_capture_config.get("arp_spoof_target")).strip()
+                            if network_capture_config.get("arp_spoof_target")
+                            else None
+                        ),
                     }
                 )
             if tool == "snmp-enum":

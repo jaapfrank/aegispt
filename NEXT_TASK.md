@@ -2,52 +2,47 @@
 
 ## Title
 
-Wire all new runners (214-249) into RunProfiles, assessment chains, and wizard depth triggers
+DVGA GraphQL command-injection runner: approval-gated OS command evidence on local lab only
 
 ## Promoted From
 
-`codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json`
+`codex/tasks/backlog-251-dvga-graphql-command-injection-runner.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json` so runners added in tasks 214-249 are reachable through RunProfiles, assessment-chain phases, wizard depth triggers, and acceptance harness mapping instead of remaining dead code.
+Implement the active backlog package `codex/tasks/backlog-251-dvga-graphql-command-injection-runner.json` so DVGA GraphQL command-injection validation is a separate governed local-lab capability with approval, scope, provenance, reporting, and kill-switch boundaries.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-250-new-runners-wizard-profile-wiring.json`.
+Implement the active backlog package `codex/tasks/backlog-251-dvga-graphql-command-injection-runner.json`.
 
 Expected slice:
 
-- add or confirm RunProfile entries for all new web, LAN/network, AI shell, crypto, and RCE runner profiles listed in the task package
-- assign each new RunProfile to at least one relevant assessment-chain phase
-- update `wizard.js` execution-profile/depth trigger logic so the correct tile and depth combinations select the new profiles while preserving the existing manual wizard path
-- add the new profile names to `scripts/acceptance_harness.py` `PROFILE_TOOL_MAP`
-- preserve existing profile tool lists and approval gate logic; add wiring only where needed
+- add a dedicated command-injection runner or clearly named GraphQL command-injection mode separate from generic `graphql-probe`
+- wire it through existing orchestration, finding extraction, provenance, report/replay recipe, approval validation, and run profile flows
+- require explicit intrusive/exploitation authorization before command-bearing payloads are sent
+- enforce a minimal harmless command allowlist for the local DVGA proof
+- prove the documented DVGA `systemDiagnostics` command-injection challenge against only the local authorized DVGA root
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Do not change runner implementations.
-- Do not change approval gate thresholds.
-- Add to existing profile/chain behavior without removing existing tools.
-- Preserve the existing handmatige/wizard path; AI-assisted/adaptive UI work is not part of this task unless the active package explicitly requires it.
-- Do not bypass pack registry, validation, approval, deployment, runtime binding, scope, ROE, credentials, or kill switch.
-- No runtime self-modification.
-- No uncontrolled plugin installation.
+- Work only on governed GraphQL command-injection detection and DVGA local-lab proof.
+- Do not add arbitrary shell, persistence, credential attacks, public target execution, reverse shells, file write, lateral movement, privilege escalation, or broad RCE exploitation families.
+- Use existing approval, scope, ROE, runtime binding, credential, provenance, reporting, and kill-switch gates.
+- Keep generic `graphql-probe` safe discovery behavior separate.
+- Use only a local DVGA instance at `http://127.0.0.1:5013/` or `http://localhost:5013/` for live command-injection acceptance unless a future active task explicitly authorizes another target.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
+- `source .venv/bin/activate && python -m pytest workers/tests/test_graphql_command_injection_runner.py workers/tests/test_graphql_probe_runner.py api/tests/test_pentest_depth_registration.py -q`
 - `source .venv/bin/activate && python -m pytest api/tests/ -q`
-- `python3 scripts/acceptance_harness.py --smoke`
 - `git diff --check`
 
 ## Acceptance
 
-- Every new runner from tasks 214-249 has a corresponding RunProfile entry in `api/app/services/run_profiles.py`.
-- Every new RunProfile is assigned to at least one assessment-chain phase in `api/app/services/assessment_chain.py`.
-- `ui/assets/modules/wizard.js` includes the required tile and depth trigger rules.
-- `scripts/acceptance_harness.py` includes all new profiles in `PROFILE_TOOL_MAP`.
-- External Web + Active wizard flow dispatches the expected new web runners, including XXE.
-- Internal LAN + Full depth dispatches `ssh-brute`, `network-capture`, and `priv-esc-linux`.
-- Existing wizard flow tests do not regress.
+- Only the local DVGA lab root is used for live command-injection acceptance.
+- The command-bearing payload uses an allowlisted harmless command and produces structured proof without destructive effects.
+- The run path remains approval-gated, scope-enforced, provenance-backed, report-backed, and kill-switch compatible.
+- Unsupported command-injection scenarios are recorded as product truth with bounded follow-up rather than hidden behind green fixtures.
