@@ -27,7 +27,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-248 (AI Free Bash) + backlog-256 (SignalProfile) + backlog-258 (RunnerMetadata) must be completed. backlog-205 (AI Proposals Inbox) must be working. This task supersedes the planning layer of backlog-255, backlog-257, backlog-259 \u2014 those describe data foundations that this task uses, but the loop replaces the fixed-phase execution model.",
+    "prerequisite_backlog": "REQUIRES: backlog-248 (AI Free Bash) + backlog-256 (SignalProfile) + backlog-258 (RunnerMetadata) must be completed. backlog-205 (AI Proposals Inbox) must be working. This task supersedes the planning layer of backlog-255, backlog-257, backlog-259 \u2014 those describe data foundations that this task uses, but the loop replaces the fixed-phase execution model.",
     "broader_theme": "ai_driven_continuous_assessment",
     "source_documents": [
       "api/app/services/ai_agent.py",

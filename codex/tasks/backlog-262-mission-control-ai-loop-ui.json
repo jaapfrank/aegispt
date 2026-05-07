@@ -24,7 +24,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-260 must be completed first \u2014 run_mode=ai_loop field and loop state API must exist before this UI can render correctly.",
+    "prerequisite_backlog": "REQUIRES: backlog-260 must be completed first \u2014 run_mode=ai_loop field and loop state API must exist before this UI can render correctly.",
     "broader_theme": "ai_loop_mission_control_conditional_ui",
     "source_documents": [
       "ui/assets/modules/mission-control.js",

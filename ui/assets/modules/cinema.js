@@ -25,6 +25,8 @@ const TOOL_COLORS = ["#5ecfff", "#10b981", "#fbbf24", "#8b5cf6", "#f97316", "#ef
 let cinemaUnsubscribe = null;
 let cinemaRefreshTimer = null;
 let cinemaPreviousFocus = null;
+let cinemaNarrationCycle = 0;
+let cinemaNarrationLast = "";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -169,38 +171,84 @@ function authoritativeElapsedLabel(run) {
   return formatDurationLabel(minutes);
 }
 
-function buildNarration({ run, findings, inventory, pendingAiProposals, counts }) {
-  if (!run) {
-    return "No selected run is active. Cinema Mode is ready, but no scan state is available to animate yet.";
+function latestTaskStdout(tasks) {
+  const running = tasks.filter((t) => normalizeStatus(t.status) === "running");
+  const recent = running.length ? running : tasks.filter((t) => normalizeStatus(t.status) === "completed").slice(-2);
+  for (const task of recent) {
+    const execs = Array.isArray(task.executions) ? task.executions : [];
+    const last = execs[execs.length - 1];
+    const out = String(last?.stdout_text || "").trim();
+    if (out) {
+      const lines = out.split("\n").map((l) => l.trim()).filter(Boolean);
+      const tail = lines.slice(-2).join(" · ");
+      return tail.length > 120 ? tail.slice(-120) : tail;
+    }
   }
-  const guidance = run.ai_mission_guidance || null;
+  return null;
+}
+
+function buildNarrationCandidates({ run, findings, inventory, pendingAiProposals, counts, tasks }) {
+  const candidates = [];
+  const guidance = run?.ai_mission_guidance || null;
   const reasoning = Array.isArray(state.selectedAiInsights?.reasoning_records)
-    ? state.selectedAiInsights.reasoning_records
-    : [];
-  const failedReasoning = reasoning.find((record) =>
-    ["failed", "error", "blocked"].includes(String(record?.status || "").toLowerCase())
-  );
+    ? state.selectedAiInsights.reasoning_records : [];
+
+  if (!run) {
+    return ["Cinema Mode ready — no scan active. Select a run to begin visualization."];
+  }
+
+  const stdout = latestTaskStdout(tasks);
+  if (stdout) candidates.push(`Live output: ${stdout}`);
+
   if (pendingAiProposals) {
-    return `${pendingAiProposals} AI proposal${pendingAiProposals === 1 ? "" : "s"} waiting for operator review. No task is queued from AI without approval.`;
+    candidates.push(`${pendingAiProposals} AI proposal${pendingAiProposals === 1 ? "" : "s"} awaiting operator review — no action executes without approval.`);
   }
-  if (failedReasoning) {
-    return "AI reasoning needs review. Mission Control keeps the raw diagnostic behind technical detail.";
-  }
+
+  const failedReasoning = reasoning.find((r) => ["failed", "error", "blocked"].includes(String(r?.status || "").toLowerCase()));
+  if (failedReasoning) candidates.push("AI reasoning flagged for review — diagnostic available in Mission Control.");
+
   if (guidance?.available && guidance.summary) {
-    return `AI Signal: ${guidance.summary}`;
+    candidates.push(`AI Signal: ${guidance.summary}`);
   }
+
+  const runningTasks = tasks.filter((t) => normalizeStatus(t.status) === "running");
+  if (runningTasks.length) {
+    const toolNames = [...new Set(runningTasks.map((t) => t.tool || "unknown"))].join(", ");
+    candidates.push(`Active: ${toolNames} — scanning approved targets within engagement scope.`);
+    candidates.push(`${runningTasks.length} runner${runningTasks.length === 1 ? "" : "s"} active. Evidence captured after each completed step.`);
+  }
+
   if (findings.length) {
     const severity = highestSeverity(findings);
-    return `${findings.length} stored finding${findings.length === 1 ? "" : "s"} in this run. Highest current severity is ${severity}.`;
+    candidates.push(`${findings.length} finding${findings.length === 1 ? "" : "s"} recorded — highest severity: ${severity}. Review in Findings Theater.`);
+    const crit = findings.filter((f) => normalizeSeverity(f?.severity) === "critical").length;
+    if (crit) candidates.push(`${crit} critical finding${crit === 1 ? "" : "s"} require immediate attention. Kill switch available at any time.`);
   }
-  if (Number(counts.running || 0) > 0) {
-    return `${counts.running} task${counts.running === 1 ? "" : "s"} running. Cinema Mode is following persisted task state.`;
-  }
+
   if (inventory) {
     const hostCount = Number(inventory.summary_json?.host_count || inventoryHosts(inventory).length || 0);
-    return `${hostCount} host${hostCount === 1 ? "" : "s"} are stored in the selected run inventory. No AI proposal is pending.`;
+    if (hostCount) candidates.push(`${hostCount} host${hostCount === 1 ? "" : "s"} in inventory snapshot. Scope boundaries enforced for every task.`);
   }
-  return "No AI signal is stored for this run yet. Cinema Mode is showing the selected run snapshot only.";
+
+  const queued = Number(counts.queued || 0);
+  const completed = Number(counts.completed || 0);
+  const total = tasks.length;
+  if (total > 0 && completed > 0) {
+    candidates.push(`${completed} of ${total} task${total === 1 ? "" : "s"} complete. Evidence stored with SHA-256 integrity hash.`);
+  }
+  if (queued > 0) candidates.push(`${queued} task${queued === 1 ? "" : "s"} queued — approval gates enforced before intrusive steps.`);
+
+  if (!candidates.length) {
+    candidates.push("Scan in progress — results appear as evidence is stored from each completed step.");
+    candidates.push("Cinema Mode shows real data from the selected run. All evidence is evidence-backed and auditable.");
+  }
+  return candidates;
+}
+
+function buildNarration({ run, findings, inventory, pendingAiProposals, counts, tasks }) {
+  const candidates = buildNarrationCandidates({ run, findings, inventory, pendingAiProposals, counts, tasks });
+  const idx = cinemaNarrationCycle % candidates.length;
+  return candidates[idx] || candidates[0];
 }
 
 function deriveTaskTarget(task) {
@@ -375,7 +423,7 @@ function buildCinemaModel() {
     activePhase,
     profileName,
     elapsed: authoritativeElapsedLabel(run),
-    narration: buildNarration({ run, findings, inventory, pendingAiProposals, counts }),
+    narration: buildNarration({ run, findings, inventory, pendingAiProposals, counts, tasks }),
   };
 }
 
@@ -469,29 +517,59 @@ function renderCinemaSvg(model) {
       });
       threads.append(thread);
       if (["running", "queued"].includes(status)) {
-        const pulse = svgEl("circle", {
-          r: status === "running" ? "5" : "3.5",
-          class: `cinema-thread-pulse severity-${target.severity}`,
-          fill: statusColor(status, target.severity),
-          style: `--thread-delay:${threadIndex * 90}ms`,
-        });
-        const motion = svgEl("animateMotion", { dur: status === "running" ? "1.7s" : "3.2s", repeatCount: "indefinite", path });
-        pulse.append(motion);
-        threads.append(pulse);
+        const dotCount = status === "running" ? 3 : 1;
+        const baseDur = status === "running" ? 1.7 : 3.2;
+        for (let d = 0; d < dotCount; d++) {
+          const pulse = svgEl("circle", {
+            r: d === 0 ? (status === "running" ? "5" : "3.5") : "3",
+            class: `cinema-thread-pulse severity-${target.severity}`,
+            fill: statusColor(status, target.severity),
+            "fill-opacity": d === 0 ? "1" : "0.55",
+            style: `--thread-delay:${threadIndex * 90 + d * 40}ms`,
+          });
+          const motion = svgEl("animateMotion", {
+            dur: `${baseDur + d * 0.55}s`,
+            begin: `${d * (baseDur / dotCount)}s`,
+            repeatCount: "indefinite",
+            path,
+          });
+          pulse.append(motion);
+          threads.append(pulse);
+        }
       }
       threadIndex += 1;
     });
   });
   svg.append(threads);
 
+  const runningToolKeys = new Set(
+    model.tasks.filter((t) => normalizeStatus(t.status) === "running").map((t) => t.cinemaToolKey || t.tool || "")
+  );
   const toolGroup = svgEl("g", { class: "cinema-tools" });
   tools.forEach((tool) => {
-    const group = svgEl("g", { class: "cinema-tool-node", transform: `translate(${tool.x} ${tool.y})` });
-    group.append(svgEl("circle", { r: "28", fill: tool.color, "fill-opacity": "0.12", stroke: tool.color }));
+    const isActive = runningToolKeys.has(tool.key);
+    const group = svgEl("g", {
+      class: `cinema-tool-node${isActive ? " tool-active" : ""}`,
+      transform: `translate(${tool.x} ${tool.y})`
+    });
+    if (isActive) {
+      const pulse1 = svgEl("circle", { r: "36", fill: "none", stroke: tool.color, "stroke-opacity": "0.3", "stroke-width": "1.5" });
+      const pulseAnim = svgEl("animate", { attributeName: "r", values: "28;44;28", dur: "2.4s", repeatCount: "indefinite" });
+      const pulseAlpha = svgEl("animate", { attributeName: "stroke-opacity", values: "0.4;0;0.4", dur: "2.4s", repeatCount: "indefinite" });
+      pulse1.append(pulseAnim, pulseAlpha);
+      group.append(pulse1);
+    }
+    group.append(svgEl("circle", { r: "28", fill: tool.color, "fill-opacity": isActive ? "0.18" : "0.12", stroke: tool.color, "stroke-width": isActive ? "1.5" : "1" }));
     const short = svgEl("text", { y: "4", "text-anchor": "middle", fill: tool.color, "font-size": "11", "font-weight": "700" });
     short.textContent = shortToolLabel(tool.label);
     const label = svgEl("text", { y: "42", "text-anchor": "middle", fill: "rgba(228,238,255,0.62)", "font-size": "11" });
     label.textContent = formatToolLabel(tool.label);
+    if (isActive) {
+      const statusDot = svgEl("circle", { cx: "20", cy: "-20", r: "5", fill: "#10b981" });
+      const dotBlink = svgEl("animate", { attributeName: "opacity", values: "1;0.3;1", dur: "1.2s", repeatCount: "indefinite" });
+      statusDot.append(dotBlink);
+      group.append(statusDot);
+    }
     group.append(short, label);
     toolGroup.append(group);
   });
@@ -678,7 +756,8 @@ function renderCinemaOverlay(overlay) {
   flash?.classList.toggle("active", shouldFlash);
 
   const narrator = shell.querySelector("[data-testid='cinema-narrator']");
-  if (narrator && narrator.textContent !== model.narration) {
+  if (narrator && (narrator.textContent !== model.narration || cinemaNarrationLast !== model.narration)) {
+    cinemaNarrationLast = model.narration;
     narrator.textContent = model.narration;
     narrator.style.setProperty("--narrator-chars", String(narratorChars));
     narrator.style.setProperty("--narrator-duration", `${narratorDuration}ms`);
@@ -784,8 +863,13 @@ export function openCinemaMode() {
   document.body.append(overlay);
   document.body.classList.add("cinema-open");
   renderCinemaOverlay(overlay);
+  cinemaNarrationCycle = 0;
+  cinemaNarrationLast = "";
   cinemaUnsubscribe = subscribe(() => renderCinemaOverlay(overlay));
-  cinemaRefreshTimer = window.setInterval(() => renderCinemaOverlay(overlay), 2000);
+  cinemaRefreshTimer = window.setInterval(() => {
+    cinemaNarrationCycle += 1;
+    renderCinemaOverlay(overlay);
+  }, 6000);
   document.addEventListener("keydown", handleCinemaKeydown);
   window.requestAnimationFrame(() => {
     const closeButton = overlay.querySelector("[data-testid='cinema-mode-close']");

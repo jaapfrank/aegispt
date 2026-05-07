@@ -3,11 +3,11 @@
   "task_file": "codex/tasks/backlog-219-ai-attack-chain-reasoning-web-context.json",
   "task_type": "product_slice",
   "title": "AI attack chain reasoning: teach the AI agent to chain web vulnerabilities across tools and recognize compound attack paths",
-  "goal": "Current AI analysis (ai_agent.py) runs per-task but lacks cross-task vulnerability chaining for web applications. Google Gruyere demonstrates compound attacks: (1) XSS via file upload + stored XSS can be chained to steal admin cookies → session hijacking → account takeover. (2) Path traversal + code execution can lead to RCE. The AI should reason about these chains and propose the next logical step. Implement: (1) After each web scan task, the AI analyses not just the current task output but ALL findings so far for the engagement. It looks for compound paths: 'Found file upload endpoint + stored XSS → propose testing: does uploaded HTML file execute on admin visit? (CSRF+XSS chain)'. (2) Add web-specific reasoning templates to the deterministic provider: 'If finding.type == XSS_STORED and endpoint.type == admin_panel_visited → confidence 0.9, propose: verify admin cookie theft via CSRF+XSS combination'. (3) For Gruyere-style apps: 'Found unrestricted file upload → propose: try uploading HTML with XSS payload, try path traversal in filename'. (4) Add a 'compound attack chain' finding type that summarises multi-step attack paths. This requires extending ai_agent.py with a cross-task context window that reads all findings, not just the current task's output.",
-  "scope": "Gap analysis 2026-05-03: AI agent runs per-task (tasks.py:2835). Gruyere shows that the most interesting vulnerabilities involve chaining: file upload → XSS, path traversal → code execution, client-state manipulation → privilege escalation. The AI currently cannot reason across tasks or identify these compound paths.",
+  "goal": "Current AI analysis (ai_agent.py) runs per-task but lacks cross-task vulnerability chaining for web applications. Google Gruyere demonstrates compound attacks: (1) XSS via file upload + stored XSS can be chained to steal admin cookies \u2192 session hijacking \u2192 account takeover. (2) Path traversal + code execution can lead to RCE. The AI should reason about these chains and propose the next logical step. Implement: (1) After each web scan task, the AI analyses not just the current task output but ALL findings so far for the engagement. It looks for compound paths: 'Found file upload endpoint + stored XSS \u2192 propose testing: does uploaded HTML file execute on admin visit? (CSRF+XSS chain)'. (2) Add web-specific reasoning templates to the deterministic provider: 'If finding.type == XSS_STORED and endpoint.type == admin_panel_visited \u2192 confidence 0.9, propose: verify admin cookie theft via CSRF+XSS combination'. (3) For Gruyere-style apps: 'Found unrestricted file upload \u2192 propose: try uploading HTML with XSS payload, try path traversal in filename'. (4) Add a 'compound attack chain' finding type that summarises multi-step attack paths. This requires extending ai_agent.py with a cross-task context window that reads all findings, not just the current task's output.",
+  "scope": "Gap analysis 2026-05-03: AI agent runs per-task (tasks.py:2835). Gruyere shows that the most interesting vulnerabilities involve chaining: file upload \u2192 XSS, path traversal \u2192 code execution, client-state manipulation \u2192 privilege escalation. The AI currently cannot reason across tasks or identify these compound paths.",
   "status": "queued",
   "generated_by": "benchmark-gap-analysis-2026-05-03",
-  "generation_reason": "Gruyere compound attack paths (file upload+XSS, path traversal+RCE) require cross-task AI reasoning — current AI analyses one task at a time without compound chain awareness.",
+  "generation_reason": "Gruyere compound attack paths (file upload+XSS, path traversal+RCE) require cross-task AI reasoning \u2014 current AI analyses one task at a time without compound chain awareness.",
   "source_context": {
     "queue_index": 231,
     "queue_file": "TASK_QUEUE.md",
@@ -24,7 +24,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-205 must be completed first (proposals need to be visible before compound chains are proposed).",
+    "prerequisite_backlog": "REQUIRES: backlog-205 must be completed first (proposals need to be visible before compound chains are proposed).",
     "broader_theme": "ai_compound_attack_reasoning",
     "source_documents": [
       "api/app/services/ai_agent.py",

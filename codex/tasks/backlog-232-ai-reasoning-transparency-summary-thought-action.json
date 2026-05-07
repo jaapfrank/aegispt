@@ -2,12 +2,12 @@
   "id": "backlog-232-ai-reasoning-transparency-summary-thought-action",
   "task_file": "codex/tasks/backlog-232-ai-reasoning-transparency-summary-thought-action.json",
   "task_type": "product_slice",
-  "title": "AI reasoning transparency: restructure post-task analysis into Summary→Thought→Action and show each step to operators",
-  "goal": "AutoPenBench (arxiv:2410.03225) proves that separating reasoning into three distinct steps (Summary → Thought → Action) reduces LLM hallucinations and prevents action-thought inconsistency. AegisPT's ai_agent.py currently produces a unified Observations/Hypotheses/Proposals output. The reasoning_text is stored in AgentProposal records but never shown to operators in the UI. Two changes needed: (1) Backend: restructure DeterministicPostTaskAnalysisProvider and ChatGPTOAuthPostTaskAnalysisProvider to explicitly produce and store three separate fields in AgentReasoning: summary_text (what happened in the task), thought_text (what does this mean for the engagement), and action_text (what should be done next and why). Map these to the existing observations/hypotheses/proposals structure. Store all three in AgentReasoning.metadata_json or add new columns. (2) Frontend: In Mission Control, when an AI analysis has been run for a task, show a collapsible 'AI Analysis' card below the task in the task list: Summary: [text], Reasoning: [text], Suggested Actions: [proposal list with approve/reject]. This exposes what the AI is 'thinking' and lets operators evaluate reasoning quality before approving proposals. The reasoning_text field already exists on AgentProposal — surface it.",
-  "scope": "AutoPenBench paper + code audit 2026-05-03: AgentProposal.reasoning_text exists in DB (migrations/20260422_0013_ai_agent_reasoning_ledger.py) but is never rendered in UI. AutoPenBench shows that explicit Summary→Thought→Action separation improves LLM performance. Operators cannot currently evaluate AI reasoning quality.",
+  "title": "AI reasoning transparency: restructure post-task analysis into Summary\u2192Thought\u2192Action and show each step to operators",
+  "goal": "AutoPenBench (arxiv:2410.03225) proves that separating reasoning into three distinct steps (Summary \u2192 Thought \u2192 Action) reduces LLM hallucinations and prevents action-thought inconsistency. AegisPT's ai_agent.py currently produces a unified Observations/Hypotheses/Proposals output. The reasoning_text is stored in AgentProposal records but never shown to operators in the UI. Two changes needed: (1) Backend: restructure DeterministicPostTaskAnalysisProvider and ChatGPTOAuthPostTaskAnalysisProvider to explicitly produce and store three separate fields in AgentReasoning: summary_text (what happened in the task), thought_text (what does this mean for the engagement), and action_text (what should be done next and why). Map these to the existing observations/hypotheses/proposals structure. Store all three in AgentReasoning.metadata_json or add new columns. (2) Frontend: In Mission Control, when an AI analysis has been run for a task, show a collapsible 'AI Analysis' card below the task in the task list: Summary: [text], Reasoning: [text], Suggested Actions: [proposal list with approve/reject]. This exposes what the AI is 'thinking' and lets operators evaluate reasoning quality before approving proposals. The reasoning_text field already exists on AgentProposal \u2014 surface it.",
+  "scope": "AutoPenBench paper + code audit 2026-05-03: AgentProposal.reasoning_text exists in DB (migrations/20260422_0013_ai_agent_reasoning_ledger.py) but is never rendered in UI. AutoPenBench shows that explicit Summary\u2192Thought\u2192Action separation improves LLM performance. Operators cannot currently evaluate AI reasoning quality.",
   "status": "queued",
   "generated_by": "autopenBench-gap-analysis-2026-05-03",
-  "generation_reason": "AutoPenBench proves Summary→Thought→Action separation reduces hallucinations. AegisPT stores reasoning_text but never shows it. Critical for operator trust in AI proposals.",
+  "generation_reason": "AutoPenBench proves Summary\u2192Thought\u2192Action separation reduces hallucinations. AegisPT stores reasoning_text but never shows it. Critical for operator trust in AI proposals.",
   "source_context": {
     "queue_index": 232,
     "queue_file": "TASK_QUEUE.md",
@@ -22,7 +22,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-205 should be completed first.",
+    "prerequisite_backlog": "REQUIRES: backlog-205 should be completed first.",
     "broader_theme": "ai_reasoning_transparency",
     "source_documents": [
       "api/app/services/ai_agent.py",

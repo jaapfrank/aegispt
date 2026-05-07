@@ -5,6 +5,7 @@ import re
 import shutil
 import socket
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -17,6 +18,18 @@ EASM_RESULTS_ARTIFACT_NAME = "easm-results.json"
 DEFAULT_CRTSH_BASE_URL = "https://crt.sh/"
 DEFAULT_DNS_WORDLIST_PATH = Path(__file__).with_name("default_dns_words.txt")
 MAX_DNS_WORDLIST_ENTRIES = 10_000
+DNS_WORDLIST_DEFAULT_LIMIT = 250
+DNS_WORDLIST_CONCURRENT_WORKERS = 32
+DNS_SOCKET_TIMEOUT_SECONDS = 2.0
+
+# Platform-as-a-service domains where subdomain bruteforce is pointless.
+# These are shared hosting platforms where tenant subdomains are ephemeral
+# and enumeration produces no useful attack surface.
+PAAS_SKIP_DOMAINS = frozenset([
+    "appspot.com", "herokuapp.com", "vercel.app", "netlify.app",
+    "azurewebsites.net", "cloudfront.net", "pages.dev", "workers.dev",
+    "github.io", "gitlab.io", "fly.dev", "ondigitalocean.app",
+])
 TITLE_PATTERN = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 
@@ -141,13 +154,22 @@ def load_dns_wordlist(
     return prefixes
 
 
-def resolve_hostname_addresses(hostname: str) -> list[str]:
-    try:
-        records = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
-    except socket.gaierror:
-        return []
+def _is_paas_domain(root_domain: str) -> bool:
+    normalized = str(root_domain or "").strip().lower().rstrip(".")
+    return any(normalized == d or normalized.endswith("." + d) for d in PAAS_SKIP_DOMAINS)
 
-    addresses = sorted(
+
+def resolve_hostname_addresses(hostname: str, timeout: float = DNS_SOCKET_TIMEOUT_SECONDS) -> list[str]:
+    original_timeout = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(timeout)
+        records = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    except (socket.gaierror, OSError):
+        return []
+    finally:
+        socket.setdefaulttimeout(original_timeout)
+
+    return sorted(
         {
             str(record[4][0]).strip()
             for record in records
@@ -158,19 +180,28 @@ def resolve_hostname_addresses(hostname: str) -> list[str]:
             and str(record[4][0]).strip()
         }
     )
-    return addresses
 
 
 def enumerate_dns_wordlist_subdomains(
     root_domain: str,
     *,
     prefixes: list[str],
+    max_workers: int = DNS_WORDLIST_CONCURRENT_WORKERS,
 ) -> set[str]:
+    if _is_paas_domain(root_domain):
+        return set()
+
+    candidates = [f"{p}.{root_domain}" for p in prefixes[:MAX_DNS_WORDLIST_ENTRIES]]
     discovered: set[str] = set()
-    for prefix in prefixes[:MAX_DNS_WORDLIST_ENTRIES]:
-        candidate = f"{prefix}.{root_domain}"
-        if resolve_hostname_addresses(candidate):
-            discovered.add(candidate)
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(resolve_hostname_addresses, c): c for c in candidates}
+        for future in as_completed(futures):
+            candidate = futures[future]
+            try:
+                if future.result():
+                    discovered.add(candidate)
+            except Exception:
+                pass
     return discovered
 
 
@@ -216,7 +247,7 @@ def execute_easm_discovery(
     subfinder_binary: str = "subfinder",
     crtsh_base_url: str = DEFAULT_CRTSH_BASE_URL,
     dns_wordlist_path: str | None = None,
-    dns_wordlist_limit: int = MAX_DNS_WORDLIST_ENTRIES,
+    dns_wordlist_limit: int = DNS_WORDLIST_DEFAULT_LIMIT,
     timeout_seconds: float = 10.0,
     client_factory=httpx_client.Client,
 ) -> RunnerExecution:
@@ -253,10 +284,17 @@ def execute_easm_discovery(
                 crtsh_base_url=crtsh_base_url,
                 client=client,
             )
-            dns_matches = enumerate_dns_wordlist_subdomains(
-                root_domain,
-                prefixes=dns_prefixes,
-            )
+            if _is_paas_domain(root_domain):
+                warning_lines.append(
+                    f"DNS wordlist skipped for {root_domain}: "
+                    "platform-as-a-service domain — subdomain bruteforce produces no useful attack surface"
+                )
+                dns_matches: set[str] = set()
+            else:
+                dns_matches = enumerate_dns_wordlist_subdomains(
+                    root_domain,
+                    prefixes=dns_prefixes,
+                )
 
             discovered_hosts = sorted(
                 {

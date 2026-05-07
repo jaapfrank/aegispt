@@ -23,7 +23,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-255 should be implemented concurrently or after this task.",
+    "prerequisite_backlog": "INFO: backlog-255 (Adaptive Planner) reads this task output \u2014 can run concurrently or start after this task. Not a hard block.",
     "broader_theme": "technology_fingerprinting",
     "source_documents": [
       "workers/runners/httpx/runner.py",

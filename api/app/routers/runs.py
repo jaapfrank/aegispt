@@ -117,6 +117,7 @@ from api.app.services.reports import (
     render_markdown_report,
 )
 from api.app.services.run_profiles import ensure_default_run_profiles
+from api.app.services.runner_registry import runner_capability_registry
 from api.app.services.runs import (
     align_run_configuration_with_engagement,
     approval_step_id,
@@ -180,6 +181,13 @@ AUTO_DISPATCH_BLOCKED_TOOLS = {
     "responder",
     "ssh-brute",
 }
+
+
+@router.get("/runners/capabilities")
+def list_runner_capabilities(
+    _actor: str = Depends(require_roles("operator", "admin")),
+) -> dict[str, Any]:
+    return runner_capability_registry()
 LAUNCH_AUTO_DISPATCH_WEB_TOOLS = {
     "biz-logic-probe",
     "burp",

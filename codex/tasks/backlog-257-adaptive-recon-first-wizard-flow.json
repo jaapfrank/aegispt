@@ -24,7 +24,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-255, backlog-256, backlog-258 must be completed first.",
+    "prerequisite_backlog": "REQUIRES: backlog-255, backlog-256, backlog-258 must be completed first.",
     "broader_theme": "adaptive_recon_first_workflow",
     "source_documents": [
       "ui/assets/modules/wizard.js",

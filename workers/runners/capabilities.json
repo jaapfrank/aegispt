@@ -1,0 +1,1744 @@
+{
+  "capabilities": [
+    {
+      "blockers": [
+        "no_credentials_ref",
+        "loopback_target",
+        "banned_command"
+      ],
+      "category": "operator-controlled-command",
+      "cost": "medium",
+      "description": "Runs one exact operator-approved SSH command through the governed ai-shell contract.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "command_hash",
+        "stdout_hash",
+        "stderr_excerpt"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [],
+      "name": "ai-shell",
+      "prerequisites": [
+        "approved_scope",
+        "credentials_ref",
+        "operator_review"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "operator_approved_command",
+        "ssh_target_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_api_target"
+      ],
+      "category": "api",
+      "cost": "low",
+      "description": "Assesses approved API surfaces for schema, auth and route evidence.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "api_surface_map",
+        "endpoint_risk_signals"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "jwt-probe",
+        "graphql-probe",
+        "oauth-probe"
+      ],
+      "name": "api-assessment",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "api_endpoint_present",
+        "openapi_present",
+        "graphql_endpoint"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_login_form",
+        "no_auth_context"
+      ],
+      "category": "authentication",
+      "cost": "low",
+      "description": "Validates approved authentication flows with operator-provided access context.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "auth_flow_findings",
+        "role_boundary_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "session-security",
+        "idor-bac"
+      ],
+      "name": "auth-flow",
+      "prerequisites": [
+        "approved_scope",
+        "operator_auth_context"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "login_form_found",
+        "auth_flow_present",
+        "session_cookie_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_aws_context",
+        "no_credentials_ref"
+      ],
+      "category": "cloud",
+      "cost": "low",
+      "description": "Collects read-only AWS inventory and posture evidence.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "aws_inventory",
+        "security_group_posture",
+        "iam_inventory"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "cloud-native"
+      ],
+      "name": "aws-inventory",
+      "prerequisites": [
+        "approved_scope",
+        "read_only_credentials"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "aws_account_context",
+        "aws_credentials_ref"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_workflow_context"
+      ],
+      "category": "business-logic",
+      "cost": "medium",
+      "description": "Reviews approved workflows for evidence-backed business-rule deviations.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "business_rule_deviation",
+        "workflow_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "playwright-web"
+      ],
+      "name": "biz-logic-probe",
+      "prerequisites": [
+        "approved_scope",
+        "operator_review"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "multi_step_workflow",
+        "operator_business_rules"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_ad_context",
+        "no_credentials_ref"
+      ],
+      "category": "identity",
+      "cost": "low",
+      "description": "Collects approved directory relationship evidence for attack-path analysis.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "bloodhound_edges",
+        "privileged_path_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "credential-attacks",
+        "netexec"
+      ],
+      "name": "bloodhound-collect",
+      "prerequisites": [
+        "approved_scope",
+        "credentials_ref"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "active_directory_context",
+        "domain_joined_scope"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Runs an approved Burp scan and records request/response-backed issues.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "burp_issues",
+        "request_response_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "playwright-web",
+        "zap"
+      ],
+      "name": "burp",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "session_context_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_camera_target"
+      ],
+      "category": "iot",
+      "cost": "low",
+      "description": "Checks approved camera-like targets for safe access and exposure signals.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "camera_access_posture",
+        "default_interface_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "iot-default-creds"
+      ],
+      "name": "camera-test",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "camera_device_detected",
+        "rtsp_service_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_repository_context"
+      ],
+      "category": "code-and-cicd",
+      "cost": "low",
+      "description": "Reviews CI/CD configuration and repository pipeline evidence.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "pipeline_posture",
+        "secret_reference_signals"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "semgrep"
+      ],
+      "name": "cicd-security",
+      "prerequisites": [
+        "approved_repository"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "repository_context",
+        "pipeline_config_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target",
+        "no_client_state_signal"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Checks approved client-side state for session exposure risk and tamper evidence.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "client_state_tamper_signal",
+        "role_state_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "auth-flow",
+        "idor-bac"
+      ],
+      "name": "client-state",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "hidden_form_fields",
+        "client_state_parameter",
+        "session_exposure_risk"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_cloud_native_context"
+      ],
+      "category": "cloud",
+      "cost": "low",
+      "description": "Reviews Kubernetes/container/cloud-native posture from provided manifests or inventory.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "kubernetes_posture",
+        "container_security_context",
+        "cloud_native_inventory"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "aws-inventory"
+      ],
+      "name": "cloud-native",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "kubernetes_manifest",
+        "container_inventory",
+        "cloud_resource_inventory"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Discovers approved web routes with bounded content discovery.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "discovered_routes",
+        "status_code_map"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "httpx",
+        "nuclei"
+      ],
+      "name": "content-discovery",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_credentials_ref",
+        "no_identity_targets",
+        "lockout_risk_unbounded"
+      ],
+      "category": "identity",
+      "cost": "high",
+      "description": "Runs bounded credential checks only when explicit ROE and lockout controls exist.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "spray_attempt_summary",
+        "lockout_protection_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "bloodhound-collect"
+      ],
+      "name": "credential-attacks",
+      "prerequisites": [
+        "approved_scope",
+        "explicit_credential_testing_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "credential_attack_authorized",
+        "identity_targets_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_tls_target"
+      ],
+      "category": "crypto",
+      "cost": "low",
+      "description": "Audits TLS and certificate posture for approved services.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "tls_posture",
+        "certificate_evidence",
+        "cipher_findings"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nuclei"
+      ],
+      "name": "crypto-audit",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "tls_service_present",
+        "certificate_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_java_indicator",
+        "no_serialized_state_signal",
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Uses controlled proof signals for deserialization risk only when Java or serialized-state evidence exists.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "deserialization_canary_evidence",
+        "serialized_state_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nuclei",
+        "playwright-web"
+      ],
+      "name": "deserialization-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "java_indicators",
+        "java_spring_indicator",
+        "serialized_cookie"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_client_artifact"
+      ],
+      "category": "client",
+      "cost": "low",
+      "description": "Reviews approved desktop client artifacts without live target actions.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "desktop_static_findings",
+        "client_config_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "semgrep"
+      ],
+      "name": "desktop-client",
+      "prerequisites": [
+        "approved_artifact"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "desktop_app_artifact",
+        "installer_artifact"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_domain_scope"
+      ],
+      "category": "external-asset",
+      "cost": "low",
+      "description": "Discovers approved external asset inventory using bounded OSINT and DNS checks.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "subdomain_inventory",
+        "external_endpoint_inventory"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "httpx",
+        "nmap"
+      ],
+      "name": "easm-discover",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "domain_scope_present",
+        "external_asset_inventory_needed"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_external_target"
+      ],
+      "category": "external-asset",
+      "cost": "low",
+      "description": "Assesses approved internet-facing infrastructure exposure.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "external_service_inventory",
+        "exposure_summary"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nmap",
+        "nuclei"
+      ],
+      "name": "external-infra",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "external_host_present",
+        "internet_exposed_service"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_external_identity"
+      ],
+      "category": "external-asset",
+      "cost": "low",
+      "description": "Collects passive external OSINT references for approved scope.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "osint_references",
+        "external_signal_inventory"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "easm-discover"
+      ],
+      "name": "external-osint",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "domain_scope_present",
+        "company_name_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "not_local_dvga",
+        "no_intrusive_approval",
+        "kill_switch_enabled"
+      ],
+      "category": "graphql",
+      "cost": "medium",
+      "description": "Performs local-lab GraphQL command-injection controlled proof with allowlisted benign commands.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "controlled_command_marker",
+        "graphql_response_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [],
+      "name": "graphql-command-injection",
+      "prerequisites": [
+        "approved_local_lab",
+        "explicit_intrusive_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "dvga_local_lab",
+        "graphql_command_injection_challenge",
+        "explicit_controlled_proof_approval"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_graphql_endpoint",
+        "no_web_target"
+      ],
+      "category": "graphql",
+      "cost": "low",
+      "description": "Checks approved GraphQL endpoints for schema and defensive posture evidence.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "introspection_evidence",
+        "depth_limit_signal",
+        "field_suggestion_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "api-assessment",
+        "graphql-command-injection"
+      ],
+      "name": "graphql-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "graphql_endpoint",
+        "graphql_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Reviews HTTP security headers from approved web targets.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "security_header_posture",
+        "header_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nuclei"
+      ],
+      "name": "headers-security",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "http_endpoint_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_http_service"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Checks approved HTTP services for request smuggling timing signals.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "desync_timing_signal",
+        "proxy_behavior_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "burp"
+      ],
+      "name": "http-smuggling",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "proxy_header_signal",
+        "reverse_proxy_service",
+        "http_service_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "recon",
+      "cost": "low",
+      "description": "Collects low-impact HTTP reachability and passive response evidence for inventory.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "http_response_metadata",
+        "signal_profile_inputs",
+        "forms_and_links"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "nuclei",
+        "content-discovery"
+      ],
+      "name": "httpx",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "http_service_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_auth_context",
+        "no_object_reference"
+      ],
+      "category": "authorization",
+      "cost": "low",
+      "description": "Validates approved object-level authorization boundaries using provided access context.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "access_control_boundary_evidence",
+        "object_reference_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "auth-flow"
+      ],
+      "name": "idor-bac",
+      "prerequisites": [
+        "approved_scope",
+        "operator_auth_context"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "authenticated_route",
+        "object_id_parameter",
+        "role_context_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_credentials_ref",
+        "no_ad_context",
+        "no_intrusive_approval"
+      ],
+      "category": "identity",
+      "cost": "high",
+      "description": "Runs explicitly approved lateral-movement protocol checks with controlled proof boundaries.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "remote_protocol_evidence",
+        "controlled_proof_summary"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "bloodhound-collect"
+      ],
+      "name": "impacket-lateral",
+      "prerequisites": [
+        "approved_scope",
+        "credentials_ref",
+        "explicit_intrusive_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "ad_admin_context",
+        "explicit_lateral_validation_roe"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_iot_target",
+        "no_explicit_credential_testing_roe"
+      ],
+      "category": "iot",
+      "cost": "medium",
+      "description": "Runs bounded default-credential checks for approved IoT devices only.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "default_credential_attempt_summary",
+        "lockout_safe_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "camera-test"
+      ],
+      "name": "iot-default-creds",
+      "prerequisites": [
+        "approved_scope",
+        "explicit_credential_testing_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "iot_device_detected",
+        "default_login_surface"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_lan_scope"
+      ],
+      "category": "network",
+      "cost": "low",
+      "description": "Discovers approved IPv6 network inventory.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "ipv6_inventory",
+        "neighbor_discovery_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nmap"
+      ],
+      "name": "ipv6-discovery",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "lan_scope_present",
+        "ipv6_scope_requested"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_jwt_signal",
+        "no_web_target"
+      ],
+      "category": "authentication",
+      "cost": "low",
+      "description": "Tests JWT handling only when JWT token evidence exists.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "jwt_algorithm_signal",
+        "jwt_claims_evidence",
+        "weak_secret_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "auth-flow",
+        "session-security"
+      ],
+      "name": "jwt-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "jwt_in_response",
+        "authorization_bearer_header",
+        "access_token_in_cookie"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_ldap_service"
+      ],
+      "category": "identity",
+      "cost": "low",
+      "description": "Enumerates approved LDAP directory metadata.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "ldap_inventory",
+        "directory_policy_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "bloodhound-collect"
+      ],
+      "name": "ldap-enum",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "ldap_service_present",
+        "active_directory_context"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_llm_target"
+      ],
+      "category": "ai",
+      "cost": "low",
+      "description": "Checks approved AI/LLM surfaces for evidence-backed prompt boundary issues.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "prompt_boundary_evidence",
+        "model_response_signals"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [],
+      "name": "llm-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "llm_endpoint_present",
+        "chatbot_surface"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Checks approved web targets for debug/error logging exposure signals.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "logging_error_signal",
+        "debug_leak_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "headers-security"
+      ],
+      "name": "logging-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "error_handling_signal"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_lan_scope"
+      ],
+      "category": "network",
+      "cost": "low",
+      "description": "Collects LAN multicast discovery evidence within approved scope.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "mdns_inventory",
+        "ssdp_inventory"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "iot-default-creds",
+        "smart-home"
+      ],
+      "name": "mdns-ssdp",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "lan_scope_present",
+        "multicast_discovery_requested"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_intrusive_approval",
+        "no_explicit_roe",
+        "kill_switch_enabled"
+      ],
+      "category": "controlled-proof",
+      "cost": "high",
+      "description": "Runs approved Metasploit controlled proof modules only inside explicit ROE boundaries.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "controlled_proof_result",
+        "module_output_hash"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [],
+      "name": "metasploit",
+      "prerequisites": [
+        "approved_scope",
+        "explicit_intrusive_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "explicit_controlled_proof_approval",
+        "cve_match_with_lab_or_authorized_scope"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_mobile_artifact"
+      ],
+      "category": "mobile",
+      "cost": "low",
+      "description": "Reviews approved Android APK artifacts without live target actions.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "android_static_findings",
+        "manifest_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "semgrep"
+      ],
+      "name": "mobile-android",
+      "prerequisites": [
+        "approved_artifact"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "android_apk_artifact"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_smb_service"
+      ],
+      "category": "identity",
+      "cost": "low",
+      "description": "Checks approved SMB/domain service posture.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "smb_posture",
+        "domain_access_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "bloodhound-collect",
+        "credential-attacks"
+      ],
+      "name": "netexec",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "smb_service_present",
+        "ad_context_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_lan_scope",
+        "no_interface"
+      ],
+      "category": "network",
+      "cost": "medium",
+      "description": "Captures bounded passive packet evidence and detects ARP poisoning signals.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "packet_capture_summary",
+        "arp_spoof_detection_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "network-segmentation"
+      ],
+      "name": "network-capture",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "lan_scope_present",
+        "packet_capture_authorized"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_lan_scope",
+        "no_segmentation_targets"
+      ],
+      "category": "network",
+      "cost": "medium",
+      "description": "Builds an approved reachability matrix for segmentation validation.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "reachability_matrix",
+        "segmentation_gap_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "nmap"
+      ],
+      "name": "network-segmentation",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "lan_scope_present",
+        "segmentation_targets_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Runs bounded Nikto checks against approved web servers.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "web_server_config_findings",
+        "dangerous_file_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nuclei",
+        "headers-security"
+      ],
+      "name": "nikto",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_network_target"
+      ],
+      "category": "recon",
+      "cost": "low",
+      "description": "Performs low-impact service discovery within approved scope.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "service_inventory",
+        "port_inventory",
+        "nmap_xml_artifact"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "httpx",
+        "ssl-audit"
+      ],
+      "name": "nmap",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "host_target_present",
+        "cidr_scope_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_target",
+        "unsafe_template_blocked"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Runs governed Nuclei templates selected from approved target evidence.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "template_match_evidence",
+        "nuclei_results"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "playwright-web",
+        "zap"
+      ],
+      "name": "nuclei",
+      "prerequisites": [
+        "approved_scope",
+        "template_safety_review"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "service_fingerprint",
+        "cve_match"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_oauth_signal"
+      ],
+      "category": "authentication",
+      "cost": "low",
+      "description": "Checks approved OAuth/OIDC configuration and flow evidence.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "oauth_config_evidence",
+        "redirect_uri_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "auth-flow",
+        "jwt-probe"
+      ],
+      "name": "oauth-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "oauth_flow_present",
+        "openid_configuration"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Runs approved browser validation flows and captures reproducible evidence.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "browser_flow_evidence",
+        "screenshot_artifact",
+        "dom_state_signal"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "auth-flow",
+        "session-security"
+      ],
+      "name": "playwright-web",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "browser_flow_needed"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_credentials_ref",
+        "no_linux_host"
+      ],
+      "category": "host",
+      "cost": "high",
+      "description": "Reviews approved Linux host privilege-escalation signals without destructive changes.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "local_privesc_signals",
+        "host_posture_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [],
+      "name": "priv-esc-linux",
+      "prerequisites": [
+        "approved_scope",
+        "credentials_ref",
+        "explicit_host_validation_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "ssh_access_context",
+        "linux_host_target"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_lan_scope",
+        "no_intrusive_approval"
+      ],
+      "category": "network",
+      "cost": "high",
+      "description": "Runs explicitly approved LAN credential-capture validation with bounded canary evidence.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "responder_capture_summary",
+        "canary_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "credential-attacks"
+      ],
+      "name": "responder",
+      "prerequisites": [
+        "approved_scope",
+        "explicit_intrusive_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "lan_scope_present",
+        "credential_capture_authorized"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_code_artifact"
+      ],
+      "category": "code",
+      "cost": "low",
+      "description": "Runs static Semgrep rules on approved code artifacts.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "static_code_findings",
+        "rule_match_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "cicd-security"
+      ],
+      "name": "semgrep",
+      "prerequisites": [
+        "approved_repository"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "source_code_artifact",
+        "repository_context"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_session_signal",
+        "no_web_target"
+      ],
+      "category": "authentication",
+      "cost": "low",
+      "description": "Checks session exposure risk and cookie/session controls on approved web targets.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "cookie_flag_evidence",
+        "session_rotation_signal",
+        "session_exposure_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "auth-flow",
+        "client-state"
+      ],
+      "name": "session-security",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "session_cookie_present",
+        "login_form_found",
+        "session_exposure_risk"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_iot_target"
+      ],
+      "category": "iot",
+      "cost": "low",
+      "description": "Assesses approved smart-home device posture without RF-disruptive behavior.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "smart_home_inventory",
+        "device_posture_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "iot-default-creds"
+      ],
+      "name": "smart-home",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "smart_home_device_detected",
+        "iot_service_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_snmp_service"
+      ],
+      "category": "network",
+      "cost": "low",
+      "description": "Enumerates approved SNMP services with bounded community checks.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "snmp_inventory",
+        "community_posture_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nmap"
+      ],
+      "name": "snmp-enum",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "snmp_service_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_injectable_parameter",
+        "no_sql_error_pattern",
+        "no_web_forms"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Runs bounded sqlmap only with concrete parameter, form, or SQL-error evidence; PHP+MySQL alone is insufficient.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "sqlmap_phase_a_result",
+        "sqlmap_phase_b_result",
+        "bounded_sqli_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "playwright-web"
+      ],
+      "name": "sqlmap",
+      "prerequisites": [
+        "approved_scope",
+        "concrete_parameter_or_error_evidence"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "injectable_parameter",
+        "sql_error_pattern",
+        "form_with_post_action"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_ssh_service",
+        "no_explicit_credential_testing_roe"
+      ],
+      "category": "credential",
+      "cost": "high",
+      "description": "Runs bounded SSH credential validation only under explicit ROE and lockout protection.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "hydra_attempt_summary",
+        "lockout_control_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "credential-attacks"
+      ],
+      "name": "ssh-brute",
+      "prerequisites": [
+        "approved_scope",
+        "explicit_credential_testing_roe"
+      ],
+      "required_approvals": 2,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "ssh_service_present",
+        "credential_testing_authorized"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_ssrf_candidate",
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Checks approved SSRF candidate parameters with controlled canary evidence.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "ssrf_canary_evidence",
+        "parameter_reflection_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "playwright-web"
+      ],
+      "name": "ssrf-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "url_parameter",
+        "callback_url_parameter",
+        "server_side_fetch_signal"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_template_candidate",
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Uses controlled proof expressions against approved template-injection candidates.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "ssti_math_canary_evidence",
+        "template_engine_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nuclei"
+      ],
+      "name": "ssti-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "template_parameter",
+        "server_rendered_input",
+        "sql_error_pattern"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_component_signal"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Maps discovered component/version evidence to vulnerability references.",
+      "estimated_minutes": 8,
+      "expected_evidence": [
+        "component_version_evidence",
+        "cve_reference_match"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nuclei"
+      ],
+      "name": "vuln-components",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "technology_fingerprint",
+        "dependency_manifest",
+        "cve_match"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Performs bounded deeper web crawling for approved targets.",
+      "estimated_minutes": 15,
+      "expected_evidence": [
+        "crawl_route_inventory",
+        "form_inventory"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "content-discovery",
+        "playwright-web"
+      ],
+      "name": "web_depth",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "deep_crawl_requested"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_wireless_adapter",
+        "no_wireless_site_context"
+      ],
+      "category": "wireless",
+      "cost": "medium",
+      "description": "Collects authorized wireless survey evidence without deauth, jamming, capture, cracking, or rogue AP behavior.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "wireless_inventory",
+        "adapter_readiness_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [],
+      "name": "wifi-survey",
+      "prerequisites": [
+        "approved_wireless_lab"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "passive",
+      "triggers": [
+        "wireless_site_context",
+        "wifi_adapter_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_form_or_parameter",
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Checks approved XSS candidates with safe marker evidence.",
+      "estimated_minutes": 12,
+      "expected_evidence": [
+        "xss_context_evidence",
+        "safe_marker_reflection"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "playwright-web"
+      ],
+      "name": "xss-extended",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "login_form_found",
+        "form_inputs_present",
+        "reflected_parameter"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_xml_candidate",
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Checks XML parser candidates with controlled canary evidence.",
+      "estimated_minutes": 10,
+      "expected_evidence": [
+        "xxe_canary_evidence",
+        "xml_parser_signal"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "nuclei"
+      ],
+      "name": "xxe-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "xml_endpoint",
+        "soap_endpoint",
+        "file_upload_endpoint"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Runs approved ZAP validation and records alert evidence.",
+      "estimated_minutes": 20,
+      "expected_evidence": [
+        "zap_alerts",
+        "passive_and_active_scan_evidence"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "playwright-web",
+        "burp"
+      ],
+      "name": "zap",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present"
+      ],
+      "weak_triggers": []
+    }
+  ],
+  "metadata_version": "2026-05-07"
+}

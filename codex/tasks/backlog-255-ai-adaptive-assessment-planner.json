@@ -24,7 +24,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-256 (SignalProfile) and backlog-258 (RunnerCapabilityMetadata) must be completed first \u2014 the planner reads both.",
+    "prerequisite_backlog": "REQUIRES: backlog-256 (SignalProfile) and backlog-258 (RunnerCapabilityMetadata) must be completed first \u2014 the planner reads both.",
     "broader_theme": "evidence_driven_adaptive_planner",
     "source_documents": [
       "api/app/services/assessment_planner.py",

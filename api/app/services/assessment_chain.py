@@ -1727,6 +1727,8 @@ def create_assessment_chain_launch(
         created_by=actor,
         phases_json=_phase_states_for_definition(definition),
         configuration_json=copy.deepcopy(configuration_json or {}),
+        created_at=_now(),
+        updated_at=_now(),
         metadata_json={
             "label": definition.label,
             "phase_preapproval_allowed": definition.phase_preapproval_allowed,

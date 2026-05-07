@@ -22,7 +22,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-260 must be completed first.",
+    "prerequisite_backlog": "REQUIRES: backlog-260 must be completed first.",
     "broader_theme": "ai_loop_wizard_entry",
     "source_documents": [
       "ui/assets/modules/wizard.js"

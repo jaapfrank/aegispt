@@ -23,7 +23,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-260 and backlog-261 MUST be completed before this task is promoted. The 'AI Assisted' card must check for ai_loop capability at runtime \u2014 if absent, show disabled/coming-soon state.",
+    "prerequisite_backlog": "REQUIRES: backlog-260 and backlog-261 MUST be completed before this task is promoted. The 'AI Assisted' card must check for ai_loop capability at runtime \u2014 if absent, show disabled/coming-soon state.",
     "broader_theme": "wizard_ai_mode_entry_ux",
     "source_documents": [
       "ui/assets/modules/wizard.js",

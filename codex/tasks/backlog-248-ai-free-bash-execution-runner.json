@@ -25,7 +25,7 @@
   },
   "inputs": {
     "prerequisite_active_task": "NEXT_TASK.md",
-    "prerequisite_backlog": "backlog-205 (AI Proposals Inbox) must be completed first \u2014 operator approval UI is required before AI can propose shell commands.",
+    "prerequisite_backlog": "REQUIRES: backlog-205 (AI Proposals Inbox) must be completed first \u2014 operator approval UI is required before AI can propose shell commands.",
     "broader_theme": "ai_free_bash_execution",
     "source_documents": [
       "api/app/services/ai_agent.py",
