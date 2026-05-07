@@ -1,5 +1,50 @@
 # Done Log
 
+- 2026-05-08: completed backlog-275 `React v2 Cinema Mode: replace hardcoded EVENT_STREAM with real run data — hosts as 3D nodes, live task stdout, local fonts`:
+  - rationale:
+    - the active task required replacing the existing Cinema Mode mock targets, mock event stream, and external font URL with selected-run inventory, task stdout, findings, AI proposal counters, and local font assets
+    - `inputs.prerequisite_backlog` was `REQUIRES: backlog-268 and backlog-269 completed first.` and both prerequisites are present in this log
+    - `http://127.0.0.1:8000` was relevant because Cinema Mode validates through the v2 Vite proxy against live FastAPI run, task, inventory, finding, and AI-insight endpoints
+  - implementation:
+    - rebuilt `ui-v2/src/components/CinemaMode.tsx` around the v2 Zustand store and existing API client
+    - generated deterministic 3D nodes from `inventory.normalized_inventory_json.hosts`, with red/high/cyan coloring from real finding severity
+    - added task polling through existing `GET /api/v1/runs/{id}` and `GET /api/v1/tasks/{id}` paths, extracting the last stdout/stderr/snapshot lines and deduplicating by task fingerprint
+    - made the HUD, active tool/target, camera target, and stats overlay reflect real run data
+    - added local Fira Mono assets and a local `@font-face`; 3D Text uses local Fira Mono TTF because the pinned Drei/Troika stack rejects WOFF2 glyph parsing at runtime
+    - pinned React Three dependencies to React 18-compatible versions so Cinema Mode no longer crashes on import
+    - narrow documented exception: Mission Control now opens the real Cinema component instead of the previous mock-data guard, because otherwise the active task acceptance could not be met
+  - files:
+    - `ui-v2/src/components/CinemaMode.tsx`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/src/index.css`
+    - `ui-v2/package.json`
+    - `ui-v2/package-lock.json`
+    - `ui-v2/public/fonts/FiraMono.woff2`
+    - `ui-v2/public/fonts/FiraMono-Regular.ttf`
+    - `codex/results/backlog-275-react-v2-cinema-mode-real-data-20260508.md`
+    - `codex/results/playwright-backlog-275-cinema/`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `extra_tests.md`
+    - `risico.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - `cd ui-v2 && npm run build` passed with no TypeScript errors; Vite emitted only chunk-size warnings
+    - `AEGISPT_LOCAL_ENSURE_ZAP=0 bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000`
+    - Playwright acceptance passed through `http://127.0.0.1:5173/mission-control` on 1440px, 1024px, 768px, and 375px
+    - Playwright proved Cinema Mode opens and closes, renders visible HUD/stats, makes real run/task API calls, has no external font requests, no console errors, no page errors, no horizontal overflow, and a nonblank WebGL canvas on every viewport
+    - Playwright also proved the no-inventory fallback shows `HOSTS 0` rather than fake hosts
+  - proof:
+    - evidence file `codex/results/backlog-275-react-v2-cinema-mode-real-data-20260508.md` records behavior, repo-truth exceptions, validation, screenshots, canvas-pixel proof, and safety boundaries
+  - exceptions:
+    - `ui-v2/src/components/screens/MissionControl.tsx` was touched narrowly to replace the previous guard with the real lazy-loaded Cinema component
+    - React Three dependency pins were updated because the existing versions crashed under React 18 and made live Cinema acceptance impossible
+    - WOFF2 is present and used locally by CSS; 3D Text uses local TTF to avoid the current Text parser's WOFF2 runtime error
+  - remaining risks:
+    - no new open product risk was added; previous Cinema Mode runtime risk R-017 and extra test XT-020 are now closed/removed for the current React v2 slice
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-276 `React v2 deployment`, from `codex/tasks/backlog-276-react-v2-deployment-fastapi-serve.json`
+
 - 2026-05-08: completed backlog-274 `React v2 remaining screens: Dashboard, History, Problems Center, Surface Map, Packs, Evidence Replay, Custom CVE Library, Research`:
   - rationale:
     - the active task required replacing the remaining React v2 placeholders with eight real-data screens while keeping the rebuilt UI inside the existing backend safety and provenance contracts

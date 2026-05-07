@@ -1,0 +1,83 @@
+{
+  "id": "backlog-279-react-v2-ai-narrator-panel",
+  "task_file": "codex/tasks/backlog-279-react-v2-ai-narrator-panel.json",
+  "task_type": "product_slice",
+  "title": "React v2 AI Narrator Panel: Typing effect and real-time streaming presence",
+  "goal": "Implement the 'AI Signal' panel in Mission Control to make the AI feel present and intelligent. (1) Stream AI observations and proposals using a character-by-character typing effect (12ms/char). (2) Implement the cycling 'Thinking...' indicator when waiting for LLM responses. (3) Ensure AI proposals include inline [Approve] / [Skip] buttons directly within the typed stream, preventing the user from needing to navigate away.",
+  "scope": "Mission Control AI Signal panel.",
+  "status": "queued",
+  "generated_by": "react-v2-living-system-planning-2026-05-08",
+  "generation_reason": "User specifically requested that the system should feel like it 'lives' and takes the user along, rather than just displaying static info.",
+  "source_context": {
+    "queue_index": 231,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "LIVING_SYSTEM_EXPERIENCE.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-278",
+    "broader_theme": "react_v2_living_system",
+    "source_documents": [
+      "ui-v2/src/components/screens/MissionControl.tsx",
+      "LIVING_SYSTEM_EXPERIENCE.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Focus only on the UI presentation of the AI signal. Assume the backend provides the necessary data streams.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "AI messages appear sequentially with a typing effect.",
+    "'Thinking...' indicator displays while waiting.",
+    "Proposals have inline action buttons that function.",
+    "Panel auto-scrolls smoothly."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/MissionControl.tsx",
+    "ui-v2/src/index.css"
+  ],
+  "must_not_touch": [
+    "api/",
+    "workers/"
+  ],
+  "validation": {
+    "required_checks": [
+      "cd ui-v2 && npm run build",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "Typing effect is smooth and inline actions are accessible."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Actual LLM streaming implementation (backend)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": false
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

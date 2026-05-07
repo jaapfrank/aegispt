@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Activity,
@@ -49,6 +49,7 @@ const POLL_MS = 3000;
 const ACTIVE_STATUSES = new Set(['queued', 'requested', 'dispatching', 'running']);
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'canceled']);
 const OUTPUT_LIMIT = 900;
+const CinemaMode = lazy(() => import('../CinemaMode'));
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -93,7 +94,7 @@ export default function MissionControl() {
   const [taskDetails, setTaskDetails] = useState<Record<UUID, TaskDetail>>({});
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [cinemaGuardOpen, setCinemaGuardOpen] = useState(false);
+  const [cinemaOpen, setCinemaOpen] = useState(false);
 
   const proposals = aiInsights?.proposals ?? [];
   const chain = selectedRun?.assessment_chain ?? null;
@@ -335,7 +336,7 @@ export default function MissionControl() {
           </Link>
           <button
             type="button"
-            onClick={() => setCinemaGuardOpen(true)}
+            onClick={() => setCinemaOpen(true)}
             className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[12px] font-semibold text-cyan transition-colors hover:bg-cyan/15"
           >
             <MonitorPlay size={15} />
@@ -407,8 +408,30 @@ export default function MissionControl() {
         </div>
       </div>
 
-      {cinemaGuardOpen && <CinemaDataGuard onClose={() => setCinemaGuardOpen(false)} run={selectedRun} />}
+      {cinemaOpen && (
+        <Suspense fallback={<CinemaLoading onClose={() => setCinemaOpen(false)} />}>
+          <CinemaMode onClose={() => setCinemaOpen(false)} />
+        </Suspense>
+      )}
     </section>
+  );
+}
+
+function CinemaLoading({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#020408]">
+      <div className="rounded-lg border border-cyan/30 bg-cyan/10 px-5 py-4 text-[13px] font-semibold text-cyan">
+        Loading real-data Cinema Mode
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-8 top-8 inline-flex h-9 w-9 items-center justify-center rounded-md border border-cyan/30 text-cyan"
+        aria-label="Close Cinema Mode loading state"
+      >
+        <X size={15} />
+      </button>
+    </div>
   );
 }
 
@@ -747,40 +770,6 @@ function EvidencePanel({ aiInsights, findings }: { aiInsights: unknown; findings
           </div>
         ))}
         {findings.length === 0 && <EmptyBlock title="No findings" detail="Findings will link to backend evidence references when present." />}
-      </div>
-    </div>
-  );
-}
-
-function CinemaDataGuard({ run, onClose }: { run: Run; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-[#020408]/85 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-lg border border-cyan/30 bg-[#07111d] p-5 shadow-[0_0_45px_rgba(94,207,255,0.18)]">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-base font-semibold text-cyan">
-              <MonitorPlay size={17} />
-              Cinema Mode
-            </h2>
-            <p className="mt-2 text-[13px] leading-6 text-muted">
-              This run is ready for a real-data cinema view, but the existing 3D component still contains mock event
-              streams. Mission Control keeps it gated here so no simulated chain is shown as run evidence.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted hover:border-cyan/40 hover:text-cyan"
-            aria-label="Close Cinema Mode guard"
-          >
-            <X size={15} />
-          </button>
-        </div>
-        <div className="rounded-md border border-border bg-surface/55 p-3 text-[12px] text-muted">
-          <KeyValue label="Run" value={compactId(run.id)} />
-          <KeyValue label="Profile" value={run.profile.name} />
-          <KeyValue label="Status" value={run.status} />
-        </div>
       </div>
     </div>
   );
