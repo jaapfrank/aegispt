@@ -1,5 +1,56 @@
 # Done Log
 
+- 2026-05-07: completed backlog-255 `Evidence-driven Adaptive Assessment Planner: scores runners using signal evidence and runner metadata, produces run/skip/wait/approval plan with reasoning`:
+  - rationale:
+    - fixed Phase 2 tool batteries were too broad for an evidence-first platform; AegisPT now needs deterministic runner selection from real recon signals and registered runner metadata
+    - the planner is review-only until the operator explicitly queues selected items, and queueing still uses existing registered runners, run approvals, scope validation, ROE, credentials, runtime binding, provenance, reports, and kill-switch boundaries
+    - `http://127.0.0.1:8000` was relevant because API/runtime and Mission Control UI changed; current-code UI acceptance used a temporary isolated server on `127.0.0.1:8020`
+  - implementation:
+    - added `api/app/services/assessment_planner.py` to build deterministic `RUN` / `WAIT` / `SKIP` / `NEEDS_APPROVAL` runner plans from `SignalProfile` and `RunnerCapabilityMetadata`
+    - exposed `GET /api/v1/runs/{run_id}/assessment-plan` and `POST /api/v1/runs/{run_id}/assessment-plan/queue`
+    - added `assessment_plan` to `RunRead` for Mission Control rendering and queue response schemas for approved plan launches
+    - preserved sqlmap evidence gating so PHP/CMS/login-form hints alone produce `WAIT` unless `injectable_parameter` or `sql_error_pattern` exists
+    - rendered a Mission Control `Adaptive Assessment Plan` panel with `RUN`, `WAIT`, and `SKIP` columns, checked RUN recommendations, unchecked WAIT items, disabled gated/skipped items, and explicit queue action copy
+    - added API regression coverage for planner decisions, queue behavior, and audit recording
+  - files:
+    - `api/app/services/assessment_planner.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/tests/test_assessment_planner.py`
+    - `ui/assets/modules/mission-control.js`
+    - `ui/assets/styles.css`
+    - `codex/results/backlog-255-ai-adaptive-assessment-planner-20260507.md`
+    - `codex/results/backlog-255-assessment-planner-playwright-20260507.json`
+    - `codex/results/backlog-255-assessment-planner-1440-20260507.png`
+    - `codex/results/backlog-255-assessment-planner-1024-20260507.png`
+    - `codex/results/backlog-255-assessment-planner-768-20260507.png`
+    - `codex/results/backlog-255-assessment-planner-375-20260507.png`
+    - `risico.md`
+    - `extra_tests.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with exactly one active task
+    - prerequisite check: `inputs.prerequisite_backlog` starts with `REQUIRES:` and `DONE_LOG.md` contains completed backlog-256 and completed backlog-258
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_planner.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_assessment_chain.py api/tests/test_runs.py api/tests/test_assessment_planner.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/ -q` passed with exit code 0
+    - `node --check --input-type=module < ui/assets/modules/mission-control.js` passed
+    - Playwright acceptance passed on a temporary current-code server at `http://127.0.0.1:8020/app/` for 1440px, 1024px, 768px, and 375px with no horizontal overflow
+    - `git diff --check` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed after promoting backlog-257 into `NEXT_TASK.md`
+  - proof:
+    - focused API tests prove sqlmap `WAIT` without injectable/SQL-error evidence, jwt-probe `SKIP` without JWT evidence, deserialization `SKIP` without Java/JSESSIONID/serialized-cookie evidence, intrusive `NEEDS_APPROVAL`, and queueing only an operator-approved RUN item while blocking a WAIT item
+    - audit event `assessment_plan.queued` records approved, queued, blocked, and decision-summary metadata
+    - evidence is recorded in `codex/results/backlog-255-ai-adaptive-assessment-planner-20260507.md`
+  - exceptions:
+    - a plain Node dynamic import of the browser ES module is not claimed green because this repo has no package-level `"type": "module"` marker; the module-aware syntax check passed
+    - current-code browser acceptance used an isolated temporary server/database on port 8020 instead of the already-running port 8000 service
+  - remaining risks:
+    - planner calibration across every runner family still needs a live fixture matrix; tracked in `extra_tests.md` XT-016
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-257 `Recon-first wizard flow`
+
 - 2026-05-07: completed backlog-258 `Runner capability metadata: each runner declares prerequisites, signal triggers, blockers, risk, cost, expected evidence, and follow-up tools`:
   - rationale:
     - the adaptive planner needs a repo-backed metadata source for runner prerequisites, triggers, blockers, risk, cost, expected evidence, and follow-up tooling instead of hard-coded planner knowledge

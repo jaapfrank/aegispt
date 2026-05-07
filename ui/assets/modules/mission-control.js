@@ -147,6 +147,114 @@ export function createMissionModule() {
     `;
   }
 
+  function assessmentPlanColumns(plan) {
+    const runners = Array.isArray(plan?.runners) ? plan.runners : [];
+    return {
+      RUN: runners.filter((runner) => String(runner.decision || "").toUpperCase() === "RUN"),
+      WAIT: runners.filter((runner) =>
+        ["WAIT", "NEEDS_APPROVAL"].includes(String(runner.decision || "").toUpperCase())
+      ),
+      SKIP: runners.filter((runner) => String(runner.decision || "").toUpperCase() === "SKIP"),
+    };
+  }
+
+  function renderAssessmentPlanRunnerCard(item, column, launchBlocked) {
+    const decision = String(item?.decision || column || "WAIT").toUpperCase();
+    const runner = String(item?.runner || item?.tool || "");
+    if (!runner) return "";
+    const canSelect = !launchBlocked && (decision === "RUN" || decision === "WAIT");
+    const checked = decision === "RUN" ? "checked" : "";
+    const disabled = canSelect ? "" : "disabled";
+    const reasons = Array.isArray(item.reasons) ? item.reasons : [];
+    const reason = reasons[0] || item.summary || "Planner decision is based on current SignalProfile evidence.";
+    const confidence = Number(item.confidence || 0);
+    const gateLabel = decision === "NEEDS_APPROVAL" ? "approval gate" : item.risk_tier || "runner";
+    return `
+      <label class="assessment-plan-runner-card assessment-plan-${escapeHtml(decision.toLowerCase())}">
+        <span class="assessment-plan-runner-head">
+          <input
+            type="checkbox"
+            data-assessment-plan-runner="${escapeHtml(runner)}"
+            ${checked}
+            ${disabled}
+          />
+          <span>
+            <strong>${escapeHtml(formatToolLabel(runner))}</strong>
+            <small>${escapeHtml(runner)}</small>
+          </span>
+        </span>
+        <span class="assessment-plan-reason">${escapeHtml(reason)}</span>
+        <span class="assessment-plan-meta">
+          <span>${escapeHtml(`${Math.round(confidence * 100)}% confidence`)}</span>
+          <span>${escapeHtml(gateLabel)}</span>
+          <span>${escapeHtml(`${Number(item.estimated_minutes || 0)} min`)}</span>
+        </span>
+      </label>
+    `;
+  }
+
+  function renderAssessmentPlanPanel(run, inventorySnapshot) {
+    const plan = run?.assessment_plan || {};
+    const runners = Array.isArray(plan.runners) ? plan.runners : [];
+    if (!runners.length) return "";
+    const columns = assessmentPlanColumns(plan);
+    const tasksExist = Boolean((run.tasks || []).length);
+    const pendingApprovals = Number(run.pending_approvals || 0);
+    const launchBlocked = tasksExist || pendingApprovals > 0;
+    const summary = plan.summary || {};
+    const snapshotLabel =
+      plan.source_inventory_snapshot_id ||
+      run.source_inventory_snapshot_id ||
+      inventorySnapshot?.id ||
+      "latest inventory";
+    const disabled = launchBlocked ? "disabled" : "";
+    const blockedCopy = tasksExist
+      ? "Runner tasks already exist for this run; planner launch is closed for this dossier."
+      : pendingApprovals > 0
+        ? "The existing approval gate must be completed before any planned runner task can be queued."
+        : "Only checked RUN items are queued; dispatch remains explicit.";
+    return `
+      <div class="detail-surface emphasis-surface split-top assessment-plan-panel" data-testid="assessment-plan-panel">
+        <div class="task-activity-header">
+          <div>
+            <h4>Adaptive Assessment Plan</h4>
+            <p class="mission-status-subline">${escapeHtml("Evidence-driven runner selection from SignalProfile and registered runner metadata.")}</p>
+          </div>
+          <div class="inline-metrics">
+            <span class="metric-pill">${escapeHtml(`${Number(summary.run_count || 0)} run`)}</span>
+            <span class="metric-pill">${escapeHtml(`${Number(summary.wait_count || 0) + Number(summary.needs_approval_count || 0)} wait`)}</span>
+            <span class="metric-pill">${escapeHtml(`${Number(summary.skip_count || 0)} skip`)}</span>
+          </div>
+        </div>
+        <div class="assessment-plan-source split-top">
+          <span>${escapeHtml(`Source inventory: ${snapshotLabel}`)}</span>
+          <span>${escapeHtml(`Planner: ${plan.planner_version || "deterministic"}`)}</span>
+        </div>
+        <div class="assessment-plan-grid split-top">
+          ${["RUN", "WAIT", "SKIP"].map((column) => `
+            <section class="assessment-plan-column assessment-plan-column-${column.toLowerCase()}">
+              <div class="assessment-plan-column-head">
+                <strong>${escapeHtml(column)}</strong>
+                <span class="metric-pill">${escapeHtml(String(columns[column].length))}</span>
+              </div>
+              <div class="assessment-plan-runner-list">
+                ${
+                  columns[column].length
+                    ? columns[column].slice(0, 12).map((item) => renderAssessmentPlanRunnerCard(item, column, launchBlocked)).join("")
+                    : `<p class="micro-copy">${escapeHtml(`No ${column.toLowerCase()} recommendations.`)}</p>`
+                }
+              </div>
+            </section>
+          `).join("")}
+        </div>
+        <div class="panel-actions split-top">
+          <button class="action primary" type="button" data-assessment-plan-launch="true" ${disabled}>Launch Assessment</button>
+          <span class="micro-copy">${escapeHtml(blockedCopy)}</span>
+        </div>
+      </div>
+    `;
+  }
+
   function approvalStateForRun(run) {
     return {
       required: Math.max(0, Number(run?.required_approvals || 0)),
@@ -3395,14 +3503,17 @@ export function createMissionModule() {
     const assessmentChain = selectedAssessmentChain(run);
     const killChainProgress = renderMissionKillChainProgress(run);
     const tasks = [...(run.tasks || [])];
+    const inventorySnapshot = runtime.actions.selectedRunInventorySnapshot?.() || null;
+    const inventorySeedOnly = isSeedOnlyInventory(inventorySnapshot);
+    const planPanel = renderAssessmentPlanPanel(run, inventorySnapshot);
     if (!tasks.length) {
       if (String(run.status || "").toLowerCase() === "pending_approval") {
-        return `${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${renderPendingApprovalRunActivity(run)}`;
+        return `${inventorySnapshot && !inventorySeedOnly ? renderSignalProfileSummary(inventorySnapshot) : ""}${planPanel}${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${renderPendingApprovalRunActivity(run)}`;
       }
       if (assessmentChainHasLifecycleRows(assessmentChain)) {
-        return `${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${renderChainLifecycleTaskFallback(assessmentChain)}`;
+        return `${inventorySnapshot && !inventorySeedOnly ? renderSignalProfileSummary(inventorySnapshot) : ""}${planPanel}${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${renderChainLifecycleTaskFallback(assessmentChain)}`;
       }
-      return `${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${emptyState("This run exists, but no execution tasks were queued yet.")}`;
+      return `${inventorySnapshot && !inventorySeedOnly ? renderSignalProfileSummary(inventorySnapshot) : ""}${planPanel}${renderDriftSummaryBanner(run)}${killChainProgress}${renderAssessmentChainPanel(assessmentChain)}${emptyState("This run exists, but no execution tasks were queued yet.")}`;
     }
 
     const dispatching =
@@ -3410,8 +3521,6 @@ export function createMissionModule() {
       String(run?.status || "").toLowerCase() === "queued";
     const manualHint = manualDispatchHintForSelectedRun();
     const discoveryOnly = isDiscoveryOnlyRun(run);
-    const inventorySnapshot = runtime.actions.selectedRunInventorySnapshot?.() || null;
-    const inventorySeedOnly = isSeedOnlyInventory(inventorySnapshot);
     const discoveryInventoryReady = discoveryOnly && inventorySnapshot && !isSeedOnlyInventory(inventorySnapshot);
     const followUp = getFollowUpMetadata(run);
     const followUpSummary = summarizeFollowUpInventory(followUp, inventorySnapshot);
@@ -3477,6 +3586,7 @@ export function createMissionModule() {
         ${renderRunStreamStatus(run)}
       </div>
       ${inventorySnapshot && !inventorySeedOnly ? renderSignalProfileSummary(inventorySnapshot) : ""}
+      ${planPanel}
       ${renderDriftSummaryBanner(run)}
       ${killChainProgress}
       ${compactTaskList}
@@ -4686,6 +4796,46 @@ export function createMissionModule() {
     dom.missionRunActivity.querySelectorAll("[data-run-stale-recovery]").forEach((button) => {
       button.addEventListener("click", async () => {
         await recoverSelectedStaleRun();
+      });
+    });
+    dom.missionRunActivity.querySelectorAll("[data-assessment-plan-launch]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        if (!state.selectedRunId) return;
+        const panel = button.closest("[data-testid='assessment-plan-panel']");
+        const approvedRunners = panel
+          ? [...panel.querySelectorAll("[data-assessment-plan-runner]:checked")]
+              .map((input) => input.dataset.assessmentPlanRunner)
+              .filter(Boolean)
+          : [];
+        if (!approvedRunners.length) {
+          runtime.actions.pushStatus?.("Select at least one RUN item before launching the assessment plan.", "warning");
+          return;
+        }
+        runtime.actions.pushStatus?.("Queueing operator-approved planner items through the existing runner queue.", "info");
+        const payload = await api(`/api/v1/runs/${state.selectedRunId}/assessment-plan/queue`, {
+          method: "POST",
+          body: {
+            approved_runners: approvedRunners,
+            allow_wait_overrides: true,
+          },
+        });
+        patchState({
+          selectedRun: payload.run,
+          selectedTaskId: payload.queued_task_ids?.[0] || state.selectedTaskId,
+          mission: {
+            ...state.mission,
+            runs: (Array.isArray(state.mission.runs) ? state.mission.runs : []).map((candidate) =>
+              String(candidate.id || "") === String(payload.run?.id || "") ? payload.run : candidate
+            ),
+          },
+        }, "mission.assessmentPlan.queued");
+        await runtime.actions.refreshSelectedEngagement?.();
+        const blockedCount = Array.isArray(payload.blocked) ? payload.blocked.length : 0;
+        runtime.actions.pushStatus?.(
+          `Assessment plan queued ${payload.queued_task_ids?.length || 0} runner task${payload.queued_task_ids?.length === 1 ? "" : "s"}${blockedCount ? `; ${blockedCount} item${blockedCount === 1 ? "" : "s"} stayed gated` : ""}.`,
+          blockedCount ? "warning" : "success"
+        );
+        renderMissionControl();
       });
     });
     dom.missionRunActivity.querySelectorAll("[data-assessment-chain-phase-decision]").forEach((button) => {

@@ -279,6 +279,12 @@ class RunDispatchRead(BaseModel):
     dispatched_task_ids: list[UUID]
 
 
+class AssessmentPlanQueueCreate(BaseModel):
+    approved_runners: list[str] = Field(default_factory=list)
+    allow_wait_overrides: bool = False
+    operator_note: str | None = Field(default=None, max_length=1000)
+
+
 class RunRead(BaseModel):
     id: UUID
     engagement_id: UUID
@@ -303,9 +309,17 @@ class RunRead(BaseModel):
     ai_mission_guidance: dict[str, Any] = Field(default_factory=dict)
     multi_agent_orchestration: dict[str, Any] = Field(default_factory=dict)
     assessment_chain: dict[str, Any] = Field(default_factory=dict)
+    assessment_plan: dict[str, Any] = Field(default_factory=dict)
     kill_chain_progress: KillChainProgressRead | None = None
     drift_summary: RunDriftRead | None = None
     stale_recovery: dict[str, Any] = Field(default_factory=dict)
+
+
+class AssessmentPlanQueueRead(BaseModel):
+    run: RunRead
+    assessment_plan: dict[str, Any] = Field(default_factory=dict)
+    queued_task_ids: list[UUID] = Field(default_factory=list)
+    blocked: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class RunStaleRecoveryCreate(BaseModel):

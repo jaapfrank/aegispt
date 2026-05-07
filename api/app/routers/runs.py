@@ -48,6 +48,8 @@ from api.app.schemas.runs import (
     AiRepairProposalRead,
     ApprovalCreate,
     ApprovalRead,
+    AssessmentPlanQueueCreate,
+    AssessmentPlanQueueRead,
     AssessmentChainPhaseDecisionCreate,
     AssessmentChainRead,
     FindingSummaryRead,
@@ -93,6 +95,10 @@ from api.app.services.assessment_chain import (
     halt_assessment_chain_at_boundary,
     load_assessment_chain,
     normalize_assessment_mode,
+)
+from api.app.services.assessment_planner import (
+    build_assessment_plan_for_run,
+    queue_assessment_plan_tasks,
 )
 from api.app.services.attack_paths import build_attack_path_summary
 from api.app.services.audit import write_audit_event
@@ -346,6 +352,7 @@ def serialize_run(run: Run, *, session: Session, include_kill_chain_progress: bo
         ai_mission_guidance=build_mission_guidance_for_run(session=session, run=run),
         multi_agent_orchestration=build_multi_agent_orchestration_readiness(run),
         assessment_chain=chain_summary,
+        assessment_plan=build_assessment_plan_for_run(session, run),
         kill_chain_progress=(
             build_engagement_kill_chain_progress(session, run.engagement_id)
             if include_kill_chain_progress
@@ -1022,6 +1029,62 @@ def get_run(
 ) -> RunRead:
     run = _load_run_for_tenant(session, run_id, tenant_id)
     return serialize_run(run, session=session)
+
+
+@router.get("/runs/{run_id}/assessment-plan")
+def get_run_assessment_plan(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    _actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    return build_assessment_plan_for_run(session, run)
+
+
+@router.post("/runs/{run_id}/assessment-plan/queue", response_model=AssessmentPlanQueueRead)
+def queue_run_assessment_plan(
+    run_id: UUID,
+    payload: AssessmentPlanQueueCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> AssessmentPlanQueueRead:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    scope = session.scalar(latest_scope_query(run.engagement_id))
+    if scope is None:
+        raise HTTPException(status_code=409, detail="engagement scope missing during plan launch")
+    try:
+        outcome = queue_assessment_plan_tasks(
+            session,
+            run=run,
+            scope=scope,
+            approved_runners=payload.approved_runners,
+            actor=actor,
+            allow_wait_overrides=payload.allow_wait_overrides,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if payload.operator_note:
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="assessment_plan.operator_note",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={"note": payload.operator_note},
+        )
+    session.commit()
+    hydrated_run = load_run(session, run.id)
+    if hydrated_run is None:
+        raise HTTPException(status_code=500, detail="run could not be reloaded after plan queue")
+    queued_tasks = outcome.get("queued_tasks") or []
+    return AssessmentPlanQueueRead(
+        run=serialize_run(hydrated_run, session=session),
+        assessment_plan=build_assessment_plan_for_run(session, hydrated_run),
+        queued_task_ids=[task.id for task in queued_tasks],
+        blocked=list(outcome.get("blocked") or []),
+    )
 
 
 @router.get("/runs/{run_id}/cve-intelligence", response_model=RunCveIntelRead)
