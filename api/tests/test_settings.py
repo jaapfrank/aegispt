@@ -341,6 +341,10 @@ def test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately
     assert certification["status"] == "ready_with_hardware_limitation"
     assert certification["metadata"]["hardware_limited_tool_count"] == 1
     assert "hardware-only limitation" in certification["summary"]
+    assert certification["status"] != "blocked"
+    assert "monitor-mode capable USB WiFi adapter" in certification["operator_next_step"]
+    assert "Alfa AWUS036ACH" in certification["operator_next_step"]
+    assert "All other runners are certified and ready" in certification["operator_next_step"]
 
 
 def test_settings_readiness_simulated_production_deployment_hardening(client) -> None:

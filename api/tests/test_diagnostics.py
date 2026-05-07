@@ -83,6 +83,46 @@ def test_diagnostics_surfaces_subsystems_and_actionable_failures(client, monkeyp
     assert any(item["subsystem"] == "feed_sync" and item["operator_next_step"] for item in payload["recent_failures"])
 
 
+def test_diagnostics_surfaces_runner_tool_hardware_limitation_as_informational(
+    client,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "api.app.services.settings.summarize_runner_tool_certification_matrix",
+        lambda: {
+            "path": "codex/results/runner-tool-certification-matrix.json",
+            "generated_at": "2026-05-07T00:00:00Z",
+            "readiness_status": "ready_with_hardware_limitation",
+            "tool_count": 56,
+            "certified_tool_count": 55,
+            "supported_with_gap_tool_count": 0,
+            "blocked_tool_count": 1,
+            "status_counts": {"blocked": 1, "certified": 55},
+            "software_ready_state_counts": {"ready": 19, "not-required": 37},
+            "hardware_blockers": [
+                {
+                    "id": "wifi-survey",
+                    "blocker": "No monitor-mode adapter proof is recorded.",
+                }
+            ],
+            "hardware_limited_tool_count": 1,
+            "raw_matrix_available": True,
+        },
+    )
+
+    response = client.get("/api/v1/diagnostics")
+
+    assert response.status_code == 200
+    subsystems = {item["id"]: item for item in response.json()["subsystems"]}
+    certification = subsystems["runner_tool_certification"]
+    assert certification["status"] == "ready_with_hardware_limitation"
+    assert certification["status"] != "blocked"
+    assert "software-ready with a hardware-only limitation" in certification["summary"]
+    assert "monitor-mode capable USB WiFi adapter" in certification["operator_next_step"]
+    assert "Alfa AWUS036ACH" in certification["operator_next_step"]
+    assert "All other runners are certified and ready" in certification["operator_next_step"]
+
+
 def test_support_bundle_redacts_secrets_hashes_and_raw_evidence_payloads(client, monkeypatch, tmp_path) -> None:
     secret = "super-secret-value"
     hash_value = "a" * 64

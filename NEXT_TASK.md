@@ -2,45 +2,48 @@
 
 ## Title
 
-WiFi certification hardware blocker: show amber informational status when only hardware limitations remain
+Gruyere multi-step chain acceptance test: prove all 6 Gruyere vulnerability layers detectable by chaining AI proposals and Free Bash execution
 
 ## Promoted From
 
-`codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json`
+`codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json`
 
 ## Goal
 
-Implement the active backlog package `codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json` so WiFi certification/readiness distinguishes software-ready-with-hardware-limitation from a red blocked state.
+Implement the active backlog package `codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json` so AegisPT has a local-only Gruyere acceptance test proving how chained AI proposals plus approved execution discover all six Gruyere vulnerability layers.
 
 ## Scope
 
-Implement the active backlog package `codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json`.
+Implement the active backlog package `codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json`.
 
 Expected slice:
 
-- reconcile current diagnostics/readiness truth before editing, because recent stabilization may already have part of this behavior
-- show WiFi hardware-only limitation as amber/informational rather than red/blocked when all software tooling is otherwise ready
-- keep overall certification status from becoming `blocked` when the only blocker is WiFi hardware/lab availability
-- add or preserve guidance text that explains the required monitor-mode WiFi adapter/lab condition
-- preserve existing runner/tool certification, diagnostics, settings, approval, scope, runtime binding, ROE, credential, and kill-switch behavior
+- add a safe local Docker Gruyere lab target for acceptance validation
+- add a test script or pytest coverage that runs AegisPT against the local Gruyere fixture and records per-layer detection status
+- verify layers 1-2 through existing scanner paths without AI shell execution
+- verify layers 3-6 through AI proposal -> approval -> registered execution chain when the existing Free Bash/AI shell capability is available
+- produce `gruyere-chain-acceptance-report.json` with per-layer status, proposal rationale, approved execution steps, findings, and evidence links
+- preserve existing AI proposal review, runner registry, approval gates, scope enforcement, ROE, credentials, runtime binding, provenance, reporting, and kill-switch behavior
 
 ## Constraints
 
 - Do not implement until this file is the single active task.
-- Work only on WiFi readiness/certification blocker presentation and supporting API truth described by the active package.
-- Do not weaken WiFi ROE, hardware, monitor-mode, adapter, scope, approval, or credential boundaries.
-- Do not claim WiFi live support beyond software readiness unless an authorized adapter/lab proof exists.
-- If the package is partially obsolete because current code already implements an item, document that truth in `DONE_LOG.md` and `CURRENT_STATE.md` rather than duplicating entries.
+- Work only against the local Gruyere Docker instance; never test against `google-gruyere.appspot.com` or any other live public target.
+- Do not bypass AI Free Bash approval gates, runner registration, scope enforcement, ROE, credential prerequisites, provenance, report generation, or kill switch behavior.
+- Do not silently mark layers 3-6 green if the AI proposal/execution prerequisite is missing, skipped, blocked, timed out, or not executed.
+- All shell/proof steps must stay inside explicit local engagement scope.
+- If the package is partially blocked or obsolete because current code has different prerequisites, document that truth in `DONE_LOG.md`, `CURRENT_STATE.md`, `risico.md`, and `extra_tests.md` rather than faking acceptance.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `source .venv/bin/activate && python -m pytest api/tests/test_diagnostics.py -q`
+- `source .venv/bin/activate && python -m pytest ui/tests/test_gruyere_chain_acceptance.py -v`
 - `git diff --check`
 
 ## Acceptance
 
-- WiFi hardware blocker shows amber/informational, not red/blocked.
-- Overall certification status is not `blocked` when only hardware limitations remain.
-- Guidance text explains what adapter/lab condition is needed.
-- Existing manual wizard path, runner/tool certification, diagnostics, approval model, scope enforcement, runtime binding, and kill switch remain intact.
+- Local Gruyere Docker instance runs in the test environment.
+- Layers 1-2, reflected XSS and stored XSS, are found without AI shell execution.
+- Layers 3-6 are found through AI proposal, operator/test approval, and registered shell execution chain.
+- `gruyere-chain-acceptance-report.json` documents all six layers, proposal rationale, executed commands, and evidence/finding links.
+- No live public Gruyere target is touched.

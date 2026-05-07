@@ -1695,6 +1695,7 @@ def _runner_tool_certification_readiness() -> ReadinessCapabilityRead:
             f"Runner/tool certification matrix records {summary['supported_with_gap_tool_count']} gap(s) "
             f"and {summary['blocked_tool_count']} blocker(s)."
         )
+    hardware_guidance = _runner_tool_hardware_limitation_guidance(summary)
     return _capability(
         capability_id="runner_tool_certification",
         title="Runner/tool certification",
@@ -1703,18 +1704,40 @@ def _runner_tool_certification_readiness() -> ReadinessCapabilityRead:
         details=[
             f"Matrix path: {summary['path']}.",
             f"{summary['certified_tool_count']} of {summary['tool_count']} tracked runners are certified by deterministic evidence.",
-            "Hardware-only limitations require compatible lab equipment and do not mean software tools are missing.",
+            hardware_guidance
+            if status == "ready_with_hardware_limitation"
+            else "Hardware-only limitations require compatible lab equipment and do not mean software tools are missing.",
             "Gaps and hardware blockers are evidence records only; they do not install tools or authorize execution.",
         ],
         operator_next_step=(
             "Run python3 scripts/build_runner_tool_certification_matrix.py and review codex/results/runner-tool-certification-matrix.md."
             if status == "missing"
-            else "Attach compatible authorized hardware for hardware-limited runners; use Settings tool readiness for current host binary state."
+            else hardware_guidance
             if status == "ready_with_hardware_limitation"
             else "Review certification gaps before making support claims; use Settings tool readiness for current host binary state."
         ),
         metadata=summary,
     )
+
+
+def _runner_tool_hardware_limitation_guidance(summary: dict[str, Any]) -> str:
+    blocker_ids = {
+        str(item.get("id") or "").strip()
+        for item in summary.get("hardware_blockers", [])
+        if isinstance(item, dict)
+    }
+    if blocker_ids == {"wifi-survey"}:
+        return (
+            "WiFi assessment requires a monitor-mode capable USB WiFi adapter "
+            "(for example Alfa AWUS036ACH) in an explicitly authorized wireless lab. "
+            "All other runners are certified and ready."
+        )
+    if blocker_ids:
+        return (
+            "Attach compatible authorized hardware for hardware-limited runners "
+            f"({', '.join(sorted(blocker_ids))}); use Settings tool readiness for current host binary state."
+        )
+    return "Attach compatible authorized hardware for hardware-limited runners; use Settings tool readiness for current host binary state."
 
 
 def _detect_wireless_adapters() -> list[str]:

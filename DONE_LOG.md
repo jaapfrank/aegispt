@@ -12493,3 +12493,45 @@
     - this slice proves dispatch reachability and preview truth, not live execution of every newly reachable runner against vulnerable fixtures
     - `extra_tests.md` XT-009 and `risico.md` R-009 continue to track per-runner live lab proof
     - `NEXT_TASK.md` now promotes exactly one active task, backlog-253 `WiFi certification hardware blocker`, from `codex/tasks/backlog-253-wifi-certification-hardware-blocker-documentation.json`
+
+- 2026-05-07: completed backlog-253 `WiFi certification hardware blocker: show amber informational status when only hardware limitations remain`:
+  - rationale:
+    - runner/tool certification should not alarm operators with a red blocked state when the only remaining blocker is WiFi hardware/lab proof and all software-side runner certification is otherwise ready
+    - repo truth showed recent stabilization had already implemented the core `ready_with_hardware_limitation` status and Settings warning/amber rendering, so this slice avoided duplicate certification logic and focused on precise operator guidance plus regression evidence
+    - `http://127.0.0.1:8000` was relevant because Settings readiness renders the affected capability in the browser
+  - implementation:
+    - added WiFi-specific hardware-limitation guidance for runner/tool certification when the only hardware blocker is `wifi-survey`
+    - kept the overall certification status as `ready_with_hardware_limitation`, not `blocked`, for hardware-only limitations
+    - added diagnostics and settings regressions that assert the capability is not blocked and the operator next step names a monitor-mode capable USB WiFi adapter, Alfa AWUS036ACH, and an explicitly authorized lab
+    - preserved runner/tool certification logic, Settings theme mapping, diagnostics aggregation, manual wizard path, runner implementations, approval model, scope enforcement, runtime binding, ROE, credentials, and kill-switch behavior
+    - updated `risico.md` and `extra_tests.md` so the remaining WiFi adapter/lab proof is explicit rather than silently claimed
+  - files:
+    - `api/app/services/settings.py`
+    - `api/tests/test_diagnostics.py`
+    - `api/tests/test_settings.py`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `risico.md`
+    - `extra_tests.md`
+    - `NEXT_TASK.md`
+    - `codex/results/backlog-253-settings-readiness-hardware-limited-8000.json`
+    - `codex/results/backlog-253-settings-runner-tool-hardware-limited-8000.png`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation with 267 queued task packages and exactly one active task
+    - `source .venv/bin/activate && python -m pytest api/tests/test_diagnostics.py::test_diagnostics_surfaces_runner_tool_hardware_limitation_as_informational api/tests/test_settings.py::test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_diagnostics.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/test_settings.py::test_settings_readiness_accepts_tool_aliases_and_reports_hardware_separately -q` passed
+    - `bash scripts/restart_local_inline_host.sh` restarted `http://127.0.0.1:8000/app/`
+    - Playwright acceptance passed against current-code localhost Settings readiness and proved the runner/tool certification card shows `hardware limited`, omits `blocked`, and includes the monitor-mode/Alfa/lab guidance
+    - `git diff --check` passed after documentation and promotion updates
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed
+  - proof:
+    - evidence JSON records `runner_tool_certification.status=ready_with_hardware_limitation`, `blocked_tool_count=1`, `hardware_limited_tool_count=1`, `hardware_blockers=[wifi-survey]`, and operator guidance naming a monitor-mode capable USB WiFi adapter, Alfa AWUS036ACH, and an explicitly authorized wireless lab
+    - Playwright screenshot evidence records the Settings UI state at `http://127.0.0.1:8000/app/`
+  - exceptions:
+    - the active task package was partially obsolete because `scripts/build_runner_tool_certification_matrix.py`, `api/app/services/tool_certification.py`, and the Settings UI status theme already handled hardware-only certification as `ready_with_hardware_limitation`
+    - no live WiFi/RF action, adapter monitor-mode test, intrusive wireless action, or driver installation was performed in this documentation/presentation slice
+  - remaining risks:
+    - `wifi-survey` still needs an authorized monitor-mode adapter and wireless lab proof before claiming runtime WiFi support beyond software readiness
+    - `extra_tests.md` XT-012 and `risico.md` R-004 track the required hardware/lab validation
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-254 `Gruyere multi-step chain acceptance test`, from `codex/tasks/backlog-254-gruyere-multi-step-chain-acceptance-test.json`
