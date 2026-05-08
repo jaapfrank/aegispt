@@ -13,6 +13,7 @@ from api.app.models import (
     TargetContextDocument,
     Task,
 )
+from api.app.services import reports as report_service
 from api.app.services.ai_planner import ensure_context_document, generate_sub_plan
 from api.app.services.assessment_loop import LOOP_PROPOSAL_KIND
 
@@ -111,6 +112,11 @@ def test_contextual_profile_is_created_before_loop_task_dispatch(client) -> None
     assert payload["rationale_ledger_entry_id"]
     assert payload["queued_task_id"]
     assert payload["next_action"]["tool"] == "httpx"
+    assert payload["rationale_ledger"]
+    ledger_payload = payload["rationale_ledger"][0]
+    assert ledger_payload["id"] == payload["rationale_ledger_entry_id"]
+    assert ledger_payload["tool_name"] == "httpx"
+    assert ledger_payload["decision_source"]["rationale_contract"]["template"].startswith("I observed X")
 
     with client.app.state.session_factory() as session:
         context = session.get(TargetContextDocument, UUID(payload["context_document_id"]))
@@ -129,12 +135,25 @@ def test_contextual_profile_is_created_before_loop_task_dispatch(client) -> None
         assert rationale.task_id == UUID(payload["queued_task_id"])
         assert rationale.agent_proposal_id == UUID(payload["proposal_id"])
         assert rationale.status == "task_queued"
+        assert rationale.rationale_text.startswith("I observed ")
+        assert "therefore I am dispatching Tool httpx" in rationale.rationale_text
+        assert "with parameters" in rationale.rationale_text
+        assert rationale.decision_source_json["observed_context"]["context_document_id"] == str(context.id)
+        assert rationale.decision_source_json["dispatch_contract"]["dispatch_path"] == "registered_runner_queue"
+        assert rationale.decision_source_json["rationale_contract"]["registered_runner_required"] is True
 
         task = session.get(Task, UUID(payload["queued_task_id"]))
         assert task is not None
         loop_metadata = task.params_json["assessment_loop"]
         assert loop_metadata["context_document_id"] == str(context.id)
         assert loop_metadata["rationale_ledger_entry_id"] == str(rationale.id)
+
+        run = session.get(Run, UUID(run_id))
+        assert run is not None
+        markdown = report_service.render_markdown_report(run, variant="technical")
+        assert "## AI Action Rationale Ledger" in markdown
+        assert str(rationale.id) in markdown
+        assert "therefore I am dispatching Tool httpx" in markdown
 
 
 def test_recursive_sub_plan_records_parent_and_evidence_backed_micro_plan(client) -> None:
@@ -260,6 +279,8 @@ def test_active_action_creates_rationale_before_reviewable_proposal_not_task(cli
         assert rationale.agent_proposal_id == proposal.id
         assert rationale.status == "pending_approval"
         assert rationale.provenance_json["registered_runner_required"] is True
+        assert "therefore I am dispatching Tool auth-flow" in rationale.rationale_text
+        assert rationale.decision_source_json["dispatch_contract"]["dispatch_path"] == "operator_approval_then_registered_runner"
 
         auth_task = session.scalar(
             select(Task).where(Task.run_id == UUID(run_id), Task.tool == "auth-flow")

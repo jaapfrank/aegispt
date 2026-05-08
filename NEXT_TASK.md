@@ -2,25 +2,26 @@
 
 ## Title
 
-AI Action Rationale Ledger: Measurable and Provable AI Decisions
+AI Choke-Point Remediation Advisor: Breaking the attack chain
 
 ## Promoted From
 
-`codex/tasks/backlog-296-ai-action-rationale-ledger.json`
+`codex/tasks/backlog-297-ai-choke-point-remediation-advisor.json`
 
 ## Goal
 
-To make the AI's behavior measurable and provable, every single tool dispatch must be backed by an immutable 'Rationale Ledger' entry. The AI must explicitly write: 'I observed X in the Context Document, therefore I am dispatching Tool Y with parameters Z'. This ledger is exposed to the operator and included in the final report to prove the pentest was methodological and not random.
+Go beyond just listing attack paths. Implement an AI engine that analyzes the entire attack graph and identifies "Choke Points" - the single cheapest or fastest remediation action that breaks the most attack paths. For example: "Instead of patching these 12 internal servers, fixing this 1 exposed Active Directory credential breaks 90% of the paths to Domain Admin".
 
 ## Scope
 
-AI planning and assessment loop.
+Remediation logic, attack graphing, and continuous execution.
 
 ## Constraints
 
 - Do not implement until this package is the single active task in NEXT_TASK.md.
-- Focus strictly on the AI's planning logic and ledger generation. Do not build new testing tools in this task.
+- Ensure these features generate measurable, provable evidence such as a retest log or a drift report rather than just UI dashboards.
 - Do not create runtime self-modification or uncontrolled plugin installation.
+- Do not build a complete new cloud security posture management tool from scratch.
 
 ## Validation
 
@@ -29,6 +30,7 @@ AI planning and assessment loop.
 
 ## Acceptance
 
-- AI builds a Context Document before running active tools.
-- AI generates a nested micro-plan upon finding a new endpoint/layer.
-- Every tool execution has a corresponding, provable entry in the Rationale Ledger.
+- AI successfully identifies choke-points in an attack graph.
+- Micro-scanner can replay an exact finding payload and verify a fix.
+- Drift detection accurately spots differences between two runs on the same target.
+- Cloud IAM findings map visually to traditional network/web findings.

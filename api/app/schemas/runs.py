@@ -354,6 +354,7 @@ class AssessmentLoopRead(BaseModel):
     latest_next_action: dict[str, Any] | None = None
     active_tasks: list[dict[str, Any]] = Field(default_factory=list)
     assessment_plan_summary: dict[str, Any] = Field(default_factory=dict)
+    rationale_ledger: list[dict[str, Any]] = Field(default_factory=list)
     iterations: list[dict[str, Any]] = Field(default_factory=list)
     dispatches_work_directly: bool = False
     manual_chain_alternative_preserved: bool = True

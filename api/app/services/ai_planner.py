@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Iterable
-from urllib.parse import urlparse
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -52,6 +53,7 @@ def latest_context_document(
         query.order_by(
             TargetContextDocument.updated_at.desc(),
             TargetContextDocument.created_at.desc(),
+            TargetContextDocument.parent_context_document_id.isnot(None).desc(),
             TargetContextDocument.id.desc(),
         )
     )
@@ -290,6 +292,40 @@ def record_rationale(
     agent_proposal_id: uuid.UUID | None = None,
     status: str = "recorded",
 ) -> RationaleLedgerEntry:
+    observed_context = _observed_context_payload(context_document)
+    dispatch_contract = _dispatch_contract_payload(
+        tool_name=tool_name,
+        target=target,
+        parameters=parameters,
+        action_type=action_type,
+    )
+    rationale_statement = _rationale_statement(
+        context_document=context_document,
+        tool_name=tool_name,
+        target=target,
+        parameters=parameters,
+        rationale=rationale,
+    )
+    decision_payload = {
+        **(decision_source or {}),
+        "observed_context": observed_context,
+        "dispatch_contract": dispatch_contract,
+        "rationale_contract": {
+            "template": "I observed X in the Context Document, therefore I am dispatching Tool Y with parameters Z.",
+            "format_version": CONTEXT_PROFILE_VERSION,
+            "recorded_before_queue_or_approval": True,
+            "registered_runner_required": True,
+            "approval_gates_bypassed": False,
+            "immutable_content_fields": [
+                "context_document_id",
+                "tool_name",
+                "target",
+                "rationale_text",
+                "decision_source_json",
+                "parameters_json",
+            ],
+        },
+    }
     entry = RationaleLedgerEntry(
         run_id=run.id,
         context_document_id=context_document.id if context_document is not None else None,
@@ -298,14 +334,15 @@ def record_rationale(
         action_type=action_type,
         tool_name=tool_name,
         target=target,
-        rationale_text=rationale,
-        decision_source_json=decision_source or {},
+        rationale_text=rationale_statement,
+        decision_source_json=decision_payload,
         parameters_json=parameters,
         status=status,
         provenance_json={
             "version": CONTEXT_PROFILE_VERSION,
             "source": "deterministic_ai_contextual_planner",
             "recorded_before_dispatch": task_id is None and agent_proposal_id is None,
+            "rationale_statement_style": "observed_context_therefore_action",
             "registered_runner_required": True,
             "approval_gates_bypassed": False,
             "kill_switch_still_authoritative": True,
@@ -314,6 +351,86 @@ def record_rationale(
     session.add(entry)
     session.flush()
     return entry
+
+
+def _observed_context_payload(context_document: TargetContextDocument | None) -> dict[str, Any]:
+    if context_document is None:
+        return {
+            "context_document_id": None,
+            "summary": "No Context Document was linked to this action.",
+            "evidence_refs": [],
+            "recommended_tools": [],
+            "micro_plan": [],
+        }
+    return {
+        "context_document_id": str(context_document.id),
+        "layer_name": context_document.layer_name,
+        "context_kind": context_document.context_kind,
+        "summary": context_document.context_summary,
+        "technologies": list(context_document.technologies_detected_json or []),
+        "endpoints": list(context_document.endpoints_discovered_json or []),
+        "evidence_refs": list(context_document.evidence_refs_json or []),
+        "recommended_tools": list(context_document.recommended_tools_json or []),
+        "micro_plan": list(context_document.micro_plan_json or []),
+    }
+
+
+def _dispatch_contract_payload(
+    *,
+    tool_name: str,
+    target: str | None,
+    parameters: dict[str, Any],
+    action_type: str,
+) -> dict[str, Any]:
+    tier = str(parameters.get("tier") or "").strip() or "unknown"
+    approval_required = tier in {"active", "intrusive"}
+    return {
+        "action_type": action_type,
+        "tool_name": tool_name,
+        "target": target,
+        "parameters": parameters,
+        "tier": tier,
+        "dispatch_path": "registered_runner_queue" if not approval_required else "operator_approval_then_registered_runner",
+        "approval_required": approval_required,
+        "scope_enforced": True,
+        "roe_enforced": True,
+        "kill_switch_still_authoritative": True,
+    }
+
+
+def _rationale_statement(
+    *,
+    context_document: TargetContextDocument | None,
+    tool_name: str,
+    target: str | None,
+    parameters: dict[str, Any],
+    rationale: str,
+) -> str:
+    context_id = str(context_document.id) if context_document is not None else "unlinked"
+    observation = (
+        context_document.context_summary
+        if context_document is not None
+        else "no linked Context Document; this should be treated as an audit gap"
+    )
+    parameter_summary = _parameter_summary(parameters)
+    planner_reason = str(rationale or "").strip()
+    suffix = f" Planner reason: {planner_reason}" if planner_reason else ""
+    return (
+        f"I observed {observation} in Context Document {context_id}, therefore I am dispatching "
+        f"Tool {tool_name} against target {target or 'not recorded'} with parameters {parameter_summary}. "
+        "Execution remains bound to the registered runner registry, scope/ROE checks, approval gates, "
+        f"and kill switch.{suffix}"
+    )
+
+
+def _parameter_summary(parameters: dict[str, Any]) -> str:
+    try:
+        text = json.dumps(parameters, sort_keys=True, default=str)
+    except TypeError:
+        text = str(parameters)
+    if len(text) > 700:
+        return text[:697] + "..."
+    return text
 
 
 def _latest_child_context(

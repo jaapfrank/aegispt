@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-05-08: completed backlog-296 `AI Action Rationale Ledger: Measurable and Provable AI Decisions`:
+  - rationale:
+    - ai_loop tool choices need a durable, operator-visible proof trail that explains which stored context was observed before a tool was queued or proposed.
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-260` and backlog-260 is present in this log.
+    - `http://127.0.0.1:8000` browser validation was not required because this slice changed backend planning/API/report behavior only; no UI was changed.
+  - implementation:
+    - upgraded `record_rationale` so each ledger row writes an explicit `I observed ... in Context Document ..., therefore I am dispatching Tool ... with parameters ...` statement.
+    - added structured `observed_context`, `dispatch_contract`, and `rationale_contract` payloads to the ledger decision source while preserving runner registry, scope/ROE, approval gate, and kill-switch boundaries.
+    - exposed ordered rationale ledger entries in the ai_loop assessment-loop API response for operator review.
+    - added an `AI Action Rationale Ledger` section to the technical report export so report evidence includes the recorded tool/action justifications.
+  - files:
+    - `api/app/services/ai_planner.py`
+    - `api/app/services/assessment_loop.py`
+    - `api/app/services/reports.py`
+    - `api/app/schemas/runs.py`
+    - `api/tests/test_ai_planner.py`
+    - `codex/results/backlog-296-ai-action-rationale-ledger-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/services/ai_planner.py api/app/services/assessment_loop.py api/app/services/reports.py api/app/schemas/runs.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_ai_planner.py api/tests/test_assessment_loop.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 521 passed, 4 warnings
+    - final `python3 scripts/validate_backlog_tasks.py` passed
+    - final `git diff --check` passed
+  - proof:
+    - evidence file `codex/results/backlog-296-ai-action-rationale-ledger-20260508.md`
+  - risks / exceptions:
+    - no live worker dispatch was run for a full artifact-fed ai_loop; existing live-dispatch gap remains covered by `extra_tests.md` XT-019, XT-026, and XT-027.
+    - the first full-suite attempt with system `python3` failed during collection because that interpreter lacked `pypdf`; the repo venv contains the dependency and the required full API suite passed there.
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-297 `AI Choke-Point Remediation Advisor`, from `codex/tasks/backlog-297-ai-choke-point-remediation-advisor.json`.
+
 - 2026-05-08: completed backlog-295 `AI Recursive Surface Mapping: Deep-dive sub-planning`:
   - rationale:
     - ai_loop runs need to stop treating a newly discovered API, GraphQL endpoint, auth surface, or upload surface as generic root-target evidence.

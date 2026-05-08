@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.app.models import AgentProposal, Run, Scope, Task
+from api.app.models import AgentProposal, RationaleLedgerEntry, Run, Scope, Task
 from api.app.policy.engine import normalize_profile_limits
 from api.app.services.ai_enrichment import store_agent_proposal_record, store_agent_reasoning_record
 from api.app.services.ai_planner import (
@@ -640,11 +640,40 @@ def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> 
         "latest_next_action": loop_state.get("latest_next_action"),
         "active_tasks": _active_loop_tasks(run),
         "assessment_plan_summary": plan.get("summary", {}),
+        "rationale_ledger": _rationale_ledger_payloads(session, run=run),
         "iterations": list(loop_state.get("iterations") or []),
         "dispatches_work_directly": False,
         "manual_chain_alternative_preserved": True,
         "fixed_phase_chains_replaced_globally": False,
     }
+
+
+def _rationale_ledger_payloads(session: Session, *, run: Run) -> list[dict[str, Any]]:
+    entries = session.scalars(
+        select(RationaleLedgerEntry)
+        .where(RationaleLedgerEntry.run_id == run.id)
+        .order_by(RationaleLedgerEntry.created_at.asc(), RationaleLedgerEntry.id.asc())
+    ).all()
+    payloads: list[dict[str, Any]] = []
+    for entry in entries:
+        payloads.append(
+            {
+                "id": str(entry.id),
+                "context_document_id": str(entry.context_document_id) if entry.context_document_id else None,
+                "task_id": str(entry.task_id) if entry.task_id else None,
+                "agent_proposal_id": str(entry.agent_proposal_id) if entry.agent_proposal_id else None,
+                "action_type": entry.action_type,
+                "tool_name": entry.tool_name,
+                "target": entry.target,
+                "rationale_text": entry.rationale_text,
+                "decision_source": _as_dict(entry.decision_source_json),
+                "parameters": _as_dict(entry.parameters_json),
+                "status": entry.status,
+                "provenance": _as_dict(entry.provenance_json),
+                "created_at": entry.created_at.isoformat(),
+            }
+        )
+    return payloads
 
 
 def advance_assessment_loop(

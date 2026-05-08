@@ -34,6 +34,7 @@ from api.app.models import (
     EvidenceArtifact,
     Finding,
     FindingChain,
+    RationaleLedgerEntry,
     Run,
     Scope,
     Task,
@@ -999,6 +1000,7 @@ def load_run_report(session: Session, run_id: UUID | str) -> Run | None:
             selectinload(Run.findings).selectinload(Finding.remediation),
             selectinload(Run.findings).selectinload(Finding.validation_records),
             selectinload(Run.finding_chains),
+            selectinload(Run.rationale_ledger_entries).selectinload(RationaleLedgerEntry.context_document),
             selectinload(Run.tasks)
             .selectinload(Task.executions)
             .selectinload(ToolExecution.artifacts),
@@ -2916,7 +2918,82 @@ def report_context(run: Run) -> dict[str, object]:
         "inventory_summary": inventory_summary,
         "report_sections": report_sections_for_run(run),
         "test_coverage": build_test_coverage_block(run, tasks),
+        "rationale_ledger": sorted(
+            list(run.rationale_ledger_entries or []),
+            key=lambda entry: (entry.created_at, entry.id),
+        ),
     }
+
+
+def _render_rationale_ledger_markdown(context: dict[str, object]) -> list[str]:
+    entries = [
+        entry
+        for entry in context.get("rationale_ledger", [])
+        if isinstance(entry, RationaleLedgerEntry)
+    ]
+    lines = [
+        "## AI Action Rationale Ledger",
+        "",
+        (
+            "This ledger records why AI-loop actions were queued or proposed. Each entry is grounded in "
+            "a stored Target Context Document and still depends on registered runners, scope/ROE checks, "
+            "approval gates, and the kill switch."
+        ),
+        "",
+    ]
+    if not entries:
+        lines.extend(["- No AI rationale ledger entries recorded for this run.", ""])
+        return lines
+    for entry in entries:
+        observed = entry.decision_source_json.get("observed_context") if isinstance(entry.decision_source_json, dict) else {}
+        evidence_refs = observed.get("evidence_refs") if isinstance(observed, dict) else []
+        lines.extend(
+            [
+                f"### Ledger Entry {entry.id}",
+                "",
+                f"- Status: {entry.status}",
+                f"- Tool: {entry.tool_name}",
+                f"- Target: {entry.target or 'Not recorded'}",
+                f"- Context Document: {entry.context_document_id or 'Not linked'}",
+                f"- Task: {entry.task_id or 'Not queued'}",
+                f"- Proposal: {entry.agent_proposal_id or 'Not recorded'}",
+                f"- Evidence Refs: {len(evidence_refs) if isinstance(evidence_refs, list) else 0}",
+                f"- Rationale: {entry.rationale_text}",
+                "",
+            ]
+        )
+    return lines
+
+
+def _render_rationale_ledger_html(context: dict[str, object]) -> str:
+    entries = [
+        entry
+        for entry in context.get("rationale_ledger", [])
+        if isinstance(entry, RationaleLedgerEntry)
+    ]
+    if not entries:
+        body = "<p>No AI rationale ledger entries recorded for this run.</p>"
+    else:
+        body = "".join(
+            "<article class='task'>"
+            f"<h3>Ledger Entry {escape(str(entry.id))}</h3>"
+            f"<p><strong>Status:</strong> {escape(entry.status)} | "
+            f"<strong>Tool:</strong> {escape(entry.tool_name)} | "
+            f"<strong>Target:</strong> {escape(entry.target or 'Not recorded')}</p>"
+            f"<p><strong>Context Document:</strong> {escape(str(entry.context_document_id or 'Not linked'))} | "
+            f"<strong>Task:</strong> {escape(str(entry.task_id or 'Not queued'))} | "
+            f"<strong>Proposal:</strong> {escape(str(entry.agent_proposal_id or 'Not recorded'))}</p>"
+            f"<p>{escape(entry.rationale_text)}</p>"
+            "</article>"
+            for entry in entries
+        )
+    return f"""
+    <section class="panel">
+      <h2>AI Action Rationale Ledger</h2>
+      <p>This ledger records why AI-loop actions were queued or proposed. Entries remain bound to registered runners, scope/ROE checks, approval gates, and the kill switch.</p>
+      {body}
+    </section>
+    """
 
 
 def _inventory_summary_lines(context: dict[str, object]) -> list[str]:
@@ -5954,6 +6031,8 @@ def render_markdown_report(run: Run, *, variant: str = "technical", framework: s
     lines.extend(["", "## Confirmed Findings", ""])
     lines.extend(_render_deduplicated_findings_markdown(confirmed_findings))
 
+    lines.extend(_render_rationale_ledger_markdown(context))
+
     lines.extend(["## Evidence and Reproduction", ""])
     if tasks:
         for task in tasks:
@@ -6194,6 +6273,7 @@ def render_html_report(run: Run, *, variant: str = "technical", framework: str |
     tasks_html = "".join(task_sections) or "<p>No tasks recorded.</p>"
 
     configuration_html = _render_configuration_html(context)
+    rationale_ledger_section = _render_rationale_ledger_html(context) if variant == "technical" else ""
 
     executive_panel = f"""
     <section class="panel">
@@ -6550,6 +6630,7 @@ def render_html_report(run: Run, *, variant: str = "technical", framework: str |
     </section>
 
     {findings_section}
+    {rationale_ledger_section}
     {evidence_section}
     {verification_section}
     <footer class="panel">
