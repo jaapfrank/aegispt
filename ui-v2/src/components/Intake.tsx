@@ -355,7 +355,7 @@ export default function Intake() {
                 )}
               >
                 <Sparkles size={13} />
-                AI Guided
+                Guided Intake
               </button>
             </div>
             {mode === 'ai' && (
@@ -942,14 +942,14 @@ function extractMissionUpdate(
     const urlMatch = answer.match(/https?:\/\/\S+/);
     if (urlMatch) update.scope = urlMatch[0].replace(/[,.]$/, '');
   }
-  if (!currentMission.depth && !update.depth) {
-    if (lower.includes('full pentest') || (lower.includes('full') && lower.includes('pentest'))) {
+  if (!currentMission.depth) {
+    if (describesFullPentest(lower)) {
       update.depth = 'Full Pentest';
       // Full Pentest authorization is confirmed by the written authorization checkbox — no safety question needed
       if (!currentMission.safety) update.safety = 'Full pentest — written authorization confirmed';
-    } else if (lower.includes('active scan')) {
+    } else if (describesActiveScan(lower)) {
       update.depth = 'Active Scan';
-    } else if (lower.includes('passive')) {
+    } else if (describesPassiveScan(lower)) {
       update.depth = 'Passive';
     }
   }
@@ -979,6 +979,7 @@ function responseTextForInterpretation(
   field: MissionField | 'complete',
   extracted: Partial<MissionSummary>,
 ): string {
+  if (field === 'complete') return nextPrompt(field, extracted);
   if (interpretation.available && interpretation.follow_up_questions?.length) {
     const question = stringValue(interpretation.follow_up_questions[0].question);
     if (question) return question;
@@ -1174,16 +1175,44 @@ function firstTargetValue(targetMap: JsonMap): string {
   return '';
 }
 
+function describesFullPentest(value: string): boolean {
+  return (
+    value.includes('full pentest') ||
+    value.includes('volle pentest') ||
+    value.includes('volledige pentest') ||
+    value.includes('complete pentest') ||
+    value.includes('all phases') ||
+    value.includes('alle fases') ||
+    (value.includes('full') && value.includes('pentest')) ||
+    (value.includes('vol') && value.includes('pentest'))
+  );
+}
+
+function describesActiveScan(value: string): boolean {
+  return (
+    value.includes('active scan') ||
+    value.includes('actieve scan') ||
+    value.includes('active scanning') ||
+    value.includes('actief scannen')
+  );
+}
+
+function describesPassiveScan(value: string): boolean {
+  return value.includes('passive') || value.includes('passief') || value.includes('reconnaissance');
+}
+
 function humanizeDepth(value: string): string {
   const normalized = value.toLowerCase();
-  if (normalized.includes('full')) return 'Full Pentest';
-  if (normalized.includes('active')) return 'Active Scan';
+  if (describesFullPentest(normalized)) return 'Full Pentest';
+  if (describesActiveScan(normalized)) return 'Active Scan';
   return 'Passive';
 }
 
 function humanizeGoal(value: string): string {
-  if (value.includes('inventory') || value.includes('overview')) return 'Passive';
-  if (value.includes('standard') || value.includes('active')) return 'Active Scan';
+  const normalized = value.toLowerCase();
+  if (describesFullPentest(normalized)) return 'Full Pentest';
+  if (normalized.includes('inventory') || normalized.includes('overview')) return 'Passive';
+  if (normalized.includes('standard') || describesActiveScan(normalized)) return 'Active Scan';
   return value || 'Passive';
 }
 
