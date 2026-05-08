@@ -44,7 +44,9 @@ import {
   getRunAiInsights,
   getRunsForEngagement,
   getSettings,
+  getTasksForRunContext,
 } from './api/client';
+import type { Run } from './api/types';
 import { useAegisStore } from './store';
 
 function cn(...inputs: ClassValue[]) {
@@ -131,6 +133,7 @@ function AppShell() {
   const selectEngagement = useAegisStore((state) => state.selectEngagement);
   const setRuns = useAegisStore((state) => state.setRuns);
   const setSelectedRun = useAegisStore((state) => state.setSelectedRun);
+  const setTasks = useAegisStore((state) => state.setTasks);
   const setFindings = useAegisStore((state) => state.setFindings);
   const setInventory = useAegisStore((state) => state.setInventory);
   const setAiInsights = useAegisStore((state) => state.setAiInsights);
@@ -216,24 +219,28 @@ function AppShell() {
       setError(null);
       try {
         const runPayload = await getRun(runId);
-        const [findingsPayload, inventoryPayload, aiInsightsPayload] = await Promise.all([
+        const [tasksPayload, findingsPayload, inventoryPayload, aiInsightsPayload] = await Promise.all([
+          getTasksForRunContext(runPayload),
           getFindingsForRunContext(runPayload),
           getInventoryForRun(runPayload),
           getRunAiInsights(runId),
         ]);
         if (cancelled) return;
         setSelectedRun(runPayload);
+        setTasks(tasksPayload);
         setFindings(findingsPayload);
         setInventory(inventoryPayload);
         setAiInsights(aiInsightsPayload);
       } catch (runScopedError) {
         if (!cancelled) {
           if (runScopedError instanceof ApiError && runScopedError.status === 404) {
-            const fallbackRun = runs.find((candidate) => candidate.id !== runId) ?? null;
+            const fallbackRun = fallbackRunForMissingRun(runs, useAegisStore.getState().selectedRun, runId);
             setSelectedRun(fallbackRun);
+            setTasks(fallbackRun?.tasks ?? []);
             setError(null);
           } else {
             setError(errorMessage(runScopedError));
+            setTasks([]);
           }
           setFindings([]);
           setInventory(null);
@@ -250,7 +257,7 @@ function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [runs, selectedRunId, setAiInsights, setError, setFindings, setInventory, setLoading, setSelectedRun]);
+  }, [runs, selectedRunId, setAiInsights, setError, setFindings, setInventory, setLoading, setSelectedRun, setTasks]);
 
   const runningRunCount = runs.filter((run) => ['dispatching', 'running'].includes(run.status)).length;
   const runActivityLabel = `${runningRunCount} running`;
@@ -435,6 +442,22 @@ function IntakeScreen() {
       </div>
     </div>
   );
+}
+
+function assessmentChainId(run: Run | null): string | null {
+  const chainId = run?.assessment_chain?.id;
+  return typeof chainId === 'string' && chainId.trim() ? chainId : null;
+}
+
+function fallbackRunForMissingRun(runs: Run[], missingRun: Run | null, missingRunId: string): Run | null {
+  const chainId = assessmentChainId(missingRun);
+  if (chainId) {
+    const sameChain = runs
+      .filter((run) => run.id !== missingRunId && assessmentChainId(run) === chainId)
+      .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0];
+    if (sameChain) return sameChain;
+  }
+  return runs.find((candidate) => candidate.id !== missingRunId) ?? null;
 }
 
 function errorMessage(error: unknown): string {

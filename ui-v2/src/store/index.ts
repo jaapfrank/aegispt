@@ -145,7 +145,12 @@ const useAegisStoreBase = create<AegisStore>()(
       },
       setRuns: (runs) => {
         const currentId = get().selectedRunId;
-        const selectedRun = runs.find((run) => run.id === currentId) ?? runs[0] ?? null;
+        const currentRun = get().selectedRun;
+        const selectedRun =
+          runs.find((run) => run.id === currentId) ??
+          fallbackRunForMissingSelection(runs, currentRun) ??
+          runs[0] ??
+          null;
         set(
           {
             runs,
@@ -259,3 +264,18 @@ const useAegisStoreBase = create<AegisStore>()(
 );
 
 export const useAegisStore = useAegisStoreBase;
+
+function assessmentChainId(run: Run | null): string | null {
+  const chainId = run?.assessment_chain?.id;
+  return typeof chainId === 'string' && chainId.trim() ? chainId : null;
+}
+
+function fallbackRunForMissingSelection(runs: Run[], currentRun: Run | null): Run | null {
+  const chainId = assessmentChainId(currentRun);
+  if (!chainId) return null;
+  return (
+    runs
+      .filter((run) => assessmentChainId(run) === chainId)
+      .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0] ?? null
+  );
+}

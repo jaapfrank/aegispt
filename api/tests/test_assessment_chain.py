@@ -428,6 +428,13 @@ def test_assessment_chain_findings_endpoint_aggregates_child_runs(client) -> Non
         follow_up_run_id = follow_up_run.id
         session.add_all(
             [
+                Task(
+                    run_id=follow_up_run.id,
+                    tool="active-chain-check",
+                    target_id="https://portal.example.test/login",
+                    status="completed",
+                    params_json={},
+                ),
                 Finding(
                     run_id=UUID(created_run["id"]),
                     title="Baseline finding",
@@ -453,6 +460,10 @@ def test_assessment_chain_findings_endpoint_aggregates_child_runs(client) -> Non
     assert response.status_code == 200
     titles = {finding["title"] for finding in response.json()}
     assert {"Baseline finding", "Active finding"}.issubset(titles)
+
+    tasks_response = client.get(f"/api/v1/assessment-chains/{chain_id}/tasks")
+    assert tasks_response.status_code == 200
+    assert any(task["tool"] == "active-chain-check" for task in tasks_response.json())
 
     reports_response = client.get(f"/api/v1/runs/{follow_up_run_id}/reports")
     assert reports_response.status_code == 200

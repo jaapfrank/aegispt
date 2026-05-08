@@ -195,6 +195,15 @@ export async function getRunTasks(runId: UUID): Promise<Task[]> {
   return run.tasks;
 }
 
+export async function getAssessmentChainTasks(chainId: UUID): Promise<Task[]> {
+  return api<Task[]>(`/api/v1/assessment-chains/${chainId}/tasks`);
+}
+
+export async function getTasksForRunContext(run: Run): Promise<Task[]> {
+  const chainId = typeof run.assessment_chain?.id === 'string' ? run.assessment_chain.id : null;
+  return chainId ? getAssessmentChainTasks(chainId) : run.tasks;
+}
+
 export async function getRunFindings(runId: UUID): Promise<Finding[]> {
   return api<Finding[]>(`/api/v1/runs/${runId}/findings`);
 }

@@ -31,6 +31,7 @@ from api.app.models import (
     InventorySnapshot,
     Run,
     RunProfile,
+    Task,
 )
 from api.app.schemas.deletion import DeleteImpactRead, RunBulkDeleteCreate
 from api.app.schemas.packs import RunPackBindCreate, RunPackBindingRead
@@ -940,6 +941,28 @@ def get_assessment_chain(
 ) -> AssessmentChainRead:
     chain = _load_assessment_chain_for_tenant(session, chain_id, tenant_id)
     return AssessmentChainRead.model_validate(build_assessment_chain_summary(chain))
+
+
+@router.get("/assessment-chains/{chain_id}/tasks", response_model=list[TaskRead])
+def list_assessment_chain_tasks(
+    chain_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> list[TaskRead]:
+    chain = _load_assessment_chain_for_tenant(session, chain_id, tenant_id)
+    runs = session.scalars(
+        select(Run)
+        .where(Run.assessment_chain_id == chain.id, Run.deleted_at.is_(None))
+        .order_by(Run.created_at.asc(), Run.id.asc())
+    ).all()
+    tasks = session.scalars(
+        select(Task)
+        .join(Run, Task.run_id == Run.id)
+        .where(Run.assessment_chain_id == chain.id, Run.deleted_at.is_(None))
+        .order_by(Task.created_at.asc(), Task.id.asc())
+    ).all()
+    runs_by_id = {run.id: run for run in runs}
+    return [serialize_task(task, run=runs_by_id.get(task.run_id)) for task in tasks]
 
 
 @router.post(

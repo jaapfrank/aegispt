@@ -31,6 +31,7 @@ import {
   getRun,
   getRunAiInsights,
   getTaskDetail,
+  getTasksForRunContext,
   reviewAgentProposal,
 } from '../../api/client';
 import type {
@@ -139,14 +140,15 @@ export default function MissionControl() {
     setError(null);
     try {
       const run = await getRun(runId);
-      const [findingsResult, inventoryResult, insightsResult] = await Promise.allSettled([
+      const [tasksResult, findingsResult, inventoryResult, insightsResult] = await Promise.allSettled([
+        getTasksForRunContext(run),
         getFindingsForRunContext(run),
         getInventoryForRun(run),
         getRunAiInsights(runId),
       ]);
 
       setSelectedRun(run);
-      setTasks(run.tasks ?? []);
+      setTasks(tasksResult.status === 'fulfilled' ? tasksResult.value : run.tasks ?? []);
       if (findingsResult.status === 'fulfilled') {
         setFindings(findingsResult.value);
       }
@@ -161,7 +163,7 @@ export default function MissionControl() {
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
-        const fallbackRun = runs.find((candidate) => candidate.id !== runId) ?? null;
+        const fallbackRun = fallbackRunForMissingRun(runs, useAegisStore.getState().selectedRun, runId);
         setSelectedRun(fallbackRun);
         setTasks(fallbackRun?.tasks ?? []);
         setError(null);
@@ -898,6 +900,17 @@ function isAutomaticRun(run: Run): boolean {
       assessment?.auto_advance_on_phase_complete === true ||
       assessment?.authorization_level === 'full',
   );
+}
+
+function fallbackRunForMissingRun(runs: Run[], missingRun: Run | null, missingRunId: string): Run | null {
+  const missingChainId = chainId(missingRun?.assessment_chain ?? null);
+  if (missingChainId) {
+    const sameChain = runs
+      .filter((run) => run.id !== missingRunId && chainId(run.assessment_chain) === missingChainId)
+      .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0];
+    if (sameChain) return sameChain;
+  }
+  return runs.find((candidate) => candidate.id !== missingRunId) ?? null;
 }
 
 function runtimeDispatch(run: Run): JsonMap | null {
