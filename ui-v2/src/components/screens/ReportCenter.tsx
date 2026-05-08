@@ -402,6 +402,10 @@ function ReportCard({ report, selected, onClick }: { report: RunReportCatalogIte
 }
 
 function ReportPreviewHeader({ report, run }: { report: RunReportCatalogItem; run: Run | null }) {
+  const profileLabel =
+    typeof report.source_scope_profile.run_profile === 'string' && report.source_scope_profile.run_profile.trim()
+      ? report.source_scope_profile.run_profile
+      : run?.profile.name ?? 'Selected run';
   return (
     <header className="border-b border-border bg-[rgba(5,9,18,0.78)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -414,7 +418,7 @@ function ReportPreviewHeader({ report, run }: { report: RunReportCatalogItem; ru
           </div>
           <h2 className="break-words text-lg font-semibold text-text">{report.title}</h2>
           <p className="mt-1 text-[0.925rem] text-muted">
-            {run?.profile.name ?? 'Selected run'} · generated {formatDate(report.generated_at)}
+            {profileLabel} · generated {formatDate(report.generated_at)}
           </p>
         </div>
       </div>
