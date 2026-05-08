@@ -1,5 +1,42 @@
 # Done Log
 
+- 2026-05-08: completed backlog-294 `AI Contextual Profiling Engine: Analyze before acting`:
+  - rationale:
+    - URL/Web App ai_loop runs need a context-first planning step so the loop does not blindly select broad or irrelevant tooling before collecting evidence.
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-260` and backlog-260 is present in this log.
+    - `http://127.0.0.1:8000` was not required for browser validation because this slice changed backend planning, models, and API response shape only; no UI was changed.
+    - repository concurrency note: Gemini had already introduced partial model/service/test/migration files for this task. Codex preserved and completed that shared work rather than reverting it.
+  - implementation:
+    - added durable `TargetContextDocument` and `RationaleLedgerEntry` models plus run relationships and Alembic DDL
+    - replaced simulated contextual profiling with deterministic, evidence-backed context document generation from approved scope targets, inventory snapshots, signal profiles, tech stack hints, findings, and completed task evidence
+    - added recursive sub-context micro-plan generation for discovered deeper layers/endpoints
+    - wired the ai_loop assessment loop to create a context document before candidate selection and a rationale ledger entry before task queueing or approval proposal creation
+    - made URL targets prefer `httpx`, host/CIDR targets prefer `nmap`, and domain targets prefer `easm-discover` in the context plan before falling through to evidence-driven planner actions
+    - exposed context/rationale IDs in assessment-loop API responses and persisted them into task/proposal metadata
+  - files:
+    - `api/app/models/__init__.py`
+    - `api/app/models/control.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/services/ai_planner.py`
+    - `api/app/services/assessment_loop.py`
+    - `api/tests/test_ai_planner.py`
+    - `migrations/versions/de2575b07013_add_ai_reasoning_models.py`
+    - `codex/results/backlog-294-ai-contextual-profiling-engine-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_planner.py api/tests/test_assessment_loop.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/` passed: 520 passed, 4 warnings
+    - final `python3 scripts/validate_backlog_tasks.py` passed
+    - final `git diff --check` passed
+  - proof:
+    - evidence file `codex/results/backlog-294-ai-contextual-profiling-engine-20260508.md`
+  - risks / exceptions:
+    - no live worker dispatch was run for contextual-planner multi-iteration behavior; extra proof is tracked in `extra_tests.md` XT-026
+    - during the shared-worktree window, `NEXT_TASK.md` briefly showed the older backlog-277 UI task while `CURRENT_STATE.md` and the compacted handoff identified backlog-294 as active; this contradiction is tracked in `risico.md` R-019, and the completed promotion now moves the AI queue forward to backlog-295
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-295 `AI Recursive Surface Mapping`, from `codex/tasks/backlog-295-ai-recursive-surface-mapping.json`.
+
 - 2026-05-08: completed backlog-276 `React v2 deployment: build React app and serve from FastAPI at /app-v2/ alongside existing /app/`:
   - rationale:
     - React v2 needed a real production-like FastAPI serving path before the side-by-side migration can continue.

@@ -245,6 +245,14 @@ class Run(UUIDMixin, TimestampMixin, Base):
         foreign_keys="RunDrift.run_id",
         uselist=False,
     )
+    context_documents: Mapped[list["TargetContextDocument"]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
+    rationale_ledger_entries: Mapped[list["RationaleLedgerEntry"]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
 
 
 class AssessmentChain(UUIDMixin, TimestampMixin, Base):
@@ -1269,3 +1277,53 @@ class FindingChain(UUIDMixin, TimestampMixin, Base):
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     run: Mapped["Run"] = relationship(back_populates="finding_chains")
+
+
+class TargetContextDocument(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "target_context_documents"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
+    parent_context_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("target_context_documents.id"), nullable=True, index=True
+    )
+    layer_name: Mapped[str] = mapped_column(String(255), nullable=False, default="phase_0_recon")
+    context_kind: Mapped[str] = mapped_column(String(100), nullable=False, default="target_context")
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="recorded")
+    source_targets_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    technologies_detected_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    endpoints_discovered_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    recommended_tools_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    micro_plan_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    evidence_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    context_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    provenance_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+    run: Mapped["Run"] = relationship(back_populates="context_documents")
+    parent_context_document: Mapped["TargetContextDocument | None"] = relationship(
+        remote_side="TargetContextDocument.id",
+    )
+    rationale_ledger_entries: Mapped[list["RationaleLedgerEntry"]] = relationship(
+        back_populates="context_document",
+    )
+
+
+class RationaleLedgerEntry(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "rationale_ledger_entries"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
+    context_document_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("target_context_documents.id"), nullable=True)
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"), nullable=True, index=True)
+    agent_proposal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_proposals.id"), nullable=True, index=True)
+    action_type: Mapped[str] = mapped_column(String(100), nullable=False, default="tool_dispatch")
+    tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    target: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rationale_text: Mapped[str] = mapped_column(Text, nullable=False)
+    decision_source_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    parameters_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="recorded")
+    provenance_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+    run: Mapped["Run"] = relationship(back_populates="rationale_ledger_entries")
+    context_document: Mapped["TargetContextDocument | None"] = relationship(
+        back_populates="rationale_ledger_entries",
+    )

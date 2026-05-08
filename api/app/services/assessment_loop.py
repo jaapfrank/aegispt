@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from api.app.models import AgentProposal, Run, Scope, Task
 from api.app.policy.engine import normalize_profile_limits
 from api.app.services.ai_enrichment import store_agent_proposal_record, store_agent_reasoning_record
+from api.app.services.ai_planner import ensure_context_document, latest_context_document, record_rationale
 from api.app.services.assessment_planner import build_assessment_plan_for_run
 from api.app.services.audit import write_audit_event
 from api.app.services.runs import (
@@ -261,6 +262,7 @@ def _seed_candidate(
     targets: list[dict[str, str]],
     plan: dict[str, Any],
     tested_keys: set[str],
+    recommended_tools: set[str] | None = None,
 ) -> LoopCandidate | None:
     if tested_keys:
         return None
@@ -269,6 +271,8 @@ def _seed_candidate(
         value = str(target.get("value") or "").strip()
         tool = LOOP_SEED_TOOLS_BY_TARGET_KIND.get(kind)
         if not tool or not value:
+            continue
+        if recommended_tools and tool not in recommended_tools:
             continue
         planned_targets = planned_targets_for_tool(
             tool,
@@ -312,6 +316,7 @@ def _plan_candidate(
     targets: list[dict[str, str]],
     plan: dict[str, Any],
     tested_keys: set[str],
+    recommended_tools: set[str] | None = None,
 ) -> LoopCandidate | None:
     for item in plan.get("runners", []):
         if not isinstance(item, dict):
@@ -321,6 +326,8 @@ def _plan_candidate(
             continue
         tool = str(item.get("runner") or item.get("tool") or "").strip()
         if not tool or tool not in supported_execution_tools():
+            continue
+        if recommended_tools and tool not in recommended_tools:
             continue
         planned_targets = planned_targets_for_tool(
             tool,
@@ -378,6 +385,8 @@ def _queue_passive_loop_task(
     candidate: LoopCandidate,
     actor: str,
     iteration_number: int,
+    context_document_id: str,
+    rationale_ledger_entry_id: str,
 ) -> Task:
     if candidate.tool not in supported_execution_tools():
         raise ValueError(f"assessment loop selected unsupported runner: {candidate.tool}")
@@ -411,6 +420,8 @@ def _queue_passive_loop_task(
                 "approval_effect": "passive_auto_queued",
                 "dispatch_mode": "queued_not_dispatched",
                 "registered_runner_required": True,
+                "context_document_id": context_document_id,
+                "rationale_ledger_entry_id": rationale_ledger_entry_id,
                 "scope_enforced": True,
                 "kill_switch_still_authoritative": True,
             },
@@ -447,6 +458,8 @@ def _store_next_action_proposal(
     candidate: LoopCandidate,
     actor: str,
     iteration_number: int,
+    context_document_id: str,
+    rationale_ledger_entry_id: str,
 ) -> AgentProposal:
     proposal = store_agent_proposal_record(
         session=session,
@@ -464,6 +477,8 @@ def _store_next_action_proposal(
                 "approval_required": candidate.tier in {"active", "intrusive"},
                 "dispatches_work": False,
                 "registered_runner_required": True,
+                "context_document_id": context_document_id,
+                "rationale_ledger_entry_id": rationale_ledger_entry_id,
                 "scope_enforced": True,
                 "roe_enforced": True,
                 "kill_switch_still_authoritative": True,
@@ -484,6 +499,8 @@ def _store_next_action_proposal(
             "dispatches_work": False,
             "operator_controlled_flow_only": True,
             "active_runtime_mutated": False,
+            "context_document_id": context_document_id,
+            "rationale_ledger_entry_id": rationale_ledger_entry_id,
             "approval_boundary": (
                 "per_action_explicit_approval"
                 if candidate.tier == "intrusive"
@@ -506,6 +523,18 @@ def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> 
         evidence_fingerprint=evidence_fingerprint,
     )
     plan = build_assessment_plan_for_run(session, run)
+    context_document = latest_context_document(session, run_id=run.id)
+    context_summary = None
+    if context_document is not None:
+        context_summary = {
+            "context_document_id": str(context_document.id),
+            "layer_name": context_document.layer_name,
+            "context_kind": context_document.context_kind,
+            "status": context_document.status,
+            "recommended_tools": list(context_document.recommended_tools_json or []),
+            "micro_plan_step_count": len(list(context_document.micro_plan_json or [])),
+            "evidence_ref_count": len(list(context_document.evidence_refs_json or [])),
+        }
     return {
         "available": True,
         "run_id": str(run.id),
@@ -518,6 +547,7 @@ def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> 
         "stuck_threshold": loop_state["stuck_threshold"],
         "no_new_signal_iterations": loop_state["no_new_signal_iterations"],
         "current_state": current_state,
+        "target_context": context_summary,
         "latest_next_action": loop_state.get("latest_next_action"),
         "active_tasks": _active_loop_tasks(run),
         "assessment_plan_summary": plan.get("summary", {}),
@@ -594,6 +624,18 @@ def advance_assessment_loop(
         return build_assessment_loop_state(session, run=run, scope=scope)
 
     plan = build_assessment_plan_for_run(session, run)
+    context_document = ensure_context_document(
+        session,
+        run=run,
+        scope=scope,
+        targets=targets,
+        plan=plan,
+    )
+    recommended_tools = {
+        str(tool).strip()
+        for tool in list(context_document.recommended_tools_json or [])
+        if str(tool).strip()
+    }
     tested_keys = _tested_action_keys(run)
     candidate = _seed_candidate(
         run=run,
@@ -601,12 +643,14 @@ def advance_assessment_loop(
         targets=targets,
         plan=plan,
         tested_keys=tested_keys,
+        recommended_tools=recommended_tools,
     ) or _plan_candidate(
         run=run,
         scope=scope,
         targets=targets,
         plan=plan,
         tested_keys=tested_keys,
+        recommended_tools=recommended_tools,
     )
     if candidate is None:
         loop_state["status"] = "stopped"
@@ -631,6 +675,7 @@ def advance_assessment_loop(
         evidence_fingerprint=evidence_fingerprint,
     )
     next_action = _next_action_payload(candidate)
+    next_action["context_document_id"] = str(context_document.id)
     reasoning = store_agent_reasoning_record(
         session=session,
         run=run,
@@ -641,6 +686,10 @@ def advance_assessment_loop(
             "run_mode": "ai_loop",
             "iteration": iteration_number,
             "assessment_state": current_state,
+            "target_context_document_id": str(context_document.id),
+            "target_context_summary": context_document.context_summary,
+            "target_context_evidence_refs": list(context_document.evidence_refs_json or []),
+            "target_context_micro_plan": list(context_document.micro_plan_json or []),
             "assessment_plan_summary": plan.get("summary", {}),
             "scope_enforced": True,
             "fixed_phase_chains_replaced_globally": False,
@@ -689,8 +738,34 @@ def advance_assessment_loop(
             "roe_enforced": True,
             "kill_switch_still_authoritative": True,
             "manual_chain_alternative_preserved": True,
+            "target_context_document_id": str(context_document.id),
         },
     )
+    rationale_entry = record_rationale(
+        session,
+        run=run,
+        context_document=context_document,
+        tool_name=candidate.tool,
+        target=candidate.target,
+        rationale=candidate.reasoning,
+        parameters={
+            **candidate.params,
+            "tier": candidate.tier,
+            "iteration": iteration_number,
+            "confidence": round(float(candidate.confidence), 3),
+            "required_approvals": candidate.required_approvals,
+        },
+        action_type=LOOP_PROPOSAL_KIND,
+        decision_source={
+            "source": candidate.decision_source,
+            "context_document_id": str(context_document.id),
+            "recommended_tools": list(context_document.recommended_tools_json or []),
+            "registered_runner_required": True,
+            "approval_gates_bypassed": False,
+        },
+        status="recorded_before_dispatch",
+    )
+    next_action["rationale_ledger_entry_id"] = str(rationale_entry.id)
     queued_task: Task | None = None
     proposal: AgentProposal | None = None
     action_status = "pending_review"
@@ -701,6 +776,8 @@ def advance_assessment_loop(
             candidate=candidate,
             actor=actor,
             iteration_number=iteration_number,
+            context_document_id=str(context_document.id),
+            rationale_ledger_entry_id=str(rationale_entry.id),
         )
         proposal = store_agent_proposal_record(
             session=session,
@@ -715,6 +792,8 @@ def advance_assessment_loop(
                     "iteration": iteration_number,
                     "queued_task_id": str(queued_task.id),
                     "dispatch_mode": "queued_not_dispatched",
+                    "context_document_id": str(context_document.id),
+                    "rationale_ledger_entry_id": str(rationale_entry.id),
                 },
             },
             reasoning_text=candidate.reasoning,
@@ -731,10 +810,15 @@ def advance_assessment_loop(
                 "approval_boundary": "passive_auto_queued",
                 "operator_controlled_flow_only": True,
                 "active_runtime_mutated": False,
+                "context_document_id": str(context_document.id),
+                "rationale_ledger_entry_id": str(rationale_entry.id),
             },
         )
         proposal.approved_by = actor
         proposal.approved_at = datetime.now(UTC)
+        rationale_entry.task_id = queued_task.id
+        rationale_entry.agent_proposal_id = proposal.id
+        rationale_entry.status = "task_queued"
         action_status = "queued"
     else:
         proposal = _store_next_action_proposal(
@@ -744,7 +828,11 @@ def advance_assessment_loop(
             candidate=candidate,
             actor=actor,
             iteration_number=iteration_number,
+            context_document_id=str(context_document.id),
+            rationale_ledger_entry_id=str(rationale_entry.id),
         )
+        rationale_entry.agent_proposal_id = proposal.id
+        rationale_entry.status = "pending_approval"
 
     iteration = {
         "iteration": iteration_number,
@@ -753,6 +841,8 @@ def advance_assessment_loop(
         "reasoning_id": str(reasoning.id),
         "proposal_id": str(proposal.id) if proposal is not None else None,
         "queued_task_id": str(queued_task.id) if queued_task is not None else None,
+        "context_document_id": str(context_document.id),
+        "rationale_ledger_entry_id": str(rationale_entry.id),
         "next_action": next_action,
         "evidence_fingerprint": evidence_fingerprint,
     }
@@ -777,6 +867,8 @@ def advance_assessment_loop(
             "tier": candidate.tier,
             "queued_task_id": str(queued_task.id) if queued_task is not None else None,
             "proposal_id": str(proposal.id) if proposal is not None else None,
+            "context_document_id": str(context_document.id),
+            "rationale_ledger_entry_id": str(rationale_entry.id),
             "dispatch_mode": "queued_not_dispatched" if queued_task is not None else "review_only",
         },
     )
@@ -787,4 +879,6 @@ def advance_assessment_loop(
         "queued_task_id": str(queued_task.id) if queued_task is not None else None,
         "proposal_id": str(proposal.id) if proposal is not None else None,
         "reasoning_id": str(reasoning.id),
+        "context_document_id": str(context_document.id),
+        "rationale_ledger_entry_id": str(rationale_entry.id),
     }

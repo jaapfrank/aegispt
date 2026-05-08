@@ -2,15 +2,15 @@
 
 ## Title
 
-AI Contextual Profiling Engine: Analyze before acting
+AI Recursive Surface Mapping: Deep-dive sub-planning
 
 ## Promoted From
 
-`codex/tasks/backlog-294-ai-contextual-profiling-engine.json`
+`codex/tasks/backlog-295-ai-recursive-surface-mapping.json`
 
 ## Goal
 
-Ensure the system NEVER blindly fires 100 tools. Implement a phase 0 'Contextual Profiling' step where the AI performs light, non-intrusive recon (fetching headers, robots.txt, sitemaps, JS source maps). The AI ingests this and builds a 'Target Context Document' that strictly defines the technologies present and dictates exactly which specific tools are relevant.
+When a tool discovers a new layer (e.g., dirsearch finds /api/v2/, or a crawler finds a GraphQL endpoint), the AI must pause and recurse. It creates a 'Sub-Context' for this new layer and generates a new, specific micro-plan just for that endpoint. This ensures that going a layer deeper triggers a fresh analysis phase rather than just throwing generic payloads at it.
 
 ## Scope
 
@@ -18,7 +18,7 @@ AI planning and assessment loop.
 
 ## Constraints
 
-- Do not implement until this file is the single active task.
+- Do not implement until this package is the single active task in NEXT_TASK.md.
 - Focus strictly on the AI's planning logic and ledger generation. Do not build new testing tools in this task.
 - Do not create runtime self-modification or uncontrolled plugin installation.
 

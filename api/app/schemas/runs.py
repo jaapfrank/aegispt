@@ -350,6 +350,7 @@ class AssessmentLoopRead(BaseModel):
     stuck_threshold: int
     no_new_signal_iterations: int
     current_state: dict[str, Any] = Field(default_factory=dict)
+    target_context: dict[str, Any] | None = None
     latest_next_action: dict[str, Any] | None = None
     active_tasks: list[dict[str, Any]] = Field(default_factory=list)
     assessment_plan_summary: dict[str, Any] = Field(default_factory=dict)
@@ -361,6 +362,8 @@ class AssessmentLoopRead(BaseModel):
     queued_task_id: UUID | None = None
     proposal_id: UUID | None = None
     reasoning_id: UUID | None = None
+    context_document_id: UUID | None = None
+    rationale_ledger_entry_id: UUID | None = None
 
 
 class RunStaleRecoveryCreate(BaseModel):

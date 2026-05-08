@@ -1175,6 +1175,8 @@ def advance_run_assessment_loop(
         "queued_task_id": outcome.get("queued_task_id"),
         "proposal_id": outcome.get("proposal_id"),
         "reasoning_id": outcome.get("reasoning_id"),
+        "context_document_id": outcome.get("context_document_id"),
+        "rationale_ledger_entry_id": outcome.get("rationale_ledger_entry_id"),
     }
     return AssessmentLoopRead.model_validate(response)
 

@@ -1,6 +1,6 @@
 # Risico's
 
-Laatst bijgewerkt: 2026-05-07
+Laatst bijgewerkt: 2026-05-08
 
 ## Open Risico's
 
@@ -24,6 +24,7 @@ Laatst bijgewerkt: 2026-05-07
 | R-016 | backlog-260 bewijst de AI Continuous Assessment Loop deterministic, maar nog niet met echte multi-iteration worker artifacts/finding creation tegen lokale labs. | Medium | Open | Gebruik `extra_tests.md` XT-019 voor live URL/CIDR/domain ai_loop dispatch met WebGoat/DVWA/DVGA/LAN fixtures; claim geen volledige autonomous assessment coverage voordat die evidence bestaat. |
 | R-017 | `ui-v2` Cinema/React Three dependencies declared React 19 peer/engine expectations while the current v2 foundation runs React 18/Node 18, and the existing Cinema component contained mock targets/event streams. | Medium | Beheerst | Gefixt in backlog-275: React Three is pinned to React 18-compatible versions, Cinema Mode uses real selected-run inventory/task/finding/proposal data, local fonts, and Playwright canvas-pixel proof on 1440px/1024px/768px/375px with zero page errors. |
 | R-018 | React v2 AI Intake is wired to the real backend interpretation endpoint, but live acceptance only saw provider-disabled backend truth rather than real provider-enabled LLM interpretation quality. | Medium | Open | Keep deterministic operator-confirmed extraction as product truth until ChatGPT OAuth intake interpretation is enabled and validated; see `extra_tests.md` XT-021. |
+| R-019 | Shared-worktree concurrency briefly made `NEXT_TASK.md` show backlog-277 while backlog-294 backend files were partially implemented and `CURRENT_STATE.md` identified backlog-294 as active. | Medium | Beheerst / monitoren | Codex preserved Gemini's relevant backend files, completed backlog-294 with full API validation, documented the contradiction in `DONE_LOG.md`/`CURRENT_STATE.md`, and promoted backlog-295. Future turns must trust current `NEXT_TASK.md` after running `scripts/validate_backlog_tasks.py`. |
 
 ## Afgesloten / Beheerst
 

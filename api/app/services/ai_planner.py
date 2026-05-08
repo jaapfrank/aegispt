@@ -1,0 +1,405 @@
+from __future__ import annotations
+
+import uuid
+from collections.abc import Iterable
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from api.app.models import RationaleLedgerEntry, Run, Scope, TargetContextDocument
+
+CONTEXT_PROFILE_VERSION = "2026-05-08.1"
+PHASE0_LAYER_NAME = "phase_0_contextual_profile"
+
+
+def ensure_context_document(
+    session: Session,
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any] | None = None,
+) -> TargetContextDocument:
+    existing = latest_context_document(session, run_id=run.id, layer_name=PHASE0_LAYER_NAME)
+    if existing is not None:
+        return existing
+
+    return build_context_document(
+        session,
+        run=run,
+        scope=scope,
+        targets=targets,
+        plan=plan or {},
+        layer_name=PHASE0_LAYER_NAME,
+        context_kind="phase_0_contextual_profile",
+        parent_context_document_id=None,
+    )
+
+
+def latest_context_document(
+    session: Session,
+    *,
+    run_id: uuid.UUID,
+    layer_name: str | None = None,
+) -> TargetContextDocument | None:
+    query = select(TargetContextDocument).where(TargetContextDocument.run_id == run_id)
+    if layer_name:
+        query = query.where(TargetContextDocument.layer_name == layer_name)
+    return session.scalar(
+        query.order_by(
+            TargetContextDocument.updated_at.desc(),
+            TargetContextDocument.created_at.desc(),
+            TargetContextDocument.id.desc(),
+        )
+    )
+
+
+def build_context_document(
+    session: Session,
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    layer_name: str,
+    context_kind: str,
+    parent_context_document_id: uuid.UUID | None = None,
+    discovered_layer: dict[str, Any] | None = None,
+) -> TargetContextDocument:
+    inventory = _run_inventory(run)
+    signals = _signal_keys(inventory)
+    technologies = _technologies_from_context(
+        targets=targets,
+        inventory=inventory,
+        signals=signals,
+        discovered_layer=discovered_layer or {},
+    )
+    endpoints = _endpoints_from_context(
+        targets=targets,
+        inventory=inventory,
+        discovered_layer=discovered_layer or {},
+    )
+    recommended_tools = _recommended_tools_from_plan(
+        plan,
+        targets=targets,
+        technologies=technologies,
+        endpoints=endpoints,
+        signals=signals,
+    )
+    micro_plan = _micro_plan(recommended_tools, targets=targets, endpoints=endpoints, signals=signals)
+    evidence_refs = _evidence_refs(run=run, inventory=inventory, signals=signals)
+    context_summary = _context_summary(
+        layer_name=layer_name,
+        technologies=technologies,
+        endpoints=endpoints,
+        recommended_tools=recommended_tools,
+    )
+    document = TargetContextDocument(
+        run_id=run.id,
+        parent_context_document_id=parent_context_document_id,
+        layer_name=layer_name,
+        context_kind=context_kind,
+        status="recorded",
+        source_targets_json=targets,
+        technologies_detected_json=technologies,
+        endpoints_discovered_json=endpoints,
+        recommended_tools_json=recommended_tools,
+        micro_plan_json=micro_plan,
+        evidence_refs_json=evidence_refs,
+        context_summary=context_summary,
+        provenance_json={
+            "version": CONTEXT_PROFILE_VERSION,
+            "source": "deterministic_ai_contextual_planner",
+            "scope_enforced": True,
+            "approved_scope_ref": str(scope.id),
+            "live_target_actions_performed": False,
+            "passive_profile_sources_planned": ["headers", "robots.txt", "sitemap.xml", "javascript manifests"],
+            "runner_registry_bypassed": False,
+            "approval_gates_bypassed": False,
+            "runtime_self_modification": False,
+        },
+    )
+    session.add(document)
+    session.flush()
+    return document
+
+
+def generate_sub_plan(
+    session: Session,
+    *,
+    run: Run,
+    parent_context: TargetContextDocument,
+    layer_name: str,
+    discovered_layer: dict[str, Any],
+    plan: dict[str, Any] | None = None,
+) -> TargetContextDocument:
+    return build_context_document(
+        session,
+        run=run,
+        scope=_scope_for_run(session, run),
+        targets=parent_context.source_targets_json or [],
+        plan=plan or {},
+        layer_name=layer_name,
+        context_kind="recursive_surface_micro_plan",
+        parent_context_document_id=parent_context.id,
+        discovered_layer=discovered_layer,
+    )
+
+
+def record_rationale(
+    session: Session,
+    *,
+    run: Run,
+    tool_name: str,
+    rationale: str,
+    parameters: dict[str, Any],
+    context_document: TargetContextDocument | None = None,
+    target: str | None = None,
+    action_type: str = "tool_dispatch",
+    decision_source: dict[str, Any] | None = None,
+    task_id: uuid.UUID | None = None,
+    agent_proposal_id: uuid.UUID | None = None,
+    status: str = "recorded",
+) -> RationaleLedgerEntry:
+    entry = RationaleLedgerEntry(
+        run_id=run.id,
+        context_document_id=context_document.id if context_document is not None else None,
+        task_id=task_id,
+        agent_proposal_id=agent_proposal_id,
+        action_type=action_type,
+        tool_name=tool_name,
+        target=target,
+        rationale_text=rationale,
+        decision_source_json=decision_source or {},
+        parameters_json=parameters,
+        status=status,
+        provenance_json={
+            "version": CONTEXT_PROFILE_VERSION,
+            "source": "deterministic_ai_contextual_planner",
+            "recorded_before_dispatch": task_id is None and agent_proposal_id is None,
+            "registered_runner_required": True,
+            "approval_gates_bypassed": False,
+            "kill_switch_still_authoritative": True,
+        },
+    )
+    session.add(entry)
+    session.flush()
+    return entry
+
+
+def _scope_for_run(session: Session, run: Run) -> Scope:
+    scope = session.scalar(
+        select(Scope)
+        .where(Scope.engagement_id == run.engagement_id)
+        .order_by(Scope.created_at.desc(), Scope.id.desc())
+    )
+    if scope is None:
+        raise ValueError("contextual profiling requires an approved scope record")
+    return scope
+
+
+def _run_inventory(run: Run) -> dict[str, Any]:
+    snapshot = run.source_inventory_snapshot
+    if snapshot is None:
+        return {}
+    inventory = snapshot.normalized_inventory_json
+    return inventory if isinstance(inventory, dict) else {}
+
+
+def _as_list(value: object) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
+def _as_dict(value: object) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _normalized_strings(values: Iterable[object]) -> list[str]:
+    normalized: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in normalized:
+            normalized.append(text)
+    return normalized
+
+
+def _signal_keys(inventory: dict[str, Any]) -> set[str]:
+    profile = _as_dict(inventory.get("signal_profile"))
+    signals = set()
+    for record in _as_list(profile.get("signals")):
+        if not isinstance(record, dict):
+            continue
+        key = str(record.get("key") or "").strip()
+        if key:
+            signals.add(key)
+    return signals
+
+
+def _technologies_from_context(
+    *,
+    targets: list[dict[str, str]],
+    inventory: dict[str, Any],
+    signals: set[str],
+    discovered_layer: dict[str, Any],
+) -> list[str]:
+    stack = _as_dict(inventory.get("tech_stack_profile"))
+    technologies: list[object] = [
+        *(_as_list(stack.get("language"))),
+        *(_as_list(stack.get("cms"))),
+        *(_as_list(stack.get("server"))),
+        *(_as_list(stack.get("framework"))),
+        *(_as_list(discovered_layer.get("technologies"))),
+    ]
+    target_values = " ".join(str(target.get("value") or "").lower() for target in targets)
+    if any(str(target.get("kind") or "") == "url" for target in targets):
+        technologies.append("http")
+    if "graphql_endpoint" in signals:
+        technologies.append("graphql")
+    if "jwt_in_response" in signals or "authorization_bearer_header" in signals:
+        technologies.append("jwt")
+    if "login_form_found" in signals:
+        technologies.append("authenticated-web-flow")
+    if "gruyere" in target_values:
+        technologies.extend(["python", "google-app-engine"])
+    return _normalized_strings(technologies)
+
+
+def _endpoints_from_context(
+    *,
+    targets: list[dict[str, str]],
+    inventory: dict[str, Any],
+    discovered_layer: dict[str, Any],
+) -> list[str]:
+    stack = _as_dict(inventory.get("tech_stack_profile"))
+    endpoints: list[object] = [
+        *(_as_list(stack.get("api_endpoints"))),
+        *(_as_list(stack.get("graphql_endpoints"))),
+        *(_as_list(stack.get("login_forms"))),
+        *(_as_list(stack.get("file_upload_endpoints"))),
+        *(_as_list(discovered_layer.get("endpoints"))),
+    ]
+    for target in targets:
+        value = str(target.get("value") or "").strip()
+        if value:
+            endpoints.append(value)
+    return _normalized_strings(_endpoint_text(item) for item in endpoints)
+
+
+def _endpoint_text(value: object) -> str:
+    if isinstance(value, dict):
+        return str(value.get("url") or value.get("endpoint") or value.get("path") or "").strip()
+    return str(value or "").strip()
+
+
+def _recommended_tools_from_plan(
+    plan: dict[str, Any],
+    *,
+    targets: list[dict[str, str]],
+    technologies: list[str],
+    endpoints: list[str],
+    signals: set[str],
+) -> list[str]:
+    recommended: list[str] = []
+    for target in targets:
+        kind = str(target.get("kind") or "").strip()
+        if kind in {"url", "target"}:
+            recommended.append("httpx")
+        elif kind in {"host", "cidr"}:
+            recommended.append("nmap")
+        elif kind == "domain":
+            recommended.append("easm-discover")
+    for item in _as_list(plan.get("runners")):
+        if not isinstance(item, dict):
+            continue
+        decision = str(item.get("decision") or "").upper()
+        runner = str(item.get("runner") or item.get("tool") or "").strip()
+        if runner and decision in {"RUN", "NEEDS_APPROVAL"}:
+            recommended.append(runner)
+    lower_technologies = {item.lower() for item in technologies}
+    if endpoints and not recommended:
+        recommended.append("httpx")
+    if "graphql" in lower_technologies or "graphql_endpoint" in signals:
+        recommended.append("graphql-probe")
+    if "jwt" in lower_technologies:
+        recommended.append("jwt-audit")
+    if "login_form_found" in signals or "authenticated-web-flow" in lower_technologies:
+        recommended.append("auth-flow")
+    if "injectable_parameter" in signals or "sql_error_pattern" in signals:
+        recommended.append("sqlmap")
+    return _normalized_strings(recommended)
+
+
+def _micro_plan(
+    recommended_tools: list[str],
+    *,
+    targets: list[dict[str, str]],
+    endpoints: list[str],
+    signals: set[str],
+) -> list[dict[str, Any]]:
+    target_values = [str(target.get("value") or "").strip() for target in targets if str(target.get("value") or "").strip()]
+    planned_targets = endpoints or target_values
+    steps: list[dict[str, Any]] = []
+    for index, tool in enumerate(recommended_tools, start=1):
+        steps.append(
+            {
+                "order": index,
+                "tool": tool,
+                "target_candidates": planned_targets,
+                "reason": _tool_reason(tool, signals),
+                "execution_contract": "registered_runner_or_existing_approval_flow_only",
+            }
+        )
+    return steps
+
+
+def _tool_reason(tool: str, signals: set[str]) -> str:
+    if tool == "sqlmap":
+        return "Use only when injectable-parameter or SQL-error evidence is present."
+    if tool == "auth-flow":
+        return "Use for approved login/session flow evidence with explicit authorization gates."
+    if tool == "graphql-probe":
+        return "Use because GraphQL endpoint evidence is present."
+    if tool == "jwt-audit":
+        return "Use because JWT or bearer-token signals are present."
+    if tool == "httpx":
+        return "Collect low-impact HTTP fingerprint evidence before active checks."
+    return f"Use {tool} because the planner selected it from current evidence signals: {sorted(signals)}."
+
+
+def _evidence_refs(*, run: Run, inventory: dict[str, Any], signals: set[str]) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    if run.source_inventory_snapshot_id:
+        refs.append({"type": "inventory_snapshot", "id": str(run.source_inventory_snapshot_id)})
+    for task in list(run.tasks or []):
+        if str(task.status or "").lower() in {"completed", "failed", "skipped"}:
+            refs.append({"type": "task", "id": str(task.id), "tool": task.tool, "status": task.status})
+    for finding in list(run.findings or []):
+        refs.append({"type": "finding", "id": str(finding.id), "target": finding.target_id})
+    if signals:
+        refs.append({"type": "signal_profile", "keys": sorted(signals)})
+    if inventory:
+        refs.append({"type": "inventory", "summary": _as_dict(inventory.get("summary"))})
+    return refs
+
+
+def _context_summary(
+    *,
+    layer_name: str,
+    technologies: list[str],
+    endpoints: list[str],
+    recommended_tools: list[str],
+) -> str:
+    tech_text = ", ".join(technologies) if technologies else "no specific technology signals"
+    endpoint_text = f"{len(endpoints)} endpoint candidate(s)"
+    tool_text = ", ".join(recommended_tools) if recommended_tools else "no active runner candidates"
+    return (
+        f"{layer_name} recorded {tech_text}, {endpoint_text}, and targeted tool plan: {tool_text}. "
+        "The plan is advisory and execution remains bound to registered runners and existing approval gates."
+    )
