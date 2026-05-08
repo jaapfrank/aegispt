@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-05-08: completed backlog-299 `Continuous Exposure Drift Detection`:
+  - rationale:
+    - scheduled/continuous pentests need an evidence-backed drift report that compares a current run with the previous completed run for the same engagement/profile, instead of leaving drift as a UI-only idea
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-296` and backlog-296 is present in this log
+    - `http://127.0.0.1:8000` browser validation was not required because this slice changed backend/API/runtime drift behavior only; live API smoke ran on temporary port `http://127.0.0.1:8029` to avoid disturbing the shared local server
+    - the package success criteria again mention choke points, micro-scanner replay, and cloud mapping, but the queue splits those into backlog-297, backlog-298, and backlog-300; this slice implemented backlog-299 drift detection only
+  - implementation:
+    - extended `api/app/services/run_drift.py` with deterministic continuous exposure drift reports
+    - existing `compute_run_drift` now still writes `RunDrift`, and also persists `configuration_json.continuous_exposure_drift`
+    - added `GET /api/v1/runs/{run_id}/continuous-exposure-drift`
+    - the report compares open finding fingerprints, inventory services/ports/endpoints, tech stack versions, latest target context documents, evidence refs, and emits SOC/operator alerts without dispatching work
+    - the report execution contract is analysis-only: no tasks, runner dispatch, approval changes, scope expansion, live target actions, registry bypass, or runtime mutation
+  - files:
+    - `api/app/services/run_drift.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_runs.py`
+    - `codex/results/backlog-299-continuous-exposure-drift-detection-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/services/run_drift.py api/app/routers/runs.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_runs.py -k "run_drift or continuous_exposure_drift"` passed: 2 passed, 108 deselected
+    - `.venv/bin/python -m pytest api/tests/` passed: 525 passed, 4 warnings
+    - live API smoke on temporary port `http://127.0.0.1:8029` passed: `/health/live` returned `200 OK`, and the new drift route returned truthful `404 Not Found` for a non-existent UUID without mutating data
+  - proof:
+    - evidence file `codex/results/backlog-299-continuous-exposure-drift-detection-20260508.md`
+    - regression proof covers a newly opened `app.example.test:8080/tcp` service, React downgrade `18.2.0` to `17.0.2`, a newly observed `/admin` endpoint in the target context document, new/resolved finding drift, SOC/operator alerts, and bypass-free execution contract fields
+  - risks / exceptions:
+    - no live worker-produced scheduled continuous run pair was executed against WebGoat/DVWA/DVGA or a cloud mock fixture; `extra_tests.md` XT-030 and `risico.md` R-022 track that proof gap
+    - cloud IAM graphing remains intentionally unimplemented here because backlog-300 is the next queued slice
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-300 `Cloud-Native Identity & Attack Path Graphing`, from `codex/tasks/backlog-300-cloud-native-attack-path-graphing.json`.
+
 - 2026-05-08: completed backlog-298 `One-Click 'Proof of Resolution' Micro-Scanner`:
   - rationale:
     - remediation closure needs an evidence-backed one-click proof path that reuses the original replay context instead of launching a broad retest or trusting a manual fixed flag

@@ -5110,6 +5110,197 @@ def test_run_drift_is_computed_against_previous_completed_run(client) -> None:
         assert session.scalar(select(RunDrift).where(RunDrift.run_id == current_run_id)) is not None
 
 
+def test_continuous_exposure_drift_flags_surface_and_technology_changes(client) -> None:
+    from api.app.models import Finding, InventorySnapshot, Run, RunProfile, TargetContextDocument
+    from api.app.services.run_drift import (
+        build_continuous_exposure_drift_report,
+        compute_run_drift,
+    )
+    from api.app.services.run_profiles import ensure_default_run_profiles
+
+    engagement_id = create_engagement_with_scope(client)
+    session_factory = client.app.state.session_factory
+    with session_factory() as session:
+        ensure_default_run_profiles(session)
+        profile = session.scalar(
+            select(RunProfile).where(RunProfile.name == "passive-web-baseline")
+        )
+        assert profile is not None
+        previous_inventory = InventorySnapshot(
+            engagement_id=UUID(engagement_id),
+            requested_by="drift-tester",
+            status="completed",
+            source_tools_json=["httpx"],
+            raw_inputs_json={},
+            normalized_inventory_json={
+                "services": [
+                    {
+                        "host": "app.example.test",
+                        "port": 80,
+                        "protocol": "tcp",
+                        "service": "http",
+                    }
+                ],
+                "urls": ["https://app.example.test/login"],
+                "tech_stack_profile": {
+                    "technologies": [{"name": "React", "version": "18.2.0"}],
+                },
+            },
+            summary_json={"service_count": 1},
+            confidence_score=0.9,
+        )
+        current_inventory = InventorySnapshot(
+            engagement_id=UUID(engagement_id),
+            requested_by="drift-tester",
+            status="completed",
+            source_tools_json=["httpx", "nmap"],
+            raw_inputs_json={},
+            normalized_inventory_json={
+                "services": [
+                    {
+                        "host": "app.example.test",
+                        "port": 80,
+                        "protocol": "tcp",
+                        "service": "http",
+                    },
+                    {
+                        "host": "app.example.test",
+                        "port": 8080,
+                        "protocol": "tcp",
+                        "service": "http-alt",
+                    },
+                ],
+                "urls": ["https://app.example.test/login", "https://app.example.test/admin"],
+                "tech_stack_profile": {
+                    "technologies": [{"name": "React", "version": "17.0.2"}],
+                },
+            },
+            summary_json={"service_count": 2},
+            confidence_score=0.92,
+        )
+        session.add_all([previous_inventory, current_inventory])
+        session.flush()
+        previous = Run(
+            engagement_id=UUID(engagement_id),
+            profile_id=profile.id,
+            profile=profile,
+            source_inventory_snapshot_id=previous_inventory.id,
+            requested_by="tester",
+            status="completed",
+            configuration_json={},
+        )
+        current = Run(
+            engagement_id=UUID(engagement_id),
+            profile_id=profile.id,
+            profile=profile,
+            source_inventory_snapshot_id=current_inventory.id,
+            requested_by="tester",
+            status="completed",
+            configuration_json={},
+        )
+        session.add_all([previous, current])
+        session.flush()
+        session.add_all(
+            [
+                TargetContextDocument(
+                    run_id=previous.id,
+                    layer_name="phase_0_contextual_profile",
+                    context_kind="phase_0_contextual_profile",
+                    source_targets_json=[{"type": "url", "value": "https://app.example.test"}],
+                    technologies_detected_json=["React"],
+                    endpoints_discovered_json=["https://app.example.test/login"],
+                    recommended_tools_json=["httpx"],
+                    micro_plan_json=[],
+                    evidence_refs_json=[{"type": "inventory_snapshot", "id": str(previous_inventory.id)}],
+                    context_summary="React app with login endpoint.",
+                    provenance_json={"scope_enforced": True},
+                ),
+                TargetContextDocument(
+                    run_id=current.id,
+                    layer_name="phase_0_contextual_profile",
+                    context_kind="phase_0_contextual_profile",
+                    source_targets_json=[{"type": "url", "value": "https://app.example.test"}],
+                    technologies_detected_json=["React"],
+                    endpoints_discovered_json=[
+                        "https://app.example.test/login",
+                        "https://app.example.test/admin",
+                    ],
+                    recommended_tools_json=["httpx"],
+                    micro_plan_json=[],
+                    evidence_refs_json=[{"type": "inventory_snapshot", "id": str(current_inventory.id)}],
+                    context_summary="React app with login and admin endpoints.",
+                    provenance_json={"scope_enforced": True},
+                ),
+                Finding(
+                    run_id=previous.id,
+                    title="Stable finding",
+                    severity="medium",
+                    target_id="https://app.example.test",
+                    evidence_ref="previous-stable",
+                    status="open",
+                ),
+                Finding(
+                    run_id=previous.id,
+                    title="Legacy header issue",
+                    severity="low",
+                    target_id="https://app.example.test",
+                    evidence_ref="previous-legacy",
+                    status="open",
+                ),
+                Finding(
+                    run_id=current.id,
+                    title="Stable finding",
+                    severity="medium",
+                    target_id="https://app.example.test",
+                    evidence_ref="current-stable",
+                    status="open",
+                ),
+                Finding(
+                    run_id=current.id,
+                    title="New admin surface finding",
+                    severity="high",
+                    target_id="https://app.example.test/admin",
+                    evidence_ref="current-admin",
+                    status="open",
+                ),
+            ]
+        )
+        session.flush()
+        drift = compute_run_drift(session, run_id=current.id, actor="test")
+        assert drift is not None
+        report = build_continuous_exposure_drift_report(session, run_id=current.id)
+        assert report["summary"]["new_service_count"] == 1
+        assert report["surface_drift"]["new_services"][0]["key"] == "app.example.test:8080/tcp"
+        assert report["technology_drift"]["downgraded"][0]["technology"] == "React"
+        assert report["technology_drift"]["downgraded"][0]["previous_version"] == "18.2.0"
+        assert report["technology_drift"]["downgraded"][0]["current_version"] == "17.0.2"
+        assert report["context_drift"]["new_endpoints"] == ["https://app.example.test/admin"]
+        assert report["execution_contract"]["dispatches_work_directly"] is False
+        assert report["execution_contract"]["runner_registry_bypassed"] is False
+        assert report["operator_alerts"]
+        session.commit()
+        current_run_id = current.id
+
+    response = client.get(
+        f"/api/v1/runs/{current_run_id}/continuous-exposure-drift",
+        headers={"X-Actor": "drift-operator"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["summary"]["new_finding_count"] == 1
+    assert payload["summary"]["resolved_finding_count"] == 1
+    assert payload["summary"]["new_service_count"] == 1
+    assert payload["summary"]["technology_downgrade_count"] == 1
+    assert any(alert["type"] == "new_surface_service" for alert in payload["operator_alerts"])
+    assert payload["soc_alerts"] == payload["operator_alerts"]
+
+    run_response = client.get(f"/api/v1/runs/{current_run_id}")
+    assert run_response.status_code == 200
+    stored = run_response.json()["configuration_json"]["continuous_exposure_drift"]
+    assert stored["summary"]["new_service_count"] == 1
+
+
 def test_run_configuration_and_inventory_binding_round_trip(client) -> None:
     engagement_id = create_engagement_with_scope(client)
 

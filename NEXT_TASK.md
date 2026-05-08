@@ -2,15 +2,15 @@
 
 ## Title
 
-Continuous Exposure Drift Detection
+Cloud-Native Identity & Attack Path Graphing
 
 ## Promoted From
 
-`codex/tasks/backlog-299-continuous-exposure-drift-detection.json`
+`codex/tasks/backlog-300-cloud-native-attack-path-graphing.json`
 
 ## Goal
 
-For scheduled continuous pentests, the AI must compare the current context document and findings against the previous run. It flags "Drift" such as "A new port 8080 opened since yesterday" or "The React version downgraded". This alerts the SOC to shadow IT or unauthorized changes before an attacker finds them.
+Integrate Cloud (AWS/Azure/GCP) IAM vulnerabilities directly into the attack graph. Show how a web vulnerability (like SSRF extracting EC2 metadata) directly links to Cloud Lateral Movement (like assuming an overly permissive IAM role). This closes the gap between AppSec and CloudSec.
 
 ## Scope
 

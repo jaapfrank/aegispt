@@ -129,6 +129,7 @@ from api.app.services.reports import (
     render_markdown_report,
 )
 from api.app.services.remediation_advisor import build_choke_point_remediation_advisor
+from api.app.services.run_drift import build_continuous_exposure_drift_report
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.runner_registry import runner_capability_registry
 from api.app.services.runs import (
@@ -1036,6 +1037,17 @@ def get_run(
 ) -> RunRead:
     run = _load_run_for_tenant(session, run_id, tenant_id)
     return serialize_run(run, session=session)
+
+
+@router.get("/runs/{run_id}/continuous-exposure-drift")
+def get_run_continuous_exposure_drift(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    _actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    _load_run_for_tenant(session, run_id, tenant_id)
+    return build_continuous_exposure_drift_report(session, run_id=run_id)
 
 
 @router.get("/runs/{run_id}/assessment-plan")
