@@ -4176,6 +4176,42 @@ def validate_configured_targets_within_scope(scope: Scope, configuration: dict[s
             )
 
 
+def _apply_proof_of_resolution_replay_params(
+    *,
+    task: Task,
+    run_configuration: dict[str, Any],
+    validation_params: dict[str, Any],
+) -> None:
+    proof = run_configuration.get("proof_of_resolution")
+    if not isinstance(proof, dict) or proof.get("mode") != "micro_scan":
+        return
+    replay_tool = str(proof.get("replay_tool") or "").strip()
+    if replay_tool and replay_tool != task.tool:
+        return
+    replay_params = proof.get("replay_task_params")
+    if not isinstance(replay_params, dict):
+        return
+    exact_params = copy.deepcopy(replay_params)
+    exact_params["validation"] = dict(validation_params)
+    exact_params["proof_of_resolution"] = {
+        "mode": "micro_scan",
+        "source_finding_id": proof.get("source_finding_id"),
+        "source_run_id": proof.get("source_run_id"),
+        "source_evidence_ref": proof.get("source_evidence_ref"),
+        "replay_recipe_sha256": proof.get("replay_recipe_sha256"),
+        "success_condition": proof.get("success_condition"),
+        "approval_gates_bypassed": False,
+    }
+    exact_params.setdefault("profile_name", task.params_json.get("profile_name"))
+    exact_params.setdefault("run_class", task.params_json.get("run_class"))
+    exact_params.setdefault("target_kind", task.params_json.get("target_kind"))
+    exact_params.setdefault("limits", task.params_json.get("limits"))
+    task.params_json = exact_params
+    replay_target = str(proof.get("replay_target") or "").strip()
+    if replay_target:
+        task.target_id = replay_target
+
+
 def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfile) -> list[Task]:
     existing_tasks = session.scalars(
         select(Task).where(Task.run_id == run.id).order_by(Task.tool, Task.target_id)
@@ -4508,6 +4544,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
                 target_id=target_values[0],
                 status="queued",
                 params_json=params_json,
+            )
+            _apply_proof_of_resolution_replay_params(
+                task=task,
+                run_configuration=run_configuration,
+                validation_params=validation_params,
             )
             session.add(task)
             tasks.append(task)
@@ -5508,6 +5549,11 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             )
             if validation_params:
                 task.params_json = {**task.params_json, "validation": dict(validation_params)}
+            _apply_proof_of_resolution_replay_params(
+                task=task,
+                run_configuration=run_configuration,
+                validation_params=validation_params,
+            )
             session.add(task)
             tasks.append(task)
 

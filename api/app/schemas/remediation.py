@@ -60,3 +60,21 @@ class FindingRetestRead(BaseModel):
     profile_name: str
     queued_task_ids: list[UUID]
     configuration_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class FindingMicroScanCreate(BaseModel):
+    notes: str | None = None
+
+
+class FindingMicroScanRead(BaseModel):
+    micro_scan_run_id: UUID
+    source_finding_id: UUID
+    source_run_id: UUID
+    validation_record_id: UUID
+    status: str
+    profile_name: str
+    validator_tool: str
+    validator_target_id: str
+    replay_recipe_sha256: str
+    queued_task_ids: list[UUID]
+    configuration_json: dict[str, Any] = Field(default_factory=dict)

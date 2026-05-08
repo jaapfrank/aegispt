@@ -12,6 +12,7 @@ from api.app.config import Settings
 from api.app.models import (
     Engagement,
     Finding,
+    FindingRemediation,
     FindingValidationRecord,
     Run,
     RunProfile,
@@ -229,6 +230,13 @@ def finalize_validation_for_task(
                 f"reproduce '{finding.title}' against {finding.target_id}."
             )
 
+    proof_result = _apply_proof_of_resolution_result(
+        session=session,
+        finding=finding,
+        validation_config=validation_config,
+        final_status=final_status,
+    )
+
     record.status = final_status
     record.tool_execution_id = execution_record.id
     record.evidence_ref = matched_evidence_ref or _first_artifact_uri(artifact_pairs)
@@ -248,6 +256,7 @@ def finalize_validation_for_task(
             }
             for candidate in extracted_findings
         ],
+        "proof_of_resolution": proof_result,
     }
     finding.validation_status = final_status
 
@@ -267,6 +276,84 @@ def finalize_validation_for_task(
         },
     )
     return record
+
+
+def _apply_proof_of_resolution_result(
+    *,
+    session: Session,
+    finding: Finding,
+    validation_config: dict[str, Any],
+    final_status: str,
+) -> dict[str, Any] | None:
+    proof = validation_config.get("proof_of_resolution") if isinstance(validation_config, dict) else None
+    if not isinstance(proof, dict) or proof.get("mode") != "micro_scan":
+        return None
+
+    result: dict[str, Any] = {
+        "mode": "micro_scan",
+        "success_condition": proof.get("success_condition"),
+        "replay_recipe_sha256": proof.get("replay_recipe_sha256"),
+        "auto_closed": False,
+    }
+    remediation = session.scalar(select(FindingRemediation).where(FindingRemediation.finding_id == finding.id))
+
+    if final_status == "validated_not_reproduced":
+        previous_status = finding.status
+        previous_remediation_state = remediation.state if remediation is not None else None
+        if remediation is None:
+            remediation = FindingRemediation(
+                finding_id=finding.id,
+                state="verified",
+                notes="Proof-of-resolution micro-scan did not reproduce the original evidence pattern.",
+                created_by="finding-validator",
+                updated_by="finding-validator",
+            )
+            session.add(remediation)
+        else:
+            remediation.state = "verified"
+            remediation.updated_by = "finding-validator"
+            if not remediation.notes:
+                remediation.notes = "Proof-of-resolution micro-scan did not reproduce the original evidence pattern."
+        finding.status = "resolved"
+        finding.sla_breached = False
+        result.update(
+            {
+                "auto_closed": True,
+                "finding_status_before": previous_status,
+                "finding_status_after": finding.status,
+                "remediation_state_before": previous_remediation_state,
+                "remediation_state_after": remediation.state,
+            }
+        )
+        write_audit_event(
+            session=session,
+            actor="finding-validator",
+            action="finding.proof_of_resolution.verified",
+            object_type="finding",
+            object_id=str(finding.id),
+            metadata={
+                "previous_status": previous_status,
+                "new_status": finding.status,
+                "previous_remediation_state": previous_remediation_state,
+                "new_remediation_state": remediation.state,
+                "replay_recipe_sha256": proof.get("replay_recipe_sha256"),
+            },
+        )
+    else:
+        result["still_reproduced"] = final_status == "validated_confirmed"
+        write_audit_event(
+            session=session,
+            actor="finding-validator",
+            action="finding.proof_of_resolution.not_verified",
+            object_type="finding",
+            object_id=str(finding.id),
+            metadata={
+                "validation_status": final_status,
+                "replay_recipe_sha256": proof.get("replay_recipe_sha256"),
+            },
+        )
+
+    return result
 
 
 def serialize_validation_attempt(record: FindingValidationRecord) -> dict[str, Any]:

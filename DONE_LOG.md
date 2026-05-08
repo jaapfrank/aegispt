@@ -1,5 +1,42 @@
 # Done Log
 
+- 2026-05-08: completed backlog-298 `One-Click 'Proof of Resolution' Micro-Scanner`:
+  - rationale:
+    - remediation closure needs an evidence-backed one-click proof path that reuses the original replay context instead of launching a broad retest or trusting a manual fixed flag
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-296` and backlog-296 is present in this log
+    - `http://127.0.0.1:8000` browser validation was not required because this slice changed backend/API/runtime queue behavior only; live API smoke ran on temporary port `http://127.0.0.1:8028` to avoid disturbing the shared local server
+    - the package success criteria again mention choke points, drift detection, and cloud mapping, but the queue splits those into backlog-297, backlog-299, and backlog-300; this slice implemented the backlog-298 micro-scanner/replay/verification loop only
+  - implementation:
+    - added `api/app/services/proof_of_resolution.py`
+    - added `POST /api/v1/findings/{finding_id}/proof-of-resolution/micro-scan`
+    - added micro-scan request/response schemas in `api/app/schemas/remediation.py`
+    - the micro-scan requires stored `Finding.replay_recipe_json`, checks the current approved scope, selects an existing RunProfile for the registered tool, creates a proof-of-resolution run and `FindingValidationRecord`, and keeps active profiles behind existing approval gates
+    - `queue_run_tasks` now applies exact replay task params for proof-of-resolution runs, including after later approval-triggered queueing
+    - `finalize_validation_for_task` now treats proof-of-resolution `validated_not_reproduced` as successful controlled proof: it marks the finding `resolved`, remediation `verified`, clears `sla_breached`, and writes durable audit evidence
+  - files:
+    - `api/app/services/proof_of_resolution.py`
+    - `api/app/services/runs.py`
+    - `api/app/services/finding_validator.py`
+    - `api/app/routers/findings.py`
+    - `api/app/schemas/remediation.py`
+    - `api/tests/test_findings.py`
+    - `codex/results/backlog-298-one-click-proof-of-resolution-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `.venv/bin/python -m py_compile api/app/services/proof_of_resolution.py api/app/services/runs.py api/app/services/finding_validator.py api/app/routers/findings.py api/app/schemas/remediation.py api/tests/test_findings.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_findings.py -q` passed: 8 passed
+    - `.venv/bin/python -m pytest api/tests/test_attack_paths.py api/tests/test_runs.py::test_active_run_requires_approval_before_queueing -q` passed: 9 passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 524 passed, 4 warnings
+    - live API smoke on temporary port `http://127.0.0.1:8028` passed: `/health/live` returned `200 OK`, and the new micro-scan route returned truthful `404 finding not found` for a non-existent UUID without mutating data
+  - proof:
+    - evidence file `codex/results/backlog-298-one-click-proof-of-resolution-20260508.md`
+    - API regression proves exact replay-param queueing, replay-recipe-required behavior, validation-record linkage, proof success closure, remediation verification, SLA breach clearing, and audit evidence
+  - risks / exceptions:
+    - no live worker dispatch against a real lab target was executed; `extra_tests.md` XT-029 and `risico.md` R-021 track that proof gap
+    - drift detection and cloud graphing remain intentionally unimplemented here because backlog-299 and backlog-300 are the next queued slices
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-299 `Continuous Exposure Drift Detection`, from `codex/tasks/backlog-299-continuous-exposure-drift-detection.json`.
+
 - 2026-05-08: completed backlog-297 `AI Choke-Point Remediation Advisor: Breaking the attack chain`:
   - rationale:
     - operators need the attack graph to point at the highest-leverage remediation action instead of only listing possible paths

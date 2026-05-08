@@ -2,15 +2,15 @@
 
 ## Title
 
-One-Click 'Proof of Resolution' Micro-Scanner
+Continuous Exposure Drift Detection
 
 ## Promoted From
 
-`codex/tasks/backlog-298-one-click-proof-of-resolution.json`
+`codex/tasks/backlog-299-continuous-exposure-drift-detection.json`
 
 ## Goal
 
-Close the remediation loop instantly. When a developer marks a finding as "Fixed" in Jira or the UI, AegisPT must spin up a hyper-targeted "micro-scan". It extracts the exact payload and context from the original evidence and re-fires only that specific test against the exact endpoint to verify the fix in seconds, automatically closing the SLA.
+For scheduled continuous pentests, the AI must compare the current context document and findings against the previous run. It flags "Drift" such as "A new port 8080 opened since yesterday" or "The React version downgraded". This alerts the SOC to shadow IT or unauthorized changes before an attacker finds them.
 
 ## Scope
 

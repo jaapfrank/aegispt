@@ -33,6 +33,8 @@ from api.app.schemas.finding_views import (
 from api.app.schemas.findings import FindingRead, FindingUpdate
 from api.app.schemas.integrations import JiraFindingLinkRead, RepositoryFixPullRequestRead
 from api.app.schemas.remediation import (
+    FindingMicroScanCreate,
+    FindingMicroScanRead,
     FindingRemediationRead,
     FindingRemediationUpdate,
     FindingRetestCreate,
@@ -46,6 +48,10 @@ from api.app.services.exposure_score import record_exposure_score
 from api.app.services.finding_retests import (
     FindingRetestRequestError,
     request_single_finding_retest,
+)
+from api.app.services.proof_of_resolution import (
+    ProofOfResolutionRequestError,
+    request_proof_of_resolution_micro_scan,
 )
 from api.app.services.finding_quality import apply_finding_quality_defaults
 from api.app.services.finding_sla import apply_finding_sla, apply_findings_sla
@@ -565,6 +571,37 @@ def request_finding_retest(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     session.commit()
     return retest
+
+
+@router.post(
+    "/findings/{finding_id}/proof-of-resolution/micro-scan",
+    response_model=FindingMicroScanRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def request_finding_proof_of_resolution_micro_scan(
+    finding_id: UUID,
+    payload: FindingMicroScanCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    settings: Settings = Depends(get_settings),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> FindingMicroScanRead:
+    finding = session.scalar(select(Finding).where(Finding.id == finding_id))
+    if finding is None:
+        raise HTTPException(status_code=404, detail="finding not found")
+    assert_finding_tenant(finding, tenant_id)
+    try:
+        micro_scan = request_proof_of_resolution_micro_scan(
+            session=session,
+            finding=finding,
+            actor=actor,
+            settings=settings,
+            notes=payload.notes,
+        )
+    except ProofOfResolutionRequestError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session.commit()
+    return micro_scan
 
 
 @router.put("/findings/{finding_id}/remediation", response_model=FindingRemediationRead)

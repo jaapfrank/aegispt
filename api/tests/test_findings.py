@@ -5,7 +5,8 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from api.app.models import AuditEvent, Finding, FindingRemediation, Run
+from api.app.models import AuditEvent, Finding, FindingRemediation, FindingValidationRecord, Run, Task, ToolExecution
+from api.app.services.finding_validator import finalize_validation_for_task
 
 
 def _create_engagement_with_scope(client, *, tenant_id: str | None = None) -> str:
@@ -261,6 +262,148 @@ def test_remediation_retest_plan_is_planning_only_and_does_not_create_runs(clien
         run_count_after = len(session.scalars(select(Run).where(Run.engagement_id == UUID(engagement_id))).all())
 
     assert run_count_after == run_count_before
+
+
+def test_proof_of_resolution_micro_scan_queues_exact_replay_recipe_and_verifies_fix(client) -> None:
+    engagement_id = _create_engagement_with_scope(client)
+    source_run_id = _create_run(client, engagement_id, profile_name="passive-web-nuclei-audit")
+    with client.app.state.session_factory() as session:
+        finding = Finding(
+            run_id=UUID(source_run_id),
+            title="Missing security header",
+            severity="medium",
+            target_id="https://app.example.test",
+            evidence_ref="artifact://findings/missing-header",
+            status="open",
+            summary="Original evidence showed header marker.",
+            replay_recipe_json={
+                "tool": "nuclei",
+                "target": "https://app.example.test",
+                "params_json": {
+                    "target_kind": "url",
+                    "profile_name": "passive-web-nuclei-audit",
+                    "run_class": "passive",
+                    "limits": {"max_rps": 1},
+                    "template_id": "http/missing-security-header",
+                    "custom_replay_marker": "exact-original-context",
+                },
+                "scope_allowlist": {"urls": ["https://app.example.test"]},
+                "expected_match_pattern": "missing-security-header",
+                "artifact": {
+                    "uri": "artifact://findings/missing-header",
+                    "sha256": "abc123",
+                },
+            },
+        )
+        session.add(finding)
+        session.commit()
+        finding_id = str(finding.id)
+
+    response = client.post(
+        f"/api/v1/findings/{finding_id}/proof-of-resolution/micro-scan",
+        headers={"X-Actor": "proof-operator"},
+        json={"notes": "Developer marked this fixed."},
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["status"] == "queued"
+    assert payload["profile_name"] == "passive-web-nuclei-audit"
+    assert payload["validator_tool"] == "nuclei"
+    assert payload["validator_target_id"] == "https://app.example.test"
+    assert len(payload["queued_task_ids"]) == 1
+    assert payload["configuration_json"]["proof_of_resolution"]["mode"] == "micro_scan"
+    assert payload["configuration_json"]["proof_of_resolution"]["approval_gates_bypassed"] is False
+
+    queued_task_id = UUID(payload["queued_task_ids"][0])
+    with client.app.state.session_factory() as session:
+        task = session.get(Task, queued_task_id)
+        assert task is not None
+        assert task.tool == "nuclei"
+        assert task.target_id == "https://app.example.test"
+        assert task.source_finding_id == UUID(finding_id)
+        assert task.params_json["custom_replay_marker"] == "exact-original-context"
+        assert task.params_json["validation"]["proof_of_resolution"]["mode"] == "micro_scan"
+        assert task.params_json["proof_of_resolution"]["approval_gates_bypassed"] is False
+
+        remediation = session.scalar(select(FindingRemediation).where(FindingRemediation.finding_id == UUID(finding_id)))
+        assert remediation is not None
+        assert remediation.state == "ready_for_retest"
+        validation_record = session.scalar(
+            select(FindingValidationRecord).where(FindingValidationRecord.finding_id == UUID(finding_id))
+        )
+        assert validation_record is not None
+        assert validation_record.task_id == queued_task_id
+        assert validation_record.metadata_json["mode"] == "proof_of_resolution_micro_scan"
+
+        execution = ToolExecution(
+            task_id=queued_task_id,
+            runner_digest="nuclei@micro-proof",
+            tool_version="nuclei-test",
+            exit_code=0,
+            stdout_text="clean response without original marker",
+            stderr_text="",
+        )
+        session.add(execution)
+        session.flush()
+        finalized = finalize_validation_for_task(
+            session=session,
+            task=task,
+            execution_record=execution,
+            artifact_pairs=[],
+        )
+        finalized_id = finalized.id if finalized is not None else None
+        session.commit()
+
+    assert finalized is not None
+    with client.app.state.session_factory() as session:
+        stored_finding = session.get(Finding, UUID(finding_id))
+        stored_remediation = session.scalar(
+            select(FindingRemediation).where(FindingRemediation.finding_id == UUID(finding_id))
+        )
+        stored_validation = session.get(FindingValidationRecord, finalized_id)
+        verified_event = session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.object_id == finding_id,
+                AuditEvent.action == "finding.proof_of_resolution.verified",
+            )
+        )
+        assert stored_finding is not None
+        assert stored_finding.status == "resolved"
+        assert stored_finding.validation_status == "validated_not_reproduced"
+        assert stored_finding.sla_breached is False
+        assert stored_remediation is not None
+        assert stored_remediation.state == "verified"
+        assert stored_validation is not None
+        assert stored_validation.metadata_json["proof_of_resolution"]["auto_closed"] is True
+        assert verified_event is not None
+
+
+def test_proof_of_resolution_micro_scan_requires_replay_recipe(client) -> None:
+    engagement_id = _create_engagement_with_scope(client)
+    source_run_id = _create_run(client, engagement_id, profile_name="passive-web-nuclei-audit")
+    with client.app.state.session_factory() as session:
+        finding = Finding(
+            run_id=UUID(source_run_id),
+            title="No replay recipe",
+            severity="low",
+            target_id="https://app.example.test",
+            evidence_ref="artifact://findings/no-replay",
+            status="open",
+            summary="No exact replay data is available.",
+        )
+        session.add(finding)
+        session.commit()
+        finding_id = str(finding.id)
+
+    response = client.post(
+        f"/api/v1/findings/{finding_id}/proof-of-resolution/micro-scan",
+        headers={"X-Actor": "proof-operator"},
+        json={"notes": "Try without replay recipe."},
+    )
+
+    assert response.status_code == 409
+    assert "no replay recipe" in response.json()["detail"]
 
 
 def test_remediation_portfolio_respects_tenant_boundary(client) -> None:
