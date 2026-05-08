@@ -17,7 +17,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
   downloadRunReport,
-  getRunFindings,
+  getFindingsForRunContext,
   getRunReportMarkdown,
   getRunReports,
   getRunsForEngagement,
@@ -55,7 +55,12 @@ export default function ReportCenter() {
   const [loadingComparison, setLoadingComparison] = useState(false);
 
   const selectedReport = catalog.find((report) => report.variant === selectedVariant) ?? catalog[0] ?? null;
-  const previousRuns = useMemo(() => earlierRuns(runs, selectedRun), [runs, selectedRun]);
+  const reportRuns = useMemo(() => reportRunOptions(runs, selectedRun), [runs, selectedRun]);
+  const selectedReportRun = useMemo(
+    () => reportRuns.find((run) => selectedRun !== null && sameReportGroup(run, selectedRun)) ?? selectedRun,
+    [reportRuns, selectedRun],
+  );
+  const previousRuns = useMemo(() => earlierRuns(reportRuns, selectedReportRun), [reportRuns, selectedReportRun]);
   const timelineRuns = useMemo(() => [...runs].sort(sortRunsDescending), [runs]);
 
   useEffect(() => {
@@ -164,13 +169,14 @@ export default function ReportCenter() {
   async function handleCompare(nextRunId: UUID | '') {
     setCompareRunId(nextRunId);
     setComparison(null);
-    if (!selectedRunId || !nextRunId) return;
+    const previousRun = previousRuns.find((run) => run.id === nextRunId) ?? null;
+    if (!selectedRun || !previousRun || !nextRunId) return;
     setLoadingComparison(true);
     setMessage(null);
     try {
       const [currentFindings, previousFindings] = await Promise.all([
-        getRunFindings(selectedRunId),
-        getRunFindings(nextRunId),
+        getFindingsForRunContext(selectedRun),
+        getFindingsForRunContext(previousRun),
       ]);
       setComparison(compareFindings(currentFindings, previousFindings));
     } catch (error) {
@@ -228,7 +234,7 @@ export default function ReportCenter() {
       {activeTab === 'reports' ? (
         <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[40fr_60fr]">
           <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface/50 backdrop-blur-md">
-            <RunStrip selectedRun={selectedRun} runs={runs} selectedRunId={selectedRunId} selectRun={selectRun} />
+            <RunStrip selectedRun={selectedReportRun} runs={reportRuns} selectedRunId={selectedReportRun?.id ?? selectedRunId} selectRun={selectRun} />
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {loadingCatalog ? (
                 <LoadingPanel label="Loading report catalog from API" />
@@ -344,7 +350,7 @@ function RunStrip({
         >
           {runs.map((run) => (
             <option key={run.id} value={run.id} className="bg-surface text-text">
-              {run.profile.name} · {formatDate(run.created_at)} · {run.status}
+              {reportRunLabel(run)}
             </option>
           ))}
         </select>
@@ -477,7 +483,7 @@ function ComparePanel({
         <option value="" className="bg-surface text-text">Select earlier run</option>
         {previousRuns.map((run) => (
           <option key={run.id} value={run.id} className="bg-surface text-text">
-            {run.profile.name} · {formatDate(run.created_at)} · {run.status}
+            {reportRunLabel(run)}
           </option>
         ))}
       </select>
@@ -701,6 +707,56 @@ function compareFindings(current: Finding[], previous: Finding[]): ComparisonSum
 
 function findingKey(finding: Finding): string {
   return `${finding.title.toLowerCase()}|${finding.target_id.toLowerCase()}|${finding.severity.toLowerCase()}`;
+}
+
+function reportGroupKey(run: Run): string {
+  const chainId = typeof run.assessment_chain?.id === 'string' ? run.assessment_chain.id : '';
+  return chainId ? `chain:${chainId}` : `run:${run.id}`;
+}
+
+function sameReportGroup(left: Run, right: Run): boolean {
+  return reportGroupKey(left) === reportGroupKey(right);
+}
+
+function reportRunOptions(runs: Run[], selectedRun: Run | null): Run[] {
+  const grouped = new Map<string, Run>();
+  for (const run of runs) {
+    const key = reportGroupKey(run);
+    const existing = grouped.get(key);
+    if (!existing) {
+      grouped.set(key, run);
+      continue;
+    }
+    if (selectedRun && sameReportGroup(run, selectedRun) && run.id === selectedRun.id) {
+      grouped.set(key, run);
+      continue;
+    }
+    if (!selectedRun || !sameReportGroup(existing, selectedRun)) {
+      grouped.set(key, newerRun(existing, run));
+    }
+  }
+  return [...grouped.values()].sort(sortRunsDescending);
+}
+
+function newerRun(left: Run, right: Run): Run {
+  return new Date(right.created_at).getTime() > new Date(left.created_at).getTime() ? right : left;
+}
+
+function reportRunLabel(run: Run): string {
+  const chainId = typeof run.assessment_chain?.id === 'string' ? run.assessment_chain.id : '';
+  if (!chainId) return `${run.profile.name} · ${formatDate(run.created_at)} · ${run.status}`;
+  const mode = typeof run.assessment_chain?.assessment_mode === 'string'
+    ? run.assessment_chain.assessment_mode
+    : 'assessment-chain';
+  const status = typeof run.assessment_chain?.status === 'string' ? run.assessment_chain.status : run.status;
+  return `${humanizeLabel(mode)} · ${formatDate(run.created_at)} · ${status}`;
+}
+
+function humanizeLabel(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function earlierRuns(runs: Run[], selectedRun: Run | null): Run[] {

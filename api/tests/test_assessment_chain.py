@@ -425,6 +425,7 @@ def test_assessment_chain_findings_endpoint_aggregates_child_runs(client) -> Non
         )
         session.add(follow_up_run)
         session.flush()
+        follow_up_run_id = follow_up_run.id
         session.add_all(
             [
                 Finding(
@@ -452,6 +453,19 @@ def test_assessment_chain_findings_endpoint_aggregates_child_runs(client) -> Non
     assert response.status_code == 200
     titles = {finding["title"] for finding in response.json()}
     assert {"Baseline finding", "Active finding"}.issubset(titles)
+
+    reports_response = client.get(f"/api/v1/runs/{follow_up_run_id}/reports")
+    assert reports_response.status_code == 200
+    catalog = reports_response.json()
+    assert catalog[0]["included_findings"]["count"] == 2
+    assert catalog[0]["preview_allowed"] is True
+
+    markdown_response = client.get(
+        f"/api/v1/runs/{follow_up_run_id}/report?format=markdown&variant=technical"
+    )
+    assert markdown_response.status_code == 200
+    assert "Baseline finding" in markdown_response.text
+    assert "Active finding" in markdown_response.text
 
 
 def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_httpx_has_no_inventory(

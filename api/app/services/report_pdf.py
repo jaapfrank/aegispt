@@ -86,8 +86,15 @@ def _inject_pdf_base_and_styles(html: str, *, base_url: str) -> str:
     return with_head
 
 
-def render_pdf_report(run: Run, *, variant: str, settings: Settings, framework: str | None = None) -> bytes:
-    html = render_html_report(run, variant=variant, framework=framework)
+def render_pdf_report(
+    run: Run,
+    *,
+    variant: str,
+    settings: Settings,
+    framework: str | None = None,
+    context: dict[str, object] | None = None,
+) -> bytes:
+    html = render_html_report(run, variant=variant, framework=framework, context=context)
     prepared_html = _inject_pdf_base_and_styles(html, base_url=settings.app_public_base_url)
     title = REPORT_VARIANT_LABELS.get(normalize_report_variant(variant), "AegisPT Report")
     header_template = f"""

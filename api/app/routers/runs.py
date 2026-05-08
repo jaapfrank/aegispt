@@ -131,6 +131,7 @@ from api.app.services.reports import (
     build_report_catalog,
     build_report_draft,
     load_run_report,
+    report_context_for_run,
     render_html_report,
     render_markdown_report,
 )
@@ -1851,22 +1852,27 @@ def export_run_report(
     tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> Response:
     run = _load_run_report_for_tenant(session, run_id, tenant_id)
+    report_context = report_context_for_run(run, session=session)
 
     if format == "html":
-        content = render_html_report(run, variant=variant, framework=framework)
+        content = render_html_report(run, variant=variant, framework=framework, context=report_context)
         media_type = "text/html; charset=utf-8"
         extension = "html"
     elif format == "pdf":
         try:
             content = render_pdf_report(
-                run, variant=variant, framework=framework, settings=settings
+                run,
+                variant=variant,
+                framework=framework,
+                settings=settings,
+                context=report_context,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         media_type = "application/pdf"
         extension = "pdf"
     else:
-        content = render_markdown_report(run, variant=variant, framework=framework)
+        content = render_markdown_report(run, variant=variant, framework=framework, context=report_context)
         media_type = "text/markdown; charset=utf-8"
         extension = "md"
 
@@ -1884,7 +1890,8 @@ def list_run_reports(
     tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> list[RunReportCatalogItemRead]:
     run = _load_run_report_for_tenant(session, run_id, tenant_id)
-    return build_report_catalog(run)
+    report_context = report_context_for_run(run, session=session)
+    return build_report_catalog(run, context=report_context)
 
 
 @router.post("/runs/{run_id}/report-draft", response_model=RunReportDraftRead)

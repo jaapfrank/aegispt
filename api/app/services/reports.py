@@ -984,28 +984,44 @@ COMPLIANCE_GAP_ADVISOR_DEFINITIONS: dict[str, dict[str, object]] = {
 }
 
 
+def _run_report_load_options():
+    return (
+        selectinload(Run.assessment_chain),
+        selectinload(Run.engagement).selectinload(Engagement.scopes),
+        selectinload(Run.engagement).selectinload(Engagement.inventory_snapshots),
+        selectinload(Run.profile),
+        selectinload(Run.bound_pack).selectinload(CapabilityPack.validation_results),
+        selectinload(Run.bound_pack).selectinload(CapabilityPack.approvals),
+        selectinload(Run.bound_pack).selectinload(CapabilityPack.deployments),
+        selectinload(Run.bound_pack_deployment),
+        selectinload(Run.approvals),
+        selectinload(Run.findings),
+        selectinload(Run.findings).selectinload(Finding.remediation),
+        selectinload(Run.findings).selectinload(Finding.validation_records),
+        selectinload(Run.finding_chains),
+        selectinload(Run.rationale_ledger_entries).selectinload(RationaleLedgerEntry.context_document),
+        selectinload(Run.tasks)
+        .selectinload(Task.executions)
+        .selectinload(ToolExecution.artifacts),
+    )
+
+
 def load_run_report(session: Session, run_id: UUID | str) -> Run | None:
     return session.scalar(
         select(Run)
-        .options(
-            selectinload(Run.engagement).selectinload(Engagement.scopes),
-            selectinload(Run.engagement).selectinload(Engagement.inventory_snapshots),
-            selectinload(Run.profile),
-            selectinload(Run.bound_pack).selectinload(CapabilityPack.validation_results),
-            selectinload(Run.bound_pack).selectinload(CapabilityPack.approvals),
-            selectinload(Run.bound_pack).selectinload(CapabilityPack.deployments),
-            selectinload(Run.bound_pack_deployment),
-            selectinload(Run.approvals),
-            selectinload(Run.findings),
-            selectinload(Run.findings).selectinload(Finding.remediation),
-            selectinload(Run.findings).selectinload(Finding.validation_records),
-            selectinload(Run.finding_chains),
-            selectinload(Run.rationale_ledger_entries).selectinload(RationaleLedgerEntry.context_document),
-            selectinload(Run.tasks)
-            .selectinload(Task.executions)
-            .selectinload(ToolExecution.artifacts),
-        )
+        .options(*_run_report_load_options())
         .where(Run.id == run_id, Run.deleted_at.is_(None))
+    )
+
+
+def load_assessment_chain_report_runs(session: Session, chain_id: UUID | str) -> list[Run]:
+    return list(
+        session.scalars(
+            select(Run)
+            .options(*_run_report_load_options())
+            .where(Run.assessment_chain_id == chain_id, Run.deleted_at.is_(None))
+            .order_by(Run.created_at.asc(), Run.id.asc())
+        )
     )
 
 
@@ -2923,6 +2939,114 @@ def report_context(run: Run) -> dict[str, object]:
             key=lambda entry: (entry.created_at, entry.id),
         ),
     }
+
+
+def _best_inventory_snapshot_for_runs(runs: list[Run]):
+    snapshots = [
+        snapshot
+        for snapshot in (effective_inventory_snapshot_for_run(run) for run in runs)
+        if snapshot is not None
+    ]
+    if not snapshots:
+        return None
+
+    def score(snapshot) -> tuple[int, datetime, str]:
+        summary = snapshot.summary_json if isinstance(snapshot.summary_json, dict) else {}
+        data_points = sum(
+            int(summary.get(key, 0) or 0)
+            for key in ("host_count", "service_count", "endpoint_count", "technology_count")
+        )
+        return (data_points, snapshot.created_at, snapshot.id.hex)
+
+    return max(snapshots, key=score)
+
+
+def _chain_profile_label(primary_run: Run) -> str:
+    chain = primary_run.assessment_chain
+    if chain is not None:
+        raw_mode = str(chain.assessment_mode or "").strip()
+        if raw_mode:
+            return f"{_humanize_key(raw_mode)} assessment chain"
+    return primary_run.profile.name if primary_run.profile is not None else "unknown-profile"
+
+
+def assessment_chain_report_context(primary_run: Run, chain_runs: list[Run]) -> dict[str, object]:
+    runs = [run for run in chain_runs if run.deleted_at is None]
+    if not runs:
+        return report_context(primary_run)
+
+    finding_by_id = {
+        finding.id: finding
+        for run in runs
+        for finding in list(run.findings or [])
+    }
+    task_by_id = {
+        task.id: task
+        for run in runs
+        for task in list(run.tasks or [])
+    }
+    approval_by_id = {
+        approval.id: approval
+        for run in runs
+        for approval in list(run.approvals or [])
+    }
+    rationale_by_id = {
+        entry.id: entry
+        for run in runs
+        for entry in list(run.rationale_ledger_entries or [])
+    }
+    findings = sort_findings(list(finding_by_id.values()))
+    tasks = sort_tasks(list(task_by_id.values()))
+    approvals = sorted(
+        approval_by_id.values(),
+        key=lambda approval: (approval.created_at, approval.id.hex),
+    )
+    findings_by_severity, findings_by_status = findings_summary(findings)
+    inventory_snapshot = _best_inventory_snapshot_for_runs(runs)
+    inventory_summary = dict(inventory_snapshot.summary_json or {}) if inventory_snapshot is not None else {}
+    base_context = report_context(primary_run)
+    chain = primary_run.assessment_chain
+    configuration = run_configuration_context(primary_run)
+    if chain is not None:
+        configuration = {
+            **configuration,
+            "assessment_chain_id": str(chain.id),
+            "assessment_chain_status": chain.status,
+            "assessment_chain_mode": chain.assessment_mode,
+            "assessment_chain_run_count": len(runs),
+        }
+
+    return {
+        **base_context,
+        "profile_name": _chain_profile_label(primary_run),
+        "findings": findings,
+        "tasks": tasks,
+        "approvals": approvals,
+        "findings_by_severity": findings_by_severity,
+        "findings_by_status": findings_by_status,
+        "adaptive_change": adaptive_change_summary_for_run(primary_run, findings),
+        "coverage": methodology_coverage_summary(findings, tasks),
+        "remediation_counts": remediation_priority_counts(findings),
+        "configuration": configuration,
+        "inventory_snapshot": inventory_snapshot,
+        "inventory_summary": inventory_summary,
+        "test_coverage": {
+            **build_test_coverage_block(primary_run, tasks),
+            "assessment_chain_run_count": len(runs),
+        },
+        "rationale_ledger": sorted(
+            rationale_by_id.values(),
+            key=lambda entry: (entry.created_at, entry.id),
+        ),
+    }
+
+
+def report_context_for_run(run: Run, *, session: Session | None = None) -> dict[str, object]:
+    if session is not None and run.assessment_chain_id is not None:
+        chain_runs = load_assessment_chain_report_runs(session, run.assessment_chain_id)
+        if len(chain_runs) > 1:
+            return assessment_chain_report_context(run, chain_runs)
+    return report_context(run)
 
 
 def _render_rationale_ledger_markdown(context: dict[str, object]) -> list[str]:
@@ -5743,8 +5867,8 @@ def report_availability_for_run(
     }
 
 
-def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
-    context = report_context(run)
+def build_report_catalog(run: Run, *, context: dict[str, object] | None = None) -> list[RunReportCatalogItemRead]:
+    context = context or report_context(run)
     linked_evidence = sum(1 for finding in context["findings"] if finding.evidence_ref)
     lifecycle_summary = report_lifecycle_summary(run, context, linked_evidence=linked_evidence)
     availability = report_availability_for_run(run, context, lifecycle_summary)
@@ -5752,7 +5876,12 @@ def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
     for variant in PRIMARY_REPORT_VARIANTS:
         title = REPORT_VARIANT_LABELS[variant]
         default_framework = DEFAULT_COMPLIANCE_FRAMEWORK if variant == "compliance" else None
-        markdown_content = render_markdown_report(run, variant=variant, framework=default_framework)
+        markdown_content = render_markdown_report(
+            run,
+            variant=variant,
+            framework=default_framework,
+            context=context,
+        )
         framework_summary = (
             compliance_framework_package_context(context, default_framework)
             if variant == "compliance" and default_framework in COMPLIANCE_FRAMEWORK_PACKAGES
@@ -5855,8 +5984,14 @@ def build_report_catalog(run: Run) -> list[RunReportCatalogItemRead]:
     return catalog
 
 
-def render_markdown_report(run: Run, *, variant: str = "technical", framework: str | None = None) -> str:
-    context = report_context(run)
+def render_markdown_report(
+    run: Run,
+    *,
+    variant: str = "technical",
+    framework: str | None = None,
+    context: dict[str, object] | None = None,
+) -> str:
+    context = context or report_context(run)
     requested_variant = variant
     framework_variant = compliance_framework_for_request(requested_variant, framework)
     variant = normalize_report_variant(requested_variant)
@@ -6080,8 +6215,14 @@ def render_markdown_report(run: Run, *, variant: str = "technical", framework: s
     return _finalize_markdown_report(run, context, variant, "\n".join(lines).rstrip() + "\n")
 
 
-def render_html_report(run: Run, *, variant: str = "technical", framework: str | None = None) -> str:
-    context = report_context(run)
+def render_html_report(
+    run: Run,
+    *,
+    variant: str = "technical",
+    framework: str | None = None,
+    context: dict[str, object] | None = None,
+) -> str:
+    context = context or report_context(run)
     requested_variant = variant
     framework_variant = compliance_framework_for_request(requested_variant, framework)
     variant = normalize_report_variant(requested_variant)
