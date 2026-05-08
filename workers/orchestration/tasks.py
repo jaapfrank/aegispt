@@ -4347,7 +4347,7 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             raise ValueError(f"task not found: {task_id}")
         if task.run is None:
             raise ValueError(f"task {task_id} is not attached to a run")
-        if task.status not in {"queued", "failed"}:
+        if task.status not in {"queued", "failed", "dispatching"}:
             return {"task_id": task_id, "status": task.status}
         if task.run.status in {"cancelled", "cancelling"}:
             task.status = "cancelled"

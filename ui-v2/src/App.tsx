@@ -256,8 +256,7 @@ function AppShell() {
   ]);
 
   const runningRunCount = runs.filter((run) => ['dispatching', 'running'].includes(run.status)).length;
-  const openRunCount = runs.filter((run) => ['queued', 'requested', 'dispatching', 'running'].includes(run.status)).length;
-  const runActivityLabel = runningRunCount > 0 ? `${runningRunCount} running` : `${openRunCount} open`;
+  const runActivityLabel = `${runningRunCount} running`;
   const engagementLabel = selectedEngagement?.name ?? (loading.bootstrap ? 'Loading engagements' : 'No engagement selected');
 
   return (
@@ -291,11 +290,11 @@ function AppShell() {
           </div>
 
           <div className="flex h-full items-center gap-4">
-            {openRunCount > 0 && (
+            {runningRunCount > 0 && (
               <div className="flex items-center gap-2 rounded-full bg-cyan/10 px-3 py-1 border border-cyan/20">
                 <div className={cn(
                   'h-[7px] w-[7px] rounded-full bg-cyan shadow-[0_0_8px_rgba(94,207,255,0.8)]',
-                  runningRunCount > 0 && 'animate-pulse-fast',
+                  'animate-pulse-fast',
                 )} />
                 <span className="text-[0.925rem] font-medium text-cyan">{runActivityLabel}</span>
               </div>

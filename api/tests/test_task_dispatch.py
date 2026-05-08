@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from api.app.config import Settings
 from api.app.services.task_dispatch import _inline_task_worker_count, dispatch_task_batch
@@ -149,6 +149,30 @@ def test_run_event_stream_emits_real_completed_snapshot(inline_client, probe_ser
     assert snapshot["status"] == "completed"
     assert snapshot["task_counts"] == {"completed": 1}
     assert snapshot["tasks"][0]["status"] == "completed"
+
+
+def test_process_task_by_id_accepts_dispatching_task(client, probe_server: str) -> None:
+    from api.app.models import Task
+    from workers.orchestration.tasks import process_task_by_id
+
+    run_payload = _create_passive_web_run(client, target_url=probe_server)
+    task_id = run_payload["tasks"][0]["id"]
+
+    session_factory = client.app.state.session_factory
+    with session_factory() as session:
+        task = session.get(Task, UUID(task_id))
+        assert task is not None
+        assert task.run is not None
+        task.status = "dispatching"
+        task.run.status = "running"
+        session.commit()
+
+    result = process_task_by_id(task_id)
+
+    assert result["status"] == "completed"
+    detail_response = client.get(f"/api/v1/tasks/{task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["status"] == "completed"
 
 
 def test_run_event_stream_returns_404_for_unknown_run(client) -> None:

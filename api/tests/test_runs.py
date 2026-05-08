@@ -6394,6 +6394,99 @@ def test_active_run_requires_approval_before_queueing(client) -> None:
     assert approval_payload["findings"]["finding_count"] == 0
 
 
+def test_background_dispatch_marks_automatic_work_dispatching(client, monkeypatch) -> None:
+    from api.app.config import Settings
+    from api.app.models import Run
+    import api.app.services.runs as runs_service
+
+    engagement_id = create_engagement_with_scope(client)
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={"profile_name": "passive-web-baseline"},
+    )
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+
+    dispatched_task_ids: list[str] = []
+
+    def fake_dispatch_task_batch(task_ids, settings, background_tasks=None) -> str:
+        dispatched_task_ids.extend(str(task_id) for task_id in task_ids)
+        assert background_tasks is not None
+        assert settings.task_dispatch_mode == "inline"
+        return "inline"
+
+    monkeypatch.setattr(runs_service, "dispatch_task_batch", fake_dispatch_task_batch)
+
+    session_factory = client.app.state.session_factory
+    with session_factory() as session:
+        run = session.scalar(select(Run).where(Run.id == UUID(created_payload["id"])))
+        assert run is not None
+
+        dispatch_mode, task_ids = runs_service.dispatch_queued_run_tasks(
+            session,
+            run=run,
+            actor="operator-ui",
+            settings=Settings(task_dispatch_mode="inline"),
+            background_tasks=object(),
+        )
+        session.commit()
+
+    assert dispatch_mode == "inline"
+    assert sorted(dispatched_task_ids) == sorted(str(task_id) for task_id in task_ids)
+
+    detail_response = client.get(f"/api/v1/runs/{created_payload['id']}")
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["status"] == "running"
+    assert detail_payload["tasks"][0]["status"] == "dispatching"
+    assert detail_payload["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"] == "inline"
+
+
+def test_background_object_does_not_mark_manual_dispatch(client, monkeypatch) -> None:
+    from api.app.config import Settings
+    from api.app.models import Run
+    import api.app.services.runs as runs_service
+
+    engagement_id = create_engagement_with_scope(client)
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={"profile_name": "passive-web-baseline"},
+    )
+    assert create_response.status_code == 201
+    created_payload = create_response.json()
+
+    def fake_dispatch_task_batch(task_ids, settings, background_tasks=None) -> str:
+        assert task_ids
+        assert background_tasks is not None
+        assert settings.task_dispatch_mode == "manual"
+        return "manual"
+
+    monkeypatch.setattr(runs_service, "dispatch_task_batch", fake_dispatch_task_batch)
+
+    session_factory = client.app.state.session_factory
+    with session_factory() as session:
+        run = session.scalar(select(Run).where(Run.id == UUID(created_payload["id"])))
+        assert run is not None
+
+        runs_service.dispatch_queued_run_tasks(
+            session,
+            run=run,
+            actor="operator-ui",
+            settings=Settings(task_dispatch_mode="manual"),
+            background_tasks=object(),
+        )
+        session.commit()
+
+    detail_response = client.get(f"/api/v1/runs/{created_payload['id']}")
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["status"] == "queued"
+    assert detail_payload["tasks"][0]["status"] == "queued"
+    assert detail_payload["configuration_json"]["runtime_dispatch"]["last_dispatch_mode"] == "manual"
+
+
 def test_low_impact_web_recon_requires_approval_and_queues_nmap_plus_httpx_for_url_scope(client) -> None:
     engagement_id = create_engagement_with_url_scope(client, "https://example.com")
 

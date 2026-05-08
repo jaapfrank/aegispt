@@ -5643,6 +5643,20 @@ def dispatch_queued_run_tasks(
             f"queued tasks require unsupported execution tools: {', '.join(unsupported_tools)}"
         )
 
+    dispatch_mode_name = settings.task_dispatch_mode.strip().lower()
+    mark_dispatching = (
+        dispatch_mode_name == "dramatiq"
+        or (dispatch_mode_name == "inline" and background_tasks is not None)
+    )
+    dispatch_started_at = datetime.now(tz=UTC)
+    if mark_dispatching:
+        for task in queued_tasks:
+            task.status = "dispatching"
+        if run.status in {"queued", "requested"}:
+            run.status = "running"
+        run.started_at = run.started_at or dispatch_started_at
+        session.flush()
+
     dispatch_mode = dispatch_task_batch(
         [task.id for task in queued_tasks],
         settings,
@@ -5653,7 +5667,7 @@ def dispatch_queued_run_tasks(
         "runtime_dispatch": {
             **dict((run.configuration_json or {}).get("runtime_dispatch") or {}),
             "last_dispatch_mode": dispatch_mode,
-            "last_dispatched_at": datetime.now(tz=UTC).isoformat(),
+            "last_dispatched_at": dispatch_started_at.isoformat(),
             "last_dispatched_by": actor,
             "queued_task_count": len(queued_tasks),
         },

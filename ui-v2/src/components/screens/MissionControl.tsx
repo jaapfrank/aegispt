@@ -113,7 +113,10 @@ export default function MissionControl() {
   );
   const pendingProposalCount = proposals.filter((proposal) => proposal.status === 'pending').length;
   const canCancel = Boolean(selectedRun && !TERMINAL_STATUSES.has(selectedRun.status));
-  const canDispatch = Boolean(selectedRun && ['queued', 'requested'].includes(selectedRun.status));
+  const selectedRunIsAutomatic = Boolean(selectedRun && isAutomaticRun(selectedRun));
+  const canDispatch = Boolean(
+    selectedRun && !selectedRunIsAutomatic && ['queued', 'requested'].includes(selectedRun.status),
+  );
   const canApprovePhase = Boolean(
     selectedRun &&
       chainId(chain) &&
@@ -351,15 +354,17 @@ export default function MissionControl() {
             <MonitorPlay size={15} />
             Cinema Mode
           </button>
-          <button
-            type="button"
-            onClick={() => void handleDispatch()}
-            disabled={!canDispatch || busyAction !== null}
-            className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[0.925rem] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Play size={15} />
-            Run Queued Checks Now
-          </button>
+          {!selectedRunIsAutomatic && (
+            <button
+              type="button"
+              onClick={() => void handleDispatch()}
+              disabled={!canDispatch || busyAction !== null}
+              className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[0.925rem] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Play size={15} />
+              Run Queued Checks Now
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void handleCancel()}
@@ -830,9 +835,11 @@ function buildExecutionNotice(run: Run, tasks: Task[], currentPhase: PhaseView |
   const dispatchMode = stringValue(runtimeDispatch(run)?.last_dispatch_mode);
 
   if (runningTask) {
+    const statusText =
+      runningTask.status === 'dispatching' ? 'is being handed to the runner' : 'is running';
     return {
       title: 'Runner active',
-      detail: `${runningTask.tool} is running against ${truncateMiddle(runningTask.target_id, 90)}.`,
+      detail: `${runningTask.tool} ${statusText} against ${truncateMiddle(runningTask.target_id, 90)}.`,
       tone: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100',
     };
   }
@@ -847,8 +854,8 @@ function buildExecutionNotice(run: Run, tasks: Task[], currentPhase: PhaseView |
 
   if (queuedCount > 0 && isAutomaticRun(run)) {
     return {
-      title: 'Automatic launch queued',
-      detail: `${queuedCount} check(s) are waiting for the backend dispatcher; Mission Control is polling every 3s.`,
+      title: 'Automatic launch starting',
+      detail: `${queuedCount} check(s) have been accepted for automatic dispatch; Mission Control is polling every 3s.`,
       tone: 'border-cyan/20 bg-cyan/10 text-cyan',
     };
   }
