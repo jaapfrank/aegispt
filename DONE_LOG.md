@@ -1,5 +1,43 @@
 # Done Log
 
+- 2026-05-08: completed backlog-303 `AI Goal-Oriented (CTF) Reasoning Mode`:
+  - rationale:
+    - ai_loop operators need to state an explicit objective and have the loop reason backward toward it without turning objective text into ungated execution
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-296` and backlog-296 is present in this log
+    - `ui-v2` validation was not required because the task package has `must_not_touch: ["ui-v2/"]` and this slice changed backend/API/runtime behavior only
+    - the package success criteria and next queued package mention broader Gruyere autonomous chaining; this slice implemented the active goal-oriented reasoning mode and keeps live Gruyere proof tracked separately
+  - implementation:
+    - added `POST /api/v1/runs/{run_id}/assessment-loop/goal`
+    - added `AssessmentLoopGoalCreate` and exposed `goal_oriented_reasoning` in `AssessmentLoopRead`
+    - stored normalized objectives under `Run.configuration_json.ai_assessment_loop.goal_oriented_reasoning`
+    - recorded objective registration as `assessment_loop_goal_oriented_reasoning` AgentReasoning with no work dispatch
+    - built bounded, evidence-linked hypothesis paths from objective type, approved targets, context-document refs, completed runner outputs, findings, and registered runner capabilities
+    - gated objective recording and loop advancement to runs explicitly configured with `run_mode=ai_loop`
+    - made `advance_assessment_loop()` prefer stored goal-oriented steps when present, while retaining existing passive task queueing, active/intrusive proposal review, rationale ledger, scope/ROE, provenance, and kill-switch contracts
+    - used controlled proof, canary evidence, and session exposure risk language for sensitive objective paths
+  - files:
+    - `api/app/services/assessment_loop.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/tests/test_assessment_loop.py`
+    - `codex/results/backlog-303-goal-oriented-ctf-reasoning-mode-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `pytest api/tests/test_assessment_loop.py -q` passed: 8 passed
+    - `python3 -m compileall -q api/app/services/assessment_loop.py api/app/routers/runs.py api/app/schemas/runs.py` passed
+    - `pytest api/tests/` with system Python failed during collection because `pypdf` was not installed in that interpreter
+    - `.venv/bin/python -m pytest api/tests/` passed: 537 passed, 4 warnings
+  - proof:
+    - evidence file `codex/results/backlog-303-goal-oriented-ctf-reasoning-mode-20260508.md`
+    - regression proof records a billing-database objective, stores a non-dispatching bounded hypothesis path, and confirms no task is created during goal registration
+    - regression proof rejects the goal endpoint for a non-`ai_loop` run
+    - regression proof advances the loop from the stored objective and verifies the selected action is still tied to queued task/proposal/rationale metadata through existing paths
+  - risks / exceptions:
+    - no live local Gruyere autonomous multi-step benchmark was executed; `extra_tests.md` XT-033 and `risico.md` R-025 track that proof gap
+    - no live worker-dispatched objective run against WebGoat, DVWA, Gruyere, or an AD lab was executed
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-304 `Google Gruyere Multi-Step Exploit AI Benchmark`, from `codex/tasks/backlog-304-gruyere-multi-step-ai-benchmark.json`.
+
 - 2026-05-08: completed backlog-302 `Stateful AI Credential & Token Vault`:
   - rationale:
     - ai_loop runs need a run-scoped memory bank for credentials/tokens discovered during an assessment, but those values must stay encrypted, redacted from API/task/artifact/log surfaces, and cleared when the run truly terminates

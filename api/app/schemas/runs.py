@@ -293,6 +293,11 @@ class AssessmentLoopAdvanceCreate(BaseModel):
     operator_note: str | None = Field(default=None, max_length=1000)
 
 
+class AssessmentLoopGoalCreate(BaseModel):
+    objective: str = Field(min_length=3, max_length=1000)
+    operator_note: str | None = Field(default=None, max_length=1000)
+
+
 class RunCredentialVaultCreate(BaseModel):
     secret_kind: Literal["api_key", "bearer_token", "password", "session"]
     value: str = Field(min_length=1)
@@ -365,6 +370,7 @@ class AssessmentLoopRead(BaseModel):
     latest_next_action: dict[str, Any] | None = None
     active_tasks: list[dict[str, Any]] = Field(default_factory=list)
     assessment_plan_summary: dict[str, Any] = Field(default_factory=dict)
+    goal_oriented_reasoning: dict[str, Any] = Field(default_factory=dict)
     rationale_ledger: list[dict[str, Any]] = Field(default_factory=list)
     iterations: list[dict[str, Any]] = Field(default_factory=list)
     dispatches_work_directly: bool = False

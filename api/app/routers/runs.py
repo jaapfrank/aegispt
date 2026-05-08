@@ -49,6 +49,7 @@ from api.app.schemas.runs import (
     ApprovalCreate,
     ApprovalRead,
     AssessmentLoopAdvanceCreate,
+    AssessmentLoopGoalCreate,
     AssessmentLoopRead,
     AssessmentPlanQueueCreate,
     AssessmentPlanQueueRead,
@@ -101,7 +102,11 @@ from api.app.services.assessment_chain import (
     load_assessment_chain,
     normalize_assessment_mode,
 )
-from api.app.services.assessment_loop import advance_assessment_loop, build_assessment_loop_state
+from api.app.services.assessment_loop import (
+    advance_assessment_loop,
+    build_assessment_loop_state,
+    record_assessment_loop_goal,
+)
 from api.app.services.assessment_planner import (
     build_assessment_plan_for_run,
     complete_adaptive_execution_wave,
@@ -1156,6 +1161,44 @@ def get_run_assessment_loop(
         raise HTTPException(status_code=409, detail="engagement scope missing during assessment loop")
     return AssessmentLoopRead.model_validate(
         build_assessment_loop_state(session=session, run=run, scope=scope)
+    )
+
+
+@router.post("/runs/{run_id}/assessment-loop/goal", response_model=AssessmentLoopRead)
+def record_run_assessment_loop_goal(
+    run_id: UUID,
+    payload: AssessmentLoopGoalCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> AssessmentLoopRead:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    scope = session.scalar(latest_scope_query(run.engagement_id))
+    if scope is None:
+        raise HTTPException(status_code=409, detail="engagement scope missing during assessment loop")
+    try:
+        outcome = record_assessment_loop_goal(
+            session=session,
+            run=run,
+            scope=scope,
+            actor=actor,
+            objective=payload.objective,
+            operator_note=payload.operator_note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session.commit()
+    hydrated_run = load_run(session, run.id)
+    if hydrated_run is None:
+        raise HTTPException(status_code=500, detail="run could not be reloaded after assessment loop goal update")
+    hydrated_scope = session.scalar(latest_scope_query(hydrated_run.engagement_id))
+    if hydrated_scope is None:
+        raise HTTPException(status_code=409, detail="engagement scope missing during assessment loop")
+    return AssessmentLoopRead.model_validate(
+        {
+            **build_assessment_loop_state(session=session, run=hydrated_run, scope=hydrated_scope),
+            "goal_oriented_reasoning": outcome.get("goal_oriented_reasoning", {}),
+        }
     )
 
 

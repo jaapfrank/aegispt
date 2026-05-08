@@ -137,6 +137,120 @@ def test_assessment_loop_url_seed_queues_passive_next_action_with_required_shape
         assert proposal.metadata_json["queued_task_id"] == str(task.id)
 
 
+def test_assessment_loop_goal_records_bounded_hypothesis_without_dispatch(client) -> None:
+    engagement_id = _create_engagement_and_scope(
+        client,
+        {"urls": ["https://loop.example.test"]},
+    )
+    run_id = _create_loop_run(
+        client,
+        engagement_id,
+        targets={"urls": ["https://loop.example.test"]},
+    )
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/assessment-loop/goal",
+        headers={"X-Actor": "loop-tester"},
+        json={
+            "objective": "Access the billing database using controlled proof only",
+            "operator_note": "CTF objective inside the approved lab scope.",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    goal = payload["goal_oriented_reasoning"]
+    assert goal["objective"] == "Access the billing database using controlled proof only"
+    assert goal["objective_type"] == "data_access_objective"
+    assert goal["dispatches_work_directly"] is False
+    assert goal["registered_runner_required"] is True
+    assert goal["scope_enforced"] is True
+    assert goal["approval_gates_bypassed"] is False
+    assert goal["reasoning_id"]
+    path = goal["hypothesis_path"]
+    assert path
+    assert path[0]["tool"] == "httpx"
+    assert path[0]["dispatches_work"] is False
+    assert path[0]["evidence_links"]
+    assert all(step["registered_runner_required"] is True for step in path)
+    assert all(step["scope_enforced"] is True for step in path)
+    assert "exploit" not in " ".join(step["reason"].lower() for step in path)
+
+    with client.app.state.session_factory() as session:
+        tasks = session.scalars(select(Task).where(Task.run_id == UUID(run_id))).all()
+        assert tasks == []
+        run = session.get(Run, UUID(run_id))
+        assert run is not None
+        stored_goal = run.configuration_json["ai_assessment_loop"]["goal_oriented_reasoning"]
+        assert stored_goal["objective_type"] == "data_access_objective"
+
+
+def test_assessment_loop_goal_is_gated_to_ai_loop_runs(client) -> None:
+    engagement_id = _create_engagement_and_scope(
+        client,
+        {"urls": ["https://loop.example.test"]},
+    )
+    run_id = _create_loop_run(
+        client,
+        engagement_id,
+        targets={"urls": ["https://loop.example.test"]},
+        configuration={"run_mode": "manual"},
+    )
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/assessment-loop/goal",
+        headers={"X-Actor": "loop-tester"},
+        json={"objective": "Access the billing database using controlled proof only"},
+    )
+
+    assert response.status_code == 409
+    assert "run_mode=ai_loop" in response.json()["detail"]
+
+
+def test_assessment_loop_goal_drives_next_action_through_existing_rationale_path(client) -> None:
+    engagement_id = _create_engagement_and_scope(
+        client,
+        {"urls": ["https://loop.example.test"]},
+    )
+    run_id = _create_loop_run(
+        client,
+        engagement_id,
+        targets={"urls": ["https://loop.example.test"]},
+    )
+    goal_response = client.post(
+        f"/api/v1/runs/{run_id}/assessment-loop/goal",
+        headers={"X-Actor": "loop-tester"},
+        json={"objective": "Access the billing database using controlled proof only"},
+    )
+    assert goal_response.status_code == 200
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/assessment-loop/iterate",
+        headers={"X-Actor": "loop-tester"},
+        json={"operator_note": "Follow the stored objective path."},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    next_action = payload["next_action"]
+    assert next_action["decision_source"] == "goal_oriented_reasoning"
+    assert next_action["params"]["source"] == "goal_oriented_reasoning"
+    assert next_action["params"]["goal_oriented_reasoning"]["objective_type"] == "data_access_objective"
+    assert next_action["params"]["goal_oriented_reasoning"]["evidence_links"]
+    assert payload["queued_task_id"]
+    assert payload["rationale_ledger_entry_id"]
+
+    with client.app.state.session_factory() as session:
+        task = session.get(Task, UUID(payload["queued_task_id"]))
+        assert task is not None
+        assert task.tool == "httpx"
+        goal_meta = task.params_json["goal_oriented_reasoning"]
+        assert goal_meta["hypothesis_step_id"] == "goal-step-1-httpx"
+        proposal = session.get(AgentProposal, UUID(payload["proposal_id"]))
+        assert proposal is not None
+        assert proposal.metadata_json["proposal_kind"] == "assessment_loop_next_action"
+
+
 def test_assessment_loop_active_action_creates_reviewable_proposal_not_task(client) -> None:
     engagement_id = _create_engagement_and_scope(
         client,

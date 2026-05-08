@@ -262,5 +262,5 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 252. Cloud-Native Identity & Attack Path Graphing: Map cloud IAM permissions into the attack graph to show how web vulnerabilities (e.g., SSRF) lead to cloud lateral movement. `codex/tasks/backlog-300-cloud-native-attack-path-graphing.json`
 253. ~~AI Exploit Chaining & Pivot Engine~~ ✓ DONE 2026-05-08 `codex/tasks/backlog-301-ai-exploit-chaining-and-pivot-engine.json`
 254. ~~Stateful AI Credential & Token Vault~~ ✓ DONE 2026-05-08 `codex/tasks/backlog-302-stateful-ai-credential-and-token-vault.json`
-255. AI Goal-Oriented (CTF) Reasoning Mode: Allow operators to set specific breach objectives (e.g., 'Read /etc/shadow'). The AI works backward, chaining exploits specifically to reach that goal. `codex/tasks/backlog-303-goal-oriented-ctf-reasoning-mode.json`
+255. ~~AI Goal-Oriented (CTF) Reasoning Mode~~ ✓ DONE 2026-05-08 `codex/tasks/backlog-303-goal-oriented-ctf-reasoning-mode.json`
 256. Google Gruyere Multi-Step Exploit Benchmark: Prove the AI can autonomously chain multiple vulnerabilities together (e.g., XSS to Token Theft to Authenticated RCE) against a deliberate vulnerable application. `codex/tasks/backlog-304-gruyere-multi-step-ai-benchmark.json`
