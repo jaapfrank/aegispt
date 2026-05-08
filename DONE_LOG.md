@@ -1,5 +1,60 @@
 # Done Log
 
+- 2026-05-08: completed backlog-302 `Stateful AI Credential & Token Vault`:
+  - rationale:
+    - ai_loop runs need a run-scoped memory bank for credentials/tokens discovered during an assessment, but those values must stay encrypted, redacted from API/task/artifact/log surfaces, and cleared when the run truly terminates
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-296` and backlog-296 is present in this log
+    - `http://127.0.0.1:8000` browser validation was not required because this slice changed backend/API/runtime behavior only and did not touch UI; live API smoke ran on temporary port `http://127.0.0.1:8032`
+    - the package success criteria again mention broader pivot/Gruyere autonomous chaining; this slice implemented the active credential/token vault task only and keeps live Gruyere proof tracked separately
+  - implementation:
+    - added `api/app/services/run_credential_vault.py` using existing encrypted `SecretRef` storage with run-vault metadata instead of a second secret lane
+    - added `GET /api/v1/runs/{run_id}/credential-vault` and `POST /api/v1/runs/{run_id}/credential-vault`
+    - gated vault availability to `run_mode === "ai_loop"` / `ai_assessment_loop.run_mode === "ai_loop"`
+    - added redacted vault payloads that expose secret IDs, kind, display label, source metadata, and public binding refs only
+    - wired ai_loop passive task queueing, reviewed AI proposal queueing, and normal run task queueing to inject vault secret bindings into subsequent authenticated-capable web tasks, including `zap`, `nuclei`, and `content-discovery`/ffuf
+    - runtime materialization resolves injected secret bindings only in memory before runner dispatch; task params/API responses retain refs only
+    - ai_loop protected runner outputs with supported secret kinds are stored in the ephemeral run vault, while unsupported protected outputs retain the existing protected-output path
+    - vault clearing now runs on cancellation, rejection, failure, and stopped ai_loop terminal state without clearing between ordinary ai_loop iterations
+  - files:
+    - `api/app/services/run_credential_vault.py`
+    - `api/app/routers/runs.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/services/assessment_loop.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/services/runs.py`
+    - `workers/orchestration/tasks.py`
+    - `api/tests/test_run_credential_vault.py`
+    - `codex/results/backlog-302-stateful-ai-credential-and-token-vault-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/services/run_credential_vault.py api/app/services/runs.py api/app/services/assessment_loop.py api/app/services/ai_agent.py api/app/routers/runs.py workers/orchestration/tasks.py api/tests/test_run_credential_vault.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_run_credential_vault.py -q` passed: 2 passed
+    - `.venv/bin/python -m pytest api/tests/test_assessment_loop.py api/tests/test_ai_planner.py api/tests/test_ai_agent_reasoning.py::test_ai_proposal_approval_is_auditable_and_queues_follow_up_task api/tests/test_runs.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 534 passed, 4 warnings
+    - live API smoke on temporary port `http://127.0.0.1:8032` passed: `/health/live` returned `200 OK`, and the credential-vault route returned truthful `404 Not Found` for a non-existent UUID without mutating data
+  - proof:
+    - evidence file `codex/results/backlog-302-stateful-ai-credential-and-token-vault-20260508.md`
+    - regression proof stores a Gruyere-style session value through the vault API, confirms the API payload never returns plaintext, and confirms cancellation clears the vault
+    - regression proof injects the run-vault binding into a subsequent `nuclei` task as `auth_contexts` without plaintext in `Task.params_json`, then materializes the `Cookie` header only at runtime dispatch preparation
+  - risks / exceptions:
+    - no live Gruyere/WebGoat/DVWA credential extraction or authenticated runner dispatch was executed; `extra_tests.md` XT-032 and `risico.md` R-024 track that proof gap
+    - the vault is scoped to ai_loop runs only and does not replace existing operator-provided engagement secret refs
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-303 `AI Goal-Oriented (CTF) Reasoning Mode`, from `codex/tasks/backlog-303-goal-oriented-ctf-reasoning-mode.json`.
+
+- 2026-05-08: completed backlog-301 `AI Exploit Chaining & Post-Exploitation Pivot Engine`:
+  - rationale:
+    - flat single-pass scanning misses vulnerabilities behind initial entry points; pivot engine detects access-confirming findings (SSRF, RCE, SQL injection, stored XSS, path traversal, auth bypass) and automatically generates `exploitation_pivot_vantage` context documents for depth-first follow-up scanning
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-296` and backlog-296 is present in this log
+    - implementation is purely server-side; no live target actions are performed by the planner itself — the pivot context documents feed back into the runner dispatch pipeline through existing approval gates
+  - implementation:
+    - added `PIVOT_KIND`, `MAX_PIVOT_DEPTH`, and `_PIVOT_FINDING_PATTERNS` constants to `api/app/services/ai_planner.py`
+    - added `detect_pivot_eligible_findings()`, `_current_pivot_depth()`, `build_pivot_layer_from_finding()`, and `generate_pivot_contexts_for_run()` to `api/app/services/ai_planner.py`
+    - added `_maybe_detect_and_record_pivots()` to `workers/orchestration/tasks.py` and wired it after `_maybe_run_post_task_ai_analysis()` in `process_task_by_id()`
+    - added `api/tests/test_pivot_engine.py` with 6 tests covering: SSRF detection, RCE detection, benign non-match, pivot context creation, idempotency, and max-depth enforcement
+    - all 6 new tests pass; existing `test_ai_chain_detection.py` (4 tests) pass without regression
+    - idempotency uses direct SQL query against `target_context_documents` table to avoid SQLAlchemy relationship cache stale reads within the same session
+
 - 2026-05-08: completed backlog-300 `Cloud-Native Identity & Attack Path Graphing`:
   - rationale:
     - operators need cloud IAM context to appear in the same evidence-backed attack graph as web findings, so an SSRF/cloud metadata finding can show possible cloud lateral movement impact without pretending that AegisPT performed cloud actions

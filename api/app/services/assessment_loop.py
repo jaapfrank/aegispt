@@ -19,6 +19,10 @@ from api.app.services.ai_planner import (
 )
 from api.app.services.assessment_planner import build_assessment_plan_for_run
 from api.app.services.audit import write_audit_event
+from api.app.services.run_credential_vault import (
+    clear_run_credential_vault_if_terminal,
+    inject_run_credential_vault_into_task,
+)
 from api.app.services.runs import (
     derive_targets_for_run,
     pending_approvals,
@@ -518,6 +522,12 @@ def _queue_passive_loop_task(
     )
     session.add(task)
     session.flush()
+    inject_run_credential_vault_into_task(
+        session,
+        run=run,
+        task=task,
+        actor=actor,
+    )
     if str(run.status or "").lower() not in {"cancelled", "cancelling", "rejected"}:
         run.status = "queued"
     write_audit_event(
@@ -717,6 +727,12 @@ def advance_assessment_loop(
         loop_state["stop_reason"] = "max_iterations_reached"
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason="assessment_loop_max_iterations_reached",
+        )
         write_audit_event(
             session=session,
             actor=actor,
@@ -731,6 +747,12 @@ def advance_assessment_loop(
         loop_state["stop_reason"] = "stuck_no_new_signals"
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason="assessment_loop_stuck_no_new_signals",
+        )
         write_audit_event(
             session=session,
             actor=actor,
@@ -790,6 +812,12 @@ def advance_assessment_loop(
         loop_state["stop_reason"] = "no_registered_runner_candidate"
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason="assessment_loop_no_registered_runner_candidate",
+        )
         write_audit_event(
             session=session,
             actor=actor,

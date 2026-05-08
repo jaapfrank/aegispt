@@ -293,6 +293,17 @@ class AssessmentLoopAdvanceCreate(BaseModel):
     operator_note: str | None = Field(default=None, max_length=1000)
 
 
+class RunCredentialVaultCreate(BaseModel):
+    secret_kind: Literal["api_key", "bearer_token", "password", "session"]
+    value: str = Field(min_length=1)
+    label: str | None = Field(default=None, max_length=255)
+    source_task_id: UUID | None = None
+    source_finding_id: UUID | None = None
+    target: str | None = Field(default=None, max_length=255)
+    username: str | None = Field(default=None, max_length=255)
+    discovery_source: str = Field(default="ai_loop", max_length=100)
+
+
 class RunRead(BaseModel):
     id: UUID
     engagement_id: UUID

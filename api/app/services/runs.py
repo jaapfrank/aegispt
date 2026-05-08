@@ -28,6 +28,10 @@ from api.app.models import (
 from api.app.policy.engine import execution_kill_switch_enabled, normalize_profile_limits
 from api.app.services.audit import write_audit_event
 from api.app.services.packs import artifact_refs_for_tool
+from api.app.services.run_credential_vault import (
+    clear_run_credential_vault_if_terminal,
+    inject_run_credential_vault_into_task,
+)
 from api.app.services.task_dispatch import dispatch_task_batch, supported_execution_tools
 from workers.runners.httpx.runner import normalize_http_target
 from workers.runners.metasploit.module_allowlist import resolve_allowlisted_module
@@ -5558,6 +5562,14 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
             tasks.append(task)
 
     session.flush()
+    for task in tasks:
+        inject_run_credential_vault_into_task(
+            session,
+            run=run,
+            task=task,
+            actor="system:queue_run_tasks",
+        )
+    session.flush()
     validation_record_id = _uuid_or_none(validation_params.get("validation_record_id"))
     if validation_record_id is not None and tasks:
         validation_record = session.scalar(
@@ -5803,6 +5815,12 @@ def recover_stale_run_tasks(
         run.status = "failed"
     else:
         run.status = "cancelled"
+    clear_run_credential_vault_if_terminal(
+        session,
+        run=run,
+        actor=actor,
+        reason="stale_task_recovery_terminal_status",
+    )
 
     write_audit_event(
         session=session,

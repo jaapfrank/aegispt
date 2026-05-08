@@ -19,6 +19,11 @@ from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
 from api.app.models import InventorySnapshot, Run, Scope, SecretRef, Task, ToolExecution
 from api.app.policy.engine import execution_kill_switch_enabled
 from api.app.services.ai_agent import run_post_task_analysis_for_task
+from api.app.services.ai_planner import (
+    PHASE0_LAYER_NAME,
+    generate_pivot_contexts_for_run,
+    latest_context_document,
+)
 from api.app.services.ai_shell_safety import (
     AiShellSafetyError,
     ai_shell_command_preview,
@@ -72,6 +77,11 @@ from api.app.services.notification_delivery import (
 )
 from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_task
 from api.app.services.redaction import redact_artifact_bytes, redact_text
+from api.app.services.run_credential_vault import (
+    clear_run_credential_vault_if_terminal,
+    run_uses_ai_loop,
+    store_run_credential_vault_secret,
+)
 from api.app.services.run_drift import compute_run_drift
 from api.app.services.runs import latest_scope_query, target_is_allowed
 from api.app.services.secrets import (
@@ -2578,6 +2588,8 @@ def _runner_params_for_task(session, task: Task) -> dict[str, object]:
         params["auth_contexts"] = _materialize_session_security_auth_contexts(session, task)
     if task.tool == "auth-flow":
         params["auth_contexts"] = _materialize_session_security_auth_contexts(session, task)
+    if task.tool in {"content-discovery", "nuclei", "zap"}:
+        params["auth_contexts"] = _materialize_api_assessment_auth_contexts(session, task)
     return params
 
 
@@ -2672,11 +2684,16 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
         )
     if tool == "content-discovery":
         wordlist = str(effective_params.get("wordlist_path") or "default-web-content").strip()
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
         return (
             "$ ffuf -u "
             f"{shlex.quote((normalized_targets[0] if normalized_targets else '<target>').rstrip('/') + '/FUZZ')} "
             f"-w {shlex.quote(wordlist)} -rate {int(effective_params.get('max_rps') or 2)} "
-            f"--approved-scope {target_label}{extra}"
+            f"--auth-contexts {context_count} --approved-scope {target_label}{extra}"
         )
     if tool == "nikto":
         return f"$ nikto -host {target_label}{extra} -Format json --approved-scope"
@@ -2719,8 +2736,17 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
                 + f" --approved-scope {target_label}{extra}"
             )
         template_label = str(effective_params.get("template_id") or "aegispt-http-status-200")
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
         command.extend(["-t", f"<{template_label}.yaml>"])
-        return "$ " + " ".join(shlex.quote(str(part)) for part in command)
+        return (
+            "$ "
+            + " ".join(shlex.quote(str(part)) for part in command)
+            + f" --auth-contexts {context_count}"
+        )
     if tool == "sqlmap":
         parameter_count = (
             len(effective_params.get("injectable_parameters") or [])
@@ -3032,6 +3058,13 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             f"--failed-login-attempts {min(max(failed_attempts, 1), 10)} "
             f"--configured-test-accounts-only --approved-scope {target_label}{extra}"
         )
+    if tool == "zap":
+        context_count = (
+            len(effective_params.get("auth_contexts") or [])
+            if isinstance(effective_params.get("auth_contexts"), list)
+            else 0
+        )
+        return f"$ zap --spider-passive --auth-contexts {context_count} --approved-scope {target_label}{extra}"
     if tool == "api-assessment":
         sources = []
         if effective_params.get("openapi_spec"):
@@ -3171,15 +3204,33 @@ def _update_run_status(session, run: Run) -> None:
         return
     if statuses == {"cancelled"}:
         run.status = "cancelled"
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor="system:run-status",
+            reason="all_tasks_cancelled",
+        )
         return
     if "running" in statuses:
         run.status = "running"
         return
     if statuses == {"completed"}:
         run.status = "completed"
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor="system:run-status",
+            reason="all_tasks_completed",
+        )
         return
     if "failed" in statuses and statuses.issubset({"completed", "failed"}):
         run.status = "completed_with_errors"
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor="system:run-status",
+            reason="tasks_completed_with_errors",
+        )
         return
     if "queued" in statuses:
         run.status = "queued"
@@ -3210,35 +3261,65 @@ def _store_execution(session, task: Task, execution: RunnerExecution) -> StoredE
     if execution.protected_outputs:
         settings = get_settings()
         for protected_output in execution.protected_outputs:
-            storage_backend, fallback_to_local = direct_secret_storage_backend(settings)
-            secret_ref_id = uuid.uuid4()
-            secret_ref = SecretRef(
-                id=secret_ref_id,
-                engagement_id=task.run.engagement_id,
-                vault_pointer=f"aegispt://secret-ref/{secret_ref_id}",
-                purpose=protected_output.purpose,
-                secret_kind=protected_output.secret_kind,
-                storage_backend=storage_backend,
-                display_label=protected_output.display_label,
-                encrypted_value=encrypt_secret_value(
-                    protected_output.value,
-                    settings,
-                    storage_backend=storage_backend,
-                ),
-                metadata_json={
-                    "artifact_name": protected_output.artifact_name,
-                    "content_type": protected_output.content_type,
-                    "digest": protected_output.digest,
-                    "raw_secret_material_exposed": False,
-                    "run_id": str(task.run_id) if task.run_id else None,
-                    "task_id": str(task.id),
-                    "fallback_to_local_secret_key": (
-                        fallback_to_local if storage_backend == "encrypted_local" else False
-                    ),
-                    **dict(protected_output.metadata or {}),
-                },
+            secret_ref: SecretRef | None = None
+            protected_metadata = (
+                protected_output.metadata if isinstance(protected_output.metadata, dict) else {}
             )
-            session.add(secret_ref)
+            if task.run is not None and run_uses_ai_loop(task.run):
+                try:
+                    secret_ref = store_run_credential_vault_secret(
+                        session,
+                        run=task.run,
+                        settings=settings,
+                        secret_kind=protected_output.secret_kind,
+                        value=protected_output.value,
+                        label=protected_output.display_label,
+                        source_task_id=str(task.id),
+                        source_artifact_name=protected_output.artifact_name,
+                        target=str(protected_metadata.get("target") or task.target_id or "").strip()
+                        or None,
+                        username=str(
+                            protected_metadata.get("username")
+                            or protected_metadata.get("account_name")
+                            or ""
+                        ).strip()
+                        or None,
+                        actor=f"runner:{task.tool}",
+                        discovery_source="runner_protected_output",
+                        source_tool=task.tool,
+                    )
+                except ValueError:
+                    secret_ref = None
+            if secret_ref is None:
+                storage_backend, fallback_to_local = direct_secret_storage_backend(settings)
+                secret_ref_id = uuid.uuid4()
+                secret_ref = SecretRef(
+                    id=secret_ref_id,
+                    engagement_id=task.run.engagement_id,
+                    vault_pointer=f"aegispt://secret-ref/{secret_ref_id}",
+                    purpose=protected_output.purpose,
+                    secret_kind=protected_output.secret_kind,
+                    storage_backend=storage_backend,
+                    display_label=protected_output.display_label,
+                    encrypted_value=encrypt_secret_value(
+                        protected_output.value,
+                        settings,
+                        storage_backend=storage_backend,
+                    ),
+                    metadata_json={
+                        "artifact_name": protected_output.artifact_name,
+                        "content_type": protected_output.content_type,
+                        "digest": protected_output.digest,
+                        "raw_secret_material_exposed": False,
+                        "run_id": str(task.run_id) if task.run_id else None,
+                        "task_id": str(task.id),
+                        "fallback_to_local_secret_key": (
+                            fallback_to_local if storage_backend == "encrypted_local" else False
+                        ),
+                        **protected_metadata,
+                    },
+                )
+                session.add(secret_ref)
             protected_bindings_by_artifact[protected_output.artifact_name] = public_secret_binding(
                 secret_ref
             )
@@ -4229,6 +4310,34 @@ def _maybe_run_post_task_ai_analysis(session, task: Task):
         return None
 
 
+def _maybe_detect_and_record_pivots(session, task: Task) -> int:
+    """After a completed task, scan run findings for pivot opportunities and record pivot context documents."""
+    if task.status != "completed" or task.run is None:
+        return 0
+    run = task.run
+    try:
+        parent_context = latest_context_document(session, run_id=run.id, layer_name=PHASE0_LAYER_NAME)
+        if parent_context is None:
+            return 0
+        scope = session.scalar(
+            select(Scope)
+            .where(Scope.engagement_id == run.engagement_id)
+            .order_by(Scope.created_at.desc())
+        )
+        if scope is None:
+            return 0
+        created = generate_pivot_contexts_for_run(
+            session,
+            run=run,
+            scope=scope,
+            parent_context=parent_context,
+        )
+        return len(created)
+    except Exception:
+        session.rollback()
+        return 0
+
+
 def process_task_by_id(task_id: str) -> dict[str, object]:
     task_uuid = UUID(task_id)
 
@@ -4330,6 +4439,12 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
         if terminated_by_kill_switch:
             task.status = "cancelled"
             task.run.status = "cancelled"
+            clear_run_credential_vault_if_terminal(
+                session,
+                run=task.run,
+                actor=f"runner:{task.tool}",
+                reason="execution_kill_switch_terminated_task",
+            )
         else:
             task.status = "completed" if execution.exit_code == 0 else "failed"
             _update_run_status(session, task.run)
@@ -4392,6 +4507,7 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             )
             session.commit()
         ai_outcome = _maybe_run_post_task_ai_analysis(session, task)
+        _maybe_detect_and_record_pivots(session, task)
         session.commit()
         if ai_outcome and ai_outcome.autonomous_task_ids:
             dispatch_settings = get_settings()

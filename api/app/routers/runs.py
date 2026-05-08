@@ -62,6 +62,7 @@ from api.app.schemas.runs import (
     RunCveIntelQueueTestRead,
     RunCveIntelRead,
     RunCveIntelRefreshCreate,
+    RunCredentialVaultCreate,
     RunDispatchRead,
     RunDriftRead,
     RunIntakeInterpretationCreate,
@@ -129,6 +130,11 @@ from api.app.services.reports import (
     render_markdown_report,
 )
 from api.app.services.remediation_advisor import build_choke_point_remediation_advisor
+from api.app.services.run_credential_vault import (
+    clear_run_credential_vault_if_terminal,
+    run_credential_vault_payload,
+    store_run_credential_vault_secret,
+)
 from api.app.services.run_drift import build_continuous_exposure_drift_report
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.runner_registry import runner_capability_registry
@@ -1153,6 +1159,52 @@ def get_run_assessment_loop(
     )
 
 
+@router.get("/runs/{run_id}/credential-vault")
+def get_run_credential_vault(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    _actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    return run_credential_vault_payload(session, run=run)
+
+
+@router.post("/runs/{run_id}/credential-vault", status_code=status.HTTP_201_CREATED)
+def create_run_credential_vault_entry(
+    run_id: UUID,
+    payload: RunCredentialVaultCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    settings: Settings = Depends(get_settings),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    try:
+        store_run_credential_vault_secret(
+            session,
+            run=run,
+            settings=settings,
+            secret_kind=payload.secret_kind,
+            value=payload.value,
+            label=payload.label,
+            source_task_id=str(payload.source_task_id) if payload.source_task_id else None,
+            source_finding_id=str(payload.source_finding_id) if payload.source_finding_id else None,
+            target=payload.target,
+            username=payload.username,
+            actor=actor,
+            discovery_source=payload.discovery_source,
+            source_tool="ai_loop",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session.commit()
+    hydrated_run = load_run(session, run.id)
+    if hydrated_run is None:
+        raise HTTPException(status_code=500, detail="run could not be reloaded after vault update")
+    return run_credential_vault_payload(session, run=hydrated_run)
+
+
 @router.post("/runs/{run_id}/assessment-loop/iterate", response_model=AssessmentLoopRead)
 def advance_run_assessment_loop(
     run_id: UUID,
@@ -1868,6 +1920,12 @@ def record_run_approval(
 
     if payload.decision == "rejected":
         run.status = "rejected"
+        clear_run_credential_vault_if_terminal(
+            session,
+            run=run,
+            actor=actor,
+            reason="run_approval_rejected",
+        )
         write_audit_event(
             session=session,
             actor=actor,
@@ -1977,6 +2035,12 @@ def cancel_run(
     changed = cancel_run_tasks(run)
     if not changed:
         raise HTTPException(status_code=409, detail="run can no longer be cancelled")
+    clear_run_credential_vault_if_terminal(
+        session,
+        run=run,
+        actor=actor,
+        reason="run_cancelled",
+    )
 
     write_audit_event(
         session=session,

@@ -9,11 +9,223 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.app.models import RationaleLedgerEntry, Run, Scope, TargetContextDocument
+from api.app.models import AgentProposal, Finding, RationaleLedgerEntry, Run, Scope, TargetContextDocument
 
 CONTEXT_PROFILE_VERSION = "2026-05-08.1"
 PHASE0_LAYER_NAME = "phase_0_contextual_profile"
 RECURSIVE_CONTEXT_KIND = "recursive_surface_micro_plan"
+
+# ── Pivot / post-exploitation constants ──────────────────────────────────────
+
+PIVOT_KIND = "exploitation_pivot_vantage"
+MAX_PIVOT_DEPTH = 3
+
+# Patterns in finding titles/types that indicate a confirmed access vantage.
+# Format: {pattern_fragment: (pivot_type, recommended_tools, reason_template)}
+_PIVOT_FINDING_PATTERNS: dict[str, tuple[str, list[str], str]] = {
+    "ssrf": (
+        "ssrf_outbound_pivot",
+        ["httpx", "nuclei", "api-assessment"],
+        "SSRF confirmed on {target}. New scan routed through the SSRF vector "
+        "to probe internal services not otherwise reachable from the external vantage.",
+    ),
+    "server-side request forgery": (
+        "ssrf_outbound_pivot",
+        ["httpx", "nuclei", "api-assessment"],
+        "SSRF confirmed on {target}. Internal surface accessible via SSRF vector.",
+    ),
+    "rce": (
+        "rce_shell_pivot",
+        ["priv-esc-linux", "auth-flow", "nuclei"],
+        "Remote code execution confirmed on {target}. Post-exploitation pivot to "
+        "enumerate local privilege escalation paths and internal network reach.",
+    ),
+    "remote code execution": (
+        "rce_shell_pivot",
+        ["priv-esc-linux", "auth-flow", "nuclei"],
+        "RCE confirmed on {target}. Pivot context enables depth-first enumeration "
+        "from the compromised execution environment.",
+    ),
+    "stored xss": (
+        "session_token_pivot",
+        ["auth-flow", "idor-bac", "client-state"],
+        "Stored XSS in admin context confirmed on {target}. Session token extraction "
+        "enables authenticated-surface pivot to probe admin-only attack vectors.",
+    ),
+    "cookie theft": (
+        "session_token_pivot",
+        ["auth-flow", "idor-bac"],
+        "Session token accessible via {target}. Authenticated pivot to enumerate "
+        "privileged application functionality.",
+    ),
+    "sql injection": (
+        "db_access_pivot",
+        ["sqlmap", "auth-flow"],
+        "SQL injection confirmed on {target}. Database read access pivot to extract "
+        "credential material and schema for authenticated follow-up.",
+    ),
+    "path traversal": (
+        "filesystem_pivot",
+        ["content-discovery", "priv-esc-linux"],
+        "Path traversal confirmed on {target}. Filesystem read pivot to enumerate "
+        "configuration files, credentials, and application secrets.",
+    ),
+    "authentication bypass": (
+        "session_token_pivot",
+        ["idor-bac", "client-state", "auth-flow"],
+        "Authentication bypass confirmed on {target}. Pivot to authenticated surface "
+        "to enumerate privileged functionality.",
+    ),
+    "default credentials": (
+        "session_token_pivot",
+        ["auth-flow", "idor-bac"],
+        "Default credentials confirmed on {target}. Authenticated pivot to map "
+        "administrative interface.",
+    ),
+}
+
+
+def detect_pivot_eligible_findings(
+    findings: list[Finding],
+) -> list[tuple[Finding, str, str, list[str], str]]:
+    """Return (finding, pivot_type, reason_template, tools, pattern_key) for access-confirming findings."""
+    results: list[tuple[Finding, str, str, list[str], str]] = []
+    for finding in findings:
+        title_lower = (finding.title or "").lower()
+        for pattern, (pivot_type, tools, reason_template) in _PIVOT_FINDING_PATTERNS.items():
+            if pattern in title_lower:
+                results.append((finding, pivot_type, reason_template, tools, pattern))
+                break
+    return results
+
+
+def _current_pivot_depth(run: Run) -> int:
+    """Count existing pivot context documents for this run."""
+    return sum(
+        1
+        for doc in (run.context_documents or [])
+        if (doc.context_kind or "") == PIVOT_KIND
+    )
+
+
+def build_pivot_layer_from_finding(
+    finding: Finding,
+    scope: Scope,
+    pivot_type: str,
+    reason_template: str,
+    tools: list[str],
+) -> dict[str, Any]:
+    """Build a layer descriptor for build_context_document() from an access-confirming finding."""
+    target_value = finding.target_id or ""
+    reason = reason_template.format(target=target_value)
+    return {
+        "layer_name": f"pivot_{pivot_type}_{str(finding.id)[:8]}",
+        "source_finding_id": str(finding.id),
+        "source_finding_title": finding.title,
+        "pivot_type": pivot_type,
+        "recommended_tools": tools,
+        "targets": [{"type": "url", "value": target_value}],
+        "endpoints": [target_value] if target_value else [],
+        "pivot_reason": reason,
+        "scope_ref": str(scope.id),
+        "roe_boundary_enforced": True,
+    }
+
+
+def generate_pivot_contexts_for_run(
+    session: Session,
+    *,
+    run: Run,
+    scope: Scope,
+    parent_context: TargetContextDocument,
+) -> list[TargetContextDocument]:
+    """Detect pivot opportunities from run findings and create context documents for each."""
+    # Use a direct SQL query so flushed-but-not-committed rows are visible within the same session.
+    existing_pivot_docs = list(
+        session.scalars(
+            select(TargetContextDocument).where(
+                TargetContextDocument.run_id == run.id,
+                TargetContextDocument.context_kind == PIVOT_KIND,
+            )
+        )
+    )
+    current_depth = len(existing_pivot_docs)
+    if current_depth >= MAX_PIVOT_DEPTH:
+        return []
+
+    findings = list(run.findings or [])
+    if not findings:
+        return []
+
+    eligible = detect_pivot_eligible_findings(findings)
+    if not eligible:
+        return []
+
+    existing_pivot_source_ids: set[str] = {
+        str(src)
+        for doc in existing_pivot_docs
+        if (src := (doc.provenance_json or {}).get("source_finding_id"))
+    }
+
+    created: list[TargetContextDocument] = []
+    for finding, pivot_type, reason_template, tools, _pattern in eligible:
+        if str(finding.id) in existing_pivot_source_ids:
+            continue
+        if current_depth + len(created) >= MAX_PIVOT_DEPTH:
+            break
+
+        layer = build_pivot_layer_from_finding(finding, scope, pivot_type, reason_template, tools)
+        targets = layer["targets"]
+        endpoints = layer["endpoints"]
+        micro_plan = [
+            {
+                "order": i + 1,
+                "tool": tool,
+                "target_candidates": endpoints,
+                "reason": f"Pivot tool selected for {pivot_type} from finding: {finding.title}",
+                "execution_contract": "registered_runner_or_existing_approval_flow_only",
+            }
+            for i, tool in enumerate(tools)
+        ]
+        document = TargetContextDocument(
+            run_id=run.id,
+            parent_context_document_id=parent_context.id,
+            layer_name=layer["layer_name"],
+            context_kind=PIVOT_KIND,
+            status="recorded",
+            source_targets_json=targets,
+            technologies_detected_json=[],
+            endpoints_discovered_json=endpoints,
+            recommended_tools_json=tools,
+            micro_plan_json=micro_plan,
+            evidence_refs_json=[
+                {"type": "finding", "id": str(finding.id), "title": finding.title, "target": finding.target_id}
+            ],
+            context_summary=(
+                f"Post-exploitation pivot context ({pivot_type}) derived from finding: "
+                f"'{finding.title}' on {finding.target_id}. "
+                f"Depth {current_depth + len(created) + 1}/{MAX_PIVOT_DEPTH}. "
+                f"Recommended tools: {', '.join(tools)}."
+            ),
+            provenance_json={
+                "version": CONTEXT_PROFILE_VERSION,
+                "source": "pivot_engine",
+                "source_finding_id": str(finding.id),
+                "pivot_type": pivot_type,
+                "pivot_reason": layer["pivot_reason"],
+                "scope_enforced": True,
+                "approved_scope_ref": str(scope.id),
+                "live_target_actions_performed": False,
+                "runner_registry_bypassed": False,
+                "approval_gates_bypassed": False,
+                "runtime_self_modification": False,
+            },
+        )
+        session.add(document)
+        session.flush()
+        created.append(document)
+
+    return created
 
 
 def ensure_context_document(

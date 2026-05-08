@@ -36,6 +36,7 @@ from api.app.services.chatgpt_oauth import (
     effective_ai_provider_name,
 )
 from api.app.services.finding_chains import refresh_finding_chains_for_run
+from api.app.services.run_credential_vault import inject_run_credential_vault_into_task
 from api.app.services.runs import (
     derive_targets_for_run,
     derive_targets_from_target_map,
@@ -1785,6 +1786,12 @@ def _queue_task_from_reviewed_proposal(
     )
     session.add(task)
     session.flush()
+    inject_run_credential_vault_into_task(
+        session,
+        run=run,
+        task=task,
+        actor=actor,
+    )
     if str(run.status or "").lower() not in {"cancelled", "cancelling", "rejected"}:
         run.status = "queued"
     write_audit_event(

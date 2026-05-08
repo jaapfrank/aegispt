@@ -2,15 +2,15 @@
 
 ## Title
 
-AI Exploit Chaining & Post-Exploitation Pivot Engine
+AI Goal-Oriented (CTF) Reasoning Mode
 
 ## Promoted From
 
-`codex/tasks/backlog-301-ai-exploit-chaining-and-pivot-engine.json`
+`codex/tasks/backlog-303-goal-oriented-ctf-reasoning-mode.json`
 
 ## Goal
 
-Move beyond 'flat' scanning. When the AI confirms a vulnerability that yields access (e.g., SSRF, RCE, or stolen credentials via XSS), it must automatically generate a 'Pivot Context'. It then restarts the assessment loop from this new vantage point (e.g., routing a network scan through the SSRF, or launching an authenticated web scan using the stolen cookie) to find the vulnerabilities hidden behind the initial entry point.
+Instead of asking the AI to "find vulnerabilities", allow operators to set an objective: "Access the billing database" or "Gain Domain Admin". The AI reasons backward from the goal, formulating a kill-chain hypothesis. It specifically seeks and chains controlled proof paths designed to reach that explicit objective, mimicking an advanced adversary while remaining inside AegisPT approval, scope, ROE, runner registry, provenance, and kill-switch controls.
 
 ## Scope
 
@@ -19,9 +19,10 @@ AI post-exploitation and multi-step reasoning.
 ## Constraints
 
 - Do not implement until this package is the single active task in NEXT_TASK.md.
-- Ensure the pivoting mechanism stays strictly within the authorized Rules of Engagement (ROE) boundaries.
-- Do not create runtime self-modification or uncontrolled plugin installation.
-- Do not automate lateral movement outside the approved target scope.
+- Keep execution behind registered runners or approved flows.
+- Do not bypass existing approval gates, scope/ROE boundaries, credential protections, runtime binding, reports, provenance, or kill switch.
+- Do not perform runtime self-modification or uncontrolled plugin installation.
+- Preserve manual wizard and fixed-chain flows; goal-oriented reasoning applies only to explicitly configured AI/ai_loop runs.
 
 ## Validation
 
@@ -30,6 +31,6 @@ AI post-exploitation and multi-step reasoning.
 
 ## Acceptance
 
-- AI can extract a token and pass it to a subsequent authenticated scan.
-- AI identifies a pivot point (like SSRF) and generates a sub-plan.
-- The Gruyere benchmark passes by successfully chaining 3+ vulnerabilities.
+- A goal-oriented AI run records an explicit operator objective.
+- The planner derives a bounded, evidence-linked hypothesis path toward the objective.
+- Proposed/queued actions remain tied to existing runners, approvals, rationale/provenance, and scope/ROE gates.
