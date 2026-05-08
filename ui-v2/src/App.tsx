@@ -36,11 +36,12 @@ import ReportCenter from './components/screens/ReportCenter';
 import SettingsScreen from './components/screens/Settings';
 import SurfaceMap from './components/screens/SurfaceMap';
 import {
+  ApiError,
   getEngagements,
+  getFindingsForRunContext,
   getInventoryForRun,
   getRun,
   getRunAiInsights,
-  getRunFindings,
   getRunsForEngagement,
   getSettings,
 } from './api/client';
@@ -216,7 +217,7 @@ function AppShell() {
       try {
         const runPayload = await getRun(runId);
         const [findingsPayload, inventoryPayload, aiInsightsPayload] = await Promise.all([
-          getRunFindings(runId),
+          getFindingsForRunContext(runPayload),
           getInventoryForRun(runPayload),
           getRunAiInsights(runId),
         ]);
@@ -227,7 +228,13 @@ function AppShell() {
         setAiInsights(aiInsightsPayload);
       } catch (runScopedError) {
         if (!cancelled) {
-          setError(errorMessage(runScopedError));
+          if (runScopedError instanceof ApiError && runScopedError.status === 404) {
+            const fallbackRun = runs.find((candidate) => candidate.id !== runId) ?? null;
+            setSelectedRun(fallbackRun);
+            setError(null);
+          } else {
+            setError(errorMessage(runScopedError));
+          }
           setFindings([]);
           setInventory(null);
           setAiInsights(null);
@@ -243,7 +250,7 @@ function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [selectedRunId, setAiInsights, setError, setFindings, setInventory, setLoading, setSelectedRun]);
+  }, [runs, selectedRunId, setAiInsights, setError, setFindings, setInventory, setLoading, setSelectedRun]);
 
   const runningRunCount = runs.filter((run) => ['dispatching', 'running'].includes(run.status)).length;
   const runActivityLabel = `${runningRunCount} running`;

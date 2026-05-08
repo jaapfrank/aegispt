@@ -199,6 +199,15 @@ export async function getRunFindings(runId: UUID): Promise<Finding[]> {
   return api<Finding[]>(`/api/v1/runs/${runId}/findings`);
 }
 
+export async function getAssessmentChainFindings(chainId: UUID): Promise<Finding[]> {
+  return api<Finding[]>(`/api/v1/assessment-chains/${chainId}/findings`);
+}
+
+export async function getFindingsForRunContext(run: Run): Promise<Finding[]> {
+  const chainId = typeof run.assessment_chain?.id === 'string' ? run.assessment_chain.id : null;
+  return chainId ? getAssessmentChainFindings(chainId) : getRunFindings(run.id);
+}
+
 export async function getRunTheaterFindings(runId: UUID): Promise<Finding[]> {
   return api<Finding[]>(`/api/v1/runs/${runId}/findings?theater=true`);
 }

@@ -22,13 +22,14 @@ import { Link } from 'react-router-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
+  ApiError,
   cancelRun,
   decideAssessmentChainPhase,
   dispatchRun,
+  getFindingsForRunContext,
   getInventoryForRun,
   getRun,
   getRunAiInsights,
-  getRunFindings,
   getTaskDetail,
   reviewAgentProposal,
 } from '../../api/client';
@@ -82,6 +83,7 @@ type PhaseView = {
 export default function MissionControl() {
   const selectedRun = useAegisStore((state) => state.selectedRun);
   const selectedRunId = useAegisStore((state) => state.selectedRunId);
+  const runs = useAegisStore((state) => state.runs);
   const tasks = useAegisStore((state) => state.tasks);
   const findings = useAegisStore((state) => state.findings);
   const inventory = useAegisStore((state) => state.inventory);
@@ -109,8 +111,8 @@ export default function MissionControl() {
   const mapNodes = useMemo(() => buildMapNodes(inventory, tasks, findings), [inventory, tasks, findings]);
   const activeTaskCount = tasks.filter((task) => ACTIVE_STATUSES.has(task.status)).length;
   const executionNotice = useMemo(
-    () => (selectedRun ? buildExecutionNotice(selectedRun, tasks, currentPhase) : null),
-    [currentPhase, selectedRun, tasks],
+    () => (selectedRun ? buildExecutionNotice(selectedRun, tasks) : null),
+    [selectedRun, tasks],
   );
   const pendingProposalCount = proposals.filter((proposal) => proposal.status === 'pending').length;
   const canCancel = Boolean(selectedRun && !TERMINAL_STATUSES.has(selectedRun.status));
@@ -122,7 +124,7 @@ export default function MissionControl() {
     selectedRun &&
       chainId(chain) &&
       currentPhase?.key &&
-      (chainStatus(chain) === 'pending_phase_approval' || currentPhase.requiresApproval),
+      chainStatus(chain) === 'pending_phase_approval',
   );
   const isPolling = Boolean(selectedRun && ACTIVE_STATUSES.has(selectedRun.status));
 
@@ -138,7 +140,7 @@ export default function MissionControl() {
     try {
       const run = await getRun(runId);
       const [findingsResult, inventoryResult, insightsResult] = await Promise.allSettled([
-        getRunFindings(runId),
+        getFindingsForRunContext(run),
         getInventoryForRun(run),
         getRunAiInsights(runId),
       ]);
@@ -158,7 +160,14 @@ export default function MissionControl() {
         setActionMessage('Run data refreshed from backend.');
       }
     } catch (error) {
-      setError(errorMessage(error));
+      if (error instanceof ApiError && error.status === 404) {
+        const fallbackRun = runs.find((candidate) => candidate.id !== runId) ?? null;
+        setSelectedRun(fallbackRun);
+        setTasks(fallbackRun?.tasks ?? []);
+        setError(null);
+      } else {
+        setError(errorMessage(error));
+      }
       if (!options.quiet) {
         setActionMessage('Refresh failed.');
       }
@@ -171,6 +180,7 @@ export default function MissionControl() {
     }
   }, [
     selectedRunId,
+    runs,
     setAiInsights,
     setError,
     setFindings,
@@ -838,7 +848,7 @@ function executionModeLabel(run: Run): string {
   return run.autonomous_mode ? 'AI assisted' : 'Manual';
 }
 
-function buildExecutionNotice(run: Run, tasks: Task[], currentPhase: PhaseView | null): ExecutionNotice | null {
+function buildExecutionNotice(run: Run, tasks: Task[]): ExecutionNotice | null {
   const queuedCount = tasks.filter((task) => ['queued', 'requested'].includes(task.status)).length;
   const runningTask = tasks.find((task) => ['dispatching', 'running'].includes(task.status));
   const dispatchMode = stringValue(runtimeDispatch(run)?.last_dispatch_mode);
@@ -869,7 +879,7 @@ function buildExecutionNotice(run: Run, tasks: Task[], currentPhase: PhaseView |
     };
   }
 
-  if (chainStatus(run.assessment_chain) === 'pending_phase_approval' || currentPhase?.requiresApproval) {
+  if (chainStatus(run.assessment_chain) === 'pending_phase_approval') {
     return {
       title: 'Approval required',
       detail: 'The current phase is waiting for an approval decision in the phase chain.',

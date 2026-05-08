@@ -62,6 +62,7 @@ from api.app.services.repository_integration import (
     create_fix_pr_for_finding,
     ensure_repository_link_for_finding,
 )
+from api.app.services.assessment_chain import load_assessment_chain
 from api.app.services.runs import (
     load_run,
 )
@@ -262,6 +263,30 @@ def list_run_findings(
         raise HTTPException(status_code=404, detail="run not found")
     assert_run_tenant(run, tenant_id)
     findings = session.scalars(select(Finding).where(Finding.run_id == run_id)).all()
+    quality_changed = any(
+        apply_finding_quality_defaults(finding, session=session) for finding in findings
+    )
+    if apply_findings_sla(session, list(findings), settings=settings, tenant_id=tenant_id) or quality_changed:
+        session.commit()
+    return [FindingRead.model_validate(finding) for finding in sorted(findings, key=_sort_key)]
+
+
+@router.get("/assessment-chains/{chain_id}/findings", response_model=list[FindingRead])
+def list_assessment_chain_findings(
+    chain_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+    settings: Settings = Depends(get_settings),
+) -> list[FindingRead]:
+    chain = load_assessment_chain(session, chain_id)
+    if chain is None:
+        raise HTTPException(status_code=404, detail="assessment chain not found")
+    load_engagement_for_tenant(session, chain.engagement_id, tenant_id)
+    findings = session.scalars(
+        select(Finding)
+        .join(Run, Finding.run_id == Run.id)
+        .where(Run.assessment_chain_id == chain.id, Run.deleted_at.is_(None))
+    ).all()
     quality_changed = any(
         apply_finding_quality_defaults(finding, session=session) for finding in findings
     )

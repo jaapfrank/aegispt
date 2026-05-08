@@ -10,6 +10,7 @@ from api.app.models import (
     AgentReasoning,
     AssessmentChain,
     AuditEvent,
+    Finding,
     InventorySnapshot,
     Run,
     RunProfile,
@@ -385,6 +386,72 @@ def test_full_external_web_chain_skips_missing_credential_step_without_orphan_ru
         assert skipped_step["blocker_type"] == "missing_credentials"
         assert len(runs_after) == len(runs_before) + 1
         assert chain.current_run_id == launched.id
+
+
+def test_assessment_chain_findings_endpoint_aggregates_child_runs(client) -> None:
+    engagement_id = _create_engagement_with_assessment_chain_scope(client)
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-web-baseline",
+            "assessment_mode": "FULL-EXTERNAL-WEB",
+            "assessment_auto_advance_on_phase_complete": True,
+            "configuration_json": _with_chain_authorization(
+                _assessment_chain_configuration(assessment_type="External Web"),
+                level="active",
+                mode="FULL-EXTERNAL-WEB",
+                confirmation_target="https://portal.example.test",
+                confirmed_scope="https://portal.example.test",
+            ),
+        },
+    )
+    assert create_response.status_code == 201
+    created_run = create_response.json()
+    chain_id = UUID(created_run["assessment_chain"]["id"])
+
+    with client.app.state.session_factory() as session:
+        chain = load_assessment_chain(session, chain_id)
+        assert chain is not None
+        profile = session.scalar(select(RunProfile).where(RunProfile.name == "active-web-safe"))
+        assert profile is not None
+        follow_up_run = Run(
+            engagement_id=chain.engagement_id,
+            assessment_chain_id=chain.id,
+            profile_id=profile.id,
+            requested_by="runner:httpx",
+            status="completed",
+            configuration_json=_assessment_chain_configuration(assessment_type="External Web"),
+        )
+        session.add(follow_up_run)
+        session.flush()
+        session.add_all(
+            [
+                Finding(
+                    run_id=UUID(created_run["id"]),
+                    title="Baseline finding",
+                    severity="info",
+                    target_id="https://portal.example.test",
+                    evidence_ref="artifact://baseline",
+                    status="open",
+                ),
+                Finding(
+                    run_id=follow_up_run.id,
+                    title="Active finding",
+                    severity="medium",
+                    target_id="https://portal.example.test/login",
+                    evidence_ref="artifact://active",
+                    status="open",
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get(f"/api/v1/assessment-chains/{chain_id}/findings")
+
+    assert response.status_code == 200
+    titles = {finding["title"] for finding in response.json()}
+    assert {"Baseline finding", "Active finding"}.issubset(titles)
 
 
 def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_httpx_has_no_inventory(
