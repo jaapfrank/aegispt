@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-05-08: completed backlog-297 `AI Choke-Point Remediation Advisor: Breaking the attack chain`:
+  - rationale:
+    - operators need the attack graph to point at the highest-leverage remediation action instead of only listing possible paths
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-296` and backlog-296 is present in this log
+    - `http://127.0.0.1:8000` browser validation was not required because this slice changed backend/API behavior only; no UI was changed and `ui-v2/` was explicitly out of scope
+    - the package success criteria mention micro-scanner replay, drift detection, and cloud mapping, but the queue splits those into backlog-298, backlog-299, and backlog-300; this slice implemented the backlog-297 advisor while reading existing drift/cloud context and planning controlled proof only
+  - implementation:
+    - added `api/app/services/remediation_advisor.py`
+    - added `GET /api/v1/runs/{run_id}/remediation-advisor`
+    - the advisor builds deterministic recommendations from the existing attack-path summary, ranks choke points by path impact, severity, affected findings, and estimated effort, and links each recommendation to candidate path IDs, finding IDs, evidence refs, remediation state, replay recipe availability, and validation records
+    - added drift context from existing `RunDrift` records and read-only cloud/IAM/Kubernetes context from existing attack-graph nodes and inferred edges
+    - kept the execution contract planning-only: no tasks, findings, runner dispatches, cloud actions, approval changes, scope changes, or runtime mutations are created
+  - files:
+    - `api/app/services/remediation_advisor.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_attack_paths.py`
+    - `codex/results/backlog-297-ai-choke-point-remediation-advisor-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `.venv/bin/python -m py_compile api/app/services/remediation_advisor.py api/app/routers/runs.py api/tests/test_attack_paths.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_attack_paths.py -q` passed: 8 passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 522 passed, 4 warnings
+    - live API smoke on temporary port `http://127.0.0.1:8027` passed: `/health/live` returned `200 OK`, and the new remediation-advisor route returned truthful `404 run not found` for a non-existent UUID without mutating data
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed
+    - post-promotion `git diff --check` passed
+  - proof:
+    - evidence file `codex/results/backlog-297-ai-choke-point-remediation-advisor-20260508.md`
+    - API regression proves multi-path choke-point ranking, controlled-proof planning boundaries, validation-record linkage, drift context, and read-only cloud context
+  - risks / exceptions:
+    - no live lab run with a real artifact-fed attack graph, retest workflow, drift delta, and cloud fixture was executed; `extra_tests.md` XT-028 and `risico.md` R-020 track that proof gap
+    - micro-scanner execution remains intentionally unimplemented in this slice because backlog-298 is the next queued task
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-298 `One-Click 'Proof of Resolution' Micro-Scanner`, from `codex/tasks/backlog-298-one-click-proof-of-resolution.json`.
+
 - 2026-05-08: completed backlog-296 `AI Action Rationale Ledger: Measurable and Provable AI Decisions`:
   - rationale:
     - ai_loop tool choices need a durable, operator-visible proof trail that explains which stored context was observed before a tool was queued or proposed.

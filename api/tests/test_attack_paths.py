@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
-from api.app.models import Finding
+from api.app.models import Finding, FindingRemediation, FindingValidationRecord, RunDrift
 
 
 def _create_scoped_engagement(client) -> dict:
@@ -185,6 +186,78 @@ def test_attack_path_summary_builds_multi_host_paths_and_choke_points(client) ->
     assert all(choke["path_count"] >= payload["choke_point_threshold"] for choke in payload["choke_points"])
 
 
+def test_remediation_advisor_ranks_choke_points_and_links_proof_boundaries(client) -> None:
+    _, inventory, run = _create_attack_path_run(client)
+    _seed_attack_path_findings(client, run_id=run["id"], inventory_id=inventory["id"])
+
+    with client.app.state.session_factory() as session:
+        login_finding = session.query(Finding).filter_by(
+            run_id=UUID(run["id"]),
+            title="Weak login throttling",
+        ).one()
+        login_finding.replay_recipe_json = {
+            "tool": "zap",
+            "target": login_finding.target_id,
+            "match": "login-throttling",
+        }
+        session.add(
+            FindingRemediation(
+                finding_id=login_finding.id,
+                state="ready_for_retest",
+                owner="app-team",
+                notes="Rate-limit change staged for controlled proof.",
+                created_by="advisor-test",
+                updated_by="advisor-test",
+            )
+        )
+        session.add(
+            FindingValidationRecord(
+                finding_id=login_finding.id,
+                run_id=UUID(run["id"]),
+                status="validated_confirmed",
+                validator_tool="zap",
+                validator_target_id=login_finding.target_id,
+                evidence_ref="artifact://validation/login-throttling",
+            )
+        )
+        session.add(
+            RunDrift(
+                run_id=UUID(run["id"]),
+                previous_run_id=UUID(run["id"]),
+                new_finding_count=1,
+                resolved_finding_count=0,
+                exposure_delta=12.5,
+                computed_at=datetime.now(tz=UTC),
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/api/v1/runs/{run['id']}/remediation-advisor")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["advisor_model"] == "deterministic-ai-choke-point-remediation-v1"
+    assert payload["execution_contract"]["planning_only"] is True
+    assert payload["execution_contract"]["dispatches_work"] is False
+    assert payload["execution_contract"]["approval_gates_bypassed"] is False
+    assert payload["summary"]["candidate_path_count"] == 4
+    assert payload["summary"]["recommendation_count"] >= 1
+    assert payload["drift_context"]["available"] is True
+    assert payload["drift_context"]["new_finding_count"] == 1
+
+    top = payload["recommendations"][0]
+    assert top["label"] in {"app.example.test", "https://app.example.test/login"}
+    assert top["breaks_candidate_path_count"] == 3
+    assert top["breaks_candidate_path_percent"] == 75.0
+    assert top["affected_finding_count"] == 3
+    assert top["proof_of_resolution_plan"]
+    assert any(plan["replay_recipe_available"] is True for plan in top["proof_of_resolution_plan"])
+    assert any(plan["existing_validation_count"] == 1 for plan in top["proof_of_resolution_plan"])
+    assert "controlled proof" in payload["proof_of_resolution"]["boundary"]
+    assert payload["proof_of_resolution"]["planning_only"] is True
+
+
 def test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges(client) -> None:
     engagement = _create_scoped_engagement(client)
     inventory = client.post(
@@ -356,6 +429,14 @@ def test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges(clie
     assert boundary["automatic_dispatch_performed"] is False
     assert payload["lateral_analysis"]["notes"]
     assert all(note["operator_review_required"] is True for note in payload["lateral_analysis"]["notes"])
+
+    advisor_response = client.get(f"/api/v1/runs/{run['id']}/remediation-advisor")
+    assert advisor_response.status_code == 200
+    advisor = advisor_response.json()
+    assert advisor["cloud_context"]["available"] is True
+    assert advisor["cloud_context"]["cloud_node_count"] >= 1
+    assert advisor["cloud_context"]["cloud_inferred_edge_count"] >= 1
+    assert "does not mutate cloud resources" in advisor["cloud_context"]["boundary"]
 
 
 def test_attack_path_summary_returns_truthful_zero_data_fallback(client) -> None:

@@ -128,6 +128,7 @@ from api.app.services.reports import (
     render_html_report,
     render_markdown_report,
 )
+from api.app.services.remediation_advisor import build_choke_point_remediation_advisor
 from api.app.services.run_profiles import ensure_default_run_profiles
 from api.app.services.runner_registry import runner_capability_registry
 from api.app.services.runs import (
@@ -1564,6 +1565,19 @@ def get_run_attack_paths(
     if summary is None:
         raise HTTPException(status_code=404, detail="run not found")
     return summary
+
+
+@router.get("/runs/{run_id}/remediation-advisor")
+def get_run_remediation_advisor(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    _load_run_for_tenant(session, run_id, tenant_id)
+    advisor = build_choke_point_remediation_advisor(session, run_id=run_id)
+    if advisor is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return advisor
 
 
 @router.get("/runs/{run_id}/events")

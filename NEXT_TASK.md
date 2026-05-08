@@ -2,15 +2,15 @@
 
 ## Title
 
-AI Choke-Point Remediation Advisor: Breaking the attack chain
+One-Click 'Proof of Resolution' Micro-Scanner
 
 ## Promoted From
 
-`codex/tasks/backlog-297-ai-choke-point-remediation-advisor.json`
+`codex/tasks/backlog-298-one-click-proof-of-resolution.json`
 
 ## Goal
 
-Go beyond just listing attack paths. Implement an AI engine that analyzes the entire attack graph and identifies "Choke Points" - the single cheapest or fastest remediation action that breaks the most attack paths. For example: "Instead of patching these 12 internal servers, fixing this 1 exposed Active Directory credential breaks 90% of the paths to Domain Admin".
+Close the remediation loop instantly. When a developer marks a finding as "Fixed" in Jira or the UI, AegisPT must spin up a hyper-targeted "micro-scan". It extracts the exact payload and context from the original evidence and re-fires only that specific test against the exact endpoint to verify the fix in seconds, automatically closing the SLA.
 
 ## Scope
 
