@@ -2,15 +2,15 @@
 
 ## Title
 
-AI Recursive Surface Mapping: Deep-dive sub-planning
+AI Action Rationale Ledger: Measurable and Provable AI Decisions
 
 ## Promoted From
 
-`codex/tasks/backlog-295-ai-recursive-surface-mapping.json`
+`codex/tasks/backlog-296-ai-action-rationale-ledger.json`
 
 ## Goal
 
-When a tool discovers a new layer (e.g., dirsearch finds /api/v2/, or a crawler finds a GraphQL endpoint), the AI must pause and recurse. It creates a 'Sub-Context' for this new layer and generates a new, specific micro-plan just for that endpoint. This ensures that going a layer deeper triggers a fresh analysis phase rather than just throwing generic payloads at it.
+To make the AI's behavior measurable and provable, every single tool dispatch must be backed by an immutable 'Rationale Ledger' entry. The AI must explicitly write: 'I observed X in the Context Document, therefore I am dispatching Tool Y with parameters Z'. This ledger is exposed to the operator and included in the final report to prove the pentest was methodological and not random.
 
 ## Scope
 

@@ -265,3 +265,95 @@ def test_active_action_creates_rationale_before_reviewable_proposal_not_task(cli
             select(Task).where(Task.run_id == UUID(run_id), Task.tool == "auth-flow")
         )
         assert auth_task is None
+
+
+def test_ai_loop_recurses_to_discovered_graphql_surface_before_next_action(client) -> None:
+    engagement_id = _create_engagement_and_scope(
+        client,
+        {"urls": ["https://loop.example.test"]},
+    )
+    run_id = _create_loop_run(
+        client,
+        engagement_id,
+        targets={"urls": ["https://loop.example.test"]},
+    )
+
+    first_response = client.post(
+        f"/api/v1/runs/{run_id}/assessment-loop/iterate",
+        headers={"X-Actor": "context-planner-tester"},
+        json={},
+    )
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["next_action"]["tool"] == "httpx"
+
+    with client.app.state.session_factory() as session:
+        first_task = session.get(Task, UUID(first_payload["queued_task_id"]))
+        assert first_task is not None
+        first_task.status = "completed"
+        snapshot = InventorySnapshot(
+            engagement_id=UUID(engagement_id),
+            requested_by="context-planner-tester",
+            status="completed",
+            source_tools_json=["httpx"],
+            raw_inputs_json={},
+            normalized_inventory_json={
+                "targets": ["https://loop.example.test"],
+                "signal_profile": {
+                    "signals": [
+                        {
+                            "key": "graphql_endpoint",
+                            "value": "https://loop.example.test/api/graphql",
+                            "confidence": 0.92,
+                        }
+                    ]
+                },
+                "tech_stack_profile": {
+                    "graphql_endpoints": ["https://loop.example.test/api/graphql"],
+                    "api_endpoints": ["https://loop.example.test/api"],
+                },
+            },
+            summary_json={"url_count": 1, "service_count": 1},
+            confidence_score=0.91,
+        )
+        run = session.get(Run, UUID(run_id))
+        assert run is not None
+        session.add(snapshot)
+        session.flush()
+        run.source_inventory_snapshot_id = snapshot.id
+        session.commit()
+
+    second_response = client.post(
+        f"/api/v1/runs/{run_id}/assessment-loop/iterate",
+        headers={"X-Actor": "context-planner-tester"},
+        json={},
+    )
+
+    assert second_response.status_code == 200
+    payload = second_response.json()
+    assert payload["queued_task_id"] is None
+    assert payload["proposal_id"]
+    assert payload["next_action"]["tool"] == "graphql-probe"
+    assert payload["next_action"]["target"] == "https://loop.example.test/api/graphql"
+    assert payload["next_action"]["decision_source"] == "recursive_surface_micro_plan"
+    assert payload["target_context"]["context_kind"] == "recursive_surface_micro_plan"
+
+    with client.app.state.session_factory() as session:
+        child_context = session.get(TargetContextDocument, UUID(payload["context_document_id"]))
+        assert child_context is not None
+        assert child_context.parent_context_document_id == UUID(first_payload["context_document_id"])
+        assert child_context.context_kind == "recursive_surface_micro_plan"
+        assert "graphql-probe" in child_context.recommended_tools_json
+        assert "https://loop.example.test/api/graphql" in child_context.endpoints_discovered_json
+
+        rationale = session.get(RationaleLedgerEntry, UUID(payload["rationale_ledger_entry_id"]))
+        assert rationale is not None
+        assert rationale.context_document_id == child_context.id
+        assert rationale.task_id is None
+        assert rationale.agent_proposal_id == UUID(payload["proposal_id"])
+        assert rationale.status == "pending_approval"
+
+        proposal = session.get(AgentProposal, UUID(payload["proposal_id"]))
+        assert proposal is not None
+        assert proposal.proposed_params_json["assessment_loop"]["context_document_id"] == str(child_context.id)
+        assert proposal.proposed_params_json["assessment_loop"]["rationale_ledger_entry_id"] == str(rationale.id)

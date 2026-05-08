@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 from api.app.models import AgentProposal, Run, Scope, Task
 from api.app.policy.engine import normalize_profile_limits
 from api.app.services.ai_enrichment import store_agent_proposal_record, store_agent_reasoning_record
-from api.app.services.ai_planner import ensure_context_document, latest_context_document, record_rationale
+from api.app.services.ai_planner import (
+    RECURSIVE_CONTEXT_KIND,
+    ensure_context_document,
+    ensure_recursive_surface_context,
+    latest_context_document,
+    record_rationale,
+)
 from api.app.services.assessment_planner import build_assessment_plan_for_run
 from api.app.services.audit import write_audit_event
 from api.app.services.runs import (
@@ -363,6 +369,89 @@ def _plan_candidate(
     return None
 
 
+def _context_targets(context_document) -> list[dict[str, str]]:
+    targets: list[dict[str, str]] = []
+    if context_document.context_kind != RECURSIVE_CONTEXT_KIND:
+        for target in _as_list(context_document.source_targets_json):
+            if not isinstance(target, dict):
+                continue
+            value = str(target.get("value") or "").strip()
+            kind = str(target.get("kind") or "target").strip() or "target"
+            if value:
+                targets.append({"kind": kind, "value": value})
+        if targets:
+            return targets
+    for endpoint in _as_list(context_document.endpoints_discovered_json):
+        endpoint_text = str(endpoint or "").strip()
+        if endpoint_text:
+            targets.append({"kind": "url" if "://" in endpoint_text else "target", "value": endpoint_text})
+    if targets:
+        return targets
+    for target in _as_list(context_document.source_targets_json):
+        if not isinstance(target, dict):
+            continue
+        value = str(target.get("value") or "").strip()
+        kind = str(target.get("kind") or "target").strip() or "target"
+        if value:
+            targets.append({"kind": kind, "value": value})
+    return targets
+
+
+def _context_micro_plan_candidate(
+    *,
+    scope: Scope,
+    context_document,
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    if context_document.context_kind != RECURSIVE_CONTEXT_KIND:
+        return None
+    plan_targets = _context_targets(context_document)
+    for step in _as_list(context_document.micro_plan_json):
+        if not isinstance(step, dict):
+            continue
+        tool = str(step.get("tool") or "").strip()
+        if not tool or tool not in supported_execution_tools():
+            continue
+        step_targets = [
+            {"kind": "url" if "://" in str(target or "") else "target", "value": str(target or "").strip()}
+            for target in _as_list(step.get("target_candidates"))
+            if str(target or "").strip()
+        ] or plan_targets
+        for target in step_targets:
+            target_value = str(target.get("value") or "").strip()
+            if not target_value:
+                continue
+            if _task_key(tool, target_value) in tested_keys:
+                continue
+            if not _scope_target_allowed(scope, target_value):
+                continue
+            plan_item = _capability_item(plan, tool)
+            tier = _tier_from_capability(plan_item, tool)
+            return LoopCandidate(
+                tool=tool,
+                target=target_value,
+                params={
+                    "target_kind": target.get("kind"),
+                    "source": "recursive_surface_micro_plan",
+                    "context_document_id": str(context_document.id),
+                    "context_layer": context_document.layer_name,
+                    "micro_plan_step": int(step.get("order") or 0),
+                },
+                tier=tier,
+                reasoning=str(
+                    step.get("reason")
+                    or f"Run {tool} against the newly discovered {context_document.layer_name} surface."
+                ),
+                confidence=float(plan_item.get("confidence") or 0.82),
+                follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+                expected_evidence=list(plan_item.get("expected_evidence") or []),
+                required_approvals=int(plan_item.get("required_approvals") or 0),
+                decision_source="recursive_surface_micro_plan",
+            )
+    return None
+
+
 def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
     return {
         "tool": candidate.tool,
@@ -624,12 +713,22 @@ def advance_assessment_loop(
         return build_assessment_loop_state(session, run=run, scope=scope)
 
     plan = build_assessment_plan_for_run(session, run)
-    context_document = ensure_context_document(
+    parent_context_document = ensure_context_document(
         session,
         run=run,
         scope=scope,
         targets=targets,
         plan=plan,
+    )
+    context_document = (
+        ensure_recursive_surface_context(
+            session,
+            run=run,
+            scope=scope,
+            parent_context=parent_context_document,
+            plan=plan,
+        )
+        or parent_context_document
     )
     recommended_tools = {
         str(tool).strip()
@@ -637,17 +736,22 @@ def advance_assessment_loop(
         if str(tool).strip()
     }
     tested_keys = _tested_action_keys(run)
-    candidate = _seed_candidate(
+    candidate = _context_micro_plan_candidate(
+        scope=scope,
+        context_document=context_document,
+        plan=plan,
+        tested_keys=tested_keys,
+    ) or _seed_candidate(
         run=run,
         scope=scope,
-        targets=targets,
+        targets=_context_targets(context_document) or targets,
         plan=plan,
         tested_keys=tested_keys,
         recommended_tools=recommended_tools,
     ) or _plan_candidate(
         run=run,
         scope=scope,
-        targets=targets,
+        targets=_context_targets(context_document) or targets,
         plan=plan,
         tested_keys=tested_keys,
         recommended_tools=recommended_tools,
@@ -687,6 +791,11 @@ def advance_assessment_loop(
             "iteration": iteration_number,
             "assessment_state": current_state,
             "target_context_document_id": str(context_document.id),
+            "parent_context_document_id": (
+                str(context_document.parent_context_document_id)
+                if context_document.parent_context_document_id
+                else None
+            ),
             "target_context_summary": context_document.context_summary,
             "target_context_evidence_refs": list(context_document.evidence_refs_json or []),
             "target_context_micro_plan": list(context_document.micro_plan_json or []),

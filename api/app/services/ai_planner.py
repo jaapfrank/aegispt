@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
+from urllib.parse import urlparse
 from typing import Any
 
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from api.app.models import RationaleLedgerEntry, Run, Scope, TargetContextDocume
 
 CONTEXT_PROFILE_VERSION = "2026-05-08.1"
 PHASE0_LAYER_NAME = "phase_0_contextual_profile"
+RECURSIVE_CONTEXT_KIND = "recursive_surface_micro_plan"
 
 
 def ensure_context_document(
@@ -80,12 +82,15 @@ def build_context_document(
         inventory=inventory,
         discovered_layer=discovered_layer or {},
     )
+    preferred_tools = _as_list((discovered_layer or {}).get("recommended_tools"))
     recommended_tools = _recommended_tools_from_plan(
         plan,
         targets=targets,
         technologies=technologies,
         endpoints=endpoints,
         signals=signals,
+        context_kind=context_kind,
+        preferred_tools=preferred_tools,
     )
     micro_plan = _micro_plan(recommended_tools, targets=targets, endpoints=endpoints, signals=signals)
     evidence_refs = _evidence_refs(run=run, inventory=inventory, signals=signals)
@@ -134,17 +139,140 @@ def generate_sub_plan(
     discovered_layer: dict[str, Any],
     plan: dict[str, Any] | None = None,
 ) -> TargetContextDocument:
+    targets = _targets_from_discovered_layer(discovered_layer) or parent_context.source_targets_json or []
     return build_context_document(
         session,
         run=run,
         scope=_scope_for_run(session, run),
-        targets=parent_context.source_targets_json or [],
+        targets=targets,
         plan=plan or {},
         layer_name=layer_name,
-        context_kind="recursive_surface_micro_plan",
+        context_kind=RECURSIVE_CONTEXT_KIND,
         parent_context_document_id=parent_context.id,
         discovered_layer=discovered_layer,
     )
+
+
+def ensure_recursive_surface_context(
+    session: Session,
+    *,
+    run: Run,
+    scope: Scope,
+    parent_context: TargetContextDocument,
+    plan: dict[str, Any] | None = None,
+) -> TargetContextDocument | None:
+    layers = discover_recursive_layers(run=run, parent_context=parent_context)
+    if not layers:
+        return _latest_child_context(session, parent_context=parent_context)
+
+    existing_children = {
+        child.layer_name: child
+        for child in session.scalars(
+            select(TargetContextDocument).where(
+                TargetContextDocument.run_id == run.id,
+                TargetContextDocument.parent_context_document_id == parent_context.id,
+            )
+        )
+    }
+    for layer in layers:
+        layer_name = str(layer.get("layer_name") or "").strip()
+        if not layer_name or layer_name in existing_children:
+            continue
+        return build_context_document(
+            session,
+            run=run,
+            scope=scope,
+            targets=_targets_from_discovered_layer(layer) or parent_context.source_targets_json or [],
+            plan=plan or {},
+            layer_name=layer_name,
+            context_kind=RECURSIVE_CONTEXT_KIND,
+            parent_context_document_id=parent_context.id,
+            discovered_layer=layer,
+        )
+    return _latest_child_context(session, parent_context=parent_context)
+
+
+def discover_recursive_layers(
+    *,
+    run: Run,
+    parent_context: TargetContextDocument,
+) -> list[dict[str, Any]]:
+    inventory = _run_inventory(run)
+    stack = _as_dict(inventory.get("tech_stack_profile"))
+    profile = _as_dict(inventory.get("signal_profile"))
+    signals = _signal_keys(inventory)
+    root_targets = {
+        str(target.get("value") or "").strip()
+        for target in _as_list(parent_context.source_targets_json)
+        if isinstance(target, dict)
+    }
+    layers: list[dict[str, Any]] = []
+
+    def add_layer(kind: str, endpoint: object, technologies: list[str], tools: list[str], evidence_type: str) -> None:
+        endpoint_text = _endpoint_text(endpoint)
+        if not endpoint_text or endpoint_text in root_targets:
+            return
+        if _same_url_without_path(endpoint_text, root_targets):
+            return
+        layers.append(
+            {
+                "kind": kind,
+                "layer_name": f"{kind}_{_stable_layer_suffix(endpoint_text)}",
+                "endpoints": [endpoint_text],
+                "technologies": technologies,
+                "recommended_tools": tools,
+                "evidence_refs": [{"type": evidence_type, "endpoint": endpoint_text}],
+            }
+        )
+
+    for endpoint in _as_list(stack.get("graphql_endpoints")):
+        add_layer("graphql", endpoint, ["graphql"], ["graphql-probe"], "tech_stack_profile.graphql_endpoints")
+    should_add_api_layers = (
+        "api_endpoint_present" in signals
+        or (
+            "graphql_endpoint" not in signals
+            and "login_form_found" not in signals
+            and _as_list(stack.get("api_endpoints"))
+        )
+    )
+    if should_add_api_layers:
+        for endpoint in _as_list(stack.get("api_endpoints")) + _as_list(stack.get("api_base_urls")):
+            add_layer("api", endpoint, ["api"], ["api-assessment", "content-discovery"], "tech_stack_profile.api_endpoints")
+    for endpoint in _as_list(stack.get("login_forms")):
+        add_layer("auth", endpoint, ["authenticated-web-flow"], ["auth-flow"], "tech_stack_profile.login_forms")
+    for endpoint in _as_list(stack.get("file_upload_endpoints")):
+        add_layer("upload", endpoint, ["file-upload"], ["content-discovery", "xss-extended"], "tech_stack_profile.file_upload_endpoints")
+
+    for record in _as_list(profile.get("signals")):
+        if not isinstance(record, dict):
+            continue
+        key = str(record.get("key") or "").strip()
+        if key == "graphql_endpoint":
+            add_layer("graphql", _record_endpoint(record), ["graphql"], ["graphql-probe"], "signal_profile.graphql_endpoint")
+        elif key == "api_endpoint_present":
+            add_layer("api", _record_endpoint(record), ["api"], ["api-assessment"], "signal_profile.api_endpoint_present")
+        elif key == "login_form_found":
+            add_layer("auth", _record_endpoint(record), ["authenticated-web-flow"], ["auth-flow"], "signal_profile.login_form_found")
+        elif key == "file_upload_endpoint":
+            add_layer("upload", _record_endpoint(record), ["file-upload"], ["content-discovery", "xss-extended"], "signal_profile.file_upload_endpoint")
+
+    for layer in _as_list(inventory.get("discovered_layers")):
+        if not isinstance(layer, dict):
+            continue
+        kind = str(layer.get("kind") or "layer").strip() or "layer"
+        endpoints = _as_list(layer.get("endpoints"))
+        if not endpoints:
+            endpoints = _as_list(layer.get("endpoint"))
+        technologies = _normalized_strings(_as_list(layer.get("technologies")))
+        tools = _normalized_strings(_as_list(layer.get("recommended_tools")))
+        for endpoint in endpoints:
+            add_layer(kind, endpoint, technologies, tools or ["api-assessment"], "inventory.discovered_layers")
+
+    if "graphql_endpoint" in signals and not any(layer["kind"] == "graphql" for layer in layers):
+        for endpoint in _as_list(stack.get("api_endpoints")):
+            add_layer("graphql", endpoint, ["graphql"], ["graphql-probe"], "signal_profile.graphql_endpoint")
+
+    return _dedupe_layers(layers)
 
 
 def record_rationale(
@@ -186,6 +314,26 @@ def record_rationale(
     session.add(entry)
     session.flush()
     return entry
+
+
+def _latest_child_context(
+    session: Session,
+    *,
+    parent_context: TargetContextDocument,
+) -> TargetContextDocument | None:
+    return session.scalar(
+        select(TargetContextDocument)
+        .where(
+            TargetContextDocument.run_id == parent_context.run_id,
+            TargetContextDocument.parent_context_document_id == parent_context.id,
+            TargetContextDocument.context_kind == RECURSIVE_CONTEXT_KIND,
+        )
+        .order_by(
+            TargetContextDocument.updated_at.desc(),
+            TargetContextDocument.created_at.desc(),
+            TargetContextDocument.id.desc(),
+        )
+    )
 
 
 def _scope_for_run(session: Session, run: Run) -> Scope:
@@ -279,11 +427,11 @@ def _endpoints_from_context(
 ) -> list[str]:
     stack = _as_dict(inventory.get("tech_stack_profile"))
     endpoints: list[object] = [
+        *(_as_list(discovered_layer.get("endpoints"))),
         *(_as_list(stack.get("api_endpoints"))),
         *(_as_list(stack.get("graphql_endpoints"))),
         *(_as_list(stack.get("login_forms"))),
         *(_as_list(stack.get("file_upload_endpoints"))),
-        *(_as_list(discovered_layer.get("endpoints"))),
     ]
     for target in targets:
         value = str(target.get("value") or "").strip()
@@ -298,6 +446,65 @@ def _endpoint_text(value: object) -> str:
     return str(value or "").strip()
 
 
+def _record_endpoint(record: dict[str, Any]) -> object:
+    for key in ("endpoint", "url", "path", "target"):
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    value = record.get("value")
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _targets_from_discovered_layer(discovered_layer: dict[str, Any]) -> list[dict[str, str]]:
+    targets: list[dict[str, str]] = []
+    for endpoint in _as_list(discovered_layer.get("endpoints")):
+        endpoint_text = _endpoint_text(endpoint)
+        if endpoint_text:
+            targets.append({"kind": "url" if "://" in endpoint_text else "target", "value": endpoint_text})
+    return targets
+
+
+def _same_url_without_path(endpoint: str, root_targets: set[str]) -> bool:
+    parsed_endpoint = urlparse(endpoint if "://" in endpoint else f"//{endpoint}")
+    endpoint_host = parsed_endpoint.hostname or ""
+    endpoint_path = parsed_endpoint.path or "/"
+    if endpoint_path not in {"", "/"}:
+        return False
+    for root in root_targets:
+        parsed_root = urlparse(root if "://" in root else f"//{root}")
+        if endpoint_host and endpoint_host == (parsed_root.hostname or ""):
+            return True
+    return False
+
+
+def _stable_layer_suffix(value: str) -> str:
+    parsed = urlparse(value if "://" in value else f"//{value}")
+    text = f"{parsed.hostname or ''}{parsed.path or ''}".strip("/") or value
+    chars = [char.lower() if char.isalnum() else "_" for char in text]
+    suffix = "".join(chars).strip("_")
+    while "__" in suffix:
+        suffix = suffix.replace("__", "_")
+    return suffix[:80] or "surface"
+
+
+def _dedupe_layers(layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str]] = set()
+    deduped: list[dict[str, Any]] = []
+    for layer in layers:
+        endpoints = _normalized_strings(layer.get("endpoints") or [])
+        if not endpoints:
+            continue
+        key = (str(layer.get("kind") or ""), endpoints[0])
+        if key in seen:
+            continue
+        seen.add(key)
+        layer["endpoints"] = endpoints
+        layer["technologies"] = _normalized_strings(layer.get("technologies") or [])
+        layer["recommended_tools"] = _normalized_strings(layer.get("recommended_tools") or [])
+        deduped.append(layer)
+    return deduped
+
+
 def _recommended_tools_from_plan(
     plan: dict[str, Any],
     *,
@@ -305,16 +512,20 @@ def _recommended_tools_from_plan(
     technologies: list[str],
     endpoints: list[str],
     signals: set[str],
+    context_kind: str,
+    preferred_tools: list[Any],
 ) -> list[str]:
     recommended: list[str] = []
-    for target in targets:
-        kind = str(target.get("kind") or "").strip()
-        if kind in {"url", "target"}:
-            recommended.append("httpx")
-        elif kind in {"host", "cidr"}:
-            recommended.append("nmap")
-        elif kind == "domain":
-            recommended.append("easm-discover")
+    recommended.extend(str(tool).strip() for tool in preferred_tools if str(tool or "").strip())
+    if context_kind != RECURSIVE_CONTEXT_KIND or not recommended:
+        for target in targets:
+            kind = str(target.get("kind") or "").strip()
+            if kind in {"url", "target"}:
+                recommended.append("httpx")
+            elif kind in {"host", "cidr"}:
+                recommended.append("nmap")
+            elif kind == "domain":
+                recommended.append("easm-discover")
     for item in _as_list(plan.get("runners")):
         if not isinstance(item, dict):
             continue
@@ -328,7 +539,7 @@ def _recommended_tools_from_plan(
     if "graphql" in lower_technologies or "graphql_endpoint" in signals:
         recommended.append("graphql-probe")
     if "jwt" in lower_technologies:
-        recommended.append("jwt-audit")
+        recommended.append("jwt-probe")
     if "login_form_found" in signals or "authenticated-web-flow" in lower_technologies:
         recommended.append("auth-flow")
     if "injectable_parameter" in signals or "sql_error_pattern" in signals:

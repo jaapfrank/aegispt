@@ -1,5 +1,36 @@
 # Done Log
 
+- 2026-05-08: completed backlog-295 `AI Recursive Surface Mapping: Deep-dive sub-planning`:
+  - rationale:
+    - ai_loop runs need to stop treating a newly discovered API, GraphQL endpoint, auth surface, or upload surface as generic root-target evidence.
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-260` and backlog-260 is present in this log.
+    - `http://127.0.0.1:8000` was not required for browser validation because this slice changed backend planning and API-runtime behavior only; no UI was changed.
+  - implementation:
+    - added deterministic recursive-layer discovery from stored inventory `tech_stack_profile`, `signal_profile`, and `discovered_layers` records
+    - made `generate_sub_plan` target the newly discovered layer endpoint instead of always inheriting only the root target
+    - added idempotent `ensure_recursive_surface_context` creation so a parent context can produce one child sub-context per newly discovered layer without duplicate child records
+    - made recursive context micro-plans prefer endpoint-specific registered runners such as `graphql-probe`, `api-assessment`, `auth-flow`, `content-discovery`, and `xss-extended`
+    - wired `advance_assessment_loop` to use a recursive child context for the next action when new stored evidence reveals a deeper surface
+    - preserved existing approval behavior: active recursive actions create review-only proposals, while passive actions still queue through registered runners only
+  - files:
+    - `api/app/services/ai_planner.py`
+    - `api/app/services/assessment_loop.py`
+    - `api/tests/test_ai_planner.py`
+    - `codex/results/backlog-295-ai-recursive-surface-mapping-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `source .venv/bin/activate && python -m pytest api/tests/test_ai_planner.py api/tests/test_assessment_loop.py -q` passed
+    - `source .venv/bin/activate && python -m pytest api/tests/` passed: 521 passed, 4 warnings
+    - final `python3 scripts/validate_backlog_tasks.py` passed
+    - final `git diff --check` passed
+  - proof:
+    - evidence file `codex/results/backlog-295-ai-recursive-surface-mapping-20260508.md`
+  - risks / exceptions:
+    - no live worker dispatch was run for artifact-fed recursive ai_loop behavior; extra proof is tracked in `extra_tests.md` XT-027
+    - no UI was touched; old UI task package wording remains outside this backend slice
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-296 `AI Action Rationale Ledger`, from `codex/tasks/backlog-296-ai-action-rationale-ledger.json`.
+
 - 2026-05-08: completed backlog-294 `AI Contextual Profiling Engine: Analyze before acting`:
   - rationale:
     - URL/Web App ai_loop runs need a context-first planning step so the loop does not blindly select broad or irrelevant tooling before collecting evidence.
