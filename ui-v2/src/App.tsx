@@ -255,7 +255,9 @@ function AppShell() {
     setSelectedRun,
   ]);
 
-  const activeRunCount = runs.filter((run) => ['queued', 'running', 'requested'].includes(run.status)).length;
+  const runningRunCount = runs.filter((run) => ['dispatching', 'running'].includes(run.status)).length;
+  const openRunCount = runs.filter((run) => ['queued', 'requested', 'dispatching', 'running'].includes(run.status)).length;
+  const runActivityLabel = runningRunCount > 0 ? `${runningRunCount} running` : `${openRunCount} open`;
   const engagementLabel = selectedEngagement?.name ?? (loading.bootstrap ? 'Loading engagements' : 'No engagement selected');
 
   return (
@@ -266,14 +268,14 @@ function AppShell() {
               <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] bg-cyan text-[#04080f]">
                 <Shield size={14} strokeWidth={2.5} />
               </div>
-              <span className="text-[13px] font-bold text-cyan tracking-wide">AegisPT</span>
+              <span className="text-[1rem] font-bold text-cyan tracking-wide">AegisPT</span>
             </Link>
 
             <select
               aria-label="Selected engagement"
               value={selectedEngagementId ?? ''}
               onChange={(event) => selectEngagement(event.target.value || null)}
-              className="max-w-[280px] truncate bg-transparent text-[13px] font-medium text-text outline-none hover:text-cyan transition-colors"
+              className="max-w-[280px] truncate bg-transparent text-[1rem] font-medium text-text outline-none hover:text-cyan transition-colors"
             >
               {engagements.length === 0 ? (
                 <option value="">{engagementLabel}</option>
@@ -289,17 +291,20 @@ function AppShell() {
           </div>
 
           <div className="flex h-full items-center gap-4">
-            {activeRunCount > 0 && (
+            {openRunCount > 0 && (
               <div className="flex items-center gap-2 rounded-full bg-cyan/10 px-3 py-1 border border-cyan/20">
-                <div className="h-[7px] w-[7px] rounded-full bg-cyan animate-pulse-fast shadow-[0_0_8px_rgba(94,207,255,0.8)]" />
-                <span className="text-[12px] font-medium text-cyan">{activeRunCount} active</span>
+                <div className={cn(
+                  'h-[7px] w-[7px] rounded-full bg-cyan shadow-[0_0_8px_rgba(94,207,255,0.8)]',
+                  runningRunCount > 0 && 'animate-pulse-fast',
+                )} />
+                <span className="text-[0.925rem] font-medium text-cyan">{runActivityLabel}</span>
               </div>
             )}
 
             <div className="flex h-full items-center gap-4 pl-4 border-l border-border">
               <a
                 href="/app/"
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-surface/60 px-2 py-1 text-[12px] font-medium text-muted transition-colors hover:border-cyan/40 hover:text-cyan"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-surface/60 px-2 py-1 text-[0.925rem] font-medium text-muted transition-colors hover:border-cyan/40 hover:text-cyan"
                 data-testid="switch-to-classic-ui"
               >
                 <ExternalLink size={13} />
@@ -308,7 +313,7 @@ function AppShell() {
               <NavLink to="/settings" className="text-muted hover:text-text transition-colors" aria-label="Settings">
                 <Settings size={16} />
               </NavLink>
-              <button className="flex items-center gap-2 text-[13px] font-medium text-text hover:text-cyan transition-colors">
+              <button className="flex items-center gap-2 text-[1rem] font-medium text-text hover:text-cyan transition-colors">
                 <span>{actor.name}</span>
                 <ChevronDown size={14} className="text-muted" />
               </button>
@@ -319,7 +324,7 @@ function AppShell() {
         <div className="flex flex-1 overflow-hidden">
           <aside className="w-[180px] shrink-0 border-r border-border bg-bg flex flex-col pt-4 overflow-y-auto">
             <div className="px-3 mb-6">
-              <Link className="w-full flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/5 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/10 hover:border-cyan/50 transition-all shadow-[0_0_15px_rgba(94,207,255,0.05)]" to="/intake">
+              <Link className="w-full flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/5 py-2 text-[1rem] font-medium text-cyan hover:bg-cyan/10 hover:border-cyan/50 transition-all shadow-[0_0_15px_rgba(94,207,255,0.05)]" to="/intake">
                 <Plus size={16} />
                 New Mission
               </Link>
@@ -328,7 +333,7 @@ function AppShell() {
             <nav className="flex flex-col gap-6 px-3">
               {navSections.map((section) => (
                 <div key={section.label} className="flex flex-col gap-1">
-                  <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
+                  <span className="px-2 text-[0.77rem] font-bold uppercase tracking-wider text-muted mb-1">
                     {section.label}
                   </span>
                   {section.items.map((item) => (
@@ -338,7 +343,7 @@ function AppShell() {
                       icon={<item.icon size={15} />}
                       label={item.label}
                       badge={item.badgeKey === 'findings' && findings.length > 0 ? String(findings.length) : undefined}
-                      showLivingPulse={Boolean(item.pulse && activeRunCount > 0)}
+                      showLivingPulse={Boolean(item.pulse && runningRunCount > 0)}
                     />
                   ))}
                 </div>
@@ -390,7 +395,7 @@ function NavItem({
       to={to}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center justify-between w-full rounded-md px-2 py-1.5 text-[13px] font-medium transition-all duration-200',
+          'group relative flex items-center justify-between w-full rounded-md px-2 py-1.5 text-[1rem] font-medium transition-all duration-200',
           isActive ? 'bg-cyan/10 text-cyan' : 'text-muted hover:bg-surface hover:text-text',
         )
       }
@@ -405,7 +410,7 @@ function NavItem({
           </div>
           <div className="flex items-center gap-2">
             {badge && (
-              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red/20 px-1 text-[10px] font-bold text-red">
+              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red/20 px-1 text-[0.77rem] font-bold text-red">
                 {badge}
               </span>
             )}
@@ -425,10 +430,10 @@ function NavItem({
 function IntakeScreen() {
   return (
     <div className="h-full w-full flex flex-col">
-      <h1 className="text-2xl font-semibold mb-2">New Mission Intake</h1>
-      <p className="text-muted text-[13px] mb-6">
-        AI intake and manual wizard paths remain side by side for the v2 rebuild.
-      </p>
+      <div className="shrink-0 mb-4">
+        <h1 className="text-2xl font-semibold">New Mission</h1>
+        <p className="text-muted text-[1rem] mt-1">Configure target, scope, and execution depth before launching.</p>
+      </div>
       <div className="flex-1 min-h-0">
         <Intake />
       </div>

@@ -107,8 +107,12 @@ def upsert_product_watchlist_entry(
             normalized_query=normalized_query,
             status=normalized_status,
             source=source,
+            created_at=timestamp,
+            updated_at=timestamp,
         )
         session.add(entry)
+    else:
+        entry.updated_at = timestamp
 
     entry.vendor = clean_vendor
     entry.product = clean_product

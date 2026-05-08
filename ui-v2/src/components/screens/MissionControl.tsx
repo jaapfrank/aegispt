@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Activity,
@@ -44,18 +44,23 @@ import type {
   UUID,
 } from '../../api/types';
 import { useAegisStore } from '../../store';
+import CinemaMode from '../CinemaMode';
 
 const POLL_MS = 3000;
 const ACTIVE_STATUSES = new Set(['queued', 'requested', 'dispatching', 'running']);
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'canceled']);
 const OUTPUT_LIMIT = 900;
-const CinemaMode = lazy(() => import('../CinemaMode'));
-
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 type BusyAction = 'refresh' | 'cancel' | 'dispatch' | 'phase' | `proposal-${UUID}` | null;
+
+type ExecutionNotice = {
+  title: string;
+  detail: string;
+  tone: string;
+};
 
 type MapNode = {
   id: string;
@@ -102,6 +107,10 @@ export default function MissionControl() {
   const currentPhase = phases.find((phase) => phase.current) ?? phases[0] ?? null;
   const mapNodes = useMemo(() => buildMapNodes(inventory, tasks, findings), [inventory, tasks, findings]);
   const activeTaskCount = tasks.filter((task) => ACTIVE_STATUSES.has(task.status)).length;
+  const executionNotice = useMemo(
+    () => (selectedRun ? buildExecutionNotice(selectedRun, tasks, currentPhase) : null),
+    [currentPhase, selectedRun, tasks],
+  );
   const pendingProposalCount = proposals.filter((proposal) => proposal.status === 'pending').length;
   const canCancel = Boolean(selectedRun && !TERMINAL_STATUSES.has(selectedRun.status));
   const canDispatch = Boolean(selectedRun && ['queued', 'requested'].includes(selectedRun.status));
@@ -219,7 +228,7 @@ export default function MissionControl() {
       const payload = await dispatchRun(selectedRun.id);
       setSelectedRun(payload.run);
       setTasks(payload.run.tasks ?? []);
-      setActionMessage(`Queued checks started: ${payload.dispatched_task_ids.length}.`);
+      setActionMessage(`Dispatch accepted: ${payload.dispatched_task_ids.length} queued check(s).`);
     } catch (error) {
       setError(errorMessage(error));
       setActionMessage('Start Queued Checks failed.');
@@ -276,14 +285,14 @@ export default function MissionControl() {
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold">Mission Control</h1>
-              <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted">
+              <p className="mt-2 max-w-2xl text-[1rem] leading-6 text-muted">
                 {loading.runs
                   ? 'Loading runs from the selected engagement.'
                   : 'No run is selected. Create or select a mission to view live operations.'}
               </p>
               <Link
                 to="/intake"
-                className="mt-5 inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[13px] font-semibold text-cyan transition-colors hover:bg-cyan/15"
+                className="mt-5 inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[1rem] font-semibold text-cyan transition-colors hover:bg-cyan/15"
               >
                 <Play size={15} />
                 Start Mission Intake
@@ -300,18 +309,18 @@ export default function MissionControl() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-bold uppercase', statusTone(selectedRun.status))}>
+            <span className={cn('rounded-full px-2.5 py-1 text-[0.85rem] font-bold uppercase', statusTone(selectedRun.status))}>
               {selectedRun.status}
             </span>
             {isPolling && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[11px] font-medium text-cyan">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[0.85rem] font-medium text-cyan">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse-fast" />
                 polling every 3s
               </span>
             )}
           </div>
           <h1 className="text-2xl font-semibold tracking-normal">Mission Control</h1>
-          <p className="mt-2 max-w-3xl text-[13px] leading-6 text-muted">
+          <p className="mt-2 max-w-3xl text-[1rem] leading-6 text-muted">
             {selectedRun.profile.name} is backed by run {compactId(selectedRun.id)}. Tasks, proposals, phase state, findings,
             and map nodes are rendered from backend run data.
           </p>
@@ -322,14 +331,14 @@ export default function MissionControl() {
             type="button"
             onClick={() => void refreshRun()}
             disabled={busyAction !== null}
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/70 px-3 py-2 text-[12px] font-semibold text-text transition-colors hover:border-cyan/40 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/70 px-3 py-2 text-[0.925rem] font-semibold text-text transition-colors hover:border-cyan/40 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw size={15} className={busyAction === 'refresh' ? 'animate-spin' : ''} />
             Refresh
           </button>
           <Link
             to="/findings"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/70 px-3 py-2 text-[12px] font-semibold text-text transition-colors hover:border-cyan/40 hover:text-cyan"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/70 px-3 py-2 text-[0.925rem] font-semibold text-text transition-colors hover:border-cyan/40 hover:text-cyan"
           >
             <FileText size={15} />
             View Findings
@@ -337,7 +346,7 @@ export default function MissionControl() {
           <button
             type="button"
             onClick={() => setCinemaOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[12px] font-semibold text-cyan transition-colors hover:bg-cyan/15"
+            className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[0.925rem] font-semibold text-cyan transition-colors hover:bg-cyan/15"
           >
             <MonitorPlay size={15} />
             Cinema Mode
@@ -346,16 +355,16 @@ export default function MissionControl() {
             type="button"
             onClick={() => void handleDispatch()}
             disabled={!canDispatch || busyAction !== null}
-            className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[12px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[0.925rem] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Play size={15} />
-            Start Queued Checks
+            Run Queued Checks Now
           </button>
           <button
             type="button"
             onClick={() => void handleCancel()}
             disabled={!canCancel || busyAction !== null}
-            className="inline-flex items-center gap-2 rounded-md border border-red/30 bg-red/10 px-3 py-2 text-[12px] font-semibold text-red transition-colors hover:bg-red/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-md border border-red/30 bg-red/10 px-3 py-2 text-[0.925rem] font-semibold text-red transition-colors hover:bg-red/15 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <CircleStop size={15} />
             Kill Run
@@ -364,8 +373,17 @@ export default function MissionControl() {
       </div>
 
       {actionMessage && (
-        <div className="rounded-md border border-cyan/20 bg-cyan/10 px-4 py-3 text-[13px] text-cyan">
+        <div className="rounded-md border border-cyan/20 bg-cyan/10 px-4 py-3 text-[1rem] text-cyan">
           {actionMessage}
+        </div>
+      )}
+
+      {executionNotice && (
+        <div className={cn('rounded-md border px-4 py-3 text-[0.95rem] leading-5', executionNotice.tone)}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-semibold">{executionNotice.title}</span>
+            <span>{executionNotice.detail}</span>
+          </div>
         </div>
       )}
 
@@ -409,29 +427,9 @@ export default function MissionControl() {
       </div>
 
       {cinemaOpen && (
-        <Suspense fallback={<CinemaLoading onClose={() => setCinemaOpen(false)} />}>
-          <CinemaMode onClose={() => setCinemaOpen(false)} />
-        </Suspense>
+        <CinemaMode onClose={() => setCinemaOpen(false)} />
       )}
     </section>
-  );
-}
-
-function CinemaLoading({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#020408]">
-      <div className="rounded-lg border border-cyan/30 bg-cyan/10 px-5 py-4 text-[13px] font-semibold text-cyan">
-        Loading real-data Cinema Mode
-      </div>
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-8 top-8 inline-flex h-9 w-9 items-center justify-center rounded-md border border-cyan/30 text-cyan"
-        aria-label="Close Cinema Mode loading state"
-      >
-        <X size={15} />
-      </button>
-    </div>
   );
 }
 
@@ -451,11 +449,11 @@ function OperationsSummary({
   return (
     <div className="glass-panel rounded-lg p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-cyan">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
           <Activity size={15} />
           Run Thread
         </h2>
-        <span className="text-[11px] text-muted">Updated {formatDate(run.updated_at)}</span>
+        <span className="text-[0.85rem] text-muted">Updated {formatDate(run.updated_at)}</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <MiniMetric icon={<TerminalSquare size={14} />} label="Tasks" value={taskCount} />
@@ -463,10 +461,16 @@ function OperationsSummary({
         <MiniMetric icon={<ShieldAlert size={14} />} label="Findings" value={findingCount} />
         <MiniMetric icon={<Bot size={14} />} label="AI Queue" value={pendingProposalCount} />
       </div>
-      <div className="mt-4 grid gap-2 text-[12px] text-muted">
-        <KeyValue label="Profile" value={run.profile.name} />
+      <div className="mt-4 grid gap-2 text-[0.925rem] text-muted">
+        <KeyValue
+          label="Mode"
+          value={(() => {
+            const mode = (run.configuration_json?.assessment_mode as Record<string, unknown> | undefined)?.mode as string | undefined;
+            return mode ? chainLabel(mode) : run.profile.name;
+          })()}
+        />
         <KeyValue label="Approvals" value={`${run.granted_approvals}/${run.required_approvals}`} />
-        <KeyValue label="Mode" value={run.autonomous_mode ? 'AI assisted' : 'Manual'} />
+        <KeyValue label="Execution" value={executionModeLabel(run)} />
         <KeyValue label="Started" value={run.started_at ? formatDate(run.started_at) : 'Not started'} />
       </div>
     </div>
@@ -487,11 +491,11 @@ function TaskList({
   return (
     <div className="glass-panel flex min-h-[360px] flex-col rounded-lg p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-cyan">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
           <TerminalSquare size={15} />
           Task Output
         </h2>
-        <span className="text-[11px] text-muted">{tasks.length} backend tasks</span>
+        <span className="text-[0.85rem] text-muted">{tasks.length} backend tasks</span>
       </div>
       {tasks.length === 0 ? (
         <EmptyBlock title="No tasks yet" detail="Queued checks will appear here after backend dispatch." />
@@ -509,12 +513,12 @@ function TaskList({
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-[12px] font-semibold text-text">{task.tool}</span>
-                      <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', statusTone(task.status))}>
+                      <span className="font-mono text-[0.925rem] font-semibold text-text">{task.tool}</span>
+                      <span className={cn('rounded-full px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusTone(task.status))}>
                         {task.status}
                       </span>
                     </div>
-                    <p className="mt-1 truncate text-[12px] text-muted">{task.target_id || 'No target id'}</p>
+                    <p className="mt-1 truncate text-[0.925rem] text-muted">{task.target_id || 'No target id'}</p>
                   </div>
                   <ChevronDown
                     size={15}
@@ -524,12 +528,12 @@ function TaskList({
                 {isExpanded && (
                   <div className="border-t border-border px-3 py-3">
                     {!detail ? (
-                      <div className="flex items-center gap-2 text-[12px] text-muted">
+                      <div className="flex items-center gap-2 text-[0.925rem] text-muted">
                         <Loader2 size={14} className="animate-spin text-cyan" />
                         Loading bounded execution output
                       </div>
                     ) : (
-                      <pre className="max-h-[220px] overflow-auto rounded-md border border-border bg-[#02060c] p-3 font-mono text-[11px] leading-5 text-[#c8d6e5] whitespace-pre-wrap">
+                      <pre className="max-h-[220px] overflow-auto rounded-md border border-border bg-[#02060c] p-3 font-mono text-[0.85rem] leading-5 text-[#c8d6e5] whitespace-pre-wrap">
                         {boundedOutput(detail)}
                       </pre>
                     )}
@@ -548,11 +552,11 @@ function ScanMap({ nodes, inventory }: { nodes: MapNode[]; inventory: InventoryS
   return (
     <div className="glass-panel min-h-[340px] rounded-lg p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-cyan">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
           <Map size={15} />
           Scan Map
         </h2>
-        <span className="text-[11px] text-muted">{inventory ? inventory.status : 'No inventory'}</span>
+        <span className="text-[0.85rem] text-muted">{inventory ? inventory.status : 'No inventory'}</span>
       </div>
       {nodes.length === 0 ? (
         <EmptyBlock
@@ -629,11 +633,11 @@ function PhaseChain({
   return (
     <div className="glass-panel min-h-[230px] rounded-lg p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-cyan">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
           <Workflow size={15} />
           Phase Chain
         </h2>
-        <span className="text-[11px] text-muted">{chainStatus(chain) || 'No chain'}</span>
+        <span className="text-[0.85rem] text-muted">{chainStatus(chain) || 'No chain'}</span>
       </div>
       {phases.length === 0 ? (
         <EmptyBlock title="No phase chain" detail="This run has not returned assessment chain data." />
@@ -649,12 +653,12 @@ function PhaseChain({
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-[12px] font-semibold text-text">{phase.label}</span>
-                  <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', statusTone(phase.status))}>
+                  <span className="truncate text-[0.925rem] font-semibold text-text">{phase.label}</span>
+                  <span className={cn('rounded-full px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusTone(phase.status))}>
                     {phase.status}
                   </span>
                 </div>
-                <p className="mt-1 truncate font-mono text-[11px] text-muted">{phase.key}</p>
+                <p className="mt-1 truncate font-mono text-[0.85rem] text-muted">{phase.key}</p>
               </div>
             ))}
           </div>
@@ -663,7 +667,7 @@ function PhaseChain({
               type="button"
               onClick={onApprove}
               disabled={busy}
-              className="mt-4 inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[12px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/15 disabled:opacity-50"
+              className="mt-4 inline-flex items-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[0.925rem] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/15 disabled:opacity-50"
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
               Approve Phase
@@ -687,11 +691,11 @@ function AiProposalPanel({
   return (
     <div className="glass-panel flex min-h-[360px] flex-col rounded-lg p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-cyan">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
           <Bot size={15} />
           AI Proposals
         </h2>
-        <span className="text-[11px] text-muted">{proposals.length} records</span>
+        <span className="text-[0.85rem] text-muted">{proposals.length} records</span>
       </div>
       {proposals.length === 0 ? (
         <EmptyBlock title="No AI proposals" detail="AI-assisted proposals will appear after reasoning records are written." />
@@ -704,18 +708,18 @@ function AiProposalPanel({
               <div key={proposal.id} className="rounded-md border border-border bg-surface/45 p-3">
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-[12px] font-semibold text-text">{proposal.proposed_tool}</p>
-                    <p className="mt-1 truncate text-[12px] text-muted">{proposal.proposed_target}</p>
+                    <p className="truncate font-mono text-[0.925rem] font-semibold text-text">{proposal.proposed_tool}</p>
+                    <p className="mt-1 truncate text-[0.925rem] text-muted">{proposal.proposed_target}</p>
                   </div>
-                  <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', statusTone(proposal.status))}>
+                  <span className={cn('rounded-full px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusTone(proposal.status))}>
                     {proposal.status}
                   </span>
                 </div>
-                <p className="line-clamp-3 text-[12px] leading-5 text-muted">
+                <p className="line-clamp-3 text-[0.925rem] leading-5 text-muted">
                   {proposal.reasoning_text || 'No reasoning summary returned.'}
                 </p>
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-muted">Risk tier {proposal.risk_tier}</span>
+                  <span className="text-[0.85rem] text-muted">Risk tier {proposal.risk_tier}</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -751,22 +755,22 @@ function EvidencePanel({ aiInsights, findings }: { aiInsights: unknown; findings
   return (
     <div className="glass-panel rounded-lg p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-cyan">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
           <ShieldAlert size={15} />
           Evidence Links
         </h2>
-        <span className="text-[11px] text-muted">{reasoningCount} reasoning records</span>
+        <span className="text-[0.85rem] text-muted">{reasoningCount} reasoning records</span>
       </div>
       <div className="grid gap-2">
         {findings.slice(0, 4).map((finding) => (
           <div key={finding.id} className="rounded-md border border-border bg-surface/45 p-3">
             <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="truncate text-[12px] font-semibold text-text">{finding.title}</p>
-              <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', statusTone(finding.severity))}>
+              <p className="truncate text-[0.925rem] font-semibold text-text">{finding.title}</p>
+              <span className={cn('rounded-full px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusTone(finding.severity))}>
                 {finding.severity}
               </span>
             </div>
-            <p className="truncate font-mono text-[11px] text-muted">{finding.evidence_ref}</p>
+            <p className="truncate font-mono text-[0.85rem] text-muted">{finding.evidence_ref}</p>
           </div>
         ))}
         {findings.length === 0 && <EmptyBlock title="No findings" detail="Findings will link to backend evidence references when present." />}
@@ -780,7 +784,7 @@ function MiniMetric({ icon, label, value }: { icon: ReactNode; label: string; va
     <div className="rounded-md border border-border bg-surface/45 p-3">
       <div className="mb-2 flex items-center gap-2 text-cyan">
         {icon}
-        <span className="text-[10px] font-bold uppercase">{label}</span>
+        <span className="text-[0.77rem] font-bold uppercase">{label}</span>
       </div>
       <div className="text-xl font-semibold text-text">{value}</div>
     </div>
@@ -800,10 +804,84 @@ function EmptyBlock({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="flex min-h-[160px] flex-1 flex-col items-center justify-center rounded-md border border-dashed border-border bg-surface/20 p-4 text-center">
       <AlertTriangle size={18} className="mb-3 text-muted" />
-      <p className="text-[13px] font-semibold text-text">{title}</p>
-      <p className="mt-1 max-w-sm text-[12px] leading-5 text-muted">{detail}</p>
+      <p className="text-[1rem] font-semibold text-text">{title}</p>
+      <p className="mt-1 max-w-sm text-[0.925rem] leading-5 text-muted">{detail}</p>
     </div>
   );
+}
+
+function executionModeLabel(run: Run): string {
+  const dispatchMode = stringValue(runtimeDispatch(run)?.last_dispatch_mode);
+  if (dispatchMode && dispatchMode !== 'manual') {
+    return `Automatic (${dispatchMode})`;
+  }
+  if (dispatchMode === 'manual' && isAutomaticRun(run)) {
+    return 'Automatic requested; host manual';
+  }
+  if (isAutomaticRun(run)) {
+    return 'Automatic chain';
+  }
+  return run.autonomous_mode ? 'AI assisted' : 'Manual';
+}
+
+function buildExecutionNotice(run: Run, tasks: Task[], currentPhase: PhaseView | null): ExecutionNotice | null {
+  const queuedCount = tasks.filter((task) => ['queued', 'requested'].includes(task.status)).length;
+  const runningTask = tasks.find((task) => ['dispatching', 'running'].includes(task.status));
+  const dispatchMode = stringValue(runtimeDispatch(run)?.last_dispatch_mode);
+
+  if (runningTask) {
+    return {
+      title: 'Runner active',
+      detail: `${runningTask.tool} is running against ${truncateMiddle(runningTask.target_id, 90)}.`,
+      tone: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100',
+    };
+  }
+
+  if (queuedCount > 0 && dispatchMode === 'manual' && isAutomaticRun(run)) {
+    return {
+      title: 'Automatic launch blocked',
+      detail: 'The run requested automatic dispatch, but the local API host reported manual dispatch mode.',
+      tone: 'border-amber/30 bg-amber/10 text-amber',
+    };
+  }
+
+  if (queuedCount > 0 && isAutomaticRun(run)) {
+    return {
+      title: 'Automatic launch queued',
+      detail: `${queuedCount} check(s) are waiting for the backend dispatcher; Mission Control is polling every 3s.`,
+      tone: 'border-cyan/20 bg-cyan/10 text-cyan',
+    };
+  }
+
+  if (chainStatus(run.assessment_chain) === 'pending_phase_approval' || currentPhase?.requiresApproval) {
+    return {
+      title: 'Approval required',
+      detail: 'The current phase is waiting for an approval decision in the phase chain.',
+      tone: 'border-amber/30 bg-amber/10 text-amber',
+    };
+  }
+
+  return null;
+}
+
+function isAutomaticRun(run: Run): boolean {
+  const assessment = assessmentMode(run);
+  return Boolean(
+    run.autonomous_mode ||
+      assessment?.enabled === true ||
+      assessment?.auto_advance_on_phase_complete === true ||
+      assessment?.authorization_level === 'full',
+  );
+}
+
+function runtimeDispatch(run: Run): JsonMap | null {
+  const dispatch = run.configuration_json?.runtime_dispatch;
+  return isJsonMap(dispatch) ? dispatch : null;
+}
+
+function assessmentMode(run: Run): JsonMap | null {
+  const assessment = run.configuration_json?.assessment_mode;
+  return isJsonMap(assessment) ? assessment : null;
 }
 
 function buildMapNodes(inventory: InventorySnapshot | null, tasks: Task[], findings: Finding[]): MapNode[] {
@@ -946,6 +1024,17 @@ function truncateMiddle(value: string, maxLength: number): string {
   const head = Math.max(4, Math.floor((maxLength - 3) / 2));
   const tail = Math.max(4, maxLength - 3 - head);
   return `${value.slice(0, head)}...${value.slice(-tail)}`;
+}
+
+function chainLabel(mode: string): string {
+  const map: Record<string, string> = {
+    'FULL-EXTERNAL-WEB': 'Full External Web Pentest',
+    'FULL-INTERNAL-LAN': 'Full Internal LAN Pentest',
+    'FULL-AD-ASSESSMENT': 'Full Active Directory Assessment',
+    'FULL-MOBILE-ANDROID': 'Full Android Mobile Assessment',
+    'FULL-CLOUD-AWS': 'Full Cloud AWS Assessment',
+  };
+  return map[mode] ?? mode;
 }
 
 function formatDate(value: string): string {
