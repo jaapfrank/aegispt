@@ -4,12 +4,19 @@ import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Html, Line, Sphere, Text } from '@react-three/drei';
 import { X } from 'lucide-react';
 import * as THREE from 'three';
-import { getRun, getTaskDetail } from '../api/client';
+import {
+  ApiError,
+  getFindingsForRunContext,
+  getInventoryForRun,
+  getRun,
+  getTaskDetail,
+  getTasksForRunContext,
+} from '../api/client';
 import type { Finding, InventorySnapshot, JsonMap, Task, TaskDetail, UUID } from '../api/types';
 import { useAegisStore } from '../store';
 
 const POLL_MS = 4000;
-const FONT_URL = '/fonts/FiraMono-Regular.ttf';
+const FONT_URL = `${import.meta.env.BASE_URL}fonts/FiraMono-Regular.ttf`;
 const ACTIVE_STATUSES = new Set(['queued', 'requested', 'dispatching', 'running']);
 
 type EventLog = {
@@ -156,7 +163,9 @@ function Network({
                       {activeEvent.tool} ACTIVE
                     </span>
                   </div>
-                  <div className="font-cinema text-xs text-text">{activeEvent.msg}</div>
+                  <div className="font-cinema max-h-32 overflow-hidden text-xs leading-5 text-text">
+                    {truncate(activeEvent.msg, 260)}
+                  </div>
                 </div>
               </Html>
             )}
@@ -176,13 +185,15 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
   const proposals = useAegisStore((state) => state.proposals);
   const setSelectedRun = useAegisStore((state) => state.setSelectedRun);
   const setTasks = useAegisStore((state) => state.setTasks);
+  const setFindings = useAegisStore((state) => state.setFindings);
+  const setInventory = useAegisStore((state) => state.setInventory);
 
   const [logs, setLogs] = useState<EventLog[]>([]);
   const [pollState, setPollState] = useState<'connected' | 'waiting' | 'error'>('waiting');
   const [pollMessage, setPollMessage] = useState('Waiting for run data');
   const fingerprints = useRef<Map<UUID, string>>(new Map());
 
-  const nodes = useMemo(() => buildNodes(inventory, findings), [findings, inventory]);
+  const nodes = useMemo(() => buildNodes(inventory, findings, storeTasks), [findings, inventory, storeTasks]);
   const activeEvent = logs[0] ?? eventFromTasks(storeTasks);
   const activeTargetIndex = useMemo(
     () => (activeEvent ? findNodeIndexForTarget(nodes, activeEvent.target) : -1),
@@ -213,10 +224,24 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
       try {
         const run = await getRun(runId);
         if (cancelled) return;
-        setSelectedRun(run);
-        setTasks(run.tasks ?? []);
+        const [tasksResult, findingsResult, inventoryResult] = await Promise.allSettled([
+          getTasksForRunContext(run),
+          getFindingsForRunContext(run),
+          getInventoryForRun(run),
+        ]);
+        if (cancelled) return;
 
-        const details = await Promise.all((run.tasks ?? []).slice(0, 18).map((task) => getTaskDetail(task.id).catch(() => null)));
+        const nextTasks = tasksResult.status === 'fulfilled' ? tasksResult.value : run.tasks ?? [];
+        setSelectedRun(run);
+        setTasks(nextTasks);
+        if (findingsResult.status === 'fulfilled') {
+          setFindings(findingsResult.value);
+        }
+        if (inventoryResult.status === 'fulfilled') {
+          setInventory(inventoryResult.value);
+        }
+
+        const details = await Promise.all(nextTasks.slice(0, 18).map((task) => getTaskDetail(task.id).catch(() => null)));
         if (cancelled) return;
 
         const newEvents = details
@@ -233,11 +258,16 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
           setLogs((current) => [...newEvents.reverse(), ...current].slice(0, 10));
         }
         setPollState('connected');
-        setPollMessage(`Polling real task evidence for ${run.profile.name}`);
+        setPollMessage(`Polling ${nextTasks.length} real task outputs for ${run.profile.name}`);
       } catch (error) {
         if (!cancelled) {
-          setPollState('error');
-          setPollMessage(error instanceof Error ? error.message : 'Task polling failed');
+          if (error instanceof ApiError && error.status === 404) {
+            setPollState('waiting');
+            setPollMessage('Selected run was removed; reopen Mission Control selection');
+          } else {
+            setPollState('error');
+            setPollMessage(error instanceof Error ? error.message : 'Task polling failed');
+          }
         }
       }
     }
@@ -248,7 +278,7 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [selectedRunId, setSelectedRun, setTasks]);
+  }, [selectedRunId, setFindings, setInventory, setSelectedRun, setTasks]);
 
   return (
     <div className="fixed inset-0 z-[999] select-none overflow-hidden bg-[#020408]">
@@ -308,8 +338,8 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: stri
   );
 }
 
-function buildNodes(inventory: InventorySnapshot | null, findings: Finding[]): CinemaNode[] {
-  const hosts = inventoryHosts(inventory);
+function buildNodes(inventory: InventorySnapshot | null, findings: Finding[], tasks: Task[]): CinemaNode[] {
+  const hosts = surfaceLabels(inventory, findings, tasks);
   if (!hosts.length) {
     return [
       {
@@ -341,6 +371,15 @@ function buildNodes(inventory: InventorySnapshot | null, findings: Finding[]): C
   });
 }
 
+function surfaceLabels(inventory: InventorySnapshot | null, findings: Finding[], tasks: Task[]): string[] {
+  const labels = [
+    ...inventoryHosts(inventory),
+    ...findings.map((finding) => targetLabel(finding.target_id)),
+    ...tasks.map((task) => targetLabel(task.target_id)),
+  ].filter(Boolean);
+  return Array.from(new Set(labels)).slice(0, 24);
+}
+
 function inventoryHosts(inventory: InventorySnapshot | null): string[] {
   const normalized = inventory?.normalized_inventory_json;
   if (!isJsonMap(normalized)) return [];
@@ -348,6 +387,19 @@ function inventoryHosts(inventory: InventorySnapshot | null): string[] {
     .map((host) => inventoryLabel(host, ['host', 'hostname', 'ip', 'address', 'target', 'id']))
     .filter(Boolean);
   return Array.from(new Set(hosts));
+}
+
+function targetLabel(value: string | null | undefined): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  try {
+    const parsed = new URL(trimmed);
+    const pathname = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname.replace(/\/$/, '') : '';
+    return `${parsed.hostname}${pathname}`.slice(0, 72);
+  } catch {
+    return trimmed.replace(/^https?:\/\//i, '').replace(/\/$/, '').slice(0, 72);
+  }
 }
 
 function seededPosition(label: string, index: number, total: number): THREE.Vector3 {
