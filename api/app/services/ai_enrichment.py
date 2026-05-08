@@ -5,7 +5,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from threading import Thread
+from threading import Lock, Thread
 from typing import Any, Protocol
 from urllib.parse import urlparse
 from uuid import UUID
@@ -51,6 +51,11 @@ AGENT_PROPOSAL_RISK_TIERS = {"passive", "active", "intrusive"}
 CONTEXTUAL_INTELLIGENCE_METADATA_KEY = "contextual_intelligence"
 ENRICHMENT_IN_PROGRESS_STATUSES = {"enriching", "queued"}
 ENRICHMENT_TERMINAL_STATUSES = {"succeeded", "failed", "skipped", "unavailable"}
+BACKGROUND_PROVIDER_SUPPRESSIBLE_NAMES = {CHATGPT_OAUTH_PROVIDER, "http", "webhook"}
+_BACKGROUND_ENRICHMENT_LOCK = Lock()
+_PROVIDER_FAILURE_LOCK = Lock()
+_PROVIDER_FAILURE_SUPPRESSED_UNTIL: dict[str, float] = {}
+_PROVIDER_FAILURE_REASONS: dict[str, str] = {}
 FORBIDDEN_GUIDANCE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("automated exploit tool", re.compile(r"\b(?:sqlmap|msfconsole|metasploit|exploit-db)\b", re.IGNORECASE)),
     ("destructive command", re.compile(r"\b(?:rm\s+-rf|mkfs|drop\s+table|truncate\s+table)\b", re.IGNORECASE)),
@@ -351,6 +356,29 @@ def store_ai_enrichment_for_finding(
             return None
         provider_name = active_provider.name
         result = active_provider.enrich(finding)
+    except Exception as exc:
+        suppressed_until = _record_background_provider_failure(
+            provider_name=provider_name or "unknown",
+            settings=settings,
+            error=exc,
+        )
+        return _upsert_enrichment(
+            session=session,
+            existing=existing,
+            finding=finding,
+            status="failed",
+            provider=provider_name or "unknown",
+            business_impact=None,
+            technical_context=None,
+            remediation_narrative=None,
+            failure_reason=str(exc)[:1000],
+            metadata_json={
+                "error_type": type(exc).__name__,
+                "failed_at": datetime.now(tz=UTC).isoformat(),
+                **({"provider_suppressed_until": suppressed_until} if suppressed_until else {}),
+            },
+        )
+    try:
         _validate_safe_finding_enrichment_result(result)
     except Exception as exc:
         return _upsert_enrichment(
@@ -434,6 +462,27 @@ def enrich_finding_async(
             metadata_json={"unavailable_at": datetime.now(tz=UTC).isoformat()},
         )
 
+    suppressed_reason = _background_provider_suppression_reason(provider_name)
+    if suppressed_reason is not None:
+        return _upsert_enrichment(
+            session=session,
+            existing=existing,
+            finding=finding,
+            status="unavailable",
+            provider=provider_name or "unknown",
+            business_impact=None,
+            technical_context=None,
+            remediation_narrative=None,
+            failure_reason=suppressed_reason,
+            metadata_json={
+                "unavailable_at": datetime.now(tz=UTC).isoformat(),
+                "background": True,
+                "provider_suppressed": True,
+                "dispatches_work": False,
+                "executes_tools": False,
+            },
+        )
+
     queued = _upsert_enrichment(
         session=session,
         existing=existing,
@@ -480,47 +529,128 @@ def _run_finding_enrichment_background(
     settings: Settings,
 ) -> None:
     deadline = time.monotonic() + 5.0
-    while True:
-        with session_factory() as background_session:
-            finding = background_session.get(Finding, finding_id)
-            if finding is not None:
-                try:
-                    store_ai_enrichment_for_finding(
-                        session=background_session,
-                        finding=finding,
-                        settings=settings,
-                    )
-                except Exception as exc:  # defensive: finding storage must stay authoritative
-                    existing = _load_existing_enrichment(
-                        session=background_session,
-                        finding=finding,
-                    )
-                    _upsert_enrichment(
-                        session=background_session,
-                        existing=existing,
-                        finding=finding,
-                        status="failed",
-                        provider=effective_ai_provider_name(
-                            settings,
-                            settings.ai_finding_enrichment_provider,
+    with _BACKGROUND_ENRICHMENT_LOCK:
+        while True:
+            with session_factory() as background_session:
+                finding = background_session.get(Finding, finding_id)
+                if finding is not None:
+                    try:
+                        store_ai_enrichment_for_finding(
+                            session=background_session,
+                            finding=finding,
+                            settings=settings,
                         )
-                        or "unknown",
-                        business_impact=None,
-                        technical_context=None,
-                        remediation_narrative=None,
-                        failure_reason=str(exc)[:1000],
-                        metadata_json={
-                            "error_type": type(exc).__name__,
-                            "failed_at": datetime.now(tz=UTC).isoformat(),
-                            "background": True,
-                        },
-                    )
-                background_session.commit()
-                return
+                        background_session.commit()
+                    except Exception as exc:  # defensive: finding storage must stay authoritative
+                        background_session.rollback()
+                        _record_background_enrichment_failure(
+                            session_factory=session_factory,
+                            finding_id=finding_id,
+                            settings=settings,
+                            error=exc,
+                        )
+                    return
 
-        if time.monotonic() >= deadline:
-            return
-        time.sleep(0.1)
+            if time.monotonic() >= deadline:
+                return
+            time.sleep(0.1)
+
+
+def _record_background_enrichment_failure(
+    *,
+    session_factory: sessionmaker[Session],
+    finding_id: UUID,
+    settings: Settings,
+    error: Exception,
+) -> None:
+    provider_name = effective_ai_provider_name(
+        settings,
+        settings.ai_finding_enrichment_provider,
+    ) or "unknown"
+    suppressed_until = _record_background_provider_failure(
+        provider_name=provider_name,
+        settings=settings,
+        error=error,
+    )
+    for attempt in range(3):
+        try:
+            with session_factory() as recovery_session:
+                finding = recovery_session.get(Finding, finding_id)
+                if finding is None:
+                    return
+                existing = _load_existing_enrichment(
+                    session=recovery_session,
+                    finding=finding,
+                )
+                _upsert_enrichment(
+                    session=recovery_session,
+                    existing=existing,
+                    finding=finding,
+                    status="failed",
+                    provider=provider_name,
+                    business_impact=None,
+                    technical_context=None,
+                    remediation_narrative=None,
+                    failure_reason=str(error)[:1000],
+                    metadata_json={
+                        "error_type": type(error).__name__,
+                        "failed_at": datetime.now(tz=UTC).isoformat(),
+                        "background": True,
+                        "recovery_attempt": attempt + 1,
+                        **({"provider_suppressed_until": suppressed_until} if suppressed_until else {}),
+                    },
+                )
+                recovery_session.commit()
+                return
+        except Exception:
+            time.sleep(0.2 * (attempt + 1))
+
+
+def _background_provider_suppression_reason(provider_name: str) -> str | None:
+    normalized = str(provider_name or "").strip().lower()
+    now = time.monotonic()
+    with _PROVIDER_FAILURE_LOCK:
+        suppressed_until = _PROVIDER_FAILURE_SUPPRESSED_UNTIL.get(normalized)
+        if suppressed_until is None or suppressed_until <= now:
+            _PROVIDER_FAILURE_SUPPRESSED_UNTIL.pop(normalized, None)
+            _PROVIDER_FAILURE_REASONS.pop(normalized, None)
+            return None
+        return _PROVIDER_FAILURE_REASONS.get(normalized) or (
+            f"Provider {normalized} is temporarily unavailable after a previous failure."
+        )
+
+
+def _record_background_provider_failure(
+    *,
+    provider_name: str,
+    settings: Settings,
+    error: Exception,
+) -> str | None:
+    normalized = str(provider_name or "").strip().lower()
+    if normalized not in BACKGROUND_PROVIDER_SUPPRESSIBLE_NAMES:
+        return None
+    cooldown_seconds = max(
+        0.0,
+        float(getattr(settings, "ai_finding_enrichment_failure_cooldown_seconds", 300.0) or 0.0),
+    )
+    if cooldown_seconds <= 0:
+        return None
+    suppressed_until = time.monotonic() + cooldown_seconds
+    until_iso = datetime.fromtimestamp(time.time() + cooldown_seconds, tz=UTC).isoformat()
+    reason = (
+        f"Provider {normalized} is temporarily suppressed after "
+        f"{type(error).__name__}: {str(error)[:240]}"
+    )
+    with _PROVIDER_FAILURE_LOCK:
+        _PROVIDER_FAILURE_SUPPRESSED_UNTIL[normalized] = suppressed_until
+        _PROVIDER_FAILURE_REASONS[normalized] = reason
+    return until_iso
+
+
+def _reset_background_provider_failures_for_tests() -> None:
+    with _PROVIDER_FAILURE_LOCK:
+        _PROVIDER_FAILURE_SUPPRESSED_UNTIL.clear()
+        _PROVIDER_FAILURE_REASONS.clear()
 
 
 def store_agent_reasoning_record(

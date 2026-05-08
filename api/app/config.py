@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     ai_finding_enrichment_api_key_env: str | None = None
     ai_finding_enrichment_model: str = "aegispt-finding-enrichment"
     ai_finding_enrichment_timeout_seconds: float = 5.0
+    ai_finding_enrichment_failure_cooldown_seconds: float = 300.0
     auto_validate_findings: bool = False
     ai_autofix_enabled: bool = False
     ai_autofix_provider: str = "disabled"

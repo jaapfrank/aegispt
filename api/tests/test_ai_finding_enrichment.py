@@ -25,6 +25,7 @@ from api.app.models import (
 )
 from api.app.services.ai_enrichment import (
     FindingEnrichmentResult,
+    _reset_background_provider_failures_for_tests,
     build_finding_enrichment_provider,
     build_mission_guidance_for_run,
     enrich_finding_async,
@@ -40,6 +41,13 @@ class TimeoutFindingEnrichmentProvider:
 
     def enrich(self, finding: Finding) -> FindingEnrichmentResult:
         raise TimeoutError("simulated enrichment timeout")
+
+
+class FailingChatGPTOAuthFindingEnrichmentProvider:
+    name = "chatgpt_oauth"
+
+    def enrich(self, finding: Finding) -> FindingEnrichmentResult:
+        raise RuntimeError("simulated ChatGPT OAuth 400")
 
 
 class ForbiddenFindingEnrichmentProvider:
@@ -764,6 +772,48 @@ def test_ai_finding_enrichment_failure_is_recorded_without_blocking_theater_fall
         "Could materially affect confidentiality, integrity, or privileged workflows in the assessed environment."
     )
     assert "simulated enrichment timeout" not in theater["technical_details"]
+
+
+def test_chatgpt_oauth_enrichment_failure_suppresses_background_retry_storm(client) -> None:
+    _reset_background_provider_failures_for_tests()
+    first_finding_id = _seed_finding(client, severity="high")
+    second_finding_id = _seed_finding(client, severity="medium", title="Second finding")
+
+    with client.app.state.session_factory() as session:
+        first_finding = session.get(Finding, UUID(first_finding_id))
+        enrichment = store_ai_enrichment_for_finding(
+            session=session,
+            finding=first_finding,
+            settings=Settings(
+                ai_finding_enrichment_enabled=True,
+                ai_finding_enrichment_provider="chatgpt_oauth",
+                ai_finding_enrichment_failure_cooldown_seconds=60.0,
+            ),
+            provider=FailingChatGPTOAuthFindingEnrichmentProvider(),
+        )
+        assert enrichment is not None
+        assert enrichment.status == "failed"
+        assert enrichment.provider == "chatgpt_oauth"
+        assert "simulated ChatGPT OAuth 400" in enrichment.failure_reason
+        assert enrichment.metadata_json["provider_suppressed_until"]
+
+        queued = enrich_finding_async(
+            UUID(second_finding_id),
+            session,
+            settings=Settings(
+                ai_finding_enrichment_enabled=True,
+                ai_finding_enrichment_provider="chatgpt_oauth",
+                ai_finding_enrichment_failure_cooldown_seconds=60.0,
+            ),
+        )
+        session.commit()
+
+    assert queued is not None
+    assert queued.status == "unavailable"
+    assert queued.provider == "chatgpt_oauth"
+    assert queued.metadata_json["provider_suppressed"] is True
+    assert "temporarily suppressed" in queued.failure_reason
+    _reset_background_provider_failures_for_tests()
 
 
 def test_forbidden_exploit_guidance_is_rejected_without_finding_mutation(client) -> None:
