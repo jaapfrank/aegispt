@@ -1686,6 +1686,7 @@ def _launch_next_chain_run(
             _store_chain_phases(chain, phases)
             continue
 
+        run: Run | None = None
         try:
             configuration_json, source_inventory_snapshot_id = _phase_step_run_configuration(
                 session,
@@ -1727,6 +1728,9 @@ def _launch_next_chain_run(
                 _store_chain_phases(chain, phases)
                 continue
         except ValueError as exc:
+            if run is not None:
+                session.delete(run)
+                session.flush()
             step["status"] = "skipped"
             _annotate_chain_step_gap(step, reason=str(exc))
             chain.current_step_index += 1

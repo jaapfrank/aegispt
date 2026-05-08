@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Activity,
@@ -25,10 +25,10 @@ import {
   cancelRun,
   decideAssessmentChainPhase,
   dispatchRun,
+  getInventoryForRun,
   getRun,
   getRunAiInsights,
   getRunFindings,
-  getRunInventory,
   getTaskDetail,
   reviewAgentProposal,
 } from '../../api/client';
@@ -100,6 +100,7 @@ export default function MissionControl() {
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [cinemaOpen, setCinemaOpen] = useState(false);
+  const refreshInFlightRef = useRef(false);
 
   const proposals = aiInsights?.proposals ?? [];
   const chain = selectedRun?.assessment_chain ?? null;
@@ -125,27 +126,25 @@ export default function MissionControl() {
   );
   const isPolling = Boolean(selectedRun && ACTIVE_STATUSES.has(selectedRun.status));
 
-  async function refreshRun(runId = selectedRunId, options: { quiet?: boolean } = {}) {
+  const refreshRun = useCallback(async (runId = selectedRunId, options: { quiet?: boolean } = {}) => {
     if (!runId) return;
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     if (!options.quiet) {
       setBusyAction('refresh');
     }
     setLoading('missionControl', true);
     setError(null);
     try {
-      const [runResult, findingsResult, inventoryResult, insightsResult] = await Promise.allSettled([
-        getRun(runId),
+      const run = await getRun(runId);
+      const [findingsResult, inventoryResult, insightsResult] = await Promise.allSettled([
         getRunFindings(runId),
-        getRunInventory(runId),
+        getInventoryForRun(run),
         getRunAiInsights(runId),
       ]);
 
-      if (runResult.status === 'fulfilled') {
-        setSelectedRun(runResult.value);
-        setTasks(runResult.value.tasks ?? []);
-      } else {
-        throw runResult.reason;
-      }
+      setSelectedRun(run);
+      setTasks(run.tasks ?? []);
       if (findingsResult.status === 'fulfilled') {
         setFindings(findingsResult.value);
       }
@@ -164,17 +163,27 @@ export default function MissionControl() {
         setActionMessage('Refresh failed.');
       }
     } finally {
+      refreshInFlightRef.current = false;
       setLoading('missionControl', false);
       if (!options.quiet) {
         setBusyAction(null);
       }
     }
-  }
+  }, [
+    selectedRunId,
+    setAiInsights,
+    setError,
+    setFindings,
+    setInventory,
+    setLoading,
+    setSelectedRun,
+    setTasks,
+  ]);
 
   useEffect(() => {
     if (!selectedRunId) return;
     void refreshRun(selectedRunId, { quiet: true });
-  }, [selectedRunId]);
+  }, [refreshRun, selectedRunId]);
 
   useEffect(() => {
     if (!selectedRunId || !isPolling) return;
@@ -182,7 +191,7 @@ export default function MissionControl() {
       void refreshRun(selectedRunId, { quiet: true });
     }, POLL_MS);
     return () => window.clearInterval(timer);
-  }, [isPolling, selectedRunId]);
+  }, [isPolling, refreshRun, selectedRunId]);
 
   useEffect(() => {
     if (!expandedTaskId || taskDetails[expandedTaskId]) return;

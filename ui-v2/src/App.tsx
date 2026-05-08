@@ -37,9 +37,10 @@ import SettingsScreen from './components/screens/Settings';
 import SurfaceMap from './components/screens/SurfaceMap';
 import {
   getEngagements,
+  getInventoryForRun,
+  getRun,
   getRunAiInsights,
   getRunFindings,
-  getRunInventory,
   getRunsForEngagement,
   getSettings,
 } from './api/client';
@@ -120,7 +121,6 @@ function AppShell() {
   const selectedEngagementId = useAegisStore((state) => state.selectedEngagementId);
   const selectedEngagement = useAegisStore((state) => state.selectedEngagement);
   const selectedRunId = useAegisStore((state) => state.selectedRunId);
-  const selectedRun = useAegisStore((state) => state.selectedRun);
   const runs = useAegisStore((state) => state.runs);
   const findings = useAegisStore((state) => state.findings);
   const actor = useAegisStore((state) => state.actor);
@@ -214,14 +214,14 @@ function AppShell() {
       setLoading('runScoped', true);
       setError(null);
       try {
-        const run = runs.find((candidate) => candidate.id === runId) ?? selectedRun;
+        const runPayload = await getRun(runId);
         const [findingsPayload, inventoryPayload, aiInsightsPayload] = await Promise.all([
           getRunFindings(runId),
-          getRunInventory(runId),
+          getInventoryForRun(runPayload),
           getRunAiInsights(runId),
         ]);
         if (cancelled) return;
-        setSelectedRun(run ?? null);
+        setSelectedRun(runPayload);
         setFindings(findingsPayload);
         setInventory(inventoryPayload);
         setAiInsights(aiInsightsPayload);
@@ -243,17 +243,7 @@ function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [
-    runs,
-    selectedRun,
-    selectedRunId,
-    setAiInsights,
-    setError,
-    setFindings,
-    setInventory,
-    setLoading,
-    setSelectedRun,
-  ]);
+  }, [selectedRunId, setAiInsights, setError, setFindings, setInventory, setLoading, setSelectedRun]);
 
   const runningRunCount = runs.filter((run) => ['dispatching', 'running'].includes(run.status)).length;
   const runActivityLabel = `${runningRunCount} running`;

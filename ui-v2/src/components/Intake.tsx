@@ -1058,7 +1058,7 @@ function buildRunRequest(mission: MissionSummary, inventoryId: UUID) {
           // Must match confirmation_target for full authorization to pass backend validation
           typed_scope_confirmation: isFullPentest ? firstTarget : '',
           intrusive_lan_authorized: isFullPentest,
-          exploit_confirmation_authorized: false,
+          exploit_confirmation_authorized: isFullPentest,
         }
       : { enabled: false },
   };

@@ -4530,7 +4530,7 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                     settings=active_settings,
                 )
             session.commit()
-            if advanced_chain is not None and advanced_chain.current_run_id is not None:
+            if advanced_chain is not None:
                 dispatch_assessment_chain_current_run(
                     session,
                     chain_id=advanced_chain.id,

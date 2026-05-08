@@ -244,6 +244,10 @@ export async function handoffFindingToJira(findingId: UUID): Promise<JsonMap> {
 
 export async function getRunInventory(runId: UUID): Promise<InventorySnapshot | null> {
   const run = await getRun(runId);
+  return getInventoryForRun(run);
+}
+
+export async function getInventoryForRun(run: Run): Promise<InventorySnapshot | null> {
   if (run.source_inventory_snapshot_id) {
     return api<InventorySnapshot>(`/api/v1/inventory/${run.source_inventory_snapshot_id}`);
   }

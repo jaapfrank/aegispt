@@ -317,6 +317,76 @@ def test_assessment_chain_phase_approval_queues_next_phase_once(client) -> None:
     assert queued_run["assessment_chain"]["current_run_id"] == queued_run["id"]
 
 
+def test_full_external_web_chain_skips_missing_credential_step_without_orphan_run(client) -> None:
+    engagement_id = _create_engagement_with_assessment_chain_scope(client)
+    configuration = _with_chain_authorization(
+        _assessment_chain_configuration(assessment_type="External Web"),
+        level="full",
+        mode="FULL-EXTERNAL-WEB",
+        confirmation_target="https://portal.example.test",
+        typed_scope_confirmation="https://portal.example.test",
+        confirmed_scope="https://portal.example.test",
+        exploit_confirmation_authorized=True,
+    )
+    configuration["access"] = {"prerequisites": configuration["access"]["prerequisites"]}
+    create_response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "operator"},
+        json={
+            "profile_name": "passive-web-baseline",
+            "assessment_mode": "FULL-EXTERNAL-WEB",
+            "assessment_auto_advance_on_phase_complete": True,
+            "configuration_json": configuration,
+        },
+    )
+    assert create_response.status_code == 201
+    chain_id = UUID(create_response.json()["assessment_chain"]["id"])
+
+    with client.app.state.session_factory() as session:
+        chain = load_assessment_chain(session, chain_id)
+        assert chain is not None
+        phases = copy.deepcopy(chain.phases_json or [])
+        phases[0]["status"] = "completed"
+        phases[0]["completed_at"] = "2026-05-08T00:00:00+00:00"
+        phases[1]["status"] = "active"
+        phases[1]["approved_by"] = "operator"
+        phases[1]["approved_at"] = "2026-05-08T00:00:00+00:00"
+        missing_credential_step = next(
+            index
+            for index, step in enumerate(phases[1]["steps"])
+            if step["profile_name"] == "active-web-session-security"
+        )
+        chain.current_phase_index = 1
+        chain.current_step_index = missing_credential_step
+        chain.current_run_id = None
+        chain.status = "active"
+        chain.phases_json = phases
+        session.flush()
+
+        runs_before = session.scalars(
+            select(Run).where(Run.assessment_chain_id == chain.id)
+        ).all()
+        launched = assessment_chain_service._launch_next_chain_run(
+            session,
+            chain=chain,
+            actor="operator",
+        )
+        session.commit()
+
+        assert launched is not None
+        session.refresh(chain)
+        runs_after = session.scalars(
+            select(Run).where(Run.assessment_chain_id == chain.id)
+        ).all()
+        updated_phases = chain.phases_json
+        skipped_step = updated_phases[1]["steps"][missing_credential_step]
+        assert skipped_step["status"] == "skipped"
+        assert skipped_step["run_id"] is None
+        assert skipped_step["blocker_type"] == "missing_credentials"
+        assert len(runs_after) == len(runs_before) + 1
+        assert chain.current_run_id == launched.id
+
+
 def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_httpx_has_no_inventory(
     client,
 ) -> None:
