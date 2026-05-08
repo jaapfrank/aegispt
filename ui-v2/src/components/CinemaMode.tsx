@@ -152,7 +152,7 @@ function Network({
                 <div className="min-w-[250px] rounded border border-amber/40 bg-[rgba(10,18,31,0.92)] p-3 shadow-[0_0_20px_rgba(251,191,36,0.2)] backdrop-blur-md">
                   <div className="mb-1 flex items-center gap-2">
                     <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber">
+                    <span className="text-[0.77rem] font-bold uppercase tracking-widest text-amber">
                       {activeEvent.tool} ACTIVE
                     </span>
                   </div>
@@ -260,20 +260,20 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
           <h2 className="text-base font-bold uppercase tracking-widest text-cyan drop-shadow-[0_0_5px_rgba(94,207,255,0.8)]">
             Live Cinema Mode
           </h2>
-          <p className="font-cinema mt-0.5 text-[11px] uppercase tracking-widest text-cyan/60">{pollMessage}</p>
+          <p className="font-cinema mt-0.5 text-[0.85rem] uppercase tracking-widest text-cyan/60">{pollMessage}</p>
         </div>
       </div>
 
       <button
         type="button"
         onClick={onClose}
-        className="font-cinema absolute right-8 top-8 z-10 inline-flex items-center gap-2 rounded-lg border border-cyan/40 bg-cyan/5 px-5 py-2.5 text-[11px] uppercase tracking-[0.2em] text-cyan transition-all hover:border-cyan hover:bg-cyan/20 hover:shadow-[0_0_15px_rgba(94,207,255,0.4)]"
+        className="font-cinema absolute right-8 top-8 z-10 inline-flex items-center gap-2 rounded-lg border border-cyan/40 bg-cyan/5 px-5 py-2.5 text-[0.85rem] uppercase tracking-[0.2em] text-cyan transition-all hover:border-cyan hover:bg-cyan/20 hover:shadow-[0_0_15px_rgba(94,207,255,0.4)]"
       >
         <X size={14} />
         Exit Cinema Mode
       </button>
 
-      <div className="font-cinema absolute bottom-8 left-8 z-10 flex max-w-[min(520px,calc(100vw-3rem))] flex-col gap-1 text-[10px] uppercase tracking-widest text-cyan/55">
+      <div className="font-cinema absolute bottom-8 left-8 z-10 flex max-w-[min(520px,calc(100vw-3rem))] flex-col gap-1 text-[0.77rem] uppercase tracking-widest text-cyan/55">
         <p>SYS.TOPOLOGY.MAP // {pollState.toUpperCase()}</p>
         <p>RUN // {selectedRun ? compactId(selectedRun.id) : 'NO RUN'}</p>
         <p>ACTIVE.TOOL // {activeEvent?.tool ?? activeTask?.tool.toUpperCase() ?? 'WAITING'}</p>
@@ -302,7 +302,7 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
     <div className="rounded-lg border border-cyan/20 bg-[rgba(10,18,31,0.72)] px-3 py-2 backdrop-blur-md">
-      <div className="font-cinema text-[10px] uppercase tracking-widest text-cyan/55">{label}</div>
+      <div className="font-cinema text-[0.77rem] uppercase tracking-widest text-cyan/55">{label}</div>
       <div className={`mt-1 text-2xl font-semibold ${tone}`}>{value}</div>
     </div>
   );

@@ -21,9 +21,9 @@ export function PageHeader({
   return (
     <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        {eyebrow && <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan">{eyebrow}</div>}
+        {eyebrow && <div className="mb-1 text-[0.77rem] font-bold uppercase tracking-[0.24em] text-cyan">{eyebrow}</div>}
         <h1 className="text-2xl font-semibold text-text">{title}</h1>
-        {detail && <p className="mt-1 max-w-3xl text-[13px] leading-5 text-muted">{detail}</p>}
+        {detail && <p className="mt-1 max-w-3xl text-[1rem] leading-5 text-muted">{detail}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
@@ -35,10 +35,10 @@ export function MetricCard({ icon, label, value, detail }: { icon: ReactNode; la
     <div className="rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
       <div className="mb-3 flex items-center gap-2 text-cyan">
         {icon}
-        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+        <span className="text-[0.77rem] font-bold uppercase tracking-wider">{label}</span>
       </div>
       <div className="truncate text-2xl font-semibold text-text">{value}</div>
-      {detail && <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-muted">{detail}</div>}
+      {detail && <div className="mt-2 line-clamp-2 text-[0.925rem] leading-5 text-muted">{detail}</div>}
     </div>
   );
 }
@@ -48,8 +48,8 @@ export function Panel({ title, detail, children, action }: { title: string; deta
     <section className="rounded-xl border border-border bg-surface/55 p-4 backdrop-blur-md">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[14px] font-semibold text-text">{title}</h2>
-          {detail && <p className="mt-1 text-[12px] leading-5 text-muted">{detail}</p>}
+          <h2 className="text-[1.08rem] font-semibold text-text">{title}</h2>
+          {detail && <p className="mt-1 text-[0.925rem] leading-5 text-muted">{detail}</p>}
         </div>
         {action}
       </div>
@@ -61,8 +61,8 @@ export function Panel({ title, detail, children, action }: { title: string; deta
 export function EmptyState({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {
   return (
     <div className="rounded-xl border border-border bg-surface/50 p-8 text-center">
-      <h2 className="text-[16px] font-semibold text-text">{title}</h2>
-      <p className="mx-auto mt-2 max-w-xl text-[13px] leading-5 text-muted">{detail}</p>
+      <h2 className="text-[1.23rem] font-semibold text-text">{title}</h2>
+      <p className="mx-auto mt-2 max-w-xl text-[1rem] leading-5 text-muted">{detail}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );
@@ -78,7 +78,7 @@ export function StatusBadge({ value }: { value: string }) {
         : normalized.includes('ready') || normalized.includes('active') || normalized.includes('completed') || normalized.includes('deployed') || normalized.includes('resolved')
           ? 'border-green/30 bg-green/10 text-green'
           : 'border-cyan/25 bg-cyan/10 text-cyan';
-  return <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase', tone)}>{value}</span>;
+  return <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', tone)}>{value}</span>;
 }
 
 export function ActionButton({
@@ -108,7 +108,7 @@ export function ActionButton({
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
-      className={cn('inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55', toneClass)}
+      className={cn('inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-[1rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55', toneClass)}
     >
       {loading && <Loader2 size={14} className="animate-spin" />}
       {children}
@@ -119,14 +119,14 @@ export function ActionButton({
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted">{label}</span>
+      <span className="mb-1 block text-[0.77rem] font-bold uppercase tracking-wider text-muted">{label}</span>
       {children}
     </label>
   );
 }
 
 export const inputClass =
-  'h-10 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none transition-colors placeholder:text-muted/70 focus:border-cyan/50';
+  'h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none transition-colors placeholder:text-muted/70 focus:border-cyan/50';
 
 export function formatDate(value?: string | null): string {
   if (!value) return 'n/a';

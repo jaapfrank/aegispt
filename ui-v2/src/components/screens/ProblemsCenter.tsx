@@ -80,7 +80,7 @@ export default function ProblemsCenter() {
         detail="Cross-engagement finding lifecycle view from the existing Problems API."
         actions={<ActionButton onClick={() => void loadProblems()} loading={loading}>Refresh</ActionButton>}
       />
-      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[12px] text-cyan">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}
 
       <div className="mb-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard icon={<BadgeAlert size={15} />} label="Open Critical" value={jsonNumber(stats.open_critical)} />
@@ -127,7 +127,7 @@ export default function ProblemsCenter() {
         <ActionButton onClick={() => void runBulk('assign')} disabled={!selectedFindingIds.length} loading={loading} tone="cyan">Bulk assign</ActionButton>
         <ActionButton onClick={() => void runBulk('schedule_retest')} disabled={!selectedFindingIds.length} loading={loading} tone="amber">Bulk retest</ActionButton>
         <ActionButton onClick={() => void runBulk('resolve')} disabled={!selectedFindingIds.length} loading={loading} tone="green">Bulk resolve</ActionButton>
-        <span className="ml-auto text-[12px] text-muted">{selectedFindingIds.length} selected</span>
+        <span className="ml-auto text-[0.925rem] text-muted">{selectedFindingIds.length} selected</span>
       </div>
 
       <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[1fr_360px]">
@@ -174,9 +174,9 @@ function ProblemList({
                 <StatusBadge value={item.severity} />
                 <StatusBadge value={item.problem_status} />
               </div>
-              <div className="mt-2 text-[13px] font-semibold text-text">{item.title}</div>
-              <div className="mt-1 text-[12px] leading-5 text-muted">{item.engagement_name} · {item.target_id} · {item.days_open}d open</div>
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted">
+              <div className="mt-2 text-[1rem] font-semibold text-text">{item.title}</div>
+              <div className="mt-1 text-[0.925rem] leading-5 text-muted">{item.engagement_name} · {item.target_id} · {item.days_open}d open</div>
+              <div className="mt-2 flex flex-wrap gap-2 text-[0.85rem] text-muted">
                 <span className="inline-flex items-center gap-1"><UserRound size={12} />{item.assignee ?? 'unassigned'}</span>
                 <span>{formatDate(item.updated_at)}</span>
               </div>

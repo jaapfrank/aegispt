@@ -195,7 +195,7 @@ export default function ReportCenter() {
       <EmptyState
         title="No Engagement Selected"
         detail="Select an engagement before opening Report Center."
-        action={<Link to="/intake" className="rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[13px] font-semibold text-cyan">New Mission</Link>}
+        action={<Link to="/intake" className="rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[1rem] font-semibold text-cyan">New Mission</Link>}
       />
     );
   }
@@ -205,7 +205,7 @@ export default function ReportCenter() {
       <EmptyState
         title="No Run Selected"
         detail="Report catalog and dossier timeline unlock after a run exists for the selected engagement."
-        action={<Link to="/intake" className="rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[13px] font-semibold text-cyan">Create Run</Link>}
+        action={<Link to="/intake" className="rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[1rem] font-semibold text-cyan">Create Run</Link>}
       />
     );
   }
@@ -215,7 +215,7 @@ export default function ReportCenter() {
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-text">Report Center</h1>
-          <p className="mt-1 text-[13px] text-muted">
+          <p className="mt-1 text-[1rem] text-muted">
             {selectedEngagement?.name ?? 'Selected engagement'} · evidence-backed exports
           </p>
         </div>
@@ -265,7 +265,7 @@ export default function ReportCenter() {
                       Download PDF
                     </ActionButton>
                   </div>
-                  {message && <div className="mt-3 rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[12px] text-cyan">{message}</div>}
+                  {message && <div className="mt-3 rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -311,7 +311,7 @@ function TabButton({ active, onClick, icon, children }: { active: boolean; onCli
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors',
+        'inline-flex items-center gap-2 rounded-md px-3 py-2 text-[1rem] font-semibold transition-colors',
         active ? 'bg-cyan/10 text-cyan' : 'text-muted hover:bg-bg/40 hover:text-text',
       )}
     >
@@ -335,12 +335,12 @@ function RunStrip({
   return (
     <div className="border-b border-border bg-[rgba(5,9,18,0.72)] p-4">
       <label className="block">
-        <span className="mb-1 block text-[11px] font-bold uppercase text-muted">Selected Run</span>
+        <span className="mb-1 block text-[0.85rem] font-bold uppercase text-muted">Selected Run</span>
         <select
           aria-label="Report Center selected run"
           value={selectedRunId ?? ''}
           onChange={(event) => selectRun(event.target.value || null)}
-          className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none focus:border-cyan/50"
+          className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none focus:border-cyan/50"
         >
           {runs.map((run) => (
             <option key={run.id} value={run.id} className="bg-surface text-text">
@@ -361,8 +361,8 @@ function RunStrip({
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border bg-bg/30 px-3 py-2">
-      <div className="text-[10px] font-bold uppercase text-muted">{label}</div>
-      <div className="truncate text-[12px] font-semibold text-text">{value}</div>
+      <div className="text-[0.77rem] font-bold uppercase text-muted">{label}</div>
+      <div className="truncate text-[0.925rem] font-semibold text-text">{value}</div>
     </div>
   );
 }
@@ -384,13 +384,13 @@ function ReportCard({ report, selected, onClick }: { report: RunReportCatalogIte
             <Icon size={18} />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-[14px] font-semibold text-text">{report.title}</div>
-            <div className="text-[11px] font-semibold uppercase text-muted">{report.variant}</div>
+            <div className="truncate text-[1.08rem] font-semibold text-text">{report.title}</div>
+            <div className="text-[0.85rem] font-semibold uppercase text-muted">{report.variant}</div>
           </div>
         </div>
         <AvailabilityBadge report={report} />
       </div>
-      <p className="line-clamp-3 text-[12px] leading-5 text-muted">{report.description}</p>
+      <p className="line-clamp-3 text-[0.925rem] leading-5 text-muted">{report.description}</p>
     </button>
   );
 }
@@ -402,17 +402,17 @@ function ReportPreviewHeader({ report, run }: { report: RunReportCatalogItem; ru
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <AvailabilityBadge report={report} />
-            <span className="rounded-full border border-border bg-bg/40 px-2 py-0.5 text-[10px] font-semibold text-muted">
+            <span className="rounded-full border border-border bg-bg/40 px-2 py-0.5 text-[0.77rem] font-semibold text-muted">
               {report.version_label}
             </span>
           </div>
           <h2 className="break-words text-lg font-semibold text-text">{report.title}</h2>
-          <p className="mt-1 text-[12px] text-muted">
+          <p className="mt-1 text-[0.925rem] text-muted">
             {run?.profile.name ?? 'Selected run'} · generated {formatDate(report.generated_at)}
           </p>
         </div>
       </div>
-      <p className="mt-3 text-[12px] leading-5 text-muted">{report.availability_reason}</p>
+      <p className="mt-3 text-[0.925rem] leading-5 text-muted">{report.availability_reason}</p>
     </header>
   );
 }
@@ -423,7 +423,7 @@ function ActionButton({ onClick, loading, icon, children }: { onClick: () => voi
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan disabled:opacity-50"
+      className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
     >
       {loading ? <Loader2 size={14} className="animate-spin" /> : icon}
       {children}
@@ -434,14 +434,14 @@ function ActionButton({ onClick, loading, icon, children }: { onClick: () => voi
 function EvidenceHash({ report }: { report: RunReportCatalogItem }) {
   return (
     <details className="rounded-lg border border-border bg-bg/30 p-3">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-semibold text-text">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[0.925rem] font-semibold text-text">
         <span className="flex items-center gap-2">
           <Check size={14} className="text-green" />
           Evidence hash: verified
         </span>
         <ChevronDown size={14} className="text-muted" />
       </summary>
-      <div className="mt-3 flex items-start gap-2 text-[12px] text-muted">
+      <div className="mt-3 flex items-start gap-2 text-[0.925rem] text-muted">
         <Hash size={14} className="mt-0.5 text-cyan" />
         <span className="break-all font-mono text-text">{report.content_sha256}</span>
       </div>
@@ -464,7 +464,7 @@ function ComparePanel({
 }) {
   return (
     <section className="mt-4 rounded-lg border border-border bg-bg/25 p-4">
-      <div className="mb-3 flex items-center gap-2 text-[12px] font-bold uppercase text-text">
+      <div className="mb-3 flex items-center gap-2 text-[0.925rem] font-bold uppercase text-text">
         <BarChart3 size={14} />
         Compare with Earlier Run
       </div>
@@ -472,7 +472,7 @@ function ComparePanel({
         aria-label="Compare with earlier run"
         value={compareRunId}
         onChange={(event) => onCompare(event.target.value as UUID | '')}
-        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none focus:border-cyan/50"
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none focus:border-cyan/50"
       >
         <option value="" className="bg-surface text-text">Select earlier run</option>
         {previousRuns.map((run) => (
@@ -481,7 +481,7 @@ function ComparePanel({
           </option>
         ))}
       </select>
-      {loading && <div className="mt-3 flex items-center gap-2 text-[12px] text-cyan"><Loader2 size={14} className="animate-spin" /> Comparing stored findings</div>}
+      {loading && <div className="mt-3 flex items-center gap-2 text-[0.925rem] text-cyan"><Loader2 size={14} className="animate-spin" /> Comparing stored findings</div>}
       {comparison && (
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <MiniMetric label="New findings" value={String(comparison.newFindings)} />
@@ -490,7 +490,7 @@ function ComparePanel({
         </div>
       )}
       {!loading && previousRuns.length === 0 && (
-        <p className="mt-3 text-[12px] text-muted">No earlier runs exist for this engagement yet.</p>
+        <p className="mt-3 text-[0.925rem] text-muted">No earlier runs exist for this engagement yet.</p>
       )}
     </section>
   );
@@ -516,13 +516,13 @@ function DossierTab({
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border bg-[rgba(5,9,18,0.72)] p-4">
         <div>
           <h2 className="text-lg font-semibold text-text">{engagement?.name ?? 'Engagement Dossier'}</h2>
-          <p className="mt-1 text-[13px] text-muted">{engagement?.client || 'Client not recorded'} · {runs.length} runs</p>
-          {fallback && <p className="mt-2 max-w-3xl text-[12px] leading-5 text-amber">{fallback}</p>}
+          <p className="mt-1 text-[1rem] text-muted">{engagement?.client || 'Client not recorded'} · {runs.length} runs</p>
+          {fallback && <p className="mt-2 max-w-3xl text-[0.925rem] leading-5 text-amber">{fallback}</p>}
         </div>
         <button
           type="button"
           onClick={() => void refreshRuns()}
-          className="rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan"
+          className="rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan"
         >
           Refresh Timeline
         </button>
@@ -544,11 +544,11 @@ function DossierTab({
               >
                 <div className="min-w-0">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-border bg-bg/40 px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">{run.status}</span>
-                    <span className="text-[11px] text-muted">{formatDate(run.created_at)}</span>
+                    <span className="rounded-full border border-border bg-bg/40 px-2 py-0.5 text-[0.77rem] font-semibold uppercase text-muted">{run.status}</span>
+                    <span className="text-[0.85rem] text-muted">{formatDate(run.created_at)}</span>
                   </div>
-                  <div className="truncate text-[14px] font-semibold text-text">{run.profile.name}</div>
-                  <div className="mt-1 truncate text-[12px] text-muted">{run.id}</div>
+                  <div className="truncate text-[1.08rem] font-semibold text-text">{run.profile.name}</div>
+                  <div className="mt-1 truncate text-[0.925rem] text-muted">{run.id}</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-right">
                   <MiniMetric label="Findings" value={String(run.findings.finding_count)} />
@@ -566,7 +566,7 @@ function DossierTab({
 
 function AvailabilityBadge({ report }: { report: RunReportCatalogItem }) {
   return (
-    <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase', availabilityClass(report.availability_status))}>
+    <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', availabilityClass(report.availability_status))}>
       {report.availability_label || report.availability_status}
     </span>
   );
@@ -574,7 +574,7 @@ function AvailabilityBadge({ report }: { report: RunReportCatalogItem }) {
 
 function LoadingPanel({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[260px] items-center justify-center rounded-lg border border-border bg-bg/20 text-[13px] text-muted">
+    <div className="flex h-full min-h-[260px] items-center justify-center rounded-lg border border-border bg-bg/20 text-[1rem] text-muted">
       <Loader2 size={16} className="mr-2 animate-spin text-cyan" />
       {label}
     </div>
@@ -587,7 +587,7 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
       <div className="max-w-md rounded-xl border border-border bg-surface/60 p-6 text-center">
         <FileText size={28} className="mx-auto mb-3 text-cyan" />
         <h1 className="text-xl font-semibold text-text">{title}</h1>
-        <p className="mt-2 text-[13px] leading-6 text-muted">{detail}</p>
+        <p className="mt-2 text-[1rem] leading-6 text-muted">{detail}</p>
         {action && <div className="mt-4">{action}</div>}
       </div>
     </section>
@@ -597,8 +597,8 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
 function EmptyInline({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg/25 p-6 text-center">
-      <h2 className="text-[15px] font-semibold text-text">{title}</h2>
-      <p className="mt-2 text-[13px] text-muted">{detail}</p>
+      <h2 className="text-[1.15rem] font-semibold text-text">{title}</h2>
+      <p className="mt-2 text-[1rem] text-muted">{detail}</p>
     </div>
   );
 }
@@ -613,7 +613,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
   function flushList(key: string) {
     if (!listItems.length) return;
     nodes.push(
-      <ul key={`list-${key}`} className="my-3 list-disc space-y-1 pl-5 text-[13px] leading-6 text-muted">
+      <ul key={`list-${key}`} className="my-3 list-disc space-y-1 pl-5 text-[1rem] leading-6 text-muted">
         {listItems.map((item, index) => (
           <li key={`${key}-${index}`}>{renderInline(item)}</li>
         ))}
@@ -624,7 +624,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
 
   function flushCode(key: string) {
     nodes.push(
-      <pre key={`code-${key}`} className="my-3 overflow-auto rounded-md border border-border bg-[#030712] p-3 font-mono text-[12px] leading-5 text-text">
+      <pre key={`code-${key}`} className="my-3 overflow-auto rounded-md border border-border bg-[#030712] p-3 font-mono text-[0.925rem] leading-5 text-text">
         {codeLines.join('\n')}
       </pre>,
     );
@@ -657,9 +657,9 @@ function renderMarkdown(markdown: string): ReactNode[] {
     } else if (line.startsWith('## ')) {
       nodes.push(<h2 key={index} className="mb-2 mt-4 text-lg font-semibold text-text">{renderInline(line.slice(3))}</h2>);
     } else if (line.startsWith('### ')) {
-      nodes.push(<h3 key={index} className="mb-2 mt-3 text-[15px] font-semibold text-text">{renderInline(line.slice(4))}</h3>);
+      nodes.push(<h3 key={index} className="mb-2 mt-3 text-[1.15rem] font-semibold text-text">{renderInline(line.slice(4))}</h3>);
     } else {
-      nodes.push(<p key={index} className="mb-2 text-[13px] leading-6 text-muted">{renderInline(line)}</p>);
+      nodes.push(<p key={index} className="mb-2 text-[1rem] leading-6 text-muted">{renderInline(line)}</p>);
     }
   });
   if (inCode) flushCode('tail');

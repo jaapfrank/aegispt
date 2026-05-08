@@ -98,7 +98,7 @@ export default function PacksScreen() {
         detail={`${selectedEngagement?.name ?? 'Selected engagement'} capability packs from the existing governed pack lifecycle.`}
         actions={<ActionButton onClick={() => void loadPacks()} loading={loading}>Refresh</ActionButton>}
       />
-      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[12px] text-cyan">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}
 
       <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[380px_1fr]">
         <Panel title="Pack List" detail={`${packs.length} packs for selected engagement`}>
@@ -112,12 +112,12 @@ export default function PacksScreen() {
                   className={`w-full rounded-lg border p-3 text-left transition-colors ${pack.id === selectedPackId ? 'border-cyan/40 bg-cyan/10' : 'border-border bg-bg/30 hover:border-cyan/25'}`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="truncate text-[13px] font-semibold text-text">{pack.name}</span>
+                    <span className="truncate text-[1rem] font-semibold text-text">{pack.name}</span>
                     <StatusBadge value={pack.status} />
                   </div>
-                  <div className="mt-2 text-[12px] text-muted">v{pack.version} · {formatDate(pack.created_at)}</div>
+                  <div className="mt-2 text-[0.925rem] text-muted">v{pack.version} · {formatDate(pack.created_at)}</div>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {pack.methodology_tags.slice(0, 4).map((tag) => <span key={tag} className="rounded-full bg-bg/50 px-2 py-0.5 text-[10px] text-muted">{tag}</span>)}
+                    {pack.methodology_tags.slice(0, 4).map((tag) => <span key={tag} className="rounded-full bg-bg/50 px-2 py-0.5 text-[0.77rem] text-muted">{tag}</span>)}
                   </div>
                 </button>
               ))}
@@ -151,13 +151,13 @@ export default function PacksScreen() {
                     <summary className="cursor-pointer list-none">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="truncate text-[13px] font-semibold text-text"><Box size={14} className="mr-2 inline text-cyan" />{artifact.logical_name}</div>
-                          <div className="mt-1 text-[12px] text-muted">{artifact.artifact_type} · {artifact.checksum_sha256.slice(0, 12)}</div>
+                          <div className="truncate text-[1rem] font-semibold text-text"><Box size={14} className="mr-2 inline text-cyan" />{artifact.logical_name}</div>
+                          <div className="mt-1 text-[0.925rem] text-muted">{artifact.artifact_type} · {artifact.checksum_sha256.slice(0, 12)}</div>
                         </div>
                         <StatusBadge value={artifact.status} />
                       </div>
                     </summary>
-                    <pre className="mt-3 max-h-[260px] overflow-auto rounded-md border border-border bg-bg/60 p-3 text-[11px] leading-5 text-muted">{artifact.content_text ?? JSON.stringify(artifact.content_json ?? artifact.provenance_json, null, 2)}</pre>
+                    <pre className="mt-3 max-h-[260px] overflow-auto rounded-md border border-border bg-bg/60 p-3 text-[0.85rem] leading-5 text-muted">{artifact.content_text ?? JSON.stringify(artifact.content_json ?? artifact.provenance_json, null, 2)}</pre>
                   </details>
                 )) : <EmptyState title="No artifacts" detail="The selected pack has no artifacts returned by the backend." />}
               </div>
@@ -174,8 +174,8 @@ export default function PacksScreen() {
 function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg/30 p-3">
-      <div className="text-[10px] font-bold uppercase text-muted">{label}</div>
-      <div className="mt-1 truncate text-[13px] font-semibold text-text">{value}</div>
+      <div className="text-[0.77rem] font-bold uppercase text-muted">{label}</div>
+      <div className="mt-1 truncate text-[1rem] font-semibold text-text">{value}</div>
     </div>
   );
 }

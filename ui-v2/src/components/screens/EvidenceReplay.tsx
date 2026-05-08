@@ -95,7 +95,7 @@ export default function EvidenceReplay() {
   return (
     <section className="flex h-full min-h-0 flex-col">
       <PageHeader eyebrow="Evidence" title="Evidence Replay" detail="Task execution stdout, stderr, and artifact references from the existing task detail API." />
-      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[12px] text-amber">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.925rem] text-amber">{message}</div>}
 
       <Panel title="Run Selector" detail={run ? `${run.profile.name} · ${run.status}` : 'Select a run to replay stored execution evidence.'}>
         <Field label="Run">
@@ -120,8 +120,8 @@ export default function EvidenceReplay() {
                 <summary className="cursor-pointer list-none">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] font-semibold text-text"><TerminalSquare size={14} className="mr-2 inline text-cyan" />{task.tool} · {task.target_id}</div>
-                      <div className="mt-1 text-[12px] text-muted">{task.executions.length} executions · updated {formatDate(task.updated_at)}</div>
+                      <div className="truncate text-[1rem] font-semibold text-text"><TerminalSquare size={14} className="mr-2 inline text-cyan" />{task.tool} · {task.target_id}</div>
+                      <div className="mt-1 text-[0.925rem] text-muted">{task.executions.length} executions · updated {formatDate(task.updated_at)}</div>
                     </div>
                     <StatusBadge value={task.status} />
                   </div>
@@ -129,12 +129,12 @@ export default function EvidenceReplay() {
                 <div className="mt-3 space-y-3 border-t border-border pt-3">
                   {task.executions.map((execution) => (
                     <div key={execution.id} className="rounded-lg border border-border bg-surface/45 p-3">
-                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[0.925rem] text-muted">
                         <span><ScrollText size={13} className="mr-1 inline text-cyan" />{execution.tool_version} · exit {execution.exit_code ?? 'n/a'}</span>
                         <span>{formatDate(execution.created_at)}</span>
                       </div>
-                      <pre className="max-h-[260px] overflow-auto rounded-md border border-border bg-bg/70 p-3 text-[11px] leading-5 text-muted">{execution.stdout_text || '[no stdout]'}</pre>
-                      {execution.stderr_text && <pre className="mt-2 max-h-[180px] overflow-auto rounded-md border border-red/25 bg-red/10 p-3 text-[11px] leading-5 text-red">{execution.stderr_text}</pre>}
+                      <pre className="max-h-[260px] overflow-auto rounded-md border border-border bg-bg/70 p-3 text-[0.85rem] leading-5 text-muted">{execution.stdout_text || '[no stdout]'}</pre>
+                      {execution.stderr_text && <pre className="mt-2 max-h-[180px] overflow-auto rounded-md border border-red/25 bg-red/10 p-3 text-[0.85rem] leading-5 text-red">{execution.stderr_text}</pre>}
                       <div className="mt-2 flex flex-wrap gap-2">
                         {execution.artifacts.map((artifact, index) => (
                           <ActionButton key={index} onClick={() => void downloadArtifact(artifact)} tone="muted">

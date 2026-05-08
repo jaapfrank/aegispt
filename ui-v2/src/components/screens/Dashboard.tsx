@@ -51,7 +51,7 @@ export default function DashboardScreen() {
         actions={<ActionButton onClick={() => void getDashboard(selectedEngagementId).then(setDashboard)} loading={loading}>Refresh</ActionButton>}
       />
 
-      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[12px] text-amber">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.925rem] text-amber">{message}</div>}
 
       <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard icon={<Shield size={15} />} label="Portfolio" value={dashboard?.engagements.length ?? engagements.length} detail="Engagements in scope" />
@@ -83,10 +83,10 @@ export default function DashboardScreen() {
               {dashboard.activity_feed.slice(0, 8).map((item) => (
                 <div key={String(item.id)} className="rounded-lg border border-border bg-bg/30 p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 truncate text-[13px] font-semibold text-text">{jsonString(item.label)}</div>
-                    <span className="shrink-0 text-[11px] text-muted">{formatDate(String(item.timestamp))}</span>
+                    <div className="min-w-0 truncate text-[1rem] font-semibold text-text">{jsonString(item.label)}</div>
+                    <span className="shrink-0 text-[0.85rem] text-muted">{formatDate(String(item.timestamp))}</span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-muted">{jsonString(item.detail, jsonString(item.engagement_name, 'No detail'))}</p>
+                  <p className="mt-1 line-clamp-2 text-[0.925rem] leading-5 text-muted">{jsonString(item.detail, jsonString(item.engagement_name, 'No detail'))}</p>
                 </div>
               ))}
             </div>
@@ -102,10 +102,10 @@ export default function DashboardScreen() {
             {dashboard.engagements.slice(0, 6).map((engagement) => (
               <div key={String(engagement.id)} className="rounded-lg border border-border bg-bg/30 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 truncate text-[13px] font-semibold text-text">{jsonString(engagement.name)}</div>
+                  <div className="min-w-0 truncate text-[1rem] font-semibold text-text">{jsonString(engagement.name)}</div>
                   <StatusBadge value={jsonString(engagement.last_run_status, 'no runs')} />
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-muted">
+                <div className="mt-2 grid grid-cols-3 gap-2 text-[0.85rem] text-muted">
                   <span>Risk {jsonNumber(engagement.risk_score).toFixed(1)}</span>
                   <span>{jsonNumber(engagement.open_critical_count)} critical</span>
                   <span>{jsonNumber(engagement.run_count)} runs</span>
@@ -125,10 +125,10 @@ function QuickAction({ to, label, detail }: { to: string; label: string; detail:
   return (
     <Link to={to} className="group rounded-lg border border-border bg-bg/30 p-4 transition-colors hover:border-cyan/35 hover:bg-cyan/10">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-semibold text-text">{label}</span>
+        <span className="text-[1rem] font-semibold text-text">{label}</span>
         <ArrowRight size={15} className="text-cyan transition-transform group-hover:translate-x-0.5" />
       </div>
-      <p className="mt-2 text-[12px] leading-5 text-muted">{detail}</p>
+      <p className="mt-2 text-[0.925rem] leading-5 text-muted">{detail}</p>
     </Link>
   );
 }
@@ -147,7 +147,7 @@ function FirstRunPanel() {
             <div className="mb-2 inline-flex h-7 w-7 items-center justify-center rounded-md bg-cyan text-bg">
               <Target size={15} />
             </div>
-            <div className="text-[13px] font-semibold text-text">{index + 1}. {label}</div>
+            <div className="text-[1rem] font-semibold text-text">{index + 1}. {label}</div>
           </Link>
         ))}
       </div>

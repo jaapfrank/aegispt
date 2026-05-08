@@ -55,7 +55,7 @@ export default function SurfaceMap() {
         title="Surface Map"
         detail={`${selectedEngagement?.name ?? 'Selected engagement'} asset and endpoint view from stored inventory evidence.`}
       />
-      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[12px] text-amber">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.925rem] text-amber">{message}</div>}
 
       <div className="mb-5 flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface/55 p-1">
         {[
@@ -63,7 +63,7 @@ export default function SurfaceMap() {
           ['attack-map', 'Attack Map'],
           ['insights', 'Insights'],
         ].map(([id, label]) => (
-          <button key={id} type="button" onClick={() => setActiveTab(id as SurfaceTab)} className={`rounded-md px-3 py-2 text-[13px] font-semibold ${activeTab === id ? 'bg-cyan/10 text-cyan' : 'text-muted hover:bg-bg/40 hover:text-text'}`}>
+          <button key={id} type="button" onClick={() => setActiveTab(id as SurfaceTab)} className={`rounded-md px-3 py-2 text-[1rem] font-semibold ${activeTab === id ? 'bg-cyan/10 text-cyan' : 'text-muted hover:bg-bg/40 hover:text-text'}`}>
             {label}
           </button>
         ))}
@@ -79,8 +79,8 @@ export default function SurfaceMap() {
           </Field>
           {filteredAssets.length ? (
             <div className="max-h-[62vh] overflow-auto">
-              <table className="min-w-[760px] w-full text-left text-[12px]">
-                <thead className="sticky top-0 bg-surface text-[10px] uppercase tracking-wider text-muted">
+              <table className="min-w-[760px] w-full text-left text-[0.925rem]">
+                <thead className="sticky top-0 bg-surface text-[0.77rem] uppercase tracking-wider text-muted">
                   <tr>
                     <th className="px-3 py-3">Host</th>
                     <th className="px-3 py-3">Services</th>

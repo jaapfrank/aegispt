@@ -77,7 +77,7 @@ export default function HistoryScreen() {
         detail="Portfolio run history assembled from the existing engagement-scoped run endpoints."
         actions={<ActionButton onClick={() => void getPortfolioRuns().then(setRuns)} loading={loading}>Refresh</ActionButton>}
       />
-      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[12px] text-amber">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.925rem] text-amber">{message}</div>}
 
       <Panel title="Filters">
         <div className="grid gap-3 md:grid-cols-4">
@@ -112,7 +112,7 @@ export default function HistoryScreen() {
         <ActionButton onClick={() => setCompareRequested(true)} disabled={selectedForCompare.length !== 2}>
           <GitCompare size={14} />Compare
         </ActionButton>
-        <span className="text-[12px] text-muted">{selectedForCompare.length}/2 runs selected for comparison</span>
+        <span className="text-[0.925rem] text-muted">{selectedForCompare.length}/2 runs selected for comparison</span>
       </div>
 
       {comparison && (
@@ -125,8 +125,8 @@ export default function HistoryScreen() {
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-surface/55">
         <div className="max-h-full overflow-auto">
-          <table className="min-w-[860px] w-full text-left text-[12px]">
-            <thead className="sticky top-0 bg-surface text-[10px] uppercase tracking-wider text-muted">
+          <table className="min-w-[860px] w-full text-left text-[0.925rem]">
+            <thead className="sticky top-0 bg-surface text-[0.77rem] uppercase tracking-wider text-muted">
               <tr>
                 <th className="px-3 py-3">Compare</th>
                 <th className="px-3 py-3">Date</th>

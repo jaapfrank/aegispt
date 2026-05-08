@@ -251,7 +251,7 @@ export default function FindingsTheater() {
       <EmptyState
         title="No Run Selected"
         detail="Select or create a run before opening Findings Theater."
-        action={<Link to="/intake" className="rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[13px] font-semibold text-cyan">New Mission</Link>}
+        action={<Link to="/intake" className="rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[1rem] font-semibold text-cyan">New Mission</Link>}
       />
     );
   }
@@ -261,7 +261,7 @@ export default function FindingsTheater() {
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-text">Findings Theater</h1>
-          <p className="mt-1 text-[13px] text-muted">
+          <p className="mt-1 text-[1rem] text-muted">
             {selectedRun ? `${selectedRun.profile.name} · ${selectedRun.status}` : 'Selected run'} · evidence-backed findings
           </p>
         </div>
@@ -295,7 +295,7 @@ export default function FindingsTheater() {
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <SeverityBadge severity={severity} />
-                        <span className="text-[12px] font-semibold text-muted">{items.length} findings</span>
+                        <span className="text-[0.925rem] font-semibold text-muted">{items.length} findings</span>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -379,7 +379,7 @@ function FilterBar({
           options={STATUS_FILTERS.map((item) => ({ value: item, label: item === 'all' ? 'All' : item === 'false-positive' ? 'False Positive' : titleCase(item) }))}
         />
         <label className="block">
-          <span className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase text-muted">
+          <span className="mb-1 flex items-center gap-2 text-[0.85rem] font-bold uppercase text-muted">
             <Search size={14} />
             Search
             {loading && <Loader2 size={12} className="animate-spin text-cyan" />}
@@ -388,7 +388,7 @@ function FilterBar({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Title, target, tool, evidence ref"
-            className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none transition-colors placeholder:text-muted focus:border-cyan/50"
+            className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none transition-colors placeholder:text-muted focus:border-cyan/50"
           />
         </label>
       </div>
@@ -411,14 +411,14 @@ function SelectControl({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase text-muted">
+      <span className="mb-1 flex items-center gap-2 text-[0.85rem] font-bold uppercase text-muted">
         {icon}
         {label}
       </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none transition-colors focus:border-cyan/50"
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none transition-colors focus:border-cyan/50"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value} className="bg-surface text-text">
@@ -444,13 +444,13 @@ function FindingRow({ finding, selected, onClick }: { finding: Finding; selected
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <SeverityBadge severity={finding.severity} />
-          <span className="rounded-full border border-border bg-surface/70 px-2 py-0.5 text-[10px] font-semibold text-muted">
+          <span className="rounded-full border border-border bg-surface/70 px-2 py-0.5 text-[0.77rem] font-semibold text-muted">
             {tool}
           </span>
           <StatusBadge status={finding.status} />
         </div>
-        <div className="truncate text-[14px] font-semibold text-text">{finding.title}</div>
-        <div className="mt-1 truncate text-[12px] text-muted">{truncate(finding.target_id, 30)}</div>
+        <div className="truncate text-[1.08rem] font-semibold text-text">{finding.title}</div>
+        <div className="mt-1 truncate text-[0.925rem] text-muted">{truncate(finding.target_id, 30)}</div>
       </div>
       <div className="flex items-center justify-end text-muted">
         <ChevronRight size={16} />
@@ -519,7 +519,7 @@ function FindingDrawer({
                 <StatusBadge status={finding.status} />
               </div>
               <h2 className="break-words text-lg font-semibold text-text">{finding.title}</h2>
-              <p className="mt-1 break-words text-[12px] text-muted">{finding.target_id}</p>
+              <p className="mt-1 break-words text-[0.925rem] text-muted">{finding.target_id}</p>
             </div>
             <button
               type="button"
@@ -530,19 +530,19 @@ function FindingDrawer({
               <X size={18} />
             </button>
           </div>
-          {loading && <div className="flex items-center gap-2 text-[12px] text-cyan"><Loader2 size={14} className="animate-spin" /> Loading evidence detail</div>}
-          {actionMessage && <div className="rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[12px] text-cyan">{actionMessage}</div>}
+          {loading && <div className="flex items-center gap-2 text-[0.925rem] text-cyan"><Loader2 size={14} className="animate-spin" /> Loading evidence detail</div>}
+          {actionMessage && <div className="rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{actionMessage}</div>}
         </header>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
           <DrawerSection title="Summary" id="summary" openSections={openSections} toggleSection={toggleSection}>
-            <p className="text-[13px] leading-6 text-muted">{detail?.technical_details || finding.summary || 'No summary text is available for this finding.'}</p>
+            <p className="text-[1rem] leading-6 text-muted">{detail?.technical_details || finding.summary || 'No summary text is available for this finding.'}</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <CvssGauge score={finding.cvss_score} />
               <div className="rounded-lg border border-border bg-bg/30 p-3">
-                <div className="mb-2 text-[11px] font-bold uppercase text-muted">OWASP</div>
-                <div className="text-[13px] font-semibold text-text">{owaspLabel(finding, detail)}</div>
-                <div className="mt-1 text-[12px] text-muted">{finding.owasp_reference || textValue(mapValue(detail?.methodology, 'owasp.reference')) || 'No OWASP reference recorded'}</div>
+                <div className="mb-2 text-[0.85rem] font-bold uppercase text-muted">OWASP</div>
+                <div className="text-[1rem] font-semibold text-text">{owaspLabel(finding, detail)}</div>
+                <div className="mt-1 text-[0.925rem] text-muted">{finding.owasp_reference || textValue(mapValue(detail?.methodology, 'owasp.reference')) || 'No OWASP reference recorded'}</div>
               </div>
             </div>
           </DrawerSection>
@@ -550,21 +550,21 @@ function FindingDrawer({
           <DrawerSection title="Technical Evidence" id="evidence" openSections={openSections} toggleSection={toggleSection}>
             <div className="overflow-hidden rounded-lg border border-border bg-[#030712]">
               <div className="flex items-center justify-between border-b border-border px-3 py-2">
-                <span className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted">
+                <span className="flex items-center gap-2 text-[0.85rem] font-bold uppercase text-muted">
                   <Clipboard size={13} />
                   Raw Evidence View
                 </span>
                 <button
                   type="button"
                   onClick={() => void copyText(evidenceText)}
-                  className="rounded-md px-2 py-1 text-[11px] font-semibold text-cyan transition-colors hover:bg-cyan/10"
+                  className="rounded-md px-2 py-1 text-[0.85rem] font-semibold text-cyan transition-colors hover:bg-cyan/10"
                 >
                   Copy
                 </button>
               </div>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap p-3 font-mono text-[12px] leading-5 text-text">{evidenceText}</pre>
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap p-3 font-mono text-[0.925rem] leading-5 text-text">{evidenceText}</pre>
             </div>
-            <div className="mt-3 flex items-start gap-2 rounded-md border border-border bg-bg/30 p-3 text-[12px] text-muted">
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">
               <Hash size={14} className="mt-0.5 text-cyan" />
               <span className="break-all">
                 SHA-256: <span className="font-mono text-text">{storedSha || 'No stored artifact hash available'}</span>
@@ -574,7 +574,7 @@ function FindingDrawer({
 
           <DrawerSection title="AI Enrichment" id="ai" openSections={openSections} toggleSection={toggleSection}>
             {hasEnrichment ? (
-              <div className="space-y-3 text-[13px] leading-6 text-muted">
+              <div className="space-y-3 text-[1rem] leading-6 text-muted">
                 <p><strong className="text-text">Business impact:</strong> {textValue(enrichment.business_impact) || detail?.business_impact}</p>
                 <p><strong className="text-text">Remediation:</strong> {textValue(enrichment.remediation_narrative) || textValue(mapValue(detail?.remediation, 'ai_narrative'))}</p>
               </div>
@@ -583,13 +583,13 @@ function FindingDrawer({
                 type="button"
                 onClick={onEnrich}
                 disabled={action === 'enrich'}
-                className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
               >
                 {action === 'enrich' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 Enrich Now
               </button>
             ) : (
-              <Link to="/settings" className="inline-flex items-center gap-2 rounded-md border border-border bg-bg/40 px-3 py-2 text-[13px] font-semibold text-muted hover:text-text">
+              <Link to="/settings" className="inline-flex items-center gap-2 rounded-md border border-border bg-bg/40 px-3 py-2 text-[1rem] font-semibold text-muted hover:text-text">
                 <Bot size={14} />
                 Connect ChatGPT in Settings to enable
               </Link>
@@ -598,10 +598,10 @@ function FindingDrawer({
 
           <DrawerSection title="Remediation" id="remediation" openSections={openSections} toggleSection={toggleSection}>
             <div className="space-y-3">
-              <p className="text-[13px] leading-6 text-muted">{textValue(mapValue(detail?.remediation, 'detail')) || 'Review and remediate according to the linked evidence.'}</p>
+              <p className="text-[1rem] leading-6 text-muted">{textValue(mapValue(detail?.remediation, 'detail')) || 'Review and remediate according to the linked evidence.'}</p>
               <ol className="space-y-2">
                 {(detail?.next_steps?.length ? detail.next_steps : ['Review stored evidence.', 'Apply the remediation.', 'Retest before closure.']).map((step) => (
-                  <li key={step} className="rounded-md border border-border bg-bg/30 p-3 text-[12px] text-muted">{step}</li>
+                  <li key={step} className="rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">{step}</li>
                 ))}
               </ol>
               <div className="grid gap-2 md:grid-cols-2">
@@ -609,7 +609,7 @@ function FindingDrawer({
                   type="button"
                   onClick={onMarkFixed}
                   disabled={action === 'fixed'}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[13px] font-semibold text-green disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[1rem] font-semibold text-green disabled:opacity-50"
                 >
                   {action === 'fixed' ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                   Mark as Fixed
@@ -618,19 +618,19 @@ function FindingDrawer({
                   type="button"
                   onClick={onFalsePositive}
                   disabled={action === 'false-positive'}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[13px] font-semibold text-amber disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[1rem] font-semibold text-amber disabled:opacity-50"
                 >
                   {action === 'false-positive' ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />}
                   Mark as False Positive
                 </button>
               </div>
               <label className="block">
-                <span className="mb-1 block text-[11px] font-bold uppercase text-muted">False positive reason</span>
+                <span className="mb-1 block text-[0.85rem] font-bold uppercase text-muted">False positive reason</span>
                 <textarea
                   value={falsePositiveReason}
                   onChange={(event) => setFalsePositiveReason(event.target.value)}
                   rows={3}
-                  className="w-full rounded-md border border-border bg-bg/40 p-3 text-[12px] text-text outline-none focus:border-cyan/50"
+                  className="w-full rounded-md border border-border bg-bg/40 p-3 text-[0.925rem] text-text outline-none focus:border-cyan/50"
                 />
               </label>
             </div>
@@ -642,13 +642,13 @@ function FindingDrawer({
                 type="button"
                 onClick={onJira}
                 disabled={action === 'jira'}
-                className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
               >
                 {action === 'jira' ? <Loader2 size={14} className="animate-spin" /> : <Ticket size={14} />}
                 Push to Jira
               </button>
               {jiraLink(detail) && (
-                <a href={jiraLink(detail) ?? undefined} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-2 text-[12px] text-cyan">
+                <a href={jiraLink(detail) ?? undefined} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-2 text-[0.925rem] text-cyan">
                   <ExternalLink size={13} />
                   Open linked Jira issue
                 </a>
@@ -662,22 +662,22 @@ function FindingDrawer({
                 {chains.map((chain) => (
                   <div key={textValue(chain.id) || textValue(chain.title)} className="rounded-lg border border-border bg-bg/30 p-3">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <span className="text-[13px] font-semibold text-text">{textValue(chain.title) || 'Evidence-linked chain'}</span>
-                      <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted">{textValue(chain.status) || 'recorded'}</span>
+                      <span className="text-[1rem] font-semibold text-text">{textValue(chain.title) || 'Evidence-linked chain'}</span>
+                      <span className="rounded-full border border-border px-2 py-0.5 text-[0.77rem] text-muted">{textValue(chain.status) || 'recorded'}</span>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-2">
                       {componentFindings(chain).map((component, index) => (
                         <div key={`${textValue(component.finding_id)}-${index}`} className="flex items-center gap-2">
-                          {index > 0 && <span className="text-[11px] text-muted">enabled</span>}
+                          {index > 0 && <span className="text-[0.85rem] text-muted">enabled</span>}
                           <div className="min-w-[180px] rounded-md border border-cyan/20 bg-cyan/10 p-3">
                             <SeverityBadge severity={textValue(component.severity) || 'unknown'} />
-                            <div className="mt-2 line-clamp-2 text-[12px] font-semibold text-text">{textValue(component.title) || textValue(component.finding_id)}</div>
-                            <div className="mt-1 truncate text-[11px] text-muted">{textValue(component.evidence_ref) || 'No evidence ref'}</div>
+                            <div className="mt-2 line-clamp-2 text-[0.925rem] font-semibold text-text">{textValue(component.title) || textValue(component.finding_id)}</div>
+                            <div className="mt-1 truncate text-[0.85rem] text-muted">{textValue(component.evidence_ref) || 'No evidence ref'}</div>
                           </div>
                         </div>
                       ))}
                     </div>
-                    <p className="mt-2 text-[12px] leading-5 text-muted">{textValue(chain.combined_impact) || 'Chain context is present in stored finding-chain records.'}</p>
+                    <p className="mt-2 text-[0.925rem] leading-5 text-muted">{textValue(chain.combined_impact) || 'Chain context is present in stored finding-chain records.'}</p>
                   </div>
                 ))}
               </div>
@@ -706,7 +706,7 @@ function DrawerSection({
   return (
     <section className="rounded-lg border border-border bg-bg/25">
       <button type="button" onClick={() => toggleSection(id)} className="flex w-full items-center justify-between px-4 py-3 text-left">
-        <span className="text-[12px] font-bold uppercase text-text">{title}</span>
+        <span className="text-[0.925rem] font-bold uppercase text-text">{title}</span>
         {open ? <ChevronDown size={15} className="text-muted" /> : <ChevronRight size={15} className="text-muted" />}
       </button>
       {open && <div className="border-t border-border p-4">{children}</div>}
@@ -719,10 +719,10 @@ function CvssGauge({ score }: { score: number | null }) {
   const pct = value === null ? 0 : value * 10;
   return (
     <div className="rounded-lg border border-border bg-bg/30 p-3">
-      <div className="mb-2 text-[11px] font-bold uppercase text-muted">CVSS</div>
+      <div className="mb-2 text-[0.85rem] font-bold uppercase text-muted">CVSS</div>
       <div className="flex items-end gap-2">
         <span className="text-2xl font-semibold text-text">{value === null ? 'N/A' : value.toFixed(1)}</span>
-        <span className="pb-1 text-[11px] text-muted">/ 10</span>
+        <span className="pb-1 text-[0.85rem] text-muted">/ 10</span>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
         <div className={cn('h-full rounded-full', cvssToneClass(value))} style={{ width: `${pct}%` }} />
@@ -734,7 +734,7 @@ function CvssGauge({ score }: { score: number | null }) {
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-border bg-surface/55 px-4 py-2">
-      <div className="text-[10px] font-bold uppercase text-muted">{label}</div>
+      <div className="text-[0.77rem] font-bold uppercase text-muted">{label}</div>
       <div className="text-lg font-semibold text-text">{value}</div>
     </div>
   );
@@ -742,7 +742,7 @@ function Metric({ label, value }: { label: string; value: number }) {
 
 function LoadingPanel({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[260px] items-center justify-center rounded-lg border border-border bg-bg/20 text-[13px] text-muted">
+    <div className="flex h-full min-h-[260px] items-center justify-center rounded-lg border border-border bg-bg/20 text-[1rem] text-muted">
       <Loader2 size={16} className="mr-2 animate-spin text-cyan" />
       {label}
     </div>
@@ -755,7 +755,7 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
       <div className="max-w-md rounded-xl border border-border bg-surface/60 p-6 text-center">
         <ShieldAlert size={28} className="mx-auto mb-3 text-cyan" />
         <h1 className="text-xl font-semibold text-text">{title}</h1>
-        <p className="mt-2 text-[13px] leading-6 text-muted">{detail}</p>
+        <p className="mt-2 text-[1rem] leading-6 text-muted">{detail}</p>
         {action && <div className="mt-4">{action}</div>}
       </div>
     </section>
@@ -765,8 +765,8 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
 function EmptyInline({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg/25 p-6 text-center">
-      <h2 className="text-[15px] font-semibold text-text">{title}</h2>
-      <p className="mt-2 text-[13px] text-muted">{detail}</p>
+      <h2 className="text-[1.15rem] font-semibold text-text">{title}</h2>
+      <p className="mt-2 text-[1rem] text-muted">{detail}</p>
     </div>
   );
 }
@@ -774,7 +774,7 @@ function EmptyInline({ title, detail }: { title: string; detail: string }) {
 function SeverityBadge({ severity }: { severity: string }) {
   const normalized = severity.toLowerCase();
   return (
-    <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase', severityClass(normalized))}>
+    <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', severityClass(normalized))}>
       {normalized || 'unknown'}
     </span>
   );
@@ -782,7 +782,7 @@ function SeverityBadge({ severity }: { severity: string }) {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className="rounded-full border border-border bg-bg/50 px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">
+    <span className="rounded-full border border-border bg-bg/50 px-2 py-0.5 text-[0.77rem] font-semibold uppercase text-muted">
       {status === 'resolved' ? 'fixed' : status.replace(/_/g, ' ')}
     </span>
   );

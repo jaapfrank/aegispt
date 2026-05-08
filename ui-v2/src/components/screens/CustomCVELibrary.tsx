@@ -133,7 +133,7 @@ export default function CustomCVELibrary() {
         detail="Governed custom vulnerability definitions backed by the existing custom-vulnerabilities API."
         actions={<ActionButton onClick={() => void exportItems()}><Download size={14} />Export</ActionButton>}
       />
-      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[12px] text-cyan">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}
 
       <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[420px_1fr]">
         <div className="space-y-5">
@@ -174,8 +174,8 @@ export default function CustomCVELibrary() {
         <Panel title="Library" detail={`${items.length} definitions`}>
           {items.length ? (
             <div className="max-h-[72vh] overflow-auto">
-              <table className="min-w-[820px] w-full text-left text-[12px]">
-                <thead className="sticky top-0 bg-surface text-[10px] uppercase tracking-wider text-muted">
+              <table className="min-w-[820px] w-full text-left text-[0.925rem]">
+                <thead className="sticky top-0 bg-surface text-[0.77rem] uppercase tracking-wider text-muted">
                   <tr>
                     <th className="px-3 py-3">ID</th>
                     <th className="px-3 py-3">Title</th>
@@ -188,7 +188,7 @@ export default function CustomCVELibrary() {
                 <tbody>
                   {items.map((item) => (
                     <tr key={item.id} className="border-t border-border">
-                      <td className="px-3 py-3 font-mono text-[11px] text-muted">{item.custom_id}</td>
+                      <td className="px-3 py-3 font-mono text-[0.85rem] text-muted">{item.custom_id}</td>
                       <td className="px-3 py-3 font-semibold text-text">{item.title}</td>
                       <td className="px-3 py-3"><StatusBadge value={item.severity} /></td>
                       <td className="px-3 py-3 text-muted">{item.affected_products_json.join(', ') || 'n/a'}</td>

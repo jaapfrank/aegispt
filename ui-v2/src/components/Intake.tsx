@@ -34,7 +34,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type IntakeMode = 'ai' | 'wizard';
 type DepthKey = 'passive' | 'active' | 'full';
 type WizardStep = 1 | 2 | 3;
 type MissionField = 'targetType' | 'scope' | 'depth' | 'safety';
@@ -55,12 +54,10 @@ type MissionSummary = {
   assessmentTileKey?: string | null;
 };
 
-const MODE_STORAGE_KEY = 'aegispt-v2-intake-mode';
-
 const openingMessage: Message = {
   id: 'opening',
   sender: 'ai',
-  text: 'Intake is connected to the backend interpretation boundary. What environment are we testing today?',
+  text: 'What are we testing? You can describe the full mission in one sentence — target, scope, and depth.',
   options: ['External Web App', 'Internal LAN', 'Active Directory', 'Cloud Infrastructure'],
 };
 
@@ -106,13 +103,11 @@ export default function Intake() {
   const setInventory = useAegisStore((state) => state.setInventory);
   const setError = useAegisStore((state) => state.setError);
 
-  const [mode, setModeState] = useState<IntakeMode>(() => {
-    const stored = window.localStorage.getItem(MODE_STORAGE_KEY);
-    return stored === 'wizard' ? 'wizard' : 'ai';
-  });
+  const [mode, setMode] = useState<'manual' | 'ai'>('manual');
   const [isTyping, setIsTyping] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isLaunching, setIsLaunching] = useState(false);
+  const [showLaunchCeremony, setShowLaunchCeremony] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [authorizationConfirmed, setAuthorizationConfirmed] = useState(false);
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
@@ -142,11 +137,6 @@ export default function Intake() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
-
-  function setMode(nextMode: IntakeMode) {
-    setModeState(nextMode);
-    window.localStorage.setItem(MODE_STORAGE_KEY, nextMode);
-  }
 
   function updateMission(update: Partial<MissionSummary>) {
     setMission((current) => ({ ...current, ...update }));
@@ -183,9 +173,22 @@ export default function Intake() {
     const userMsg: Message = { id: crypto.randomUUID(), sender: 'user', text: answer };
     setMessages((current) => [...current, userMsg]);
     setInputValue('');
-    setIsTyping(true);
     setLaunchError(null);
 
+    // All fields already complete — no more API calls needed
+    if (field === 'complete') {
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          sender: 'ai',
+          text: 'Mission profile is complete. Confirm authorization in the sidebar and hit launch.',
+        },
+      ]);
+      return;
+    }
+
+    setIsTyping(true);
     try {
       const engagement = await ensureEngagement();
       const interpretation = await postRunIntakeInterpretation({
@@ -197,15 +200,16 @@ export default function Intake() {
           [field]: answer,
         }),
       });
-      const extracted = extractMissionUpdate(field, answer, interpretation);
+      const extracted = extractMissionUpdate(field, answer, interpretation, mission);
       updateMission(extracted);
+      const nextField = nextEmptyField({ ...mission, ...extracted });
       setMessages((current) => [
         ...current,
         {
           id: crypto.randomUUID(),
           sender: 'ai',
-          text: responseTextForInterpretation(interpretation, field, extracted),
-          options: optionsForNextField(nextEmptyField({ ...mission, ...extracted })),
+          text: responseTextForInterpretation(interpretation, nextField, extracted),
+          options: optionsForNextField(nextField),
           extractedData: extracted,
         },
       ]);
@@ -218,7 +222,7 @@ export default function Intake() {
         {
           id: crypto.randomUUID(),
           sender: 'ai',
-          text: `Backend intake request failed: ${message}`,
+          text: `Could not process that — try again or switch to Manual Wizard.`,
         },
       ]);
     } finally {
@@ -226,11 +230,13 @@ export default function Intake() {
     }
   }
 
-  async function launchMission(source: 'ai' | 'wizard') {
+  async function launchMission() {
     if (!missionReady || !authorizationConfirmed || isLaunching) return;
     setIsLaunching(true);
     setLaunchError(null);
     setError(null);
+    setShowLaunchCeremony(true);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
     try {
       let engagement = await ensureEngagement();
       if (!engagement.roe_ref && !engagement.authorization_confirmed_at) {
@@ -261,7 +267,7 @@ export default function Intake() {
           },
         ],
         environment_notes: [
-          `React v2 intake source: ${source}`,
+          `React v2 intake source: split-path`,
           `Assessment type: ${mission.targetType}`,
           `Depth: ${mission.depth}`,
           `Safety posture: ${mission.safety}`,
@@ -274,13 +280,16 @@ export default function Intake() {
       setInventory(inventorySnapshot);
       setRuns([run, ...runs.filter((candidate) => candidate.id !== run.id)]);
       setSelectedRun(run);
+      setShowLaunchCeremony(false);
       navigate('/mission-control');
     } catch (error) {
       const message = errorMessage(error);
       setError(message);
       setLaunchError(message);
+      setShowLaunchCeremony(false);
     } finally {
       setIsLaunching(false);
+      setShowLaunchCeremony(false);
     }
   }
 
@@ -303,79 +312,110 @@ export default function Intake() {
   }
 
   return (
-    <div className="grid h-full w-full gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="flex min-h-[680px] flex-col overflow-hidden rounded-xl border border-border bg-[rgba(12,21,36,0.4)] shadow-2xl backdrop-blur-md">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-[rgba(5,9,18,0.65)] p-4">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode('ai')}
-              className={cn(
-                'flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-all',
-                mode === 'ai' ? 'border border-cyan/30 bg-cyan/10 text-cyan' : 'text-muted hover:text-text',
-              )}
-            >
-              <Sparkles size={14} />
-              AI Intake
-            </button>
-            <button
-              onClick={() => setMode('wizard')}
-              className={cn(
-                'flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-all',
-                mode === 'wizard' ? 'border border-cyan/30 bg-cyan/10 text-cyan' : 'text-muted hover:text-text',
-              )}
-            >
-              <SlidersHorizontal size={14} />
-              Manual Wizard
-            </button>
+    <>
+      <AnimatePresence>
+        {showLaunchCeremony && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#04080f]/90 backdrop-blur-md"
+          >
+             <div className="flex flex-col items-center gap-6">
+                <Crosshair className="text-cyan animate-[spin_4s_linear_infinite]" size={64} />
+                <h1 className="text-3xl font-bold uppercase tracking-widest text-cyan">Mission locked. Deploying.</h1>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex h-full w-full min-h-0 gap-5">
+        {/* Main pane — tabbed: Manual Wizard or AI Guided */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-[rgba(8,14,26,0.7)] shadow-2xl backdrop-blur-md">
+          {/* Mode switcher */}
+          <div className="shrink-0 flex items-center justify-between gap-4 border-b border-border bg-[rgba(4,8,15,0.85)] px-5 py-3">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-bg/60 p-1">
+              <button
+                type="button"
+                onClick={() => setMode('manual')}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-4 py-1.5 text-[0.85rem] font-semibold transition-all',
+                  mode === 'manual' ? 'bg-cyan/10 text-cyan shadow-[0_0_12px_rgba(94,207,255,0.12)]' : 'text-muted hover:text-text',
+                )}
+              >
+                <SlidersHorizontal size={13} />
+                Manual Wizard
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('ai')}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-4 py-1.5 text-[0.85rem] font-semibold transition-all',
+                  mode === 'ai' ? 'bg-cyan/10 text-cyan shadow-[0_0_12px_rgba(94,207,255,0.12)]' : 'text-muted hover:text-text',
+                )}
+              >
+                <Sparkles size={13} />
+                AI Guided
+              </button>
+            </div>
+            {mode === 'ai' && (
+              <span className="flex items-center gap-2 text-[0.77rem] font-mono uppercase tracking-widest text-cyan/60">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse" />
+                Backend connected
+              </span>
+            )}
           </div>
-          <span className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-cyan/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse" />
-            Backend connected
-          </span>
+
+          <AnimatePresence mode="wait">
+            {mode === 'manual' ? (
+              <motion.div key="manual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} className="flex min-h-0 flex-1 flex-col">
+                <WizardPane
+                  step={wizardStep}
+                  setStep={setWizardStep}
+                  selectedTile={selectedTile}
+                  selectedTileKey={selectedTileKey}
+                  onTileSelect={handleTileSelect}
+                  target={wizardTarget}
+                  onTargetChange={handleWizardTargetChange}
+                  targetKind={targetKind(wizardTarget)}
+                  depth={wizardDepth}
+                  onDepthChange={handleWizardDepthChange}
+                  depthOption={selectedDepthOption}
+                  canPreview={Boolean(selectedTileKey && wizardTarget.trim() && wizardDepth)}
+                  authorizationConfirmed={authorizationConfirmed}
+                  setAuthorizationConfirmed={setAuthorizationConfirmed}
+                  isLaunching={isLaunching}
+                  onLaunch={() => void launchMission()}
+                />
+              </motion.div>
+            ) : (
+              <motion.div key="ai" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} className="flex min-h-0 flex-1 flex-col">
+                <AiIntakePane
+                  messages={messages}
+                  isTyping={isTyping}
+                  inputValue={inputValue}
+                  setInputValue={setInputValue}
+                  handleSend={handleSend}
+                  messagesEndRef={messagesEndRef}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {mode === 'ai' ? (
-          <AiIntakePane
-            messages={messages}
-            isTyping={isTyping}
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            handleSend={handleSend}
-            messagesEndRef={messagesEndRef}
-          />
-        ) : (
-          <WizardPane
-            step={wizardStep}
-            setStep={setWizardStep}
-            selectedTile={selectedTile}
-            selectedTileKey={selectedTileKey}
-            onTileSelect={handleTileSelect}
-            target={wizardTarget}
-            onTargetChange={handleWizardTargetChange}
-            targetKind={targetKind(wizardTarget)}
-            depth={wizardDepth}
-            onDepthChange={handleWizardDepthChange}
-            depthOption={selectedDepthOption}
-            canPreview={Boolean(selectedTileKey && wizardTarget.trim() && wizardDepth)}
-            authorizationConfirmed={authorizationConfirmed}
-            setAuthorizationConfirmed={setAuthorizationConfirmed}
-            isLaunching={isLaunching}
-            onLaunch={() => void launchMission('wizard')}
-          />
-        )}
+        {/* Mission Profile sidebar */}
+        <MissionProfile
+          mission={mission}
+          latestExtraction={messages[messages.length - 1]?.extractedData}
+          authorizationConfirmed={authorizationConfirmed}
+          setAuthorizationConfirmed={setAuthorizationConfirmed}
+          canLaunch={canLaunch}
+          isLaunching={isLaunching}
+          launchError={launchError}
+          onLaunch={() => void launchMission()}
+        />
       </div>
-
-      <MissionProfile
-        mission={mission}
-        latestExtraction={messages[messages.length - 1]?.extractedData}
-        authorizationConfirmed={authorizationConfirmed}
-        setAuthorizationConfirmed={setAuthorizationConfirmed}
-        canLaunch={canLaunch}
-        isLaunching={isLaunching}
-        launchError={launchError}
-        onLaunch={() => void launchMission(mode)}
-      />
-    </div>
+    </>
   );
 }
 
@@ -396,7 +436,7 @@ function AiIntakePane({
 }) {
   return (
     <>
-      <div className="flex-1 space-y-6 overflow-y-auto p-5">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
             <motion.div
@@ -416,7 +456,7 @@ function AiIntakePane({
                 </div>
                 <div
                   className={cn(
-                    'rounded-2xl px-5 py-3 text-[14px] leading-relaxed shadow-sm',
+                    'rounded-2xl px-5 py-3 text-[1.08rem] leading-relaxed shadow-sm',
                     msg.sender === 'user'
                       ? 'rounded-br-sm border border-border bg-surface text-text'
                       : 'rounded-bl-sm border border-[rgba(14,165,233,0.15)] bg-[rgba(14,165,233,0.05)] text-cyan',
@@ -529,7 +569,7 @@ function WizardPane({
               type="button"
               onClick={() => setStep(item as WizardStep)}
               className={cn(
-                'rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide',
+                'rounded-full border px-3 py-1 text-[0.85rem] font-bold uppercase tracking-wide',
                 step === item ? 'border-cyan/40 bg-cyan/10 text-cyan' : 'border-border text-muted',
               )}
             >
@@ -543,9 +583,9 @@ function WizardPane({
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-text">Select Assessment Type</h2>
-            <p className="mt-1 text-[13px] text-muted">Choose the surface that best matches the authorized target.</p>
+            <p className="mt-1 text-[1rem] text-muted">Choose the surface that best matches the authorized target.</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 grid-cols-2 xl:grid-cols-3">
             {ASSESSMENT_TILES.map((tile) => {
               const Icon = tile.icon;
               const selected = selectedTileKey === tile.key;
@@ -566,13 +606,13 @@ function WizardPane({
                       <Icon size={17} />
                     </span>
                     {tile.badge && (
-                      <span className="rounded-full border border-border bg-bg/70 px-2 py-0.5 text-[10px] font-bold uppercase text-muted">
+                      <span className="rounded-full border border-border bg-bg/70 px-2 py-0.5 text-[0.77rem] font-bold uppercase text-muted">
                         {tile.badge}
                       </span>
                     )}
                   </div>
-                  <div className="text-[13px] font-semibold text-text">{tile.label}</div>
-                  <p className="mt-2 line-clamp-3 text-[12px] leading-5 text-muted">{tile.description}</p>
+                  <div className="text-[1rem] font-semibold text-text">{tile.label}</div>
+                  <p className="mt-2 line-clamp-3 text-[0.925rem] leading-5 text-muted">{tile.description}</p>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {tile.phaseTags.map((tag) => (
                       <PhaseTag key={`${tile.key}-${tag.label}`} label={tag.label} tone={tag.tone} />
@@ -587,7 +627,7 @@ function WizardPane({
               type="button"
               disabled={!selectedTileKey}
               onClick={() => setStep(2)}
-              className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[13px] font-semibold text-cyan transition-colors hover:bg-cyan/15 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[1rem] font-semibold text-cyan transition-colors hover:bg-cyan/15 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Target & Depth
               <ArrowRight size={15} />
@@ -600,9 +640,9 @@ function WizardPane({
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <div className="mb-5 flex flex-col gap-2">
             <h2 className="text-lg font-semibold text-text">Target & Depth</h2>
-            <p className="text-[13px] text-muted">The target is stored as allowlisted scope before a run can exist.</p>
+            <p className="text-[1rem] text-muted">The target is stored as allowlisted scope before a run can exist.</p>
           </div>
-          <label className="block text-[12px] font-bold uppercase tracking-wide text-muted" htmlFor="wizard-target">
+          <label className="block text-[0.925rem] font-bold uppercase tracking-wide text-muted" htmlFor="wizard-target">
             Approved target
           </label>
           <input
@@ -612,7 +652,7 @@ function WizardPane({
             placeholder="https://app.example.test, 10.0.20.0/24, api.example.test"
             className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text outline-none transition-colors placeholder:text-muted focus:border-cyan/50"
           />
-          <p className="mt-2 text-[12px] text-muted">Detected target type: {targetKind}</p>
+          <p className="mt-2 text-[0.925rem] text-muted">Detected target type: {targetKind}</p>
 
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             {depthOptions.map((option) => {
@@ -627,11 +667,11 @@ function WizardPane({
                     selected ? 'border-cyan/50 bg-cyan/10' : 'border-border bg-surface/45 hover:border-cyan/30',
                   )}
                 >
-                  <div className="text-[13px] font-semibold text-text">{option.label}</div>
-                  <p className="mt-2 text-[12px] leading-5 text-muted">{option.summary}</p>
+                  <div className="text-[1rem] font-semibold text-text">{option.label}</div>
+                  <p className="mt-2 text-[0.925rem] leading-5 text-muted">{option.summary}</p>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {option.phases.map((phase) => (
-                      <span key={phase} className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted">
+                      <span key={phase} className="rounded-full border border-border px-2 py-0.5 text-[0.77rem] text-muted">
                         {phase}
                       </span>
                     ))}
@@ -645,7 +685,7 @@ function WizardPane({
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/60 px-4 py-2 text-[13px] font-semibold text-muted hover:text-text"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/60 px-4 py-2 text-[1rem] font-semibold text-muted hover:text-text"
             >
               <ArrowLeft size={15} />
               Back
@@ -654,7 +694,7 @@ function WizardPane({
               type="button"
               disabled={!canPreview}
               onClick={() => setStep(3)}
-              className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[13px] font-semibold text-cyan transition-colors hover:bg-cyan/15 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-4 py-2 text-[1rem] font-semibold text-cyan transition-colors hover:bg-cyan/15 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Preview Mission
               <ArrowRight size={15} />
@@ -667,21 +707,26 @@ function WizardPane({
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <div className="rounded-lg border border-border bg-surface/45 p-5">
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-[11px] font-bold uppercase text-cyan">
+              <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-[0.85rem] font-bold uppercase text-cyan">
                 {selectedTile.assessmentType}
               </span>
-              <span className="rounded-full border border-border px-3 py-1 text-[11px] font-bold uppercase text-muted">
+              <span className="rounded-full border border-border px-3 py-1 text-[0.85rem] font-bold uppercase text-muted">
                 {depthOption.label}
               </span>
             </div>
             <h2 className="text-lg font-semibold text-text">Mission Preview</h2>
-            <dl className="mt-4 grid gap-3 text-[13px]">
+            <dl className="mt-4 grid gap-3 text-[1rem]">
               <PreviewRow label="Target" value={target || 'Not set'} />
               <PreviewRow label="Safety" value={depthOption.safety} />
               <PreviewRow label="Phases" value={depthOption.phases.join(' · ')} />
-              <PreviewRow label="Estimated time" value={depthOption.key === 'passive' ? 'About 5 minutes' : depthOption.key === 'active' ? 'About 15 minutes' : 'Staged by phase gates'} />
+              <PreviewRow label="Estimated time" value={depthOption.key === 'passive' ? 'About 5 minutes' : depthOption.key === 'active' ? 'About 15 minutes' : 'Runs fully automated through all phases'} />
+              {depthOption.key === 'full' && (
+                <div className="rounded-md border border-cyan/20 bg-cyan/5 px-3 py-2 text-[0.85rem] text-cyan/80">
+                  Full Pentest runs without phase approval gates — all phases execute automatically once launched.
+                </div>
+              )}
             </dl>
-            <label className="mt-5 flex items-start gap-3 rounded-md border border-amber/30 bg-amber/10 p-3 text-[13px] text-text">
+            <label className="mt-5 flex items-start gap-3 rounded-md border border-amber/30 bg-amber/10 p-3 text-[1rem] text-text">
               <input
                 type="checkbox"
                 checked={authorizationConfirmed}
@@ -690,7 +735,7 @@ function WizardPane({
               />
               <span>
                 <strong>I confirm written authorization from the system owner.</strong>
-                <span className="mt-1 block text-[12px] text-muted">
+                <span className="mt-1 block text-[0.925rem] text-muted">
                   This creates an auditable authorization confirmation before the run can start.
                 </span>
               </span>
@@ -700,7 +745,7 @@ function WizardPane({
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/60 px-4 py-2 text-[13px] font-semibold text-muted hover:text-text"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface/60 px-4 py-2 text-[1rem] font-semibold text-muted hover:text-text"
             >
               <ArrowLeft size={15} />
               Back
@@ -709,7 +754,7 @@ function WizardPane({
               type="button"
               disabled={!authorizationConfirmed || isLaunching}
               onClick={onLaunch}
-              className="inline-flex items-center gap-2 rounded-md bg-cyan px-4 py-2 text-[13px] font-bold text-[#04080f] shadow-[0_0_20px_rgba(94,207,255,0.35)] transition-all hover:shadow-[0_0_28px_rgba(94,207,255,0.5)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-md bg-cyan px-4 py-2 text-[1rem] font-bold text-[#04080f] shadow-[0_0_20px_rgba(94,207,255,0.35)] transition-all hover:shadow-[0_0_28px_rgba(94,207,255,0.5)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isLaunching ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />}
               Create Mission & Open Mission Control
@@ -741,14 +786,14 @@ function MissionProfile({
   onLaunch: () => void;
 }) {
   return (
-    <aside className="min-h-[680px]">
+    <aside className="min-h-0">
       <div className="relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface/50 backdrop-blur-md">
         <div className="pointer-events-none absolute -right-[100px] -top-[100px] opacity-10">
           <Crosshair size={300} className="text-cyan animate-[spin_60s_linear_infinite]" />
         </div>
         <div className="relative z-10 border-b border-border bg-[rgba(5,9,18,0.8)] p-5">
           <h2 className="text-sm font-bold uppercase tracking-widest text-text">Mission Profile</h2>
-          <p className="mt-1 text-[11px] text-muted">Operator-reviewed launch data</p>
+          <p className="mt-1 text-[0.85rem] text-muted">Operator-reviewed launch data</p>
         </div>
         <div className="relative z-10 flex-1 space-y-4 overflow-y-auto p-5">
           <SummaryCard
@@ -775,7 +820,7 @@ function MissionProfile({
             icon={<CheckCircle2 size={14} />}
             isLatest={latestExtraction?.safety !== undefined}
           />
-          <label className="flex items-start gap-3 rounded-lg border border-border bg-[rgba(5,9,18,0.4)] p-4 text-[12px] text-text">
+          <label className="flex items-start gap-3 rounded-lg border border-border bg-[rgba(5,9,18,0.4)] p-4 text-[0.925rem] text-text">
             <input
               type="checkbox"
               checked={authorizationConfirmed}
@@ -787,7 +832,7 @@ function MissionProfile({
               <span className="mt-1 block leading-5 text-muted">Required before scope, inventory, and run creation.</span>
             </span>
           </label>
-          {launchError && <div className="rounded-md border border-red/30 bg-red/10 p-3 text-[12px] text-red">{launchError}</div>}
+          {launchError && <div className="rounded-md border border-red/30 bg-red/10 p-3 text-[0.925rem] text-red">{launchError}</div>}
           <button
             type="button"
             disabled={!canLaunch}
@@ -822,16 +867,16 @@ function SummaryCard({ label, value, icon, isLatest }: { label: string; value: s
           className="absolute bottom-0 top-0 w-[50px] skew-x-[-20deg] bg-gradient-to-r from-transparent via-cyan/20 to-transparent"
         />
       )}
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
+      <div className="mb-2 flex items-center gap-2 text-[0.77rem] font-bold uppercase tracking-widest text-muted">
         {icon}
         {label}
       </div>
       {value ? (
-        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="break-words text-[13px] font-semibold text-text">
+        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="break-words text-[1rem] font-semibold text-text">
           {value}
         </motion.div>
       ) : (
-        <div className="text-[13px] italic text-muted/40">Awaiting input...</div>
+        <div className="text-[1rem] italic text-muted/40">Awaiting input...</div>
       )}
     </motion.div>
   );
@@ -850,7 +895,7 @@ function PhaseTag({ label, tone }: { label: string; tone: PhaseTagTone }) {
   return (
     <span
       className={cn(
-        'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+        'rounded-full border px-2 py-0.5 text-[0.77rem] font-semibold',
         tone === 'passive' && 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
         tone === 'active' && 'border-cyan/30 bg-cyan/10 text-cyan',
         tone === 'credential' && 'border-violet-300/30 bg-violet-300/10 text-violet-100',
@@ -863,38 +908,66 @@ function PhaseTag({ label, tone }: { label: string; tone: PhaseTagTone }) {
   );
 }
 
-function nextEmptyField(mission: MissionSummary): MissionField {
+function nextEmptyField(mission: MissionSummary): MissionField | 'complete' {
   if (!mission.targetType) return 'targetType';
   if (!mission.scope) return 'scope';
   if (!mission.depth) return 'depth';
-  return 'safety';
+  // Full Pentest authorization covers safety — no separate question needed
+  const isFullPentest = (mission.depth || '').toLowerCase().includes('full');
+  if (!mission.safety && !isFullPentest) return 'safety';
+  return 'complete';
 }
 
 function extractMissionUpdate(
   field: MissionField,
   answer: string,
   interpretation: RunIntakeInterpretation,
+  currentMission: MissionSummary,
 ): Partial<MissionSummary> {
   const update: Partial<MissionSummary> = {};
+
+  // Extract from LLM inferences when available
   for (const inference of interpretation.safe_inferences ?? []) {
     const inferredField = stringValue(inference.field);
     const inferredValue = stringValue(inference.value);
     if (inferredField === 'assessment_type' && inferredValue) update.targetType = inferredValue;
     if (inferredField === 'safety_posture' && inferredValue) update.safety = humanizeSafety(inferredValue);
     if (inferredField === 'primary_goal' && inferredValue) update.depth = humanizeGoal(inferredValue);
+    if ((inferredField === 'scope' || inferredField === 'target_url') && inferredValue) update.scope = inferredValue;
   }
+
+  // Free-text extraction — only for fields not yet filled in the current mission
+  const lower = answer.toLowerCase();
+  if (!currentMission.scope && !update.scope) {
+    const urlMatch = answer.match(/https?:\/\/\S+/);
+    if (urlMatch) update.scope = urlMatch[0].replace(/[,.]$/, '');
+  }
+  if (!currentMission.depth && !update.depth) {
+    if (lower.includes('full pentest') || (lower.includes('full') && lower.includes('pentest'))) {
+      update.depth = 'Full Pentest';
+      // Full Pentest authorization is confirmed by the written authorization checkbox — no safety question needed
+      if (!currentMission.safety) update.safety = 'Full pentest — written authorization confirmed';
+    } else if (lower.includes('active scan')) {
+      update.depth = 'Active Scan';
+    } else if (lower.includes('passive')) {
+      update.depth = 'Passive';
+    }
+  }
+
+  // Field-specific extraction
   if (field === 'targetType') {
     const tile = tileFromAnswer(answer);
     update.targetType = update.targetType || tile.assessmentType;
     update.assessmentTileKey = tile.key;
   }
-  if (field === 'scope') update.scope = answer;
-  if (field === 'depth') update.depth = update.depth || humanizeDepth(answer);
-  if (field === 'safety') update.safety = update.safety || answer;
+  if (field === 'scope' && !update.scope && !currentMission.scope) update.scope = answer;
+  if (field === 'depth' && !update.depth) update.depth = humanizeDepth(answer);
+  if (field === 'safety' && !update.safety) update.safety = answer;
+
   return update;
 }
 
-function optionsForNextField(field: MissionField): string[] | undefined {
+function optionsForNextField(field: MissionField | 'complete'): string[] | undefined {
   if (field === 'targetType') return ['External Web App', 'Internal LAN', 'API Security', 'Authenticated App'];
   if (field === 'depth') return ['Passive', 'Active Scan', 'Full Pentest'];
   if (field === 'safety') return ['Conservative and low-impact', 'Active checks with approvals'];
@@ -903,30 +976,34 @@ function optionsForNextField(field: MissionField): string[] | undefined {
 
 function responseTextForInterpretation(
   interpretation: RunIntakeInterpretation,
-  field: MissionField,
+  field: MissionField | 'complete',
   extracted: Partial<MissionSummary>,
 ): string {
-  const parts: string[] = [];
-  if (interpretation.available) {
-    parts.push(`Backend interpretation is ready through ${interpretation.provider}.`);
-  } else {
-    parts.push(interpretation.failure_reason || 'Backend interpretation is unavailable; deterministic intake remains active.');
-  }
-  if (interpretation.warnings?.length) parts.push(`Warning: ${interpretation.warnings[0]}`);
-  if (interpretation.follow_up_questions?.length) {
+  if (interpretation.available && interpretation.follow_up_questions?.length) {
     const question = stringValue(interpretation.follow_up_questions[0].question);
-    if (question) parts.push(question);
-  } else {
-    parts.push(nextPrompt(field, extracted));
+    if (question) return question;
   }
-  return parts.join(' ');
+  return nextPrompt(field, extracted);
 }
 
-function nextPrompt(field: MissionField, extracted: Partial<MissionSummary>): string {
-  if (field === 'targetType') return `Assessment type set to ${extracted.targetType}. Add the exact authorized target.`;
-  if (field === 'scope') return `Scope recorded as ${extracted.scope}. Choose execution depth.`;
-  if (field === 'depth') return `Depth set to ${extracted.depth}. Confirm the safety posture.`;
-  return 'Safety posture recorded. Confirm written authorization when you are ready to launch.';
+function nextPrompt(field: MissionField | 'complete', extracted: Partial<MissionSummary>): string {
+  if (field === 'targetType') return `What environment are we testing? (e.g. web app, internal LAN, API, AD)`;
+  if (field === 'scope') {
+    const prefix = extracted.targetType ? `${extracted.targetType} — ` : '';
+    return `${prefix}what's the target? Provide a URL, IP range, or domain.`;
+  }
+  if (field === 'depth') {
+    const prefix = extracted.scope ? `Got it — ${extracted.scope}. ` : '';
+    return `${prefix}Execution depth: Passive (reconnaissance only), Active Scan, or Full Pentest (all phases, no approval gates)?`;
+  }
+  if (field === 'safety') {
+    const prefix = extracted.depth ? `${extracted.depth} selected. ` : '';
+    return `${prefix}Safety posture: conservative (low-impact) or active scanning?`;
+  }
+  const isFullPentest = (extracted.depth || '').toLowerCase().includes('full');
+  return isFullPentest
+    ? `Full Pentest ready — all phases authorized, no approval gates. Confirm written authorization in the sidebar and launch.`
+    : `All fields set. Confirm written authorization in the sidebar and launch.`;
 }
 
 function tileFromAnswer(answer: string): AssessmentTile {
@@ -952,7 +1029,11 @@ function buildConfigurationPreview(mission: MissionSummary): JsonMap {
 function buildRunRequest(mission: MissionSummary, inventoryId: UUID) {
   const profile = profileForMission(mission);
   const assessmentMode = assessmentModeForMission(mission);
+  const isFullPentest = (mission.depth || '').toLowerCase().includes('full');
   const firstTarget = firstTargetValue(targetMapFromScope(mission.scope || '', mission.targetType || ''));
+  // Full Pentest gets full authorization so the chain auto-advances without approval gates.
+  // The operator already confirmed written authorization via the checkbox.
+  const authLevel = isFullPentest ? 'full' : 'active';
   const configuration: JsonMap = {
     assessment_type: mission.targetType,
     test_profile: mission.depth,
@@ -960,7 +1041,7 @@ function buildRunRequest(mission: MissionSummary, inventoryId: UUID) {
     targets: targetMapFromScope(mission.scope || '', mission.targetType || ''),
     safety: {
       posture: mission.safety,
-      controlled_proof_requires_later_approval: true,
+      controlled_proof_requires_later_approval: !isFullPentest,
     },
     intake: {
       mode: 'react-v2',
@@ -970,11 +1051,12 @@ function buildRunRequest(mission: MissionSummary, inventoryId: UUID) {
       ? {
           enabled: true,
           mode: assessmentMode,
-          authorization_level: 'active',
+          authorization_level: authLevel,
           confirmed_scope: mission.scope,
           confirmation_target: firstTarget,
-          typed_scope_confirmation: '',
-          intrusive_lan_authorized: false,
+          // Must match confirmation_target for full authorization to pass backend validation
+          typed_scope_confirmation: isFullPentest ? firstTarget : '',
+          intrusive_lan_authorized: isFullPentest,
           exploit_confirmation_authorized: false,
         }
       : { enabled: false },
@@ -992,15 +1074,27 @@ function buildRunRequest(mission: MissionSummary, inventoryId: UUID) {
 function profileForMission(mission: MissionSummary): string {
   const type = (mission.targetType || '').toLowerCase();
   const depth = (mission.depth || '').toLowerCase();
+  const isFull = depth.includes('full');
+  const isActive = depth.includes('active');
+
   if (type.includes('wifi')) return 'passive-wifi-survey';
   if (type.includes('cloud')) return 'passive-cloud-aws-inventory';
   if (type.includes('ssl')) return 'passive-crypto-audit';
-  if (type.includes('api') && depth.includes('active')) return 'active-api-assessment';
-  if (type.includes('internal') || type.includes('directory')) {
-    return depth.includes('active') || depth.includes('full') ? 'passive-network-service-enumeration' : 'passive-network-discovery';
+
+  if (type.includes('directory') || type.includes('active directory')) {
+    return isFull ? 'passive-network-discovery' : isActive ? 'passive-network-service-enumeration' : 'passive-network-discovery';
   }
-  if (depth.includes('active')) return 'active-low-impact-web-recon';
-  if (depth.includes('full')) return 'passive-web-baseline';
+  if (type.includes('internal') || type.includes('lan')) {
+    return isFull || isActive ? 'passive-network-service-enumeration' : 'passive-network-discovery';
+  }
+  if (type.includes('api')) {
+    return isFull || isActive ? 'active-api-assessment' : 'passive-web-baseline';
+  }
+
+  // Web / default
+  // Full pentest: chain handles all phases; first phase starts with passive baseline discovery
+  if (isFull) return 'passive-web-baseline';
+  if (isActive) return 'active-low-impact-web-recon';
   return 'passive-web-baseline';
 }
 

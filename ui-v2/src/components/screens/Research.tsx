@@ -103,7 +103,7 @@ export default function ResearchScreen() {
         detail={`${selectedEngagement?.name ?? 'Selected engagement'} review-only research workspace. Generated artifacts still require validation, approval, and deployment through existing pack gates.`}
         actions={<ActionButton onClick={() => selectedEngagementId && void getAiResearchLab(selectedEngagementId).then(setLab)} loading={loading}>Refresh</ActionButton>}
       />
-      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[12px] leading-5 text-cyan">{message}</div>}
+      {message && <div className="mb-4 rounded-md border border-cyan/25 bg-cyan/10 px-3 py-2 text-[0.925rem] leading-5 text-cyan">{message}</div>}
 
       <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[420px_1fr]">
         <div className="space-y-5">
@@ -165,10 +165,10 @@ export default function ResearchScreen() {
                     className={`w-full rounded-lg border p-3 text-left transition-colors ${record.id === selectedRecordId ? 'border-cyan/40 bg-cyan/10' : 'border-border bg-bg/30 hover:border-cyan/25'}`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="truncate text-[13px] font-semibold text-text">{record.advisory_id}</span>
+                      <span className="truncate text-[1rem] font-semibold text-text">{record.advisory_id}</span>
                       <StatusBadge value={record.severity ?? 'unknown'} />
                     </div>
-                    <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-muted">{record.title}</p>
+                    <p className="mt-2 line-clamp-2 text-[0.925rem] leading-5 text-muted">{record.title}</p>
                   </button>
                 ))}
               </div>
@@ -188,13 +188,13 @@ export default function ResearchScreen() {
                   <Mini label="Artifact" value={generation.artifact_id ? String(generation.artifact_id) : 'not created'} />
                 </div>
                 <div className="rounded-lg border border-border bg-bg/35 p-3">
-                  <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-text">
+                  <div className="mb-2 flex items-center gap-2 text-[0.925rem] font-semibold text-text">
                     <ScrollText size={14} className="text-cyan" />Validation
                   </div>
-                  <pre className="max-h-[180px] overflow-auto text-[11px] leading-5 text-muted">{JSON.stringify(generation.validation, null, 2)}</pre>
+                  <pre className="max-h-[180px] overflow-auto text-[0.85rem] leading-5 text-muted">{JSON.stringify(generation.validation, null, 2)}</pre>
                 </div>
                 {(generation.template_yaml || generation.yaml_diff) && (
-                  <pre className="max-h-[360px] overflow-auto rounded-lg border border-border bg-bg/70 p-3 text-[11px] leading-5 text-muted">
+                  <pre className="max-h-[360px] overflow-auto rounded-lg border border-border bg-bg/70 p-3 text-[0.85rem] leading-5 text-muted">
                     {generation.template_yaml ?? generation.yaml_diff}
                   </pre>
                 )}
@@ -211,17 +211,17 @@ export default function ResearchScreen() {
                   <div key={proposal.id} className="rounded-lg border border-border bg-bg/30 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-[13px] font-semibold text-text">{proposal.title}</div>
-                        <div className="mt-1 text-[12px] text-muted">{proposal.advisory_id ?? proposal.source} · {formatDate(proposal.created_at)}</div>
+                        <div className="truncate text-[1rem] font-semibold text-text">{proposal.title}</div>
+                        <div className="mt-1 text-[0.925rem] text-muted">{proposal.advisory_id ?? proposal.source} · {formatDate(proposal.created_at)}</div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <StatusBadge value={proposal.status} />
                         <StatusBadge value={proposal.pack_status} />
                       </div>
                     </div>
-                    {proposal.description && <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-muted">{proposal.description}</p>}
+                    {proposal.description && <p className="mt-2 line-clamp-2 text-[0.925rem] leading-5 text-muted">{proposal.description}</p>}
                     {proposal.safety_notes.length > 0 && (
-                      <div className="mt-2 text-[11px] leading-5 text-muted">{proposal.safety_notes.join(' · ')}</div>
+                      <div className="mt-2 text-[0.85rem] leading-5 text-muted">{proposal.safety_notes.join(' · ')}</div>
                     )}
                   </div>
                 ))}
@@ -245,8 +245,8 @@ function recordPrompt(record: ThreatIntelRecord): string {
 function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg/30 p-3">
-      <div className="text-[10px] font-bold uppercase text-muted">{label}</div>
-      <div className="mt-1 truncate font-mono text-[11px] text-text">{value}</div>
+      <div className="text-[0.77rem] font-bold uppercase text-muted">{label}</div>
+      <div className="mt-1 truncate font-mono text-[0.85rem] text-text">{value}</div>
     </div>
   );
 }

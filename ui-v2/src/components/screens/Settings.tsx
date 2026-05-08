@@ -390,7 +390,7 @@ export default function SettingsScreen() {
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-text">Settings</h1>
-          <p className="mt-1 text-[13px] text-muted">
+          <p className="mt-1 text-[1rem] text-muted">
             Governed configuration. Saving settings does not install tools, run checks, or bypass approval gates.
           </p>
         </div>
@@ -398,7 +398,7 @@ export default function SettingsScreen() {
           type="button"
           onClick={() => void refreshAll()}
           disabled={pending === 'runtime'}
-          className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
         >
           {pending === 'runtime' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           Refresh
@@ -506,7 +506,7 @@ export default function SettingsScreen() {
 
       <footer className="mt-4 flex flex-wrap items-center justify-between gap-3">
         {toast && (
-          <div className="rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[12px] text-cyan">
+          <div className="rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">
             {toast}
           </div>
         )}
@@ -514,7 +514,7 @@ export default function SettingsScreen() {
           type="button"
           onClick={() => void saveScope(activeSaveScope)}
           disabled={pending === activeSaveScope}
-          className="ml-auto inline-flex items-center gap-2 rounded-md border border-green/30 bg-green/10 px-4 py-2 text-[13px] font-semibold text-green disabled:opacity-50"
+          className="ml-auto inline-flex items-center gap-2 rounded-md border border-green/30 bg-green/10 px-4 py-2 text-[1rem] font-semibold text-green disabled:opacity-50"
         >
           {pending === activeSaveScope ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           Save Settings
@@ -577,7 +577,7 @@ function AiProviderTab({
               type="button"
               disabled={!selectedEngagementId || pending === 'chatgpt-status'}
               onClick={() => selectedEngagementId && void refreshStatus(selectedEngagementId)}
-              className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
             >
               {pending === 'chatgpt-status' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
               Refresh Status
@@ -586,7 +586,7 @@ function AiProviderTab({
               type="button"
               disabled={!selectedEngagementId || pending === 'chatgpt-connect'}
               onClick={() => void connectChatGpt()}
-              className="inline-flex items-center gap-2 rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[13px] font-semibold text-green disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[1rem] font-semibold text-green disabled:opacity-50"
             >
               {pending === 'chatgpt-connect' ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
               Connect ChatGPT
@@ -680,7 +680,7 @@ function RuntimeTab({
           dirtyKeys={dirtyKeys}
           updateDraft={updateDraft}
         />
-        <div className="mt-3 rounded-md border border-border bg-bg/30 p-3 text-[12px] text-muted">
+        <div className="mt-3 rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">
           Dispatch mode is controlled by the backend runtime configuration. This screen records settings only; it does not dispatch work.
         </div>
       </SettingsDisclosure>
@@ -697,8 +697,8 @@ function RuntimeTab({
             {scheduledRuns.map((schedule) => (
               <div key={schedule.id} className="grid gap-3 rounded-lg border border-border bg-bg/30 p-3 md:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-text">{schedule.profile_name}</div>
-                  <div className="mt-1 text-[12px] text-muted">
+                  <div className="text-[1rem] font-semibold text-text">{schedule.profile_name}</div>
+                  <div className="mt-1 text-[0.925rem] text-muted">
                     {schedule.cadence} · next {formatDate(schedule.next_run_at)} · {schedule.status}
                   </div>
                 </div>
@@ -706,7 +706,7 @@ function RuntimeTab({
                   type="button"
                   disabled={pending === 'schedule'}
                   onClick={() => void toggleSchedule(schedule)}
-                  className="rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[12px] font-semibold text-cyan disabled:opacity-50"
+                  className="rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[0.925rem] font-semibold text-cyan disabled:opacity-50"
                 >
                   {schedule.status === 'enabled' ? 'Pause' : 'Enable'}
                 </button>
@@ -777,16 +777,16 @@ function DataSecurityTab({
       </SettingsDisclosure>
       <SettingsDisclosure id="gdpr" title="GDPR Controls" summary="Export is available; purge requires existing backend confirmation flow" openSections={openSections} toggleSection={toggleSection}>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => void exportData()} disabled={pending === 'data-export'} className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan disabled:opacity-50">
+          <button type="button" onClick={() => void exportData()} disabled={pending === 'data-export'} className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50">
             {pending === 'data-export' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Export my data
           </button>
-          <button type="button" disabled className="inline-flex items-center gap-2 rounded-md border border-border bg-bg/40 px-3 py-2 text-[13px] font-semibold text-muted opacity-70">
+          <button type="button" disabled className="inline-flex items-center gap-2 rounded-md border border-border bg-bg/40 px-3 py-2 text-[1rem] font-semibold text-muted opacity-70">
             <Trash2 size={14} />
             Request purge
           </button>
         </div>
-        <p className="mt-3 text-[12px] leading-5 text-muted">
+        <p className="mt-3 text-[0.925rem] leading-5 text-muted">
           Purge is intentionally disabled here because the backend requires typed confirmation through its governed purge endpoint.
         </p>
       </SettingsDisclosure>
@@ -832,14 +832,14 @@ function IdentityTab({
       <SettingsDisclosure id="actor" title="Actor" summary={`${actor.name} · ${actor.role}`} openSections={openSections} toggleSection={toggleSection}>
         <div className="grid gap-3 md:grid-cols-[1fr_auto]">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-bold uppercase text-muted">Actor name</span>
-            <input value={actorName} onChange={(event) => setActorName(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none focus:border-cyan/50" />
+            <span className="mb-1 block text-[0.85rem] font-bold uppercase text-muted">Actor name</span>
+            <input value={actorName} onChange={(event) => setActorName(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none focus:border-cyan/50" />
           </label>
-          <button type="button" onClick={saveActorName} className="self-end rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[13px] font-semibold text-green">
+          <button type="button" onClick={saveActorName} className="self-end rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[1rem] font-semibold text-green">
             Save Actor
           </button>
         </div>
-        <div className="mt-3 rounded-md border border-border bg-bg/30 p-3 text-[12px] text-muted">
+        <div className="mt-3 rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">
           Saved actor names are stored in localStorage and injected into the v2 API client as `X-Actor`.
         </div>
       </SettingsDisclosure>
@@ -855,19 +855,19 @@ function IdentityTab({
       </SettingsDisclosure>
       <SettingsDisclosure id="api-keys" title="API Keys" summary={`${apiKeys.filter((key) => !key.revoked_at).length} active keys`} openSections={openSections} toggleSection={toggleSection}>
         <div className="mb-4 grid gap-3 md:grid-cols-[1fr_160px_auto]">
-          <input value={actorName} readOnly className="h-10 rounded-lg border border-border bg-bg/30 px-3 text-[13px] text-muted" />
-          <select value={newKeyRole} onChange={(event) => setNewKeyRole(event.target.value as 'admin' | 'operator' | 'reviewer')} className="h-10 rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none focus:border-cyan/50">
+          <input value={actorName} readOnly className="h-10 rounded-lg border border-border bg-bg/30 px-3 text-[1rem] text-muted" />
+          <select value={newKeyRole} onChange={(event) => setNewKeyRole(event.target.value as 'admin' | 'operator' | 'reviewer')} className="h-10 rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none focus:border-cyan/50">
             <option value="operator" className="bg-surface text-text">Operator</option>
             <option value="reviewer" className="bg-surface text-text">Reviewer</option>
             <option value="admin" className="bg-surface text-text">Admin</option>
           </select>
-          <button type="button" disabled={pending === 'api-key-create'} onClick={() => void createKey()} className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[13px] font-semibold text-cyan disabled:opacity-50">
+          <button type="button" disabled={pending === 'api-key-create'} onClick={() => void createKey()} className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50">
             {pending === 'api-key-create' ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
             Create Key
           </button>
         </div>
         {newKey && (
-          <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 p-3 text-[12px] text-amber">
+          <div className="mb-4 rounded-md border border-amber/30 bg-amber/10 p-3 text-[0.925rem] text-amber">
             <div className="font-semibold text-text">New key, shown once</div>
             <div className="mt-2 break-all font-mono">{newKey}</div>
           </div>
@@ -876,10 +876,10 @@ function IdentityTab({
           {apiKeys.length ? apiKeys.map((key) => (
             <div key={key.id} className="grid gap-3 rounded-md border border-border bg-bg/30 p-3 md:grid-cols-[1fr_auto]">
               <div className="min-w-0">
-                <div className="truncate text-[13px] font-semibold text-text">{key.actor_name}</div>
-                <div className="mt-1 text-[12px] text-muted">{key.role} · {key.revoked_at ? 'revoked' : 'active'} · created {formatDate(key.created_at)}</div>
+                <div className="truncate text-[1rem] font-semibold text-text">{key.actor_name}</div>
+                <div className="mt-1 text-[0.925rem] text-muted">{key.role} · {key.revoked_at ? 'revoked' : 'active'} · created {formatDate(key.created_at)}</div>
               </div>
-              <button type="button" disabled={Boolean(key.revoked_at) || pending === 'api-key-create'} onClick={() => void revokeKey(key.id)} className="rounded-md border border-red/30 bg-red/10 px-3 py-2 text-[12px] font-semibold text-red disabled:opacity-50">
+              <button type="button" disabled={Boolean(key.revoked_at) || pending === 'api-key-create'} onClick={() => void revokeKey(key.id)} className="rounded-md border border-red/30 bg-red/10 px-3 py-2 text-[0.925rem] font-semibold text-red disabled:opacity-50">
                 Revoke
               </button>
             </div>
@@ -941,20 +941,20 @@ function SettingField({
   updateDraft: (setting: Setting, value: unknown) => void;
 }) {
   const label = (
-    <span className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase text-muted">
+    <span className="mb-1 flex items-center gap-2 text-[0.85rem] font-bold uppercase text-muted">
       {setting.label}
-      {dirty && <span className="rounded-full bg-cyan/10 px-1.5 py-0.5 text-[9px] text-cyan">dirty</span>}
-      {setting.read_only && <span className="rounded-full bg-bg/50 px-1.5 py-0.5 text-[9px] text-muted">read-only</span>}
+      {dirty && <span className="rounded-full bg-cyan/10 px-1.5 py-0.5 text-[0.7rem] text-cyan">dirty</span>}
+      {setting.read_only && <span className="rounded-full bg-bg/50 px-1.5 py-0.5 text-[0.7rem] text-muted">read-only</span>}
     </span>
   );
-  const commonClass = 'h-10 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-text outline-none transition-colors focus:border-cyan/50 disabled:opacity-70';
+  const commonClass = 'h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none transition-colors focus:border-cyan/50 disabled:opacity-70';
 
   if (setting.input_type === 'checkbox') {
     return (
       <label className="flex min-h-[74px] items-center justify-between gap-3 rounded-lg border border-border bg-bg/25 p-3">
         <span>
           {label}
-          <span className="block text-[12px] leading-5 text-muted">{setting.description || setting.key}</span>
+          <span className="block text-[0.925rem] leading-5 text-muted">{setting.description || setting.key}</span>
         </span>
         <input
           type="checkbox"
@@ -1004,7 +1004,7 @@ function SettingField({
           className={commonClass}
         />
       )}
-      {setting.description && <span className="mt-2 block text-[11px] leading-4 text-muted">{setting.description}</span>}
+      {setting.description && <span className="mt-2 block text-[0.85rem] leading-4 text-muted">{setting.description}</span>}
     </label>
   );
 }
@@ -1029,8 +1029,8 @@ function SettingsDisclosure({
     <section className="overflow-hidden rounded-lg border border-border bg-bg/25">
       <button type="button" onClick={() => toggleSection(id)} className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left">
         <span className="min-w-0">
-          <span className="block text-[13px] font-semibold text-text">{title}</span>
-          <span className="mt-1 block truncate text-[12px] text-muted">{summary}</span>
+          <span className="block text-[1rem] font-semibold text-text">{title}</span>
+          <span className="mt-1 block truncate text-[0.925rem] text-muted">{summary}</span>
         </span>
         {open ? <ChevronDown size={16} className="shrink-0 text-muted" /> : <Circle size={12} className="shrink-0 text-muted" />}
       </button>
@@ -1042,11 +1042,11 @@ function SettingsDisclosure({
 function SummaryChip({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-surface/55 p-3">
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase text-muted">
+      <div className="mb-2 flex items-center gap-2 text-[0.77rem] font-bold uppercase text-muted">
         {icon}
         {label}
       </div>
-      <div className="truncate text-[13px] font-semibold text-text">{value}</div>
+      <div className="truncate text-[1rem] font-semibold text-text">{value}</div>
     </div>
   );
 }
@@ -1057,7 +1057,7 @@ function TabButton({ active, onClick, icon, children }: { active: boolean; onCli
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors',
+        'inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-[1rem] font-semibold transition-colors',
         active ? 'bg-cyan/10 text-cyan' : 'text-muted hover:bg-bg/40 hover:text-text',
       )}
     >
@@ -1072,10 +1072,10 @@ function StatusLine({ status, title, detail }: { status: string; title: string; 
     <div className="rounded-lg border border-border bg-bg/30 p-3">
       <div className="flex items-center gap-2">
         <span className={cn('h-2.5 w-2.5 rounded-full', statusDot(status))} />
-        <span className="text-[13px] font-semibold text-text">{title}</span>
-        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase', statusBadge(status))}>{status}</span>
+        <span className="text-[1rem] font-semibold text-text">{title}</span>
+        <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusBadge(status))}>{status}</span>
       </div>
-      <p className="mt-2 text-[12px] leading-5 text-muted">{detail}</p>
+      <p className="mt-2 text-[0.925rem] leading-5 text-muted">{detail}</p>
     </div>
   );
 }
@@ -1086,13 +1086,13 @@ function ReadinessCard({ title, status, summary, details, nextStep }: { title: s
       <summary className="cursor-pointer list-none">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-semibold text-text">{title}</div>
-            <div className="mt-1 truncate text-[12px] text-muted">{summary}</div>
+            <div className="truncate text-[1rem] font-semibold text-text">{title}</div>
+            <div className="mt-1 truncate text-[0.925rem] text-muted">{summary}</div>
           </div>
-          <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase', statusBadge(status))}>{status}</span>
+          <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusBadge(status))}>{status}</span>
         </div>
       </summary>
-      <div className="mt-3 space-y-2 border-t border-border pt-3 text-[12px] leading-5 text-muted">
+      <div className="mt-3 space-y-2 border-t border-border pt-3 text-[0.925rem] leading-5 text-muted">
         {details.map((detail) => <div key={detail}>{detail}</div>)}
         <div className="text-cyan">{nextStep}</div>
       </div>
@@ -1103,8 +1103,8 @@ function ReadinessCard({ title, status, summary, details, nextStep }: { title: s
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border bg-bg/30 px-3 py-2">
-      <div className="text-[10px] font-bold uppercase text-muted">{label}</div>
-      <div className="truncate text-[12px] font-semibold text-text">{value}</div>
+      <div className="text-[0.77rem] font-bold uppercase text-muted">{label}</div>
+      <div className="truncate text-[0.925rem] font-semibold text-text">{value}</div>
     </div>
   );
 }
@@ -1112,15 +1112,15 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 function EmptyInline({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg/25 p-5 text-center">
-      <h2 className="text-[14px] font-semibold text-text">{title}</h2>
-      <p className="mt-2 text-[12px] leading-5 text-muted">{detail}</p>
+      <h2 className="text-[1.08rem] font-semibold text-text">{title}</h2>
+      <p className="mt-2 text-[0.925rem] leading-5 text-muted">{detail}</p>
     </div>
   );
 }
 
 function UnavailableNote({ label, detail }: { label: string; detail: string }) {
   return (
-    <div className="mt-3 rounded-md border border-amber/30 bg-amber/10 p-3 text-[12px] leading-5 text-amber">
+    <div className="mt-3 rounded-md border border-amber/30 bg-amber/10 p-3 text-[0.925rem] leading-5 text-amber">
       <div className="mb-1 flex items-center gap-2 font-semibold text-text">
         <X size={13} />
         {label}
