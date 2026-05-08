@@ -439,6 +439,158 @@ def test_attack_path_summary_adds_review_only_inferred_identity_cloud_edges(clie
     assert "does not mutate cloud resources" in advisor["cloud_context"]["boundary"]
 
 
+def test_attack_path_summary_maps_ssrf_web_finding_to_cloud_iam_path(client) -> None:
+    engagement = _create_scoped_engagement(client)
+    inventory = client.post(
+        "/api/v1/inventory/runs",
+        headers={"X-Actor": "attack-path-operator"},
+        json={
+            "engagement_id": engagement["id"],
+            "source_tools": ["cloud-native-path-fixture"],
+            "observations": [
+                {
+                    "tool": "cloud-native-path-fixture",
+                    "kind": "inventory",
+                    "data": {
+                        "confidence": 0.91,
+                        "hosts": ["app.example.test"],
+                        "services": [
+                            {
+                                "host": "app.example.test",
+                                "port": 443,
+                                "protocol": "tcp",
+                                "service": "https",
+                                "confidence": 0.9,
+                            }
+                        ],
+                        "endpoints": [
+                            {
+                                "url": "https://app.example.test/fetch",
+                                "methods": ["GET"],
+                                "status_code": 200,
+                                "title": "Fetch",
+                                "confidence": 0.9,
+                            }
+                        ],
+                        "cloud_resources": [
+                            {
+                                "provider": "aws",
+                                "account_id": "123456789012",
+                                "region": "us-east-1",
+                                "resource_type": "ec2:instance",
+                                "resource_id": "i-web",
+                                "name": "web-instance",
+                                "confidence": 0.88,
+                                "metadata": {
+                                    "private_dns": "app.example.test",
+                                    "iam_role_arn": "arn:aws:iam::123456789012:role/WebRole",
+                                },
+                            }
+                        ],
+                        "cloud_iam_principals": [
+                            {
+                                "provider": "aws",
+                                "account_id": "123456789012",
+                                "principal_type": "role",
+                                "principal_id": "arn:aws:iam::123456789012:role/WebRole",
+                                "name": "WebRole",
+                                "confidence": 0.84,
+                            }
+                        ],
+                        "cloud_iam_policies": [
+                            {
+                                "provider": "aws",
+                                "account_id": "123456789012",
+                                "policy_id": "arn:aws:iam::123456789012:policy/ReadSecrets",
+                                "policy_name": "ReadSecrets",
+                                "confidence": 0.82,
+                            }
+                        ],
+                        "cloud_iam_attachments": [
+                            {
+                                "provider": "aws",
+                                "account_id": "123456789012",
+                                "principal_id": "arn:aws:iam::123456789012:role/WebRole",
+                                "policy_id": "arn:aws:iam::123456789012:policy/ReadSecrets",
+                                "confidence": 0.81,
+                            }
+                        ],
+                    },
+                }
+            ],
+        },
+    ).json()
+    run = client.post(
+        f"/api/v1/engagements/{engagement['id']}/runs",
+        headers={"X-Actor": "attack-path-operator"},
+        json={
+            "profile_name": "passive-web-baseline",
+            "source_inventory_snapshot_id": inventory["id"],
+            "configuration_json": {
+                "assessment_type": "Website / Web App",
+                "targets": {"urls": ["https://app.example.test/fetch"]},
+            },
+        },
+    ).json()
+    with client.app.state.session_factory() as session:
+        session.add(
+            Finding(
+                run_id=UUID(run["id"]),
+                source_inventory_snapshot_id=UUID(inventory["id"]),
+                title="SSRF - Cloud Metadata Exposed",
+                severity="critical",
+                target_id="https://app.example.test/fetch",
+                evidence_ref="artifact://ssrf-probe/results",
+                status="open",
+                summary="The endpoint can reach 169.254.169.254 and expose iam/security-credentials.",
+                methodology_tags=["ssrf", "cloud-metadata"],
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/api/v1/runs/{run['id']}/attack-paths")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["cloud_graph_model"] == "read-only-cloud-native-attack-path-v1"
+    assert payload["summary"]["cloud_native_attack_path_count"] == 1
+    assert len(payload["cloud_native_attack_paths"]) == 1
+
+    path = payload["cloud_native_attack_paths"][0]
+    assert path["cloud_native"] is True
+    assert path["operator_review_required"] is True
+    assert path["active_pivoting_performed"] is False
+    assert path["credential_testing_performed"] is False
+    assert path["scope_expansion_performed"] is False
+    assert path["automatic_dispatch_performed"] is False
+    assert "SSRF - Cloud Metadata Exposed" in path["labels"]
+    assert "web-instance" in path["labels"]
+    assert "WebRole" in path["labels"]
+    assert "ReadSecrets" in path["labels"]
+
+    node_types_by_id = {node["id"]: node["type"] for node in payload["nodes"]}
+    path_types = [node_types_by_id[node_id] for node_id in path["node_ids"]]
+    assert "endpoint" in path_types
+    assert "finding" in path_types
+    assert "cloud_resource" in path_types
+    assert "cloud_iam_principal" in path_types
+    assert "cloud_iam_policy" in path_types
+
+    edge_types = {edge["type"] for edge in payload["inferred_edges"]}
+    assert "inferred-cloud-host-context" in edge_types
+    assert "inferred-cloud-resource-iam-principal" in edge_types
+    assert "inferred-iam-policy-attachment" in edge_types
+    assert "inferred-cloud-metadata-to-resource" in edge_types
+    assert all(edge["operator_review_required"] is True for edge in payload["inferred_edges"])
+
+    advisor_response = client.get(f"/api/v1/runs/{run['id']}/remediation-advisor")
+    assert advisor_response.status_code == 200
+    advisor = advisor_response.json()
+    assert advisor["cloud_context"]["cloud_native_attack_path_count"] == 1
+    assert advisor["cloud_context"]["cloud_native_attack_path_ids"] == [path["id"]]
+
+
 def test_attack_path_summary_returns_truthful_zero_data_fallback(client) -> None:
     engagement = _create_scoped_engagement(client)
     run = client.post(

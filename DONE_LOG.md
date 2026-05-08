@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-05-08: completed backlog-300 `Cloud-Native Identity & Attack Path Graphing`:
+  - rationale:
+    - operators need cloud IAM context to appear in the same evidence-backed attack graph as web findings, so an SSRF/cloud metadata finding can show possible cloud lateral movement impact without pretending that AegisPT performed cloud actions
+    - prerequisite check passed because `inputs.prerequisite_backlog` was `REQUIRES: backlog-296` and backlog-296 is present in this log
+    - `http://127.0.0.1:8000` browser validation was not required because this slice changed backend/API graph behavior only; live API smoke ran on temporary port `http://127.0.0.1:8030` to avoid disturbing the shared local server
+    - the package success criteria again mention choke points, micro-scanner replay, and drift detection, but the queue splits those into backlog-297, backlog-298, and backlog-299; this slice implemented backlog-300 cloud-native attack-path mapping only
+  - implementation:
+    - extended `api/app/services/attack_paths.py` with `cloud_graph_model: read-only-cloud-native-attack-path-v1`
+    - added read-only cloud-native candidate paths that connect SSRF/cloud metadata findings on approved web hosts to stored cloud resource, IAM principal, and IAM policy nodes
+    - added inferred edge type `inferred-cloud-resource-iam-principal` for stored resource-to-role/profile relationships
+    - added inferred edge type `inferred-cloud-metadata-to-resource` to link metadata exposure findings to the stored cloud resource attached to the same approved host
+    - exposed `summary.cloud_native_attack_path_count` and `cloud_native_attack_paths` in the existing attack-path response
+    - extended `api/app/services/remediation_advisor.py` cloud context with `cloud_native_attack_path_count` and `cloud_native_attack_path_ids`
+  - files:
+    - `api/app/services/attack_paths.py`
+    - `api/app/services/remediation_advisor.py`
+    - `api/tests/test_attack_paths.py`
+    - `codex/results/backlog-300-cloud-native-attack-path-graphing-20260508.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before implementation
+    - `python3 -m py_compile api/app/services/attack_paths.py api/app/services/remediation_advisor.py api/tests/test_attack_paths.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_attack_paths.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 526 passed, 4 warnings
+    - live API smoke on temporary port `http://127.0.0.1:8030` passed: `/health/live` returned `200 OK`, and the attack-path route returned truthful `404 Not Found` for a non-existent UUID without mutating data
+  - proof:
+    - evidence file `codex/results/backlog-300-cloud-native-attack-path-graphing-20260508.md`
+    - regression proof maps `SSRF - Cloud Metadata Exposed` on `https://app.example.test/fetch` through endpoint/finding nodes into AWS EC2 resource `web-instance`, IAM role `WebRole`, and IAM policy `ReadSecrets`
+    - regression proof verifies review-only boundaries on inferred edges and path payloads: no active pivoting, credential testing, scope expansion, or automatic dispatch
+  - risks / exceptions:
+    - no live AWS/Azure/GCP account or lab cloud fixture was queried; `extra_tests.md` XT-031 and `risico.md` R-023 track live cloud-fixture proof
+    - this is attack-graph analysis only; it does not implement the next pivot-engine task
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-301 `AI Exploit Chaining & Post-Exploitation Pivot Engine`, from `codex/tasks/backlog-301-ai-exploit-chaining-and-pivot-engine.json`.
+
 - 2026-05-08: completed backlog-299 `Continuous Exposure Drift Detection`:
   - rationale:
     - scheduled/continuous pentests need an evidence-backed drift report that compares a current run with the previous completed run for the same engagement/profile, instead of leaving drift as a UI-only idea

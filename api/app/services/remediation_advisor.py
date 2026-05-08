@@ -303,6 +303,7 @@ def _cloud_context_available(attack_graph: dict[str, Any]) -> bool:
 def _cloud_context(attack_graph: dict[str, Any]) -> dict[str, Any]:
     nodes = list(attack_graph.get("nodes") or [])
     inferred_edges = list(attack_graph.get("inferred_edges") or [])
+    cloud_native_paths = list(attack_graph.get("cloud_native_attack_paths") or [])
     cloud_node_types = {
         "cloud_resource",
         "cloud_security_group",
@@ -321,6 +322,10 @@ def _cloud_context(attack_graph: dict[str, Any]) -> dict[str, Any]:
         "available": bool(cloud_nodes or cloud_edges),
         "cloud_node_count": len(cloud_nodes),
         "cloud_inferred_edge_count": len(cloud_edges),
+        "cloud_native_attack_path_count": len(cloud_native_paths),
+        "cloud_native_attack_path_ids": [
+            str(path.get("id")) for path in cloud_native_paths if path.get("id")
+        ],
         "cloud_node_types": sorted({str(node.get("type")) for node in cloud_nodes}),
         "cloud_edge_types": sorted({str(edge.get("type")) for edge in cloud_edges}),
         "boundary": (

@@ -157,6 +157,7 @@ def _build_attack_path_summary_for_run(run: Run) -> dict[str, Any]:
         "run_id": str(run.id),
         "engagement_id": str(run.engagement_id),
         "evaluation_model": "evidence-first-choke-point-v1",
+        "cloud_graph_model": "read-only-cloud-native-attack-path-v1",
         "choke_point_threshold": CHOKE_POINT_PATH_THRESHOLD,
         "sources": {
             "inventory_snapshot_id": inventory_snapshot.get("id") if inventory_snapshot else None,
@@ -177,6 +178,7 @@ def _build_attack_path_summary_for_run(run: Run) -> dict[str, Any]:
             "inferred_edge_count": len(graph["inferred_edges"]),
             "lateral_analysis_note_count": len(lateral_analysis["notes"]),
             "candidate_path_count": len(candidate_paths),
+            "cloud_native_attack_path_count": _cloud_native_attack_path_count(candidate_paths),
             "choke_point_count": len(choke_points),
             "mean_path_confidence": mean_path_confidence,
             "reason": _summary_reason(status, inventory_snapshot, findings),
@@ -186,6 +188,7 @@ def _build_attack_path_summary_for_run(run: Run) -> dict[str, Any]:
         "inferred_edges": graph["inferred_edges"],
         "lateral_analysis": lateral_analysis,
         "candidate_paths": candidate_paths,
+        "cloud_native_attack_paths": _cloud_native_attack_paths(candidate_paths),
         "choke_points": choke_points,
     }
 
@@ -466,6 +469,8 @@ def _add_context_nodes(
         )
         graph["cloud_resource_nodes_by_key"][key] = node
         graph["cloud_resource_nodes_by_key"].setdefault(_node_key(resource_id), node)
+        for role_alias in _cloud_resource_principal_aliases(resource):
+            graph["cloud_resource_nodes_by_key"].setdefault(f"role-bound:{_node_key(role_alias)}", node)
 
     for group in _dict_list(normalized_inventory.get("cloud_security_groups")):
         group_id = _clean_string(group.get("group_id"))
@@ -852,6 +857,33 @@ def _add_inferred_lateral_context(
                     "this does not broaden scope or trigger cloud-to-host exploitation."
                 ),
             )
+        for principal_alias in _cloud_resource_principal_aliases(resource):
+            principal_node = graph["cloud_iam_principal_nodes_by_key"].get(_node_key(principal_alias))
+            if principal_node is None:
+                continue
+            confidence = _combined_confidence(resource_node, principal_node, resource)
+            _add_edge(
+                graph,
+                resource_node["id"],
+                principal_node["id"],
+                "inferred-cloud-resource-iam-principal",
+                evidence_refs=[inventory_ref],
+                classification="inferred",
+                confidence=confidence,
+                rationale=(
+                    "Stored cloud inventory links this resource to an IAM principal or instance profile; "
+                    "this is review-only and does not query metadata, assume roles, or test credentials."
+                ),
+            )
+            notes.append(
+                _lateral_note(
+                    "cloud-resource-iam-context",
+                    "Cloud resource IAM context observed",
+                    f"{resource_node['label']} is linked to IAM principal {principal_node['label']} in stored cloud inventory.",
+                    confidence,
+                    [inventory_ref],
+                )
+            )
 
     for workload in _dict_list(normalized_inventory.get("kubernetes_workloads")):
         workload_key = _cloud_key(
@@ -958,26 +990,118 @@ def _build_candidate_paths(
             )
 
         confidence = _path_confidence(graph["nodes_by_id"], node_ids, inventory_snapshot)
-        candidate_paths.append(
-            {
-                "id": f"path:{len(candidate_paths) + 1}",
-                "node_ids": node_ids,
-                "labels": [
-                    graph["nodes_by_id"][node_id]["label"]
-                    for node_id in node_ids
-                    if node_id in graph["nodes_by_id"]
-                ],
-                "finding_id": str(finding.id),
-                "finding_title": finding.title,
-                "severity": finding.severity,
-                "target_id": finding.target_id,
-                "confidence": confidence,
-                "evidence_refs": [finding.evidence_ref],
-                "explanation": _path_explanation(host_node, service_node, endpoint_node, finding),
-            }
+        base_path = {
+            "id": f"path:{len(candidate_paths) + 1}",
+            "node_ids": node_ids,
+            "labels": [
+                graph["nodes_by_id"][node_id]["label"]
+                for node_id in node_ids
+                if node_id in graph["nodes_by_id"]
+            ],
+            "finding_id": str(finding.id),
+            "finding_title": finding.title,
+            "severity": finding.severity,
+            "target_id": finding.target_id,
+            "confidence": confidence,
+            "evidence_refs": [finding.evidence_ref],
+            "explanation": _path_explanation(host_node, service_node, endpoint_node, finding),
+        }
+        cloud_path = _cloud_native_extension_for_finding(
+            graph,
+            base_path=base_path,
+            finding=finding,
+            host_node=host_node,
+            inventory_snapshot=inventory_snapshot,
         )
+        candidate_paths.append(cloud_path or base_path)
 
     return candidate_paths
+
+
+def _cloud_native_extension_for_finding(
+    graph: dict[str, Any],
+    *,
+    base_path: dict[str, Any],
+    finding: Finding,
+    host_node: dict[str, Any] | None,
+    inventory_snapshot: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if host_node is None or not _finding_indicates_cloud_metadata_exposure(finding):
+        return None
+
+    resource_nodes = _cloud_resources_for_host(graph, host_node["id"])
+    if not resource_nodes:
+        return None
+
+    best_extension: list[str] = []
+    best_refs: list[str] = []
+    for resource_node in resource_nodes:
+        extension = [resource_node["id"]]
+        refs = []
+        for edge in _edges_from(graph, resource_node["id"], "inferred-cloud-resource-iam-principal"):
+            principal_id = str(edge.get("target") or "")
+            if principal_id not in graph["nodes_by_id"]:
+                continue
+            principal_chain = [principal_id]
+            for policy_edge in _edges_from(graph, principal_id, "inferred-iam-policy-attachment"):
+                policy_id = str(policy_edge.get("target") or "")
+                if policy_id in graph["nodes_by_id"]:
+                    principal_chain.append(policy_id)
+            candidate = [*extension, *principal_chain]
+            if len(candidate) > len(best_extension):
+                best_extension = candidate
+                best_refs = [
+                    ref
+                    for linked_edge in [edge, *_edges_from(graph, principal_id, "inferred-iam-policy-attachment")]
+                    for ref in list(linked_edge.get("evidence_refs") or [])
+                    if ref
+                ]
+
+    if not best_extension:
+        best_extension = [resource_nodes[0]["id"]]
+
+    finding_node_id = f"finding:{finding.id}"
+    _add_edge(
+        graph,
+        finding_node_id,
+        best_extension[0],
+        "inferred-cloud-metadata-to-resource",
+        evidence_refs=[finding.evidence_ref, *best_refs],
+        classification="inferred",
+        confidence=_path_confidence(graph["nodes_by_id"], best_extension, inventory_snapshot),
+        rationale=(
+            "A cloud metadata exposure finding is linked to the stored cloud resource attached to the same "
+            "approved host; this is attack-graph analysis only and does not access metadata or assume roles."
+        ),
+    )
+    path_node_ids = _dedupe_ordered([*list(base_path.get("node_ids") or []), *best_extension])
+    evidence_refs = _dedupe_strings(
+        [str(ref) for ref in list(base_path.get("evidence_refs") or []) if str(ref)]
+        + best_refs
+    )
+    return {
+        **base_path,
+        "node_ids": path_node_ids,
+        "labels": [
+            graph["nodes_by_id"][node_id]["label"]
+            for node_id in path_node_ids
+            if node_id in graph["nodes_by_id"]
+        ],
+        "confidence": _path_confidence(graph["nodes_by_id"], path_node_ids, inventory_snapshot),
+        "evidence_refs": evidence_refs,
+        "cloud_native": True,
+        "cloud_lateral_movement_review_only": True,
+        "operator_review_required": True,
+        "active_pivoting_performed": False,
+        "credential_testing_performed": False,
+        "scope_expansion_performed": False,
+        "automatic_dispatch_performed": False,
+        "explanation": (
+            f"Finding '{finding.title}' is tied to a cloud-hosted web surface and extends to stored IAM context. "
+            "The path shows possible cloud lateral movement impact for review only; it does not perform a controlled proof, "
+            "query metadata, assume roles, or dispatch cloud actions."
+        ),
+    }
 
 
 def _build_bloodhound_candidate_paths(
@@ -1098,6 +1222,14 @@ def _build_choke_points(
         )
 
     return sorted(choke_points, key=lambda item: (-item["path_count"], item["type"], item["label"]))
+
+
+def _cloud_native_attack_paths(candidate_paths: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [path for path in candidate_paths if path.get("cloud_native") is True]
+
+
+def _cloud_native_attack_path_count(candidate_paths: list[dict[str, Any]]) -> int:
+    return len(_cloud_native_attack_paths(candidate_paths))
 
 
 def _add_node(graph: dict[str, Any], node: dict[str, Any]) -> dict[str, Any]:
@@ -1342,6 +1474,91 @@ def _resource_host_aliases(resource: dict[str, Any]) -> list[str]:
         metadata.get("dns_name"),
     ]
     return _dedupe_strings([_clean_string(alias) for alias in aliases if _clean_string(alias)])
+
+
+def _cloud_resource_principal_aliases(resource: dict[str, Any]) -> list[str]:
+    metadata = _safe_dict(resource.get("metadata"))
+    aliases = [
+        resource.get("iam_role_arn"),
+        resource.get("iam_role_name"),
+        resource.get("role_arn"),
+        resource.get("role_name"),
+        resource.get("instance_profile_arn"),
+        resource.get("iam_instance_profile_arn"),
+        resource.get("principal_id"),
+        metadata.get("iam_role_arn"),
+        metadata.get("iam_role_name"),
+        metadata.get("role_arn"),
+        metadata.get("role_name"),
+        metadata.get("instance_profile_arn"),
+        metadata.get("iam_instance_profile_arn"),
+        metadata.get("principal_id"),
+    ]
+    instance_profile = metadata.get("iam_instance_profile")
+    if isinstance(instance_profile, dict):
+        aliases.extend(
+            [
+                instance_profile.get("arn"),
+                instance_profile.get("role_arn"),
+                instance_profile.get("role_name"),
+                instance_profile.get("principal_id"),
+            ]
+        )
+    return _dedupe_strings([_clean_string(alias) for alias in aliases if _clean_string(alias)])
+
+
+def _finding_indicates_cloud_metadata_exposure(finding: Finding) -> bool:
+    tags = " ".join(str(tag or "").lower() for tag in list(finding.methodology_tags or []))
+    haystack = " ".join(
+        [
+            str(finding.title or ""),
+            str(finding.summary or ""),
+            str(finding.target_id or ""),
+            str(finding.evidence_ref or ""),
+            tags,
+        ]
+    ).lower()
+    indicators = (
+        "ssrf",
+        "server-side request forgery",
+        "cloud metadata",
+        "instance metadata",
+        "ec2 metadata",
+        "metadata service",
+        "169.254.169.254",
+        "iam/security-credentials",
+    )
+    return any(indicator in haystack for indicator in indicators)
+
+
+def _cloud_resources_for_host(graph: dict[str, Any], host_node_id: str) -> list[dict[str, Any]]:
+    resources: list[dict[str, Any]] = []
+    for edge in _edges_from(graph, host_node_id, "inferred-cloud-host-context"):
+        target_id = str(edge.get("target") or "")
+        node = graph["nodes_by_id"].get(target_id)
+        if node is not None and node.get("type") == "cloud_resource":
+            resources.append(node)
+    return resources
+
+
+def _edges_from(graph: dict[str, Any], source: str, relationship: str) -> list[dict[str, Any]]:
+    return [
+        edge
+        for edge in list(graph.get("edges") or [])
+        if edge.get("source") == source and edge.get("type") == relationship
+    ]
+
+
+def _dedupe_ordered(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        normalized = str(value or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
 
 
 def _string_list(value: Any) -> list[str]:

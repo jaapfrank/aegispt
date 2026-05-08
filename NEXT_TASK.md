@@ -2,26 +2,26 @@
 
 ## Title
 
-Cloud-Native Identity & Attack Path Graphing
+AI Exploit Chaining & Post-Exploitation Pivot Engine
 
 ## Promoted From
 
-`codex/tasks/backlog-300-cloud-native-attack-path-graphing.json`
+`codex/tasks/backlog-301-ai-exploit-chaining-and-pivot-engine.json`
 
 ## Goal
 
-Integrate Cloud (AWS/Azure/GCP) IAM vulnerabilities directly into the attack graph. Show how a web vulnerability (like SSRF extracting EC2 metadata) directly links to Cloud Lateral Movement (like assuming an overly permissive IAM role). This closes the gap between AppSec and CloudSec.
+Move beyond 'flat' scanning. When the AI confirms a vulnerability that yields access (e.g., SSRF, RCE, or stolen credentials via XSS), it must automatically generate a 'Pivot Context'. It then restarts the assessment loop from this new vantage point (e.g., routing a network scan through the SSRF, or launching an authenticated web scan using the stolen cookie) to find the vulnerabilities hidden behind the initial entry point.
 
 ## Scope
 
-Remediation logic, attack graphing, and continuous execution.
+AI post-exploitation and multi-step reasoning.
 
 ## Constraints
 
 - Do not implement until this package is the single active task in NEXT_TASK.md.
-- Ensure these features generate measurable, provable evidence such as a retest log or a drift report rather than just UI dashboards.
+- Ensure the pivoting mechanism stays strictly within the authorized Rules of Engagement (ROE) boundaries.
 - Do not create runtime self-modification or uncontrolled plugin installation.
-- Do not build a complete new cloud security posture management tool from scratch.
+- Do not automate lateral movement outside the approved target scope.
 
 ## Validation
 
@@ -30,7 +30,6 @@ Remediation logic, attack graphing, and continuous execution.
 
 ## Acceptance
 
-- AI successfully identifies choke-points in an attack graph.
-- Micro-scanner can replay an exact finding payload and verify a fix.
-- Drift detection accurately spots differences between two runs on the same target.
-- Cloud IAM findings map visually to traditional network/web findings.
+- AI can extract a token and pass it to a subsequent authenticated scan.
+- AI identifies a pivot point (like SSRF) and generates a sub-plan.
+- The Gruyere benchmark passes by successfully chaining 3+ vulnerabilities.
