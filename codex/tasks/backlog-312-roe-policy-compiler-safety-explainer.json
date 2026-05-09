@@ -1,0 +1,87 @@
+{
+  "id": "backlog-312-roe-policy-compiler-safety-explainer",
+  "task_file": "codex/tasks/backlog-312-roe-policy-compiler-safety-explainer.json",
+  "task_type": "safety_policy",
+  "title": "ROE Policy Compiler and Safety Explainer",
+  "goal": "Compile scope, depth, authorization, exploitation tier, credential rules, rate limits, target allowlists, denylist exclusions, and kill-switch state into machine-checkable policy decisions with plain-language explanations for operators and AI planning.",
+  "scope": "ROE enforcement, safety explanation, and policy decisions.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "AegisPT should make safety constraints explicit and explainable so AI can plan confidently without tripping over vague security boundaries.",
+  "source_context": {
+    "queue_index": 264,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-307",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "The compiler may only tighten or explain policy decisions; it must not weaken scope, ROE, approval, credential, or kill-switch gates.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Policy decisions return allow, deny, approval_required, wait_for_prerequisite, and kill_switch_blocked states.",
+    "Each decision includes source policy IDs, target normalization, affected runner/action, and an operator-readable explanation.",
+    "AI planner and UI can reuse the same policy decision payload."
+  ],
+  "likely_touched_files": [
+    "api/app/services/roe_policy.py",
+    "api/app/services/ai_action_selector.py",
+    "api/app/routers/runs.py",
+    "api/tests/test_roe_policy.py"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "api/app/services/secrets.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_roe_policy.py api/tests/test_runs.py api/tests/test_assessment_chain.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Out-of-scope targets are denied with a clear explanation.",
+      "Controlled proof requiring higher tier returns approval_required unless the ROE already confirms that tier.",
+      "Kill-switch state blocks planning and dispatch explanations."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Weakening existing policy gates",
+    "Performing live target actions",
+    "Changing credential storage"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

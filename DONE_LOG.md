@@ -1,5 +1,37 @@
 # Done Log
 
+- 2026-05-09: added AI-first product strategy backlog tasks backlog-305 through backlog-314:
+  - rationale:
+    - the operator explicitly asked for new Codex-executable tasks that move AegisPT beyond fixed tool sequences and toward the best evidence-first AI-assisted pentesting platform
+    - the new work is framed as safe planning, evidence graphing, coverage truth, operator explainability, lab benchmarking, runner contracts, engagement memory, ROE policy explanation, intent-to-mission planning, and evidence-bound narrative reporting
+    - `NEXT_TASK.md` was intentionally not changed; backlog-304 remains the single active task
+  - implementation:
+    - appended queue items 257 through 266 to `TASK_QUEUE.md`
+    - created ten task packages under `codex/tasks/` with matching `source_context.queue_index` values
+    - each package preserves active-task gating, existing runner registry, scope/ROE, approvals, credentials, provenance, reports, and kill-switch boundaries
+    - tasks are designed to avoid uncontrolled runtime actions and to give future Codex runs narrow, validateable slices
+  - files:
+    - `TASK_QUEUE.md`
+    - `codex/tasks/backlog-305-evidence-knowledge-graph-hypothesis-engine.json`
+    - `codex/tasks/backlog-306-next-best-action-runner-selector.json`
+    - `codex/tasks/backlog-307-coverage-truth-stop-condition-engine.json`
+    - `codex/tasks/backlog-308-operator-autopilot-workbench.json`
+    - `codex/tasks/backlog-309-lab-benchmark-orchestrator.json`
+    - `codex/tasks/backlog-310-signal-to-runner-contract-matrix.json`
+    - `codex/tasks/backlog-311-engagement-memory-casebook.json`
+    - `codex/tasks/backlog-312-roe-policy-compiler-safety-explainer.json`
+    - `codex/tasks/backlog-313-intent-to-mission-planner.json`
+    - `codex/tasks/backlog-314-evidence-first-narrative-attack-story-builder.json`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed: 266 queued task packages mapped one-to-one and `NEXT_TASK.md` contains exactly one active task
+  - proof:
+    - queue validation confirms all new task packages are referenced once and aligned to their queue indices
+  - risks / exceptions:
+    - no product code was changed by this queue-planning slice
+    - no live UI, runtime, runner, or report behavior was exercised
+  - next:
+    - keep backlog-304 active until completed, then promote the next queued task according to `TASK_QUEUE.md`.
+
 - 2026-05-08: completed backlog-303 `AI Goal-Oriented (CTF) Reasoning Mode`:
   - rationale:
     - ai_loop operators need to state an explicit objective and have the loop reason backward toward it without turning objective text into ungated execution

@@ -1,0 +1,87 @@
+{
+  "id": "backlog-306-next-best-action-runner-selector",
+  "task_file": "codex/tasks/backlog-306-next-best-action-runner-selector.json",
+  "task_type": "ai_assessment_planning",
+  "title": "Next-Best-Action Runner Selector",
+  "goal": "Add a deterministic next-best-action selector that ranks RUN, SKIP, WAIT, and APPROVAL decisions from evidence graph hypotheses, runner prerequisites, confidence, cost, risk tier, scope, ROE, and expected proof value. The selector must replace fixed spray-and-pray ordering for ai_loop planning without changing manual wizard or fixed-chain behavior.",
+  "scope": "AI-loop planning and runner selection.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "AegisPT should choose the highest-value next action from evidence rather than simply running a predetermined sequence of tools.",
+  "source_context": {
+    "queue_index": 258,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-305",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Only ai_loop planning may use this selector; manual wizard and fixed-chain flows must remain intact.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "The selector returns ranked actions with explicit evidence IDs, runner IDs, prerequisite state, risk tier, approval need, confidence, and expected proof value.",
+    "Actions with missing prerequisites are WAIT with clear blocker reasons instead of being dispatched blindly.",
+    "Active or intrusive choices become approval proposals unless existing ROE and approval state already allow them."
+  ],
+  "likely_touched_files": [
+    "api/app/services/ai_action_selector.py",
+    "api/app/services/ai_planner.py",
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_ai_action_selector.py"
+  ],
+  "must_not_touch": [
+    "ui/",
+    "ui-v2/src/components/Intake.tsx"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_ai_action_selector.py api/tests/test_assessment_loop.py api/tests/test_ai_planner.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "A fixture with evidence for GraphQL ranks graphql-probe above unrelated runners.",
+      "A fixture without injectable-parameter evidence marks sqlmap WAIT rather than RUN.",
+      "The selector records rationale/provenance for each decision."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new security runners",
+    "Running tools outside registered runners",
+    "Bypassing approvals or ROE"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
