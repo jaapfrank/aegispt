@@ -848,12 +848,30 @@ _WEB_PROBE_TOOLS = {"xss-extended", "session-security", "headers-security", "con
 
 
 def _extract_discovered_links(session: Session, run: Run, *, scope_allowlist: dict[str, Any] | None) -> list[str]:
-    """Pull HTTP links discovered by prior web-discovery tasks and filter to approved scope."""
+    """Pull HTTP links discovered by prior web-discovery tasks and filter to approved scope.
+
+    Searches the current run first, then recent completed runs in the same engagement so
+    xss-extended and other probe tools can use httpx output even from a separate baseline run.
+    """
     from api.app.services.runs import web_target_value_is_allowed_with_path
+
+    # Collect run IDs to search: current run + up to 5 recent completed runs in same engagement.
+    run_ids: list = [run.id]
+    if run.engagement_id is not None:
+        sibling_ids = session.scalars(
+            select(Run.id)
+            .where(Run.engagement_id == run.engagement_id)
+            .where(Run.id != run.id)
+            .where(Run.status.in_(["completed", "completed_with_errors"]))
+            .where(Run.deleted_at.is_(None))
+            .order_by(Run.created_at.desc())
+            .limit(5)
+        ).all()
+        run_ids.extend(sibling_ids)
 
     completed_tasks = session.scalars(
         select(Task)
-        .where(Task.run_id == run.id)
+        .where(Task.run_id.in_(run_ids))
         .where(Task.tool.in_(_WEB_DISCOVERY_TOOLS))
         .where(Task.status.in_(["completed", "completed_with_errors"]))
     ).all()
