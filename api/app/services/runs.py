@@ -1307,6 +1307,54 @@ def crypto_audit_runner_params_from_configuration(
     return result
 
 
+def _links_from_prior_httpx_runs(
+    session: Session,
+    *,
+    engagement_id: Any,
+    scope_allowlist: Any,
+) -> list[str]:
+    """Extract HTTP links from completed httpx tasks in this engagement for use as candidate_paths."""
+    import json as _json
+
+    completed_tasks = session.scalars(
+        select(Task)
+        .join(Task.run)
+        .where(Run.engagement_id == engagement_id)
+        .where(Task.tool.in_({"httpx", "web-depth", "easm-discover"}))
+        .where(Task.status.in_(["completed", "completed_with_errors"]))
+        .order_by(Task.created_at.desc())
+        .limit(10)
+    ).all()
+
+    links: list[str] = []
+    seen: set[str] = set()
+    allowlist = scope_allowlist if isinstance(scope_allowlist, dict) else {}
+    for task in completed_tasks:
+        executions = list(task.executions or [])
+        raw = str(executions[-1].stdout_text or "") if executions else ""
+        if not raw:
+            continue
+        try:
+            parsed = _json.loads(raw)
+        except (ValueError, TypeError):
+            continue
+        results = parsed.get("results") if isinstance(parsed, dict) else None
+        if not isinstance(results, list):
+            results = [parsed] if isinstance(parsed, dict) else []
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            for link in result.get("links") or []:
+                url = str(link or "").strip()
+                if not url or url in seen:
+                    continue
+                if allowlist and not web_target_value_is_allowed_with_path(allowlist, url):
+                    continue
+                seen.add(url)
+                links.append(url)
+    return links
+
+
 def xss_extended_runner_params_from_configuration(
     configuration: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -4260,6 +4308,10 @@ def queue_run_tasks(session: Session, run: Run, scope: Scope, profile: RunProfil
     ssh_brute_params = ssh_brute_runner_params_from_configuration(run_configuration)
     crypto_audit_params = crypto_audit_runner_params_from_configuration(run_configuration)
     xss_extended_params = xss_extended_runner_params_from_configuration(run_configuration)
+    if not xss_extended_params.get("candidate_paths") and run.engagement_id is not None:
+        xss_extended_params["candidate_paths"] = _links_from_prior_httpx_runs(
+            session, engagement_id=run.engagement_id, scope_allowlist=scope.allowlist_json if scope else None
+        )
     ssrf_params = ssrf_runner_params_from_configuration(run_configuration)
     deserialization_params = deserialization_runner_params_from_configuration(run_configuration)
     session_security_params = session_security_runner_params_from_configuration(run_configuration)
