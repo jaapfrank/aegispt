@@ -1,0 +1,84 @@
+{
+  "id": "backlog-351-authenticated-web-scanning-chain",
+  "task_file": "codex/tasks/backlog-351-authenticated-web-scanning-chain.json",
+  "task_type": "ai_reasoning_capability",
+  "title": "Authenticated Web Scanning: Auto-Register, Login, Test Authenticated Surface",
+  "goal": "For web targets with open registration (like Gruyere /newaccount.gtl), the auth-flow runner should be able to auto-register a test account, obtain a session cookie, and pass that session to subsequent runners (xss-extended, client-state, idor-bac). This requires: (1) auth-flow detecting registration forms from content-discovery links; (2) creating a test account via the registration form; (3) logging in and storing the session token in the run credential vault; (4) subsequent runners receiving that session token via vault injection. Without this, stored XSS, CSRF, path traversal, and client-state manipulation cannot be tested on auth-gated surfaces.",
+  "scope": "workers/runners/auth_flow/runner.py, api/app/services/assessment_loop.py",
+  "status": "queued",
+  "generated_by": "gruyere-coverage-analysis-20260512",
+  "generation_reason": "Live Gruyere run found only unauthenticated vulnerabilities (~30% coverage). 70% of Gruyere vulnerabilities require authentication. Open-registration targets like Gruyere can be tested without manual credential setup.",
+  "success_criteria": [
+    "auth-flow detects registration form from content-discovery links and creates a test account.",
+    "Session token stored in credential vault and injected into subsequent runners.",
+    "xss-extended, client-state, idor-bac run against authenticated endpoints.",
+    "Stored XSS in Gruyere snippet submission is found."
+  ],
+  "constraints": {
+    "scope_boundary": "Only create test accounts on targets that explicitly expose open registration. Never use production credentials.",
+    "vault_only": "Session tokens must go through the credential vault, not hardcoded params.",
+    "no_scope_bypass": "All authenticated requests must remain within approved scope.",
+    "scope_creep_guard": "Limit to auth registration and session vault injection.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md."
+  },
+  "source_context": {
+    "queue_index": 301,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "validation": {
+    "required_checks": [
+      "pytest api/tests/",
+      "cd ui-v2 && npm run build",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "auth-flow creates account and obtains session.",
+      "Session injected into xss-extended via vault.",
+      "Stored XSS found on authenticated snippet endpoint."
+    ]
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted",
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Bypassing approval gates, scope/ROE boundaries, credential protections, or kill-switch behavior.",
+    "Running live public target scans without explicit operator authorization."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_chained_exploitation"
+  },
+  "likely_touched_files": [
+    "workers/runners/",
+    "api/app/services/",
+    "api/tests/"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ]
+}

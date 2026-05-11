@@ -1384,11 +1384,15 @@ def advance_assessment_loop(
         plan=plan,
         tested_keys=tested_keys,
     )
+    # Use selector only after at least one tool has run (tested_keys non-empty).
+    # On the very first call, seed_candidate picks the discovery tool (httpx/nmap)
+    # so active probes (xss-extended etc.) never run before initial fingerprinting.
     selector_candidate = (
         _selector_candidate(selector_report, plan)
-        if not tested_keys
-        or _selector_has_finding_sources(selector_report)
-        or _selector_has_triggered_actions(selector_report)
+        if tested_keys and (
+            _selector_has_finding_sources(selector_report)
+            or _selector_has_triggered_actions(selector_report)
+        )
         else None
     )
     candidate = goal_candidate or recursive_candidate or selector_candidate or _seed_candidate(

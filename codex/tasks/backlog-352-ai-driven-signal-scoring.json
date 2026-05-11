@@ -1,0 +1,80 @@
+{
+  "id": "backlog-352-ai-driven-signal-scoring",
+  "task_file": "codex/tasks/backlog-352-ai-driven-signal-scoring.json",
+  "task_type": "ai_reasoning_capability",
+  "title": "AI-Driven Signal Scoring: LLM Analyzes Tool Output to Set Context Signals",
+  "goal": "Replace hardcoded trigger signals in capabilities.json with LLM-driven analysis of tool output. After each tool completes, the existing ChatGPT OAuth provider analyzes the stdout_text and sets rich signals in the inventory snapshot signal_profile: login_form_found, upload_form_present, injectable_parameter, session_cookie_present, etc. This makes the selector adaptive rather than rule-based, and avoids the brittleness of regex-matching against JSON output.",
+  "scope": "api/app/services/ai_agent.py, api/app/services/ai_action_selector.py, workers/orchestration/tasks.py",
+  "status": "queued",
+  "generated_by": "gruyere-coverage-analysis-20260512",
+  "generation_reason": "Static trigger signals require manual maintenance and miss contextual evidence. The LLM can analyze httpx JSON output and identify login forms, file upload endpoints, and injectable parameters automatically.",
+  "success_criteria": [
+    "After httpx runs, signals like login_form_found and session_cookie_present are automatically set from tool output.",
+    "auth-flow and session-security score higher than nikto/headers-security when login forms are detected.",
+    "No hardcoded string matching required for signal extraction."
+  ],
+  "source_context": {
+    "queue_index": 302,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "validation": {
+    "required_checks": [
+      "pytest api/tests/",
+      "cd ui-v2 && npm run build",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "login_form_found set from httpx output.",
+      "auth-flow scores higher after login form detected.",
+      "No hardcoded string matching required."
+    ]
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted",
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Bypassing approval gates, scope/ROE boundaries, credential protections, or kill-switch behavior.",
+    "Running live public target scans without explicit operator authorization."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Limit to signal extraction from tool output."
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "ai_chained_exploitation"
+  },
+  "likely_touched_files": [
+    "workers/runners/",
+    "api/app/services/",
+    "api/tests/"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ]
+}

@@ -307,3 +307,7 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 297. CSRF, Client-State Manipulation and Privilege Escalation Detection `codex/tasks/backlog-345-csrf-and-client-state-detection.json`
 298. Path Traversal Detection: URL Path, Filename, and Username Vectors `codex/tasks/backlog-346-path-traversal-and-file-upload-detection.json`
 299. Stored XSS Detection via Form Input Submission: Snippets, Color, and HTML Attributes `codex/tasks/backlog-347-stored-xss-and-html-injection-via-form-inputs.json`
+300. Management Report Readability and Executive Narrative `codex/tasks/backlog-348-management-report-readability.json`
+301. Authenticated Web Scanning: Auto-Register, Login, Test Authenticated Surface `codex/tasks/backlog-351-authenticated-web-scanning-chain.json`
+302. AI-Driven Signal Scoring: LLM Analyzes Tool Output to Set Context Signals `codex/tasks/backlog-352-ai-driven-signal-scoring.json`
+303. Gruyere Full Coverage Proof: All Known Vulnerabilities Found `codex/tasks/backlog-353-gruyere-full-coverage-proof.json`

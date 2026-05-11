@@ -171,7 +171,11 @@ def test_selector_marks_sqlmap_wait_without_concrete_parameter_evidence(client) 
     assert sqlmap_action["provenance"]["dispatches_work"] is False
 
 
-def test_assessment_loop_uses_selector_for_initial_seed_action(client) -> None:
+def test_assessment_loop_uses_seed_then_selector_for_web_target(client) -> None:
+    """First iteration uses seed tool (httpx); second iteration uses selector (xss-extended ranks #1)."""
+    from uuid import UUID as _UUID
+    from api.app.models import Task
+
     run_id = _create_selector_run(
         client,
         inventory={
@@ -184,25 +188,36 @@ def test_assessment_loop_uses_selector_for_initial_seed_action(client) -> None:
     )
 
     with client.app.state.session_factory() as session:
-        run = session.get(Run, UUID(run_id))
+        run = session.get(Run, _UUID(run_id))
         assert run is not None
         scope = run.engagement.scopes[-1]
-        payload = advance_assessment_loop(
-            session,
-            run=run,
-            scope=scope,
-            actor="selector-tester",
-            operator_note="Use graph evidence and selector ranking.",
-        )
+
+        # Iteration 1: seed tool (httpx) runs first — selector not yet used
+        payload1 = advance_assessment_loop(session, run=run, scope=scope, actor="selector-tester")
         session.commit()
 
-    assert payload["next_action"]["decision_source"] == "next_best_action_selector"
-    assert payload["next_action"]["tool"] == "httpx"
-    assert payload["next_action"]["selector_decision"] == "RUN"
-    assert payload["queued_task_id"]
-    assert payload["proposal_id"]
-    assert payload["status"] == "waiting_for_execution"
-    assert payload["latest_next_action"]["params"]["next_best_action_selector"]["rank"] == 1
+    assert payload1["next_action"]["tool"] == "httpx"
+    assert payload1["queued_task_id"]
+    assert payload1["status"] == "waiting_for_execution"
+
+    # Mark httpx completed so iteration 2 has tested_keys
+    with client.app.state.session_factory() as session:
+        task = session.get(Task, _UUID(payload1["queued_task_id"]))
+        assert task is not None
+        task.status = "completed"
+        task.stdout_text = '{"results": [{"ok": true, "links": ["https://selector.example.test/login"]}]}'
+        run = session.get(Run, _UUID(run_id))
+        scope = run.engagement.scopes[-1]
+
+        # Iteration 2: selector takes over with triggered actions
+        payload2 = advance_assessment_loop(session, run=run, scope=scope, actor="selector-tester")
+        session.commit()
+
+    # xss-extended (or similar active probe) wins after httpx provided web signals
+    assert payload2["next_action"]["decision_source"] == "next_best_action_selector"
+    assert payload2["next_action"]["tool"] in {"xss-extended", "http-smuggling", "ssrf-probe"}
+    assert payload2["queued_task_id"]
+    assert payload2["status"] == "waiting_for_execution"
 
 
 def test_selector_skips_contract_valid_runner_when_no_trigger_matches() -> None:

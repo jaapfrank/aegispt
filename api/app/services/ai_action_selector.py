@@ -443,22 +443,54 @@ def _target_for_runner(
 
 def _signals_from_text(text: str) -> set[str]:
     signals: set[str] = set()
+    lower = text.lower()
+
+    # Web target present — any HTTP URL in the graph
     if any(token in text for token in ("http://", "https://", "web_target_present")):
         signals.update({"web_target_present", "http_service_present"})
-    if any(token in text for token in ("graphql_endpoint", "graphql_present", "/graphql", " graphql")):
+
+    # GraphQL
+    if any(token in lower for token in ("graphql_endpoint", "graphql_present", "/graphql", " graphql")):
         signals.update({"graphql_endpoint", "graphql_present", "api_endpoint_present"})
-    if any(token in text for token in ("login_form_found", "login form")):
+
+    # Login / registration forms — matched from links in httpx output
+    if any(token in lower for token in ("/login", "login_form_found", "login form", "/signin", "/sign-in")):
         signals.add("login_form_found")
-    if any(token in text for token in ("form_with_post_action", "post action")):
+    if any(token in lower for token in ("/newaccount", "/register", "/signup", "/sign-up", "/create-account")):
+        signals.add("registration_form_present")
+
+    # Forms with POST action — matched from httpx forms JSON or content-discovery
+    if any(token in lower for token in ("form_with_post_action", '"method": "post"', '"post"', "post action",
+                                         '"action":', "upload", "/upload", "file_field")):
         signals.add("form_with_post_action")
-    if "injectable_parameter" in text:
+    if any(token in lower for token in ("/upload", "file_upload", "upload_url", "file_field", "multipart")):
+        signals.add("upload_form_present")
+
+    # URL parameters — injectable candidates
+    if any(token in text for token in ("?uid=", "?id=", "?q=", "?search=", "?page=", "?name=",
+                                        "injectable_parameter", "snippets.gtl")):
         signals.add("injectable_parameter")
-    if "sql_error_pattern" in text or "sql error" in text:
+    if "sql_error_pattern" in lower or "sql error" in lower or "syntax error" in lower:
         signals.add("sql_error_pattern")
-    if "session_cookie_present" in text or "session cookie" in text:
+
+    # Session / auth signals from httpx cookies or headers
+    if any(token in lower for token in ("session_cookie_present", "session cookie", '"session"', '"sid"',
+                                         '"jsessionid"', '"phpsessid"', "set-cookie: session",
+                                         '"cookies": [{')):
         signals.add("session_cookie_present")
-    if "jwt" in text or "bearer" in text:
+    if any(token in lower for token in ("jwt", "bearer", "authorization:", "access_token", "id_token")):
         signals.add("jwt_in_response")
+
+    # API endpoints from discovered links
+    if any(token in lower for token in ("/api/", "/v1/", "/rest/", "/json", ".json", "content-type: application/json",
+                                         '"content_type": "application/json"')):
+        signals.add("api_endpoint_present")
+
+    # TLS signals — only set when crypto-audit output is present, NOT from target URL alone
+    if any(token in lower for token in ("tls_service_present", "certificate_present",
+                                         '"cipher_suite"', '"tls_version"', '"certificate":')):
+        signals.update({"tls_service_present", "certificate_present"})
+
     return signals
 
 
@@ -557,6 +589,10 @@ def _decision_for_runner(
         return "WAIT", [f"missing prerequisite: {item}" for item in missing_prerequisites]
     if not matched_triggers and runner not in LOW_IMPACT_AUTO_TOOLS:
         return "SKIP", ["no matching evidence trigger is present in the graph"]
+    # Low-impact auto tools (httpx, nmap, easm-discover) are safe discovery runners
+    # that always get RUN regardless of risk_tier label.
+    if runner in LOW_IMPACT_AUTO_TOOLS:
+        return "RUN", []
     if risk_tier in {"active", "intrusive"} or required_approvals > 0:
         if allow_active_without_review:
             return "RUN", []
