@@ -108,6 +108,7 @@ export default function Intake() {
   const [showLaunchCeremony, setShowLaunchCeremony] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [authorizationConfirmed, setAuthorizationConfirmed] = useState(false);
+  const [useAdaptiveMode, setUseAdaptiveMode] = useState(true);
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const [selectedTileKey, setSelectedTileKey] = useState<string | null>('external-web');
   const [wizardTarget, setWizardTarget] = useState('');
@@ -277,7 +278,7 @@ export default function Intake() {
         assumptions: ['Seed inventory was created from operator-reviewed React v2 intake input before active discovery.'],
       });
 
-      const runRequest = buildRunRequest(mission, inventorySnapshot.id);
+      const runRequest = buildRunRequest(mission, inventorySnapshot.id, useAdaptiveMode);
       const run = await postRun(engagement.id, runRequest);
       setInventory(inventorySnapshot);
       setRuns([run, ...runs.filter((candidate) => candidate.id !== run.id)]);
@@ -435,6 +436,8 @@ export default function Intake() {
               canPreview={Boolean(selectedTileKey && wizardTarget.trim() && wizardDepth)}
               authorizationConfirmed={authorizationConfirmed}
               setAuthorizationConfirmed={setAuthorizationConfirmed}
+              useAdaptiveMode={useAdaptiveMode}
+              setUseAdaptiveMode={setUseAdaptiveMode}
               isLaunching={isLaunching}
               onLaunch={() => void launchMission()}
             />
@@ -578,6 +581,8 @@ function WizardPane({
   canPreview,
   authorizationConfirmed,
   setAuthorizationConfirmed,
+  useAdaptiveMode,
+  setUseAdaptiveMode,
   isLaunching,
   onLaunch,
 }: {
@@ -595,6 +600,8 @@ function WizardPane({
   canPreview: boolean;
   authorizationConfirmed: boolean;
   setAuthorizationConfirmed: (value: boolean) => void;
+  useAdaptiveMode: boolean;
+  setUseAdaptiveMode: (value: boolean) => void;
   isLaunching: boolean;
   onLaunch: () => void;
 }) {
@@ -800,7 +807,24 @@ function WizardPane({
                 </div>
               )}
             </dl>
-            <label className="mt-5 flex items-start gap-3 rounded-md border border-amber/30 bg-amber/10 p-3 text-[1rem] text-text">
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-cyan/20 bg-cyan/5 p-3 text-[1rem] text-text transition-colors hover:bg-cyan/8">
+              <input
+                type="checkbox"
+                checked={useAdaptiveMode}
+                onChange={(event) => setUseAdaptiveMode(event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <strong className="text-cyan">AI Adaptive Pentest</strong>
+                <span className="mt-1 block text-[0.925rem] text-muted">
+                  The AI loop selects and sequences runners based on discovered evidence. No fixed phase chain — active tools run automatically after passive discovery.
+                  {!useAdaptiveMode && (
+                    <span className="mt-1 block font-semibold text-amber/80">Standard mode: fixed phase chain with manual phase approvals.</span>
+                  )}
+                </span>
+              </span>
+            </label>
+            <label className="mt-3 flex items-start gap-3 rounded-md border border-amber/30 bg-amber/10 p-3 text-[1rem] text-text">
               <input
                 type="checkbox"
                 checked={authorizationConfirmed}
@@ -1099,11 +1123,11 @@ function buildConfigurationPreview(mission: MissionSummary, authorizationConfirm
   };
 }
 
-function buildRunRequest(mission: MissionSummary, inventoryId: UUID) {
-  const profile = profileForMission(mission);
-  const assessmentMode = assessmentModeForMission(mission);
+function buildRunRequest(mission: MissionSummary, inventoryId: UUID, forceAdaptive = false) {
+  const useAiLoop = forceAdaptive || shouldUseAdaptiveAiLoop(mission);
+  const profile = useAiLoop ? profileForMission(mission, true) : profileForMission(mission, false);
+  const assessmentMode = useAiLoop ? null : assessmentModeForMission(mission);
   const isFullPentest = (mission.depth || '').toLowerCase().includes('full');
-  const useAiLoop = shouldUseAdaptiveAiLoop(mission);
   const firstTarget = firstTargetValue(targetMapFromScope(mission.scope || '', mission.targetType || ''));
   // Full Pentest gets full authorization so the chain auto-advances without approval gates.
   // The operator already confirmed written authorization via the checkbox.
@@ -1160,13 +1184,14 @@ function buildRunRequest(mission: MissionSummary, inventoryId: UUID) {
   };
 }
 
-function profileForMission(mission: MissionSummary): string {
+function profileForMission(mission: MissionSummary, forceAdaptive = false): string {
   const type = (mission.targetType || '').toLowerCase();
   const depth = (mission.depth || '').toLowerCase();
   const isFull = depth.includes('full');
   const isActive = depth.includes('active');
 
-  if (shouldUseAdaptiveAiLoop(mission)) return 'autonomous-web';
+  // AI Adaptive mode always starts with autonomous-web for initial httpx fingerprint.
+  if (forceAdaptive || shouldUseAdaptiveAiLoop(mission)) return 'autonomous-web';
 
   if (type.includes('wifi')) return 'passive-wifi-survey';
   if (type.includes('cloud')) return 'passive-cloud-aws-inventory';
