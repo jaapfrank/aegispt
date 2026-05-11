@@ -34,6 +34,21 @@ This repository keeps production hardening grounded in repeatable validation. Br
 - Direct secrets entered through the wizard must not come back in the normal run configuration response.
 - Tests should verify protected indirection or encrypted local storage instead of plaintext persistence.
 
+## Scan tooling gate categories
+
+Run `python3 scripts/check_tooling_readiness.py` to generate a current
+readiness report. Gates are categorised as follows:
+
+- **active_gate** — Required green for release. CI blocks on failure.
+  - Playwright (`cd ui-v2 && npm run test:e2e`)
+- **diagnostic_gate** — Operator-reviewed output; does not block release.
+  - ZAP (daemon API preferred; avoid racing the home directory)
+  - Semgrep (run with proxy vars unset: `env -u HTTP_PROXY -u HTTPS_PROXY semgrep ...`)
+  - npm audit (`npm audit --audit-level=high`; moderate Vite/esbuild advisories are tracked as planned future work — do not apply `npm audit fix --force`)
+- **future_optional** — Planned addition; not yet wired.
+  - Schemathesis (local FastAPI only: `http://localhost:8000`)
+  - Trivy, Gitleaks, pip-audit, Lighthouse CI
+
 ## Operator-facing regression focus
 
 - Wizard completion path

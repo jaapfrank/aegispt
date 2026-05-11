@@ -2,38 +2,32 @@
 
 ## Title
 
-Test and Scan Tooling Readiness Gate
+AI Adaptive Pentest: Intake Creates ai_loop Runs + Auto-Dispatch Passive Tasks
 
 ## Goal
 
-Add a safe, deterministic tooling readiness gate for stronger local testing and scanning coverage without running live target scans.
+The Intake wizard must offer a third run mode alongside Manual Wizard and AI Guided chat: 'AI Adaptive Pentest'. This mode creates a run with run_mode=ai_loop in configuration_json, no fixed phase chain. After the run is created, the assessment loop must dispatch passive tasks automatically without requiring operator intervention. Currently advance_assessment_loop() queues passive tasks with dispatch_mode='queued_not_dispatched' — this must be changed to actually dispatch them through the existing task dispatch path so the loop progresses on its own. Active/intrusive candidates continue to require operator approval (proposal flow).
 
 ## Scope
 
-- React v2 visual and accessibility testing.
-- API contract fuzzing against local FastAPI fixtures.
-- SAST, dependency, and secret scan readiness.
-- ZAP automation isolation.
+- `ui-v2/src/components/Intake.tsx`
+- `api/app/services/assessment_loop.py`
+- `workers/orchestration/tasks.py`
 
 ## Constraints
 
-- Do not run live public target scans.
-- Do not expand scope, materialize credentials, approve proposals, mutate runtime gates, or bypass kill-switch behavior.
-- Treat active DAST as optional and separately approval-gated; default to local fixtures and readiness checks.
-- Do not auto-fix breaking dependency upgrades.
+- Do not bypass scope/ROE, approval gates for active/intrusive runners, credential materialization, runtime gate mutation, or kill-switch behavior.
+- Passive tasks only auto-dispatch; active runners stay behind the existing proposal/approval flow.
 
 ## Source Package
 
-`codex/tasks/backlog-335-test-scan-tooling-readiness-gate.json`
+`codex/tasks/backlog-336-ai-loop-intake-and-auto-dispatch.json`
 
 ## Required Reading
 
 - `CURRENT_STATE.md`
-- `DECISIONS.md`
 - `TASK_QUEUE.md`
-- `DONE_LOG.md`
 - `TESTING_POLICY.md`
-- `codex/results/react-v2-dashboard-readiness-and-tooling-audit-20260511.md`
 
 ## Validation
 
@@ -42,13 +36,4 @@ Add a safe, deterministic tooling readiness gate for stronger local testing and 
 - `cd ui-v2 && npm run build`
 - `cd ui-v2 && npm run test:e2e`
 - `cd ui-v2 && npm run lint`
-- `.venv/bin/ruff check .`
 - `git diff --check`
-
-## Acceptance
-
-- Tool readiness checks are deterministic and local-safe.
-- ZAP and Semgrep readiness blockers found during the 2026-05-11 audit are handled or recorded operator-visibly.
-- React v2 coverage gains a meaningful accessibility or visual guard.
-- Dependency and secret scan commands produce review-only artifacts.
-- Active release gates remain green.

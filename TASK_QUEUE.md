@@ -294,7 +294,7 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 284. ~~AegisPT Safe-Click Browser Copilot~~ ✓ DONE 2026-05-10 `codex/tasks/backlog-332-safe-click-browser-copilot.json`
 285. ~~AI Phishing Triage & Auto-Purge (O365/Google Workspace)~~ ✓ DONE 2026-05-10 `codex/tasks/backlog-333-ai-phishing-triage-auto-purge.json`
 286. ~~Legacy UI Test Gate Retirement and React v2 Coverage Migration~~ ✓ DONE 2026-05-11 `codex/tasks/backlog-334-legacy-ui-test-gate-retirement.json`
-287. Test and Scan Tooling Readiness Gate `codex/tasks/backlog-335-test-scan-tooling-readiness-gate.json`
+287. ~~Test and Scan Tooling Readiness Gate~~ ✓ DONE 2026-05-11 `codex/tasks/backlog-335-test-scan-tooling-readiness-gate.json`
 288. AI Adaptive Pentest: Intake Creates ai_loop Runs + Auto-Dispatch Passive Tasks `codex/tasks/backlog-336-ai-loop-intake-and-auto-dispatch.json`
 289. Pivot Engine Automatically Queues Follow-Up Scans from Confirmed Findings `codex/tasks/backlog-337-pivot-engine-spawns-followup-scans.json`
 290. Mission Control: AI Adaptive Loop Panel showing Iteration Chain and Hypotheses `codex/tasks/backlog-338-mission-control-ai-loop-panel.json`
