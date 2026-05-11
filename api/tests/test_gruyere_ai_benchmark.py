@@ -168,8 +168,8 @@ def test_gruyere_ai_loop_benchmark_passes_with_linked_governed_steps(client) -> 
     )
     assert second.status_code == 200
     assert second.json()["next_action"]["tool"] == "xss-extended"
-    xss_task_id = _approve_proposal(client, run_id=run_id, proposal_id=second.json()["proposal_id"])
-    _complete_task(client, task_id=xss_task_id)
+    assert second.json()["status"] == "waiting_for_execution"
+    _complete_task(client, task_id=second.json()["queued_task_id"])
     xss_finding_id = _record_gruyere_finding(
         client,
         run_id=run_id,
@@ -186,8 +186,8 @@ def test_gruyere_ai_loop_benchmark_passes_with_linked_governed_steps(client) -> 
     )
     assert third.status_code == 200
     assert third.json()["next_action"]["tool"] == "session-security"
-    session_task_id = _approve_proposal(client, run_id=run_id, proposal_id=third.json()["proposal_id"])
-    _complete_task(client, task_id=session_task_id)
+    assert third.json()["status"] == "waiting_for_execution"
+    _complete_task(client, task_id=third.json()["queued_task_id"])
     session_finding_id = _record_gruyere_finding(
         client,
         run_id=run_id,
@@ -203,8 +203,8 @@ def test_gruyere_ai_loop_benchmark_passes_with_linked_governed_steps(client) -> 
     )
     assert fourth.status_code == 200
     assert fourth.json()["next_action"]["tool"] == "client-state"
-    admin_task_id = _approve_proposal(client, run_id=run_id, proposal_id=fourth.json()["proposal_id"])
-    _complete_task(client, task_id=admin_task_id)
+    assert fourth.json()["status"] == "waiting_for_execution"
+    _complete_task(client, task_id=fourth.json()["queued_task_id"])
     admin_finding_id = _record_gruyere_finding(
         client,
         run_id=run_id,
@@ -220,8 +220,8 @@ def test_gruyere_ai_loop_benchmark_passes_with_linked_governed_steps(client) -> 
     )
     assert fifth.status_code == 200
     assert fifth.json()["next_action"]["tool"] == "ssti-probe"
-    proof_task_id = _approve_proposal(client, run_id=run_id, proposal_id=fifth.json()["proposal_id"])
-    _complete_task(client, task_id=proof_task_id)
+    assert fifth.json()["status"] == "waiting_for_execution"
+    _complete_task(client, task_id=fifth.json()["queued_task_id"])
     proof_finding_id = _record_gruyere_finding(
         client,
         run_id=run_id,

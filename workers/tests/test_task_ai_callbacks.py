@@ -180,7 +180,7 @@ def test_worker_post_task_ai_callback_is_opt_in_and_stores_pending_review(monkey
     get_session_factory.cache_clear()
 
 
-def test_worker_ai_loop_advances_after_completed_task_without_auto_approving_active_work(
+def test_worker_ai_loop_advances_after_completed_task_and_auto_queues_active_work(
     tmp_path,
 ) -> None:
     get_settings.cache_clear()
@@ -196,8 +196,8 @@ def test_worker_ai_loop_advances_after_completed_task_without_auto_approving_act
 
         assert outcome is not None
         assert outcome["run_mode"] == "ai_loop"
-        assert outcome["status"] == "waiting_for_approval"
-        assert outcome["queued_task_id"] is None
+        assert outcome["status"] == "waiting_for_execution"
+        assert outcome["queued_task_id"]
         assert outcome["proposal_id"]
         next_action = outcome["next_action"]
         assert next_action["tool"] == "auth-flow"
@@ -206,10 +206,10 @@ def test_worker_ai_loop_advances_after_completed_task_without_auto_approving_act
         proposals = list(session.scalars(select(AgentProposal)))
         tasks = list(session.scalars(select(Task).order_by(Task.created_at, Task.id)))
         assert len(proposals) == 1
-        assert proposals[0].status == "pending_review"
+        assert proposals[0].status == "approved"
         assert proposals[0].metadata_json["proposal_kind"] == "assessment_loop_next_action"
-        assert proposals[0].metadata_json["dispatches_work"] is False
-        assert [item.tool for item in tasks] == ["httpx"]
+        assert proposals[0].metadata_json["dispatches_work"] is True
+        assert {item.tool for item in tasks} == {"httpx", "auth-flow"}
 
     get_settings.cache_clear()
     get_session_factory.cache_clear()

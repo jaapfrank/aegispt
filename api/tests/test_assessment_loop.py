@@ -297,7 +297,7 @@ def test_assessment_loop_goal_drives_next_action_through_existing_rationale_path
         assert proposal.metadata_json["proposal_kind"] == "assessment_loop_next_action"
 
 
-def test_assessment_loop_active_action_creates_reviewable_proposal_not_task(client) -> None:
+def test_assessment_loop_active_action_in_ai_loop_auto_queues_task(client) -> None:
     engagement_id = _create_engagement_and_scope(
         client,
         {"urls": ["https://loop.example.test"]},
@@ -339,24 +339,23 @@ def test_assessment_loop_active_action_creates_reviewable_proposal_not_task(clie
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "waiting_for_approval"
-    assert payload["queued_task_id"] is None
+    assert payload["status"] == "waiting_for_execution"
+    assert payload["queued_task_id"]
     assert payload["proposal_id"]
     next_action = payload["next_action"]
     assert next_action["tool"] == "auth-flow"
     assert next_action["tier"] == "active"
-    assert next_action["required_approvals"] == 1
 
     with client.app.state.session_factory() as session:
         proposal = session.get(AgentProposal, UUID(payload["proposal_id"]))
         assert proposal is not None
-        assert proposal.status == "pending_review"
+        assert proposal.status == "approved"
         assert proposal.metadata_json["proposal_kind"] == "assessment_loop_next_action"
-        assert proposal.metadata_json["dispatches_work"] is False
+        assert proposal.metadata_json["dispatches_work"] is True
         auth_task = session.scalar(
             select(Task).where(Task.run_id == UUID(run_id), Task.tool == "auth-flow")
         )
-        assert auth_task is None
+        assert auth_task is not None
 
 
 def test_assessment_loop_cidr_seed_uses_nmap_without_fixed_phase_chain(client) -> None:
