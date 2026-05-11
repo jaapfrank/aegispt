@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Bot,
@@ -183,6 +183,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     void refreshSupplementalData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEngagementId]);
 
   function toggleSection(id: string) {
@@ -215,7 +216,62 @@ export default function SettingsScreen() {
     }
   }
 
-  async function refreshSupplementalData() {
+  const loadChatGptStatus = useCallback(async (engagementId: UUID, notify = true) => {
+    if (notify) setPending('chatgpt-status');
+    try {
+      const payload = await getChatGptOAuthStatus(engagementId);
+      setChatgptStatus(payload);
+      if (notify) setToast('ChatGPT OAuth status refreshed.');
+    } catch (error) {
+      setChatgptStatus({ status: 'unavailable', failure_reason: errorMessage(error) });
+      if (notify) setToast(errorMessage(error));
+    } finally {
+      if (notify) setPending(null);
+    }
+  }, []);
+
+  const loadApiKeys = useCallback(async () => {
+    try {
+      setApiKeys(await getApiKeys());
+    } catch (error) {
+      setApiKeys([]);
+      setToast((current) => current ?? errorMessage(error));
+    }
+  }, []);
+
+  const loadIdentityStatus = useCallback(async () => {
+    try {
+      setIdentityStatus(await getEnterpriseIdentityStatus());
+    } catch {
+      setIdentityStatus(null);
+    }
+  }, []);
+
+  const loadSchedules = useCallback(async (engagementId: UUID) => {
+    try {
+      setScheduledRuns(await getScheduledRuns(engagementId));
+    } catch {
+      setScheduledRuns([]);
+    }
+  }, []);
+
+  const loadDeceptionData = useCallback(async (notify = true) => {
+    if (notify) setPending('deception-refresh');
+    try {
+      const [traps, alerts] = await Promise.all([getDeceptionTraps(), getDeceptionAlerts()]);
+      setDeceptionTraps(traps.traps);
+      setDeceptionAlerts(alerts.alerts);
+      if (notify) setToast('Deception fixtures refreshed.');
+    } catch (error) {
+      setDeceptionTraps([]);
+      setDeceptionAlerts([]);
+      if (notify) setToast(errorMessage(error));
+    } finally {
+      if (notify) setPending(null);
+    }
+  }, []);
+
+  const refreshSupplementalData = useCallback(async () => {
     const promises: Array<Promise<void>> = [];
     if (selectedEngagementId) {
       promises.push(loadChatGptStatus(selectedEngagementId, false));
@@ -228,21 +284,7 @@ export default function SettingsScreen() {
     promises.push(loadIdentityStatus());
     promises.push(loadDeceptionData(false));
     await Promise.all(promises);
-  }
-
-  async function loadChatGptStatus(engagementId: UUID, notify = true) {
-    if (notify) setPending('chatgpt-status');
-    try {
-      const payload = await getChatGptOAuthStatus(engagementId);
-      setChatgptStatus(payload);
-      if (notify) setToast('ChatGPT OAuth status refreshed.');
-    } catch (error) {
-      setChatgptStatus({ status: 'unavailable', failure_reason: errorMessage(error) });
-      if (notify) setToast(errorMessage(error));
-    } finally {
-      if (notify) setPending(null);
-    }
-  }
+  }, [selectedEngagementId, loadChatGptStatus, loadSchedules, loadApiKeys, loadIdentityStatus, loadDeceptionData]);
 
   async function handleConnectChatGpt() {
     if (!selectedEngagementId) {
@@ -310,15 +352,6 @@ export default function SettingsScreen() {
     setToast('Actor name saved for future API requests.');
   }
 
-  async function loadApiKeys() {
-    try {
-      setApiKeys(await getApiKeys());
-    } catch (error) {
-      setApiKeys([]);
-      setToast((current) => current ?? errorMessage(error));
-    }
-  }
-
   async function createKey() {
     setPending('api-key-create');
     try {
@@ -346,22 +379,6 @@ export default function SettingsScreen() {
     }
   }
 
-  async function loadIdentityStatus() {
-    try {
-      setIdentityStatus(await getEnterpriseIdentityStatus());
-    } catch {
-      setIdentityStatus(null);
-    }
-  }
-
-  async function loadSchedules(engagementId: UUID) {
-    try {
-      setScheduledRuns(await getScheduledRuns(engagementId));
-    } catch {
-      setScheduledRuns([]);
-    }
-  }
-
   async function toggleSchedule(schedule: ScheduledRun) {
     if (!selectedEngagementId) return;
     setPending('schedule');
@@ -377,22 +394,6 @@ export default function SettingsScreen() {
       setToast(errorMessage(error));
     } finally {
       setPending(null);
-    }
-  }
-
-  async function loadDeceptionData(notify = true) {
-    if (notify) setPending('deception-refresh');
-    try {
-      const [traps, alerts] = await Promise.all([getDeceptionTraps(), getDeceptionAlerts()]);
-      setDeceptionTraps(traps.traps);
-      setDeceptionAlerts(alerts.alerts);
-      if (notify) setToast('Deception fixtures refreshed.');
-    } catch (error) {
-      setDeceptionTraps([]);
-      setDeceptionAlerts([]);
-      if (notify) setToast(errorMessage(error));
-    } finally {
-      if (notify) setPending(null);
     }
   }
 
