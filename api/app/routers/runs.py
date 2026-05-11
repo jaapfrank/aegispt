@@ -896,7 +896,20 @@ def create_run(
         },
     )
 
-    if required_approvals(profile) == 0:
+    # Wizard authorization covers active-tier runs — operator already confirmed ROE and
+    # authorization when launching the mission. Intrusive runs always require explicit approval.
+    _wizard_pre_authorized = (
+        engagement.authorization_confirmed_at is not None
+        and str(profile.run_class or "").lower() not in ("intrusive",)
+    )
+    if required_approvals(profile) == 0 or _wizard_pre_authorized:
+        if _wizard_pre_authorized and required_approvals(profile) > 0:
+            session.add(Approval(
+                run_id=run.id,
+                step_id=approval_step_id(profile),
+                approver_id=actor,
+                decision="approved",
+            ))
         try:
             queue_run_tasks(session, run, scope, profile)
         except ValueError as exc:
@@ -907,7 +920,11 @@ def create_run(
             action="run.queued",
             object_type="run",
             object_id=str(run.id),
-            metadata={"engagement_id": str(engagement.id), "profile_name": profile.name},
+            metadata={
+                "engagement_id": str(engagement.id),
+                "profile_name": profile.name,
+                "auto_approved": _wizard_pre_authorized and required_approvals(profile) > 0,
+            },
         )
     else:
         run.status = "pending_approval"
