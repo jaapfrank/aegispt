@@ -823,6 +823,22 @@ def _selector_has_finding_sources(selector_report: dict[str, Any]) -> bool:
     return False
 
 
+def _selector_has_triggered_actions(selector_report: dict[str, Any]) -> bool:
+    """True when the selector has at least one RUN/APPROVAL action with matched trigger signals.
+
+    This lets the selector's signal-based ranking override the static assessment plan
+    even when no findings exist yet (e.g. after httpx populates web_target_present).
+    """
+    for action in _as_list(selector_report.get("actions")):
+        if not isinstance(action, dict):
+            continue
+        if str(action.get("decision") or "") not in {"RUN", "APPROVAL"}:
+            continue
+        if _as_list(action.get("matched_triggers")):
+            return True
+    return False
+
+
 def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
     payload = {
         "tool": candidate.tool,
@@ -959,7 +975,7 @@ def _queue_passive_loop_task(
                 "reasoning": candidate.reasoning,
                 "confidence": round(float(candidate.confidence), 3),
                 "approval_effect": "passive_auto_queued",
-                "dispatch_mode": "queued_not_dispatched",
+                "dispatch_mode": "queued_for_auto_dispatch",
                 "registered_runner_required": True,
                 "context_document_id": context_document_id,
                 "rationale_ledger_entry_id": rationale_ledger_entry_id,
@@ -990,7 +1006,7 @@ def _queue_passive_loop_task(
             "tool": candidate.tool,
             "target": candidate.target,
             "tier": candidate.tier,
-            "dispatch_mode": "queued_not_dispatched",
+            "dispatch_mode": "queued_for_auto_dispatch",
             "operator_controlled_flow_only": True,
         },
     )
@@ -1370,7 +1386,9 @@ def advance_assessment_loop(
     )
     selector_candidate = (
         _selector_candidate(selector_report, plan)
-        if not tested_keys or _selector_has_finding_sources(selector_report)
+        if not tested_keys
+        or _selector_has_finding_sources(selector_report)
+        or _selector_has_triggered_actions(selector_report)
         else None
     )
     candidate = goal_candidate or recursive_candidate or selector_candidate or _seed_candidate(
@@ -1570,7 +1588,7 @@ def advance_assessment_loop(
                     "run_mode": "ai_loop",
                     "iteration": iteration_number,
                     "queued_task_id": str(queued_task.id),
-                    "dispatch_mode": "queued_not_dispatched",
+                    "dispatch_mode": "queued_for_auto_dispatch",
                     "context_document_id": str(context_document.id),
                     "rationale_ledger_entry_id": str(rationale_entry.id),
                 },
@@ -1586,7 +1604,7 @@ def advance_assessment_loop(
                 "iteration": iteration_number,
                 "dispatches_work": True,
                 "queued_task_id": str(queued_task.id),
-                "approval_boundary": "passive_auto_queued" if candidate.tier == "passive" else "active_auto_queued_ai_loop",
+                "approval_boundary": "passive_auto_queued",
                 "operator_controlled_flow_only": True,
                 "active_runtime_mutated": False,
                 "context_document_id": str(context_document.id),
@@ -1648,7 +1666,7 @@ def advance_assessment_loop(
             "proposal_id": str(proposal.id) if proposal is not None else None,
             "context_document_id": str(context_document.id),
             "rationale_ledger_entry_id": str(rationale_entry.id),
-            "dispatch_mode": "queued_not_dispatched" if queued_task is not None else "review_only",
+            "dispatch_mode": "queued_for_auto_dispatch" if queued_task is not None else "review_only",
         },
     )
 
