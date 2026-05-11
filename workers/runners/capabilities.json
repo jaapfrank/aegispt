@@ -89,10 +89,11 @@
       "risk_tier": "active",
       "triggers": [
         "login_form_found",
-        "auth_flow_present",
-        "session_cookie_present"
+        "form_with_post_action"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "web_target_present"
+      ],
       "trigger_signals": {
         "strong": [
           "login_form_found",
@@ -404,11 +405,12 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "hidden_form_fields",
-        "client_state_parameter",
-        "session_exposure_risk"
+        "login_form_found",
+        "session_cookie_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "web_target_present"
+      ],
       "trigger_signals": {
         "strong": [
           "login_form_found",
@@ -475,7 +477,9 @@
       "triggers": [
         "web_target_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "http_service_present"
+      ],
       "trigger_signals": {
         "strong": [],
         "weak": [
@@ -541,7 +545,9 @@
         "tls_service_present",
         "certificate_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "http_service_present"
+      ],
       "trigger_signals": {
         "strong": [],
         "weak": [
@@ -575,9 +581,7 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "java_indicators",
-        "java_spring_indicator",
-        "serialized_cookie"
+        "web_target_present"
       ],
       "weak_triggers": [],
       "trigger_signals": {
@@ -760,7 +764,9 @@
         "graphql_endpoint",
         "graphql_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "api_endpoint_present"
+      ],
       "trigger_signals": {
         "strong": [
           "graphql_endpoint",
@@ -797,7 +803,9 @@
         "web_target_present",
         "http_endpoint_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "http_service_present"
+      ],
       "trigger_signals": {
         "strong": [],
         "weak": [
@@ -828,11 +836,11 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "proxy_header_signal",
-        "reverse_proxy_service",
+        "web_target_present"
+      ],
+      "weak_triggers": [
         "http_service_present"
       ],
-      "weak_triggers": [],
       "trigger_signals": {
         "strong": [
           "web_target_present"
@@ -897,9 +905,7 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "authenticated_route",
-        "object_id_parameter",
-        "role_context_present"
+        "web_target_present"
       ],
       "weak_triggers": [],
       "trigger_signals": {
@@ -1025,9 +1031,7 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "jwt_in_response",
-        "authorization_bearer_header",
-        "access_token_in_cookie"
+        "jwt_in_response"
       ],
       "weak_triggers": [],
       "trigger_signals": {
@@ -1150,7 +1154,9 @@
         "web_target_present",
         "error_handling_signal"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "http_service_present"
+      ],
       "trigger_signals": {
         "strong": [],
         "weak": [
@@ -1389,7 +1395,9 @@
       "triggers": [
         "web_target_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "http_service_present"
+      ],
       "trigger_signals": {
         "strong": [],
         "weak": [
@@ -1483,10 +1491,11 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "oauth_flow_present",
-        "openid_configuration"
+        "web_target_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "login_form_found"
+      ],
       "trigger_signals": {
         "strong": [
           "web_target_present"
@@ -1640,10 +1649,11 @@
       "risk_tier": "active",
       "triggers": [
         "session_cookie_present",
-        "login_form_found",
-        "session_exposure_risk"
+        "login_form_found"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "web_target_present"
+      ],
       "trigger_signals": {
         "strong": [
           "session_cookie_present",
@@ -1736,11 +1746,12 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "injectable_parameter",
         "sql_error_pattern",
-        "form_with_post_action"
+        "injectable_parameter"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "web_target_present"
+      ],
       "trigger_signals": {
         "strong": [
           "sql_error_pattern",
@@ -1806,11 +1817,11 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "url_parameter",
-        "callback_url_parameter",
-        "server_side_fetch_signal"
+        "web_target_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "form_with_post_action"
+      ],
       "trigger_signals": {
         "strong": [
           "web_target_present"
@@ -1844,11 +1855,11 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "template_parameter",
-        "server_rendered_input",
-        "sql_error_pattern"
+        "web_target_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "form_with_post_action"
+      ],
       "trigger_signals": {
         "strong": [
           "web_target_present"
@@ -1940,11 +1951,12 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "login_form_found",
-        "form_inputs_present",
-        "reflected_parameter"
+        "web_target_present",
+        "http_service_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "form_with_post_action"
+      ],
       "trigger_signals": {
         "strong": [
           "web_target_present",
