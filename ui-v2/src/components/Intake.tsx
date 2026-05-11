@@ -1190,8 +1190,14 @@ function profileForMission(mission: MissionSummary, forceAdaptive = false): stri
   const isFull = depth.includes('full');
   const isActive = depth.includes('active');
 
-  // AI Adaptive mode always starts with autonomous-web for initial httpx fingerprint.
-  if (forceAdaptive || shouldUseAdaptiveAiLoop(mission)) return 'autonomous-web';
+  // AI Adaptive mode: web/api targets start with autonomous-web (httpx).
+  // LAN/internal/cloud targets use their own starting profiles even in adaptive mode.
+  if (forceAdaptive || shouldUseAdaptiveAiLoop(mission)) {
+    if (type.includes('internal') || type.includes('lan')) return 'autonomous-internal';
+    if (type.includes('cloud')) return 'passive-cloud-aws-inventory';
+    if (type.includes('directory') || type.includes('active directory')) return 'passive-network-discovery';
+    return 'autonomous-web';
+  }
 
   if (type.includes('wifi')) return 'passive-wifi-survey';
   if (type.includes('cloud')) return 'passive-cloud-aws-inventory';
