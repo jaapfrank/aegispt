@@ -214,11 +214,14 @@ def _surface_status(
 ) -> str:
     if not applicable:
         return "not_applicable"
-    if any(proposal.status == "pending_review" for proposal in proposals):
-        return "blocked"
+    has_pending_proposals = any(proposal.status == "pending_review" for proposal in proposals)
+    statuses = {str(task.status or "").lower() for task in tasks}
+    has_executed = bool(statuses & EXECUTED_TASK_STATUSES)
+    if has_pending_proposals:
+        # If tasks already ran, acknowledge partial coverage; pending proposals block further depth.
+        return "partially_tested" if has_executed else "blocked"
     if not tasks:
         return "not_tested"
-    statuses = {str(task.status or "").lower() for task in tasks}
     if statuses <= {"skipped"}:
         return "skipped"
     if statuses & ACTIVE_TASK_STATUSES:
@@ -239,7 +242,7 @@ def _surface_blocker_ids(
     proposals: list[AgentProposal],
 ) -> list[str]:
     blocker_ids: list[str] = []
-    if status == "blocked":
+    if status in {"blocked", "partially_tested"}:
         blocker_ids.extend(f"proposal:{proposal.id}" for proposal in proposals if proposal.status == "pending_review")
     if status in {"not_tested", "partially_tested"}:
         for tool in sorted(set(rule.get("representative_tools") or set())):
@@ -258,9 +261,9 @@ def _surface_reason(
     if status == "tested":
         return "Stored task evidence shows this surface was exercised."
     if status == "partially_tested":
-        return "Stored tasks exist, but at least one is active, failed, or completed with errors."
+        return "Some tasks have run, but pending approval gates or active tasks block full coverage."
     if status == "blocked":
-        return "A pending proposal or approval gate blocks additional checks."
+        return "No tasks have run yet and a pending proposal or approval gate blocks initial checks."
     if status == "skipped":
         return "Stored tasks for this surface were skipped or cancelled."
     if status == "not_applicable":

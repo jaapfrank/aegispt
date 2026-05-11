@@ -216,6 +216,72 @@ def test_coverage_truth_reports_and_api_counts_agree(client) -> None:
     assert "Coverage Truth Stop Condition" in markdown_response.text
 
 
+def test_coverage_truth_partial_coverage_with_pending_proposal_is_not_blocked(client) -> None:
+    """Surfaces where tasks already ran should show partially_tested, not blocked."""
+    engagement_id, profile_id = _create_engagement_scope_and_profile(client)
+
+    with client.app.state.session_factory() as session:
+        run = Run(
+            engagement_id=UUID(engagement_id),
+            profile_id=UUID(profile_id),
+            requested_by="coverage-tester",
+            status="requested",
+            configuration_json={"targets": {"urls": ["https://coverage.example.test"]}},
+        )
+        reasoning = AgentReasoning(
+            run=run,
+            reasoning_type="assessment_loop_next_action",
+            status="recorded",
+            context_snapshot_json={},
+            observations_json=[],
+            hypotheses_json=[],
+            proposals_json=[],
+            provider="deterministic",
+        )
+        proposal = AgentProposal(
+            run=run,
+            agent_reasoning=reasoning,
+            proposed_tool="xss-extended",
+            proposed_target="https://coverage.example.test",
+            proposed_params_json={},
+            reasoning_text="XSS extended validation pending approval.",
+            risk_tier="active",
+            status="pending_review",
+        )
+        session.add_all(
+            [
+                run,
+                reasoning,
+                proposal,
+                Task(
+                    run=run,
+                    tool="httpx",
+                    target_id="https://coverage.example.test",
+                    status="completed",
+                    params_json={},
+                ),
+            ]
+        )
+        session.commit()
+        run_id = str(run.id)
+
+    response = client.get(
+        f"/api/v1/runs/{run_id}/coverage-truth",
+        headers={"X-Actor": "coverage-tester"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    web_surface = next(s for s in payload["surfaces"] if s["key"] == "web_application")
+    assert web_surface["status"] == "partially_tested", (
+        "Surface with completed tasks AND pending proposals must be partially_tested, not blocked"
+    )
+    assert any("proposal:" in b for b in web_surface["blocker_ids"]), (
+        "Pending proposal must still appear as a blocker even on a partially_tested surface"
+    )
+    assert payload["stop_condition"]["state"] == "approval-needed"
+
+
 def test_coverage_truth_builder_is_read_only(client) -> None:
     engagement_id, profile_id = _create_engagement_scope_and_profile(client)
 
