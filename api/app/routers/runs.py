@@ -896,8 +896,8 @@ def create_run(
         },
     )
 
-    # Wizard authorization covers active-tier runs — operator already confirmed ROE and
-    # authorization when launching the mission. Intrusive runs always require explicit approval.
+    # Wizard authorization covers passive and active runs — operator confirmed ROE and
+    # authorization when launching the mission. Intrusive runs keep their approval gate.
     _wizard_pre_authorized = (
         engagement.authorization_confirmed_at is not None
         and str(profile.run_class or "").lower() not in ("intrusive",)
