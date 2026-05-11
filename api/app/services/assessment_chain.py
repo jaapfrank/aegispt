@@ -95,8 +95,9 @@ WEB_FOLLOW_UP_PROFILES = {
     "passive-web-nikto-scan",
     "passive-web-nuclei-audit",
     "active-web-rce-nuclei-audit",
+    "active-web-content-discovery",
+    "active-web-feroxbuster",
     "active-web-safe",
-    "passive-web-burp",
     "active-business-logic",
     "active-web-oauth-probe",
     "active-web-xxe-probe",
@@ -290,7 +291,6 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                     "passive-web-vuln-components",
                     "passive-web-headers-security",
                     "passive-web-nikto-scan",
-                    "active-web-content-discovery",
                 ),
             ),
             AssessmentChainPhaseDefinition(
@@ -301,6 +301,7 @@ ASSESSMENT_CHAIN_DEFINITIONS: dict[str, AssessmentChainDefinition] = {
                 profiles=(
                     "passive-web-nuclei-audit",
                     "active-web-rce-nuclei-audit",
+                    "active-web-content-discovery",
                     "active-web-feroxbuster",
                     "active-web-safe",
                     "active-web-zap-active",

@@ -210,13 +210,12 @@ def execute_burp_scan(
     try:
         api_root = normalize_burp_api_root(base_url, api_key)
     except ValueError as exc:
-        # Burp Suite Pro is not installed or not configured — skip gracefully
+        # Burp is optional legacy coverage; open-source web runners remain the preferred path.
         return RunnerExecution(
             tool="burp",
-            exit_code=0,
-            stdout=f"Burp Suite Pro is not configured ({exc}). Install Burp Suite Pro and set BURP_API_URL to enable this runner. Skipping.",
-            stderr="",
-            findings=[],
+            exit_code=1,
+            stdout="Burp Suite Pro is not configured. Use the open-source web runner set for default coverage.",
+            stderr=str(exc),
             artifacts=[],
             metadata={"skipped": True, "skip_reason": str(exc)},
         )

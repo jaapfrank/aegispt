@@ -1468,10 +1468,7 @@ def advance_assessment_loop(
     queued_task: Task | None = None
     proposal: AgentProposal | None = None
     action_status = "pending_review"
-    # For ai_loop runs, auto-queue active candidates too (operator already authorized the run)
-    # Intrusive-exploitation tier always requires explicit approval regardless of run mode
-    auto_queue_active = _run_uses_ai_loop(run) and candidate.tier == "active"
-    if candidate.tier == "passive" or auto_queue_active:
+    if candidate.tier == "passive":
         queued_task = _queue_passive_loop_task(
             session=session,
             run=run,

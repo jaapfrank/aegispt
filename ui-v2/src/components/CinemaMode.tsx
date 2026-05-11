@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
-import { Html, Line, OrbitControls, Sphere, Text, Grid, Trail } from '@react-three/drei';
+import { Html, Line, OrbitControls, Sphere, Text, Grid, Trail, Box, Octahedron, Cylinder } from '@react-three/drei';
 import { Pause, Play, RotateCcw, X } from 'lucide-react';
 import * as THREE from 'three';
 import {
@@ -199,14 +199,42 @@ function Network({
               onSelectNode(node.id);
             }}
           >
-            <Sphere args={[isSelected ? 0.9 : isActive ? 0.7 : node.waiting ? 0.45 : 0.32, 24, 24]}>
-              <meshStandardMaterial color={nodeColorValue} emissive={nodeColorValue} emissiveIntensity={isSelected || isActive ? 2.5 : 1.5} toneMapped={false} />
-            </Sphere>
+            {node.kind === 'task' ? (
+              <Cylinder args={[isSelected ? 0.7 : isActive ? 0.5 : 0.25, isSelected ? 0.7 : isActive ? 0.5 : 0.25, isSelected ? 1.4 : isActive ? 1.0 : 0.5, 32]}>
+                <meshStandardMaterial color={nodeColorValue} emissive={nodeColorValue} emissiveIntensity={isSelected || isActive ? 2.5 : 1.5} toneMapped={false} />
+              </Cylinder>
+            ) : node.kind === 'surface' ? (
+              <Box args={[isSelected ? 1.5 : isActive ? 1.2 : 0.6, isSelected ? 1.5 : isActive ? 1.2 : 0.6, isSelected ? 1.5 : isActive ? 1.2 : 0.6]}>
+                <meshStandardMaterial color={nodeColorValue} emissive={nodeColorValue} emissiveIntensity={isSelected || isActive ? 2.5 : 1.5} toneMapped={false} />
+              </Box>
+            ) : node.kind === 'finding' ? (
+              <Octahedron args={[isSelected ? 1.0 : isActive ? 0.8 : 0.4]}>
+                <meshStandardMaterial color={nodeColorValue} emissive={nodeColorValue} emissiveIntensity={isSelected || isActive ? 2.5 : 1.5} toneMapped={false} />
+              </Octahedron>
+            ) : (
+              <Sphere args={[isSelected ? 0.9 : isActive ? 0.7 : node.waiting ? 0.45 : 0.32, 24, 24]}>
+                <meshStandardMaterial color={nodeColorValue} emissive={nodeColorValue} emissiveIntensity={isSelected || isActive ? 2.5 : 1.5} toneMapped={false} />
+              </Sphere>
+            )}
 
             {(node.findingCount > 0 || isActive || isSelected) && (
-              <Sphere args={[isSelected ? 1.45 : isActive ? 1.15 : 0.85, 24, 24]}>
-                <meshStandardMaterial color={nodeColorValue} transparent opacity={isSelected ? 0.25 : 0.15} emissive={nodeColorValue} emissiveIntensity={0.8} toneMapped={false} />
-              </Sphere>
+              node.kind === 'task' ? (
+                <Cylinder args={[isSelected ? 1.1 : isActive ? 0.9 : 0.6, isSelected ? 1.1 : isActive ? 0.9 : 0.6, isSelected ? 2.2 : isActive ? 1.8 : 1.2, 32]}>
+                  <meshStandardMaterial color={nodeColorValue} transparent opacity={isSelected ? 0.25 : 0.15} emissive={nodeColorValue} emissiveIntensity={0.8} toneMapped={false} />
+                </Cylinder>
+              ) : node.kind === 'surface' ? (
+                <Box args={[isSelected ? 2.2 : isActive ? 1.8 : 1.0, isSelected ? 2.2 : isActive ? 1.8 : 1.0, isSelected ? 2.2 : isActive ? 1.8 : 1.0]}>
+                  <meshStandardMaterial color={nodeColorValue} transparent opacity={isSelected ? 0.25 : 0.15} emissive={nodeColorValue} emissiveIntensity={0.8} toneMapped={false} />
+                </Box>
+              ) : node.kind === 'finding' ? (
+                <Octahedron args={[isSelected ? 1.6 : isActive ? 1.2 : 0.8]}>
+                  <meshStandardMaterial color={nodeColorValue} transparent opacity={isSelected ? 0.25 : 0.15} emissive={nodeColorValue} emissiveIntensity={0.8} toneMapped={false} />
+                </Octahedron>
+              ) : (
+                <Sphere args={[isSelected ? 1.45 : isActive ? 1.15 : 0.85, 24, 24]}>
+                  <meshStandardMaterial color={nodeColorValue} transparent opacity={isSelected ? 0.25 : 0.15} emissive={nodeColorValue} emissiveIntensity={0.8} toneMapped={false} />
+                </Sphere>
+              )
             )}
 
             {showLabel && (
@@ -832,21 +860,39 @@ function targetLabel(value: string | null | undefined): string {
 
 function lanePosition(node: CinemaNode, index: number, nodes: CinemaNode[]): THREE.Vector3 {
   const sameKindBefore = nodes.slice(0, index).filter((candidate) => candidate.kind === node.kind).length;
-  const sameKindTotal = nodes.filter((candidate) => candidate.kind === node.kind).length;
+  const sameKindTotal = Math.max(1, nodes.filter((candidate) => candidate.kind === node.kind).length);
   const hash = hashString(`${node.kind}:${node.id}:${node.target}`);
-  const centered = sameKindBefore - (sameKindTotal - 1) / 2;
-  const row = sameKindBefore % 6;
-  const column = Math.floor(sameKindBefore / 6);
-  const jitter = ((hash % 9) - 4) * 0.7;
+  const jitter = ((hash % 9) - 4) * 0.8;
 
   if (node.kind === 'task') {
-    return new THREE.Vector3(-54 - column * 7, centered * 7.8 + jitter, -20 + row * 8);
-  }
-  if (node.kind === 'finding') {
-    return new THREE.Vector3(58 + column * 6, centered * 8.2 + jitter, -18 + row * 7);
+    const progress = sameKindTotal > 1 ? sameKindBefore / (sameKindTotal - 1) : 0.5;
+    const angle = progress * Math.PI * 0.9 - Math.PI * 0.45;
+    const radius = 55 + (sameKindBefore % 2) * 12;
+    return new THREE.Vector3(
+      -60 + Math.cos(angle) * 12 + jitter,
+      Math.sin(angle) * radius * 0.45 + jitter * 0.5,
+      Math.sin(angle) * radius
+    );
   }
   if (node.kind === 'surface') {
-    return new THREE.Vector3(6 + (column % 3) * 12, centered * 7.2 + jitter, -34 + row * 12);
+    const goldenRatio = (1 + Math.sqrt(5)) / 2;
+    const theta = sameKindBefore * goldenRatio * Math.PI * 2;
+    const radius = Math.sqrt(sameKindBefore) * 8;
+    return new THREE.Vector3(
+      Math.cos(theta) * radius * 1.1 + jitter * 0.5,
+      ((sameKindBefore % 3) * 8 - 8) + jitter,
+      Math.sin(theta) * radius
+    );
+  }
+  if (node.kind === 'finding') {
+    const progress = sameKindTotal > 1 ? sameKindBefore / (sameKindTotal - 1) : 0.5;
+    const angle = progress * Math.PI * 0.9 - Math.PI * 0.45;
+    const radius = 60 + (sameKindBefore % 3) * 10;
+    return new THREE.Vector3(
+      65 - Math.cos(angle) * 18 + jitter,
+      Math.sin(angle) * radius * 0.5 + 8 + jitter * 0.5,
+      Math.sin(angle) * radius
+    );
   }
   return new THREE.Vector3(0, 0, 0);
 }
