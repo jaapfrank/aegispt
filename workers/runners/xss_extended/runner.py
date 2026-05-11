@@ -253,6 +253,23 @@ def _xssi_missing_protections(response: httpx_client.Response) -> list[str]:
     return missing
 
 
+def _urls_with_query_params(candidate_paths: object, base_target: str, scope_allowlist: dict[str, Any] | None) -> list[tuple[str, list[str]]]:
+    """Return (url, [param_names]) for every candidate path that has a query string."""
+    result: list[tuple[str, list[str]]] = []
+    seen: set[str] = set()
+    for raw in _normalize_string_list(candidate_paths, limit=100):
+        url = _render_url(base_target, raw)
+        if url in seen or not _allowed(scope_allowlist, url):
+            continue
+        parsed = urlparse(url)
+        pairs = parse_qsl(parsed.query, keep_blank_values=True)
+        if not pairs:
+            continue
+        seen.add(url)
+        result.append((url, [name for name, _ in pairs]))
+    return result
+
+
 def execute_xss_extended_scan(
     targets: list[str],
     *,
@@ -449,6 +466,41 @@ def execute_xss_extended_scan(
                         evidence={**check, "response_excerpt": _body_excerpt(response)},
                     )
 
+            # Reflected XSS via URL parameters: inject into every query-string param in discovered paths.
+            for param_url, param_names in _urls_with_query_params(candidate_paths, base_target, scope_allowlist):
+                injected_url = _inject_query(param_url, ajax_payload, param_names)
+                try:
+                    response = client.get(injected_url)
+                except httpx_client.HTTPError as exc:
+                    stderr_lines.append(f"reflected XSS param check failed for {injected_url}: {exc}")
+                    continue
+                content_type = response.headers.get("Content-Type", "").lower()
+                payload_in_body = ajax_payload in response.text
+                html_context = "text/html" in content_type or not content_type
+                check = {
+                    "check_type": "reflected_xss_url_param",
+                    "target": injected_url,
+                    "original_url": param_url,
+                    "tested_params": param_names,
+                    "status_code": response.status_code,
+                    "content_type": response.headers.get("Content-Type", ""),
+                    "payload_reflected": payload_in_body,
+                    "html_context": html_context,
+                    "response_hash": _response_hash(response),
+                }
+                checks.append(check)
+                if _success_status(response.status_code) and payload_in_body and html_context:
+                    _append_finding(
+                        findings,
+                        seen_findings,
+                        finding_type="reflected_xss_url_parameter",
+                        title=f"Reflected XSS via URL Parameter ({', '.join(param_names)})",
+                        severity="high",
+                        target=param_url,
+                        summary=f"XSS payload injected into URL parameter(s) {param_names} was reflected unencoded in an HTML response.",
+                        evidence={**check, "response_excerpt": _body_excerpt(response)},
+                    )
+
     payload = {
         "tool": "xss-extended",
         "targets": normalized_targets,
@@ -461,11 +513,12 @@ def execute_xss_extended_scan(
             "file_upload_findings": sum(1 for finding in findings if finding.get("type") == "stored_xss_unrestricted_html_upload"),
             "ajax_json_findings": sum(1 for finding in findings if finding.get("type") == "ajax_json_xss_response_context"),
             "xssi_findings": sum(1 for finding in findings if finding.get("type") == "xssi_json_data_leakage"),
+            "reflected_url_param_findings": sum(1 for finding in findings if finding.get("type") == "reflected_xss_url_parameter"),
         },
         "safety": {
             "scope_enforced": True,
             "approved_web_root_only": True,
-            "variants": ["file-upload-xss", "ajax-json-xss", "xssi"],
+            "variants": ["file-upload-xss", "ajax-json-xss", "xssi", "reflected-url-param"],
             "zap_configuration_changed": False,
             "runtime_mutation": False,
             "requires_active_approval": True,
