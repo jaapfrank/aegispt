@@ -4463,6 +4463,10 @@ def _maybe_run_post_task_ai_analysis(session, task: Task):
         return None
     if is_validation_task(task):
         return None
+    # ai_loop runs handle tool selection through advance_assessment_loop; the autonomous
+    # post-task agent would create competing tasks on the same run.
+    if task.run is not None and run_uses_ai_loop(task.run):
+        return None
     try:
         return run_post_task_analysis_for_task(session=session, task_id=task.id)
     except Exception:

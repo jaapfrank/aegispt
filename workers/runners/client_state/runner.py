@@ -344,7 +344,17 @@ def execute_client_state_analysis(
     normalized_targets = [normalize_http_target(target) for target in targets]
     for target in normalized_targets:
         _assert_allowed(scope_allowlist, target)
-    safe_auth_contexts = _normalize_auth_contexts(auth_contexts)
+    try:
+        safe_auth_contexts = _normalize_auth_contexts(auth_contexts)
+    except ValueError as exc:
+        return RunnerExecution(
+            tool="client-state",
+            exit_code=0,
+            stdout=f"client-state skipped: {exc}. Configure authenticated access accounts via the credential vault.",
+            stderr="",
+            artifacts=[],
+            metadata={"skipped": True, "skip_reason": str(exc)},
+        )
     auth_context = safe_auth_contexts[0]
 
     checks: list[dict[str, Any]] = []
