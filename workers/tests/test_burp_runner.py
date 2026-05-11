@@ -76,14 +76,15 @@ def fake_burp_server() -> str:
         thread.join(timeout=5)
 
 
-def test_burp_runner_rejects_unconfigured_api_root() -> None:
-    with pytest.raises(ValueError, match="BURP_API_URL is not configured"):
-        execute_burp_scan(
-            ["https://example.test"],
-            base_url="",
-            api_key=None,
-            scope_allowlist={"urls": ["https://example.test"]},
-        )
+def test_burp_runner_skips_gracefully_when_unconfigured() -> None:
+    result = execute_burp_scan(
+        ["https://example.test"],
+        base_url="",
+        api_key=None,
+        scope_allowlist={"urls": ["https://example.test"]},
+    )
+    assert result.exit_code == 0
+    assert result.metadata.get("skipped") is True
 
 
 def test_burp_runner_executes_scan_and_normalizes_findings(fake_burp_server) -> None:

@@ -216,7 +216,6 @@ def execute_burp_scan(
             exit_code=0,
             stdout=f"Burp Suite Pro is not configured ({exc}). Install Burp Suite Pro and set BURP_API_URL to enable this runner. Skipping.",
             stderr="",
-            findings=[],
             artifacts=[],
             metadata={"skipped": True, "skip_reason": str(exc)},
         )

@@ -123,14 +123,18 @@ def test_session_security_detects_fixation_logout_replay_entropy_cookie_flags_an
     assert all("session_security" in finding.methodology_tags for finding in findings)
 
 
-def test_session_security_rejects_missing_credentials_and_out_of_scope_targets() -> None:
-    with pytest.raises(ValueError, match="configured username/password"):
-        execute_session_security_analysis(
-            ["https://app.example.test/app/"],
-            scope_allowlist={"urls": ["https://app.example.test/app/"]},
-            auth_contexts=[{"username": "analyst@example.test"}],
-        )
+def test_session_security_skips_gracefully_when_credentials_missing() -> None:
+    # Missing password → no ValueError, graceful skip with exit_code=0
+    result = execute_session_security_analysis(
+        ["https://app.example.test/app/"],
+        scope_allowlist={"urls": ["https://app.example.test/app/"]},
+        auth_contexts=[{"username": "analyst@example.test"}],
+    )
+    assert result.exit_code == 0
+    assert result.metadata.get("skipped") is True
+    assert "credential" in result.stdout.lower()
 
+    # Out-of-scope target still raises ValueError (scope is always enforced)
     with pytest.raises(ValueError, match="outside approved web scope"):
         execute_session_security_analysis(
             ["https://other.example.test/app/"],

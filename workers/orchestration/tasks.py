@@ -16,7 +16,15 @@ from sqlalchemy.orm import joinedload
 
 from api.app.config import get_settings
 from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
-from api.app.models import InventorySnapshot, Run, Scope, SecretRef, Task, ToolExecution
+from api.app.models import (
+    InventorySnapshot,
+    Run,
+    Scope,
+    SecretRef,
+    TargetContextDocument,
+    Task,
+    ToolExecution,
+)
 from api.app.policy.engine import execution_kill_switch_enabled
 from api.app.services.ai_agent import run_post_task_analysis_for_task
 from api.app.services.ai_planner import (
@@ -84,6 +92,7 @@ from api.app.services.run_credential_vault import (
     store_run_credential_vault_secret,
 )
 from api.app.services.run_drift import compute_run_drift
+from api.app.services.runner_registry import runner_capability_registry
 from api.app.services.runs import latest_scope_query, target_is_allowed
 from api.app.services.secrets import (
     direct_secret_storage_backend,
@@ -97,7 +106,7 @@ from api.app.services.siem_push import (
     deliver_run_completion_to_configured_siems,
 )
 from api.app.services.soft_delete import purge_expired_soft_deleted_runs
-from api.app.services.task_dispatch import dispatch_task_batch
+from api.app.services.task_dispatch import dispatch_task_batch, supported_execution_tools
 from workers.orchestration.findings import store_findings
 from workers.orchestration.runtime import session_scope
 from workers.runners.ai_shell.runner import execute_ai_shell_command
@@ -4484,32 +4493,113 @@ def _maybe_advance_assessment_loop_after_task(session, task: Task) -> dict[str, 
         return None
 
 
-def _maybe_detect_and_record_pivots(session, task: Task) -> int:
-    """After a completed task, scan run findings for pivot opportunities and record pivot context documents."""
+def _pivot_tool_risk_tier(tool: str) -> str:
+    for cap in runner_capability_registry().get("capabilities", []):
+        if isinstance(cap, dict) and cap.get("name") == tool:
+            return str(cap.get("risk_tier", "active"))
+    return "active"
+
+
+def _queue_pivot_followup_task(
+    session,
+    run: Run,
+    doc: TargetContextDocument,
+    scope: Scope,
+) -> UUID | None:
+    """For ai_loop runs: queue the first non-intrusive recommended tool from a pivot context doc.
+
+    Stores the task ID in provenance_json for idempotency. Returns the queued task UUID or None.
+    """
+    if (doc.provenance_json or {}).get("follow_up_task_id"):
+        return None
+
+    tools = [str(t).strip() for t in (doc.recommended_tools_json or []) if str(t).strip()]
+    supported = supported_execution_tools()
+    first_tool = next((t for t in tools if t in supported and _pivot_tool_risk_tier(t) != "intrusive"), None)
+    if not first_tool:
+        return None
+
+    # Pick first in-scope target: endpoints are plain strings; source_targets are dicts.
+    target: str | None = None
+    for ep in list(doc.endpoints_discovered_json or []):
+        candidate = str(ep if isinstance(ep, str) else ep.get("url") or ep.get("target") or "").strip()
+        if candidate and target_is_allowed(scope, candidate):
+            target = candidate
+            break
+    if not target:
+        for st in list(doc.source_targets_json or []):
+            candidate = str(st.get("value") or (st if isinstance(st, str) else "")).strip()
+            if candidate and target_is_allowed(scope, candidate):
+                target = candidate
+                break
+    if not target:
+        return None
+
+    pivot_task = Task(
+        run=run,
+        tool=first_tool,
+        target_id=target,
+        status="queued",
+        params_json={
+            "target_kind": "url",
+            "source": "pivot_engine_followup",
+            "pivot_context_id": str(doc.id),
+            "pivot_type": (doc.provenance_json or {}).get("pivot_type"),
+            "source_finding_id": (doc.provenance_json or {}).get("source_finding_id"),
+            "registered_runner_required": True,
+            "scope_enforced": True,
+            "kill_switch_still_authoritative": True,
+        },
+    )
+    session.add(pivot_task)
+    session.flush()
+
+    doc.provenance_json = {
+        **(doc.provenance_json or {}),
+        "follow_up_task_id": str(pivot_task.id),
+        "follow_up_tool": first_tool,
+        "follow_up_target": target,
+    }
+    return pivot_task.id
+
+
+def _maybe_detect_and_record_pivots(session, task: Task) -> list[UUID]:
+    """After a completed task, scan run findings for pivot opportunities.
+
+    For ai_loop runs, also queues follow-up tasks for each new pivot context.
+    Returns list of queued pivot follow-up task IDs (empty for standard runs).
+    """
     if task.status != "completed" or task.run is None:
-        return 0
+        return []
     run = task.run
     try:
         parent_context = latest_context_document(session, run_id=run.id, layer_name=PHASE0_LAYER_NAME)
         if parent_context is None:
-            return 0
+            return []
         scope = session.scalar(
             select(Scope)
             .where(Scope.engagement_id == run.engagement_id)
             .order_by(Scope.created_at.desc())
         )
         if scope is None:
-            return 0
+            return []
         created = generate_pivot_contexts_for_run(
             session,
             run=run,
             scope=scope,
             parent_context=parent_context,
         )
-        return len(created)
+        if not created or not run_uses_ai_loop(run):
+            return []
+        queued_ids: list[UUID] = []
+        for doc in created:
+            task_id = _queue_pivot_followup_task(session, run, doc, scope)
+            if task_id is not None:
+                queued_ids.append(task_id)
+        return queued_ids
     except Exception:
         session.rollback()
-        return 0
+        return []
 
 
 def process_task_by_id(task_id: str) -> dict[str, object]:
@@ -4681,19 +4771,23 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             )
             session.commit()
         ai_outcome = _maybe_run_post_task_ai_analysis(session, task)
-        _maybe_detect_and_record_pivots(session, task)
+        pivot_followup_ids = _maybe_detect_and_record_pivots(session, task)
         loop_outcome = _maybe_advance_assessment_loop_after_task(session, task)
         session.commit()
+        dispatch_settings = get_settings()
         if ai_outcome and ai_outcome.autonomous_task_ids:
-            dispatch_settings = get_settings()
             if execution_kill_switch_enabled(dispatch_settings):
                 _cancel_autonomous_tasks_by_id(ai_outcome.autonomous_task_ids)
             else:
                 dispatch_task_batch(ai_outcome.autonomous_task_ids, dispatch_settings)
+        if pivot_followup_ids:
+            if execution_kill_switch_enabled(dispatch_settings):
+                _cancel_autonomous_tasks_by_id(pivot_followup_ids)
+            else:
+                dispatch_task_batch(pivot_followup_ids, dispatch_settings)
         queued_loop_task_id = loop_outcome.get("queued_task_id") if loop_outcome else None
         if queued_loop_task_id:
             loop_task_ids = [UUID(str(queued_loop_task_id))]
-            dispatch_settings = get_settings()
             if execution_kill_switch_enabled(dispatch_settings):
                 _cancel_autonomous_tasks_by_id(loop_task_ids)
             else:

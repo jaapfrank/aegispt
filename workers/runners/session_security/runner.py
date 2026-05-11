@@ -434,7 +434,18 @@ def execute_session_security_analysis(
     for target in normalized_targets:
         _assert_allowed(scope_allowlist, target)
 
-    safe_auth_contexts = _normalize_auth_contexts(auth_contexts)
+    # Skip gracefully when no credentials are configured — session-security requires auth context.
+    try:
+        safe_auth_contexts = _normalize_auth_contexts(auth_contexts)
+    except ValueError as exc:
+        return RunnerExecution(
+            tool="session-security",
+            exit_code=0,
+            stdout=f"session-security skipped: {exc}. Configure username/password via the credential vault to enable session testing.",
+            stderr="",
+            artifacts=[],
+            metadata={"skipped": True, "skip_reason": str(exc)},
+        )
     auth_context = safe_auth_contexts[0]
     target = normalized_targets[0]
     rendered_login_url = _render_url(target, login_url or "login")
