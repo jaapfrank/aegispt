@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -842,6 +843,49 @@ def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
     return payload
 
 
+_WEB_DISCOVERY_TOOLS = {"httpx", "web-depth", "easm-discover"}
+_WEB_PROBE_TOOLS = {"xss-extended", "session-security", "headers-security", "content-discovery", "logging-probe"}
+
+
+def _extract_discovered_links(session: Session, run: Run, *, scope_allowlist: dict[str, Any] | None) -> list[str]:
+    """Pull HTTP links discovered by prior web-discovery tasks and filter to approved scope."""
+    from api.app.services.runs import web_target_value_is_allowed_with_path
+
+    completed_tasks = session.scalars(
+        select(Task)
+        .where(Task.run_id == run.id)
+        .where(Task.tool.in_(_WEB_DISCOVERY_TOOLS))
+        .where(Task.status.in_(["completed", "completed_with_errors"]))
+    ).all()
+
+    links: list[str] = []
+    seen: set[str] = set()
+    for task in completed_tasks:
+        executions = list(task.executions or [])
+        raw = str(executions[-1].stdout_text or "") if executions else ""
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        results = parsed.get("results") if isinstance(parsed, dict) else None
+        if not isinstance(results, list):
+            results = [parsed] if isinstance(parsed, dict) else []
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            for link in result.get("links") or []:
+                candidate = str(link or "").strip()
+                if not candidate or candidate in seen:
+                    continue
+                if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, candidate):
+                    continue
+                seen.add(candidate)
+                links.append(candidate)
+    return links
+
+
 def _queue_passive_loop_task(
     *,
     session: Session,
@@ -861,14 +905,29 @@ def _queue_passive_loop_task(
             "tools": [candidate.tool],
         },
     )
+    # Enrich web-probe tools with links discovered by prior httpx/web-depth tasks.
+    enriched_params: dict[str, Any] = dict(candidate.params)
+    if candidate.tool in _WEB_PROBE_TOOLS and "candidate_paths" not in enriched_params:
+        scope_allowlist = None
+        if run.engagement_id is not None:
+            scope = session.scalar(
+                select(Scope)
+                .where(Scope.engagement_id == run.engagement_id)
+                .order_by(Scope.created_at.desc(), Scope.id.desc())
+            )
+            if scope is not None:
+                scope_allowlist = _as_dict(scope.allowlist_json)
+        discovered = _extract_discovered_links(session, run, scope_allowlist=scope_allowlist)
+        if discovered:
+            enriched_params["candidate_paths"] = discovered
     task = Task(
         run=run,
         tool=candidate.tool,
         target_id=candidate.target,
         status="queued",
         params_json={
-            **candidate.params,
-            "target_kind": candidate.params.get("target_kind"),
+            **enriched_params,
+            "target_kind": enriched_params.get("target_kind"),
             "profile_name": run.profile.name if run.profile is not None else "ai-loop",
             "run_class": candidate.tier,
             "limits": normalized_limits,
