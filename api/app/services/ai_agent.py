@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from api.app.config import Settings, get_settings
 from api.app.models import AgentProposal, AgentReasoning, Finding, FindingChain, Run, Scope, Task
 from api.app.policy.engine import RunClass, normalize_profile_limits
+from api.app.services.ai_action_selector import select_next_best_action_for_run
 from api.app.services.ai_enrichment import (
     list_agent_proposals_for_run,
     list_agent_reasoning_for_run,
@@ -27,6 +28,7 @@ from api.app.services.ai_shell_safety import (
     ai_shell_command_sha256,
     normalize_ai_shell_params,
 )
+from api.app.services.assessment_graph import build_assessment_graph, build_assessment_hypotheses
 from api.app.services.audit import write_audit_event
 from api.app.services.chatgpt_oauth import (
     CHATGPT_OAUTH_PROVIDER,
@@ -35,6 +37,7 @@ from api.app.services.chatgpt_oauth import (
     chatgpt_oauth_status,
     effective_ai_provider_name,
 )
+from api.app.services.coverage_truth import build_coverage_truth
 from api.app.services.finding_chains import refresh_finding_chains_for_run
 from api.app.services.run_credential_vault import inject_run_credential_vault_into_task
 from api.app.services.runs import (
@@ -653,10 +656,12 @@ def build_ai_insights_for_run(
         "proposals": proposals,
         "review_boundary": review_boundary_for_run(run),
         "operator_workbench": _build_operator_workbench(
+            session=session,
             run=run,
             reasoning_records=reasoning_records,
             proposals=proposals,
             provider_status=provider_status,
+            settings=settings,
             post_task_analysis_enabled=bool(settings.ai_agent_post_task_analysis_enabled),
         ),
     }
@@ -714,10 +719,12 @@ def _ai_insights_provider_status(
 
 def _build_operator_workbench(
     *,
+    session: Session,
     run: Run,
     reasoning_records: list[AgentReasoning],
     proposals: list[AgentProposal],
     provider_status: dict[str, Any],
+    settings: Settings,
     post_task_analysis_enabled: bool,
 ) -> dict[str, Any]:
     repair_proposals = [
@@ -764,6 +771,178 @@ def _build_operator_workbench(
     provider_ready = bool(provider_status.get("connected")) or provider_status.get(
         "status"
     ) not in {"disabled", "not_connected"}
+    configuration = _safe_json_object(run.configuration_json)
+    loop_state = _safe_json_object(configuration.get("ai_assessment_loop"))
+    ai_loop_enabled = configuration.get("run_mode") == "ai_loop" or loop_state.get("run_mode") == "ai_loop"
+    ai_loop_payload: dict[str, Any] = {
+        "enabled": False,
+        "reason": "operator autopilot workbench is gated to run_mode=ai_loop",
+        "manual_chain_alternative_preserved": True,
+        "fixed_phase_chains_replaced_globally": False,
+    }
+    if ai_loop_enabled:
+        scope = session.scalar(latest_scope_query(run.engagement_id))
+        if scope is None:
+            ai_loop_payload = {
+                "enabled": True,
+                "status": "blocked",
+                "reason": "engagement scope missing during operator autopilot workbench build",
+                "current_goal": _safe_json_object(loop_state.get("goal_oriented_reasoning")),
+                "hypotheses": {"hypotheses": []},
+                "next_best_actions": {"actions": []},
+                "coverage_truth": {},
+                "approval_gates": [],
+                "blockers": ["missing engagement scope"],
+                "execution_contract": {
+                    "analysis_only": True,
+                    "dispatches_work_directly": False,
+                    "mutates_scope": False,
+                    "mutates_approvals": False,
+                    "runtime_self_modification": False,
+                },
+            }
+        else:
+            tested_action_keys = {
+                f"{str(task.tool or '').strip()}::{str(task.target_id or '').strip()}"
+                for task in list(run.tasks or [])
+                if str(task.tool or "").strip() and str(task.target_id or "").strip()
+            }
+            tested_action_keys.update(
+                f"{str(proposal.proposed_tool or '').strip()}::{str(proposal.proposed_target or '').strip()}"
+                for proposal in proposals
+                if str(proposal.proposed_tool or "").strip() and str(proposal.proposed_target or "").strip()
+            )
+            graph = build_assessment_graph(session, run=run)
+            hypotheses = build_assessment_hypotheses(graph)
+            if not list(hypotheses.get("hypotheses") or []):
+                goal_reasoning = _safe_json_object(loop_state.get("goal_oriented_reasoning"))
+                goal_path = [
+                    item
+                    for item in list(goal_reasoning.get("hypothesis_path") or [])
+                    if isinstance(item, dict)
+                ][:5]
+                if goal_path:
+                    hypotheses = {
+                        **hypotheses,
+                        "hypotheses": [
+                            {
+                                "id": step.get("id") or f"goal-hypothesis-{index}",
+                                "source_ids": [
+                                    str(link.get("id"))
+                                    for link in list(step.get("evidence_links") or [])
+                                    if isinstance(link, dict) and link.get("id")
+                                ],
+                                "observed_evidence": {
+                                    "objective": goal_reasoning.get("objective"),
+                                    "stage": step.get("stage"),
+                                    "tool": step.get("tool"),
+                                },
+                                "inferred_next_question": step.get("reason"),
+                                "safe_next_observation_candidates": [
+                                    {
+                                        "runner": step.get("tool"),
+                                        "target_candidates": list(step.get("target_candidates") or []),
+                                        "source_ids": [
+                                            str(link.get("id"))
+                                            for link in list(step.get("evidence_links") or [])
+                                            if isinstance(link, dict) and link.get("id")
+                                        ],
+                                    }
+                                ],
+                                "missing_prerequisites": [],
+                                "confidence": 0.74,
+                                "claims_unobserved_impact": False,
+                                "unsupported_claims": [],
+                            }
+                            for index, step in enumerate(goal_path, start=1)
+                        ],
+                    }
+            next_best_actions = select_next_best_action_for_run(
+                session,
+                run=run,
+                scope=scope,
+                approved_targets=derive_targets_for_run(scope, run),
+                tested_action_keys=tested_action_keys,
+                settings=settings,
+            )
+            coverage_truth = build_coverage_truth(session, run=run, scope=scope)
+            pending_standard_proposals = [
+                proposal
+                for proposal in proposals
+                if proposal.status == "pending_review"
+                and _safe_json_object(proposal.metadata_json).get("proposal_kind") != "ai_repair"
+            ]
+            action_blockers = [
+                reason
+                for action in list(next_best_actions.get("actions") or [])
+                if isinstance(action, dict)
+                for reason in list(action.get("blocker_reasons") or [])
+                if reason
+            ]
+            coverage_blockers = list(
+                _safe_json_object(coverage_truth.get("stop_condition")).get("blocker_ids") or []
+            )
+            ai_loop_payload = {
+                "enabled": True,
+                "status": loop_state.get("status") or "ready",
+                "run_mode": "ai_loop",
+                "current_goal": _safe_json_object(loop_state.get("goal_oriented_reasoning")),
+                "loop_state": {
+                    "iteration_count": int(loop_state.get("iteration_count") or 0),
+                    "max_iterations": int(loop_state.get("max_iterations") or 20),
+                    "no_new_signal_iterations": int(loop_state.get("no_new_signal_iterations") or 0),
+                    "latest_next_action": _safe_json_object(loop_state.get("latest_next_action")),
+                    "stop_reason": loop_state.get("stop_reason"),
+                },
+                "hypotheses": hypotheses,
+                "next_best_actions": next_best_actions,
+                "coverage_truth": coverage_truth,
+                "approval_gates": [
+                    {
+                        "proposal_id": str(proposal.id),
+                        "tool": proposal.proposed_tool,
+                        "target": proposal.proposed_target,
+                        "risk_tier": proposal.risk_tier,
+                        "reasoning_text": proposal.reasoning_text,
+                        "status": proposal.status,
+                        "controlled_proof_review_required": proposal.risk_tier in {"active", "intrusive"},
+                        "session_exposure_risk_review": proposal.proposed_tool
+                        in {"auth-flow", "session-security", "jwt-probe", "idor-bac", "client-state"},
+                    }
+                    for proposal in pending_standard_proposals
+                ],
+                "blockers": [*action_blockers, *coverage_blockers],
+                "evidence_links": {
+                    "graph_node_count": len(list(graph.get("nodes") or [])),
+                    "graph_edge_count": len(list(graph.get("edges") or [])),
+                    "source_ids": sorted(
+                        {
+                            str(source_id)
+                            for action in list(next_best_actions.get("actions") or [])[:5]
+                            if isinstance(action, dict)
+                            for source_id in list(action.get("source_ids") or [])
+                        }
+                    ),
+                },
+                "execution_contract": {
+                    "analysis_only": True,
+                    "continue_uses_existing_assessment_loop_endpoint": True,
+                    "proposal_controls_use_existing_review_endpoint": True,
+                    "dispatches_work_directly": False,
+                    "mutates_scope": False,
+                    "mutates_approvals": False,
+                    "runtime_self_modification": False,
+                    "runner_registry_bypassed": False,
+                    "kill_switch_still_authoritative": True,
+                },
+                "operator_language": {
+                    "controlled_proof": "Controlled proof steps remain approval-gated and bounded to recorded evidence.",
+                    "canary_evidence": "Canary evidence is preferred where a proof could otherwise expose sensitive material.",
+                    "session_exposure_risk": "Session exposure risk is reviewed through redacted evidence and secret-binding controls.",
+                },
+                "manual_chain_alternative_preserved": True,
+                "fixed_phase_chains_replaced_globally": False,
+            }
     return {
         "title": "AI Operator Workbench",
         "run_id": str(run.id),
@@ -782,6 +961,7 @@ def _build_operator_workbench(
         "signals": signals,
         "features": feature_status,
         "build_lane_tasks": build_lane_tasks,
+        "ai_loop": ai_loop_payload,
         "boundary": {
             "active_runtime_mutated": False,
             "dispatches_work": False,

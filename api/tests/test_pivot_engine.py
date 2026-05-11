@@ -7,11 +7,11 @@ from sqlalchemy import select
 from api.app.models import Finding, TargetContextDocument
 from api.app.services.ai_planner import (
     MAX_PIVOT_DEPTH,
+    PHASE0_LAYER_NAME,
     PIVOT_KIND,
     detect_pivot_eligible_findings,
     generate_pivot_contexts_for_run,
     latest_context_document,
-    PHASE0_LAYER_NAME,
 )
 
 
@@ -77,8 +77,8 @@ def _ensure_phase0_context(client, *, run_id: str, engagement_id: str) -> None:
             .order_by(Scope.created_at.desc())
         )
         assert scope is not None
-        from api.app.services.ai_planner import ensure_context_document
         from api.app.models import Run
+        from api.app.services.ai_planner import ensure_context_document
         run = session.scalar(select(Run).where(Run.id == UUID(run_id)))
         assert run is not None
         ensure_context_document(

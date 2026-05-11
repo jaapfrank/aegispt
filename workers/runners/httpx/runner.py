@@ -3,14 +3,13 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
+from hashlib import sha256
 from html.parser import HTMLParser
 from http.cookies import SimpleCookie
-from hashlib import sha256
 from urllib.parse import urljoin
 
 import httpx as httpx_client
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
-
 
 _PASSIVE_HEADER_NAMES = {
     "authorization",

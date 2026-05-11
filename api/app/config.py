@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     aegispt_env: str | None = None
     api_prefix: str = "/api/v1"
     aegispt_allowed_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
-    task_dispatch_mode: str = "manual"
+    task_dispatch_mode: str = "inline"  # inline=run tasks in-process; manual=operator must click dispatch; dramatiq=worker queue
     database_url: str = "sqlite+pysqlite:///./aegispt.db"
     aegispt_db_key: str | None = None
     redis_url: str = "redis://localhost:6379/0"
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     auto_create_tables: bool = True
     runner_timeout_seconds: float = 60.0
     execution_kill_switch: bool = False
-    inline_dispatch_background: bool = False
+    inline_dispatch_background: bool = True  # dispatch tasks in background thread to avoid SQLite lock conflicts
     inline_task_workers: int = 4
     ai_provider: str = "disabled"
     ai_finding_enrichment_enabled: bool = False

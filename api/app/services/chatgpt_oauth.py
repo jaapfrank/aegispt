@@ -632,11 +632,33 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
 
     def analyze(self, context: dict[str, Any]):
         from api.app.services.ai_agent import AgentProposalDraft, PostTaskAnalysisResult
+        from api.app.services.ai_memory import build_ai_context_with_memory, store_memory
 
         run_context = context.get("run") if isinstance(context.get("run"), dict) else {}
         engagement_id = _uuid_from_text(run_context.get("engagement_id"))
+        run_id = _uuid_from_text(run_context.get("id"))
         if engagement_id is None:
             raise ChatGPTOAuthError("ChatGPT OAuth post-task analysis requires engagement context")
+
+        # Build scope allowlist for safe fetching
+        scope_allowlist = run_context.get("scope_allowlist") or {}
+
+        # Collect target URLs from task context for live page fetching
+        task_context = context.get("task") if isinstance(context.get("task"), dict) else {}
+        target_urls = []
+        raw_target = str(task_context.get("target_id") or "").strip()
+        if raw_target.startswith("http"):
+            target_urls.append(raw_target)
+
+        # Fetch live page context + recall engagement memory
+        ai_context = build_ai_context_with_memory(
+            self.session,
+            engagement_id=engagement_id,
+            run_id=run_id,
+            target_urls=target_urls,
+            scope_allowlist=scope_allowlist,
+            fetch_targets=bool(target_urls),
+        )
 
         response = send_chatgpt_backend_streaming_json_request(
             session=self.session,
@@ -644,20 +666,23 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
             settings=self.settings,
             model=_chatgpt_model(self.settings, self.settings.ai_agent_post_task_analysis_model),
             instructions=(
-                "You are AegisPT AI Signal. Review the completed task context and return only JSON. "
-                "Do not execute tools, expand scope, grant approvals, mutate findings, deploy packs, or "
-                "bind runtime packs. Return an object with key 'analysis'. analysis.observations and "
-                "analysis.hypotheses must be arrays of objects. analysis.proposals must be an array of "
-                "bounded follow-up suggestions only, each with proposed_tool, proposed_target, "
-                "proposed_params, reasoning_text, risk_tier, priority, confidence_score, and metadata. "
-                "Also return analysis.summary_text, analysis.thought_text, and analysis.action_text as "
-                "short separate strings: summary_text says what happened in the task, thought_text says "
-                "what it means for the engagement, and action_text says what should happen next and why. "
-                "When task_context includes engagement_findings or finding_chains, reason only across "
-                "findings from the current engagement and keep compound attack-chain proposals review-gated. "
-                "Never propose session theft, credential theft, file writes, code execution, or autonomous "
-                "exploit chaining as an AI action. "
-                "Use an empty proposals array when no safe useful follow-up exists."
+                "You are AegisPT AI Signal — an expert penetration tester reasoning step-by-step. "
+                "Think through the attack chain before proposing next steps. "
+                "\n\nSTEP 1 — OBSERVE: What did this task find? Review findings, stdout, and severity. "
+                "\nSTEP 2 — CHAIN: How does this connect to what is already known (engagement_memory)? "
+                "Is this a link in an attack chain? What access does this confirm or enable? "
+                "\nSTEP 3 — HYPOTHESIZE: What is the next logical step an attacker would take? "
+                "What deeper surface is now reachable? What is the highest-impact follow-up? "
+                "\nSTEP 4 — PROPOSE: Return bounded follow-up suggestions as proposals. "
+                "Each proposal needs: proposed_tool, proposed_target, proposed_params, "
+                "reasoning_text, risk_tier (passive/active/intrusive), priority (integer 1-100, lower=higher priority), "
+                "confidence_score (0.0-1.0), metadata. "
+                "\nSTEP 5 — REMEMBER: In memory_updates, list key facts to remember (key/value pairs). "
+                "\n\nReturn ONLY JSON with key 'analysis' containing: "
+                "summary_text, thought_text, action_text, observations[], hypotheses[], proposals[], memory_updates[]. "
+                "Never propose credential theft, arbitrary code execution, or scope expansion. "
+                "If ai_loop run mode: prefer passive and active proposals over intrusive ones. "
+                "Use empty proposals when no safe useful follow-up exists."
             ),
             input_items=[
                 {
@@ -665,13 +690,36 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
                     "content": [
                         {
                             "type": "input_text",
-                            "text": _json_dumps({"task_context": context}),
+                            "text": _json_dumps({
+                                "task_context": context,
+                                "engagement_memory": ai_context["engagement_memory"],
+                                "live_page_context": ai_context["live_page_context"],
+                            }),
                         }
                     ],
                 }
             ],
         )
         result_payload = response.get("analysis") if isinstance(response.get("analysis"), dict) else response
+
+        # Store memory updates from AI response
+        memory_updates = result_payload.get("memory_updates") if isinstance(result_payload.get("memory_updates"), list) else []
+        for update in memory_updates:
+            if isinstance(update, dict) and update.get("key") and update.get("value"):
+                try:
+                    store_memory(
+                        self.session,
+                        engagement_id=engagement_id,
+                        run_id=run_id,
+                        key=str(update["key"])[:255],
+                        value=str(update["value"])[:4000],
+                        memory_type=str(update.get("type") or "fact"),
+                        confidence=float(update.get("confidence") or 1.0),
+                        source="ai_post_task_analysis",
+                    )
+                except Exception:
+                    pass
+
         proposals = [
             AgentProposalDraft(
                 proposed_tool=_required_text(item, "proposed_tool"),
@@ -679,7 +727,7 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
                 proposed_params=_safe_dict(item.get("proposed_params")),
                 reasoning_text=str(item.get("reasoning_text") or "") or None,
                 risk_tier=str(item.get("risk_tier") or "passive"),
-                priority=int(item.get("priority") or 100),
+                priority=_priority_int(item.get("priority")),
                 confidence_score=_float_or_none(item.get("confidence_score")),
                 metadata={**_safe_dict(item.get("metadata")), "provider": CHATGPT_OAUTH_PROVIDER},
             )
@@ -1006,6 +1054,23 @@ def _float_or_none(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+_PRIORITY_LABEL_MAP = {"critical": 5, "high": 10, "medium": 20, "low": 30, "info": 50}
+
+
+def _priority_int(value: Any) -> int:
+    if value is None:
+        return 100
+    if isinstance(value, (int, float)):
+        return max(1, int(value))
+    label = str(value).strip().lower()
+    if label in _PRIORITY_LABEL_MAP:
+        return _PRIORITY_LABEL_MAP[label]
+    try:
+        return max(1, int(label))
+    except (TypeError, ValueError):
+        return 100
 
 
 def _uuid_from_text(value: Any) -> uuid.UUID | None:

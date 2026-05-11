@@ -6,13 +6,19 @@ import json
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from api.app.config import Settings
-from api.app.models import Engagement, Finding, FindingRemediation, FindingValidationRecord, Run, RunProfile
+from api.app.models import (
+    Engagement,
+    Finding,
+    FindingRemediation,
+    FindingValidationRecord,
+    Run,
+    RunProfile,
+)
 from api.app.schemas.remediation import FindingMicroScanRead
 from api.app.services.audit import write_audit_event
 from api.app.services.packs import bind_pack_to_run, latest_pack_deployment

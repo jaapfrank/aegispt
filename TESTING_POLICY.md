@@ -7,17 +7,18 @@ This repository keeps production hardening grounded in repeatable validation. Br
 ## Required test lanes
 
 - API and service regression: `python -m pytest api/tests -q`
-- Browser validation: `python -m pytest ui/tests -q`
+- Browser validation: `cd ui-v2 && npm run test:e2e`
 - Acceptance harness regression: `python -m pytest api/tests/test_acceptance_harness.py -q`
 - Targeted report export validation:
   - included in `api/tests/test_reports.py`
   - covers markdown, HTML, and PDF report output
 - Bytecode / import sanity:
-  - `python -m compileall api/app api/tests ui/tests`
+  - `python -m compileall api workers scripts`
 
 ## Browser validation rules
 
-- Use Playwright against the real FastAPI-served `/app/` route.
+- Use React v2 Playwright coverage in `ui-v2/tests/` for the active operator console.
+- Legacy `ui/tests/` coverage targets the retired FastAPI-served `/app/` route and is diagnostic only until migrated or removed.
 - Prefer stable `data-testid` selectors over text-only selectors where practical.
 - Capture traces and screenshots on failure under `ui/test-results/`.
 - Chromium is the default hardening browser. Firefox/WebKit expansion is a later additive step.

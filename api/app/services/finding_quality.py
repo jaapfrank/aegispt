@@ -212,10 +212,10 @@ def apply_finding_quality_defaults(finding: Any, *, session: Session | None = No
     changed = False
     cvss = quality["cvss"]
     if getattr(finding, "cvss_score", None) is None:
-        setattr(finding, "cvss_score", cvss["score"])
+        finding.cvss_score = cvss["score"]
         changed = True
     if not getattr(finding, "cvss_vector", None) and cvss.get("vector"):
-        setattr(finding, "cvss_vector", cvss["vector"])
+        finding.cvss_vector = cvss["vector"]
         changed = True
 
     existing_tags = [
@@ -231,7 +231,7 @@ def apply_finding_quality_defaults(finding: Any, *, session: Session | None = No
     if has_evidence_or_context:
         merged_tags = list(dict.fromkeys([*existing_tags, *quality["owasp"].get("tags", [])]))
         if merged_tags != existing_tags:
-            setattr(finding, "methodology_tags", merged_tags)
+            finding.methodology_tags = merged_tags
             changed = True
     recipe = getattr(finding, "replay_recipe_json", None)
     if not isinstance(recipe, dict):
@@ -246,6 +246,6 @@ def apply_finding_quality_defaults(finding: Any, *, session: Session | None = No
         "proof_reference": quality["proof_reference"],
     }
     if next_quality != existing_quality:
-        setattr(finding, "replay_recipe_json", {**recipe, "finding_quality": next_quality})
+        finding.replay_recipe_json = {**recipe, "finding_quality": next_quality}
         changed = True
     return changed

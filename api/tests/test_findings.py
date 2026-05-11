@@ -5,7 +5,15 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from api.app.models import AuditEvent, Finding, FindingRemediation, FindingValidationRecord, Run, Task, ToolExecution
+from api.app.models import (
+    AuditEvent,
+    Finding,
+    FindingRemediation,
+    FindingValidationRecord,
+    Run,
+    Task,
+    ToolExecution,
+)
 from api.app.services.finding_validator import finalize_validation_for_task
 
 

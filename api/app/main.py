@@ -13,12 +13,13 @@ from starlette.middleware.cors import CORSMiddleware
 
 from api.app.config import Settings, get_settings
 from api.app.db import configure_database, shutdown_database
+from api.app.routers.ai_research import router as ai_research_router
 from api.app.routers.artifacts import router as artifacts_router
 from api.app.routers.auth import router as auth_router
-from api.app.routers.ai_research import router as ai_research_router
 from api.app.routers.codex import router as codex_router
 from api.app.routers.custom_vulnerabilities import router as custom_vulnerabilities_router
 from api.app.routers.dashboard import router as dashboard_router
+from api.app.routers.deception import router as deception_router
 from api.app.routers.diagnostics import router as diagnostics_router
 from api.app.routers.engagements import router as engagements_router
 from api.app.routers.findings import router as findings_router
@@ -31,6 +32,7 @@ from api.app.routers.packs import router as packs_router
 from api.app.routers.problems import router as problems_router
 from api.app.routers.relevance import router as relevance_router
 from api.app.routers.runs import router as runs_router
+from api.app.routers.safe_click import router as safe_click_router
 from api.app.routers.settings import router as settings_router
 from api.app.routers.tasks import router as tasks_router
 from api.app.routers.threat_intel import router as threat_intel_router
@@ -175,6 +177,7 @@ def create_app() -> FastAPI:
     app.include_router(codex_router)
     app.include_router(custom_vulnerabilities_router)
     app.include_router(dashboard_router)
+    app.include_router(deception_router)
     app.include_router(diagnostics_router)
     app.include_router(engagements_router)
     app.include_router(findings_router)
@@ -186,6 +189,7 @@ def create_app() -> FastAPI:
     app.include_router(problems_router)
     app.include_router(relevance_router)
     app.include_router(runs_router)
+    app.include_router(safe_click_router)
     app.include_router(settings_router)
     app.include_router(tasks_router)
     app.include_router(threat_intel_router)

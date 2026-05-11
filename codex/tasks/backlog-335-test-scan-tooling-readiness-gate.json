@@ -1,0 +1,107 @@
+{
+  "id": "backlog-335-test-scan-tooling-readiness-gate",
+  "task_file": "codex/tasks/backlog-335-test-scan-tooling-readiness-gate.json",
+  "task_type": "release_readiness",
+  "title": "Test and Scan Tooling Readiness Gate",
+  "goal": "Add a safe, deterministic tooling readiness gate for stronger local testing and scanning coverage without running live target scans.",
+  "scope": "React v2 visual/accessibility testing, API contract fuzzing against local FastAPI fixtures, SAST/dependency/secret scan readiness, and ZAP automation isolation.",
+  "status": "queued",
+  "generated_by": "operator-requested-full-check",
+  "generation_reason": "The 2026-05-11 readiness pass found that extra online-supported tools would improve coverage, but integration is larger than a crash fix and must be safety-bounded.",
+  "source_context": {
+    "queue_index": 287,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "TESTING_POLICY.md",
+      "codex/results/react-v2-dashboard-readiness-and-tooling-audit-20260511.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-334 complete",
+    "broader_theme": "release_readiness",
+    "source_documents": [
+      "TESTING_POLICY.md",
+      "ui-v2/tests/",
+      "pyproject.toml",
+      "ui-v2/package.json",
+      "codex/results/react-v2-dashboard-readiness-and-tooling-audit-20260511.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Build a readiness/reporting gate first; do not turn the task into live scanning, tool installation, or broad dependency modernization beyond documented review-only findings.",
+    "safety_reframe": "Readiness and local-fixture validation only. Do not scan live public targets, expand scope, run active DAST without explicit operator authorization, materialize credentials, approve proposals, mutate runtime gates, or bypass kill-switch behavior."
+  },
+  "success_criteria": [
+    "A deterministic tool-readiness command reports installed/missing tool status for ZAP, Semgrep, Schemathesis, Trivy, Gitleaks, pip-audit, npm audit, Lighthouse CI, and Playwright accessibility/visual support.",
+    "ZAP readiness handles the existing localhost daemon safely by using a dedicated automation home or daemon API and does not race the default ZAP home directory.",
+    "Semgrep readiness runs with sanitized empty proxy environment variables and records a clear operator-facing blocker if rules or network access are unavailable.",
+    "React v2 coverage includes at least one accessibility or visual-regression guard for clipped controls / crash-recovery screens.",
+    "API contract fuzzing is documented or wired only against local FastAPI fixtures using the generated OpenAPI schema.",
+    "Dependency and secret scan commands produce review-only artifacts and do not auto-fix breaking upgrades.",
+    "The Vite/esbuild npm audit advisory is tracked with an explicit compatibility plan instead of `npm audit fix --force` being applied blindly.",
+    "Release-readiness docs explain which scans are active gates, diagnostic gates, or future optional gates."
+  ],
+  "likely_touched_files": [
+    "TESTING_POLICY.md",
+    "scripts/",
+    "ui-v2/tests/",
+    "ui-v2/package.json",
+    "ui-v2/package-lock.json",
+    "codex/results/"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run test:e2e",
+      "cd ui-v2 && npm run lint",
+      ".venv/bin/ruff check .",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Tool readiness checks are deterministic and local-safe.",
+      "No live target DAST/SAST against customer systems is performed.",
+      "Active release gates remain green."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Running active scans against public targets.",
+    "Installing uncontrolled tooling during active assessments.",
+    "Auto-fixing dependency upgrades that require breaking framework changes.",
+    "Bypassing approval, scope/ROE, runtime binding, credential protection, or kill-switch behavior."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

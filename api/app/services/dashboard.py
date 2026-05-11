@@ -18,6 +18,7 @@ from api.app.models import (
 from api.app.schemas.dashboard import (
     DashboardActiveRunRead,
     DashboardActivityFeedItemRead,
+    DashboardBlastRadiusRead,
     DashboardEngagementSummaryRead,
     DashboardFirstRunOnboardingCardRead,
     DashboardFirstRunOnboardingRead,
@@ -30,6 +31,8 @@ from api.app.schemas.dashboard import (
     DashboardSetupChecklistItemRead,
     DashboardUpcomingScanRead,
 )
+from api.app.services.attack_paths import build_attack_path_summary_for_loaded_run
+from api.app.services.business_impact import BUSINESS_IMPACT_MODEL_VERSION, summarize_blast_radius
 from api.app.services.exposure_score import (
     CLOSED_FINDING_STATUSES,
     SCORE_NORMALIZATION_WEIGHT,
@@ -38,6 +41,7 @@ from api.app.services.exposure_score import (
 from api.app.services.finding_sla import apply_findings_sla
 from api.app.services.settings import read_instance_settings
 from api.app.services.tenancy import engagement_query_for_tenant, load_engagement_for_tenant
+from api.app.services.zero_day_response import build_zero_day_rapid_response
 
 ACTIVE_RUN_STATUSES = {"pending_approval", "queued", "running", "cancelling"}
 TERMINAL_RUN_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "rejected"}
@@ -296,6 +300,54 @@ def _risk_tile(
         advisory_note=(
             "Risk score is advisory only. It summarizes stored finding posture and does not gate "
             "approval, deployment, or runtime binding decisions."
+        ),
+    )
+
+
+def _blast_radius_tile(session: Session, engagement_ids: list[UUID]) -> DashboardBlastRadiusRead:
+    if not engagement_ids:
+        return DashboardBlastRadiusRead(
+            model=BUSINESS_IMPACT_MODEL_VERSION,
+            advisory_note="Blast radius is advisory only and requires stored inventory, findings, and attack-path evidence.",
+        )
+
+    runs = list(
+        session.scalars(
+            select(Run)
+            .options(
+                selectinload(Run.engagement).selectinload(Engagement.inventory_snapshots),
+                selectinload(Run.findings),
+            )
+            .where(Run.engagement_id.in_(engagement_ids), Run.deleted_at.is_(None))
+            .order_by(Run.updated_at.desc(), Run.created_at.desc(), Run.id.desc())
+            .limit(12)
+        ).all()
+    )
+    paths: list[dict[str, object]] = []
+    for run in runs:
+        summary = build_attack_path_summary_for_loaded_run(run)
+        paths.extend(
+            path
+            for path in summary.get("candidate_paths", [])
+            if isinstance(path, dict) and isinstance(path.get("business_impact"), dict)
+        )
+
+    summary = summarize_blast_radius(paths)  # type: ignore[arg-type]
+    return DashboardBlastRadiusRead(
+        model=str(summary["model"]),
+        score=float(summary["score"]),
+        tier=str(summary["tier"]),
+        critical_path_count=int(summary["critical_path_count"]),
+        affected_business_processes=list(summary["affected_business_processes"]),
+        highest_impact_path_id=(
+            str(summary["highest_impact_path_id"]) if summary.get("highest_impact_path_id") else None
+        ),
+        financial_exposure=str(summary.get("financial_exposure") or "") or None,
+        operational_impact=str(summary.get("operational_impact") or "") or None,
+        review_only=True,
+        advisory_note=(
+            "Blast radius is advisory only. It summarizes stored business tags, inventory, findings, "
+            "and attack paths without changing approval, scope, or runtime behavior."
         ),
     )
 
@@ -727,6 +779,8 @@ def build_dashboard(
         has_engagements=bool(engagements),
         active_run=_active_run_tile(runs),
         risk_score=_risk_tile(session, engagement_ids, open_findings, generated_at),
+        blast_radius=_blast_radius_tile(session, engagement_ids),
+        zero_day_rapid_response=build_zero_day_rapid_response(session, engagements=engagements),
         open_problems=open_problems,
         upcoming_scans=_upcoming_scans(session, engagement_ids, engagement_names, generated_at),
         recent_activity=_recent_activity(runs, open_findings),

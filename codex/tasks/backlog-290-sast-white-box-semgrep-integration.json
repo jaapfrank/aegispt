@@ -9,7 +9,7 @@
   "generated_by": "pentest-program-expansion",
   "generation_reason": "To fill critical missing capabilities in the pentest program, transitioning it from a pure network/web scanner to a full-spectrum security validation platform.",
   "source_context": {
-    "queue_index": 242,
+    "queue_index": 240,
     "queue_file": "TASK_QUEUE.md",
     "alignment_docs": [],
     "pack_id": null,

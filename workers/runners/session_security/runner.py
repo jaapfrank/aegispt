@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import json
 import math
-import re
-from http.cookies import SimpleCookie
 from hashlib import sha256
+from http.cookies import SimpleCookie
 from typing import Any, Callable
 from urllib.parse import parse_qsl, urljoin, urlparse
 
@@ -282,7 +281,7 @@ def _looks_sequential(values: list[str]) -> bool:
         numeric_values.append(int(value))
     if len(numeric_values) < 3:
         return False
-    deltas = [right - left for left, right in zip(numeric_values, numeric_values[1:])]
+    deltas = [right - left for left, right in zip(numeric_values, numeric_values[1:], strict=False)]
     return bool(deltas) and len(set(deltas)) == 1 and abs(deltas[0]) <= 10
 
 
@@ -714,4 +713,3 @@ def execute_session_security_analysis(
         },
         artifacts=[_json_artifact(SESSION_SECURITY_RESULTS_ARTIFACT_NAME, payload)],
     )
-

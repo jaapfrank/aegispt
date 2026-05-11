@@ -1,0 +1,111 @@
+{
+  "id": "backlog-346-path-traversal-and-file-upload-detection",
+  "task_file": "codex/tasks/backlog-346-path-traversal-and-file-upload-detection.json",
+  "task_type": "scanner_runner",
+  "title": "Path Traversal Detection: URL Path, Filename, and Username Vectors",
+  "goal": "Gruyere has three path traversal attack vectors that AegisPT currently cannot detect: (1) URL path traversal \u2014 /[instance-id]/../secret.txt reads files outside the instance directory; (2) Filename path traversal \u2014 uploading a file named '../secret.txt' overwrites files outside the upload directory; (3) Username path traversal \u2014 creating an account with username '..' or 'brie/../..' causes uploaded files to escape the user directory. The nuclei runner has limited path traversal templates but they target known CVEs. Extend the nuclei runner or add a dedicated path traversal probe that: (a) tests /../ sequences in URL paths to read known sensitive filenames (secret.txt, config.txt, .env, settings.py, gruyere.py); (b) tests filename parameters in file upload forms with ../ prefixes; (c) checks HTTP responses for leaked file content patterns (Python source code, passwords, API keys). This runner requires the crawler (backlog-343) to have discovered file upload endpoints first.",
+  "scope": "workers/runners/nuclei/runner.py or new workers/runners/path_traversal/runner.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-no-path-traversal",
+  "generation_reason": "Gruyere's path traversal via /../secret.txt, filename ../secret.txt, and username-based traversal are not detected by current runners. Nuclei has CVE-specific templates but no generic path traversal probe for custom web apps.",
+  "source_context": {
+    "queue_index": 298,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "REQUIRES: backlog-343",
+    "key_files": [
+      "workers/runners/nuclei/runner.py",
+      "workers/runners/web_depth/runner.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_write_by_default": "Filename traversal tests use non-destructive filenames (aegispt-traversal-probe.txt, not overwriting real files). Only test write paths if run_safety settings explicitly allow intrusive tests.",
+    "scope_enforcement": "All probed URLs must be within approved scope.",
+    "detection_only": "Report the vulnerability \u2014 do NOT actually overwrite server files. The finding should include the URL and evidence that the traversal is possible (e.g., response contains Python source code or 'secret' content).",
+    "existing_tests": "pytest api/tests/ must pass.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "url_traversal_payloads": [
+      "/../secret.txt",
+      "/../../secret.txt",
+      "/%2e%2e/secret.txt",
+      "/%2e%2e%2f%2e%2e%2fsecret.txt"
+    ],
+    "sensitive_filenames": [
+      "secret.txt",
+      "config.txt",
+      ".env",
+      "settings.py",
+      "gruyere.py",
+      "web.config",
+      "application.yml"
+    ],
+    "detection_logic": "For each base_target + traversal_payload: GET request, check if response.status_code == 200 AND response.text contains content patterns (import, def , password=, secret=, API_KEY). NOT just a 200 status \u2014 verify content looks like file data.",
+    "finding_type": "path_traversal_file_read",
+    "finding_severity": "high",
+    "profile_name": "Register probe under nuclei runner configuration or as 'active-path-traversal' profile. Add to Phase 2 of FULL-EXTERNAL-WEB."
+  },
+  "validation": {
+    "required_checks": [
+      "pytest api/tests/",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "Path traversal probe detects /[instance-id]/../secret.txt on Gruyere and returns finding with type='path_traversal_file_read' and evidence showing secret.txt content.",
+      "Probe does not overwrite or corrupt any server files.",
+      "All probe URLs pass scope enforcement check.",
+      "Finding includes exact URL, traversal payload used, and excerpt of disclosed content (first 200 chars)."
+    ]
+  },
+  "success_criteria": [
+    "Path traversal probe detects /[instance-id]/../secret.txt on Gruyere and returns finding with type='path_traversal_file_read' and evidence showing secret.txt content.",
+    "Probe does not overwrite or corrupt any server files.",
+    "All probe URLs pass scope enforcement check.",
+    "Finding includes exact URL, traversal payload used, and excerpt of disclosed content (first 200 chars)."
+  ],
+  "likely_touched_files": [
+    "workers/runners/nuclei/runner.py",
+    "workers/runners/web_depth/runner.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

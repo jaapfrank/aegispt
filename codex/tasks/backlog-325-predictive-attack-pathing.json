@@ -1,0 +1,76 @@
+{
+  "id": "backlog-325-predictive-attack-pathing",
+  "task_file": "codex/tasks/backlog-325-predictive-attack-pathing.json",
+  "task_type": "product_slice",
+  "title": "Predictive Attack Pathing (Wat-Als)",
+  "goal": "Enable hypothetical attack simulations by extending the graph algorithm to calculate paths from a mocked starting point (e.g. 'Assume CEO laptop is compromised').",
+  "scope": "Graph traversal logic, hypothetical edges, and a 'Simulation Mode' in the Surface Map UI.",
+  "status": "queued",
+  "generated_by": "strategic-innovation",
+  "generation_reason": "Moving from reactive assessment to predictive threat modeling.",
+  "source_context": {
+    "queue_index": 277,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-305",
+    "broader_theme": "advanced_threat_modeling",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Simulations are read-only. Do not dispatch live runners based on hypothetical paths.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Operator can drop a 'Starting Point' node in UI.",
+    "Backend calculates probable paths to critical assets.",
+    "UI visualizes these hypothetical paths distinctly from proven paths."
+  ],
+  "likely_touched_files": [
+    "api/app/services/graph/algorithms.py",
+    "ui-v2/src/pages/SurfaceMap.tsx"
+  ],
+  "must_not_touch": [
+    "workers/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/graph/"
+    ],
+    "acceptance_criteria": [
+      "Graph successfully computes paths without persisting them as factual evidence."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md."
+    ]
+  },
+  "out_of_scope": [
+    "Live execution of hypothetical paths"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

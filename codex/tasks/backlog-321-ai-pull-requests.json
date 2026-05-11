@@ -1,0 +1,77 @@
+{
+  "id": "backlog-321-ai-pull-requests",
+  "task_file": "codex/tasks/backlog-321-ai-pull-requests.json",
+  "task_type": "product_slice",
+  "title": "\"Fix-It-For-Me\" AI Pull Requests",
+  "goal": "Expand the Remediation Advisor to automatically generate verified code patches and submit them as Pull Requests to GitHub/GitLab when a vulnerability is found.",
+  "scope": "Backend integration, Remediation Advisor prompt engineering, and UI for 'Generate PR' button in Findings Theater.",
+  "status": "queued",
+  "generated_by": "strategic-innovation",
+  "generation_reason": "To provide 'Machine-Speed Remediation' and stay ahead of offensive AI capabilities like Mythos.",
+  "source_context": {
+    "queue_index": 273,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-297",
+    "broader_theme": "machine_speed_remediation",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Ensure PRs are clearly marked as AI-generated and require human review. No direct commits to main branch.",
+    "runtime_mutation": true
+  },
+  "success_criteria": [
+    "OAuth integration with GitHub/GitLab is functional.",
+    "AI successfully maps finding to a code patch and pushes a branch.",
+    "UI allows one-click PR generation."
+  ],
+  "likely_touched_files": [
+    "api/app/services/integrations/github.py",
+    "api/app/services/ai/remediation.py",
+    "ui-v2/src/pages/Findings.tsx"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/"
+    ],
+    "acceptance_criteria": [
+      "Tests verify API communication with mocked Git providers."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md."
+    ]
+  },
+  "out_of_scope": [
+    "Automatic merging of PRs"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

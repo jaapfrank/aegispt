@@ -1,0 +1,93 @@
+{
+  "id": "backlog-320-operator-safe-ai-mission-compiler",
+  "task_file": "codex/tasks/backlog-320-operator-safe-ai-mission-compiler.json",
+  "task_type": "mission_compiler",
+  "title": "Operator-Safe AI Mission Compiler",
+  "goal": "Compile natural language into a safe mission with scope, ROE, allowed capabilities, forbidden actions, and required approvals.",
+  "scope": "Operator intent compilation into bounded assessment missions without execution.",
+  "status": "queued",
+  "generated_by": "operator-product-strategy",
+  "generation_reason": "Natural-language mission setup needs explicit safety, forbidden capability, and approval boundaries before any runtime path can start.",
+  "source_context": {
+    "queue_index": 272,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "DECISIONS.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-313, backlog-312",
+    "broader_theme": "evidence_driven_ai_assessment",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Compile operator intent into a bounded assessment mission. No execution. No exploit/payload generation. No automatic approval.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "Produces mission plan JSON.",
+    "Includes explicit forbidden capabilities.",
+    "Requires operator approval before runtime tasks.",
+    "Tests prove unsafe intent is converted into safe validation language or rejected."
+  ],
+  "likely_touched_files": [
+    "api/app/services/intake_intelligence.py",
+    "api/app/services/roe_policy.py",
+    "api/app/services/operator_mission_compiler.py",
+    "api/tests/test_operator_mission_compiler.py",
+    "docs/operator_safe_mission_compiler.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "workers/orchestration/tasks.py",
+    "ui-v2/src/components/Intake.tsx"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/test_operator_mission_compiler.py api/tests/test_intake_intelligence.py api/tests/test_roe_policy.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Mission compiler returns bounded mission plan JSON.",
+      "Plan includes allowed capabilities, forbidden capabilities, required approvals, and ROE/scope summary.",
+      "Unsafe intent is rejected or converted into safe validation language.",
+      "No execution, payload generation, task dispatch, or automatic approval occurs."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote exactly one next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Runtime execution",
+    "Exploit or payload generation",
+    "Automatic approval",
+    "Scope expansion",
+    "Credential materialization"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

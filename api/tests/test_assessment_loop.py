@@ -185,6 +185,52 @@ def test_assessment_loop_goal_records_bounded_hypothesis_without_dispatch(client
         assert stored_goal["objective_type"] == "data_access_objective"
 
 
+def test_ai_loop_run_creation_records_objective_before_runtime_dispatch(client) -> None:
+    engagement_id = _create_engagement_and_scope(
+        client,
+        {"urls": ["https://loop.example.test"]},
+    )
+
+    response = client.post(
+        f"/api/v1/engagements/{engagement_id}/runs",
+        headers={"X-Actor": "loop-tester"},
+        json={
+            "profile_name": "autonomous-web",
+            "dispatch_after_create": False,
+            "autonomous_mode": True,
+            "configuration_json": {
+                "run_mode": "ai_loop",
+                "targets": {"urls": ["https://loop.example.test"]},
+                "ai_assessment_loop": {
+                    "enabled": True,
+                    "run_mode": "ai_loop",
+                    "objective": (
+                        "Determine which confirmed weaknesses can be chained into meaningful "
+                        "attacker impact using controlled proof only"
+                    ),
+                    "operator_note": "Recorded from launch; do not dispatch by goal registration.",
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    loop_state = payload["configuration_json"]["ai_assessment_loop"]
+    assert payload["configuration_json"]["run_mode"] == "ai_loop"
+    assert loop_state["goal_oriented_reasoning"]["objective_type"] == "custom_objective"
+    assert loop_state["goal_oriented_reasoning"]["dispatches_work_directly"] is False
+    assert loop_state["goal_oriented_reasoning"]["approval_gates_bypassed"] is False
+    assert loop_state["goal_oriented_reasoning"]["scope_enforced"] is True
+
+    with client.app.state.session_factory() as session:
+        tasks = session.scalars(select(Task).where(Task.run_id == UUID(payload["id"]))).all()
+        proposals = session.scalars(select(AgentProposal).where(AgentProposal.run_id == UUID(payload["id"]))).all()
+        assert [task.tool for task in tasks] == ["httpx"]
+        assert tasks[0].status == "queued"
+        assert proposals == []
+
+
 def test_assessment_loop_goal_is_gated_to_ai_loop_runs(client) -> None:
     engagement_id = _create_engagement_and_scope(
         client,

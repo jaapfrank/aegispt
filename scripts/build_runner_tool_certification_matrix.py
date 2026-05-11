@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import re
 import shutil
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -258,7 +257,7 @@ def _profile_node_value(node: ast.AST) -> Any:
         return tuple(_profile_node_value(item) for item in node.elts)
     if isinstance(node, ast.Dict):
         values: dict[str, Any] = {}
-        for key, value in zip(node.keys, node.values):
+        for key, value in zip(node.keys, node.values, strict=True):
             if key is None:
                 continue
             try:
@@ -377,7 +376,7 @@ def _has_finding_mapping(tool: str) -> bool:
 
 def _has_inventory_mapping(tool: str) -> bool:
     text = _read_text(INVENTORY_SOURCE)
-    return f'"tool": "{tool}"' in text or f"source_tools_json" in text and f"{tool}" in text
+    return f'"tool": "{tool}"' in text or "source_tools_json" in text and f"{tool}" in text
 
 
 def _host_binary_state(binary_groups: list[list[str]]) -> dict[str, Any]:

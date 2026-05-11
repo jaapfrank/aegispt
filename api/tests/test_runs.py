@@ -6395,9 +6395,9 @@ def test_active_run_requires_approval_before_queueing(client) -> None:
 
 
 def test_background_dispatch_marks_automatic_work_dispatching(client, monkeypatch) -> None:
+    import api.app.services.runs as runs_service
     from api.app.config import Settings
     from api.app.models import Run
-    import api.app.services.runs as runs_service
 
     engagement_id = create_engagement_with_scope(client)
     create_response = client.post(
@@ -6444,9 +6444,9 @@ def test_background_dispatch_marks_automatic_work_dispatching(client, monkeypatc
 
 
 def test_background_object_does_not_mark_manual_dispatch(client, monkeypatch) -> None:
+    import api.app.services.runs as runs_service
     from api.app.config import Settings
     from api.app.models import Run
-    import api.app.services.runs as runs_service
 
     engagement_id = create_engagement_with_scope(client)
     create_response = client.post(

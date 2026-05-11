@@ -10,7 +10,6 @@ from workers.orchestration.findings import extract_findings
 from workers.orchestration.tasks import SUPPORTED_TOOLS
 from workers.runners.base.contracts import EvidenceArtifact
 from workers.runners.xss_extended.runner import (
-    DEFAULT_AJAX_PAYLOAD,
     DEFAULT_XSS_PAYLOAD,
     XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
     execute_xss_extended_scan,

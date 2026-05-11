@@ -37,6 +37,7 @@ from api.app.services.assessment_chain import (
     advance_assessment_chain_for_completed_run,
     dispatch_assessment_chain_current_run,
 )
+from api.app.services.assessment_loop import advance_assessment_loop
 from api.app.services.audit import write_audit_event
 from api.app.services.cve_sync import suggest_watchlist_from_inventory_snapshot
 from api.app.services.evidence_integrity import apply_artifact_integrity_metadata
@@ -116,6 +117,7 @@ from workers.runners.base.stdout_stream import (
 from workers.runners.biz_logic.runner import execute_biz_logic_probe
 from workers.runners.bloodhound.runner import execute_bloodhound_collect
 from workers.runners.burp.runner import execute_burp_scan
+from workers.runners.c2_ingest.runner import execute_c2_ingest
 from workers.runners.camera_test.runner import (
     CAMERA_TEST_RESULTS_ARTIFACT_NAME,
     execute_camera_test,
@@ -151,8 +153,10 @@ from workers.runners.ipv6_discovery.runner import (
     execute_ipv6_discovery,
 )
 from workers.runners.ldap_enum.runner import execute_ldap_enum
+from workers.runners.leak_check.runner import execute_leak_check_review
 from workers.runners.llm_probe import execute_llm_probe
 from workers.runners.logging_probe.runner import execute_logging_probe
+from workers.runners.malware_sim.runner import execute_malware_simulation_review
 from workers.runners.mdns_ssdp.runner import (
     MDNS_SSDP_ARTIFACT_NAME,
     execute_mdns_ssdp_discovery,
@@ -184,9 +188,11 @@ from workers.runners.snmp_enum.runner import (
     SNMP_ENUM_RESULTS_ARTIFACT_NAME,
     execute_snmp_enumeration,
 )
+from workers.runners.social_campaign.runner import execute_social_campaign_review
 from workers.runners.ssh_brute.runner import execute_ssh_brute_force
 from workers.runners.ssrf_probe.runner import execute_ssrf_probe
 from workers.runners.ssti_probe.runner import execute_ssti_probe
+from workers.runners.waf_detect.runner import execute_waf_detection
 from workers.runners.web_depth.runner import (
     execute_content_discovery,
     execute_external_osint_recon,
@@ -214,6 +220,7 @@ SUPPORTED_TOOLS = {
     "bloodhound-collect",
     "biz-logic-probe",
     "burp",
+    "c2-ingest",
     "camera-test",
     "cicd-security",
     "client-state",
@@ -237,8 +244,10 @@ SUPPORTED_TOOLS = {
     "ipv6-discovery",
     "jwt-probe",
     "ldap-enum",
+    "leak-check",
     "llm-probe",
     "logging-probe",
+    "malware-sim",
     "metasploit",
     "mdns-ssdp",
     "mobile-android",
@@ -255,12 +264,14 @@ SUPPORTED_TOOLS = {
     "semgrep",
     "session-security",
     "smart-home",
+    "social-campaign",
     "ssh-brute",
     "ssti-probe",
     "ssrf-probe",
     "snmp-enum",
     "sqlmap",
     "vuln-components",
+    "waf-detect",
     "wifi-survey",
     "xss-extended",
     "xxe-probe",
@@ -797,6 +808,31 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             scope_allowlist=request.scope_allowlist,
         )
+    if request.tool == "c2-ingest":
+        c2_export = (
+            request.params.get("c2_export")
+            or request.params.get("session_export")
+            or request.params.get("mythic_export")
+            or request.params.get("sliver_export")
+        )
+        return execute_c2_ingest(
+            targets=request.targets,
+            c2_export=c2_export if isinstance(c2_export, dict) else None,
+            framework=(
+                str(request.params.get("framework"))
+                if isinstance(request.params.get("framework"), str)
+                else None
+            ),
+            command_execution_requested=bool(
+                request.params.get("command_execution_requested")
+                or request.params.get("execute_command")
+                or request.params.get("run_command")
+            ),
+            session_mutation_requested=bool(
+                request.params.get("session_mutation_requested")
+                or request.params.get("mutate_session")
+            ),
+        )
     if request.tool == "credential-attacks":
         return execute_credential_attacks(
             targets=request.targets,
@@ -1210,6 +1246,23 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else 128
             ),
         )
+    if request.tool == "social-campaign":
+        campaign_export = (
+            request.params.get("campaign_export")
+            or request.params.get("imported_campaign")
+            or request.params.get("gophish_campaign")
+        )
+        return execute_social_campaign_review(
+            targets=request.targets,
+            campaign_export=campaign_export if isinstance(campaign_export, dict) else None,
+            approved_recipient_domains=(
+                request.params.get("approved_recipient_domains")
+                if isinstance(request.params.get("approved_recipient_domains"), list)
+                else None
+            ),
+            launch_requested=bool(request.params.get("launch_requested", False)),
+            operator_approved=bool(request.params.get("operator_approved", False)),
+        )
     if request.tool == "camera-test":
         return execute_camera_test(
             targets=request.targets,
@@ -1491,6 +1544,25 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             timeout_seconds=timeout_seconds,
             page_size=page_size if isinstance(page_size, int) else 500,
         )
+    if request.tool == "leak-check":
+        leak_export = (
+            request.params.get("leak_export")
+            or request.params.get("leak_records")
+            or request.params.get("lookup_results")
+        )
+        return execute_leak_check_review(
+            targets=request.targets,
+            leak_export=leak_export if isinstance(leak_export, dict) else None,
+            credential_attack_auto_queue_requested=bool(
+                request.params.get("credential_attack_auto_queue_requested")
+                or request.params.get("auto_queue_credential_attack")
+                or request.params.get("auto_queue_spray")
+            ),
+            login_attempt_requested=bool(
+                request.params.get("login_attempt_requested")
+                or request.params.get("perform_login_attempts")
+            ),
+        )
     if request.tool == "llm-probe":
         max_tokens = request.params.get("max_tokens", limits.get("max_tokens", 96))
         max_probes = request.params.get("max_probes", limits.get("max_probes"))
@@ -1525,6 +1597,28 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             timeout_seconds=timeout_seconds,
             max_tokens=max_tokens if isinstance(max_tokens, int) else 96,
             max_probes=max_probes if isinstance(max_probes, int) else None,
+        )
+    if request.tool == "malware-sim":
+        telemetry_export = (
+            request.params.get("telemetry_export")
+            or request.params.get("simulation_export")
+            or request.params.get("lab_telemetry")
+        )
+        return execute_malware_simulation_review(
+            targets=request.targets,
+            telemetry_export=telemetry_export if isinstance(telemetry_export, dict) else None,
+            deploy_payload_requested=bool(
+                request.params.get("deploy_payload_requested")
+                or request.params.get("deploy_payload")
+            ),
+            live_execution_requested=bool(
+                request.params.get("live_execution_requested")
+                or request.params.get("live_execution")
+            ),
+            external_beacon_requested=bool(
+                request.params.get("external_beacon_requested")
+                or request.params.get("external_beacon")
+            ),
         )
     if request.tool == "impacket-lateral":
         return execute_impacket_lateral(
@@ -1594,10 +1688,13 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             binary=os.getenv("SEMGREP_BINARY", "semgrep"),
         )
     if request.tool == "content-discovery":
+        # Allow profile to specify binary (ffuf default, feroxbuster for recursive discovery)
+        profile_binary = str(request.params.get("binary") or "").strip()
+        chosen_binary = profile_binary or os.getenv("FFUF_BINARY", "ffuf")
         return execute_content_discovery(
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
-            binary=os.getenv("FFUF_BINARY", "ffuf"),
+            binary=chosen_binary,
             wordlist_path=str(
                 request.params.get("wordlist_path") or os.getenv("FFUF_WORDLIST_PATH", "") or ""
             )
@@ -1749,6 +1846,22 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 str(request.params.get("ajax_payload"))
                 if isinstance(request.params.get("ajax_payload"), str)
                 else "<script>alert('aegispt-json-xss')</script>"
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "waf-detect":
+        return execute_waf_detection(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            response_samples=(
+                request.params.get("response_samples")
+                if isinstance(request.params.get("response_samples"), list)
+                else None
+            ),
+            auto_evasion_enabled=bool(
+                request.params.get("auto_evasion_enabled")
+                or request.params.get("enable_evasion")
+                or request.params.get("evasion_enabled")
             ),
             timeout_seconds=timeout_seconds,
         )
@@ -2613,6 +2726,44 @@ def _runner_command_preview(tool: str, targets: list[str], params: dict[str, obj
             return ai_shell_command_preview(contract=contract)
         except AiShellSafetyError as exc:
             return f"$ ai-shell --blocked {shlex.quote(exc.reason)} --approved-scope"
+    if tool == "social-campaign":
+        campaign_ref = str(
+            effective_params.get("campaign_id")
+            or effective_params.get("campaign_ref")
+            or "imported-campaign"
+        ).strip()
+        return (
+            "$ social-campaign --review-only --import "
+            f"{shlex.quote(campaign_ref or 'imported-campaign')} --no-send --redact-secrets"
+        )
+    if tool == "waf-detect":
+        target = normalized_targets[0] if normalized_targets else "<approved-target>"
+        return (
+            "$ waf-detect --defensive-detection "
+            f"--target {shlex.quote(target)} --no-auto-evasion --operator-review"
+        )
+    if tool == "c2-ingest":
+        source = str(
+            effective_params.get("framework")
+            or effective_params.get("source")
+            or "imported-c2-export"
+        ).strip()
+        return (
+            "$ c2-ingest --read-only --import "
+            f"{shlex.quote(source or 'imported-c2-export')} --no-command-exec --redact-secrets"
+        )
+    if tool == "malware-sim":
+        source = str(effective_params.get("source") or "imported-lab-telemetry").strip()
+        return (
+            "$ malware-sim --lab-only --import "
+            f"{shlex.quote(source or 'imported-lab-telemetry')} --no-payload --no-beacon"
+        )
+    if tool == "leak-check":
+        source = str(effective_params.get("source") or "imported-leak-metadata").strip()
+        return (
+            "$ leak-check --metadata-only --import "
+            f"{shlex.quote(source or 'imported-leak-metadata')} --redact-secrets --no-auto-spray"
+        )
     if tool == "nmap":
         command = [os.getenv("NMAP_BINARY", "nmap"), "-n", "-oX", "<evidence>/nmap-results.xml"]
         if bool(effective_params.get("ipv6", False)):
@@ -4310,6 +4461,29 @@ def _maybe_run_post_task_ai_analysis(session, task: Task):
         return None
 
 
+def _maybe_advance_assessment_loop_after_task(session, task: Task) -> dict[str, object] | None:
+    if task.id is None or task.status != "completed":
+        return None
+    if is_validation_task(task):
+        return None
+    if task.run is None or not run_uses_ai_loop(task.run):
+        return None
+    scope = session.scalar(latest_scope_query(task.run.engagement_id))
+    if scope is None:
+        return None
+    try:
+        return advance_assessment_loop(
+            session=session,
+            run=task.run,
+            scope=scope,
+            actor=f"runner:{task.tool}",
+            operator_note="Automatically continue the evidence-driven AI loop after a completed runner task.",
+        )
+    except Exception:
+        session.rollback()
+        return None
+
+
 def _maybe_detect_and_record_pivots(session, task: Task) -> int:
     """After a completed task, scan run findings for pivot opportunities and record pivot context documents."""
     if task.status != "completed" or task.run is None:
@@ -4508,6 +4682,7 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             session.commit()
         ai_outcome = _maybe_run_post_task_ai_analysis(session, task)
         _maybe_detect_and_record_pivots(session, task)
+        loop_outcome = _maybe_advance_assessment_loop_after_task(session, task)
         session.commit()
         if ai_outcome and ai_outcome.autonomous_task_ids:
             dispatch_settings = get_settings()
@@ -4515,6 +4690,14 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                 _cancel_autonomous_tasks_by_id(ai_outcome.autonomous_task_ids)
             else:
                 dispatch_task_batch(ai_outcome.autonomous_task_ids, dispatch_settings)
+        queued_loop_task_id = loop_outcome.get("queued_task_id") if loop_outcome else None
+        if queued_loop_task_id:
+            loop_task_ids = [UUID(str(queued_loop_task_id))]
+            dispatch_settings = get_settings()
+            if execution_kill_switch_enabled(dispatch_settings):
+                _cancel_autonomous_tasks_by_id(loop_task_ids)
+            else:
+                dispatch_task_batch(loop_task_ids, dispatch_settings)
         if run_completion_reached and task.run_id is not None:
             advanced_chain = advance_assessment_chain_for_completed_run(
                 session,

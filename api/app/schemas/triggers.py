@@ -77,3 +77,31 @@ class CicdWebhookReceiptRead(BaseModel):
     commit_sha: str | None = None
     event_count: int = 0
     events: list[CicdTriggerEventRead] = Field(default_factory=list)
+
+
+class CicdEphemeralScanCreate(BaseModel):
+    target_url: str
+    ref: str | None = None
+    commit_sha: str | None = None
+    repository_url: str | None = None
+    environment: str | None = None
+    callback_url: str | None = None
+    metadata_json: dict[str, object] = Field(default_factory=dict)
+
+
+class CicdEphemeralScanRead(BaseModel):
+    accepted: bool
+    engagement_id: UUID
+    run_id: UUID | None = None
+    run_status: str | None = None
+    profile_name: str
+    target_url: str
+    ref: str | None = None
+    commit_sha: str | None = None
+    pass_fail_status: Literal["pending", "pass", "fail", "error"]
+    status_url: str | None = None
+    callback_url_configured: bool = False
+    callback_pending: bool = False
+    scope_enforced: bool = True
+    approval_required: bool = False
+    detail: str

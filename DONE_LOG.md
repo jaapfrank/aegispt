@@ -1,5 +1,1930 @@
 # Done Log
 
+- 2026-05-11: fixed AI-loop worker continuation and Mission Control mission-followability:
+  - rationale:
+    - the operator reported that Gruyere-style runs were producing counts and badges but not making it clear what the mission was doing
+    - code inspection showed `advance_assessment_loop` existed but was not called automatically after completed worker tasks, so `run_mode=ai_loop` could stall unless manually iterated
+    - the public Google Gruyere page describes the codelab as a deliberately vulnerable app with several vulnerability classes, so AegisPT must be able to move from one evidence-backed weakness to a next safe validation step rather than only count findings
+  - implementation:
+    - added `_maybe_advance_assessment_loop_after_task` in `workers/orchestration/tasks.py`
+    - after a completed task, explicitly configured AI-loop runs now call the existing `advance_assessment_loop` service with the latest engagement scope
+    - passive next actions are dispatched only through the existing dispatch path and kill-switch check
+    - active/intrusive next actions remain pending-review proposals and are not auto-approved
+    - added a worker regression proving a completed `httpx` AI-loop task with auth evidence advances to a pending-review `auth-flow` proposal without creating/dispatching an active task
+    - added React v2 Mission Control `Mission now` and timeline UI so queued/running/review/gap states explain what is happening and what the operator can do next
+    - corrected the first UI pass so queued checks are no longer described as running, queued phase blockers no longer claim no queued work exists, and pending later phases explain the current phase boundary
+  - files:
+    - `workers/orchestration/tasks.py`
+    - `workers/tests/test_task_ai_callbacks.py`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `.venv/bin/pytest workers/tests/test_task_ai_callbacks.py -q` passed
+    - `.venv/bin/pytest api/tests/test_assessment_loop.py api/tests/test_gruyere_ai_benchmark.py -q` passed
+    - `.venv/bin/pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py -q` passed
+    - `python3 -m compileall -q workers api/app/services api/app/routers` passed
+    - `.venv/bin/ruff check workers/orchestration/tasks.py workers/tests/test_task_ai_callbacks.py` passed
+    - `timeout 1800 .venv/bin/pytest api/tests/ workers/tests/ -q` passed with the existing Alembic warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `cd ui-v2 && npm run test:e2e -- --grep "Mission Control"` passed
+    - `cd ui-v2 && npm run lint` passed with existing warnings only
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed
+  - boundaries:
+    - no live Gruyere exploitation or public-target scanning was performed
+    - no approval gate, scope/ROE boundary, credential protection, runtime binding, automatic approval, or kill-switch behavior was bypassed
+
+- 2026-05-11: completed backlog-334 `Legacy UI Test Gate Retirement and React v2 Coverage Migration` and fixed the Dashboard sparse-payload crash:
+  - rationale:
+    - the active browser release lane is React v2, while the retired `/app/` UI lane is diagnostic-only
+    - the operator reported a Dashboard crash recovery screen with `Cannot read properties of undefined (reading 'score')`
+    - the broader request also asked for another full check and online tooling ideas for stronger testing/scanning
+  - implementation:
+    - hardened `ui-v2/src/components/screens/Dashboard.tsx` so optional dashboard sections such as `risk_score`, `blast_radius`, `open_problems`, `activity_feed`, and `engagements` can be absent without crashing the console
+    - added a sparse-dashboard React v2 Playwright regression in `ui-v2/tests/react-v2-critical-paths.spec.ts`
+    - recorded the readiness and tooling audit in `codex/results/react-v2-dashboard-readiness-and-tooling-audit-20260511.md`
+    - added and promoted backlog-335 `Test and Scan Tooling Readiness Gate` for the larger safe-toolchain work found during the audit
+  - validation:
+    - `timeout 1800 .venv/bin/pytest` passed with `899 passed, 4 warnings`
+    - `cd ui-v2 && npm run build && npm run test:e2e && npm run lint` passed with `7` Playwright tests and `8` existing lint warnings
+    - `cd ui-v2 && npm run test:e2e -- --grep "Dashboard"` passed with `2` tests
+    - `npm audit --audit-level=high` exited green and reported `2` moderate Vite/esbuild dev-server advisories that require a breaking upgrade path, so no auto-fix was applied
+    - local tool checks found ZAP installed/running but default-home reuse blocked, and Semgrep installed but requiring sanitized empty proxy environment variables
+  - boundaries:
+    - no live target scanning
+    - no approval gate, scope/ROE, runtime binding, credential protection, automatic approval, or kill-switch behavior was bypassed
+
+- 2026-05-10: fixed React v2 chain-context mismatch for Mission Control, Findings Theater, and AI Signal:
+  - rationale:
+    - the operator reported Mission Control showing 81 findings while Findings Theater showed 0 for the selected cancelled child run, plus AI appearing idle despite stored chain activity
+    - read-only local DB/API checks confirmed the selected child run had 0 direct findings, while its assessment chain had 81 findings and 21 AI reasoning records across sibling runs
+  - implementation:
+    - Findings Theater now loads findings through `getFindingsForRunContext` so chain child runs show the same evidence-backed findings as Mission Control
+    - added `getAiInsightsForRunContext` to aggregate AI reasoning/proposals across sibling runs in the same assessment chain
+    - Mission Control refresh and App run-scoped loading now use the chain-aware AI helper
+    - AI proposal review now uses the proposal's owning run ID rather than the currently selected child run ID
+    - automatic queued/requested runs now show a safe `Start Queued Checks` button backed by the existing backend dispatch endpoint
+    - Active Work explains queued runs that have not exposed a current backend task yet
+    - AI Signal now reports `Streaming`, `Review`, `Live`, or `Idle` instead of misleading ordinary UI playback as `Thinking`
+    - React v2 E2E fixtures now guard the child-run chain findings and chain AI reasoning behavior
+    - ESLint ignores generated Playwright output folders so lint does not fail when `test-results` is absent
+  - files:
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/components/screens/FindingsTheater.tsx`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/tests/react-v2-critical-paths.spec.ts`
+    - `ui-v2/eslint.config.js`
+    - `codex/results/react-v2-chain-context-ui-fix-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed
+    - `cd ui-v2 && npm run test:e2e -- --grep "Findings Theater|Mission Control"` passed: 2 passed
+    - `cd ui-v2 && npm run test:e2e` passed: 6 passed
+    - `cd ui-v2 && npm run lint` passed with 8 existing warnings
+    - `.venv/bin/pytest api/tests/ -q` passed with 4 Alembic warnings
+    - `.venv/bin/pytest workers/tests/ -q` passed
+    - `python3 -m compileall -q api workers scripts` passed
+    - `.venv/bin/ruff check .` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed
+    - `/health/live` returned healthy
+  - safety:
+    - no approval gate, scope/ROE boundary, runtime binding, credential protection, automatic approval, or kill-switch behavior was bypassed
+
+- 2026-05-10: full release-readiness validation pass:
+  - rationale:
+    - the operator requested an A-to-Z check as if the program needed to be ready
+    - the active product lanes are backend/API, workers, and React v2; the old FastAPI-served `/app/` UI is retired
+  - implementation:
+    - fixed the React v2 Mission Control `isTaskActiveForRun` render crash risk
+    - reduced Cinema Mode selected-target starburst behavior by focusing replay checks first and limiting selected-node links
+    - fixed `scripts/run_full_system_acceptance_audit.py` using `field.get(...)` instead of the actual loop variable
+    - cleaned Python lint issues with `ruff`, including import ordering, unused imports/variables, explicit `zip(..., strict=...)`, and network-capture variable shadowing
+    - updated `pyproject.toml` and `TESTING_POLICY.md` so default release validation uses active backend/worker tests plus React v2 Playwright, not the retired `/app/` UI route
+    - added backlog-334 for legacy `ui/tests/` retirement / React v2 migration
+  - validation:
+    - `.venv/bin/pytest api/tests/` passed: 650 passed, 4 warnings
+    - `.venv/bin/pytest workers/tests/` passed: 249 passed
+    - `.venv/bin/pytest ui/tests/test_full_system_acceptance_audit.py` passed: 2 passed
+    - `.venv/bin/ruff check .` passed
+    - `python3 -m compileall -q api workers scripts` passed
+    - `cd ui-v2 && npm run build` passed
+    - `cd ui-v2 && npm run lint` passed with warnings only
+    - `cd ui-v2 && npm run test:e2e` passed: 6 passed
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed
+    - `/health/live` returned healthy
+  - known gap:
+    - explicit legacy `ui/tests/ --maxfail=5` remains red against old `/app/` expectations; sample was 55 passed, 5 failed
+    - evidence is recorded in `codex/results/full-release-readiness-check-20260510.md`
+
+- 2026-05-10: completed backlog-333 `AI Phishing Triage & Auto-Purge (O365/Google Workspace)`:
+  - rationale:
+    - the task described autonomous mailbox purge, but safe build-lane behavior requires alert-only defaults, no provider mutation, no credential/token collection, and no external provider calls
+    - the implementation therefore provides defensive mail triage plus mocked provider action previews for operator review
+  - implementation:
+    - added `api/app/services/mail_triage.py`
+    - added `api/tests/integrations/test_mail.py`
+    - parses submitted `.eml` and webhook-like metadata
+    - extracts headers, sender, reply-to, subject, body, HTML, URLs, and attachment metadata
+    - reuses safe-click evaluation for submitted URL/HTML evidence
+    - builds Microsoft Graph and Gmail request previews in alert-only/review-only mode
+  - proof:
+    - malicious `.eml` with auth failures, reply-to mismatch, urgent account lure, and safe-click-blocked URL returns high-confidence malicious triage
+    - Microsoft Graph quarantine preview is formatted but not sent
+    - Gmail benign plan defaults to alert-only and no provider action
+    - unsupported providers are rejected before action planning
+  - validation:
+    - `python3 -m py_compile api/app/services/mail_triage.py api/tests/integrations/test_mail.py` passed
+    - `pytest api/tests/integrations/test_mail.py` passed with `4 passed`
+    - `.venv/bin/pytest api/tests/integrations/test_mail.py` passed with `4 passed`
+    - `.venv/bin/pytest api/tests/routers/test_safe_click.py api/tests/integrations/test_mail.py` passed with `7 passed`
+    - `.venv/bin/pytest api/tests/` passed with `650 passed, 4 warnings`
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - post-closure `python3 scripts/validate_backlog_tasks.py` passed
+    - post-closure `git diff --check` passed
+  - boundaries:
+    - no live O365/Gmail/Google Workspace mutation
+    - no tenant-wide purge
+    - no provider HTTP call
+    - no credential/token collection
+    - no mailbox mutation
+    - no `workers/runners/core/` changes
+    - no `ui-v2/` changes
+  - evidence:
+    - `codex/results/backlog-333-ai-phishing-triage-auto-purge-20260510.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-333 complete
+    - `NEXT_TASK.md` now records that there is no active backlog task because all queued backlog items are complete
+
+- 2026-05-10: completed backlog-332 `AegisPT Safe-Click Browser Copilot`:
+  - rationale:
+    - the package described browser-extension interception and backend headless browsing of clicked URLs, but build-lane safety forbids arbitrary public URL browsing and credential collection
+    - the implementation therefore creates a deterministic defensive link-review API from submitted URL, metadata, and HTML fixture evidence
+  - implementation:
+    - added `api/app/schemas/safe_click.py`
+    - added `api/app/services/safe_click.py`
+    - added `api/app/routers/safe_click.py`
+    - registered the router in `api/app/main.py`
+    - added `api/tests/routers/test_safe_click.py`
+  - proof:
+    - obfuscated Microsoft-like credential-harvest fixture returns `block` with evidence refs
+    - benign metadata returns `allow`
+    - suspicious login-themed host without credential form returns `review`, not over-eager block
+    - tests monkeypatch network creation to prove no live fetch is used
+  - validation:
+    - `python3 -m py_compile api/app/schemas/safe_click.py api/app/services/safe_click.py api/app/routers/safe_click.py api/app/main.py api/tests/routers/test_safe_click.py` passed
+    - `pytest api/tests/routers/test_safe_click.py` passed with `3 passed`
+    - `.venv/bin/pytest api/tests/routers/test_safe_click.py` passed with `3 passed`
+  - boundaries:
+    - no live browsing
+    - no arbitrary public URL fetch
+    - no credential collection
+    - no browser extension deployment
+    - no runtime dispatch
+    - no automatic remediation
+    - no `workers/runners/core/` changes
+  - evidence:
+    - `codex/results/backlog-332-safe-click-browser-copilot-20260510.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-332 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-333 `AI Phishing Triage & Auto-Purge (O365/Google Workspace)`, from `codex/tasks/backlog-333-ai-phishing-triage-auto-purge.json`
+
+- 2026-05-10: completed backlog-331 `Production Deployment, Kill-Switch, and Remote SSH Validation`:
+  - rationale:
+    - the task asks for SSH and kill-switch proof, but current `ai-shell` safety intentionally blocks loopback/AegisPT-host execution and no authorized non-loopback SSH labhost was supplied
+    - the safest completion path is therefore deterministic fixture proof plus explicit remaining real SSH labhost gap, without weakening the local-target block
+  - implementation:
+    - added `api/tests/integration/test_killswitch_and_ssh.py`
+    - validated the approved benign `id` SSH command vector through a deterministic command runner
+    - validated kill-switch blocking before SSH execution
+    - validated out-of-scope `curl` preflight blocking before SSH execution
+    - validated loopback SSH execution remains blocked
+    - updated `extra_tests.md` XT-001, XT-002, XT-003 and `risico.md` R-007
+  - proof:
+    - approved command path records `ssh`, scoped target, command hash/artifact shape, and per-command approval safety flags
+    - kill-switch path never invokes the command runner
+    - out-of-scope download path never invokes the command runner
+    - loopback target returns `local_target_blocked`
+  - validation:
+    - `python3 -m py_compile api/tests/integration/test_killswitch_and_ssh.py` passed
+    - `pytest api/tests/integration/test_killswitch_and_ssh.py` passed with `4 passed`
+    - `.venv/bin/pytest api/tests/integration/test_killswitch_and_ssh.py` passed with `4 passed`
+    - `.venv/bin/pytest workers/tests/test_ai_shell_runner.py api/tests/test_ai_agent_reasoning.py::test_ai_shell_proposal_approval_queues_exact_command_with_per_command_audit api/tests/test_ai_agent_reasoning.py::test_ai_shell_proposal_approval_respects_run_kill_switch api/tests/test_runs.py::test_dispatch_is_blocked_when_kill_switch_enabled api/tests/integration/test_killswitch_and_ssh.py` passed with `12 passed`
+  - boundaries:
+    - no real infrastructure
+    - no loopback/AegisPT-host execution bypass
+    - no approval bypass
+    - no scope/ROE bypass
+    - no credential leak
+    - no kill-switch bypass
+    - no kill-switch re-architecture
+    - no `ui-v2/` changes
+  - evidence:
+    - `codex/results/backlog-331-production-deployment-hardening-proof-20260510.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-331 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-332 `AegisPT Safe-Click Browser Copilot`, from `codex/tasks/backlog-332-safe-click-browser-copilot.json`
+
+- 2026-05-10: completed backlog-330 `Authenticated Runner Dispatch & Run Credential Vault Live Proof`:
+  - rationale:
+    - the task asks for credential discovery plus authenticated follow-up dispatch proof, but repo safety rules require preserving the existing vault mechanism and avoiding live/public targets
+    - the implementation therefore adds an integration proof for the existing runner protected-output and task-binding path without changing vault encryption or runner behavior
+  - implementation:
+    - added `api/tests/integration/test_vault_chaining.py`
+    - used `store_protected_outputs_in_run_credential_vault` to store a simulated runner-discovered session secret
+    - used `inject_run_credential_vault_into_task` to bind the secret into a follow-up `nuclei` task
+    - verified `_runner_params_for_task` materializes the secret only at execution binding time
+    - updated `extra_tests.md` XT-032 and `risico.md` R-024
+  - proof:
+    - encrypted DB value does not contain the plaintext session
+    - stored task params, vault payload, secret metadata, and audit-shaped evidence do not contain plaintext
+    - follow-up runner params receive the Cookie header from the existing secret binding resolver
+    - credential-vault metadata records no approval-gate or runner-registry bypass
+  - validation:
+    - `python3 -m py_compile api/tests/integration/test_vault_chaining.py` passed
+    - `pytest api/tests/integration/test_vault_chaining.py` passed with `1 passed`
+    - `.venv/bin/pytest api/tests/integration/test_vault_chaining.py` passed with `1 passed`
+    - `.venv/bin/pytest api/tests/test_run_credential_vault.py api/tests/integration/test_vault_chaining.py` passed with `3 passed`
+  - boundaries:
+    - no vault encryption mechanism change
+    - no new credential type
+    - no external/live infrastructure
+    - no automatic approval
+    - no scope/ROE bypass
+    - no credential-protection bypass
+    - no `ui-v2/` changes
+  - evidence:
+    - `codex/results/backlog-330-authenticated-runner-dispatch-proof-20260510.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-330 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-331 `Production Deployment, Kill-Switch, and Remote SSH Validation`, from `codex/tasks/backlog-331-production-deployment-hardening-proof.json`
+
+- 2026-05-10: completed backlog-329 `Live AI Continuous Assessment Loop & Goal-Oriented Reasoning Proof`:
+  - rationale:
+    - the task asks for live multi-iteration AI loop proof, but the safe repo-truth boundary requires local loopback Gruyere only and no public/live infrastructure
+    - the implementation therefore validates collected local Gruyere ai_loop evidence and records missing prerequisites as `blocked` instead of claiming live proof without artifacts
+  - implementation:
+    - added `scripts/run_ai_loop_gruyere_proof.py`
+    - added `api/tests/integration/test_ai_loop_live.py`
+    - generated `codex/results/ai-loop-gruyere-proof-latest.json`
+    - generated `codex/results/ai-loop-gruyere-proof-latest.md`
+    - updated `extra_tests.md` XT-019 and XT-033
+    - updated `risico.md` R-016 and R-025
+  - proof:
+    - collected evidence can pass only with at least three iterations
+    - iteration 2 must consume an artifact/evidence ref produced by iteration 1
+    - final goal closure must include supporting evidence refs from previous iterations
+    - public Gruyere targets are rejected without contact
+    - current generated report is `blocked` because no local Gruyere worker-produced ai_loop evidence was supplied on this host
+  - validation:
+    - `python3 -m py_compile scripts/run_ai_loop_gruyere_proof.py api/tests/integration/test_ai_loop_live.py` passed
+    - `pytest api/tests/integration/test_ai_loop_live.py` passed with `5 passed`
+    - `.venv/bin/pytest api/tests/integration/test_ai_loop_live.py` passed with `5 passed`
+    - `python3 scripts/run_ai_loop_gruyere_proof.py --output codex/results/ai-loop-gruyere-proof-latest.json --markdown codex/results/ai-loop-gruyere-proof-latest.md` generated a blocked proof report as expected
+  - boundaries:
+    - no external/live infrastructure
+    - no public Gruyere target
+    - no runtime dispatch
+    - no proposal approval
+    - no scope/ROE bypass
+    - no credential materialization
+    - no kill-switch bypass
+    - no new AI capability
+    - no `ui-v2/` changes
+  - evidence:
+    - `codex/results/backlog-329-live-ai-loop-gruyere-proof-20260510.md`
+    - `codex/results/ai-loop-gruyere-proof-latest.json`
+    - `codex/results/ai-loop-gruyere-proof-latest.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-329 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-330 `Authenticated Runner Dispatch & Run Credential Vault Live Proof`, from `codex/tasks/backlog-330-authenticated-runner-dispatch-proof.json`
+
+- 2026-05-10: completed backlog-328 `Full System Lab Fixture Matrix Validation`:
+  - rationale:
+    - the task requires live fixture proof, but safety and repo-truth require local-only execution and honest blocked status when local Docker/lab prerequisites are absent
+    - this slice therefore implements the full matrix harness and evidence contract without remote pulls or external/live targets
+  - implementation:
+    - added `scripts/run_live_fixture_matrix.py`
+    - added `api/tests/integration/test_live_runners.py`
+    - generated `codex/results/live-fixture-matrix-latest.json`
+    - generated `codex/results/live-fixture-matrix-latest.md`
+    - updated `extra_tests.md` XT-009 and XT-016
+    - updated `risico.md` R-009 and R-013
+  - proof:
+    - every current `SUPPORTED_TOOLS` runner family is represented in the matrix
+    - missing Docker images/local labs/imported evidence are `blocked`, not `passed`
+    - collected local runner evidence can pass a single runner only when artifacts and finding evidence refs are present
+    - generated matrix status is currently `blocked`, which is correct for this host because not all approved fixture prerequisites and collected runner artifacts are present
+  - validation:
+    - `python3 -m py_compile scripts/run_live_fixture_matrix.py api/tests/integration/test_live_runners.py` passed
+    - `pytest api/tests/integration/test_live_runners.py` passed with `4 passed`
+    - `.venv/bin/pytest api/tests/integration/test_live_runners.py` passed with `4 passed`
+    - `python3 scripts/run_live_fixture_matrix.py --output codex/results/live-fixture-matrix-latest.json --markdown codex/results/live-fixture-matrix-latest.md` generated a blocked matrix as expected
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with `285` queued task packages and exactly one active task
+    - post-promotion `git diff --check` passed
+  - boundaries:
+    - no external/live infrastructure
+    - no Docker remote pulls
+    - no automatic approvals
+    - no scope/ROE bypass
+    - no credential materialization
+    - no kill-switch bypass
+    - no new runner creation
+    - no `ui-v2/` changes
+  - evidence:
+    - `codex/results/backlog-328-live-fixture-matrix-validation-20260510.md`
+    - `codex/results/live-fixture-matrix-latest.json`
+    - `codex/results/live-fixture-matrix-latest.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-328 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-329 `Live AI Continuous Assessment Loop & Goal-Oriented Reasoning Proof`, from `codex/tasks/backlog-329-live-ai-loop-gruyere-proof.json`
+
+- 2026-05-10: completed backlog-327 `"No-Brakes" Wargaming Sandbox` with a defensive lab-only simulation reframe:
+  - rationale:
+    - the active package used unsafe “no-brakes” language and mentioned bypassing gates; repo safety rules make production gate bypass and unrestricted offensive behavior non-negotiably out of bounds
+    - the implementation therefore creates a lab-only simulation profile that requires explicit isolated digital-twin evidence and keeps production safeguards intact
+  - implementation:
+    - added `api/app/services/wargaming_sandbox.py`
+    - added hidden experimental `wargaming-lab-simulation` profile in `api/app/services/run_profiles.py`
+    - added profile filtering through `/api/v1/run-profiles?include_experimental=true`
+    - added create-run validation in `api/app/routers/runs.py`
+    - added React v2 Mission Control lab-only simulation warning
+    - added `api/tests/mission/test_planner.py`
+  - proof:
+    - default `/api/v1/run-profiles` remains unchanged for existing operators and tests
+    - experimental listing exposes the wargaming profile with `approval_gates_bypassed=false` and `automatic_live_execution=false`
+    - create-run rejects missing lab inventory, missing lab acknowledgement, explicit gate-bypass requests, and `dispatch_after_create`
+    - accepted lab-only simulation runs stay `pending_approval`, create no tasks, and record simulation-only boundaries
+  - validation:
+    - `python3 -m py_compile api/app/services/wargaming_sandbox.py api/app/services/run_profiles.py api/app/routers/runs.py api/tests/mission/test_planner.py` passed
+    - `.venv/bin/pytest api/tests/mission/test_planner.py` passed with `5 passed`
+    - `pytest api/tests/mission/test_planner.py` passed with `5 passed`
+    - `.venv/bin/pytest api/tests/test_runs.py::test_list_run_profiles api/tests/mission/test_planner.py` passed with `6 passed`
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with `285` queued task packages and exactly one active task
+    - post-promotion `git diff --check` passed
+    - `.venv/bin/pytest api/tests/` passed with `629 passed, 4 warnings`
+  - boundaries:
+    - no unrestricted offensive-AI mode
+    - no production approval-gate bypass
+    - no choke-point disablement
+    - no automatic live execution
+    - no credential materialization
+    - no runtime dispatch
+    - no `workers/runners/core/` changes
+  - evidence:
+    - `codex/results/backlog-327-wargaming-sandbox-20260510.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-327 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-328 `Full System Lab Fixture Matrix Validation`, from `codex/tasks/backlog-328-live-fixture-matrix-validation.json`
+
+- 2026-05-10: completed backlog-326 `AI-Specific Honeypots (Deception Technology)` with a defensive local-fixture implementation:
+  - rationale:
+    - the task package requested AI-focused deception/honeypot behavior, but repo safety constraints require local, operator-configured, non-deploying fixtures rather than live “poisoning” or network tarpitting
+    - the implementation therefore creates bounded local trap endpoints and evidence-backed alert monitoring only
+  - implementation:
+    - added `api/app/schemas/deception.py`
+    - added `api/app/services/deception/generator.py`
+    - added `api/app/routers/deception.py` and registered it in `api/app/main.py`
+    - added React v2 Settings Deception tab plus API client/types
+    - added `api/tests/deception/test_deception_traps.py`
+  - proof:
+    - trap creation returns a local endpoint, bounded response preview, and explicit safety boundaries
+    - `local_only=false` and live-deployment-shaped extra fields are rejected
+    - probing a trap records an alert with `deception-alert:*` evidence refs
+    - tests verify no `Run`, `Task`, or `Approval` records are created by creating/probing deception fixtures
+  - validation:
+    - `python3 -m py_compile api/app/schemas/deception.py api/app/services/deception/generator.py api/app/routers/deception.py api/app/main.py api/tests/deception/test_deception_traps.py` passed
+    - `.venv/bin/pytest api/tests/deception/` passed with `4 passed`
+    - `pytest api/tests/deception/` passed with `4 passed`
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - post-promotion `python3 scripts/validate_backlog_tasks.py` passed with `285` queued task packages and exactly one active task
+    - post-promotion `git diff --check` passed
+    - `.venv/bin/pytest api/tests/` passed with `624 passed, 4 warnings`
+  - boundaries:
+    - no network-level tarpitting
+    - no automatic live deployment
+    - no automatic approvals
+    - no runtime dispatch
+    - no credential materialization
+    - no scope expansion
+    - no `workers/runners/core/` changes
+  - evidence:
+    - `codex/results/backlog-326-ai-honeypots-deception-20260510.md`
+  - promotion:
+    - `TASK_QUEUE.md` now marks backlog-326 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-327 `"No-Brakes" Wargaming Sandbox`, from `codex/tasks/backlog-327-wargaming-sandbox.json`, with a safe lab-only/gated simulation reframe
+
+- 2026-05-10: completed backlog-325 `Predictive Attack Pathing (Wat-Als)`:
+  - rationale:
+    - the active task required hypothetical attack-path simulation, not live execution
+    - the implementation reuses the evidence-backed attack-path graph but keeps simulated start nodes and edges response-only
+  - implementation:
+    - added `api/app/services/predictive_attack_paths.py`
+    - added `AttackPathSimulationCreate`
+    - added `POST /api/v1/runs/{run_id}/attack-paths/simulate`
+    - added React v2 Surface Map `Simulation` tab with starting-point input and distinct hypothetical path rendering
+    - added `api/tests/graph/test_predictive_attack_pathing.py`
+    - recorded evidence in `codex/results/backlog-325-predictive-attack-pathing-20260510.md`
+  - files:
+    - `api/app/services/predictive_attack_paths.py`
+    - `api/app/schemas/runs.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/graph/test_predictive_attack_pathing.py`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `ui-v2/src/components/screens/SurfaceMap.tsx`
+    - `codex/results/backlog-325-predictive-attack-pathing-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - Python compile checks passed for the changed backend files and new tests
+    - `.venv/bin/pytest api/tests/graph/` passed with 3 tests
+    - `pytest api/tests/graph/` passed with 3 tests
+    - `.venv/bin/pytest api/tests/graph/ api/tests/test_attack_paths.py` passed with 12 tests
+    - `cd ui-v2 && npm run build` passed; Vite emitted the existing non-blocking chunk-size warning
+    - `.venv/bin/pytest api/tests/` passed with 620 tests and 4 warnings
+  - boundaries:
+    - no `workers/`, live execution, runtime dispatch, automatic approval, scope expansion, credential use, factual evidence persistence, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-325 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-326 `AI-Specific Honeypots (Deception Technology)`, from `codex/tasks/backlog-326-ai-honeypots-deception.json`
+
+- 2026-05-10: completed backlog-324 `Zero-Day Rapid Response Mode`:
+  - rationale:
+    - the active task required rapid zero-day correlation against stored inventory and a one-click targeted scan path
+    - the safe implementation uses locally stored threat-intel records and stored inventory snapshots, then stages runtime through existing run-profile and approval gates
+  - implementation:
+    - added `api/app/services/zero_day_response.py`
+    - added `GET /api/v1/engagements/{engagement_id}/threat-intel/zero-day-response`
+    - added `POST /api/v1/engagements/{engagement_id}/threat-intel/zero-day-response/{record_id}/scan-now`
+    - matched high-risk CVE/threat-intel records against inventory products, services, fingerprints, and `tech_stack_profile` values
+    - added affected-version range comparison for stale product versions
+    - staged `Scan Now` as an `active-web-rce-nuclei-audit` run with normal scope validation and pending approval
+    - added `zero_day_rapid_response` to the dashboard payload and React v2 Dashboard alert UI
+    - added `api/tests/intelligence/test_zero_day_rapid_response.py`
+    - recorded evidence in `codex/results/backlog-324-zero-day-rapid-response-20260510.md`
+  - files:
+    - `api/app/services/zero_day_response.py`
+    - `api/app/schemas/threat_intel.py`
+    - `api/app/routers/threat_intel.py`
+    - `api/app/schemas/dashboard.py`
+    - `api/app/services/dashboard.py`
+    - `api/tests/intelligence/test_zero_day_rapid_response.py`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `ui-v2/src/components/screens/Dashboard.tsx`
+    - `codex/results/backlog-324-zero-day-rapid-response-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - Python compile checks passed for the changed backend files and new tests
+    - `.venv/bin/pytest api/tests/intelligence/` passed with 3 tests
+    - `pytest api/tests/intelligence/` passed with 3 tests
+    - `.venv/bin/pytest api/tests/intelligence/ api/tests/test_threat_intel.py api/tests/test_cve_sync.py api/tests/test_dashboard.py api/tests/test_runs.py -k "zero_day or threat or cve or dashboard or create_run"` passed with 18 tests and 111 deselected
+    - `cd ui-v2 && npm run build` passed; Vite emitted the existing non-blocking chunk-size warning
+    - `.venv/bin/pytest api/tests/` passed with 619 tests and 4 warnings
+  - boundaries:
+    - no live external lookup, automatic exploitation, automatic approval, credential materialization, scope expansion, runtime binding bypass, kill-switch bypass, or `workers/runners/core/` change was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-324 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-325 `Predictive Attack Pathing (Wat-Als)`, from `codex/tasks/backlog-325-predictive-attack-pathing.json`
+
+- 2026-05-10: completed backlog-323 `Ephemeral CI/CD "Feature Branch" Testing`:
+  - rationale:
+    - the active task required URL-based dynamic scanning for deployed ephemeral feature-branch environments, not SAST or repository mutation
+    - repo truth already had signed CI/CD event triggers, so this slice adds a direct ephemeral launch/status API and keeps the older trigger path intact
+  - implementation:
+    - added `CicdEphemeralScanCreate` and `CicdEphemeralScanRead` schemas
+    - added `launch_ephemeral_cicd_scan()` and `cicd_ephemeral_scan_status()` to `api/app/services/cicd_triggers.py`
+    - added `POST /api/v1/engagements/{engagement_id}/cicd/ephemeral-scans`
+    - added `GET /api/v1/cicd/ephemeral-scans/{run_id}`
+    - enforced path-aware approved-scope checks for the submitted ephemeral URL
+    - launched the existing lightweight `passive-web-baseline` profile through normal run/task queue and dispatch gates
+    - stored CI metadata under `run.configuration_json.cicd_ephemeral` with `sast_enabled: false` and `scope_enforced: true`
+    - added `docs/cicd/aegispt-ephemeral-scan-action.yml`
+    - added `api/tests/routers/test_cicd.py`
+    - recorded evidence in `codex/results/backlog-323-cicd-ephemeral-branch-scan-20260510.md`
+  - files:
+    - `api/app/schemas/triggers.py`
+    - `api/app/services/cicd_triggers.py`
+    - `api/app/routers/triggers.py`
+    - `api/tests/routers/test_cicd.py`
+    - `docs/cicd/aegispt-ephemeral-scan-action.yml`
+    - `codex/results/backlog-323-cicd-ephemeral-branch-scan-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/pytest api/tests/routers/test_cicd.py` passed with 3 tests
+    - `python3 -m py_compile api/app/schemas/triggers.py api/app/services/cicd_triggers.py api/app/routers/triggers.py api/tests/routers/test_cicd.py` passed
+    - `.venv/bin/pytest api/tests/test_cicd_triggers.py api/tests/test_runs.py -k "cicd or passive_web_baseline"` passed with 7 tests and 109 deselected
+    - `python3 scripts/validate_backlog_tasks.py && git diff --check` passed before full suite
+    - `.venv/bin/pytest api/tests/` passed with 616 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `git diff --check` passed after promotion
+  - boundaries:
+    - no `ui-v2/`, SAST execution, repository mutation, automatic approval, direct provider mutation, live target outside approved scope, credential materialization, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-323 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-324 `Zero-Day Rapid Response Mode`, from `codex/tasks/backlog-324-zero-day-rapid-response.json`
+
+- 2026-05-10: completed backlog-322 `Business Impact "Blast Radius" Dashboard`:
+  - rationale:
+    - the active task required translating technical attack paths into predefined business-process impact without adding formula editors, runtime scans, or worker behavior
+    - repo truth already had evidence-backed attack paths and dashboard risk posture, but no business-process blast-radius model or dashboard metric
+  - implementation:
+    - added `api/app/services/business_impact.py` with predefined business categories, criticality weighting, asset tag normalization, per-path business impact, and portfolio blast-radius summarization
+    - extended attack-path summaries so candidate paths carry `business_impact` and summaries expose blast-radius score, tier, critical path count, and affected business processes
+    - extended the dashboard schema/service with a `blast_radius` tile derived from stored runs, inventory snapshots, findings, and attack paths
+    - updated React v2 Dashboard with a `Blast Radius` metric card and business-process panel
+    - added `api/tests/graph/test_business_impact_blast_radius.py`
+    - recorded evidence in `codex/results/backlog-322-business-impact-blast-radius-20260510.md`
+  - files:
+    - `api/app/services/business_impact.py`
+    - `api/app/services/attack_paths.py`
+    - `api/app/services/dashboard.py`
+    - `api/app/schemas/dashboard.py`
+    - `api/tests/graph/test_business_impact_blast_radius.py`
+    - `ui-v2/src/api/types.ts`
+    - `ui-v2/src/components/screens/Dashboard.tsx`
+    - `codex/results/backlog-322-business-impact-blast-radius-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/pytest api/tests/graph/` passed with 2 tests
+    - `cd ui-v2 && npm run build` passed; Vite emitted the existing non-blocking chunk-size warning
+    - `.venv/bin/pytest api/tests/graph/ api/tests/test_attack_paths.py api/tests/test_dashboard.py` passed with 18 tests
+    - `python3 -m py_compile api/app/services/business_impact.py api/app/services/attack_paths.py api/app/services/dashboard.py api/app/schemas/dashboard.py api/tests/graph/test_business_impact_blast_radius.py` passed
+    - `.venv/bin/pytest api/tests/` passed with 613 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `git diff --check` passed after promotion
+  - boundaries:
+    - no workers, runtime scans, automatic approvals, scope expansion, credential use, formula editors, live targets, GRC integrations, runtime binding bypass, or kill-switch bypass were introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-322 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-323 `Ephemeral CI/CD "Feature Branch" Testing`, from `codex/tasks/backlog-323-cicd-ephemeral-branch-scan.json`
+
+- 2026-05-10: completed backlog-321 `"Fix-It-For-Me" AI Pull Requests`:
+  - rationale:
+    - the active task required human-review PR generation from existing remediation/AutoFix evidence, without direct main/protected commits or automatic merges
+    - repo truth already contained the core repository integration and AutoFix foundation, so the implementation focused on missing UI exposure, explicit AI-generated PR labeling, and GitLab mocked-provider proof
+  - implementation:
+    - kept repository OAuth/token handling on the existing encrypted `SecretRef` integration path
+    - updated GitHub/GitLab PR/MR descriptions to mark patches as AI-generated, require human review, and state auto-merge is disabled
+    - exposed a React v2 Findings Theater `Fix Pull Request` section and operator button that calls `POST /api/v1/findings/{finding_id}/repository/fix-pr`
+    - added a typed v2 API client function and response type for generated fix PRs
+    - added GitLab mocked-provider regression coverage and tightened no-merge assertions
+    - recorded evidence in `codex/results/backlog-321-ai-pull-requests-20260510.md`
+  - files:
+    - `api/app/services/repository_integration.py`
+    - `api/tests/test_repository_integration.py`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/api/types.ts`
+    - `ui-v2/src/components/screens/FindingsTheater.tsx`
+    - `codex/results/backlog-321-ai-pull-requests-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/pytest api/tests/test_repository_integration.py` passed with 4 tests
+    - `cd ui-v2 && npm run build` passed; Vite emitted the existing non-blocking chunk-size warning
+    - `.venv/bin/pytest api/tests/` passed with 611 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+    - `python3 scripts/validate_backlog_tasks.py` passed after promotion
+    - `git diff --check` passed after promotion
+  - boundaries:
+    - no direct protected/main commit path, automatic merge, auto-approval, runtime dispatch, scope/ROE bypass, credential materialization, repository OAuth bypass, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-321 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-322 `Business Impact "Blast Radius" Dashboard`, from `codex/tasks/backlog-322-business-impact-blast-radius.json`
+
+- 2026-05-10: completed backlog-293 `Dark Web & OSINT Credential Leak Scanner`:
+  - rationale:
+    - the active task was safety-sensitive because leaked credentials must not be stored or operationalized
+    - the safe implementation is metadata-only leak evidence import/review with raw secret redaction and no credential attack auto-queue
+  - implementation:
+    - added `workers/runners/leak_check/runner.py` with a `leak-check` metadata-only runner
+    - normalizes leak records into hashed account refs and account domains
+    - redacts raw passwords, hashes, and secret-like values from imported payload copies
+    - blocks credential attack auto-queue and login-attempt requests
+    - emits standard JSON findings for credential leak metadata, plaintext exposure reports, and hash exposure reports
+    - registered the tool in `workers/orchestration/tasks.py`, capability metadata, finding extraction, methodology mapping, command preview, and auto-dispatch blocking
+    - added `api/tests/test_leak_check_runner.py`
+    - recorded evidence in `codex/results/backlog-293-leak-check-metadata-only-20260510.md`
+  - files:
+    - `workers/runners/leak_check/__init__.py`
+    - `workers/runners/leak_check/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/runners/capabilities.json`
+    - `api/app/methodology.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_leak_check_runner.py`
+    - `codex/results/backlog-293-leak-check-metadata-only-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `pytest api/tests/test_leak_check_runner.py` passed
+    - `pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py` passed because `workers/orchestration/tasks.py` changed
+    - `.venv/bin/pytest api/tests/` passed with 610 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+    - `git diff --check` passed before promotion
+  - boundaries:
+    - no React v2 UI, raw credential storage, credential stuffing/spraying auto-queue, login attempts, credential materialization, automatic approval, scope/ROE bypass, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-293 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-321 `"Fix-It-For-Me" AI Pull Requests`, from `codex/tasks/backlog-321-ai-pull-requests.json`
+
+- 2026-05-10: completed backlog-292 `Ransomware & Malware Behavioral Simulation Runner`:
+  - rationale:
+    - the active task was safety-sensitive because malware/ransomware simulation must not deploy payloads or mutate live systems
+    - the safe implementation is lab-only telemetry import/review with dummy-artifact evidence
+  - implementation:
+    - added `workers/runners/malware_sim/runner.py` with a `malware-sim` lab-only telemetry import runner
+    - normalizes imported events for ransomware-like dummy file activity, registry-change simulation, beacon simulation, and detection alerts
+    - blocks payload deployment, live execution, and external beacon requests
+    - emits standard JSON findings for undetected simulated activity and observed detection telemetry
+    - registered the tool in `workers/orchestration/tasks.py`, capability metadata, finding extraction, methodology mapping, command preview, and auto-dispatch blocking
+    - added `api/tests/test_malware_sim_runner.py`
+    - recorded evidence in `codex/results/backlog-292-malware-sim-lab-only-20260510.md`
+  - files:
+    - `workers/runners/malware_sim/__init__.py`
+    - `workers/runners/malware_sim/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/runners/capabilities.json`
+    - `api/app/methodology.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_malware_sim_runner.py`
+    - `codex/results/backlog-292-malware-sim-lab-only-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `pytest api/tests/test_malware_sim_runner.py` passed
+    - `pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py` passed because `workers/orchestration/tasks.py` changed
+    - `.venv/bin/pytest api/tests/` passed with 607 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+    - `git diff --check` passed before promotion
+  - boundaries:
+    - no React v2 UI, malware deployment, live-system mutation, real-file encryption, registry write, external beacon, credential materialization, automatic approval, scope/ROE bypass, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-292 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-293 `Dark Web & OSINT Credential Leak Scanner`, from `codex/tasks/backlog-293-dark-web-credential-leak-scanner.json`
+
+- 2026-05-10: completed backlog-291 `Red Team C2 Framework Integration`:
+  - rationale:
+    - the active task was safety-sensitive because C2 integration must not become a command execution channel
+    - the safe implementation is read-only Mythic/Sliver session and command-history import with redaction
+  - implementation:
+    - added `workers/runners/c2_ingest/runner.py` with a `c2-ingest` read-only import runner
+    - normalizes imported sessions and commands into a redacted timeline
+    - hashes session/user identifiers and redacts secret-like fields from imported payloads
+    - blocks command execution and session mutation requests
+    - emits standard JSON findings for imported C2 session evidence, lateral movement command evidence, and credential access command evidence
+    - registered the tool in `workers/orchestration/tasks.py`, capability metadata, finding extraction, methodology mapping, command preview, and auto-dispatch blocking
+    - added `api/tests/test_c2_ingest_runner.py`
+    - recorded evidence in `codex/results/backlog-291-c2-ingest-read-only-20260510.md`
+  - files:
+    - `workers/runners/c2_ingest/__init__.py`
+    - `workers/runners/c2_ingest/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/runners/capabilities.json`
+    - `api/app/methodology.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_c2_ingest_runner.py`
+    - `codex/results/backlog-291-c2-ingest-read-only-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `pytest api/tests/test_c2_ingest_runner.py` passed
+    - `pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py` passed because `workers/orchestration/tasks.py` changed
+    - `.venv/bin/pytest api/tests/` passed with 604 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+    - `git diff --check` passed before promotion
+  - boundaries:
+    - no React v2 UI, C2 command execution, session mutation, payload deployment, credential materialization, automatic approval, scope/ROE bypass, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-291 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-292 `Ransomware & Malware Behavioral Simulation Runner`, from `codex/tasks/backlog-292-ransomware-behavioral-simulation.json`
+
+- 2026-05-10: completed backlog-289 `WAF Detection & Evasion Runner`:
+  - rationale:
+    - the active task was safety-sensitive because automatic WAF evasion can alter runtime risk
+    - the safe implementation is defensive WAF detection plus blocked-request evidence and review-only recommendations
+  - implementation:
+    - added `workers/runners/waf_detect/runner.py` with a `waf-detect` defensive detection runner
+    - supports approved-scope benign HTTP fingerprinting and imported response samples
+    - detects common WAF/edge-control fingerprints and blocked/challenge evidence
+    - blocks `auto_evasion_enabled`, `enable_evasion`, and `evasion_enabled`
+    - emits standard JSON findings and review-only recommendations with no runtime changes
+    - registered the tool in `workers/orchestration/tasks.py`, capability metadata, finding extraction, methodology mapping, command preview, and auto-dispatch blocking
+    - added `api/tests/test_waf_detect_runner.py`
+    - recorded evidence in `codex/results/backlog-289-waf-detect-review-20260510.md`
+  - files:
+    - `workers/runners/waf_detect/__init__.py`
+    - `workers/runners/waf_detect/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/runners/capabilities.json`
+    - `api/app/methodology.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_waf_detect_runner.py`
+    - `codex/results/backlog-289-waf-detect-review-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `pytest api/tests/test_waf_detect_runner.py` passed
+    - `pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py` passed because `workers/orchestration/tasks.py` changed
+    - `.venv/bin/pytest api/tests/` passed with 601 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+    - `git diff --check` passed before promotion
+  - boundaries:
+    - no React v2 UI, automatic evasion, stealth bypass behavior, web-runner mutation, credential materialization, automatic approval, scope/ROE bypass, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-289 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-291 `Red Team C2 Framework Integration`, from `codex/tasks/backlog-291-red-team-c2-framework-integration.json`
+
+- 2026-05-10: completed backlog-288 `Phishing & Social Engineering Campaign Runner`:
+  - rationale:
+    - the active task was safety-sensitive and required defensive reframing before implementation
+    - the safe implementation is a review-only campaign evidence import runner, not an autonomous phishing sender
+  - implementation:
+    - added `workers/runners/social_campaign/runner.py` with a `social-campaign` review-only import runner
+    - normalizes imported campaign metrics, hashes recipient identities, stores recipient domains only, and redacts submitted/secret-like values
+    - blocks `launch_requested` even when `operator_approved` is true, so no external campaign send occurs
+    - emits standard JSON findings for credential submission evidence, high click rate, low reporting rate, and out-of-scope recipient domains
+    - registered the tool in `workers/orchestration/tasks.py`, capability metadata, finding extraction, methodology mapping, command preview, and auto-dispatch blocking
+    - added `api/tests/test_social_campaign_runner.py`
+    - recorded evidence in `codex/results/backlog-288-social-campaign-review-20260510.md`
+  - files:
+    - `workers/runners/social_campaign/__init__.py`
+    - `workers/runners/social_campaign/runner.py`
+    - `workers/orchestration/tasks.py`
+    - `workers/orchestration/findings.py`
+    - `workers/runners/capabilities.json`
+    - `api/app/methodology.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_social_campaign_runner.py`
+    - `codex/results/backlog-288-social-campaign-review-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `pytest api/tests/test_social_campaign_runner.py` passed
+    - `pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py` passed because `workers/orchestration/tasks.py` changed
+    - `.venv/bin/pytest api/tests/` passed with 598 tests and 4 warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no React v2 UI, live target, campaign send, credential materialization, automatic approval, scope/ROE bypass, runtime binding bypass, or kill-switch bypass was introduced
+  - next:
+    - `TASK_QUEUE.md` marks backlog-288 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-289 `WAF Detection & Evasion Runner`, from `codex/tasks/backlog-289-waf-detection-evasion-runner.json`
+
+- 2026-05-10: completed backlog-282 `React v2 Interactive Data Visualizations`:
+  - rationale:
+    - the active task required richer dashboard and report visualizations while keeping the work inside React v2
+    - Recharts fit the existing Vite/React stack and allowed interactive, printable chart summaries without backend changes
+  - implementation:
+    - added Recharts to `ui-v2/package.json` and `ui-v2/package-lock.json`
+    - added a dynamic Dashboard risk trend chart derived from current dashboard risk data
+    - added a Dashboard findings distribution chart derived from dashboard problem counts and loaded findings
+    - added printable Report Center executive chart summaries for report readiness and severity distribution
+    - kept chart presentation within the existing Neon Enterprise dark/glow visual language and existing screen layout primitives
+    - recorded evidence in `codex/results/backlog-282-react-v2-interactive-data-visualizations-20260510.md`
+  - files:
+    - `ui-v2/package.json`
+    - `ui-v2/package-lock.json`
+    - `ui-v2/src/components/screens/Dashboard.tsx`
+    - `ui-v2/src/components/screens/ReportCenter.tsx`
+    - `codex/results/backlog-282-react-v2-interactive-data-visualizations-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with a non-blocking Vite chunk-size warning after adding Recharts
+    - `cd ui-v2 && npm run test:e2e` passed with 4 Playwright tests
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data-fetching behavior, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, automatic approval, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-282 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-288 `Phishing & Social Engineering Campaign Runner`, from `codex/tasks/backlog-288-phishing-social-engineering-runner.json`
+
+- 2026-05-10: completed backlog-284 `React v2 Skeleton Loaders & Page Transitions`:
+  - rationale:
+    - the active task required a smoother perceived loading and navigation experience without altering data fetching
+    - the safest implementation was a global initial workspace skeleton plus route transition wrapper
+  - implementation:
+    - wrapped route content in Framer Motion `AnimatePresence` and a pathname-keyed `motion.div`
+    - added `WorkspaceSkeleton` in `ui-v2/src/App.tsx`
+    - skeleton state mimics page header, metric cards, and panel rows during initial AppShell bootstrap
+    - added skeleton shimmer/glow and route transition styling in `ui-v2/src/index.css`
+    - recorded evidence in `codex/results/backlog-284-react-v2-skeleton-loaders-and-transitions-20260510.md`
+  - files:
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/index.css`
+    - `codex/results/backlog-284-react-v2-skeleton-loaders-and-transitions-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `cd ui-v2 && npm run test:e2e` passed with 4 Playwright tests
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data-fetching behavior, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, automatic approval, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-284 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-282 `React v2 Interactive Data Visualizations`, from `codex/tasks/backlog-282-react-v2-interactive-data-visualizations.json`
+
+- 2026-05-10: completed backlog-285 `React v2 Toast Notification System`:
+  - rationale:
+    - the active task required unified transient feedback with Neon Enterprise styling
+    - toast rendering needed to stay presentational and not become a runtime action channel
+  - implementation:
+    - added global toast state and viewport rendering in `ui-v2/src/App.tsx`
+    - supports success, warning, error, and info tones with dedicated icons
+    - toasts slide in from the bottom right, fade automatically, and can be dismissed manually
+    - global API errors now produce error toasts in addition to the existing inline banner
+    - command palette selections produce info toasts for safe navigation/context feedback
+    - added toast viewport, notice, tone, and slide/fade styling in `ui-v2/src/index.css`
+    - recorded evidence in `codex/results/backlog-285-react-v2-toast-notification-system-20260510.md`
+  - files:
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/index.css`
+    - `codex/results/backlog-285-react-v2-toast-notification-system-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `cd ui-v2 && npm run test:e2e` passed with 4 Playwright tests
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data-fetching behavior, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, automatic approval, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-285 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-284 `React v2 Skeleton Loaders & Page Transitions`, from `codex/tasks/backlog-284-react-v2-skeleton-loaders-and-transitions.json`
+
+- 2026-05-10: completed backlog-283 `React v2 Global Command Palette`:
+  - rationale:
+    - the active task required a global power-user command palette for fast navigation and safe context focus
+    - the palette needed to remain a UI navigation layer rather than a runtime action surface
+  - implementation:
+    - added a Cmd+K/Ctrl+K global keyboard handler in `ui-v2/src/App.tsx`
+    - added a topbar command icon button
+    - added a Neon Enterprise command dialog with search, keyboard navigation, active row selection, and Escape close behavior
+    - indexed navigation destinations, Settings, New Mission, loaded engagements, loaded runs, and loaded findings
+    - selecting entries navigates or uses existing safe UI selectors (`selectEngagement`, `selectRun`, `selectFinding`)
+    - added command palette overlay and item styling in `ui-v2/src/index.css`
+    - recorded evidence in `codex/results/backlog-283-react-v2-global-command-palette-20260510.md`
+  - files:
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/index.css`
+    - `codex/results/backlog-283-react-v2-global-command-palette-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `cd ui-v2 && npm run test:e2e` passed with 4 Playwright tests
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+    - `git diff --check` passed before promotion
+  - boundaries:
+    - no backend API, workers, data-fetching behavior, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, automatic approval, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-283 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-285 `React v2 Toast Notification System`, from `codex/tasks/backlog-285-react-v2-toast-notification-system.json`
+
+- 2026-05-10: completed backlog-279 `React v2 AI Narrator Panel`:
+  - rationale:
+    - the active task required Mission Control to make AI reasoning/proposals feel present without implementing backend LLM streaming
+    - the existing UI had a static AI Proposals card but no sequential narrator feed or inline typed proposal actions
+  - implementation:
+    - replaced the normal-run static proposal card with an `AI Signal` narrator panel in `ui-v2/src/components/screens/MissionControl.tsx`
+    - builds feed entries from existing run status, tasks, findings, AI reasoning records, and AI proposals
+    - streams entry text sequentially at the task-required `12ms` per character
+    - shows a cycling Thinking indicator while typing, refreshing, or waiting for signal data
+    - auto-scrolls the feed as text appears
+    - renders proposal entries with inline accessible `Approve` and `Skip` buttons that reuse the existing proposal review handler
+    - added AI Signal entry-rise, cursor, thinking-dot, and panel styling in `ui-v2/src/index.css`
+    - recorded evidence in `codex/results/backlog-279-react-v2-ai-narrator-panel-20260510.md`
+  - files:
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/src/index.css`
+    - `codex/results/backlog-279-react-v2-ai-narrator-panel-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `cd ui-v2 && npm run test:e2e` passed with 4 Playwright tests
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data-fetching behavior, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, automatic approval, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-279 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-283 `React v2 Global Command Palette`, from `codex/tasks/backlog-283-react-v2-global-command-palette.json`
+
+- 2026-05-10: completed backlog-287 `React v2 Playwright E2E UI Testing`:
+  - rationale:
+    - the active task required durable React v2 Playwright coverage for critical paths before continuing polish work
+    - tests needed to be deterministic and must not call live targets, backend runners, or runtime mutation endpoints
+  - implementation:
+    - added `@playwright/test` as a React v2 dev dependency and `npm run test:e2e`
+    - added `ui-v2/playwright.config.ts` with a Vite web server on an isolated test port and Chromium project
+    - added `ui-v2/tests/react-v2-critical-paths.spec.ts`
+    - mocked all `/api/v1/**` calls inside Playwright fixtures
+    - covered Dashboard portfolio rendering, Mission Intake wizard preview and disabled launch before authorization, Findings Theater severity/search filtering with evidence drawer loading, and Mission Control refresh plus bounded task-output expansion
+    - recorded evidence in `codex/results/backlog-287-react-v2-playwright-e2e-testing-20260510.md`
+  - files:
+    - `ui-v2/package.json`
+    - `ui-v2/package-lock.json`
+    - `ui-v2/playwright.config.ts`
+    - `ui-v2/tests/react-v2-critical-paths.spec.ts`
+    - `codex/results/backlog-287-react-v2-playwright-e2e-testing-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run test:e2e` passed with 4 Playwright tests
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data-fetching behavior, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, automatic approval, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-287 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-279 `React v2 AI Narrator Panel`, from `codex/tasks/backlog-279-react-v2-ai-narrator-panel.json`
+
+- 2026-05-10: completed backlog-286 `React v2 Error Boundaries & Empty States`:
+  - rationale:
+    - the active task required React v2 to avoid white-screen failures and present themed recovery/empty-state surfaces
+    - existing empty states had visual treatment from backlog-278/backlog-281, but a real React render error boundary was missing
+  - implementation:
+    - added `ui-v2/src/components/ErrorBoundary.tsx` as a React class error boundary
+    - wrapped the app route outlet in `ui-v2/src/App.tsx` with the error boundary and reset it on route pathname changes
+    - implemented a Neon Enterprise Crash Recovery UI with animated recovery illustration, operator-safe explanation, bounded component-stack details, Try Again, Reload App, Dashboard, and New Mission actions
+    - added Crash Recovery and empty-state animation CSS in `ui-v2/src/index.css`
+    - preserved the shared empty-state treatments introduced by backlog-278 and backlog-281
+    - recorded evidence in `codex/results/backlog-286-react-v2-error-boundaries-empty-states-20260510.md`
+  - files:
+    - `ui-v2/src/components/ErrorBoundary.tsx`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/index.css`
+    - `codex/results/backlog-286-react-v2-error-boundaries-empty-states-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data fetching behavior, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-286 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-287 `React v2 Playwright E2E UI Testing`, from `codex/tasks/backlog-287-react-v2-playwright-e2e-testing.json`
+
+- 2026-05-10: completed backlog-281 `React v2 Global Aesthetics & Readability`:
+  - rationale:
+    - the active task required a global Neon Enterprise readability and motion pass after the Living System animation foundation
+    - the implementation needed to affect existing React v2 pages through shell CSS and shared primitives without changing data contracts or API calls
+  - implementation:
+    - updated global theme variables in `ui-v2/src/index.css` for stronger contrast, readable muted text, and cyan/amber/red/violet/green accent balance
+    - added AppShell styling classes for the shell, topbar, sidebar, workspace, animated background, scanline, and readable content area
+    - replaced the static AppShell SVG grid with CSS-driven moving background layers: slow cyber-grid, drifting mesh, and subtle scanline
+    - added global focus-visible glow, heading/readability treatment, readable code/pre/table defaults, and selection color
+    - enhanced `glass-panel` and added `neon-panel` for consistent modern panel treatment
+    - updated `ui-v2/src/App.tsx` to use the new animated shell/background classes and neon hover treatment
+    - updated shared `ui-v2/src/components/screens/screenPrimitives.tsx` so metric cards, panels, and empty states inherit the Neon Enterprise treatment across existing screens
+    - recorded evidence in `codex/results/backlog-281-react-v2-neon-enterprise-theme-20260510.md`
+  - files:
+    - `ui-v2/src/index.css`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/components/screens/screenPrimitives.tsx`
+    - `codex/results/backlog-281-react-v2-neon-enterprise-theme-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data structures, API calls, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-281 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-286 `React v2 Error Boundaries & Empty States`, from `codex/tasks/backlog-286-react-v2-error-handling-and-empty-states.json`
+
+- 2026-05-10: completed backlog-278 `React v2 Living System Foundation`:
+  - rationale:
+    - the active task required the React v2 UI to feel alive through meaningful animation states without changing backend or runtime behavior
+    - the audit confirmed backlog-278 was only partially present from backlog-277 and still needed the full shimmer, spring, badge, empty-state, and critical-pulse treatment
+  - implementation:
+    - added central Living System animations in `ui-v2/src/index.css` for task shimmer, badge pop, empty-state breathing, critical vignette/pulse, sonar rings, traveling thread pulses, severity spring bars, and finding-hit node motion
+    - updated `ui-v2/src/components/screens/MissionControl.tsx` so running/dispatching tasks shimmer, active scan-map nodes pulse, scan-map threads travel, finding nodes show severity-colored pop badges, run metrics pop on increases, and empty-state icons breathe
+    - updated `ui-v2/src/App.tsx` so critical finding count increases trigger a bounded screen vignette and pulse the Findings nav badge
+    - updated `ui-v2/src/components/screens/FindingsTheater.tsx` so finding rows and CVSS bars use spring-style severity motion, counters pop on increases, and empty-state icons breathe
+    - updated `ui-v2/src/components/screens/screenPrimitives.tsx` so shared empty states include the breathing icon treatment
+    - recorded evidence in `codex/results/backlog-278-react-v2-living-system-foundation-20260510.md`
+  - files:
+    - `ui-v2/src/index.css`
+    - `ui-v2/src/App.tsx`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/src/components/screens/FindingsTheater.tsx`
+    - `ui-v2/src/components/screens/screenPrimitives.tsx`
+    - `codex/results/backlog-278-react-v2-living-system-foundation-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed before promotion
+  - boundaries:
+    - no backend API, workers, data fetching logic, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill-switch behavior, live target action, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-278 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-281 `React v2 Global Aesthetics & Readability`, from `codex/tasks/backlog-281-react-v2-neon-enterprise-theme.json`
+
+- 2026-05-10: audited and repaired the remaining open backlog execution order:
+  - rationale:
+    - the operator requested a clean, ordered task list before further implementation
+    - open items needed to be checked against the current codebase so already-satisfied packages would not be rebuilt
+    - old UI evidence was not used to close React v2 tasks
+  - implementation:
+    - audited backlog-278 through backlog-293 against current React v2 code, backend/worker services, tests, docs, `CURRENT_STATE.md`, `DONE_LOG.md`, and `codex/results/`
+    - audit-marked backlog-280 `React v2 Swordfish Cinema Mode (3D)` as complete because backlog-275/current `ui-v2/src/components/CinemaMode.tsx` already provides the React-Three-Fiber 3D traversal, real run data, active camera movement, and CLI stdout projection
+    - audit-marked backlog-290 `White-Box SAST Runner: Semgrep Integration` as complete because the Semgrep runner, passive code profile, orchestration dispatch, normalized findings, artifact redaction, validation profile support, and inline dispatch tests already exist
+    - confirmed backlog-315 through backlog-320 are already complete in repo truth with services, tests, docs, result files, and completion entries
+    - reordered the remaining true-open queue into dependency/safety order: 278, 281, 286, 287, 279, 283, 285, 284, 282, 288, 289, 291, 292, 293
+    - annotated safety-sensitive backlog-288, 289, 291, 292, and 293 so implementation starts with defensive reframing rather than active runtime behavior
+    - updated task package `source_context.queue_index` values to match the new queue order
+    - recorded the audit in `codex/results/backlog-open-queue-code-audit-20260510.md`
+  - files:
+    - `TASK_QUEUE.md`
+    - `codex/tasks/backlog-279-react-v2-ai-narrator-panel.json`
+    - `codex/tasks/backlog-280-react-v2-swordfish-cinema-mode.json`
+    - `codex/tasks/backlog-281-react-v2-neon-enterprise-theme.json`
+    - `codex/tasks/backlog-282-react-v2-interactive-data-visualizations.json`
+    - `codex/tasks/backlog-284-react-v2-skeleton-loaders-and-transitions.json`
+    - `codex/tasks/backlog-285-react-v2-toast-notification-system.json`
+    - `codex/tasks/backlog-286-react-v2-error-handling-and-empty-states.json`
+    - `codex/tasks/backlog-287-react-v2-playwright-e2e-testing.json`
+    - `codex/tasks/backlog-288-phishing-social-engineering-runner.json`
+    - `codex/tasks/backlog-289-waf-detection-evasion-runner.json`
+    - `codex/tasks/backlog-290-sast-white-box-semgrep-integration.json`
+    - `codex/results/backlog-open-queue-code-audit-20260510.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed after queue reorder and queue-index updates
+  - boundaries:
+    - no product code, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill switch behavior, live target action, or UI behavior changed
+  - next:
+    - `NEXT_TASK.md` remains exactly one active task, backlog-278 `React v2 Living System Foundation`
+    - the next true open items after backlog-278 are backlog-281, 286, 287, 279, 283, 285, 284, 282, 288, 289, 291, 292, and 293
+
+- 2026-05-09: completed backlog-277 `React v2 Living Intake Wizard`:
+  - rationale:
+    - backlog-277 had only been promoted after backlog-276 and was then skipped by a later shared-worktree promotion to backlog-294, so it still needed real implementation before continuing the React v2 Living System queue
+    - this is React v2 work, not old UI work; no old-UI task was marked complete in this slice
+  - implementation:
+    - rebuilt `ui-v2/src/components/Intake.tsx` into a split-path launch surface with AI Guided Intake and Visual Tile Wizard panels visible side by side on desktop
+    - replaced tab switching with concurrent mission paths while preserving the existing mission summary, authorization confirmation, scope creation, inventory seeding, and run creation flow
+    - added CSS 3D flip behavior to visual assessment tiles, with a selected back face and phase tags
+    - expanded the mission launch ceremony into a full-screen deployment overlay with scope/inventory/run progress cues
+    - passed launch state into Mission Control navigation and added a transient run-materialization banner plus scan-map node/thread entrance animation in `ui-v2/src/components/screens/MissionControl.tsx`
+    - added reusable `mission-materialize`, `thread-draw`, and `node-pop` animations in `ui-v2/src/index.css`
+  - files:
+    - `ui-v2/src/components/Intake.tsx`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/src/index.css`
+    - `codex/results/backlog-277-react-v2-living-intake-wizard-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed
+    - `git diff --check` passed
+  - boundaries:
+    - no backend runner logic, `api/app/routers/runs.py`, workers, approval gate, scope/ROE gate, credential handling, runtime binding, kill-switch behavior, live target action, or old UI path was changed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-277 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-278 `React v2 Living System Foundation`, from `codex/tasks/backlog-278-react-v2-living-system-foundation.json`
+
+- 2026-05-09: repaired build-lane governance drift around stale backlog-304 handoff text:
+  - rationale:
+    - repeated operator handoff prompts still identified backlog-304 as active, while repo state shows backlog-304 through backlog-320 complete and the queue still had earlier open packages before backlog-294
+    - `TASK_QUEUE.md` also still displayed many already-completed tasks as open, making the active-task state contradictory
+  - implementation:
+    - reconciled the full `TASK_QUEUE.md` against explicit completion evidence in `CURRENT_STATE.md` and this log
+    - marked every queued item with durable completion evidence as DONE, bringing the queue to 255 completed entries and 17 open entries
+    - left backlog-277 through backlog-293 open because no durable completion evidence was found for those packages
+    - updated `NEXT_TASK.md` from the stale idle holding task to the first open queue item, backlog-277 `React v2 Living Intake Wizard`
+    - updated `CURRENT_STATE.md` with the governance-truth repair note
+  - files:
+    - `NEXT_TASK.md`
+    - `TASK_QUEUE.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - boundaries:
+    - no product code, runner behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, kill switch behavior, live target action, or UI behavior changed
+
+- 2026-05-09: completed backlog-320 `Operator-Safe AI Mission Compiler`:
+  - rationale:
+    - the active task required natural-language operator intent to compile into a bounded mission plan with explicit scope, ROE, allowed capabilities, forbidden actions, and required approvals
+    - prerequisite check passed because backlog-313 `Intent-to-Mission Planner` and backlog-312 `ROE Policy Compiler and Safety Explainer` are present in this log
+    - the implementation keeps mission compilation before runtime and blocks exploit/payload generation and automatic approval
+  - implementation:
+    - added `api/app/services/operator_mission_compiler.py`
+    - compiler returns mission plan JSON with scope, ROE, allowed capabilities, forbidden capabilities, required approvals, required operator inputs, and safe validation language
+    - unsafe runtime wording such as exploit, payload, shell, bypass, or brute force is converted into safe evidence-review and approval-gated validation language
+    - destructive or exfiltration intent is rejected
+    - every plan records no task creation, runner dispatch, automatic approval, exploit or payload generation, scope mutation, credential use, secret materialization, live-target access, or runtime self-modification
+    - documented the contract in `docs/operator_safe_mission_compiler.md`
+    - added tests in `api/tests/test_operator_mission_compiler.py`
+  - files:
+    - `api/app/services/operator_mission_compiler.py`
+    - `api/tests/test_operator_mission_compiler.py`
+    - `docs/operator_safe_mission_compiler.md`
+    - `codex/results/backlog-320-operator-safe-ai-mission-compiler-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/operator_mission_compiler.py api/tests/test_operator_mission_compiler.py` passed
+    - `.venv/bin/pytest api/tests/test_operator_mission_compiler.py api/tests/test_intake_intelligence.py api/tests/test_roe_policy.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after governance updates
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `git diff --check` passed before and after governance updates
+  - proof:
+    - evidence file `codex/results/backlog-320-operator-safe-ai-mission-compiler-20260509.md`
+    - tests prove bounded mission plan JSON, forbidden capabilities, approval requirements, unsafe wording conversion, destructive/exfiltration rejection, and no execution/payload/task/approval behavior
+  - risks / exceptions:
+    - no worker runner implementation, runner execution behavior, approval gate, scope/ROE gate, credential storage behavior, runtime binding, kill-switch behavior, live target action, or UI v2 Intake file was changed
+    - no runtime execution, exploit generation, payload generation, automatic approval, or scope expansion was added
+  - next:
+    - `TASK_QUEUE.md` marks backlog-320 complete
+    - there is no queued backlog item after backlog-320, so `NEXT_TASK.md` contains exactly one active idle holding task until a future approved repo-backed task is added
+
+- 2026-05-09: completed backlog-319 `Evidence Gap Report`:
+  - rationale:
+    - the active task required defensive evidence completeness reporting that honestly separates proven, plausible, untested, and contradicted claims
+    - prerequisite check passed because backlog-316 `Hypothesis Confidence Engine` is present in this log
+    - the implementation keeps unsupported claims out of customer-facing proof language while preserving them for operator review
+  - implementation:
+    - added `api/app/services/evidence_gap_report.py`
+    - technical markdown reports now include an Evidence Gap Report section
+    - report separates confirmed, suspected, untested, and contradicted claims
+    - every claim maps to evidence refs or is explicitly marked unsupported
+    - unsupported suspected and untested claims are highlighted as excluded from customer-facing report prose
+    - documented the contract in `docs/evidence_gap_report.md`
+    - added report tests in `api/tests/test_reports.py`
+  - files:
+    - `api/app/services/evidence_gap_report.py`
+    - `api/app/services/reports.py`
+    - `api/tests/test_reports.py`
+    - `docs/evidence_gap_report.md`
+    - `codex/results/backlog-319-evidence-gap-report-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/evidence_gap_report.py api/app/services/reports.py api/tests/test_reports.py` passed
+    - `.venv/bin/pytest api/tests/test_reports.py api/tests/test_assessment_graph.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after governance updates
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `git diff --check` passed before and after governance updates
+  - proof:
+    - evidence file `codex/results/backlog-319-evidence-gap-report-20260509.md`
+    - tests prove confirmed, suspected, untested, and contradicted state separation, evidence-ref mapping, unsupported-claim exclusion, and technical markdown rendering
+  - risks / exceptions:
+    - no worker runner implementation, runner execution behavior, approval gate, scope/ROE gate, credential storage behavior, runtime binding, kill-switch behavior, live target action, or UI v2 Intake file was changed
+    - no scans were run and no findings were changed by the report service
+  - next:
+    - `TASK_QUEUE.md` marks backlog-319 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-320 `Operator-Safe AI Mission Compiler`, from `codex/tasks/backlog-320-operator-safe-ai-mission-compiler.json`
+
+- 2026-05-09: completed backlog-318 `SaaS / Identity Trust Chain Model`:
+  - rationale:
+    - the active task required read-only SaaS and identity trust-chain modeling from imported configuration/evidence
+    - prerequisite check passed because backlog-315 `Evidence Graph Normalizer V1` is present in this log
+    - the implementation models modern SaaS/OAuth/connector/service-account/dataset paths without token use, SaaS API mutation, live exfiltration simulation, or runtime action
+  - implementation:
+    - added `api/app/services/saas_identity_trust.py`
+    - service consumes the normalized evidence graph and emits SaaS app, OAuth client, OAuth scope, service account, connector, and dataset nodes where imported evidence exists
+    - flags excessive OAuth scopes and cross-system connector/service-account/dataset trust
+    - emits evidence-backed risk paths only when the imported evidence supports the chain
+    - every node, edge, flag, and path carries evidence refs and provenance
+    - documented the contract in `docs/saas_identity_trust_chain.md`
+    - added tests in `api/tests/test_saas_identity_trust.py`
+  - files:
+    - `api/app/services/saas_identity_trust.py`
+    - `api/tests/test_saas_identity_trust.py`
+    - `docs/saas_identity_trust_chain.md`
+    - `codex/results/backlog-318-saas-identity-trust-chain-model-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/saas_identity_trust.py api/tests/test_saas_identity_trust.py` passed
+    - `.venv/bin/pytest api/tests/test_saas_identity_trust.py api/tests/test_assessment_graph.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after governance updates
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `git diff --check` passed before and after governance updates
+  - proof:
+    - evidence file `codex/results/backlog-318-saas-identity-trust-chain-model-20260509.md`
+    - tests prove SaaS app, OAuth client, OAuth scope, service account, connector, and dataset node coverage, excessive-scope and cross-system-trust flags, evidence-backed risk paths, and read-only behavior with no token use, SaaS API mutation, exfiltration simulation, tasks, approvals, credential use, or secret materialization
+  - risks / exceptions:
+    - no worker runner implementation, runner execution behavior, approval gate, scope/ROE gate, credential storage behavior, runtime binding, kill-switch behavior, live target action, or UI v2 Intake file was changed
+    - no live target action was performed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-318 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-319 `Evidence Gap Report`, from `codex/tasks/backlog-319-evidence-gap-report.json`
+
+- 2026-05-09: completed backlog-317 `Next Best Evidence Action Planner`:
+  - rationale:
+    - the active task required a planning-only selector for missing evidence, not a default next-tool selector
+    - prerequisite check passed because backlog-316 `Hypothesis Confidence Engine` and backlog-310 `Signal-to-Runner Contract Matrix` are present in this log
+    - the implementation uses runner capability metadata only as evidence-shape guidance and keeps all output operator-review only
+  - implementation:
+    - added `api/app/services/next_evidence_action.py`
+    - planner consumes hypothesis confidence output and runner contract metadata
+    - recommends the safest missing evidence item to review for each hypothesis
+    - explains lower-value alternatives using runner risk tier, cost, approval requirements, expected evidence, trigger signals, and report mappings
+    - every safest validation step is `operator_evidence_review` and records no task creation, runner dispatch, proposal approval, approval mutation, scope mutation, credential use, secret materialization, live-target access, or runtime self-modification
+    - documented the contract in `docs/next_best_evidence_action.md`
+    - added tests in `api/tests/test_next_evidence_action.py`
+  - files:
+    - `api/app/services/next_evidence_action.py`
+    - `api/tests/test_next_evidence_action.py`
+    - `docs/next_best_evidence_action.md`
+    - `codex/results/backlog-317-next-best-evidence-action-planner-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/next_evidence_action.py api/tests/test_next_evidence_action.py` passed
+    - `.venv/bin/pytest api/tests/test_next_evidence_action.py api/tests/test_runner_contracts.py api/tests/test_ai_action_selector.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after governance updates
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `git diff --check` passed before and after governance updates
+  - proof:
+    - evidence file `codex/results/backlog-317-next-best-evidence-action-planner-20260509.md`
+    - tests prove safest next validation evidence, lower-value alternatives, runner capability metadata usage, and read-only behavior with no tasks, approvals, runner dispatch, scope mutation, credential use, or secret materialization
+  - risks / exceptions:
+    - no worker runner implementation, runner execution behavior, approval gate, scope/ROE gate, credential storage behavior, runtime binding, kill-switch behavior, live target action, or UI v2 Intake file was changed
+    - no live target action was performed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-317 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-318 `SaaS / Identity Trust Chain Model`, from `codex/tasks/backlog-318-saas-identity-trust-chain-model.json`
+
+- 2026-05-09: completed backlog-316 `Hypothesis Confidence Engine`:
+  - rationale:
+    - the active task required bounded defensive hypothesis scoring with confidence, missing evidence, supporting evidence, contradicting evidence, and safe next validation steps
+    - prerequisite check passed because backlog-315 `Evidence Graph Normalizer V1` is present in this log
+    - the implementation stays review-only and separates evidence triage from runtime execution, approval, scope, and credential actions
+  - implementation:
+    - added `api/app/services/hypothesis_confidence.py`
+    - added confidence scoring for IDOR, OAuth scope exposure, SSRF-to-cloud, weak authentication, and SaaS connector exposure hypotheses
+    - each hypothesis includes confidence score, confidence label, supporting evidence, contradicting evidence, missing evidence, provenance, and a next safe validation step
+    - every next safe validation step is `operator_review` and records no task creation, runner dispatch, proposal approval, scope mutation, credential use, secret materialization, live-target access, or runtime self-modification
+    - documented the review-only contract in `docs/hypothesis_confidence.md`
+    - added tests in `api/tests/test_hypothesis_confidence.py`
+  - files:
+    - `api/app/services/hypothesis_confidence.py`
+    - `api/tests/test_hypothesis_confidence.py`
+    - `docs/hypothesis_confidence.md`
+    - `codex/results/backlog-316-hypothesis-confidence-engine-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/hypothesis_confidence.py api/tests/test_hypothesis_confidence.py` passed
+    - `.venv/bin/pytest api/tests/test_hypothesis_confidence.py api/tests/test_assessment_graph.py -q` passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after governance updates
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `git diff --check` passed before and after governance updates
+  - proof:
+    - evidence file `codex/results/backlog-316-hypothesis-confidence-engine-20260509.md`
+    - tests cover IDOR, OAuth scope exposure, SSRF-to-cloud, weak auth, and SaaS connector exposure fixtures
+    - tests prove recommendations remain operator-review only and do not create tasks, approve proposals, mutate approvals, use credentials, or materialize secrets
+  - risks / exceptions:
+    - no worker runner implementation, runner execution behavior, approval gate, scope/ROE gate, credential storage behavior, runtime binding, kill-switch behavior, live target action, or UI v2 Intake file was changed
+    - no live target action was performed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-316 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-317 `Next Best Evidence Action Planner`, from `codex/tasks/backlog-317-next-best-evidence-action-planner.json`
+
+- 2026-05-09: completed backlog-315 `Evidence Graph Normalizer V1`:
+  - rationale:
+    - the active task required one defensive normalized graph layer across run, task, finding, context, vault, and attack-path evidence
+    - prerequisite check passed because backlog-301 `AI Exploit Chaining & Pivot Engine` and backlog-305 `Evidence Knowledge Graph and Hypothesis Engine` are present in this log
+    - the implementation keeps evidence review separate from runtime action, approvals, scope mutation, and credential use
+  - implementation:
+    - added `build_normalized_evidence_graph()` to `api/app/services/assessment_graph.py`
+    - added tenant-scoped `GET /api/v1/runs/{run_id}/evidence-graph`
+    - normalized existing graph and inventory evidence into common nodes for runs, scope, assets, APIs, identities, findings, tasks, credential refs, SaaS connectors, permissions, evidence refs, approvals, proposals, runner capabilities, and attack paths
+    - every normalized node includes confidence and evidence refs
+    - every normalized edge includes provenance, confidence, and evidence refs
+    - run-scoped vault rows are exposed only as redacted `credential_ref` nodes and do not return plaintext or encrypted secret values
+    - documented the contract in `docs/evidence_graph_normalizer.md`
+    - added tests in `api/tests/test_assessment_graph.py`
+  - files:
+    - `api/app/services/assessment_graph.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_assessment_graph.py`
+    - `docs/evidence_graph_normalizer.md`
+    - `codex/results/backlog-315-evidence-graph-normalizer-v1-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/assessment_graph.py api/app/routers/runs.py api/tests/test_assessment_graph.py` passed
+    - `.venv/bin/pytest api/tests/test_assessment_graph.py -q` passed
+    - `.venv/bin/pytest api/tests/test_assessment_graph.py api/tests/test_attack_paths.py api/tests/test_run_credential_vault.py -q` passed
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after governance updates
+    - `git diff --check` passed before and after governance updates
+  - proof:
+    - evidence file `codex/results/backlog-315-evidence-graph-normalizer-v1-20260509.md`
+    - tests prove normalized graph domain coverage, API output, edge provenance, confidence/evidence fields, credential redaction, and read-only behavior with no task/proposal/approval mutation
+  - risks / exceptions:
+    - no worker runner implementation, runner execution behavior, approval gate, scope/ROE gate, credential storage behavior, runtime binding, kill-switch behavior, live target action, or UI v2 Intake file was changed
+    - no live target action was performed
+  - next:
+    - `TASK_QUEUE.md` marks backlog-315 complete
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-316 `Hypothesis Confidence Engine`, from `codex/tasks/backlog-316-hypothesis-confidence-engine.json`
+
+- 2026-05-09: added evidence-driven AI backlog tasks backlog-315 through backlog-320:
+  - rationale:
+    - the operator provided the next approved evidence-driven AI assessment slices after the queue reached the idle holding task
+    - the additions preserve the repo-backed build-lane model by adding task packages under `codex/tasks/`, queue entries in `TASK_QUEUE.md`, and a single promoted active task in `NEXT_TASK.md`
+    - this is governance and planning only; implementation of backlog-315 starts only when executed as the active task
+  - added tasks:
+    - backlog-315 `Evidence Graph Normalizer V1`
+    - backlog-316 `Hypothesis Confidence Engine`
+    - backlog-317 `Next Best Evidence Action Planner`
+    - backlog-318 `SaaS / Identity Trust Chain Model`
+    - backlog-319 `Evidence Gap Report`
+    - backlog-320 `Operator-Safe AI Mission Compiler`
+  - files:
+    - `codex/tasks/backlog-315-evidence-graph-normalizer-v1.json`
+    - `codex/tasks/backlog-316-hypothesis-confidence-engine.json`
+    - `codex/tasks/backlog-317-next-best-evidence-action-planner.json`
+    - `codex/tasks/backlog-318-saas-identity-trust-chain-model.json`
+    - `codex/tasks/backlog-319-evidence-gap-report.json`
+    - `codex/tasks/backlog-320-operator-safe-ai-mission-compiler.json`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed after adding the task packages and queue entries
+    - `git diff --check` passed after the governance update
+  - safety:
+    - no product code, runner behavior, worker behavior, approval gate, scope/ROE boundary, credential handling, runtime binding, live target action, report behavior, kill-switch behavior, or UI behavior was changed
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-315 `Evidence Graph Normalizer V1`, from `codex/tasks/backlog-315-evidence-graph-normalizer-v1.json`
+
+- 2026-05-09: completed backlog-314 `Evidence-First Narrative and Attack Story Builder`:
+  - rationale:
+    - the active task required report narratives and attack stories to stay evidence-bound, with every claim traceable to a finding ID, runner output ID, approval event ID, graph hypothesis ID, or graph edge ID
+    - prerequisite check passed because backlog-305 `Evidence Knowledge Graph and Hypothesis Engine` and backlog-307 `Coverage Truth and Stop-Condition Engine` are present in this log
+    - missing support now becomes an explicit gap instead of persuasive unsupported prose
+  - implementation:
+    - added `evidence_first_attack_story_context()` to `api/app/services/reports.py`
+    - technical and executive report rendering now includes an Evidence-First Attack Story section
+    - each narrative claim has source IDs and a source-ledger row
+    - findings without evidence refs, tasks without runner output, runner outputs without artifacts, and incomplete finding-chain edges produce explicit evidence gaps
+    - optional assessment graph edges and graph hypotheses can be passed into the report context and are cited only as `graph_edge_id` and `graph_hypothesis_id`
+    - documented the source and gap contract in `docs/evidence_first_attack_story.md`
+    - added report regressions in `api/tests/test_reports.py`
+  - files:
+    - `api/app/services/reports.py`
+    - `api/tests/test_reports.py`
+    - `docs/evidence_first_attack_story.md`
+    - `codex/results/backlog-314-evidence-first-narrative-attack-story-builder-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/reports.py api/tests/test_reports.py` passed
+    - `.venv/bin/pytest api/tests/test_reports.py -q` passed
+    - `.venv/bin/pytest api/tests/test_reports.py api/tests/test_attack_paths.py api/tests/test_assessment_graph.py -q` passed
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed before and after governance updates
+    - `git diff --check` passed before and after governance updates
+  - proof:
+    - evidence file `codex/results/backlog-314-evidence-first-narrative-attack-story-builder-20260509.md`
+    - tests prove source-ledger coverage for every claim, allowed source types, optional graph/hypothesis sources, and explicit gaps for missing evidence
+  - risks / exceptions:
+    - no worker runner implementation, runner execution behavior, approval gate, scope/ROE gate, credential storage, runtime binding, kill-switch behavior, or UI v2 Intake file was changed
+    - no live target action was performed
+    - there is no queued backlog item after backlog-314, so `NEXT_TASK.md` now contains a single idle holding task until a future approved repo-backed task is added
+  - next:
+    - `TASK_QUEUE.md` marks backlog-314 complete
+    - `NEXT_TASK.md` contains exactly one active idle holding task because the current queue is exhausted
+
+- 2026-05-09: completed backlog-313 `Intent-to-Mission Planner`:
+  - rationale:
+    - the active task requires natural-language operator intent to become a complete mission preview without redundant follow-up questions when the request is already clear
+    - prerequisite check passed because backlog-312 `ROE Policy Compiler and Safety Explainer` is present in this log
+    - the safe implementation produces an operator-reviewed preview and required-action list while leaving authorization, scope, credential consent, dispatch, and manual wizard gates intact
+  - implementation:
+    - added `intent_mission_plan` to `POST /api/v1/intake/interpretation`
+    - backend planner extracts target, target map, assessment type, depth, run mode, assessment chain mode, authorization summary, evidence plan, launch summary, required actions, out-of-scope items, and follow-up questions
+    - English and Dutch full-pentest intent with exact targets now produces a complete Full Pentest mission preview without asking another depth question
+    - missing written authorization remains a launch-blocking required action and is not inferred from intent text
+    - broad scope language produces unsafe-scope output and asks for exact authorized targets
+    - updated `RunIntakeInterpretationRead` and React v2 API types
+    - React v2 Guided Intake consumes the planner payload for mission extraction and launch summary text
+    - Manual Wizard remains available and unchanged
+    - added `api/tests/test_intake_intelligence.py`
+    - documented behavior in `docs/intent_to_mission_planner.md`
+  - files:
+    - `api/app/services/intake_intelligence.py`
+    - `api/app/schemas/runs.py`
+    - `api/tests/test_intake_intelligence.py`
+    - `ui-v2/src/api/types.ts`
+    - `ui-v2/src/components/Intake.tsx`
+    - `docs/intent_to_mission_planner.md`
+    - `codex/results/backlog-313-intent-to-mission-planner-20260509.md`
+    - `codex/results/backlog-313-playwright-20260509/`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/intake_intelligence.py api/app/schemas/runs.py api/tests/test_intake_intelligence.py` passed
+    - `.venv/bin/pytest api/tests/test_intake_intelligence.py api/tests/test_runs.py -q` passed
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+    - `cd ui-v2 && npm run lint` passed with 0 errors and 8 pre-existing warnings
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `git diff --check` passed before governance updates
+    - Playwright acceptance passed against `http://127.0.0.1:5173/app-v2/intake` at 1440px, 1024px, 768px, and 375px
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+  - proof:
+    - evidence file `codex/results/backlog-313-intent-to-mission-planner-20260509.md`
+    - screenshots under `codex/results/backlog-313-playwright-20260509/`
+    - tests prove English and Dutch Full Pentest previews, authorization blocking, exact-target follow-up behavior, unsafe broad-scope handling, and no redundant full-pentest confirmation
+  - risks / exceptions:
+    - no worker runner implementation, runner registry file, approval gate, scope/ROE gate, credential storage, runtime binding, live target action, or manual wizard replacement was performed
+    - the planner is deterministic and safety-bounded; provider-backed language understanding can still be layered through the existing intake interpretation provider boundary
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-314 `Evidence-First Narrative and Attack Story Builder`, from `codex/tasks/backlog-314-evidence-first-narrative-attack-story-builder.json`.
+
+- 2026-05-09: completed backlog-312 `ROE Policy Compiler and Safety Explainer`:
+  - rationale:
+    - the active task requires machine-checkable policy decisions and operator explanations from the existing scope, ROE, approval, credential, rate-limit, runner-contract, and kill-switch sources of truth
+    - prerequisite check passed because backlog-307 `Coverage Truth and Stop-Condition Engine` is present in this log
+    - the safe implementation tightens and explains planning decisions only; it never grants approvals, broadens scope, dispatches runners, or changes credential storage
+  - implementation:
+    - added `api/app/services/roe_policy.py`
+    - added tenant-scoped `GET /api/v1/runs/{run_id}/roe-policy`
+    - policy decisions return `allow`, `deny`, `approval_required`, `wait_for_prerequisite`, or `kill_switch_blocked`
+    - every decision includes source policy IDs, target normalization, affected runner/action, rate limits, credential policy, authorization context, approval state, execution contract, provenance, and a plain-language explanation
+    - denylist matches and out-of-scope targets return `deny`
+    - missing scope or target returns `wait_for_prerequisite`
+    - execution kill switch returns `kill_switch_blocked`
+    - higher-tier controlled proof returns `approval_required` unless the current ROE confirms the requested tier and no other approval gate is pending
+    - AI next-best-action selector actions now attach the same `roe_policy_decision` payload for planner reuse
+    - selector policy integration only tightens decisions: kill-switch/missing prerequisites force WAIT, out-of-scope policy forces SKIP, and policy approval can require APPROVAL without overriding an existing prerequisite WAIT
+    - documented the compiler and endpoint in `docs/roe_policy.md`
+    - added `api/tests/test_roe_policy.py`
+  - files:
+    - `api/app/services/roe_policy.py`
+    - `api/app/services/ai_action_selector.py`
+    - `api/app/services/ai_agent.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_roe_policy.py`
+    - `docs/roe_policy.md`
+    - `codex/results/backlog-312-roe-policy-compiler-safety-explainer-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `.venv/bin/python -m py_compile api/app/services/roe_policy.py api/app/services/ai_action_selector.py api/app/services/ai_agent.py api/app/routers/runs.py api/tests/test_roe_policy.py` passed
+    - `.venv/bin/pytest api/tests/test_roe_policy.py -q` passed: 7 passed
+    - `.venv/bin/pytest api/tests/test_ai_action_selector.py api/tests/test_roe_policy.py -q` passed: 12 passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `.venv/bin/pytest api/tests/test_roe_policy.py api/tests/test_runs.py api/tests/test_assessment_chain.py -q` passed
+    - `git diff --check` passed before governance updates
+    - `.venv/bin/pytest api/tests/ -q` passed with existing Alembic deprecation warnings
+    - `cd ui-v2 && npm run build` passed with the existing Vite chunk-size warning
+  - proof:
+    - evidence file `codex/results/backlog-312-roe-policy-compiler-safety-explainer-20260509.md`
+    - focused tests prove allow, deny, approval-required, ROE-confirmed tier allow, kill-switch blocking, tenant-scoped endpoint access, and AI selector payload reuse
+    - full backend validation caught and fixed a settings wiring regression in the AI workbench helper
+  - risks / exceptions:
+    - no worker runner implementation, runner registry file, approval gate, scope/ROE gate, credential storage, credential materialization behavior, runtime binding, live target action, or UI v2 file was changed
+    - the compiler is a decision/explanation layer; dispatch enforcement remains with the existing runtime gates
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-313 `Intent-to-Mission Planner`, from `codex/tasks/backlog-313-intent-to-mission-planner.json`.
+
+- 2026-05-09: completed backlog-311 `Engagement Memory and Casebook`:
+  - rationale:
+    - the active task requires non-secret engagement memory that carries across runs without becoming proof, scope expansion, credential storage, or runtime mutation
+    - prerequisite check passed because backlog-305 `Evidence Knowledge Graph and Hypothesis Engine` is present in this log
+    - the safe implementation stores tenant-bound, evidence-linked casebook entries and exposes them to planning as advisory context only
+  - implementation:
+    - added `EngagementCasebookEntry` in `api/app/models/control.py`
+    - added `api/app/services/engagement_casebook.py`
+    - casebook entries support architecture notes, blocked paths, accepted gaps, resolved findings, operator constraints, and target context
+    - every entry requires source refs and stores tenant ID, engagement ID, source refs, status, provenance, and non-secret data
+    - secret-like text, keys, cookies, tokens, bearer strings, authorization material, private keys, and session material are rejected before storage
+    - `build_casebook_from_engagement()` can derive evidence-linked architecture notes, target-context entries, accepted gaps, and resolved-finding entries from existing engagement records
+    - `ai_planner.build_context_document()` now includes casebook context in `provenance_json.casebook_context` with `planning_input_only=true` and `not_evidence=true`
+    - casebook source refs are not copied into target context evidence refs, preserving evidence-first proof boundaries
+    - added `api/tests/test_engagement_casebook.py`
+    - documented operator and planner boundaries in `docs/engagement_casebook.md`
+  - files:
+    - `api/app/models/control.py`
+    - `api/app/models/__init__.py`
+    - `api/app/services/engagement_casebook.py`
+    - `api/app/services/ai_planner.py`
+    - `api/tests/test_engagement_casebook.py`
+    - `docs/engagement_casebook.md`
+    - `codex/results/backlog-311-engagement-memory-casebook-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 -m py_compile api/app/models/control.py api/app/models/__init__.py api/app/services/engagement_casebook.py api/app/services/ai_planner.py api/tests/test_engagement_casebook.py` passed
+    - `.venv/bin/pytest api/tests/test_engagement_casebook.py api/tests/test_ai_planner.py api/tests/test_multitenancy.py` passed: 11 passed
+    - `.venv/bin/pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py` passed: 10 passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `git diff --check` passed before governance updates
+    - `.venv/bin/pytest api/tests/` passed: 571 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+  - proof:
+    - evidence file `codex/results/backlog-311-engagement-memory-casebook-20260509.md`
+    - focused tests prove evidence-linked entries, tenant isolation, secret rejection, automatic casebook summaries, and planner advisory use
+    - planner test proves casebook source refs remain out of target context evidence refs
+  - risks / exceptions:
+    - casebook memory is planning input only and is not treated as finding evidence or authorization
+    - no secret storage path, worker runner implementation, approval gate, scope/ROE gate, credential handling, runtime binding, kill-switch behavior, or UI v2 file was changed
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-312 `ROE Policy Compiler and Safety Explainer`, from `codex/tasks/backlog-312-roe-policy-compiler-safety-explainer.json`.
+
+- 2026-05-09: completed backlog-310 `Signal-to-Runner Contract Matrix`:
+  - rationale:
+    - the active task requires adaptive runner selection to depend on machine-readable contracts for trigger signals, prerequisites, blockers, risk tier, cost, expected evidence, approvals, report mappings, and follow-up candidates
+    - prerequisite check passed because backlog-306 `Next-Best-Action Runner Selector` is present in this log
+    - the safe implementation strengthens planning-time selection only and does not rewrite runner implementations, add detection capability, dispatch work, mutate scope, grant approvals, or bypass kill-switch behavior
+  - implementation:
+    - added `api/app/services/runner_contracts.py`
+    - runner contracts are derived from the existing governed capability registry rather than a second runner source of truth
+    - each contract declares strong/weak trigger signals, prerequisites, blocker IDs, risk tier, cost, expected evidence, approval requirements/reason IDs, report mappings, follow-up candidates, and no-bypass provenance
+    - `rank_next_best_actions()` now loads a valid runner contract before ranking a runner for adaptive selection
+    - missing or invalid contract data now returns a WAIT action with `missing_runner_contract` and cannot become RUN or APPROVAL
+    - selector actions now expose contract validation, report mapping, blocker reason IDs, and approval reason IDs
+    - added `api/tests/test_runner_contracts.py`
+    - expanded `api/tests/test_ai_action_selector.py` to prove contract-derived RUN, SKIP, WAIT, APPROVAL, and missing-contract blocking behavior
+    - documented the contract boundary in `docs/runner_contracts.md`
+  - files:
+    - `api/app/services/runner_contracts.py`
+    - `api/app/services/ai_action_selector.py`
+    - `api/tests/test_runner_contracts.py`
+    - `api/tests/test_ai_action_selector.py`
+    - `docs/runner_contracts.md`
+    - `codex/results/backlog-310-signal-to-runner-contract-matrix-20260509.json`
+    - `codex/results/backlog-310-signal-to-runner-contract-matrix-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 -m py_compile api/app/services/runner_contracts.py api/app/services/ai_action_selector.py api/tests/test_runner_contracts.py api/tests/test_ai_action_selector.py` passed
+    - `.venv/bin/pytest api/tests/test_runner_contracts.py api/tests/test_ai_action_selector.py` passed: 9 passed
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `git diff --check` passed before governance updates
+    - `.venv/bin/pytest api/tests/` passed: 566 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+  - proof:
+    - evidence files `codex/results/backlog-310-signal-to-runner-contract-matrix-20260509.json` and `codex/results/backlog-310-signal-to-runner-contract-matrix-20260509.md`
+    - contract matrix covers all 58 registered runner tools with 58 valid contracts and 0 gap records
+    - focused tests prove contract-derived RUN, SKIP, WAIT, APPROVAL, and fail-closed missing-contract behavior
+  - risks / exceptions:
+    - no worker runner implementation, runner registry file, approval gate, scope/ROE gate, credential handling, runtime binding, kill-switch behavior, or UI v2 file was changed
+    - contracts are planning inputs and report mappings; they are not proof of findings or permission to execute
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-311 `Engagement Memory and Casebook`, from `codex/tasks/backlog-311-engagement-memory-casebook.json`.
+
+- 2026-05-09: completed backlog-309 `Lab Benchmark Orchestrator`:
+  - rationale:
+    - the active task requires governed benchmark evidence for local or explicitly authorized lab targets without relying on unsafe public targets
+    - prerequisite check passed because backlog-307 `Coverage Truth and Stop-Condition Engine` is present in this log
+    - the safe implementation is a dry-run-first expected-vs-actual orchestrator that validates lab definitions and collected evidence files without launching Docker, dispatching runners, mutating approvals/scope, or adding exploit capability
+  - implementation:
+    - added `scripts/run_lab_benchmark_orchestrator.py`
+    - extended `scripts/validation/benchmark_coverage_expected.json` with a `lab_orchestrator` catalog for Gruyere, WebGoat, DVWA, and DVGA while leaving the legacy `benchmarks` list unchanged
+    - each lab benchmark now declares loopback target metadata, safe allowed proof types, required evidence IDs, expected issue families, and unsupported gaps
+    - dry-run mode produces machine-readable and Markdown expected-vs-actual reports with `not_executed_live_required` checks and `live_lab_not_executed` gap records
+    - collected-evidence mode compares supplied findings, task IDs, coverage truth, reports, and runner decisions to the expected issue contract without live target actions
+    - added `api/tests/test_benchmark_orchestrator.py`
+    - documented operator usage and support-claim boundaries in `docs/benchmark_labs.md`
+  - files:
+    - `scripts/run_lab_benchmark_orchestrator.py`
+    - `scripts/validation/benchmark_coverage_expected.json`
+    - `api/tests/test_benchmark_orchestrator.py`
+    - `docs/benchmark_labs.md`
+    - `codex/results/lab-benchmark-orchestrator-latest.json`
+    - `codex/results/lab-benchmark-orchestrator-latest.md`
+    - `codex/results/backlog-309-lab-benchmark-orchestrator-20260509.json`
+    - `codex/results/backlog-309-lab-benchmark-orchestrator-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 -m py_compile scripts/run_lab_benchmark_orchestrator.py api/tests/test_benchmark_orchestrator.py` passed
+    - `.venv/bin/pytest api/tests/test_benchmark_orchestrator.py` passed: 4 passed
+    - `python3 scripts/run_lab_benchmark_orchestrator.py --dry-run` passed and wrote 4 benchmarks, 12 expected issues, and 12 gap records
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `git diff --check` passed before governance updates
+    - `.venv/bin/pytest api/tests/` passed: 560 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+    - `python3 scripts/validate_backlog_tasks.py` passed after governance updates
+    - `git diff --check` passed after governance updates
+  - proof:
+    - evidence files `codex/results/backlog-309-lab-benchmark-orchestrator-20260509.json` and `codex/results/backlog-309-lab-benchmark-orchestrator-20260509.md`
+    - dry-run evidence shows no live target actions, no Docker launch, no dispatch, no public internet target allowance, and no approval/scope/runtime mutation
+    - expected-vs-actual output includes evidence IDs, unsupported gaps, and explicit gap records for live-required checks not executed
+  - risks / exceptions:
+    - no live Gruyere, WebGoat, DVWA, or DVGA fixture was launched from the build lane
+    - dry-run proves the benchmark contract and report shape only; support claims still require collected evidence from legal local or explicitly authorized lab fixtures
+    - no runner behavior, runner registry file, approval gate, scope/ROE gate, credential handling, runtime binding, kill-switch behavior, or UI v2 file was changed
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-310 `Signal-to-Runner Contract Matrix`, from `codex/tasks/backlog-310-signal-to-runner-contract-matrix.json`.
+
+- 2026-05-09: completed backlog-308 `Operator Autopilot Workbench`:
+  - rationale:
+    - the active task requires a single live operator surface for ai_loop goal, hypotheses, next actions, approval gates, blockers, and coverage truth without replacing manual or fixed-chain Mission Control
+    - prerequisite check passed because backlog-307 `Coverage Truth and Stop-Condition Engine` is present in this log
+    - the safe implementation is a gated UI over existing read-only insight/graph/selector/coverage payloads and existing assessment-loop/proposal endpoints
+  - implementation:
+    - enriched `/api/v1/runs/{run_id}/ai-insights` with `operator_workbench.ai_loop` for `run_mode=ai_loop`
+    - the backend workbench payload includes current goal, evidence hypotheses, next-best-action RUN/APPROVAL/WAIT/SKIP state, pending approval gates, blockers, coverage truth, evidence link counts, and an analysis-only execution contract
+    - added goal-hypothesis fallback so ai_loop goals can be displayed as evidence-linked hypotheses before a finding-backed hypothesis exists
+    - added `ui-v2/src/components/screens/AutopilotWorkbench.tsx`
+    - Mission Control now renders the workbench only for ai_loop runs and keeps manual/fixed-chain runs on the existing layout
+    - Continue AI Loop uses `POST /api/v1/runs/{run_id}/assessment-loop/iterate`
+    - approve/reject controls use `POST /api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review`
+    - UI language explicitly names controlled proof, canary evidence, and session exposure risk boundaries
+    - added `api/tests/test_operator_autopilot_workbench.py`
+  - files:
+    - `api/app/services/ai_agent.py`
+    - `api/tests/test_operator_autopilot_workbench.py`
+    - `ui-v2/src/api/client.ts`
+    - `ui-v2/src/components/screens/MissionControl.tsx`
+    - `ui-v2/src/components/screens/AutopilotWorkbench.tsx`
+    - `codex/results/backlog-308-operator-autopilot-workbench-20260509.md`
+    - `codex/results/backlog-308-playwright-20260509/acceptance.json`
+    - `codex/results/backlog-308-playwright-20260509/ai-loop-workbench-1440.png`
+    - `codex/results/backlog-308-playwright-20260509/ai-loop-workbench-1024.png`
+    - `codex/results/backlog-308-playwright-20260509/ai-loop-workbench-768.png`
+    - `codex/results/backlog-308-playwright-20260509/ai-loop-workbench-375.png`
+    - `codex/results/backlog-308-playwright-20260509/manual-layout-1440.png`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `.venv/bin/python -m py_compile api/app/services/ai_agent.py api/tests/test_operator_autopilot_workbench.py` passed
+    - `.venv/bin/pytest api/tests/test_operator_autopilot_workbench.py` passed: 2 passed
+    - `.venv/bin/pytest api/tests/test_assessment_loop.py api/tests/test_runs.py api/tests/test_operator_autopilot_workbench.py` passed: 122 passed
+    - `.venv/bin/pytest api/tests/` passed: 556 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+    - `cd ui-v2 && npm run lint` passed with 0 errors and 8 pre-existing warnings
+    - Playwright acceptance passed at 1440, 1024, 768, and 375px with no horizontal overflow
+    - Playwright acceptance proved manual Mission Control still renders the existing Run Thread / Task Output / Phase Chain layout
+  - proof:
+    - evidence file `codex/results/backlog-308-operator-autopilot-workbench-20260509.md`
+    - regression fixture proves ai_loop insights include workbench cards and safety language without direct dispatch
+    - regression fixture proves non-ai_loop runs receive a disabled ai_loop workbench payload
+    - browser screenshots prove ai_loop workbench rendering and manual-layout preservation
+  - risks / exceptions:
+    - no runner behavior, worker dispatch behavior, runner registry file, scope/ROE gate, approval gate, credential protection, runtime binding, report contract, or kill-switch behavior was bypassed
+    - one transient non-queue `codex/tasks/task-20260509104939-pack-refinement-d9664103.json` file appeared during local runtime interaction and was removed as generated state
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-309 `Lab Benchmark Orchestrator`, from `codex/tasks/backlog-309-lab-benchmark-orchestrator.json`.
+
+- 2026-05-09: completed backlog-307 `Coverage Truth and Stop-Condition Engine`:
+  - rationale:
+    - the active task requires AegisPT to state what is tested, untested, blocked, skipped, partial, and honestly complete without running additional tools or changing policy
+    - prerequisite check passed because backlog-306 `Next-Best-Action Runner Selector` is present in this log
+    - the safe implementation is a read-only coverage truth service consumed by both API and report/catalog paths
+  - implementation:
+    - added `api/app/services/coverage_truth.py`
+    - added `GET /api/v1/runs/{run_id}/coverage-truth`
+    - coverage truth separates `tested`, `partially_tested`, `blocked`, `skipped`, `not_applicable`, and `not_tested` surfaces
+    - stop conditions now explain `continue`, `wait`, `approval-needed`, `complete-with-gaps`, and `complete` states with blocker IDs, active task IDs, pending proposal IDs, and chain run counts
+    - report context and report catalog include the same `coverage_truth` payload that the API exposes
+    - technical report Tested / Not Tested output now includes coverage truth stop-condition and gap summary
+    - added `api/tests/test_coverage_truth.py`
+  - files:
+    - `api/app/services/coverage_truth.py`
+    - `api/app/services/reports.py`
+    - `api/app/routers/runs.py`
+    - `api/tests/test_coverage_truth.py`
+    - `codex/results/backlog-307-coverage-truth-stop-condition-engine-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `python3 -m compileall api/app/services/coverage_truth.py api/app/services/reports.py api/app/routers/runs.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_coverage_truth.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/test_coverage_truth.py api/tests/test_reports.py api/tests/test_assessment_chain.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 554 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+    - `git diff --check` passed before governance updates
+  - proof:
+    - evidence file `codex/results/backlog-307-coverage-truth-stop-condition-engine-20260509.md`
+    - regression fixture proves chain-aware coverage counts tasks across chain runs and reports honest partial gaps
+    - regression fixture proves terminal untested API coverage returns `complete-with-gaps`
+    - regression fixture proves report catalog and `/coverage-truth` API agree on task and stop-condition counts
+  - risks / exceptions:
+    - no scans are executed by coverage truth
+    - no scope, ROE, approval, credential, runtime binding, kill-switch, runner behavior, or runner registry changes were made
+    - no UI v2 files were changed
+    - two transient non-queue `codex/tasks/task-20260509101251-pack-refinement-766cfcdb.json` and `codex/tasks/task-20260509102009-pack-refinement-8b793f1b.json` files appeared during local runtime interaction and were removed as generated state
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-308 `Operator Autopilot Workbench`, from `codex/tasks/backlog-308-operator-autopilot-workbench.json`.
+
+- 2026-05-09: completed backlog-306 `Next-Best-Action Runner Selector`:
+  - rationale:
+    - the active task requires AegisPT to rank next actions from evidence, prerequisites, cost, risk, confidence, and expected proof value instead of blindly following fixed runner order
+    - prerequisite check passed because backlog-305 `Evidence Knowledge Graph and Hypothesis Engine` is present in this log
+    - the safe implementation is a deterministic selector that returns ranking/provenance and then lets existing ai_loop queue/proposal/rationale paths enforce dispatch and approval behavior
+  - implementation:
+    - added `api/app/services/ai_action_selector.py`
+    - added `rank_next_best_actions()` for graph-level RUN/APPROVAL/WAIT/SKIP ranking
+    - added `select_next_best_action_for_run()` gated to `run_mode=ai_loop`
+    - integrated selector output into `advance_assessment_loop()` for generic ai_loop seed/selector choices while preserving existing goal-oriented and recursive micro-plan decision sources
+    - selector actions include evidence source IDs, runner metadata IDs, prerequisite state, risk tier, required approvals, confidence, expected proof value, expected evidence, rationale, and provenance
+    - active/intrusive ranked actions produce reviewable proposals through the existing assessment-loop path; missing prerequisites produce WAIT with blocker reasons
+    - added `api/tests/test_ai_action_selector.py`
+  - files:
+    - `api/app/services/ai_action_selector.py`
+    - `api/app/services/assessment_loop.py`
+    - `api/tests/test_ai_action_selector.py`
+    - `codex/results/backlog-306-next-best-action-runner-selector-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `python3 -m compileall api/app/services/ai_action_selector.py api/app/services/assessment_loop.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_ai_action_selector.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/test_ai_action_selector.py api/tests/test_assessment_loop.py api/tests/test_ai_planner.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 550 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+    - `git diff --check` passed before governance updates
+  - proof:
+    - evidence file `codex/results/backlog-306-next-best-action-runner-selector-20260509.md`
+    - regression fixture proves GraphQL evidence ranks `graphql-probe` above unrelated runners
+    - regression fixture proves `sqlmap` returns WAIT with missing `concrete_parameter_or_error_evidence` when injectable-parameter/SQL-error evidence is absent
+    - regression fixture proves the ai_loop seed action records selector decision/provenance while still using existing task/proposal/rationale storage
+  - risks / exceptions:
+    - no runner behavior, runner registry file, approval gate, scope/ROE gate, credential protection, runtime binding, report contract, or kill switch behavior was bypassed
+    - no UI v2 files were changed
+    - one transient non-queue `codex/tasks/task-20260509094540-pack-refinement-3e47523c.json` file appeared during local runtime interaction and was removed as generated state
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-307 `Coverage Truth and Stop-Condition Engine`, from `codex/tasks/backlog-307-coverage-truth-stop-condition-engine.json`.
+
+- 2026-05-09: completed backlog-305 `Evidence Knowledge Graph and Hypothesis Engine`:
+  - rationale:
+    - the active task requires AegisPT to reason from stored evidence instead of fixed tool ordering while remaining analysis-only
+    - prerequisite check passed because backlog-294 `AI Contextual Profiling Engine` and backlog-296 `AI Action Rationale Ledger` are present in this log
+    - the narrow safe slice is a read-only service layer and test fixture, not a public API route or runtime selector
+  - implementation:
+    - added `api/app/services/assessment_graph.py`
+    - added `build_assessment_graph()`, which creates stable graph nodes and edges for runs, tasks, tool executions, evidence artifacts, findings, inventory snapshots and inventory nodes, approvals, scope records, runner metadata, target context documents, agent proposals, rationale ledger entries, finding chains, and report evidence context
+    - added `build_assessment_hypotheses()`, which returns evidence-linked hypotheses with source IDs, observed evidence, inferred next questions, confidence, missing prerequisites, and safe next-observation candidates
+    - added `build_assessment_graph_with_hypotheses()` for selector-facing consumers
+    - runner metadata is read from the existing runner capability registry; no runner registry file or runner behavior was changed
+    - hypotheses derive missing prerequisites only from stored run evidence, not from runner metadata declarations
+    - added `api/tests/test_assessment_graph.py` covering stable graph nodes/edges, hypothesis source IDs and missing-prerequisite explanations, and read-only behavior
+  - files:
+    - `api/app/services/assessment_graph.py`
+    - `api/tests/test_assessment_graph.py`
+    - `codex/results/backlog-305-evidence-knowledge-graph-hypothesis-engine-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `python3 -m compileall api/app/services/assessment_graph.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_assessment_graph.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/test_assessment_graph.py api/tests/test_ai_planner.py api/tests/test_assessment_loop.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 547 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+  - proof:
+    - evidence file `codex/results/backlog-305-evidence-knowledge-graph-hypothesis-engine-20260509.md`
+    - regression fixture proves graph edges from finding to stored artifact evidence, context document, task/execution, report evidence, scope, approval, inventory, rationale, and runner metadata
+    - regression fixture proves an `auth-flow` next-observation candidate reports missing `operator_auth_context` instead of implying it can run
+  - risks / exceptions:
+    - no public API endpoint was added for the graph in this slice
+    - no runner dispatch, approval mutation, scope mutation, credential materialization, runtime self-modification, runner registry edit, or exploit confirmation flag was added
+    - no UI v2 files were changed
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-306 `Next-Best-Action Runner Selector`, from `codex/tasks/backlog-306-next-best-action-runner-selector.json`.
+
+- 2026-05-09: completed backlog-304 `Google Gruyere Multi-Step Exploit AI Benchmark`:
+  - rationale:
+    - the active task requires the AI chain to prove at least three linked Gruyere steps without touching public Gruyere or bypassing runner, approval, scope/ROE, credential, provenance, or kill-switch controls
+    - prerequisite check passed because backlog-301 `AI Exploit Chaining & Post-Exploitation Pivot Engine` is present in this log
+    - the safest repo-backed closure is a deterministic governed-flow benchmark verifier that fails unless the ai_loop creates real linked AegisPT evidence records
+  - implementation:
+    - added a `gruyere_multi_step_objective` goal type to `api/app/services/assessment_loop.py`
+    - added a Gruyere-specific ai_loop objective path through registered runners only: `httpx`, `xss-extended`, `session-security`, `client-state`, and `ssti-probe`
+    - added `api/app/services/gruyere_benchmark.py`
+    - the benchmark verifier requires local loopback Gruyere scope, rejects public hosted Gruyere refs, requires `run_mode=ai_loop`, requires at least three linked governed proof steps, requires all expected stages, and requires a pivot context from the existing pivot engine
+    - each linked proof step must carry context document, rationale ledger, proposal-or-task, and finding evidence IDs while preserving registered-runner, scope, approval, and kill-switch contracts
+    - added `api/tests/test_gruyere_ai_benchmark.py`, which records the objective, advances the ai_loop, approves active proposals through the existing review endpoint, completes queued tasks, creates evidence-backed findings, generates a pivot context from the stored XSS finding, and verifies the benchmark report passes
+  - files:
+    - `api/app/services/assessment_loop.py`
+    - `api/app/services/gruyere_benchmark.py`
+    - `api/tests/test_gruyere_ai_benchmark.py`
+    - `codex/results/backlog-304-gruyere-multi-step-ai-benchmark-20260509.md`
+    - `CURRENT_STATE.md`
+    - `DONE_LOG.md`
+    - `TASK_QUEUE.md`
+    - `NEXT_TASK.md`
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed before governance updates
+    - `python3 -m compileall api/app/services/gruyere_benchmark.py api/app/services/assessment_loop.py` passed
+    - `.venv/bin/python -m pytest api/tests/test_gruyere_ai_benchmark.py -q` passed
+    - `.venv/bin/python -m pytest api/tests/` passed: 544 passed, 4 warnings
+    - `cd ui-v2 && npm run build` passed with only the existing Vite chunk-size warning
+  - proof:
+    - evidence file `codex/results/backlog-304-gruyere-multi-step-ai-benchmark-20260509.md`
+    - regression proof verifies linked XSS, session-evidence, authenticated-admin-surface, and controlled-proof stages with finding IDs and AegisPT rationale/proposal/task/context IDs
+    - regression proof verifies local-only scope and no public `google-gruyere.appspot.com` target refs
+  - risks / exceptions:
+    - this is a deterministic governed-flow benchmark proof, not a live Docker/browser exploit run against the Gruyere fixture; broader multi-fixture orchestration remains queued as backlog-309
+    - no raw cookie/token/credential material is stored by the verifier
+    - no `exploit_confirmation_authorized` flag was added
+    - no UI v2 files were changed
+    - one transient non-queue `codex/tasks/task-20260509083843-pack-refinement-9e7c908a.json` file appeared during local runtime interaction and was removed as generated state
+  - next:
+    - `NEXT_TASK.md` now promotes exactly one active task, backlog-305 `Evidence Knowledge Graph and Hypothesis Engine`, from `codex/tasks/backlog-305-evidence-knowledge-graph-hypothesis-engine.json`.
+
 - 2026-05-09: added AI-first product strategy backlog tasks backlog-305 through backlog-314:
   - rationale:
     - the operator explicitly asked for new Codex-executable tasks that move AegisPT beyond fixed tool sequences and toward the best evidence-first AI-assisted pentesting platform

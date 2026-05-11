@@ -48,6 +48,8 @@ from api.app.services.chatgpt_oauth import (
     send_chatgpt_backend_streaming_json_request,
 )
 from api.app.services.codex_tasks import list_codex_tasks, load_codex_task_result
+from api.app.services.coverage_truth import build_coverage_truth
+from api.app.services.evidence_gap_report import build_evidence_gap_report_from_context
 from api.app.services.inventory import aggregate_inventory_snapshots
 from api.app.services.packs import latest_validation_for_pack
 from api.app.services.secrets import sanitize_run_configuration
@@ -2547,6 +2549,265 @@ def run_attack_narrative_context(run: Run, context: dict[str, object] | None = N
     }
 
 
+def evidence_first_attack_story_context(
+    run: Run,
+    context: dict[str, object] | None = None,
+) -> dict[str, object]:
+    context = context or report_context(run)
+    findings = [finding for finding in context.get("findings", []) if isinstance(finding, Finding)]
+    tasks = [task for task in context.get("tasks", []) if isinstance(task, Task)]
+    approvals = [
+        approval for approval in context.get("approvals", []) if isinstance(approval, Approval)
+    ]
+    claims: list[dict[str, object]] = []
+    gaps: list[dict[str, object]] = []
+    source_ledger: list[dict[str, str]] = []
+
+    for finding in sorted(findings, key=lambda item: (item.severity, item.title, item.id.hex)):
+        sources = [_source_record("finding_id", finding.id)]
+        if not str(finding.evidence_ref or "").strip():
+            gaps.append(
+                {
+                    "gap_id": f"finding:{finding.id}:missing_evidence_ref",
+                    "text": (
+                        f"Finding {finding.title} has no linked evidence reference, so the "
+                        "attack story cannot claim proof beyond the stored finding record."
+                    ),
+                    "source_ids": [_source_record("finding_id", finding.id)],
+                }
+            )
+        claim = {
+            "claim_id": f"finding:{finding.id}:summary",
+            "text": (
+                f"Stored finding {finding.title} is recorded as {finding.severity} on "
+                f"{finding.target_id} with status {finding.status}."
+            ),
+            "source_ids": sources,
+            "claim_type": "finding_summary",
+        }
+        claims.append(claim)
+        source_ledger.extend(_ledger_rows_for_claim(claim))
+
+    for task in sorted(tasks, key=lambda item: (item.created_at, item.id.hex)):
+        executions = list(task.executions or [])
+        if not executions:
+            gaps.append(
+                {
+                    "gap_id": f"task:{task.id}:missing_runner_output",
+                    "text": (
+                        f"Task {task.tool} on {task_targets_display(task)} has no runner output "
+                        "record, so no narrative observation is claimed from it."
+                    ),
+                    "source_ids": [_source_record("task_id", task.id)],
+                }
+            )
+            continue
+        for execution in sorted(executions, key=lambda item: (item.created_at, item.id.hex)):
+            sources = [_source_record("runner_output_id", execution.id)]
+            artifacts = list(execution.artifacts or [])
+            claim = {
+                "claim_id": f"runner_output:{execution.id}:observation",
+                "text": (
+                    f"Runner {task.tool} produced stored output for {task_targets_display(task)} "
+                    f"with exit code {execution.exit_code}."
+                ),
+                "source_ids": sources,
+                "claim_type": "runner_output",
+            }
+            claims.append(claim)
+            source_ledger.extend(_ledger_rows_for_claim(claim))
+            if not artifacts:
+                gaps.append(
+                    {
+                        "gap_id": f"runner_output:{execution.id}:missing_artifact",
+                        "text": (
+                            f"Runner output {execution.id} has no artifact record, so the story "
+                            "does not cite replayable artifact proof for that step."
+                        ),
+                        "source_ids": [_source_record("runner_output_id", execution.id)],
+                    }
+                )
+
+    for approval in sorted(approvals, key=lambda item: (item.created_at, item.id.hex)):
+        claim = {
+            "claim_id": f"approval:{approval.id}:decision",
+            "text": (
+                f"Approval step {approval.step_id} was recorded as {approval.decision} "
+                f"by {approval.approver_id}."
+            ),
+            "source_ids": [_source_record("approval_event_id", approval.id)],
+            "claim_type": "approval_event",
+        }
+        claims.append(claim)
+        source_ledger.extend(_ledger_rows_for_claim(claim))
+
+    for chain in sorted(list(run.finding_chains or []), key=lambda item: (item.pattern_id, item.id.hex)):
+        component_sources = [
+            _source_record("finding_id", finding_id)
+            for finding_id in list(chain.component_finding_ids_json or [])
+        ]
+        if not component_sources:
+            gaps.append(
+                {
+                    "gap_id": f"finding_chain:{chain.id}:missing_component_findings",
+                    "text": (
+                        f"Finding chain {chain.pattern_id} has no component finding IDs, so no "
+                        "attack-story chain claim was generated from it."
+                    ),
+                    "source_ids": [_source_record("graph_edge_id", f"finding_chain:{chain.id}")],
+                }
+            )
+            continue
+        sources = [
+            _source_record("graph_edge_id", f"finding_chain:{chain.id}:chains_finding"),
+            *component_sources,
+        ]
+        claim = {
+            "claim_id": f"finding_chain:{chain.id}:summary",
+            "text": (
+                f"Stored finding chain {chain.pattern_id} links "
+                f"{len(component_sources)} finding record(s) for operator review."
+            ),
+            "source_ids": sources,
+            "claim_type": "stored_graph_edge",
+        }
+        claims.append(claim)
+        source_ledger.extend(_ledger_rows_for_claim(claim))
+
+    graph = context.get("assessment_graph")
+    if isinstance(graph, dict):
+        for edge in _story_graph_edges(graph):
+            claim = {
+                "claim_id": f"graph_edge:{edge['id']}:relationship",
+                "text": (
+                    f"Stored assessment graph edge {edge['relationship']} links "
+                    f"{edge['source']} to {edge['target']}."
+                ),
+                "source_ids": [_source_record("graph_edge_id", edge["id"])],
+                "claim_type": "assessment_graph_edge",
+            }
+            claims.append(claim)
+            source_ledger.extend(_ledger_rows_for_claim(claim))
+
+    hypothesis_report = context.get("assessment_hypotheses")
+    if isinstance(hypothesis_report, dict):
+        for hypothesis in _story_hypotheses(hypothesis_report):
+            sources = [_source_record("graph_hypothesis_id", hypothesis["id"])]
+            claim = {
+                "claim_id": f"graph_hypothesis:{hypothesis['id']}:next_observation",
+                "text": (
+                    "Evidence graph hypothesis recorded a safe next-observation question "
+                    f"with confidence {hypothesis['confidence']}."
+                ),
+                "source_ids": sources,
+                "claim_type": "evidence_graph_hypothesis",
+            }
+            claims.append(claim)
+            source_ledger.extend(_ledger_rows_for_claim(claim))
+
+    if not claims:
+        gaps.append(
+            {
+                "gap_id": f"run:{run.id}:no_narrative_sources",
+                "text": (
+                    "No finding, runner output, or approval sources are available; no attack-story "
+                    "claims were generated."
+                ),
+                "source_ids": [_source_record("run_id", run.id)],
+            }
+        )
+
+    return {
+        "builder_version": "evidence-first-attack-story-v1",
+        "source_run_id": str(run.id),
+        "claims": claims,
+        "source_ledger": sorted(
+            source_ledger,
+            key=lambda item: (item["claim_id"], item["source_type"], item["source_id"]),
+        ),
+        "gaps": gaps,
+        "unsupported_claims": [],
+        "execution_contract": {
+            "analysis_only": True,
+            "dispatches_work": False,
+            "mutates_findings": False,
+            "mutates_scope": False,
+            "runtime_self_modification": False,
+            "claims_without_sources_allowed": False,
+        },
+    }
+
+
+def _source_record(source_type: str, source_id: object) -> dict[str, str]:
+    return {"source_type": source_type, "source_id": str(source_id)}
+
+
+def _ledger_rows_for_claim(claim: dict[str, object]) -> list[dict[str, str]]:
+    claim_id = str(claim.get("claim_id") or "")
+    rows: list[dict[str, str]] = []
+    for source in list(claim.get("source_ids") or []):
+        if not isinstance(source, dict):
+            continue
+        source_type = str(source.get("source_type") or "").strip()
+        source_id = str(source.get("source_id") or "").strip()
+        if claim_id and source_type and source_id:
+            rows.append(
+                {
+                    "claim_id": claim_id,
+                    "source_type": source_type,
+                    "source_id": source_id,
+                }
+            )
+    return rows
+
+
+def _story_graph_edges(graph: dict[str, object]) -> list[dict[str, str]]:
+    allowed_relationships = {
+        "chains_finding",
+        "produced_artifact",
+        "produced_execution",
+        "reports_approval",
+        "reports_evidence_artifact",
+        "reports_finding",
+        "supported_by_artifact",
+    }
+    edges: list[dict[str, str]] = []
+    for edge in list(graph.get("edges") or []):
+        if not isinstance(edge, dict):
+            continue
+        relationship = str(edge.get("relationship") or "").strip()
+        edge_id = str(edge.get("id") or "").strip()
+        source = str(edge.get("source") or "").strip()
+        target = str(edge.get("target") or "").strip()
+        if relationship in allowed_relationships and edge_id and source and target:
+            edges.append(
+                {
+                    "id": edge_id,
+                    "source": source,
+                    "target": target,
+                    "relationship": relationship,
+                }
+            )
+    return sorted(edges, key=lambda item: (item["relationship"], item["id"]))
+
+
+def _story_hypotheses(hypothesis_report: dict[str, object]) -> list[dict[str, object]]:
+    hypotheses: list[dict[str, object]] = []
+    for hypothesis in list(hypothesis_report.get("hypotheses") or []):
+        if not isinstance(hypothesis, dict):
+            continue
+        hypothesis_id = str(hypothesis.get("id") or "").strip()
+        if not hypothesis_id:
+            continue
+        hypotheses.append(
+            {
+                "id": hypothesis_id,
+                "confidence": hypothesis.get("confidence", "unknown"),
+            }
+        )
+    return sorted(hypotheses, key=lambda item: str(item["id"]))
+
+
 def _run_narrative_source_categories(
     *,
     inventory_summary: dict[str, object],
@@ -2914,6 +3175,7 @@ def report_context(run: Run) -> dict[str, object]:
     findings_by_severity, findings_by_status = findings_summary(findings)
     inventory_snapshot = effective_inventory_snapshot_for_run(run)
     inventory_summary = dict(inventory_snapshot.summary_json or {}) if inventory_snapshot is not None else {}
+    coverage_truth = build_coverage_truth(None, run=run)
     return {
         "profile_name": run.profile.name if run.profile is not None else "unknown-profile",
         "engagement_name": run.engagement.name if run.engagement is not None else "unknown-engagement",
@@ -2934,6 +3196,7 @@ def report_context(run: Run) -> dict[str, object]:
         "inventory_summary": inventory_summary,
         "report_sections": report_sections_for_run(run),
         "test_coverage": build_test_coverage_block(run, tasks),
+        "coverage_truth": coverage_truth,
         "rationale_ledger": sorted(
             list(run.rationale_ledger_entries or []),
             key=lambda entry: (entry.created_at, entry.id),
@@ -3034,6 +3297,7 @@ def assessment_chain_report_context(primary_run: Run, chain_runs: list[Run]) -> 
             **build_test_coverage_block(primary_run, tasks),
             "assessment_chain_run_count": len(runs),
         },
+        "coverage_truth": build_coverage_truth(session=None, run=primary_run),
         "rationale_ledger": sorted(
             rationale_by_id.values(),
             key=lambda entry: (entry.created_at, entry.id),
@@ -3277,8 +3541,17 @@ def _wifi_security_summary_html(context: dict[str, object]) -> str:
 
 def _render_test_coverage_markdown(context: dict[str, object]) -> list[str]:
     coverage = context.get("test_coverage", {})
+    coverage_truth = context.get("coverage_truth", {})
     if not isinstance(coverage, dict):
         return ["## Tested / Not Tested", "", "- Coverage data is unavailable for this run.", ""]
+    if not isinstance(coverage_truth, dict):
+        coverage_truth = {}
+    truth_summary = coverage_truth.get("summary", {}) if isinstance(coverage_truth.get("summary"), dict) else {}
+    stop_condition = (
+        coverage_truth.get("stop_condition", {})
+        if isinstance(coverage_truth.get("stop_condition"), dict)
+        else {}
+    )
     tested = [item for item in coverage.get("tested_surfaces", []) if isinstance(item, dict)]
     not_tested = [item for item in coverage.get("not_tested_surfaces", []) if isinstance(item, dict)]
     lines = [
@@ -3286,6 +3559,8 @@ def _render_test_coverage_markdown(context: dict[str, object]) -> list[str]:
         "",
         f"- Executed Tasks Reviewed: {coverage.get('executed_task_count', 0)} of {coverage.get('total_task_count', 0)}",
         f"- Tools Used: {', '.join(coverage.get('tools', [])) or 'None recorded'}",
+        f"- Coverage Truth Stop Condition: {stop_condition.get('state', 'unknown')}",
+        f"- Coverage Truth Gaps: blocked={truth_summary.get('blocked_count', 0)}, not-tested={truth_summary.get('not_tested_count', 0)}, partial={truth_summary.get('partially_tested_count', 0)}",
         "",
         "### Tested in This Run",
         "",
@@ -3310,8 +3585,17 @@ def _render_test_coverage_markdown(context: dict[str, object]) -> list[str]:
 
 def _render_test_coverage_html(context: dict[str, object]) -> str:
     coverage = context.get("test_coverage", {})
+    coverage_truth = context.get("coverage_truth", {})
     if not isinstance(coverage, dict):
         return "<section class='panel'><h2>Tested / Not Tested</h2><p>Coverage data is unavailable for this run.</p></section>"
+    if not isinstance(coverage_truth, dict):
+        coverage_truth = {}
+    truth_summary = coverage_truth.get("summary", {}) if isinstance(coverage_truth.get("summary"), dict) else {}
+    stop_condition = (
+        coverage_truth.get("stop_condition", {})
+        if isinstance(coverage_truth.get("stop_condition"), dict)
+        else {}
+    )
     tested = [item for item in coverage.get("tested_surfaces", []) if isinstance(item, dict)]
     not_tested = [item for item in coverage.get("not_tested_surfaces", []) if isinstance(item, dict)]
     tested_html = "".join(
@@ -3332,6 +3616,8 @@ def _render_test_coverage_html(context: dict[str, object]) -> str:
       <h2>Tested / Not Tested</h2>
       <p><strong>Executed Tasks Reviewed:</strong> {escape(str(coverage.get('executed_task_count', 0)))} of {escape(str(coverage.get('total_task_count', 0)))}</p>
       <p><strong>Tools Used:</strong> {escape(', '.join(coverage.get('tools', [])) or 'None recorded')}</p>
+      <p><strong>Coverage Truth Stop Condition:</strong> {escape(str(stop_condition.get('state', 'unknown')))}</p>
+      <p><strong>Coverage Truth Gaps:</strong> blocked={escape(str(truth_summary.get('blocked_count', 0)))}, not-tested={escape(str(truth_summary.get('not_tested_count', 0)))}, partial={escape(str(truth_summary.get('partially_tested_count', 0)))}</p>
       <h3>Tested in This Run</h3>
       <ul class="meta-list">{tested_html}</ul>
       <h3>Not Tested in This Run</h3>
@@ -4897,6 +5183,161 @@ def _render_nfir_html(run: Run, context: dict[str, object]) -> str:
     """
 
 
+def _render_evidence_first_attack_story_markdown(
+    run: Run,
+    context: dict[str, object],
+) -> list[str]:
+    story = evidence_first_attack_story_context(run, context)
+    lines = [
+        "## Evidence-First Attack Story",
+        "",
+        f"- Builder Version: {story['builder_version']}",
+        "- Boundary: every narrative claim below must carry a source ledger entry.",
+        "- Unsupported Claims: none" if not story["unsupported_claims"] else "- Unsupported Claims: present",
+        "",
+        "### Narrative Claims",
+        "",
+    ]
+    claims = [claim for claim in story["claims"] if isinstance(claim, dict)]
+    if claims:
+        for claim in claims:
+            sources = _format_source_records_markdown(claim.get("source_ids"))
+            lines.extend(
+                [
+                    f"- Claim `{claim['claim_id']}`: {claim['text']}",
+                    f"  - Sources: {sources}",
+                ]
+            )
+    else:
+        lines.append("- No narrative claims were generated because no allowed source IDs were available.")
+    lines.extend(["", "### Source Ledger", ""])
+    ledger = [row for row in story["source_ledger"] if isinstance(row, dict)]
+    if ledger:
+        lines.extend(["| Claim ID | Source Type | Source ID |", "| --- | --- | --- |"])
+        for row in ledger:
+            lines.append(f"| {row['claim_id']} | {row['source_type']} | {row['source_id']} |")
+    else:
+        lines.append("- No source ledger entries are available.")
+    gaps = [gap for gap in story["gaps"] if isinstance(gap, dict)]
+    if gaps:
+        lines.extend(["", "### Evidence Gaps", ""])
+        for gap in gaps:
+            sources = _format_source_records_markdown(gap.get("source_ids"))
+            lines.append(f"- Gap `{gap['gap_id']}`: {gap['text']} Sources: {sources}")
+    lines.append("")
+    return lines
+
+
+def _render_evidence_gap_report_markdown(context: dict[str, object]) -> list[str]:
+    gap_report = build_evidence_gap_report_from_context(context)
+    sections = gap_report["sections"]
+    lines = [
+        "## Evidence Gap Report",
+        "",
+        f"- Report Version: {gap_report['report_version']}",
+        f"- Confirmed Claims: {gap_report['summary']['confirmed']}",
+        f"- Suspected Claims: {gap_report['summary']['suspected']}",
+        f"- Untested Claims: {gap_report['summary']['untested']}",
+        f"- Contradicted Claims: {gap_report['summary']['contradicted']}",
+        f"- Unsupported Claims Excluded From Customer Prose: {gap_report['summary']['unsupported_excluded_count']}",
+        "",
+    ]
+    for section_key, title in (
+        ("confirmed", "Confirmed"),
+        ("suspected", "Suspected"),
+        ("untested", "Untested"),
+        ("contradicted", "Contradicted"),
+    ):
+        claims = [claim for claim in sections[section_key] if isinstance(claim, dict)]
+        lines.extend([f"### {title}", ""])
+        if not claims:
+            lines.extend(["- None recorded.", ""])
+            continue
+        for claim in claims:
+            refs = claim.get("evidence_refs") if isinstance(claim.get("evidence_refs"), list) else []
+            allowed = "yes" if claim.get("customer_report_allowed") else "no"
+            lines.extend(
+                [
+                    f"- Claim: {claim.get('text')}",
+                    f"  - Evidence Refs: {', '.join(str(ref) for ref in refs) if refs else 'none'}",
+                    f"  - Customer Report Prose Allowed: {allowed}",
+                ]
+            )
+            if claim.get("exclusion_reason"):
+                lines.append(f"  - Exclusion Reason: {claim['exclusion_reason']}")
+        lines.append("")
+    unsupported = [
+        claim
+        for claim in gap_report["unsupported_claims_excluded_from_customer_report"]
+        if isinstance(claim, dict)
+    ]
+    lines.extend(["### Unsupported Claims Excluded", ""])
+    if not unsupported:
+        lines.extend(["- None.", ""])
+    else:
+        for claim in unsupported:
+            lines.append(f"- {claim.get('claim_id')}: {claim.get('exclusion_reason')}")
+        lines.append("")
+    return lines
+
+
+def _render_evidence_first_attack_story_html(run: Run, context: dict[str, object]) -> str:
+    story = evidence_first_attack_story_context(run, context)
+    claim_items = "".join(
+        "<li>"
+        f"<strong>Claim <code>{escape(str(claim.get('claim_id')))}</code>:</strong> "
+        f"{escape(str(claim.get('text')))}"
+        f"<br><span>Sources: {escape(_format_source_records_markdown(claim.get('source_ids')))}</span>"
+        "</li>"
+        for claim in story["claims"]
+        if isinstance(claim, dict)
+    ) or "<li>No narrative claims were generated because no allowed source IDs were available.</li>"
+    ledger_rows = "".join(
+        "<tr>"
+        f"<td>{escape(str(row.get('claim_id')))}</td>"
+        f"<td>{escape(str(row.get('source_type')))}</td>"
+        f"<td>{escape(str(row.get('source_id')))}</td>"
+        "</tr>"
+        for row in story["source_ledger"]
+        if isinstance(row, dict)
+    ) or "<tr><td colspan='3'>No source ledger entries are available.</td></tr>"
+    gap_items = "".join(
+        "<li>"
+        f"<strong>Gap <code>{escape(str(gap.get('gap_id')))}</code>:</strong> "
+        f"{escape(str(gap.get('text')))}"
+        f"<br><span>Sources: {escape(_format_source_records_markdown(gap.get('source_ids')))}</span>"
+        "</li>"
+        for gap in story["gaps"]
+        if isinstance(gap, dict)
+    )
+    gaps_html = f"<h3>Evidence Gaps</h3><ul class='meta-list'>{gap_items}</ul>" if gap_items else ""
+    return f"""
+      <h3>Evidence-First Attack Story</h3>
+      <p><strong>Builder Version:</strong> {escape(str(story['builder_version']))}</p>
+      <p>Every narrative claim below carries a source ledger entry. Unsupported claims: none.</p>
+      <h4>Narrative Claims</h4>
+      <ul class="meta-list">{claim_items}</ul>
+      <h4>Source Ledger</h4>
+      <table>
+        <thead><tr><th>Claim ID</th><th>Source Type</th><th>Source ID</th></tr></thead>
+        <tbody>{ledger_rows}</tbody>
+      </table>
+      {gaps_html}
+    """
+
+
+def _format_source_records_markdown(value: object) -> str:
+    records = []
+    for source in list(value or []):
+        if not isinstance(source, dict):
+            continue
+        source_type = str(source.get("source_type") or "").strip()
+        source_id = str(source.get("source_id") or "").strip()
+        if source_type and source_id:
+            records.append(f"{source_type}:{source_id}")
+    return ", ".join(records) or "none"
+
+
 def _render_executive_markdown(run: Run, context: dict[str, object]) -> str:
     findings = context["findings"]
     methodology = context["methodology"]
@@ -4913,6 +5354,8 @@ def _render_executive_markdown(run: Run, context: dict[str, object]) -> str:
             "",
             _executive_narrative(run, context),
             "",
+            *_render_evidence_first_attack_story_markdown(run, context),
+            *_render_evidence_gap_report_markdown(context),
             "## Exposure Score",
             "",
             f"Risk Level: {_risk_level(score)} ({score}/10) {_risk_bar(score)}",
@@ -5920,6 +6363,7 @@ def build_report_catalog(run: Run, *, context: dict[str, object] | None = None) 
                     "by_status": context["findings_by_status"],
                     "report_sections": context["report_sections"],
                     "test_coverage": context["test_coverage"],
+                    "coverage_truth": context.get("coverage_truth", {}),
                 },
                 included_inventory={
                     "host_count": context["inventory_summary"].get("host_count", 0),
@@ -6054,6 +6498,8 @@ def render_markdown_report(
             "",
             _executive_narrative(run, context),
             "",
+            *_render_evidence_first_attack_story_markdown(run, context),
+            *_render_evidence_gap_report_markdown(context),
             "## Exposure Score",
             "",
             f"Risk Level: {_risk_level(score)} ({score}/10) {_risk_bar(score)}",
@@ -6420,6 +6866,7 @@ def render_html_report(
     <section class="panel">
       <h2>Executive Narrative</h2>
       <p>{escape(_executive_narrative(run, context))}</p>
+      {_render_evidence_first_attack_story_html(run, context)}
       <h3>Exposure Score</h3>
       <p><strong>Risk Level:</strong> {escape(_risk_level(score))} ({score}/10) <code>{escape(_risk_bar(score))}</code></p>
       <h3>Remediation Priority Table</h3>

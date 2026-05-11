@@ -185,6 +185,15 @@ export interface FindingTheater {
   risk_snapshot: JsonMap;
 }
 
+export interface RepositoryFixPullRequest {
+  provider: 'github' | 'gitlab';
+  repository_url: string;
+  branch_name: string;
+  pull_request_url: string;
+  pull_request_id: string;
+  auto_merge_enabled: boolean;
+}
+
 export interface RunReportCatalogItem {
   variant: string;
   title: string;
@@ -336,6 +345,7 @@ export interface RunIntakeInterpretation {
   failure_reason: string | null;
   provider_metadata: JsonMap;
   explicit_target_count?: number | null;
+  intent_mission_plan?: JsonMap | null;
 }
 
 export interface AgentProposalReviewInput {
@@ -550,6 +560,8 @@ export interface DashboardRead {
   has_engagements: boolean;
   active_run: JsonMap | null;
   risk_score: JsonMap;
+  blast_radius: JsonMap;
+  zero_day_rapid_response: JsonMap;
   open_problems: JsonMap;
   upcoming_scans: JsonMap[];
   recent_activity: JsonMap[];
@@ -559,6 +571,88 @@ export interface DashboardRead {
   setup_checklist: JsonMap[];
   first_run_onboarding: JsonMap | null;
   engagements: JsonMap[];
+}
+
+export interface ZeroDayScanNowResponse {
+  accepted: boolean;
+  run_id: UUID;
+  run_status: string;
+  profile_name: string;
+  required_approvals: number;
+  granted_approvals: number;
+  target: string;
+  record_id: UUID;
+  advisory_id: string;
+  operator_approval_required: boolean;
+  automatic_approval_created: boolean;
+  automatic_tests_started: boolean;
+  scope_enforced: boolean;
+  detail: string;
+}
+
+export interface DeceptionBoundary {
+  local_controlled_fixture: boolean;
+  network_tarpitting: boolean;
+  automatic_live_deployment: boolean;
+  legitimate_traffic_interference_expected: boolean;
+  credential_materialized: boolean;
+  dispatches_runtime_work: boolean;
+}
+
+export type DeceptionTrapKind = 'hallucination_api' | 'fake_admin_api' | 'canary_document';
+
+export interface DeceptionTrapCreateInput {
+  name: string;
+  trap_kind: DeceptionTrapKind;
+  local_only?: boolean;
+  enabled?: boolean;
+  max_depth?: number;
+  operator_note?: string | null;
+}
+
+export interface DeceptionTrap {
+  id: UUID;
+  tenant_id: string;
+  name: string;
+  trap_kind: DeceptionTrapKind;
+  enabled: boolean;
+  local_only: boolean;
+  max_depth: number;
+  endpoint_path: string;
+  response_preview: JsonMap;
+  boundary: DeceptionBoundary;
+  operator_note: string | null;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
+  created_by: string;
+  updated_by: string;
+}
+
+export interface DeceptionTrapList {
+  tenant_id: string;
+  traps: DeceptionTrap[];
+  boundary: DeceptionBoundary;
+}
+
+export interface DeceptionAlert {
+  id: UUID;
+  tenant_id: string;
+  trap_id: UUID;
+  trap_name: string;
+  trap_kind: DeceptionTrapKind;
+  probed_path: string;
+  actor: string;
+  user_agent: string | null;
+  source: string;
+  created_at: IsoDateTime;
+  evidence_ref: string;
+  boundary: DeceptionBoundary;
+}
+
+export interface DeceptionAlertList {
+  tenant_id: string;
+  alerts: DeceptionAlert[];
+  boundary: DeceptionBoundary;
 }
 
 export interface PortfolioRun extends Run {
@@ -833,6 +927,20 @@ export interface RunCreateInput {
   assessment_mode?: string | null;
   assessment_auto_advance_on_phase_complete?: boolean | null;
   dispatch_after_create?: boolean;
+}
+
+export interface AttackPathSimulation {
+  status: string;
+  run_id: UUID;
+  generated_at: IsoDateTime;
+  simulation_mode: boolean;
+  starting_point: JsonMap;
+  anchors: JsonMap[];
+  hypothetical_edges: JsonMap[];
+  simulated_paths: JsonMap[];
+  summary: JsonMap;
+  boundary: JsonMap;
+  source_attack_path_model: string | null;
 }
 
 export interface InventoryRunCreateInput {

@@ -2,6 +2,197 @@
   "schema_version": 1,
   "matrix_id": "gruyere_webgoat_benchmark_coverage_v1",
   "purpose": "Expected-vs-actual coverage catalog for local Google Gruyere and OWASP WebGoat benchmark runs. The runner uses existing AegisPT tools only and records gaps without adding detection capability.",
+  "lab_orchestrator": {
+    "schema_version": 1,
+    "orchestrator_id": "local_lab_benchmark_orchestrator_v1",
+    "purpose": "Governed dry-run and collected-evidence expected-vs-actual benchmark validation for local or explicitly authorized lab targets only.",
+    "execution_contract": {
+      "dry_run_default": true,
+      "live_target_actions_by_default": false,
+      "public_internet_targets_allowed": false,
+      "launches_docker_containers": false,
+      "adds_exploit_capability": false,
+      "requires_explicit_local_operator_setup_for_live_labs": true
+    },
+    "benchmarks": [
+      {
+        "id": "gruyere-local",
+        "name": "Google Gruyere Local",
+        "target": {
+          "kind": "local_docker_lab",
+          "image": "karthequian/gruyere:latest",
+          "default_url": "http://127.0.0.1:8008/",
+          "allowed_hosts": ["127.0.0.1", "localhost"],
+          "public_target_allowed": false,
+          "fixture_setup_required": true
+        },
+        "safe_allowed_proof_types": ["passive_observation", "controlled_canary_evidence", "review_gated_controlled_proof"],
+        "required_evidence": ["run_id", "task_output_id", "coverage_truth", "report_variant:technical", "runner_decision"],
+        "expected_issues": [
+          {
+            "id": "gruyere-xss-family",
+            "family": "xss",
+            "expected_severity": "medium",
+            "title_pattern": "(?i)(cross.?site scripting|\\bxss\\b|script injection)",
+            "safe_allowed_proof_type": "controlled_canary_evidence",
+            "required_evidence": ["finding_id", "finding_evidence_ref", "task_output_id", "runner_decision"],
+            "unsupported_gaps": ["browser-specific payload proof remains live-lab required"]
+          },
+          {
+            "id": "gruyere-client-state-admin-cookie",
+            "family": "client-state manipulation",
+            "expected_severity": "high",
+            "title_pattern": "(?i)(client.?state|cookie.*role|privilege|hidden field|tamper)",
+            "safe_allowed_proof_type": "review_gated_controlled_proof",
+            "required_evidence": ["finding_id", "redacted_session_evidence", "approval_gate", "coverage_truth"],
+            "unsupported_gaps": ["raw cookies or tokens must never be stored in benchmark output"]
+          },
+          {
+            "id": "gruyere-remote-code-execution-gtl",
+            "family": "server-side template injection",
+            "expected_severity": "critical",
+            "title_pattern": "(?i)(remote code execution|\\brce\\b|server.?side template|ssti|template injection)",
+            "safe_allowed_proof_type": "controlled_canary_evidence",
+            "required_evidence": ["finding_id", "canary_evidence_ref", "approval_gate", "rationale_ledger_id"],
+            "unsupported_gaps": ["command execution, callbacks, file writes, and persistence are out of scope"]
+          }
+        ],
+        "unsupported_gaps": ["live Docker/browser exploit proof is not executed in dry-run mode"]
+      },
+      {
+        "id": "webgoat-local",
+        "name": "OWASP WebGoat Local",
+        "target": {
+          "kind": "local_docker_lab",
+          "image": "webgoat/webgoat:latest",
+          "default_url": "http://127.0.0.1:8080/WebGoat",
+          "allowed_hosts": ["127.0.0.1", "localhost"],
+          "public_target_allowed": false,
+          "fixture_setup_required": true
+        },
+        "safe_allowed_proof_types": ["passive_observation", "authenticated_lab_evidence", "review_gated_controlled_proof"],
+        "required_evidence": ["run_id", "task_output_id", "coverage_truth", "report_variant:technical", "runner_decision"],
+        "expected_issues": [
+          {
+            "id": "webgoat-sql-injection-family",
+            "family": "sql injection",
+            "expected_severity": "high",
+            "title_pattern": "(?i)sql.*injection|injection.*sql",
+            "safe_allowed_proof_type": "controlled_canary_evidence",
+            "required_evidence": ["finding_id", "finding_evidence_ref", "task_output_id", "coverage_truth"],
+            "unsupported_gaps": ["database extraction is not accepted as benchmark proof"]
+          },
+          {
+            "id": "webgoat-idor-family",
+            "family": "idor",
+            "expected_severity": "high",
+            "title_pattern": "(?i)(idor|insecure direct object|object reference|access control)",
+            "safe_allowed_proof_type": "authenticated_lab_evidence",
+            "required_evidence": ["finding_id", "auth_context_ref", "redacted_session_evidence", "runner_decision"],
+            "unsupported_gaps": ["credential material must be referenced through secret bindings only"]
+          },
+          {
+            "id": "webgoat-jwt-family",
+            "family": "jwt",
+            "expected_severity": "high",
+            "title_pattern": "(?i)(jwt|json web token|none algorithm|weak.*secret)",
+            "safe_allowed_proof_type": "review_gated_controlled_proof",
+            "required_evidence": ["finding_id", "finding_evidence_ref", "approval_gate", "coverage_truth"],
+            "unsupported_gaps": ["token brute force and raw token capture are out of scope"]
+          }
+        ],
+        "unsupported_gaps": ["authenticated lesson setup is live-lab required and not performed in dry-run mode"]
+      },
+      {
+        "id": "dvwa-local",
+        "name": "Damn Vulnerable Web Application Local",
+        "target": {
+          "kind": "local_docker_lab",
+          "image": "vulnerables/web-dvwa:latest",
+          "default_url": "http://127.0.0.1:8081/",
+          "allowed_hosts": ["127.0.0.1", "localhost"],
+          "public_target_allowed": false,
+          "fixture_setup_required": true
+        },
+        "safe_allowed_proof_types": ["passive_observation", "controlled_canary_evidence", "authenticated_lab_evidence"],
+        "required_evidence": ["run_id", "task_output_id", "coverage_truth", "report_variant:technical", "runner_decision"],
+        "expected_issues": [
+          {
+            "id": "dvwa-sql-injection-family",
+            "family": "sql injection",
+            "expected_severity": "high",
+            "title_pattern": "(?i)sql.*injection|injection.*sql",
+            "safe_allowed_proof_type": "controlled_canary_evidence",
+            "required_evidence": ["finding_id", "finding_evidence_ref", "task_output_id", "coverage_truth"],
+            "unsupported_gaps": ["data dumping is not accepted as proof"]
+          },
+          {
+            "id": "dvwa-command-injection-family",
+            "family": "command injection",
+            "expected_severity": "critical",
+            "title_pattern": "(?i)(command injection|os command|shell injection)",
+            "safe_allowed_proof_type": "controlled_canary_evidence",
+            "required_evidence": ["finding_id", "canary_evidence_ref", "approval_gate", "rationale_ledger_id"],
+            "unsupported_gaps": ["destructive commands, callbacks, and persistence are prohibited"]
+          },
+          {
+            "id": "dvwa-file-inclusion-family",
+            "family": "file inclusion",
+            "expected_severity": "high",
+            "title_pattern": "(?i)(file inclusion|path traversal|directory traversal|\\blfi\\b)",
+            "safe_allowed_proof_type": "controlled_canary_evidence",
+            "required_evidence": ["finding_id", "finding_evidence_ref", "task_output_id", "report_variant:technical"],
+            "unsupported_gaps": ["sensitive file content must not be stored"]
+          }
+        ],
+        "unsupported_gaps": ["DVWA security-level setup is live-lab required and not performed in dry-run mode"]
+      },
+      {
+        "id": "dvga-local",
+        "name": "Damn Vulnerable GraphQL Application Local",
+        "target": {
+          "kind": "local_docker_lab",
+          "image": "dolevf/damn-vulnerable-graphql-application:latest",
+          "default_url": "http://127.0.0.1:5013/graphql",
+          "allowed_hosts": ["127.0.0.1", "localhost"],
+          "public_target_allowed": false,
+          "fixture_setup_required": true
+        },
+        "safe_allowed_proof_types": ["passive_observation", "controlled_canary_evidence", "authenticated_lab_evidence"],
+        "required_evidence": ["run_id", "task_output_id", "coverage_truth", "report_variant:technical", "runner_decision"],
+        "expected_issues": [
+          {
+            "id": "dvga-graphql-introspection",
+            "family": "graphql introspection exposure",
+            "expected_severity": "medium",
+            "title_pattern": "(?i)(graphql|introspection|schema exposure)",
+            "safe_allowed_proof_type": "passive_observation",
+            "required_evidence": ["finding_id", "finding_evidence_ref", "task_output_id", "coverage_truth"],
+            "unsupported_gaps": ["schema dumps should be summarized, not copied wholesale"]
+          },
+          {
+            "id": "dvga-graphql-injection-family",
+            "family": "graphql injection",
+            "expected_severity": "high",
+            "title_pattern": "(?i)(graphql.*injection|injection.*graphql|sql.*injection)",
+            "safe_allowed_proof_type": "controlled_canary_evidence",
+            "required_evidence": ["finding_id", "canary_evidence_ref", "runner_decision", "coverage_truth"],
+            "unsupported_gaps": ["database extraction is not accepted as benchmark proof"]
+          },
+          {
+            "id": "dvga-broken-access-control",
+            "family": "broken access control",
+            "expected_severity": "high",
+            "title_pattern": "(?i)(access control|authorization|idor|object reference)",
+            "safe_allowed_proof_type": "authenticated_lab_evidence",
+            "required_evidence": ["finding_id", "auth_context_ref", "redacted_session_evidence", "report_variant:technical"],
+            "unsupported_gaps": ["raw credentials and tokens must not be stored"]
+          }
+        ],
+        "unsupported_gaps": ["DVGA authentication and resolver state setup is live-lab required and not performed in dry-run mode"]
+      }
+    ]
+  },
   "benchmarks": [
     {
       "id": "gruyere-local",

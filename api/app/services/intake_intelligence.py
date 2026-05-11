@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID
@@ -68,6 +69,26 @@ ACCESS_SIGNAL_PHRASES = (
     "cookie",
     "manual auth",
 )
+FULL_PENTEST_PHRASES = (
+    "full pentest",
+    "full penetration test",
+    "complete pentest",
+    "complete penetration test",
+    "all phases",
+    "volle pentest",
+    "volledige pentest",
+    "volledige penetratietest",
+    "complete pentest",
+    "alle fases",
+)
+ACTIVE_SCAN_PHRASES = (
+    "active scan",
+    "active scanning",
+    "actieve scan",
+    "actief scannen",
+    "validation scan",
+)
+PASSIVE_SCAN_PHRASES = ("passive", "passief", "recon", "reconnaissance", "inventory only")
 
 
 class IntakeInterpretationError(RuntimeError):
@@ -270,6 +291,11 @@ def build_intake_interpretation(
         "scope_expansion_blocked": True,
         "failure_reason": None,
         "provider_metadata": {},
+        "intent_mission_plan": _build_intent_mission_plan(
+            answer=normalized_answer,
+            configuration=configuration,
+            generated_at=generated_at,
+        ),
     }
 
     if not settings.ai_intake_interpretation_enabled or provider_name in {"", "disabled", "none", "off"}:
@@ -497,6 +523,317 @@ def _validate_provider_output(
         "provider_metadata": _safe_dict(output.get("provider_metadata")),
         "explicit_target_count": len(explicit_targets),
     }
+
+
+def _build_intent_mission_plan(
+    *,
+    answer: str,
+    configuration: dict[str, Any],
+    generated_at: datetime,
+) -> dict[str, Any]:
+    normalized = answer.lower()
+    target = _extract_primary_target(answer) or _first_explicit_target(configuration)
+    target_map = _target_map_for_target(target)
+    assessment_type = _assessment_type_from_intent(normalized, target)
+    depth = _depth_from_intent(normalized, configuration)
+    assessment_mode = _assessment_mode_for_intent(assessment_type, depth)
+    run_mode = "assessment_chain" if assessment_mode else "standard_run"
+    authorization = _intent_authorization_summary(configuration, depth)
+    missing_fields = []
+    if not assessment_type:
+        missing_fields.append("assessment_type")
+    if not target:
+        missing_fields.append("target")
+    if not depth:
+        missing_fields.append("depth")
+    required_actions = []
+    if depth == "Full Pentest" and not authorization["written_authorization_confirmed"]:
+        required_actions.append(
+            {
+                "id": "written_authorization_required",
+                "label": "Confirm written authorization from the system owner.",
+                "blocks_launch": True,
+            }
+        )
+    unsafe_scope = any(phrase in normalized for phrase in BROAD_SCOPE_PHRASES)
+    blocked_items = []
+    if unsafe_scope:
+        blocked_items.append(
+            {
+                "id": "broad_scope_language",
+                "label": "Broad scope language cannot become authorized target scope.",
+            }
+        )
+    preview_ready = bool(target and assessment_type and depth and not unsafe_scope)
+    launch_ready = bool(preview_ready and not any(item["blocks_launch"] for item in required_actions))
+    next_missing_field = (
+        "unsafe_scope"
+        if unsafe_scope
+        else missing_fields[0]
+        if missing_fields
+        else "authorization"
+        if required_actions
+        else "complete"
+    )
+    automatic_work = _automatic_work_for_intent(assessment_type, depth, assessment_mode)
+    approval_work = _approval_work_for_intent(depth, authorization)
+    return {
+        "planner_version": "intent-to-mission-planner-v1",
+        "generated_at": generated_at.isoformat(),
+        "preview_ready": preview_ready,
+        "launch_ready": launch_ready,
+        "next_missing_field": next_missing_field,
+        "extracted": {
+            "target": target,
+            "target_map": target_map,
+            "assessment_type": assessment_type,
+            "depth": depth,
+            "run_mode": run_mode,
+            "assessment_mode": assessment_mode,
+            "authorization_summary": authorization,
+        },
+        "configuration_preview": {
+            "assessment_type": assessment_type,
+            "test_profile": depth,
+            "targets": target_map,
+            "run_mode": run_mode,
+            "assessment_mode": assessment_mode,
+            "dispatch_after_create": bool(assessment_mode),
+        },
+        "evidence_plan": {
+            "inventory_seed": bool(target),
+            "expected_evidence": [
+                "operator_intent",
+                "scope_allowlist",
+                "authorization_confirmation",
+                "runner_task_ledger",
+                "coverage_truth",
+                "roe_policy_decision",
+            ],
+            "report_sections": ["execution_ledger", "coverage_truth", "evidence_appendix"],
+        },
+        "launch_summary": {
+            "automatic": automatic_work,
+            "requires_approval": approval_work,
+            "out_of_scope": blocked_items,
+            "required_actions": required_actions,
+            "operator_text": _intent_operator_summary(
+                assessment_type=assessment_type,
+                target=target,
+                depth=depth,
+                assessment_mode=assessment_mode,
+                required_actions=required_actions,
+                blocked_items=blocked_items,
+            ),
+        },
+        "follow_up_questions": _intent_follow_ups(
+            missing_fields=missing_fields,
+            unsafe_scope=unsafe_scope,
+        ),
+        "safety": {
+            "scope_expansion_allowed": False,
+            "authorization_bypass_allowed": False,
+            "credential_consent_bypass_allowed": False,
+            "kill_switch_bypass_allowed": False,
+            "manual_wizard_preserved": True,
+        },
+    }
+
+
+def _extract_primary_target(answer: str) -> str | None:
+    url_match = re.search(r"https?://[^\s,;]+", answer)
+    if url_match:
+        return url_match.group(0).rstrip(".,)")
+    cidr_match = re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b", answer)
+    if cidr_match:
+        return cidr_match.group(0)
+    ip_match = re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", answer)
+    if ip_match:
+        return ip_match.group(0)
+    domain_match = re.search(r"\b[a-z0-9][a-z0-9.-]+\.[a-z]{2,}\b", answer, flags=re.I)
+    if domain_match:
+        return domain_match.group(0).rstrip(".,)")
+    return None
+
+
+def _first_explicit_target(configuration: dict[str, Any]) -> str | None:
+    explicit = _explicit_targets(configuration)
+    return explicit[0] if explicit else None
+
+
+def _target_map_for_target(target: str | None) -> dict[str, list[str]]:
+    if not target:
+        return {}
+    if target.startswith(("http://", "https://")):
+        return {"urls": [target]}
+    if "/" in target and re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}", target):
+        return {"cidr_ranges": [target]}
+    if re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}", target):
+        return {"ip_addresses": [target]}
+    if re.fullmatch(r"[a-z0-9][a-z0-9.-]+\.[a-z]{2,}", target, flags=re.I):
+        return {"domains": [target]}
+    return {"hosts": [target]}
+
+
+def _assessment_type_from_intent(normalized: str, target: str | None) -> str:
+    if any(token in normalized for token in ("api", "graphql", "rest")):
+        return "API Security"
+    if any(token in normalized for token in ("active directory", "ad assessment", "domain controller")):
+        return "Active Directory"
+    if any(token in normalized for token in ("internal", "lan", "network", "subnet")):
+        return "Internal Range / LAN"
+    if any(token in normalized for token in ("cloud", "aws", "azure", "gcp")):
+        return "Cloud Infrastructure"
+    if target and str(target).startswith(("http://", "https://")):
+        return "External Web App"
+    if target and "/" in target:
+        return "Internal Range / LAN"
+    return "External Web App"
+
+
+def _depth_from_intent(normalized: str, configuration: dict[str, Any]) -> str:
+    configured = str(configuration.get("test_profile") or "").strip()
+    if any(phrase in normalized for phrase in FULL_PENTEST_PHRASES):
+        return "Full Pentest"
+    if any(phrase in normalized for phrase in ACTIVE_SCAN_PHRASES):
+        return "Active Scan"
+    if any(phrase in normalized for phrase in PASSIVE_SCAN_PHRASES):
+        return "Passive"
+    if configured:
+        if "full" in configured.lower():
+            return "Full Pentest"
+        if "active" in configured.lower() or "standard" in configured.lower():
+            return "Active Scan"
+    return "Passive"
+
+
+def _assessment_mode_for_intent(assessment_type: str, depth: str) -> str | None:
+    if depth != "Full Pentest":
+        return None
+    normalized = assessment_type.lower()
+    if "active directory" in normalized:
+        return "FULL-AD-ASSESSMENT"
+    if "internal" in normalized or "lan" in normalized:
+        return "FULL-INTERNAL-LAN"
+    if "web" in normalized or "api" in normalized:
+        return "FULL-EXTERNAL-WEB"
+    return None
+
+
+def _intent_authorization_summary(configuration: dict[str, Any], depth: str) -> dict[str, Any]:
+    assessment_mode = _safe_dict(configuration.get("assessment_mode"))
+    access = _safe_dict(configuration.get("access"))
+    prerequisites = _safe_dict(access.get("prerequisites"))
+    authorization_level = str(assessment_mode.get("authorization_level") or "").strip().lower()
+    written_confirmed = bool(
+        configuration.get("authorization_confirmed")
+        or assessment_mode.get("written_authorization_confirmed")
+        or authorization_level == "full"
+    )
+    return {
+        "written_authorization_required": depth == "Full Pentest",
+        "written_authorization_confirmed": written_confirmed,
+        "authorization_level": authorization_level or ("full_required" if depth == "Full Pentest" else "standard"),
+        "intrusive_lan_authorized": bool(
+            prerequisites.get("intrusive_lan_authorized")
+            or assessment_mode.get("intrusive_lan_authorized")
+        ),
+        "credential_consent_required": bool(access.get("accounts") or access.get("manual_auth_steps")),
+        "credential_consent_confirmed": bool(access.get("accounts") or access.get("manual_auth_steps")),
+    }
+
+
+def _automatic_work_for_intent(
+    assessment_type: str,
+    depth: str,
+    assessment_mode: str | None,
+) -> list[dict[str, Any]]:
+    if assessment_mode:
+        return [
+            {
+                "id": "assessment_chain",
+                "label": f"{assessment_mode} phase chain starts automatically after launch.",
+            },
+            {
+                "id": "seed_inventory",
+                "label": "Seed inventory and passive baseline evidence are recorded first.",
+            },
+        ]
+    if depth == "Active Scan":
+        return [{"id": "active_recon", "label": f"Approval-aware active checks for {assessment_type}."}]
+    return [{"id": "passive_baseline", "label": f"Passive-safe baseline for {assessment_type}."}]
+
+
+def _approval_work_for_intent(depth: str, authorization: dict[str, Any]) -> list[dict[str, Any]]:
+    if depth != "Full Pentest":
+        return []
+    if authorization.get("written_authorization_confirmed"):
+        return []
+    return [
+        {
+            "id": "written_authorization",
+            "label": "Launch remains blocked until written authorization is confirmed.",
+        }
+    ]
+
+
+def _intent_follow_ups(*, missing_fields: list[str], unsafe_scope: bool) -> list[dict[str, Any]]:
+    if unsafe_scope:
+        return [
+            {
+                "question_id": "scope",
+                "question": "Which exact URLs, domains, IPs, or CIDRs are explicitly authorized?",
+                "reason": "Broad scope language cannot become authorization.",
+            }
+        ]
+    if "target" in missing_fields:
+        return [
+            {
+                "question_id": "scope",
+                "question": "Which exact URL, domain, IP, or CIDR is explicitly authorized?",
+                "reason": "A target is required before a mission can be previewed.",
+            }
+        ]
+    if "assessment_type" in missing_fields:
+        return [
+            {
+                "question_id": "targetType",
+                "question": "What kind of surface is this: web app, API, internal LAN, AD, or cloud?",
+                "reason": "Assessment type controls the safe runner profile.",
+            }
+        ]
+    if "depth" in missing_fields:
+        return [
+            {
+                "question_id": "depth",
+                "question": "Should this be Passive, Active Scan, or Full Pentest?",
+                "reason": "Execution depth controls approval and ROE policy.",
+            }
+        ]
+    return []
+
+
+def _intent_operator_summary(
+    *,
+    assessment_type: str,
+    target: str | None,
+    depth: str,
+    assessment_mode: str | None,
+    required_actions: list[dict[str, Any]],
+    blocked_items: list[dict[str, Any]],
+) -> str:
+    if blocked_items:
+        return "Scope is not launch-ready because broad or unsafe target language must be replaced with exact authorized targets."
+    if not target:
+        return "Mission preview needs an exact authorized target before launch."
+    if required_actions:
+        return (
+            f"{depth} preview for {assessment_type} on {target} is complete; written authorization "
+            "must be confirmed before launch."
+        )
+    if assessment_mode:
+        return f"{depth} on {target} will launch {assessment_mode} with automatic phase progression."
+    return f"{depth} on {target} is ready for operator-reviewed launch."
 
 
 def _explicit_targets(configuration: dict[str, Any]) -> list[str]:

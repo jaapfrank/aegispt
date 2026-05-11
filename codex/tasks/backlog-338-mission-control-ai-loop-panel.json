@@ -1,0 +1,99 @@
+{
+  "id": "backlog-338-mission-control-ai-loop-panel",
+  "task_file": "codex/tasks/backlog-338-mission-control-ai-loop-panel.json",
+  "task_type": "ui_feature",
+  "title": "Mission Control: AI Adaptive Loop Panel showing Iteration Chain and Hypotheses",
+  "goal": "When a run uses run_mode=ai_loop, Mission Control must replace or augment the current Phase Chain panel with an AI Loop panel that shows: (1) current iteration number and loop status; (2) the last AI hypothesis (what the AI decided to try next and why); (3) the chain of findings-to-actions so far (finding confirmed \u2192 pivot context created \u2192 next tool queued); (4) what is queued next and why; (5) a clear label 'AI Adaptive Pentest \u2014 exploiting confirmed findings automatically'. For standard/chain runs the existing Phase Chain panel remains unchanged. The data comes from existing AgentReasoning records (reasoning_type='assessment_loop_next_action') and the run's configuration_json.assessment_loop state. No new API endpoints needed \u2014 use existing /api/v1/runs/{id}/ai-insights and /api/v1/agent-reasoning endpoints.",
+  "scope": "ui-v2/src/components/screens/MissionControl.tsx",
+  "status": "queued",
+  "generated_by": "gap-analysis-mc-no-loop-view",
+  "generation_reason": "Mission Control shows 'No chain' for ai_loop runs because it only renders assessment chain data. The operator has no visibility into what the AI is doing, what it found, and what it plans next.",
+  "source_context": {
+    "queue_index": 290,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "REQUIRES: backlog-336",
+    "broader_theme": "ai_chained_exploitation",
+    "key_files": [
+      "ui-v2/src/components/screens/MissionControl.tsx",
+      "ui-v2/src/api/client.ts",
+      "ui-v2/src/api/types.ts"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_new_endpoints": "Use existing API endpoints. Do not add new backend routes.",
+    "no_breaking_changes": "Standard run and chain run views must remain unchanged.",
+    "ts_clean": "npm run build in ui-v2/ must pass with no TypeScript errors.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "detection": "Check run.configuration_json?.run_mode === 'ai_loop' to decide which panel to show.",
+    "loop_state": "Loop state is in run.configuration_json.assessment_loop \u2014 shows status, iteration_count, stop_reason, last_action.",
+    "reasoning_chain": "Fetch from run.ai_mission_guidance or via getRunAiInsights(). The proposals array contains the loop iterations with reasoning_text and next_action.",
+    "panel_layout": "Replace Phase Chain panel with AI Loop panel for ai_loop runs. Show: status badge, iteration counter, last hypothesis card, next action card, mini-chain timeline.",
+    "chain_timeline": "Each loop proposal = one row: [tool icon] [target] [reasoning summary] [status: queued/running/completed]"
+  },
+  "validation": {
+    "required_checks": [
+      "cd ui-v2 && npm run build",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "For ai_loop run: Phase Chain panel replaced with 'AI Adaptive Loop' panel showing iteration count and last hypothesis.",
+      "For standard/chain run: existing Phase Chain panel unchanged.",
+      "The panel updates when Mission Control polls (every 3 seconds).",
+      "The panel shows 'stopped' with reason when the loop terminates."
+    ]
+  },
+  "success_criteria": [
+    "For ai_loop run: Phase Chain panel replaced with 'AI Adaptive Loop' panel showing iteration count and last hypothesis.",
+    "For standard/chain run: existing Phase Chain panel unchanged.",
+    "The panel updates when Mission Control polls (every 3 seconds).",
+    "The panel shows 'stopped' with reason when the loop terminates."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/MissionControl.tsx",
+    "ui-v2/src/api/client.ts",
+    "ui-v2/src/api/types.ts"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

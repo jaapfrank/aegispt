@@ -24,9 +24,12 @@ import {
   ApiError,
   authorizeChatGptOAuth,
   createApiKey,
+  createDeceptionTrap,
   exportEngagementData,
   getApiKeys,
   getChatGptOAuthStatus,
+  getDeceptionAlerts,
+  getDeceptionTraps,
   getEnterpriseIdentityStatus,
   getScheduledRuns,
   getSettings,
@@ -39,6 +42,9 @@ import type {
   ApiKeyRead,
   ChatGptOAuthAuthorize,
   ChatGptOAuthStatus,
+  DeceptionAlert,
+  DeceptionTrap,
+  DeceptionTrapKind,
   EnterpriseIdentityStatus,
   ScheduledRun,
   Setting,
@@ -47,15 +53,25 @@ import type {
 } from '../../api/types';
 import { ACTOR_STORAGE_KEY, V2_ACTOR_STORAGE_KEY, useAegisStore } from '../../store';
 
-type SettingsTab = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity';
-type SaveScope = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity';
-type PendingAction = SaveScope | 'chatgpt-status' | 'chatgpt-connect' | 'api-key-create' | 'data-export' | 'schedule' | null;
+type SettingsTab = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity' | 'deception';
+type SaveScope = 'ai' | 'runtime' | 'integrations' | 'data' | 'identity' | 'deception';
+type PendingAction =
+  | SaveScope
+  | 'chatgpt-status'
+  | 'chatgpt-connect'
+  | 'api-key-create'
+  | 'data-export'
+  | 'schedule'
+  | 'deception-create'
+  | 'deception-refresh'
+  | null;
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: typeof Bot }> = [
   { id: 'ai', label: 'AI & Provider', icon: Bot },
   { id: 'runtime', label: 'Tools & Runtime', icon: ServerCog },
   { id: 'integrations', label: 'Integrations', icon: PlugZap },
   { id: 'data', label: 'Data & Security', icon: Lock },
+  { id: 'deception', label: 'Deception', icon: Shield },
   { id: 'identity', label: 'Identity & Users', icon: UserRound },
 ];
 
@@ -97,6 +113,7 @@ const tabSettingKeys: Record<SaveScope, string[]> = {
     'instance.build_lane_mode',
     'instance.onboarding_completed',
   ],
+  deception: [],
   identity: [
     'identity.enterprise_sso_provider',
     'identity.session_timeout_minutes',
@@ -133,6 +150,10 @@ export default function SettingsScreen() {
   const [identityStatus, setIdentityStatus] = useState<EnterpriseIdentityStatus | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyRead[]>([]);
   const [scheduledRuns, setScheduledRuns] = useState<ScheduledRun[]>([]);
+  const [deceptionTraps, setDeceptionTraps] = useState<DeceptionTrap[]>([]);
+  const [deceptionAlerts, setDeceptionAlerts] = useState<DeceptionAlert[]>([]);
+  const [newTrapName, setNewTrapName] = useState('Local recursive API fixture');
+  const [newTrapKind, setNewTrapKind] = useState<DeceptionTrapKind>('hallucination_api');
   const [newKey, setNewKey] = useState('');
   const [newKeyRole, setNewKeyRole] = useState<'admin' | 'operator' | 'reviewer'>('operator');
   const [actorName, setActorName] = useState(actor.name);
@@ -205,6 +226,7 @@ export default function SettingsScreen() {
     }
     promises.push(loadApiKeys());
     promises.push(loadIdentityStatus());
+    promises.push(loadDeceptionData(false));
     await Promise.all(promises);
   }
 
@@ -358,6 +380,46 @@ export default function SettingsScreen() {
     }
   }
 
+  async function loadDeceptionData(notify = true) {
+    if (notify) setPending('deception-refresh');
+    try {
+      const [traps, alerts] = await Promise.all([getDeceptionTraps(), getDeceptionAlerts()]);
+      setDeceptionTraps(traps.traps);
+      setDeceptionAlerts(alerts.alerts);
+      if (notify) setToast('Deception fixtures refreshed.');
+    } catch (error) {
+      setDeceptionTraps([]);
+      setDeceptionAlerts([]);
+      if (notify) setToast(errorMessage(error));
+    } finally {
+      if (notify) setPending(null);
+    }
+  }
+
+  async function handleCreateDeceptionTrap() {
+    const name = newTrapName.trim();
+    if (!name) {
+      setToast('Name the local deception fixture before creating it.');
+      return;
+    }
+    setPending('deception-create');
+    try {
+      await createDeceptionTrap({
+        name,
+        trap_kind: newTrapKind,
+        local_only: true,
+        enabled: true,
+        max_depth: 4,
+      });
+      await loadDeceptionData(false);
+      setToast('Local deception fixture created.');
+    } catch (error) {
+      setToast(errorMessage(error));
+    } finally {
+      setPending(null);
+    }
+  }
+
   async function handleDataExport() {
     if (!selectedEngagementId) {
       setToast('Select an engagement before exporting data.');
@@ -478,6 +540,21 @@ export default function SettingsScreen() {
             toggleSection={toggleSection}
             updateDraft={updateDraft}
             exportData={handleDataExport}
+          />
+        )}
+        {activeTab === 'deception' && (
+          <DeceptionTab
+            traps={deceptionTraps}
+            alerts={deceptionAlerts}
+            newTrapName={newTrapName}
+            newTrapKind={newTrapKind}
+            setNewTrapName={setNewTrapName}
+            setNewTrapKind={setNewTrapKind}
+            pending={pending}
+            openSections={openSections}
+            toggleSection={toggleSection}
+            createTrap={handleCreateDeceptionTrap}
+            refreshTraps={loadDeceptionData}
           />
         )}
         {activeTab === 'identity' && (
@@ -789,6 +866,114 @@ function DataSecurityTab({
         <p className="mt-3 text-[0.925rem] leading-5 text-muted">
           Purge is intentionally disabled here because the backend requires typed confirmation through its governed purge endpoint.
         </p>
+      </SettingsDisclosure>
+    </div>
+  );
+}
+
+function DeceptionTab({
+  traps,
+  alerts,
+  newTrapName,
+  newTrapKind,
+  setNewTrapName,
+  setNewTrapKind,
+  pending,
+  openSections,
+  toggleSection,
+  createTrap,
+  refreshTraps,
+}: {
+  traps: DeceptionTrap[];
+  alerts: DeceptionAlert[];
+  newTrapName: string;
+  newTrapKind: DeceptionTrapKind;
+  setNewTrapName: (value: string) => void;
+  setNewTrapKind: (value: DeceptionTrapKind) => void;
+  pending: PendingAction;
+  openSections: Set<string>;
+  toggleSection: (id: string) => void;
+  createTrap: () => Promise<void>;
+  refreshTraps: (notify?: boolean) => Promise<void>;
+}) {
+  return (
+    <div className="space-y-3">
+      <SettingsDisclosure id="deception-create" title="Local Trap Fixtures" summary={`${traps.length} configured local fixtures`} openSections={openSections} toggleSection={toggleSection}>
+        <div className="grid gap-3 lg:grid-cols-[1fr_220px_auto]">
+          <label className="block">
+            <span className="mb-1 block text-[0.85rem] font-bold uppercase text-muted">Fixture name</span>
+            <input value={newTrapName} onChange={(event) => setNewTrapName(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none focus:border-cyan/50" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[0.85rem] font-bold uppercase text-muted">Kind</span>
+            <select value={newTrapKind} onChange={(event) => setNewTrapKind(event.target.value as DeceptionTrapKind)} className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[1rem] text-text outline-none focus:border-cyan/50">
+              <option value="hallucination_api" className="bg-surface text-text">Recursive API</option>
+              <option value="fake_admin_api" className="bg-surface text-text">Admin API</option>
+              <option value="canary_document" className="bg-surface text-text">Canary document</option>
+            </select>
+          </label>
+          <button type="button" disabled={pending === 'deception-create'} onClick={() => void createTrap()} className="self-end inline-flex items-center justify-center gap-2 rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[1rem] font-semibold text-green disabled:opacity-50">
+            {pending === 'deception-create' ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+            Create Fixture
+          </button>
+        </div>
+        <p className="mt-3 text-[0.925rem] leading-5 text-muted">
+          Fixtures are local controlled endpoints only. Creating one does not deploy to live systems, dispatch tools, materialize credentials, or approve runtime work.
+        </p>
+      </SettingsDisclosure>
+
+      <SettingsDisclosure id="deception-traps" title="Configured Fixtures" summary={`${traps.filter((trap) => trap.enabled).length} enabled`} openSections={openSections} toggleSection={toggleSection}>
+        <div className="mb-3 flex justify-end">
+          <button type="button" disabled={pending === 'deception-refresh'} onClick={() => void refreshTraps()} className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[0.925rem] font-semibold text-cyan disabled:opacity-50">
+            {pending === 'deception-refresh' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Refresh
+          </button>
+        </div>
+        {traps.length ? (
+          <div className="space-y-2">
+            {traps.map((trap) => (
+              <div key={trap.id} className="rounded-lg border border-border bg-bg/30 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-[1rem] font-semibold text-text">{trap.name}</div>
+                    <div className="mt-1 break-all font-mono text-[0.85rem] text-muted">{trap.endpoint_path}</div>
+                  </div>
+                  <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', trap.enabled ? 'border-green/30 bg-green/10 text-green' : 'border-amber/30 bg-amber/10 text-amber')}>
+                    {trap.enabled ? 'enabled' : 'disabled'}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <MiniMetric label="Kind" value={trap.trap_kind.replace(/_/g, ' ')} />
+                  <MiniMetric label="Max depth" value={String(trap.max_depth)} />
+                  <MiniMetric label="Boundary" value={trap.boundary.automatic_live_deployment ? 'review needed' : 'local only'} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyInline title="No local fixtures" detail="Create a controlled trap endpoint before monitoring deception alerts." />
+        )}
+      </SettingsDisclosure>
+
+      <SettingsDisclosure id="deception-alerts" title="Probe Alerts" summary={`${alerts.length} recorded probes`} openSections={openSections} toggleSection={toggleSection}>
+        {alerts.length ? (
+          <div className="space-y-2">
+            {alerts.slice(0, 12).map((alert) => (
+              <div key={alert.id} className="grid gap-3 rounded-lg border border-border bg-bg/30 p-3 md:grid-cols-[1fr_auto]">
+                <div className="min-w-0">
+                  <div className="truncate text-[1rem] font-semibold text-text">{alert.trap_name}</div>
+                  <div className="mt-1 break-all text-[0.925rem] text-muted">{alert.probed_path}</div>
+                  <div className="mt-1 text-[0.85rem] text-muted">{alert.actor} · {alert.evidence_ref}</div>
+                </div>
+                <span className="self-start rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[0.77rem] font-bold uppercase text-amber">
+                  {formatDate(alert.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyInline title="No probe alerts" detail="Configured trap endpoint probes will appear here as evidence-backed local alerts." />
+        )}
       </SettingsDisclosure>
     </div>
   );
@@ -1202,6 +1387,7 @@ function activeTabToSaveScope(tab: SettingsTab): SaveScope {
   if (tab === 'runtime') return 'runtime';
   if (tab === 'integrations') return 'integrations';
   if (tab === 'data') return 'data';
+  if (tab === 'deception') return 'deception';
   return 'identity';
 }
 

@@ -88,6 +88,10 @@ class Engagement(UUIDMixin, TimestampMixin, Base):
         back_populates="engagement",
         cascade="all, delete-orphan",
     )
+    casebook_entries: Mapped[list["EngagementCasebookEntry"]] = relationship(
+        back_populates="engagement",
+        cascade="all, delete-orphan",
+    )
     runs: Mapped[list["Run"]] = relationship(back_populates="engagement")
 
 
@@ -341,6 +345,25 @@ class RunDrift(UUIDMixin, TimestampMixin, Base):
 
     run: Mapped["Run"] = relationship(back_populates="drift_summary", foreign_keys=[run_id])
     previous_run: Mapped["Run"] = relationship(foreign_keys=[previous_run_id])
+
+
+class EngagementCasebookEntry(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "engagement_casebook_entries"
+
+    engagement_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("engagements.id"), nullable=False, index=True
+    )
+    tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, default="default", index=True)
+    entry_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    source_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    data_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="recorded", index=True)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="system")
+    provenance_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+    engagement: Mapped["Engagement"] = relationship(back_populates="casebook_entries")
 
 
 class ScheduledRun(UUIDMixin, TimestampMixin, Base):
@@ -1327,3 +1350,24 @@ class RationaleLedgerEntry(UUIDMixin, TimestampMixin, Base):
     context_document: Mapped["TargetContextDocument | None"] = relationship(
         back_populates="rationale_ledger_entries",
     )
+
+
+class EngagementMemory(UUIDMixin, TimestampMixin, Base):
+    """Persistent AI memory scoped to an engagement. The AI reads and writes here across runs."""
+
+    __tablename__ = "engagement_memory"
+
+    engagement_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("engagements.id"), nullable=False, index=True
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("runs.id"), nullable=True, index=True
+    )
+    memory_key: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    memory_value: Mapped[str] = mapped_column(Text, nullable=False)
+    memory_type: Mapped[str] = mapped_column(String(50), nullable=False, default="fact")
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    source: Mapped[str] = mapped_column(String(100), nullable=False, default="ai_analysis")
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+    engagement: Mapped["Engagement"] = relationship()

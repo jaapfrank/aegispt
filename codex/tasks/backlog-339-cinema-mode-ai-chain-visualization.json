@@ -1,0 +1,99 @@
+{
+  "id": "backlog-339-cinema-mode-ai-chain-visualization",
+  "task_file": "codex/tasks/backlog-339-cinema-mode-ai-chain-visualization.json",
+  "task_type": "ui_feature",
+  "title": "Cinema Mode: 3D AI Attack Chain Visualization for ai_loop Runs",
+  "goal": "Cinema Mode currently shows a static 3D node graph of tasks and findings. For ai_loop runs it must evolve into a live attack chain visualization: each loop iteration spawns a new node in the 3D graph connected to the previous, the node color and shape indicates what was found (critical finding = red pulsing sphere, XSS = orange, SQLi = red, auth bypass = purple), and a thread connects finding nodes to the follow-up tool node showing the pivot chain. The narration panel must show the AI's current hypothesis and what it is trying to exploit. For standard runs Cinema Mode behavior remains unchanged.",
+  "scope": "ui-v2/src/components/CinemaMode.tsx",
+  "status": "queued",
+  "generated_by": "gap-analysis-cinema-no-chain",
+  "generation_reason": "Cinema Mode does not show the AI reasoning chain. For ai_loop runs the 3D visualization should make it visually obvious that the AI is chaining exploits \u2014 finding XSS, extracting a session, testing authenticated surfaces. This is the showpiece visualization.",
+  "source_context": {
+    "queue_index": 291,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "REQUIRES: backlog-338",
+    "broader_theme": "ai_chained_exploitation",
+    "key_files": [
+      "ui-v2/src/components/CinemaMode.tsx",
+      "ui-v2/src/api/client.ts"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_breaking_changes": "Standard run Cinema Mode must remain identical.",
+    "performance": "The 3D scene must not drop below 30fps for up to 50 nodes. Use instanced meshes or LOD if needed.",
+    "ts_clean": "npm run build must pass.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "chain_nodes": "Each loop iteration proposal creates a chain node. Connect sequential nodes with animated Line. Pivot nodes branch off from finding nodes.",
+    "node_types": "tool_node (cyan sphere), finding_node (severity-colored pulsing sphere), pivot_node (orange diamond/octahedron), hypothesis_node (wireframe).",
+    "narration": "Narration panel text = current loop iteration hypothesis from the last AgentReasoning record.",
+    "detection": "Check run.configuration_json?.run_mode === 'ai_loop' to switch visualization mode.",
+    "data_source": "Loop proposals from getRunAiInsights() proposals array. Each proposal has reasoning_text, proposed_tool, proposed_target, status."
+  },
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run build"
+    ],
+    "acceptance_criteria": [
+      "For ai_loop run: Cinema Mode shows chain nodes connecting tool runs to findings to follow-up tools.",
+      "Finding nodes pulse with severity color.",
+      "Pivot nodes branch from finding nodes with a colored thread.",
+      "Narration shows current AI hypothesis.",
+      "For standard run: Cinema Mode looks identical to before this task."
+    ]
+  },
+  "success_criteria": [
+    "For ai_loop run: Cinema Mode shows chain nodes connecting tool runs to findings to follow-up tools.",
+    "Finding nodes pulse with severity color.",
+    "Pivot nodes branch from finding nodes with a colored thread.",
+    "Narration shows current AI hypothesis.",
+    "For standard run: Cinema Mode looks identical to before this task."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/CinemaMode.tsx",
+    "ui-v2/src/api/client.ts"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

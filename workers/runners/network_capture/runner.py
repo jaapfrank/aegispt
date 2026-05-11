@@ -4,8 +4,8 @@ import base64
 import ipaddress
 import json
 import re
-import signal
 import shutil
+import signal
 import subprocess
 import time
 from collections import defaultdict
@@ -462,16 +462,16 @@ def _detect_cleartext_signals(packet_text: str, default_target: str) -> tuple[li
 
     deduped_signals: list[dict[str, Any]] = []
     seen_signals: set[tuple[str, str, str]] = set()
-    for signal in signals:
+    for traffic_signal in signals:
         key = (
-            str(signal.get("protocol") or ""),
-            str(signal.get("credential_type") or ""),
-            str(signal.get("target_id") or ""),
+            str(traffic_signal.get("protocol") or ""),
+            str(traffic_signal.get("credential_type") or ""),
+            str(traffic_signal.get("target_id") or ""),
         )
         if key in seen_signals:
             continue
         seen_signals.add(key)
-        deduped_signals.append(signal)
+        deduped_signals.append(traffic_signal)
     return deduped_signals, cleartext_protocols
 
 
@@ -575,23 +575,23 @@ def _build_network_capture_findings(
     default_target: str,
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
-    for signal in credential_signals:
-        protocol = str(signal.get("protocol") or "traffic").upper()
-        credential_type = str(signal.get("credential_type") or "credential")
+    for traffic_signal in credential_signals:
+        protocol = str(traffic_signal.get("protocol") or "traffic").upper()
+        credential_type = str(traffic_signal.get("credential_type") or "credential")
         if credential_type == "basic-auth":
             title = "Cleartext Credentials Captured in Network Traffic (HTTP Basic Auth)"
         elif "token" in credential_type or "key" in credential_type:
             title = "Cleartext Token Captured in Network Traffic"
         else:
             title = f"Cleartext Credentials Captured in Network Traffic ({protocol})"
-        target_id = str(signal.get("target_id") or default_target).strip() or default_target
+        target_id = str(traffic_signal.get("target_id") or default_target).strip() or default_target
         findings.append(
             {
                 "title": title,
                 "severity": "high",
                 "target_id": target_id,
                 "summary": (
-                    f"Bounded passive capture observed {signal.get('detail') or 'cleartext credential material'}. "
+                    f"Bounded passive capture observed {traffic_signal.get('detail') or 'cleartext credential material'}. "
                     "Captured secret values were redacted from stored evidence."
                 ),
                 "methodology_tags": [

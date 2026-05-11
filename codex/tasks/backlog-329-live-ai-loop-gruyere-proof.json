@@ -1,0 +1,77 @@
+{
+  "id": "backlog-329-live-ai-loop-gruyere-proof",
+  "task_file": "codex/tasks/backlog-329-live-ai-loop-gruyere-proof.json",
+  "task_type": "product_slice",
+  "title": "Live AI Continuous Assessment Loop & Goal-Oriented Reasoning Proof",
+  "goal": "Execute a full multi-iteration `ai_loop` run against Google Gruyere locally to address gaps XT-019 and XT-033, proving autonomous multi-step reasoning.",
+  "scope": "Test harness updates for multi-step AI verification, artifact tracking, and loop closure condition verification.",
+  "status": "queued",
+  "generated_by": "extra_tests_stabilization",
+  "generation_reason": "The AI Loop is deterministic tested but needs a live, multi-step run against a complex vulnerable app to prove its reasoning and memory.",
+  "source_context": {
+    "queue_index": 281,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": ["extra_tests.md", "risico.md"],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-303",
+    "broader_theme": "system_stabilization",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Focus only on Google Gruyere local fixture. Provider (LLM) must be mocked or safely routed for deterministic tests.",
+    "runtime_mutation": true
+  },
+  "success_criteria": [
+    "AI loop runs at least 3 iterations autonomously.",
+    "Artifacts from iteration 1 are successfully used in iteration 2.",
+    "Goal state is reached and test harness exits cleanly."
+  ],
+  "likely_touched_files": [
+    "scripts/run_benchmark_coverage.py",
+    "api/tests/integration/test_ai_loop_live.py"
+  ],
+  "must_not_touch": [
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/integration/test_ai_loop_live.py"
+    ],
+    "acceptance_criteria": [
+      "Live loop test completes successfully and produces expected finding structure."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md.",
+      "Update extra_tests.md XT-019, XT-033."
+    ]
+  },
+  "out_of_scope": [
+    "New AI capabilities"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

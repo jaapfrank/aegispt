@@ -9,6 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from api.app.models import Engagement, Finding, InventorySnapshot, Run
+from api.app.services.business_impact import (
+    annotate_paths_with_business_impact,
+    summarize_blast_radius,
+)
 from api.app.services.inventory import aggregate_inventory_snapshots
 
 CHOKE_POINT_PATH_THRESHOLD = 3
@@ -139,6 +143,12 @@ def _build_attack_path_summary_for_run(run: Run) -> dict[str, Any]:
         inventory_snapshot,
         normalized_inventory=normalized_inventory,
     )
+    annotate_paths_with_business_impact(
+        candidate_paths,
+        nodes_by_id=graph["nodes_by_id"],
+        normalized_inventory=normalized_inventory,
+    )
+    blast_radius = summarize_blast_radius(candidate_paths)
     choke_points = _build_choke_points(graph["nodes_by_id"], candidate_paths)
     status = _summary_status(inventory_snapshot, findings, candidate_paths)
     path_confidences = [
@@ -179,6 +189,9 @@ def _build_attack_path_summary_for_run(run: Run) -> dict[str, Any]:
             "lateral_analysis_note_count": len(lateral_analysis["notes"]),
             "candidate_path_count": len(candidate_paths),
             "cloud_native_attack_path_count": _cloud_native_attack_path_count(candidate_paths),
+            "blast_radius_score": blast_radius["score"],
+            "blast_radius_tier": blast_radius["tier"],
+            "blast_radius_critical_path_count": blast_radius["critical_path_count"],
             "choke_point_count": len(choke_points),
             "mean_path_confidence": mean_path_confidence,
             "reason": _summary_reason(status, inventory_snapshot, findings),
@@ -189,6 +202,7 @@ def _build_attack_path_summary_for_run(run: Run) -> dict[str, Any]:
         "lateral_analysis": lateral_analysis,
         "candidate_paths": candidate_paths,
         "cloud_native_attack_paths": _cloud_native_attack_paths(candidate_paths),
+        "blast_radius": blast_radius,
         "choke_points": choke_points,
     }
 
@@ -1037,7 +1051,6 @@ def _cloud_native_extension_for_finding(
     best_refs: list[str] = []
     for resource_node in resource_nodes:
         extension = [resource_node["id"]]
-        refs = []
         for edge in _edges_from(graph, resource_node["id"], "inferred-cloud-resource-iam-principal"):
             principal_id = str(edge.get("target") or "")
             if principal_id not in graph["nodes_by_id"]:

@@ -1,0 +1,77 @@
+{
+  "id": "backlog-333-ai-phishing-triage-auto-purge",
+  "task_file": "codex/tasks/backlog-333-ai-phishing-triage-auto-purge.json",
+  "task_type": "product_slice",
+  "title": "AI Phishing Triage & Auto-Purge (O365/Google Workspace)",
+  "goal": "Integrate directly with enterprise email systems. When an employee reports an email, AegisPT autonomously analyzes the headers, attachments, and links, and if proven malicious, auto-purges the email from all other employee inboxes.",
+  "scope": "Mail API integrations (Graph API / Gmail API), Email parsing logic, and automated remediation action engine.",
+  "status": "queued",
+  "generated_by": "strategic-innovation",
+  "generation_reason": "Dramatically reduce the load on the SOC team and limit the exposure time of phishing campaigns.",
+  "source_context": {
+    "queue_index": 285,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-332",
+    "broader_theme": "real_time_defense",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Auto-purge requires explicit tenant-level opt-in. Default to alert-only mode.",
+    "runtime_mutation": true
+  },
+  "success_criteria": [
+    "AegisPT can ingest a .eml file or webhook from O365.",
+    "AI correctly identifies the threat vector using the sandbox.",
+    "System successfully issues a delete/quarantine command to the mail provider."
+  ],
+  "likely_touched_files": [
+    "api/app/services/integrations/mail.py",
+    "api/app/services/intelligence/phishing.py",
+    "ui-v2/src/pages/Integrations.tsx"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/integrations/test_mail.py"
+    ],
+    "acceptance_criteria": [
+      "Email parsing and API deletion calls are correctly formatted and tested against mocked providers."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md."
+    ]
+  },
+  "out_of_scope": [
+    "Acting as an inline MTA (Mail Transfer Agent)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

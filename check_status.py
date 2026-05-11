@@ -1,4 +1,6 @@
-import urllib.request, json
+import json
+import urllib.request
+
 
 def req(method, path, data=None):
     r = urllib.request.Request(

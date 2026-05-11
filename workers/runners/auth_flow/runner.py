@@ -140,7 +140,7 @@ def _looks_sequential(values: list[str]) -> bool:
         numeric_values.append(int(value))
     if len(numeric_values) < 3:
         return False
-    deltas = [right - left for left, right in zip(numeric_values, numeric_values[1:])]
+    deltas = [right - left for left, right in zip(numeric_values, numeric_values[1:], strict=False)]
     return bool(deltas) and len(set(deltas)) == 1 and abs(deltas[0]) <= 1000
 
 

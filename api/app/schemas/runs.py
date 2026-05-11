@@ -80,6 +80,7 @@ class RunIntakeInterpretationRead(BaseModel):
     failure_reason: str | None = None
     provider_metadata: dict[str, Any] = Field(default_factory=dict)
     explicit_target_count: int | None = None
+    intent_mission_plan: dict[str, Any] | None = None
 
 
 class ApprovalCreate(BaseModel):
@@ -277,6 +278,12 @@ class RunDispatchRead(BaseModel):
     run: RunRead
     dispatch_mode: str
     dispatched_task_ids: list[UUID]
+
+
+class AttackPathSimulationCreate(BaseModel):
+    starting_point_label: str = Field(min_length=3, max_length=255)
+    starting_point_type: str | None = Field(default=None, max_length=100)
+    max_paths: int = Field(default=5, ge=1, le=12)
 
 
 class AssessmentPlanQueueCreate(BaseModel):

@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Boxes, CircleDot, Network, Search } from 'lucide-react';
-import { getLatestEngagementInventory } from '../../api/client';
-import type { InventorySnapshot, JsonMap } from '../../api/types';
+import { Boxes, CircleDot, Network, Play, Search } from 'lucide-react';
+import { getLatestEngagementInventory, simulateAttackPaths } from '../../api/client';
+import type { AttackPathSimulation, InventorySnapshot, JsonMap } from '../../api/types';
 import { useAegisStore } from '../../store';
 import { EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge, inputClass, jsonString } from './screenPrimitives';
 
-type SurfaceTab = 'assets' | 'attack-map' | 'insights';
+type SurfaceTab = 'assets' | 'attack-map' | 'simulation' | 'insights';
 
 export default function SurfaceMap() {
   const selectedEngagement = useAegisStore((state) => state.selectedEngagement);
   const selectedEngagementId = useAegisStore((state) => state.selectedEngagementId);
+  const selectedRunId = useAegisStore((state) => state.selectedRunId);
   const findings = useAegisStore((state) => state.findings);
   const [snapshot, setSnapshot] = useState<InventorySnapshot | null>(null);
   const [activeTab, setActiveTab] = useState<SurfaceTab>('assets');
   const [query, setQuery] = useState('');
+  const [startingPoint, setStartingPoint] = useState('Assume CEO laptop is compromised');
+  const [simulation, setSimulation] = useState<AttackPathSimulation | null>(null);
+  const [simulating, setSimulating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,6 +48,22 @@ export default function SurfaceMap() {
     return counts;
   }, [findings]);
 
+  async function runSimulation() {
+    if (!selectedRunId) {
+      setMessage('Select a run before running predictive simulation.');
+      return;
+    }
+    setSimulating(true);
+    setMessage(null);
+    try {
+      setSimulation(await simulateAttackPaths(selectedRunId, startingPoint));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Predictive simulation unavailable.');
+    } finally {
+      setSimulating(false);
+    }
+  }
+
   if (!selectedEngagementId) {
     return <EmptyState title="No engagement selected" detail="Surface Map needs an engagement so it can read the latest inventory snapshot." />;
   }
@@ -61,6 +81,7 @@ export default function SurfaceMap() {
         {[
           ['assets', 'Assets'],
           ['attack-map', 'Attack Map'],
+          ['simulation', 'Simulation'],
           ['insights', 'Insights'],
         ].map(([id, label]) => (
           <button key={id} type="button" onClick={() => setActiveTab(id as SurfaceTab)} className={`rounded-md px-3 py-2 text-[1rem] font-semibold ${activeTab === id ? 'bg-cyan/10 text-cyan' : 'text-muted hover:bg-bg/40 hover:text-text'}`}>
@@ -111,6 +132,52 @@ export default function SurfaceMap() {
       {activeTab === 'attack-map' && (
         <Panel title="Static Attack Map" detail="A non-animated SVG map from stored inventory and finding links only.">
           <StaticMap assets={filteredAssets.length ? filteredAssets : assets} findingCountByTarget={findingCountByTarget} />
+        </Panel>
+      )}
+
+      {activeTab === 'simulation' && (
+        <Panel title="Simulation Mode" detail="Read-only hypothetical paths are separate from evidence-backed attack paths.">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div className="rounded-lg border border-border bg-bg/30 p-3">
+              <Field label="Starting Point">
+                <input className={inputClass} value={startingPoint} onChange={(event) => setStartingPoint(event.target.value)} placeholder="Assume CEO laptop is compromised" />
+              </Field>
+              <button
+                type="button"
+                onClick={() => void runSimulation()}
+                disabled={simulating}
+                className="mt-3 inline-flex items-center gap-2 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[1rem] font-semibold text-amber transition-colors hover:bg-amber/15 disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                <Play size={14} />
+                {simulating ? 'Simulating' : 'Simulate'}
+              </button>
+              <p className="mt-3 text-[0.925rem] leading-5 text-muted">
+                {jsonString(simulation?.boundary?.mode, 'No simulation has been run for the selected run.')}
+              </p>
+            </div>
+            <div className="space-y-3">
+              {simulation?.simulated_paths.length ? (
+                simulation.simulated_paths.map((path) => (
+                  <div key={jsonString(path.id)} className="rounded-lg border border-dashed border-amber/45 bg-amber/10 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[1rem] font-semibold text-text">{jsonString(path.target_label, 'Critical target')}</div>
+                      <StatusBadge value="hypothetical" />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(Array.isArray(path.labels) ? path.labels : []).map((label, index) => (
+                        <span key={`${String(label)}-${index}`} className="rounded-full border border-amber/25 px-2 py-0.5 text-[0.77rem] font-semibold uppercase text-amber">
+                          {jsonString(label)}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[0.925rem] leading-5 text-muted">{jsonString(path.explanation)}</p>
+                  </div>
+                ))
+              ) : (
+                <EmptyState title="No simulated paths" detail="Run a simulation from a hypothetical starting point to see possible routes to critical assets." />
+              )}
+            </div>
+          </div>
         </Panel>
       )}
 

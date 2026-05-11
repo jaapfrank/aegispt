@@ -9,7 +9,14 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.app.models import AgentProposal, Finding, RationaleLedgerEntry, Run, Scope, TargetContextDocument
+from api.app.models import (
+    Finding,
+    RationaleLedgerEntry,
+    Run,
+    Scope,
+    TargetContextDocument,
+)
+from api.app.services.engagement_casebook import casebook_context_for_run
 
 CONTEXT_PROFILE_VERSION = "2026-05-08.1"
 PHASE0_LAYER_NAME = "phase_0_contextual_profile"
@@ -308,6 +315,7 @@ def build_context_document(
     )
     micro_plan = _micro_plan(recommended_tools, targets=targets, endpoints=endpoints, signals=signals)
     evidence_refs = _evidence_refs(run=run, inventory=inventory, signals=signals)
+    casebook_context = casebook_context_for_run(session, run=run)
     context_summary = _context_summary(
         layer_name=layer_name,
         technologies=technologies,
@@ -334,6 +342,7 @@ def build_context_document(
             "approved_scope_ref": str(scope.id),
             "live_target_actions_performed": False,
             "passive_profile_sources_planned": ["headers", "robots.txt", "sitemap.xml", "javascript manifests"],
+            "casebook_context": casebook_context,
             "runner_registry_bypassed": False,
             "approval_gates_bypassed": False,
             "runtime_self_modification": False,

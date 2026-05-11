@@ -49,6 +49,8 @@ from api.app.schemas.runs import (
     AiRepairProposalRead,
     ApprovalCreate,
     ApprovalRead,
+    AssessmentChainPhaseDecisionCreate,
+    AssessmentChainRead,
     AssessmentLoopAdvanceCreate,
     AssessmentLoopGoalCreate,
     AssessmentLoopRead,
@@ -56,15 +58,14 @@ from api.app.schemas.runs import (
     AssessmentPlanQueueRead,
     AssessmentPlanWaveCompleteCreate,
     AssessmentPlanWaveCompleteRead,
-    AssessmentChainPhaseDecisionCreate,
-    AssessmentChainRead,
+    AttackPathSimulationCreate,
     FindingSummaryRead,
     RunAiInsightsRead,
     RunCreate,
+    RunCredentialVaultCreate,
     RunCveIntelQueueTestRead,
     RunCveIntelRead,
     RunCveIntelRefreshCreate,
-    RunCredentialVaultCreate,
     RunDispatchRead,
     RunDriftRead,
     RunIntakeInterpretationCreate,
@@ -76,8 +77,8 @@ from api.app.schemas.runs import (
     ToolLibraryProposalCreate,
 )
 from api.app.services.ai_agent import (
-    AgentProposalReviewError,
     TOOL_LIBRARY_MANUAL_PROPOSAL_TOOLS,
+    AgentProposalReviewError,
     build_ai_insights_for_run,
     review_agent_proposal,
 )
@@ -103,6 +104,7 @@ from api.app.services.assessment_chain import (
     load_assessment_chain,
     normalize_assessment_mode,
 )
+from api.app.services.assessment_graph import build_normalized_evidence_graph
 from api.app.services.assessment_loop import (
     advance_assessment_loop,
     build_assessment_loop_state,
@@ -115,6 +117,7 @@ from api.app.services.assessment_planner import (
 )
 from api.app.services.attack_paths import build_attack_path_summary
 from api.app.services.audit import write_audit_event
+from api.app.services.coverage_truth import build_coverage_truth
 from api.app.services.intake_intelligence import (
     attach_intake_interpretation_to_configuration,
     build_intake_interpretation,
@@ -127,16 +130,18 @@ from api.app.services.on_demand_cve_intel import (
     refresh_run_cve_intelligence,
 )
 from api.app.services.packs import bind_pack_to_run, latest_pack_deployment, load_pack
+from api.app.services.predictive_attack_paths import simulate_predictive_attack_paths
+from api.app.services.remediation_advisor import build_choke_point_remediation_advisor
 from api.app.services.report_pdf import render_pdf_report
 from api.app.services.reports import (
     build_report_catalog,
     build_report_draft,
     load_run_report,
-    report_context_for_run,
     render_html_report,
     render_markdown_report,
+    report_context_for_run,
 )
-from api.app.services.remediation_advisor import build_choke_point_remediation_advisor
+from api.app.services.roe_policy import compile_roe_policy_decision
 from api.app.services.run_credential_vault import (
     clear_run_credential_vault_if_terminal,
     run_credential_vault_payload,
@@ -166,8 +171,8 @@ from api.app.services.runs import (
     validate_bloodhound_run_configuration,
     validate_business_logic_run_configuration,
     validate_configured_targets_within_scope,
-    validate_crypto_audit_run_configuration,
     validate_credential_attack_run_configuration,
+    validate_crypto_audit_run_configuration,
     validate_easm_run_configuration,
     validate_impacket_lateral_run_configuration,
     validate_metasploit_run_configuration,
@@ -195,18 +200,24 @@ from api.app.services.tenancy import (
     get_current_tenant_id,
     load_engagement_for_tenant,
 )
+from api.app.services.wargaming_sandbox import validate_wargaming_sandbox_configuration
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
 
 TERMINAL_RUN_STATUSES = {"completed", "completed_with_errors", "failed", "cancelled", "rejected"}
 AUTO_DISPATCH_BLOCKED_TOOLS = {
+    "c2-ingest",
     "credential-attacks",
     "impacket-lateral",
+    "leak-check",
+    "malware-sim",
     "metasploit",
     "netexec",
     "priv-esc-linux",
     "responder",
+    "social-campaign",
     "ssh-brute",
+    "waf-detect",
 }
 
 
@@ -522,12 +533,42 @@ def _load_assessment_chain_for_tenant(
     return chain
 
 
+def _ai_loop_goal_from_configuration(configuration: dict[str, Any]) -> dict[str, str] | None:
+    loop_config = configuration.get("ai_assessment_loop")
+    loop_config = loop_config if isinstance(loop_config, dict) else {}
+    run_mode = str(configuration.get("run_mode") or loop_config.get("run_mode") or "")
+    if run_mode != "ai_loop":
+        return None
+    objective = str(
+        loop_config.get("objective")
+        or loop_config.get("mission_objective")
+        or configuration.get("mission_objective")
+        or ""
+    ).strip()
+    if not objective:
+        return None
+    operator_note = str(
+        loop_config.get("operator_note")
+        or "Objective recorded at run creation; no runtime work is dispatched by goal registration."
+    ).strip()
+    return {"objective": objective, "operator_note": operator_note}
+
+
 @router.get("/run-profiles", response_model=list[RunProfileRead])
-def list_run_profiles(session: Session = Depends(get_session)) -> list[RunProfileRead]:
+def list_run_profiles(
+    include_experimental: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> list[RunProfileRead]:
     changed = ensure_default_run_profiles(session)
     if changed:
         session.commit()
     profiles = session.scalars(select(RunProfile).order_by(RunProfile.name)).all()
+    if not include_experimental:
+        profiles = [
+            profile
+            for profile in profiles
+            if not bool((profile.limits_json or {}).get("ui_hidden_default"))
+        ]
     return [RunProfileRead.model_validate(profile) for profile in profiles]
 
 
@@ -689,6 +730,26 @@ def create_run(
     if profile is None:
         raise HTTPException(status_code=404, detail="run profile not found")
     profile_limits = dict(profile.limits_json or {})
+    if bool(profile_limits.get("wargaming_sandbox")):
+        if payload.dispatch_after_create:
+            raise HTTPException(status_code=409, detail="wargaming simulation cannot be auto-dispatched")
+        try:
+            wargaming_metadata = validate_wargaming_sandbox_configuration(
+                session,
+                engagement_id=engagement.id,
+                source_inventory_snapshot_id=source_inventory_snapshot_id,
+                scope=scope,
+                configuration=sanitized_configuration,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        sanitized_configuration = {
+            **dict(sanitized_configuration or {}),
+            "wargaming_sandbox": {
+                **dict(sanitized_configuration.get("wargaming_sandbox") or {}),
+                **wargaming_metadata,
+            },
+        }
     autonomous_mode = (
         payload.autonomous_mode
         if payload.autonomous_mode is not None
@@ -797,6 +858,20 @@ def create_run(
     )
     session.add(run)
     session.flush()
+
+    ai_loop_goal = _ai_loop_goal_from_configuration(sanitized_configuration)
+    if ai_loop_goal is not None:
+        try:
+            record_assessment_loop_goal(
+                session=session,
+                run=run,
+                scope=scope,
+                actor=actor,
+                objective=ai_loop_goal["objective"],
+                operator_note=ai_loop_goal.get("operator_note"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     deployment = latest_pack_deployment(
         session, engagement_id=engagement.id, run_profile_name=profile.name
@@ -1094,6 +1169,54 @@ def get_run_assessment_plan(
 ) -> dict[str, Any]:
     run = _load_run_for_tenant(session, run_id, tenant_id)
     return build_assessment_plan_for_run(session, run)
+
+
+@router.get("/runs/{run_id}/coverage-truth")
+def get_run_coverage_truth(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    _actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    scope = session.scalar(latest_scope_query(run.engagement_id))
+    return build_coverage_truth(session, run=run, scope=scope)
+
+
+@router.get("/runs/{run_id}/evidence-graph")
+def get_run_normalized_evidence_graph(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    _actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    return build_normalized_evidence_graph(session, run=run)
+
+
+@router.get("/runs/{run_id}/roe-policy")
+def get_run_roe_policy(
+    run_id: UUID,
+    target: str | None = Query(None),
+    runner: str | None = Query(None),
+    risk_tier: str | None = Query(None),
+    action_type: str = Query("runner_action"),
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+    scope = session.scalar(latest_scope_query(run.engagement_id))
+    return compile_roe_policy_decision(
+        run=run,
+        scope=scope,
+        target=target,
+        runner=runner,
+        action_type=action_type,
+        requested_risk_tier=risk_tier,
+        settings=settings,
+    )
 
 
 @router.post("/runs/{run_id}/assessment-plan/queue", response_model=AssessmentPlanQueueRead)
@@ -1698,6 +1821,29 @@ def get_run_attack_paths(
     return summary
 
 
+@router.post("/runs/{run_id}/attack-paths/simulate")
+def simulate_run_attack_paths(
+    run_id: UUID,
+    payload: AttackPathSimulationCreate,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, Any]:
+    _load_run_for_tenant(session, run_id, tenant_id)
+    try:
+        simulation = simulate_predictive_attack_paths(
+            session,
+            run_id=run_id,
+            starting_point_label=payload.starting_point_label,
+            starting_point_type=payload.starting_point_type,
+            max_paths=payload.max_paths,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if simulation is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return simulation
+
+
 @router.get("/runs/{run_id}/remediation-advisor")
 def get_run_remediation_advisor(
     run_id: UUID,
@@ -2069,16 +2215,13 @@ def dispatch_run(
 ) -> RunDispatchRead:
     run = _load_run_for_tenant(session, run_id, tenant_id)
     effective_settings = effective_runtime_settings_for_run(session, run=run, settings=settings)
-    inline_background_tasks = (
-        background_tasks if effective_settings.inline_dispatch_background else None
-    )
     try:
         dispatch_mode, dispatched_task_ids = dispatch_queued_run_tasks(
             session,
             run=run,
             actor=actor,
             settings=effective_settings,
-            background_tasks=inline_background_tasks,
+            background_tasks=None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

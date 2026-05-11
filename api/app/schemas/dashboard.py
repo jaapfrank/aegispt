@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -34,6 +35,19 @@ class DashboardRiskScoreRead(BaseModel):
     trend: str
     severity_breakdown: dict[str, int] = Field(default_factory=dict)
     history: list[DashboardRiskHistoryPointRead] = Field(default_factory=list)
+    advisory_note: str
+
+
+class DashboardBlastRadiusRead(BaseModel):
+    score: float = 0.0
+    tier: str = "none"
+    critical_path_count: int = 0
+    affected_business_processes: list[dict[str, object]] = Field(default_factory=list)
+    highest_impact_path_id: str | None = None
+    financial_exposure: str | None = None
+    operational_impact: str | None = None
+    model: str
+    review_only: bool = True
     advisory_note: str
 
 
@@ -127,6 +141,8 @@ class DashboardRead(BaseModel):
     has_engagements: bool
     active_run: DashboardActiveRunRead | None = None
     risk_score: DashboardRiskScoreRead
+    blast_radius: DashboardBlastRadiusRead
+    zero_day_rapid_response: dict[str, Any] = Field(default_factory=dict)
     open_problems: DashboardOpenProblemsRead
     upcoming_scans: list[DashboardUpcomingScanRead] = Field(default_factory=list)
     recent_activity: list[DashboardRecentActivityRead] = Field(default_factory=list)

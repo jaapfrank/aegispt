@@ -1,0 +1,77 @@
+{
+  "id": "backlog-324-zero-day-rapid-response",
+  "task_file": "codex/tasks/backlog-324-zero-day-rapid-response.json",
+  "task_type": "product_slice",
+  "title": "Zero-Day Rapid Response Mode",
+  "goal": "Allow instant correlation of breaking zero-days against stored inventory snapshots and trigger immediate override-scans for vulnerable assets.",
+  "scope": "Threat Intel Feed integration, Inventory Matching logic, and 'Threat Intel' dashboard UI.",
+  "status": "queued",
+  "generated_by": "strategic-innovation",
+  "generation_reason": "Provide immediate value when critical global vulnerabilities (like Log4j) drop, out-pacing offensive AI.",
+  "source_context": {
+    "queue_index": 276,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-090",
+    "broader_theme": "threat_intelligence",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Rapid scans must still respect existing ROE and approval gates.",
+    "runtime_mutation": false
+  },
+  "success_criteria": [
+    "System matches new CVEs against TechStackProfiles.",
+    "UI alerts operator of exposed assets.",
+    "One-click 'Scan Now' launches targeted Nuclei tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/intelligence/feed.py",
+    "api/app/services/inventory/matching.py",
+    "ui-v2/src/pages/Dashboard.tsx"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/intelligence/"
+    ],
+    "acceptance_criteria": [
+      "Matches logic correctly identifies stale inventory versions against CVE affected ranges."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md."
+    ]
+  },
+  "out_of_scope": [
+    "Automatic unrestrained exploitation of zero-days"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

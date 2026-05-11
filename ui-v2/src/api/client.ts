@@ -13,6 +13,10 @@ import type {
   CustomVulnerabilityInput,
   CustomVulnerabilityList,
   DashboardRead,
+  DeceptionAlertList,
+  DeceptionTrap,
+  DeceptionTrapCreateInput,
+  DeceptionTrapList,
   Engagement,
   EngagementCreateInput,
   ApiKeyCreateInput,
@@ -33,6 +37,7 @@ import type {
   ProblemBulkUpdateRead,
   ProblemsQuery,
   ProblemsRead,
+  RepositoryFixPullRequest,
   RunReportCatalogItem,
   Run,
   RunAiInsights,
@@ -50,6 +55,8 @@ import type {
   TaskDetail,
   UUID,
   AgentProposalReviewInput,
+  ZeroDayScanNowResponse,
+  AttackPathSimulation,
 } from './types';
 
 type ApiOptions = RequestInit & {
@@ -167,6 +174,13 @@ export async function getDashboard(engagementId?: UUID | null): Promise<Dashboar
   return api<DashboardRead>(`/api/v1/dashboard${query}`);
 }
 
+export async function launchZeroDayRapidResponseScan(engagementId: UUID, recordId: UUID, target?: string | null): Promise<ZeroDayScanNowResponse> {
+  return api<ZeroDayScanNowResponse>(`/api/v1/engagements/${engagementId}/threat-intel/zero-day-response/${recordId}/scan-now`, {
+    method: 'POST',
+    json: { target: target ?? null },
+  });
+}
+
 export async function getRunsForEngagement(engagementId: UUID): Promise<Run[]> {
   return api<Run[]>(`/api/v1/engagements/${engagementId}/runs`);
 }
@@ -188,6 +202,32 @@ export async function getPortfolioRuns(): Promise<PortfolioRun[]> {
 
 export async function getRun(runId: UUID): Promise<Run> {
   return api<Run>(`/api/v1/runs/${runId}`);
+}
+
+export async function simulateAttackPaths(runId: UUID, startingPointLabel: string, startingPointType = 'hypothetical_start'): Promise<AttackPathSimulation> {
+  return api<AttackPathSimulation>(`/api/v1/runs/${runId}/attack-paths/simulate`, {
+    method: 'POST',
+    json: {
+      starting_point_label: startingPointLabel,
+      starting_point_type: startingPointType,
+      max_paths: 5,
+    },
+  });
+}
+
+export async function getDeceptionTraps(): Promise<DeceptionTrapList> {
+  return api<DeceptionTrapList>('/api/v1/deception/traps');
+}
+
+export async function createDeceptionTrap(data: DeceptionTrapCreateInput): Promise<DeceptionTrap> {
+  return api<DeceptionTrap>('/api/v1/deception/traps', {
+    method: 'POST',
+    json: data,
+  });
+}
+
+export async function getDeceptionAlerts(): Promise<DeceptionAlertList> {
+  return api<DeceptionAlertList>('/api/v1/deception/alerts');
 }
 
 export async function getRunTasks(runId: UUID): Promise<Task[]> {
@@ -260,6 +300,12 @@ export async function handoffFindingToJira(findingId: UUID): Promise<JsonMap> {
   });
 }
 
+export async function createFindingFixPullRequest(findingId: UUID): Promise<RepositoryFixPullRequest> {
+  return api<RepositoryFixPullRequest>(`/api/v1/findings/${findingId}/repository/fix-pr`, {
+    method: 'POST',
+  });
+}
+
 export async function getRunInventory(runId: UUID): Promise<InventorySnapshot | null> {
   const run = await getRun(runId);
   return getInventoryForRun(run);
@@ -285,6 +331,64 @@ export async function getLatestEngagementInventory(engagementId: UUID): Promise<
 
 export async function getRunAiInsights(runId: UUID): Promise<RunAiInsights> {
   return api<RunAiInsights>(`/api/v1/runs/${runId}/ai-insights`);
+}
+
+export async function getAiInsightsForRunContext(run: Run, runs: Run[] = []): Promise<RunAiInsights> {
+  const chainId = typeof run.assessment_chain?.id === 'string' ? run.assessment_chain.id : null;
+  if (!chainId) {
+    return getRunAiInsights(run.id);
+  }
+
+  const candidateRuns = [run, ...runs]
+    .filter((candidate) => candidate.assessment_chain?.id === chainId)
+    .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
+  const uniqueRuns = Array.from(new Map(candidateRuns.map((candidate) => [candidate.id, candidate])).values());
+  const insightResults = await Promise.allSettled(uniqueRuns.map((candidate) => getRunAiInsights(candidate.id)));
+  const insights = insightResults
+    .filter((result): result is PromiseFulfilledResult<RunAiInsights> => result.status === 'fulfilled')
+    .map((result) => result.value);
+
+  if (insights.length === 0) {
+    return getRunAiInsights(run.id);
+  }
+
+  const base = insights.find((insight) => insight.run_id === run.id) ?? insights[insights.length - 1];
+  const reasoningRecords = uniqueById(insights.flatMap((insight) => insight.reasoning_records)).sort(
+    (left, right) => Date.parse(left.created_at) - Date.parse(right.created_at),
+  );
+  const proposals = uniqueById(insights.flatMap((insight) => insight.proposals)).sort(
+    (left, right) => Date.parse(left.created_at) - Date.parse(right.created_at),
+  );
+  const workbench = plainObject(base.operator_workbench);
+  const summary = plainObject(workbench.summary);
+
+  return {
+    ...base,
+    reasoning_records: reasoningRecords,
+    proposals,
+    operator_workbench: {
+      ...workbench,
+      summary: {
+        ...summary,
+        signals: reasoningRecords.length,
+        pending_repair_proposals: proposals.filter((proposal) => ['pending', 'pending_review'].includes(proposal.status)).length,
+      },
+      chain_context: {
+        aggregated: true,
+        chain_id: chainId,
+        source_run_count: uniqueRuns.length,
+        source_insight_count: insights.length,
+      },
+    },
+  };
+}
+
+function uniqueById<T extends { id: UUID }>(items: T[]): T[] {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
+}
+
+function plainObject(value: unknown): JsonMap {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonMap) : {};
 }
 
 function settingsToMap(settings: Settings | null): Record<string, unknown> {
@@ -542,6 +646,13 @@ export async function reviewAgentProposal(
   return api<AgentProposal>(`/api/v1/runs/${runId}/ai-proposals/${proposalId}/review`, {
     method: 'POST',
     json: data,
+  });
+}
+
+export async function advanceAssessmentLoop(runId: UUID, operatorNote?: string | null): Promise<JsonMap> {
+  return api<JsonMap>(`/api/v1/runs/${runId}/assessment-loop/iterate`, {
+    method: 'POST',
+    json: { operator_note: operatorNote ?? null },
   });
 }
 

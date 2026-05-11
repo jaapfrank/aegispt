@@ -5,7 +5,6 @@ from collections.abc import Iterable
 from typing import Any
 from urllib.parse import parse_qsl, urlparse
 
-
 _JWT_PATTERN = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$")
 _SQL_ERROR_PATTERNS = [
     "you have an error in your sql syntax",

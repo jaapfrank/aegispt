@@ -1,0 +1,97 @@
+{
+  "id": "backlog-334-legacy-ui-test-gate-retirement",
+  "task_file": "codex/tasks/backlog-334-legacy-ui-test-gate-retirement.json",
+  "task_type": "release_readiness",
+  "title": "Legacy UI Test Gate Retirement and React v2 Coverage Migration",
+  "goal": "Retire or migrate the remaining legacy `ui/tests/` browser contracts so release readiness is based on the active React v2 operator console while preserving any still-useful acceptance-harness detectors.",
+  "scope": "Testing policy, legacy `/app/` browser tests, React v2 Playwright coverage, and acceptance-harness placement.",
+  "status": "queued",
+  "generated_by": "full-readiness-audit",
+  "generation_reason": "A full release-readiness pass on 2026-05-10 found that `ui/tests/` still targets the retired FastAPI `/app/` UI and fails with legacy navigation/wizard expectations, while React v2 build and E2E pass.",
+  "source_context": {
+    "queue_index": 286,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "TESTING_POLICY.md",
+      "codex/results/full-release-readiness-check-20260510.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: no active backlog task; created from release-readiness audit",
+    "broader_theme": "release_readiness",
+    "source_documents": [
+      "TESTING_POLICY.md",
+      "ui/tests/",
+      "ui-v2/tests/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Do not revive the retired old UI. Migrate useful checks to React v2 or explicitly mark them legacy diagnostic-only."
+  },
+  "success_criteria": [
+    "Every still-relevant legacy browser assertion is either migrated to `ui-v2/tests/` or documented as obsolete with a concrete rationale.",
+    "Default Python release tests do not include retired `/app/` UI contracts.",
+    "React v2 Playwright coverage includes the active console screens and critical operator flows.",
+    "Acceptance-harness detector tests are relocated or retained in a non-legacy test lane that can run green.",
+    "Running the documented release gates is green without relying on old UI routes."
+  ],
+  "likely_touched_files": [
+    "ui/tests/",
+    "ui-v2/tests/",
+    "TESTING_POLICY.md",
+    "pyproject.toml",
+    "scripts/run_full_system_acceptance_audit.py"
+  ],
+  "must_not_touch": [
+    "workers/runners/core/",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run test:e2e",
+      ".venv/bin/ruff check .",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Release-readiness commands pass using active React v2 coverage.",
+      "Legacy `/app/` test failures are no longer hidden inside the default release gate."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Rebuilding or restoring the retired old UI.",
+    "Bypassing React v2 error boundaries instead of fixing render faults.",
+    "Changing runtime approvals, scope/ROE, credential handling, or kill-switch behavior."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

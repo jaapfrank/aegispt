@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from types import SimpleNamespace
 from threading import Thread
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 
 import pytest

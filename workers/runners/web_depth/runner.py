@@ -4,7 +4,6 @@ import base64
 import hashlib
 import hmac
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -1607,29 +1606,38 @@ def execute_content_discovery(
     stderr_lines: list[str] = []
     exit_code = 0
 
+    use_feroxbuster = "feroxbuster" in binary
     with tempfile.TemporaryDirectory(prefix="aegispt-content-discovery-") as tmp:
         tmp_path = Path(tmp)
         selected_wordlist = _content_wordlist_path(wordlist_path, tmp_path)
         for index, target in enumerate(normalized_targets):
             output_path = tmp_path / f"ffuf-{index}.json"
-            command = [
-                binary,
-                "-u",
-                f"{target.rstrip('/')}/FUZZ",
-                "-w",
-                str(selected_wordlist),
-                "-of",
-                "json",
-                "-o",
-                str(output_path),
-                "-rate",
-                str(rate_limit),
-                "-t",
-                str(max(1, min(rate_limit, 8))),
-                "-timeout",
-                str(max(1, int(timeout_seconds))),
-                "-noninteractive",
-            ]
+            if use_feroxbuster:
+                command = [
+                    binary,
+                    "--url", target.rstrip("/"),
+                    "--wordlist", str(selected_wordlist),
+                    "--output", str(output_path),
+                    "--json",
+                    "--rate-limit", str(rate_limit),
+                    "--threads", str(max(1, min(rate_limit, 8))),
+                    "--timeout", str(max(1, int(timeout_seconds))),
+                    "--depth", "4",
+                    "--no-state",
+                    "--silent",
+                ]
+            else:
+                command = [
+                    binary,
+                    "-u", f"{target.rstrip('/')}/FUZZ",
+                    "-w", str(selected_wordlist),
+                    "-of", "json",
+                    "-o", str(output_path),
+                    "-rate", str(rate_limit),
+                    "-t", str(max(1, min(rate_limit, 8))),
+                    "-timeout", str(max(1, int(timeout_seconds))),
+                    "-noninteractive",
+                ]
             try:
                 process = runner(
                     command,
@@ -1652,9 +1660,29 @@ def execute_content_discovery(
             payload: dict[str, Any] = {}
             if output_path.exists():
                 try:
-                    payload = json.loads(output_path.read_text(encoding="utf-8"))
+                    raw_text = output_path.read_text(encoding="utf-8")
+                    if use_feroxbuster:
+                        # feroxbuster writes NDJSON: one JSON object per line
+                        ferox_hits = []
+                        for line in raw_text.splitlines():
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                obj = json.loads(line)
+                                if isinstance(obj, dict) and obj.get("type") == "response":
+                                    ferox_hits.append({
+                                        "url": obj.get("url", ""),
+                                        "status": obj.get("status", 0),
+                                        "length": obj.get("content_length"),
+                                    })
+                            except json.JSONDecodeError:
+                                continue
+                        payload = {"results": ferox_hits}
+                    else:
+                        payload = json.loads(raw_text)
                 except (json.JSONDecodeError, OSError) as exc:
-                    stderr_lines.append(f"{target}: unable to parse ffuf output: {exc}")
+                    stderr_lines.append(f"{target}: unable to parse output: {exc}")
 
             raw_hits = payload.get("results", []) if isinstance(payload, dict) else []
             target_hits: list[dict[str, Any]] = []

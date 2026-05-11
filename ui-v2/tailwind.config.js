@@ -20,6 +20,18 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      animation: {
+        'shimmer': 'shimmer-slide 2.5s infinite linear',
+        'pulse-fast': 'pulse-fast 1.4s ease-in-out infinite',
+        'breathe': 'empty-breathe 3s ease-in-out infinite',
+        'critical-flash': 'critical-vignette 0.8s ease-out forwards',
+        'thread': 'thread-draw 1.2s ease-out forwards',
+        'sonar': 'sonar-ring 1.8s ease-out infinite',
+        'pulse-travel': 'pulse-travel 1.6s ease-in-out infinite',
+        'pop': 'node-pop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'badge': 'badge-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'finding-hit': 'finding-hit 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
       }
     },
   },

@@ -15,6 +15,7 @@ from pypdf import PdfReader
 from sqlalchemy import select
 
 from api.app.models import (
+    Approval,
     EvidenceArtifact,
     Finding,
     FindingRemediation,
@@ -1768,6 +1769,122 @@ def test_run_attack_narrative_sparse_and_unavailable_paths_are_truthful(
     assert "No confirmed findings recorded" in completed_markdown.text
 
 
+def test_evidence_first_attack_story_has_source_ledger_for_each_claim(inline_client) -> None:
+    run_id, _finding_ids = _seed_run_attack_narrative_context(inline_client)
+    with inline_client.app.state.session_factory() as session:
+        run = session.scalar(select(Run).where(Run.id == UUID(run_id)))
+        assert run is not None
+        session.add(
+            Approval(
+                run=run,
+                step_id="controlled-proof-review",
+                approver_id="narrative-operator",
+                decision="approved",
+            )
+        )
+        session.commit()
+        context = report_service.report_context_for_run(run, session=session)
+        context["assessment_graph"] = {
+            "edges": [
+                {
+                    "id": "edge:finding:one:supported_by_artifact:artifact:one",
+                    "source": "finding:one",
+                    "target": "artifact:one",
+                    "relationship": "supported_by_artifact",
+                }
+            ]
+        }
+        context["assessment_hypotheses"] = {
+            "hypotheses": [
+                {
+                    "id": "hypothesis:finding:one:next-observation",
+                    "confidence": 0.83,
+                }
+            ]
+        }
+        story = report_service.evidence_first_attack_story_context(run, context)
+
+    assert story["claims"]
+    assert story["unsupported_claims"] == []
+    assert story["execution_contract"]["claims_without_sources_allowed"] is False
+
+    ledger_pairs = {
+        (row["claim_id"], row["source_type"], row["source_id"])
+        for row in story["source_ledger"]
+    }
+    allowed_source_types = {
+        "approval_event_id",
+        "finding_id",
+        "graph_edge_id",
+        "graph_hypothesis_id",
+        "runner_output_id",
+    }
+    source_types: set[str] = set()
+    for claim in story["claims"]:
+        assert claim["source_ids"]
+        for source in claim["source_ids"]:
+            source_types.add(source["source_type"])
+            assert (
+                claim["claim_id"],
+                source["source_type"],
+                source["source_id"],
+            ) in ledger_pairs
+    assert source_types <= allowed_source_types
+    assert {"approval_event_id", "finding_id", "graph_edge_id", "graph_hypothesis_id", "runner_output_id"}.issubset(
+        source_types
+    )
+
+    markdown_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=technical")
+    assert markdown_response.status_code == 200
+    assert "## Evidence-First Attack Story" in markdown_response.text
+    assert "### Source Ledger" in markdown_response.text
+    assert "finding_id:" in markdown_response.text
+    assert "runner_output_id:" in markdown_response.text
+    assert "approval_event_id:" in markdown_response.text
+
+
+def test_evidence_first_attack_story_missing_evidence_becomes_gap(inline_client) -> None:
+    run_id = _create_soc2_report_run(inline_client)
+    with inline_client.app.state.session_factory() as session:
+        run = session.scalar(select(Run).where(Run.id == UUID(run_id)))
+        assert run is not None
+        run.status = "completed"
+        finding = Finding(
+            run=run,
+            title="Unlinked narrative fixture finding",
+            severity="medium",
+            target_id="https://app.example.test/profile",
+            evidence_ref="",
+            status="open",
+            summary="Fixture finding intentionally lacks an evidence reference.",
+        )
+        task = Task(
+            run=run,
+            tool="httpx",
+            target_id="https://app.example.test/profile",
+            params_json={},
+            status="completed",
+        )
+        session.add_all([finding, task])
+        session.commit()
+        context = report_service.report_context_for_run(run, session=session)
+        story = report_service.evidence_first_attack_story_context(run, context)
+
+    gap_text = "\n".join(str(gap["text"]) for gap in story["gaps"])
+    gap_ids = {str(gap["gap_id"]) for gap in story["gaps"]}
+    assert any("missing_evidence_ref" in gap_id for gap_id in gap_ids)
+    assert any("missing_runner_output" in gap_id for gap_id in gap_ids)
+    assert "cannot claim proof" in gap_text
+    assert story["unsupported_claims"] == []
+    assert all(claim["source_ids"] for claim in story["claims"])
+
+    markdown_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=technical")
+    assert markdown_response.status_code == 200
+    assert "### Evidence Gaps" in markdown_response.text
+    assert "cannot claim proof" in markdown_response.text
+    assert "missing_runner_output" in markdown_response.text
+
+
 def test_ai_report_draft_generates_review_only_grounded_sections(
     inline_client,
     monkeypatch: pytest.MonkeyPatch,
@@ -1922,3 +2039,102 @@ def test_ai_report_draft_disabled_and_failure_leave_reports_unchanged(
     assert failed_response.json()["status"] == "failed"
     assert "failed deterministically" in failed_response.json()["failure_reason"]
     assert after_report.text == before_report.text
+
+
+def test_evidence_gap_report_separates_states_and_excludes_unsupported_claims(inline_client) -> None:
+    run_id = _create_soc2_report_run(inline_client)
+    with inline_client.app.state.session_factory() as session:
+        run = session.scalar(select(Run).where(Run.id == UUID(run_id)))
+        assert run is not None
+        run.status = "completed"
+        confirmed = Finding(
+            run=run,
+            title="Confirmed access-control finding",
+            severity="high",
+            target_id="https://app.example.test/admin",
+            evidence_ref="artifact://confirmed-access-control",
+            status="open",
+            validation_status="validated",
+            summary="Evidence-backed access-control claim.",
+        )
+        suspected = Finding(
+            run=run,
+            title="Suspected session weakness",
+            severity="medium",
+            target_id="https://app.example.test/login",
+            evidence_ref="",
+            status="open",
+            validation_status="needs_review",
+            summary="No evidence ref is attached yet.",
+        )
+        contradicted = Finding(
+            run=run,
+            title="Contradicted weak TLS claim",
+            severity="low",
+            target_id="https://app.example.test",
+            evidence_ref="artifact://tls-strong",
+            status="false_positive",
+            validation_status="false_positive",
+            summary="Stored evidence contradicted the claim.",
+        )
+        task = Task(
+            run=run,
+            source_finding=confirmed,
+            tool="httpx",
+            target_id="https://app.example.test/admin",
+            status="completed",
+            params_json={},
+        )
+        execution = ToolExecution(
+            task=task,
+            runner_digest="sha256:gap-report",
+            tool_version="2026.05",
+            exit_code=0,
+            stdout_text="confirmed",
+        )
+        EvidenceArtifact(
+            execution=execution,
+            kind="json",
+            uri="artifact://confirmed-access-control",
+            sha256="b" * 64,
+            redaction_state="redacted",
+            metadata_json={},
+        )
+        session.add_all([confirmed, suspected, contradicted, task, execution])
+        session.commit()
+        context = report_service.report_context_for_run(run, session=session)
+
+    context["coverage"] = {
+        "not_tested": [
+            {
+                "surface": "OAuth connector export path",
+                "evidence_refs": [],
+            }
+        ]
+    }
+    gap_report = report_service.build_evidence_gap_report_from_context(context)
+
+    assert gap_report["execution_contract"]["runs_scans"] is False
+    assert gap_report["execution_contract"]["changes_findings"] is False
+    assert gap_report["summary"]["confirmed"] >= 1
+    assert gap_report["summary"]["suspected"] >= 1
+    assert gap_report["summary"]["untested"] >= 1
+    assert gap_report["summary"]["contradicted"] >= 1
+    for section in gap_report["sections"].values():
+        for claim in section:
+            assert claim["evidence_refs"] or claim["customer_report_allowed"] is False
+    unsupported_ids = {
+        claim["claim_id"]
+        for claim in gap_report["unsupported_claims_excluded_from_customer_report"]
+    }
+    assert any("Suspected session weakness" in claim["text"] for claim in gap_report["sections"]["suspected"])
+    assert any("coverage:not_tested" in claim_id for claim_id in unsupported_ids)
+
+    markdown_response = inline_client.get(f"/api/v1/runs/{run_id}/report?format=markdown&variant=technical")
+    assert markdown_response.status_code == 200
+    assert "## Evidence Gap Report" in markdown_response.text
+    assert "### Confirmed" in markdown_response.text
+    assert "### Suspected" in markdown_response.text
+    assert "### Contradicted" in markdown_response.text
+    assert "Unsupported Claims Excluded From Customer Prose" in markdown_response.text
+    assert "Unsupported because no evidence reference is attached." in markdown_response.text

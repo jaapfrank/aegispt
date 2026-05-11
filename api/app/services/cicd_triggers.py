@@ -17,12 +17,15 @@ from api.app.models import (
     CicdTrigger,
     CicdTriggerEvent,
     Engagement,
+    Finding,
     Run,
     RunProfile,
     Scope,
     SecretRef,
 )
 from api.app.schemas.triggers import (
+    CicdEphemeralScanCreate,
+    CicdEphemeralScanRead,
     CicdTriggerEventRead,
     CicdTriggerRead,
     CicdTriggerSettingsRead,
@@ -40,6 +43,7 @@ from api.app.services.runs import (
     latest_scope_query,
     queue_run_tasks,
     required_approvals,
+    web_target_value_is_allowed_with_path,
 )
 from api.app.services.secrets import (
     ENCRYPTED_SECRET_BACKENDS,
@@ -373,6 +377,145 @@ def serialize_cicd_trigger_event(event: CicdTriggerEvent) -> CicdTriggerEventRea
         run_id=event.run_id,
         run_status=event.run.status if event.run is not None else None,
         created_at=event.created_at,
+    )
+
+
+def launch_ephemeral_cicd_scan(
+    session: Session,
+    *,
+    engagement: Engagement,
+    payload: CicdEphemeralScanCreate,
+    settings: Settings,
+    actor: str,
+) -> CicdEphemeralScanRead:
+    ensure_default_run_profiles(session)
+    profile_name = "passive-web-baseline"
+    profile = session.scalar(select(RunProfile).where(RunProfile.name == profile_name))
+    if profile is None:
+        raise CicdTriggerError("lightweight CI/CD scan profile is unavailable", status_code=404)
+
+    target_url = _validated_ephemeral_target_url(payload.target_url)
+    scope = session.scalar(latest_scope_query(engagement.id))
+    if scope is None:
+        raise CicdTriggerError("engagement scope required before launching an ephemeral CI/CD scan", status_code=409)
+    if not web_target_value_is_allowed_with_path(scope.allowlist_json, target_url):
+        raise CicdTriggerError("ephemeral scan target URL is outside the approved engagement scope", status_code=403)
+
+    configuration = align_run_configuration_with_engagement(
+        {
+            "assessment_type": "CI/CD Ephemeral Branch Scan",
+            "test_profile": profile.name,
+            "targets": {"urls": [target_url]},
+            "cicd_ephemeral": {
+                "target_url": target_url,
+                "ref": payload.ref,
+                "branch": _normalize_branch(payload.ref),
+                "commit_sha": payload.commit_sha,
+                "repository_url": payload.repository_url,
+                "environment": payload.environment,
+                "callback_url": _validated_callback_url(payload.callback_url),
+                "callback_pending": bool(payload.callback_url),
+                "metadata_json": copy.deepcopy(payload.metadata_json or {}),
+                "sast_enabled": False,
+                "scope_enforced": True,
+            },
+        },
+        engagement=engagement,
+    )
+    timestamp = datetime.now(tz=UTC)
+    run = Run(
+        engagement_id=engagement.id,
+        profile_id=profile.id,
+        profile=profile,
+        requested_by=actor,
+        status="requested",
+        configuration_json=configuration,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    session.add(run)
+    session.flush()
+
+    deployment = latest_pack_deployment(session, engagement_id=engagement.id, run_profile_name=profile.name)
+    if deployment is not None and deployment.pack is not None:
+        bind_pack_to_run(session, run=run, pack=deployment.pack)
+
+    write_audit_event(
+        session=session,
+        actor=actor,
+        action="cicd_ephemeral_scan.requested",
+        object_type="run",
+        object_id=str(run.id),
+        metadata={
+            "engagement_id": str(engagement.id),
+            "profile_name": profile.name,
+            "target_url": target_url,
+            "ref": payload.ref,
+            "commit_sha": payload.commit_sha,
+            "callback_url_configured": bool(payload.callback_url),
+            "scope_enforced": True,
+        },
+    )
+
+    approval_required = required_approvals(profile) > 0
+    if approval_required:
+        run.status = "pending_approval"
+    else:
+        queue_run_tasks(session, run, scope, profile)
+        session.flush()
+        write_audit_event(
+            session=session,
+            actor=actor,
+            action="run.queued",
+            object_type="run",
+            object_id=str(run.id),
+            metadata={
+                "engagement_id": str(engagement.id),
+                "profile_name": profile.name,
+                "requested_from": "cicd_ephemeral_scan",
+            },
+        )
+        try:
+            dispatch_mode, dispatched_task_ids = dispatch_queued_run_tasks(
+                session,
+                run=run,
+                actor=actor,
+                settings=settings,
+            )
+            configuration["cicd_ephemeral"]["dispatch_mode"] = dispatch_mode  # type: ignore[index]
+            configuration["cicd_ephemeral"]["dispatched_task_ids"] = [str(task_id) for task_id in dispatched_task_ids]  # type: ignore[index]
+            run.configuration_json = configuration
+        except ValueError as exc:
+            run.status = "queued"
+            configuration["cicd_ephemeral"]["dispatch_blocked"] = str(exc)  # type: ignore[index]
+            run.configuration_json = configuration
+
+    session.flush()
+    return cicd_ephemeral_scan_status(run, engagement_id=engagement.id)
+
+
+def cicd_ephemeral_scan_status(run: Run, *, engagement_id: uuid.UUID | None = None) -> CicdEphemeralScanRead:
+    configuration = run.configuration_json if isinstance(run.configuration_json, dict) else {}
+    metadata = configuration.get("cicd_ephemeral") if isinstance(configuration.get("cicd_ephemeral"), dict) else {}
+    target_url = str(metadata.get("target_url") or "").strip()
+    callback_url = str(metadata.get("callback_url") or "").strip()
+    pass_fail_status, detail = _pass_fail_status_for_run(run)
+    return CicdEphemeralScanRead(
+        accepted=True,
+        engagement_id=engagement_id or run.engagement_id,
+        run_id=run.id,
+        run_status=run.status,
+        profile_name=run.profile.name if run.profile is not None else str(configuration.get("test_profile") or "passive-web-baseline"),
+        target_url=target_url,
+        ref=str(metadata.get("ref") or "") or None,
+        commit_sha=str(metadata.get("commit_sha") or "") or None,
+        pass_fail_status=pass_fail_status,
+        status_url=f"/api/v1/cicd/ephemeral-scans/{run.id}",
+        callback_url_configured=bool(callback_url),
+        callback_pending=bool(callback_url) and pass_fail_status == "pending",
+        scope_enforced=bool(metadata.get("scope_enforced", True)),
+        approval_required=str(run.status or "") == "pending_approval",
+        detail=detail,
     )
 
 
@@ -725,6 +868,52 @@ def _scope_override_allowed(
             return True, None
 
     return False, "target URL override fell outside the approved scope"
+
+
+def _validated_ephemeral_target_url(value: str) -> str:
+    target_url = str(value or "").strip()
+    parsed = urlparse(target_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise CicdTriggerError("target_url must be an http(s) URL inside the approved engagement scope", status_code=422)
+    return target_url
+
+
+def _validated_callback_url(value: str | None) -> str | None:
+    callback_url = str(value or "").strip()
+    if not callback_url:
+        return None
+    parsed = urlparse(callback_url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise CicdTriggerError("callback_url must be an https URL", status_code=422)
+    return callback_url
+
+
+def _pass_fail_status_for_run(run: Run) -> tuple[str, str]:
+    status = str(run.status or "").strip().lower()
+    if status in {"failed", "cancelled", "rejected"}:
+        return "error", f"Run ended with status {run.status}."
+    if status not in {"completed", "completed_with_errors"}:
+        return "pending", "Ephemeral scan is queued, running, or waiting for existing approval gates."
+
+    findings = list(run.findings or [])
+    blocking = [
+        finding
+        for finding in findings
+        if _open_finding_status(finding) and str(finding.severity or "").strip().lower() in {"critical", "high"}
+    ]
+    if blocking:
+        return "fail", f"{len(blocking)} open critical/high finding(s) remain for this feature-branch scan."
+    return "pass", "No open critical/high findings were recorded for this feature-branch scan."
+
+
+def _open_finding_status(finding: Finding) -> bool:
+    return str(finding.status or "").strip().lower() not in {
+        "resolved",
+        "fixed",
+        "false_positive",
+        "accepted_risk",
+        "closed",
+    }
 
 
 def _matches_branch_filter(*, branch: str | None, ref: str | None, filters: list[str] | None) -> bool:

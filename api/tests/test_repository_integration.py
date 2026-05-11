@@ -434,4 +434,99 @@ def test_finding_theater_exposes_repository_snippet_and_fix_pr_without_auto_merg
         assert link.metadata_json["latest_pull_request"]["auto_merge_enabled"] is False
         assert audit_event is not None
         assert audit_event.metadata_json["auto_merge_enabled"] is False
-        assert not any("/merge" in call["url"] for call in calls)
+        assert not any(call["url"].endswith("/merge") for call in calls)
+
+
+def test_gitlab_fix_merge_request_is_ai_generated_and_review_only(tmp_path, monkeypatch) -> None:
+    class FakeResponse:
+        def __init__(self, payload: Any, status_code: int = 200) -> None:
+            self._payload = payload
+            self.status_code = status_code
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> Any:
+            return self._payload
+
+    calls: list[dict[str, Any]] = []
+
+    def fake_post(url: str, **kwargs):
+        calls.append({"method": "POST", "url": url, **kwargs})
+        if url == "https://gitlab.com/api/v4/projects/acme%2Fplatform%2Fportal/repository/branches":
+            assert kwargs["data"]["branch"].startswith("aegispt/autofix-")
+            assert kwargs["data"]["ref"] == "main"
+            return FakeResponse({"name": kwargs["data"]["branch"]}, status_code=201)
+        if url == "https://gitlab.com/api/v4/projects/acme%2Fplatform%2Fportal/merge_requests":
+            assert kwargs["data"]["source_branch"].startswith("aegispt/autofix-")
+            assert kwargs["data"]["target_branch"] == "main"
+            assert "AI-generated" in kwargs["data"]["description"]
+            assert "Human review is required" in kwargs["data"]["description"]
+            return FakeResponse({"web_url": "https://gitlab.com/acme/platform/portal/-/merge_requests/7", "iid": 7}, status_code=201)
+        raise AssertionError(f"unexpected POST {url}")
+
+    def fake_put(url: str, **kwargs):
+        calls.append({"method": "PUT", "url": url, **kwargs})
+        if url == "https://gitlab.com/api/v4/projects/acme%2Fplatform%2Fportal/repository/files/app%2Fusers.py":
+            assert kwargs["data"]["branch"].startswith("aegispt/autofix-")
+            assert "SELECT * FROM users WHERE email = :email" in kwargs["data"]["content"]
+            return FakeResponse({"file_path": "app/users.py"}, status_code=200)
+        raise AssertionError(f"unexpected PUT {url}")
+
+    with build_client_with_env(tmp_path, monkeypatch) as client:
+        monkeypatch.setattr("api.app.services.repository_integration.httpx.post", fake_post)
+        monkeypatch.setattr("api.app.services.repository_integration.httpx.put", fake_put)
+
+        engagement_id = _create_engagement(client)
+        finding_id = _seed_run_and_finding(
+            client,
+            engagement_id,
+            title="SQL injection in app/users.py:4",
+            autofix_json={
+                "patch_language": "python",
+                "patch_before": "query = f\"SELECT * FROM users WHERE email = '{email}'\"",
+                "patch_after": "query = \"SELECT * FROM users WHERE email = :email\"",
+                "patch_explanation": "Use parameterized SQL.",
+                "verification_command": "pytest -q tests/security -k parameterized_query",
+                "confidence": "high",
+                "provider": "deterministic",
+                "model": "openai-codex/gpt-5.4",
+                "advisory_only": True,
+                "auto_apply_allowed": False,
+            },
+        )
+        integration_id = _store_repository_token(
+            client,
+            engagement_id=engagement_id,
+            provider="gitlab",
+            repository_url="https://gitlab.com/acme/platform/portal",
+            repository_path="acme/platform/portal",
+        )
+        with client.app.state.session_factory() as session:
+            session.add(
+                FindingRepositoryLink(
+                    finding_id=UUID(finding_id),
+                    repo_integration_id=UUID(integration_id),
+                    repository_path="app/users.py",
+                    repository_branch="main",
+                    line_start=2,
+                    line_end=5,
+                    highlighted_line=4,
+                    snippet_language="python",
+                    snippet_text="4: query = f\"SELECT * FROM users WHERE email = '{email}'\"",
+                    external_url="https://gitlab.com/acme/platform/portal/-/blob/main/app/users.py#L4",
+                    metadata_json={"pull_request_supported": True},
+                )
+            )
+            session.commit()
+
+        fix_pr = client.post(
+            f"/api/v1/findings/{finding_id}/repository/fix-pr",
+            headers={"X-Actor": "repo-operator"},
+        )
+        assert fix_pr.status_code == 200
+        payload = fix_pr.json()
+        assert payload["provider"] == "gitlab"
+        assert payload["pull_request_url"] == "https://gitlab.com/acme/platform/portal/-/merge_requests/7"
+        assert payload["auto_merge_enabled"] is False
+        assert not any(call["url"].endswith("/merge") for call in calls)

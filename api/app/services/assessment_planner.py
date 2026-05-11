@@ -18,7 +18,6 @@ from api.app.services.fingerprinting import build_signal_profile
 from api.app.services.runner_registry import runner_capability_registry
 from api.app.services.runs import granted_approvals, pending_approvals, queue_run_tasks
 
-
 PLANNER_VERSION = "2026-05-07.1"
 ADAPTIVE_WAVE_VERSION = "2026-05-07.1"
 ADAPTIVE_WAVE_MAX = 5

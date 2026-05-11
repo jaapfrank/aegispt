@@ -387,7 +387,6 @@ def build_engagement_kill_chain_progress(
     progress = _empty_progress(engagement_id)
     active_stage_indices: set[int] = set()
 
-    run_by_id = {str(run.id): run for run in runs}
     for run in runs:
         for finding in sorted(run.findings or [], key=lambda item: (item.created_at, item.id)):
             if StringStatus(finding.status).normalized in FALSE_POSITIVE_STATUSES:
@@ -503,7 +502,7 @@ def _finalize_progress(progress: dict[str, Any], active_stage_indices: set[int])
     confirmed_count = 0
     tested_count = 0
 
-    for stage_id, state in stage_states.items():
+    for state in stage_states.values():
         if state["finding_sources"] or state["task_sources"] or state["phase_sources"]:
             reached_indices.append(state["order"])
         if state["finding_sources"]:

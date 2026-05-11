@@ -207,7 +207,19 @@ def execute_burp_scan(
     if timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be greater than zero")
 
-    api_root = normalize_burp_api_root(base_url, api_key)
+    try:
+        api_root = normalize_burp_api_root(base_url, api_key)
+    except ValueError as exc:
+        # Burp Suite Pro is not installed or not configured — skip gracefully
+        return RunnerExecution(
+            tool="burp",
+            exit_code=0,
+            stdout=f"Burp Suite Pro is not configured ({exc}). Install Burp Suite Pro and set BURP_API_URL to enable this runner. Skipping.",
+            stderr="",
+            findings=[],
+            artifacts=[],
+            metadata={"skipped": True, "skip_reason": str(exc)},
+        )
     scope_allowlist = scope_allowlist or {}
     normalized_targets: list[str] = []
     seen_targets: set[str] = set()

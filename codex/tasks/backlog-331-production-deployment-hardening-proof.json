@@ -1,0 +1,77 @@
+{
+  "id": "backlog-331-production-deployment-hardening-proof",
+  "task_file": "codex/tasks/backlog-331-production-deployment-hardening-proof.json",
+  "task_type": "product_slice",
+  "title": "Production Deployment, Kill-Switch, and Remote SSH Validation",
+  "goal": "Provide live proof of the kill-switch behavior and `ai-shell` execution against an authorized remote host to address XT-001, XT-002, and XT-003.",
+  "scope": "Live runner dispatch validation with active kill switch intervention and SSH out-of-scope blocking tests.",
+  "status": "queued",
+  "generated_by": "extra_tests_stabilization",
+  "generation_reason": "High-risk components like free bash execution and the global kill-switch must have empirical proof in a live setting.",
+  "source_context": {
+    "queue_index": 283,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": ["extra_tests.md", "risico.md"],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-248",
+    "broader_theme": "system_stabilization",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Provide a safe, local SSH container specifically for this test. Do not test against real infrastructure.",
+    "runtime_mutation": true
+  },
+  "success_criteria": [
+    "Kill-switch immediately aborts a running AI shell loop.",
+    "SSH dispatch correctly executes an approved `id` command.",
+    "Out-of-scope `curl` command is successfully blocked during SSH preflight."
+  ],
+  "likely_touched_files": [
+    "api/tests/integration/test_killswitch_and_ssh.py",
+    "docker-compose.override.yml.example"
+  ],
+  "must_not_touch": [
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/integration/test_killswitch_and_ssh.py"
+    ],
+    "acceptance_criteria": [
+      "All SSH and kill-switch boundary tests pass."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md.",
+      "Update extra_tests.md XT-001, XT-002, XT-003."
+    ]
+  },
+  "out_of_scope": [
+    "Re-architecting the kill-switch"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

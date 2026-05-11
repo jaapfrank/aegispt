@@ -6,7 +6,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-
 REQUIRED_CAPABILITY_FIELDS = {
     "name",
     "category",

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -32,7 +32,7 @@ export function PageHeader({
 
 export function MetricCard({ icon, label, value, detail }: { icon: ReactNode; label: string; value: ReactNode; detail?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
+    <div className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
       <div className="mb-3 flex items-center gap-2 text-cyan">
         {icon}
         <span className="text-[0.77rem] font-bold uppercase tracking-wider">{label}</span>
@@ -45,7 +45,7 @@ export function MetricCard({ icon, label, value, detail }: { icon: ReactNode; la
 
 export function Panel({ title, detail, children, action }: { title: string; detail?: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-surface/55 p-4 backdrop-blur-md">
+    <section className="neon-panel rounded-lg border border-border bg-surface/55 p-4 backdrop-blur-md">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[1.08rem] font-semibold text-text">{title}</h2>
@@ -60,7 +60,8 @@ export function Panel({ title, detail, children, action }: { title: string; deta
 
 export function EmptyState({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-surface/50 p-8 text-center">
+    <div className="neon-panel rounded-lg border border-border bg-surface/50 p-8 text-center">
+      <AlertTriangle size={24} className="living-empty-icon mx-auto mb-3 text-cyan" />
       <h2 className="text-[1.23rem] font-semibold text-text">{title}</h2>
       <p className="mx-auto mt-2 max-w-xl text-[1rem] leading-5 text-muted">{detail}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}

@@ -4,7 +4,15 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from api.app.models import AgentProposal, Approval, AuditEvent, Finding, InventorySnapshot, Run, Task
+from api.app.models import (
+    AgentProposal,
+    Approval,
+    AuditEvent,
+    Finding,
+    InventorySnapshot,
+    Run,
+    Task,
+)
 from api.app.services.runs import approval_step_id
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import smtplib
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from email.message import EmailMessage
 from typing import Any, Callable
 

@@ -1,0 +1,76 @@
+{
+  "id": "backlog-330-authenticated-runner-dispatch-proof",
+  "task_file": "codex/tasks/backlog-330-authenticated-runner-dispatch-proof.json",
+  "task_type": "product_slice",
+  "title": "Authenticated Runner Dispatch & Run Credential Vault Live Proof",
+  "goal": "Verify that credentials discovered in one phase are safely stored in the vault and seamlessly injected into a follow-up runner task (like ZAP/Nuclei) addressing gap XT-032.",
+  "scope": "Integration test validating vault lifecycle, redaction, and runner payload injection.",
+  "status": "queued",
+  "generated_by": "extra_tests_stabilization",
+  "generation_reason": "Credential chaining is high risk and needs live proof to guarantee credentials aren't leaked in logs or DB plaintext.",
+  "source_context": {
+    "queue_index": 282,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": ["extra_tests.md", "risico.md"],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-302",
+    "broader_theme": "system_stabilization",
+    "source_documents": []
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Do not modify the vault encryption mechanism, only test its end-to-end usage.",
+    "runtime_mutation": true
+  },
+  "success_criteria": [
+    "Test executes discovery runner that finds a token.",
+    "Test executes Nuclei runner with injected token.",
+    "Logs and DB are audited post-run to ensure token is redacted/encrypted."
+  ],
+  "likely_touched_files": [
+    "api/tests/integration/test_vault_chaining.py"
+  ],
+  "must_not_touch": [
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/integration/test_vault_chaining.py"
+    ],
+    "acceptance_criteria": [
+      "Chaining test passes and regex log search confirms no plaintext credential leakage."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task."
+    ],
+    "after_completion": [
+      "Update CURRENT_STATE.md.",
+      "Promote next task into NEXT_TASK.md.",
+      "Update DONE_LOG.md.",
+      "Update extra_tests.md XT-032."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new credential types to the vault"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -18,16 +18,17 @@ from workers.runners.base.contracts import EvidenceArtifact
 from workers.runners.biz_logic.runner import BIZ_LOGIC_ARTIFACT_NAME
 from workers.runners.bloodhound.runner import BLOODHOUND_RESULTS_ARTIFACT_NAME
 from workers.runners.burp.runner import BURP_RESULTS_ARTIFACT_NAME
+from workers.runners.c2_ingest.runner import C2_INGEST_RESULTS_ARTIFACT_NAME
 from workers.runners.camera_test.runner import CAMERA_TEST_RESULTS_ARTIFACT_NAME
-from workers.runners.client_state.runner import CLIENT_STATE_RESULTS_ARTIFACT_NAME
 from workers.runners.cicd_security.runner import CICD_SECURITY_RESULTS_ARTIFACT_NAME
+from workers.runners.client_state.runner import CLIENT_STATE_RESULTS_ARTIFACT_NAME
 from workers.runners.cloud_native.runner import CLOUD_NATIVE_RESULTS_ARTIFACT_NAME
 from workers.runners.credential_attacks.runner import (
     CREDENTIAL_ATTACK_RESULTS_ARTIFACT_NAME,
 )
 from workers.runners.crypto_audit.runner import CRYPTO_AUDIT_RESULTS_ARTIFACT_NAME
-from workers.runners.desktop_client.runner import DESKTOP_CLIENT_RESULTS_ARTIFACT_NAME
 from workers.runners.deserialization_probe.runner import DESERIALIZATION_RESULTS_ARTIFACT_NAME
+from workers.runners.desktop_client.runner import DESKTOP_CLIENT_RESULTS_ARTIFACT_NAME
 from workers.runners.external_infra.runner import EXTERNAL_INFRA_RESULTS_ARTIFACT_NAME
 from workers.runners.graphql_command_injection.runner import (
     GRAPHQL_COMMAND_INJECTION_RESULTS_ARTIFACT_NAME,
@@ -40,8 +41,10 @@ from workers.runners.impacket.runner import IMPACKET_RESULTS_ARTIFACT_NAME
 from workers.runners.iot_default_creds.runner import IOT_DEFAULT_CREDS_ARTIFACT_NAME
 from workers.runners.ipv6_discovery.runner import IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME
 from workers.runners.ldap_enum.runner import LDAP_ENUM_ARTIFACT_NAME
+from workers.runners.leak_check.runner import LEAK_CHECK_RESULTS_ARTIFACT_NAME
 from workers.runners.llm_probe import LLM_PROBE_ARTIFACT_NAME
 from workers.runners.logging_probe.runner import LOGGING_PROBE_RESULTS_ARTIFACT_NAME
+from workers.runners.malware_sim.runner import MALWARE_SIM_RESULTS_ARTIFACT_NAME
 from workers.runners.mdns_ssdp.runner import MDNS_SSDP_ARTIFACT_NAME
 from workers.runners.metasploit.runner import METASPLOIT_RESULTS_ARTIFACT_NAME
 from workers.runners.mobile_android.runner import MOBILE_ANDROID_RESULTS_ARTIFACT_NAME
@@ -55,12 +58,12 @@ from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
 from workers.runners.semgrep.runner import normalize_semgrep_rule_id
 from workers.runners.session_security.runner import SESSION_SECURITY_RESULTS_ARTIFACT_NAME
 from workers.runners.smart_home.runner import SMART_HOME_RESULTS_ARTIFACT_NAME
-from workers.runners.ssh_brute.runner import SSH_BRUTE_RESULTS_ARTIFACT_NAME
-from workers.runners.ssti_probe.runner import SSTI_RESULTS_ARTIFACT_NAME
-from workers.runners.ssrf_probe.runner import SSRF_RESULTS_ARTIFACT_NAME
 from workers.runners.snmp_enum.runner import SNMP_ENUM_RESULTS_ARTIFACT_NAME
-from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
-from workers.runners.xss_extended.runner import XSS_EXTENDED_RESULTS_ARTIFACT_NAME
+from workers.runners.social_campaign.runner import SOCIAL_CAMPAIGN_RESULTS_ARTIFACT_NAME
+from workers.runners.ssh_brute.runner import SSH_BRUTE_RESULTS_ARTIFACT_NAME
+from workers.runners.ssrf_probe.runner import SSRF_RESULTS_ARTIFACT_NAME
+from workers.runners.ssti_probe.runner import SSTI_RESULTS_ARTIFACT_NAME
+from workers.runners.waf_detect.runner import WAF_DETECT_RESULTS_ARTIFACT_NAME
 from workers.runners.web_depth.runner import (
     CONTENT_DISCOVERY_RESULTS_ARTIFACT_NAME,
     EXTERNAL_OSINT_RESULTS_ARTIFACT_NAME,
@@ -70,6 +73,8 @@ from workers.runners.web_depth.runner import (
     VULN_COMPONENTS_RESULTS_ARTIFACT_NAME,
     XXE_RESULTS_ARTIFACT_NAME,
 )
+from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
+from workers.runners.xss_extended.runner import XSS_EXTENDED_RESULTS_ARTIFACT_NAME
 
 
 @dataclass(slots=True, frozen=True)
@@ -556,10 +561,15 @@ def extract_findings(
         "ssrf-probe",
         "deserialization-probe",
         "session-security",
+        "social-campaign",
         "auth-flow",
+        "c2-ingest",
+        "malware-sim",
+        "leak-check",
         "priv-esc-linux",
         "crypto-audit",
         "ssh-brute",
+        "waf-detect",
     }:
         return extract_standard_json_findings(
             target_id=task.target_id,
@@ -586,10 +596,15 @@ def extract_findings(
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,
                 SESSION_SECURITY_RESULTS_ARTIFACT_NAME,
+                SOCIAL_CAMPAIGN_RESULTS_ARTIFACT_NAME,
                 AUTH_FLOW_RESULTS_ARTIFACT_NAME,
+                C2_INGEST_RESULTS_ARTIFACT_NAME,
+                MALWARE_SIM_RESULTS_ARTIFACT_NAME,
+                LEAK_CHECK_RESULTS_ARTIFACT_NAME,
                 PRIV_ESC_LINUX_RESULTS_ARTIFACT_NAME,
                 CRYPTO_AUDIT_RESULTS_ARTIFACT_NAME,
                 SSH_BRUTE_RESULTS_ARTIFACT_NAME,
+                WAF_DETECT_RESULTS_ARTIFACT_NAME,
             },
             default_title=f"{task.tool} finding",
         )

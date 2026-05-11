@@ -21,7 +21,6 @@ from api.app.services.ai_shell_safety import ai_shell_command_sha256
 from api.app.services.runs import derive_targets_from_target_map
 from workers.runners.ai_shell.runner import execute_ai_shell_command
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPORT_PATH = REPO_ROOT / "codex" / "results" / "gruyere-chain-acceptance-report.json"
 GRUYERE_PUBLIC_ROOT = "google-gruyere.appspot.com"

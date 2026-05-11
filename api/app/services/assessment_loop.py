@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from api.app.models import AgentProposal, RationaleLedgerEntry, Run, Scope, Task
 from api.app.policy.engine import normalize_profile_limits
+from api.app.services.ai_action_selector import select_next_best_action_for_run
 from api.app.services.ai_enrichment import store_agent_proposal_record, store_agent_reasoning_record
 from api.app.services.ai_planner import (
     RECURSIVE_CONTEXT_KIND,
@@ -30,7 +31,6 @@ from api.app.services.runs import (
     target_value_is_allowed,
 )
 from api.app.services.task_dispatch import supported_execution_tools
-
 
 LOOP_VERSION = "2026-05-07.1"
 LOOP_CONFIG_KEY = "ai_assessment_loop"
@@ -62,6 +62,9 @@ class LoopCandidate:
     expected_evidence: list[str]
     required_approvals: int
     decision_source: str
+    selector_decision: str | None = None
+    selector_rank: int | None = None
+    selector_provenance: dict[str, Any] | None = None
 
 
 def _as_dict(value: object) -> dict[str, Any]:
@@ -277,6 +280,11 @@ def _scope_target_allowed(scope: Scope, target: str) -> bool:
 
 def _objective_type(objective: str) -> str:
     text = objective.lower()
+    if "gruyere" in text or (
+        "xss" in text
+        and any(token in text for token in ("admin", "cookie", "session", "command injection", "controlled proof"))
+    ):
+        return "gruyere_multi_step_objective"
     if any(token in text for token in ("domain admin", "active directory", "kerberos", "ldap", "bloodhound")):
         return "identity_admin_objective"
     if any(token in text for token in ("billing", "database", "db", "sql", "customer data", "records")):
@@ -289,6 +297,8 @@ def _objective_type(objective: str) -> str:
 
 
 def _goal_tool_sequence(objective_type: str, target_type: str) -> list[str]:
+    if objective_type == "gruyere_multi_step_objective":
+        return ["httpx", "xss-extended", "session-security", "client-state", "ssti-probe"]
     if objective_type == "identity_admin_objective":
         return ["nmap", "ldap-enum", "bloodhound-collect", "netexec", "credential-attacks"]
     if objective_type == "data_access_objective":
@@ -314,6 +324,10 @@ def _target_candidates_for_tool(tool: str, targets: list[dict[str, str]]) -> lis
 def _goal_stage(tool: str, tier: str) -> str:
     if tool in LOOP_LOW_IMPACT_AUTO_TOOLS:
         return "observe_surface"
+    if tool == "xss-extended":
+        return "validate_initial_browser_execution"
+    if tool == "ssti-probe":
+        return "approval_gated_controlled_proof"
     if tool in {"auth-flow", "session-security", "jwt-probe", "idor-bac", "client-state"}:
         return "validate_session_exposure_risk"
     if tier == "intrusive":
@@ -326,6 +340,26 @@ def _goal_reason(tool: str, objective: str, objective_type: str) -> str:
         return (
             f"Establish approved surface evidence for the operator objective '{objective}' before any "
             "deeper controlled proof step is proposed."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "xss-extended":
+        return (
+            "Validate the Gruyere browser-execution entry point with the registered XSS runner before "
+            "using any reviewed session or admin-surface evidence for follow-up."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "session-security":
+        return (
+            "Review session exposure risk from the confirmed Gruyere XSS path and keep any cookie or "
+            "token material behind redacted evidence and secret-binding controls."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "client-state":
+        return (
+            "Use reviewed session evidence only through the registered client-state runner to test the "
+            "authenticated Gruyere admin surface without bypassing scope or approval gates."
+        )
+    if objective_type == "gruyere_multi_step_objective" and tool == "ssti-probe":
+        return (
+            "Produce a bounded Gruyere controlled proof with math-expression canary evidence only; "
+            "command payloads, file writes, callbacks, and persistence remain prohibited."
         )
     if tool == "sqlmap":
         return (
@@ -733,8 +767,63 @@ def _context_micro_plan_candidate(
     return None
 
 
+def _selector_candidate(selector_report: dict[str, Any], plan: dict[str, Any]) -> LoopCandidate | None:
+    for action in _as_list(selector_report.get("actions")):
+        if not isinstance(action, dict):
+            continue
+        decision = str(action.get("decision") or "").strip().upper()
+        if decision not in {"RUN", "APPROVAL"}:
+            continue
+        tool = str(action.get("runner") or "").strip()
+        target = str(action.get("target") or "").strip()
+        if not tool or tool not in supported_execution_tools() or not target:
+            continue
+        plan_item = _capability_item(plan, tool)
+        tier = str(action.get("risk_tier") or _tier_from_capability(plan_item, tool)).strip().lower()
+        return LoopCandidate(
+            tool=tool,
+            target=target,
+            params={
+                "target_kind": action.get("target_kind"),
+                "source": "next_best_action_selector",
+                "next_best_action_selector": {
+                    "selector_version": selector_report.get("selector_version"),
+                    "graph_version": selector_report.get("graph_version"),
+                    "rank": action.get("rank"),
+                    "decision": decision,
+                    "runner_node_id": action.get("runner_node_id"),
+                    "source_ids": list(action.get("source_ids") or []),
+                    "prerequisite_state": _as_dict(action.get("prerequisite_state")),
+                    "expected_proof_value": action.get("expected_proof_value"),
+                    "matched_triggers": list(action.get("matched_triggers") or []),
+                    "blocker_reasons": list(action.get("blocker_reasons") or []),
+                },
+            },
+            tier=tier,
+            reasoning=str(action.get("rationale") or f"{tool} is the next best action from stored evidence."),
+            confidence=float(action.get("confidence") or 0.0),
+            follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(action.get("expected_evidence") or plan_item.get("expected_evidence") or []),
+            required_approvals=int(action.get("required_approvals") or plan_item.get("required_approvals") or 0),
+            decision_source="next_best_action_selector",
+            selector_decision=decision,
+            selector_rank=int(action.get("rank") or 0) or None,
+            selector_provenance=_as_dict(action.get("provenance")),
+        )
+    return None
+
+
+def _selector_has_finding_sources(selector_report: dict[str, Any]) -> bool:
+    for action in _as_list(selector_report.get("actions")):
+        if not isinstance(action, dict):
+            continue
+        if any(str(source_id).startswith("finding:") for source_id in _as_list(action.get("source_ids"))):
+            return True
+    return False
+
+
 def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
-    return {
+    payload = {
         "tool": candidate.tool,
         "target": candidate.target,
         "params": dict(candidate.params),
@@ -746,6 +835,11 @@ def _next_action_payload(candidate: LoopCandidate) -> dict[str, Any]:
         "required_approvals": int(candidate.required_approvals),
         "decision_source": candidate.decision_source,
     }
+    if candidate.selector_decision:
+        payload["selector_decision"] = candidate.selector_decision
+        payload["selector_rank"] = candidate.selector_rank
+        payload["selector_provenance"] = dict(candidate.selector_provenance or {})
+    return payload
 
 
 def _queue_passive_loop_task(
@@ -1176,18 +1270,33 @@ def advance_assessment_loop(
         if str(tool).strip()
     }
     tested_keys = _tested_action_keys(run)
-    candidate = _goal_oriented_candidate(
+    selector_targets = _context_targets(context_document) or targets
+    selector_report = select_next_best_action_for_run(
+        session,
+        run=run,
+        scope=scope,
+        approved_targets=selector_targets,
+        tested_action_keys=tested_keys,
+    )
+    goal_candidate = _goal_oriented_candidate(
         run=run,
         scope=scope,
         goal_reasoning=_as_dict(loop_state.get("goal_oriented_reasoning")),
         plan=plan,
         tested_keys=tested_keys,
-    ) or _context_micro_plan_candidate(
+    )
+    recursive_candidate = _context_micro_plan_candidate(
         scope=scope,
         context_document=context_document,
         plan=plan,
         tested_keys=tested_keys,
-    ) or _seed_candidate(
+    )
+    selector_candidate = (
+        _selector_candidate(selector_report, plan)
+        if not tested_keys or _selector_has_finding_sources(selector_report)
+        else None
+    )
+    candidate = goal_candidate or recursive_candidate or selector_candidate or _seed_candidate(
         run=run,
         scope=scope,
         targets=_context_targets(context_document) or targets,
@@ -1252,6 +1361,26 @@ def advance_assessment_loop(
             "target_context_evidence_refs": list(context_document.evidence_refs_json or []),
             "target_context_micro_plan": list(context_document.micro_plan_json or []),
             "assessment_plan_summary": plan.get("summary", {}),
+            "next_best_action_selector": {
+                "selector_version": selector_report.get("selector_version"),
+                "enabled": selector_report.get("enabled"),
+                "top_actions": [
+                    {
+                        "rank": action.get("rank"),
+                        "decision": action.get("decision"),
+                        "runner": action.get("runner"),
+                        "target": action.get("target"),
+                        "confidence": action.get("confidence"),
+                        "expected_proof_value": action.get("expected_proof_value"),
+                        "missing_prerequisites": _as_dict(
+                            action.get("prerequisite_state")
+                        ).get("missing", []),
+                    }
+                    for action in _as_list(selector_report.get("actions"))[:5]
+                    if isinstance(action, dict)
+                ],
+                "dispatches_work_directly": False,
+            },
             "goal_oriented_reasoning": _as_dict(loop_state.get("goal_oriented_reasoning")),
             "scope_enforced": True,
             "fixed_phase_chains_replaced_globally": False,
@@ -1274,6 +1403,8 @@ def advance_assessment_loop(
                 "target": candidate.target,
                 "tier": candidate.tier,
                 "confidence": round(float(candidate.confidence), 3),
+                "decision_source": candidate.decision_source,
+                "selector_decision": candidate.selector_decision,
             }
         ],
         proposals=[next_action],
@@ -1301,6 +1432,9 @@ def advance_assessment_loop(
             "kill_switch_still_authoritative": True,
             "manual_chain_alternative_preserved": True,
             "target_context_document_id": str(context_document.id),
+            "next_best_action_selector_used": candidate.decision_source == "next_best_action_selector",
+            "selector_decision": candidate.selector_decision,
+            "selector_rank": candidate.selector_rank,
         },
     )
     rationale_entry = record_rationale(
@@ -1322,6 +1456,8 @@ def advance_assessment_loop(
             "source": candidate.decision_source,
             "context_document_id": str(context_document.id),
             "goal_oriented_reasoning": _as_dict(candidate.params.get("goal_oriented_reasoning")),
+            "next_best_action_selector": _as_dict(candidate.params.get("next_best_action_selector")),
+            "selector_provenance": dict(candidate.selector_provenance or {}),
             "recommended_tools": list(context_document.recommended_tools_json or []),
             "registered_runner_required": True,
             "approval_gates_bypassed": False,
@@ -1332,7 +1468,10 @@ def advance_assessment_loop(
     queued_task: Task | None = None
     proposal: AgentProposal | None = None
     action_status = "pending_review"
-    if candidate.tier == "passive":
+    # For ai_loop runs, auto-queue active candidates too (operator already authorized the run)
+    # Intrusive-exploitation tier always requires explicit approval regardless of run mode
+    auto_queue_active = _run_uses_ai_loop(run) and candidate.tier == "active"
+    if candidate.tier == "passive" or auto_queue_active:
         queued_task = _queue_passive_loop_task(
             session=session,
             run=run,
@@ -1360,7 +1499,7 @@ def advance_assessment_loop(
                 },
             },
             reasoning_text=candidate.reasoning,
-            risk_tier="passive",
+            risk_tier=candidate.tier,
             priority=20,
             confidence_score=float(candidate.confidence),
             status="approved",
@@ -1370,7 +1509,7 @@ def advance_assessment_loop(
                 "iteration": iteration_number,
                 "dispatches_work": True,
                 "queued_task_id": str(queued_task.id),
-                "approval_boundary": "passive_auto_queued",
+                "approval_boundary": "passive_auto_queued" if candidate.tier == "passive" else "active_auto_queued_ai_loop",
                 "operator_controlled_flow_only": True,
                 "active_runtime_mutated": False,
                 "context_document_id": str(context_document.id),

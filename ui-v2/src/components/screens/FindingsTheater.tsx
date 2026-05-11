@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
   Bot,
@@ -10,6 +10,7 @@ import {
   Clipboard,
   ExternalLink,
   Filter,
+  GitPullRequest,
   Hash,
   Loader2,
   Search,
@@ -23,9 +24,10 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
   enrichFinding,
+  createFindingFixPullRequest,
   getFindingEvidence,
   getFindingTheater,
-  getRunTheaterFindings,
+  getFindingsForRunContext,
   handoffFindingToJira,
   updateFindingStatus,
 } from '../../api/client';
@@ -34,11 +36,11 @@ import { useAegisStore } from '../../store';
 
 type SeverityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low' | 'info';
 type StatusFilter = 'all' | 'open' | 'false-positive' | 'fixed';
-type DrawerAction = 'enrich' | 'fixed' | 'false-positive' | 'jira' | null;
+type DrawerAction = 'enrich' | 'fixed' | 'false-positive' | 'jira' | 'fix-pr' | null;
 
 const SEVERITIES: SeverityFilter[] = ['critical', 'high', 'medium', 'low', 'info'];
 const STATUS_FILTERS: StatusFilter[] = ['all', 'open', 'false-positive', 'fixed'];
-const SECTION_DEFAULTS = ['summary', 'evidence', 'ai', 'remediation', 'push', 'attack-path'];
+const SECTION_DEFAULTS = ['summary', 'evidence', 'ai', 'remediation', 'fix-pr', 'push', 'attack-path'];
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -76,19 +78,19 @@ export default function FindingsTheater() {
   const jiraConfigured = isJiraConfigured(settings.settings);
 
   useEffect(() => {
-    if (!selectedRunId) {
+    if (!selectedRun) {
       setFindings([]);
       selectFinding(null);
       return;
     }
 
-    const runId = selectedRunId;
+    const run = selectedRun;
     let cancelled = false;
     async function loadFindings() {
       setLoadingFindings(true);
       setError(null);
       try {
-        const payload = await getRunTheaterFindings(runId);
+        const payload = await getFindingsForRunContext(run);
         if (!cancelled) {
           setFindings(payload);
           if (payload.length === 0) {
@@ -111,7 +113,7 @@ export default function FindingsTheater() {
     return () => {
       cancelled = true;
     };
-  }, [selectFinding, selectedRunId, setError, setFindings]);
+  }, [selectFinding, selectedRun, setError, setFindings]);
 
   useEffect(() => {
     if (!selectedFindingId) {
@@ -167,7 +169,7 @@ export default function FindingsTheater() {
     const [theaterPayload, evidencePayload, listPayload] = await Promise.all([
       getFindingTheater(findingId),
       getFindingEvidence(findingId),
-      selectedRunId ? getRunTheaterFindings(selectedRunId) : Promise.resolve(findings),
+      selectedRun ? getFindingsForRunContext(selectedRun) : Promise.resolve(findings),
     ]);
     setDetail(theaterPayload);
     setEvidence(evidencePayload);
@@ -246,6 +248,22 @@ export default function FindingsTheater() {
     }
   }
 
+  async function handleCreateFixPr() {
+    if (!selectedFinding) return;
+    setAction('fix-pr');
+    setActionMessage(null);
+    try {
+      const pullRequest = await createFindingFixPullRequest(selectedFinding.id);
+      await refreshSelectedFinding(selectedFinding.id);
+      const label = pullRequest.provider === 'gitlab' ? 'merge request' : 'pull request';
+      setActionMessage(`AI-generated ${label} prepared for human review.`);
+    } catch (error) {
+      setActionMessage(errorMessage(error));
+    } finally {
+      setAction(null);
+    }
+  }
+
   if (!selectedRunId) {
     return (
       <EmptyState
@@ -271,7 +289,7 @@ export default function FindingsTheater() {
         </div>
       </header>
 
-      <div className={cn('grid min-h-0 flex-1 gap-5', selectedFinding ? 'xl:grid-cols-[55fr_45fr]' : 'xl:grid-cols-1')}>
+      <div className={cn('grid min-h-0 flex-1 gap-5', selectedFinding ? 'xl:grid-cols-1' : 'xl:grid-cols-1')}>
         <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface/50 backdrop-blur-md">
           <FilterBar
             severity={severityFilter}
@@ -317,7 +335,7 @@ export default function FindingsTheater() {
 
         <AnimatePresence mode="wait">
           {selectedFinding && (
-            <FindingDrawer
+            <FindingDrawer open={true}
               key={selectedFinding.id}
               finding={selectedFinding}
               detail={detail}
@@ -336,6 +354,7 @@ export default function FindingsTheater() {
               onMarkFixed={handleMarkFixed}
               onFalsePositive={handleFalsePositive}
               onJira={handleJira}
+              onCreateFixPr={handleCreateFixPr}
             />
           )}
         </AnimatePresence>
@@ -451,6 +470,7 @@ function FindingRow({ finding, selected, onClick }: { finding: Finding; selected
         </div>
         <div className="truncate text-[1.08rem] font-semibold text-text">{finding.title}</div>
         <div className="mt-1 truncate text-[0.925rem] text-muted">{truncate(finding.target_id, 30)}</div>
+        <SeverityBar severity={finding.severity} />
       </div>
       <div className="flex items-center justify-end text-muted">
         <ChevronRight size={16} />
@@ -477,6 +497,8 @@ function FindingDrawer({
   onMarkFixed,
   onFalsePositive,
   onJira,
+  onCreateFixPr,
+  open,
 }: {
   finding: Finding;
   detail: FindingTheaterDetail | null;
@@ -495,20 +517,24 @@ function FindingDrawer({
   onMarkFixed: () => void;
   onFalsePositive: () => void;
   onJira: () => void;
+  onCreateFixPr: () => void;
+  open?: boolean;
 }) {
   const evidenceText = technicalEvidenceText(evidence, detail, finding);
   const storedSha = storedSha256(detail, evidence);
   const enrichment = detail?.ai_enrichment ?? {};
   const hasEnrichment = boolValue(enrichment.available);
   const chains = chainList(detail);
+  const repositoryContext = detail?.repository_context ?? {};
+  const latestPullRequest = isJsonMap(repositoryContext.latest_pull_request) ? repositoryContext.latest_pull_request : {};
+  const fixPrSupported = boolValue(repositoryContext.pull_request_supported);
+  const repositoryAvailable = boolValue(repositoryContext.available);
+  const repositoryUrl = textValue(repositoryContext.external_url) || textValue(repositoryContext.repository_url);
+  const latestPullRequestUrl = textValue(latestPullRequest.pull_request_url);
 
   return (
-    <motion.aside
-      initial={{ opacity: 0, x: 48 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 48 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="min-h-0 overflow-hidden rounded-xl border border-border bg-surface/70 backdrop-blur-md"
+    <aside
+      className={cn("finding-drawer", open && "open")}
     >
       <div className="flex h-full min-h-0 flex-col">
         <header className="border-b border-border bg-[rgba(5,9,18,0.78)] p-4">
@@ -636,6 +662,46 @@ function FindingDrawer({
             </div>
           </DrawerSection>
 
+          {repositoryAvailable && (
+            <DrawerSection title="Fix Pull Request" id="fix-pr" openSections={openSections} toggleSection={toggleSection}>
+              <div className="space-y-3">
+                <div className="rounded-md border border-border bg-bg/30 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-[0.925rem] text-muted">
+                    <span className="font-semibold text-text">{titleCase(textValue(repositoryContext.provider) || 'repository')}</span>
+                    <span>{textValue(repositoryContext.repository_path) || 'linked source path'}</span>
+                    {textValue(repositoryContext.repository_branch) && <span>on {textValue(repositoryContext.repository_branch)}</span>}
+                  </div>
+                  {repositoryUrl && (
+                    <a href={repositoryUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-[0.925rem] text-cyan">
+                      <ExternalLink size={13} />
+                      Open linked code
+                    </a>
+                  )}
+                </div>
+                {latestPullRequestUrl ? (
+                  <a href={latestPullRequestUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md border border-green/30 bg-green/10 px-3 py-2 text-[1rem] font-semibold text-green">
+                    <GitPullRequest size={14} />
+                    Open Generated PR
+                  </a>
+                ) : fixPrSupported ? (
+                  <button
+                    type="button"
+                    onClick={onCreateFixPr}
+                    disabled={action === 'fix-pr'}
+                    className="inline-flex items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[1rem] font-semibold text-cyan disabled:opacity-50"
+                  >
+                    {action === 'fix-pr' ? <Loader2 size={14} className="animate-spin" /> : <GitPullRequest size={14} />}
+                    Generate Review PR
+                  </button>
+                ) : (
+                  <div className="rounded-md border border-border bg-bg/30 p-3 text-[0.925rem] text-muted">
+                    AutoFix code suggestion is required before AegisPT can prepare a human-review PR.
+                  </div>
+                )}
+              </div>
+            </DrawerSection>
+          )}
+
           {jiraConfigured && (
             <DrawerSection title="Push To Jira" id="push" openSections={openSections} toggleSection={toggleSection}>
               <button
@@ -685,7 +751,7 @@ function FindingDrawer({
           )}
         </div>
       </div>
-    </motion.aside>
+    </aside>
   );
 }
 
@@ -725,17 +791,31 @@ function CvssGauge({ score }: { score: number | null }) {
         <span className="pb-1 text-[0.85rem] text-muted">/ 10</span>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
-        <div className={cn('h-full rounded-full', cvssToneClass(value))} style={{ width: `${pct}%` }} />
+        <div className={cn('living-severity-bar h-full rounded-full', cvssToneClass(value))} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
+  const previousValueRef = useRef(value);
+  const [popped, setPopped] = useState(false);
+
+  useEffect(() => {
+    const previousValue = previousValueRef.current;
+    previousValueRef.current = value;
+    if (value > previousValue) {
+      setPopped(true);
+      const timer = window.setTimeout(() => setPopped(false), 460);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [value]);
+
   return (
     <div className="rounded-lg border border-border bg-surface/55 px-4 py-2">
       <div className="text-[0.77rem] font-bold uppercase text-muted">{label}</div>
-      <div className="text-lg font-semibold text-text">{value}</div>
+      <div className={cn('text-lg font-semibold text-text', popped && 'living-badge-pop')}>{value}</div>
     </div>
   );
 }
@@ -753,7 +833,7 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
   return (
     <section className="flex h-full min-h-[520px] items-center justify-center">
       <div className="max-w-md rounded-xl border border-border bg-surface/60 p-6 text-center">
-        <ShieldAlert size={28} className="mx-auto mb-3 text-cyan" />
+        <ShieldAlert size={28} className="living-empty-icon mx-auto mb-3 text-cyan" />
         <h1 className="text-xl font-semibold text-text">{title}</h1>
         <p className="mt-2 text-[1rem] leading-6 text-muted">{detail}</p>
         {action && <div className="mt-4">{action}</div>}
@@ -765,8 +845,21 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
 function EmptyInline({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg/25 p-6 text-center">
+      <AlertTriangle size={22} className="living-empty-icon mx-auto mb-3 text-muted" />
       <h2 className="text-[1.15rem] font-semibold text-text">{title}</h2>
       <p className="mt-2 text-[1rem] text-muted">{detail}</p>
+    </div>
+  );
+}
+
+function SeverityBar({ severity }: { severity: string }) {
+  const normalized = severity.toLowerCase();
+  return (
+    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface/80" aria-label={`${normalized || 'unknown'} severity`}>
+      <div
+        className={cn('living-severity-bar h-full rounded-full', severityBarClass(normalized))}
+        style={{ width: `${severityPercent(normalized)}%` }}
+      />
     </div>
   );
 }
@@ -924,6 +1017,23 @@ function severityClass(severity: string): string {
   if (severity === 'medium') return 'border-yellow-300/40 bg-yellow-300/10 text-yellow-200';
   if (severity === 'low') return 'border-cyan/40 bg-cyan/10 text-cyan';
   return 'border-border bg-surface/70 text-muted';
+}
+
+function severityBarClass(severity: string): string {
+  if (severity === 'critical') return 'bg-red shadow-[0_0_0.55rem_rgba(239,68,68,0.42)]';
+  if (severity === 'high') return 'bg-amber shadow-[0_0_0.45rem_rgba(251,191,36,0.34)]';
+  if (severity === 'medium') return 'bg-yellow-300';
+  if (severity === 'low') return 'bg-cyan';
+  return 'bg-muted';
+}
+
+function severityPercent(severity: string): number {
+  if (severity === 'critical') return 100;
+  if (severity === 'high') return 82;
+  if (severity === 'medium') return 58;
+  if (severity === 'low') return 34;
+  if (severity === 'info') return 18;
+  return 12;
 }
 
 function cvssToneClass(score: number | null): string {

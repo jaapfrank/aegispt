@@ -169,6 +169,36 @@ class CveTemplateGenerationRead(BaseModel):
     lifecycle_note: str
 
 
+class ZeroDayScanNowCreate(BaseModel):
+    target: str | None = None
+
+
+class ZeroDayRapidResponseRead(BaseModel):
+    generated_at: datetime
+    status: str
+    alert_count: int = 0
+    exposed_asset_count: int = 0
+    alerts: list[dict[str, Any]] = Field(default_factory=list)
+    boundary: dict[str, Any] = Field(default_factory=dict)
+
+
+class ZeroDayScanNowRead(BaseModel):
+    accepted: bool
+    run_id: UUID
+    run_status: str
+    profile_name: str
+    required_approvals: int
+    granted_approvals: int = 0
+    target: str
+    record_id: UUID
+    advisory_id: str
+    operator_approval_required: bool = True
+    automatic_approval_created: bool = False
+    automatic_tests_started: bool = False
+    scope_enforced: bool = True
+    detail: str
+
+
 class ThreatIntelRecordRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

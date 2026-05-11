@@ -13,6 +13,16 @@ import {
   Shield,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  Bar,
+  BarChart as ReBarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -259,6 +269,7 @@ export default function ReportCenter() {
             {selectedReport ? (
               <div className="flex h-full min-h-0 flex-col">
                 <ReportPreviewHeader report={selectedReport} run={selectedRun} />
+                <ReportChartStrip report={selectedReport} run={selectedRun} />
                 <div className="border-b border-border p-4">
                   <div className="flex flex-wrap gap-2">
                     <ActionButton onClick={handleGeneratePreview} loading={action === 'preview'} icon={<ScrollText size={14} />}>
@@ -309,6 +320,94 @@ export default function ReportCenter() {
       )}
     </section>
   );
+}
+
+function ReportChartStrip({ report, run }: { report: RunReportCatalogItem; run: Run | null }) {
+  const readinessData = [
+    { label: 'Preview', value: report.preview_allowed ? 1 : 0, color: report.preview_allowed ? '#5ecfff' : '#475569' },
+    { label: 'Export', value: report.export_allowed ? 1 : 0, color: report.export_allowed ? '#34d399' : '#475569' },
+    { label: 'Draft', value: report.draft_allowed ? 1 : 0, color: report.draft_allowed ? '#d06bff' : '#475569' },
+  ];
+  const severityData = ['critical', 'high', 'medium', 'low'].map((severity) => ({
+    label: severity[0].toUpperCase() + severity.slice(1),
+    value: run?.findings.findings_by_severity?.[severity] ?? 0,
+    color: severityColor(severity),
+  }));
+
+  return (
+    <div className="grid gap-3 border-b border-border p-4 lg:grid-cols-2">
+      <div className="rounded-lg border border-border bg-bg/25 p-3">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-[0.925rem] font-semibold text-text">Report Readiness</h3>
+          <span className="text-[0.77rem] font-bold uppercase text-muted">{report.availability_label}</span>
+        </div>
+        <div className="h-[150px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <ReBarChart data={readinessData} margin={{ left: -22, right: 6, top: 4, bottom: 0 }}>
+              <CartesianGrid stroke="rgba(142,191,228,0.1)" vertical={false} />
+              <XAxis dataKey="label" stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} domain={[0, 1]} hide />
+              <Tooltip content={<ReportTooltip valueLabel="Ready" booleanValue />} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                {readinessData.map((entry) => <Cell key={entry.label} fill={entry.color} />)}
+              </Bar>
+            </ReBarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-bg/25 p-3">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-[0.925rem] font-semibold text-text">Severity Summary</h3>
+          <span className="text-[0.77rem] font-bold uppercase text-muted">Run findings</span>
+        </div>
+        <div className="h-[150px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <ReBarChart data={severityData} margin={{ left: -18, right: 6, top: 4, bottom: 0 }}>
+              <CartesianGrid stroke="rgba(142,191,228,0.1)" vertical={false} />
+              <XAxis dataKey="label" stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} stroke="#8ebfe4" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+              <Tooltip content={<ReportTooltip valueLabel="Findings" />} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                {severityData.map((entry) => <Cell key={entry.label} fill={entry.color} />)}
+              </Bar>
+            </ReBarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportTooltip({
+  active,
+  payload,
+  label,
+  valueLabel,
+  booleanValue = false,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number }>;
+  label?: string;
+  valueLabel: string;
+  booleanValue?: boolean;
+}) {
+  if (!active || !payload?.length) return null;
+  const value = payload[0]?.value ?? 0;
+  return (
+    <div className="rounded-md border border-cyan/25 bg-[#06101d]/95 px-3 py-2 shadow-[0_0_1rem_rgba(94,207,255,0.16)]">
+      <div className="text-[0.8rem] font-bold uppercase text-cyan">{label}</div>
+      <div className="text-[0.9rem] text-text">{valueLabel}: {booleanValue ? (value ? 'Yes' : 'No') : value}</div>
+    </div>
+  );
+}
+
+function severityColor(severity: string): string {
+  if (severity === 'critical') return '#ef4444';
+  if (severity === 'high') return '#f59e0b';
+  if (severity === 'medium') return '#fde047';
+  if (severity === 'low') return '#5ecfff';
+  return '#8ebfe4';
 }
 
 function TabButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: ReactNode; children: ReactNode }) {

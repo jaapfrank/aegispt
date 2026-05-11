@@ -329,7 +329,7 @@ def detect_screen_defects(
                     selector,
                 )
             )
-        if str(field.get("required")).lower() == "true" and not label:
+        if str(f.get("required")).lower() == "true" and not label:
             defects.append(
                 Defect(
                     "high",

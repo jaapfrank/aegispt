@@ -860,6 +860,10 @@ def _provider_create_fix_pr(
     actor: str,
 ) -> RepositoryFixPullRequest:
     spec = _provider_spec(_normalized_provider(provider), settings)
+    review_body = (
+        f"AI-generated AegisPT AutoFix prepared by {actor}. "
+        "Human review is required before merge. Auto-merge is disabled."
+    )
     if provider == "github":
         owner, repo = integration.repository_path.split("/", 1)
         ref_response = httpx.get(
@@ -902,7 +906,7 @@ def _provider_create_fix_pr(
                 "title": f"AegisPT AutoFix: {finding_title}",
                 "head": branch_name,
                 "base": base_branch,
-                "body": f"Prepared by {actor}. Review the advisory patch before merge.",
+                "body": review_body,
             },
             timeout=10.0,
         )
@@ -940,7 +944,7 @@ def _provider_create_fix_pr(
             "source_branch": branch_name,
             "target_branch": base_branch,
             "title": f"AegisPT AutoFix: {finding_title}",
-            "description": f"Prepared by {actor}. Review the advisory patch before merge.",
+            "description": review_body,
         },
         timeout=10.0,
     )

@@ -1,0 +1,102 @@
+{
+  "id": "backlog-347-stored-xss-and-html-injection-via-form-inputs",
+  "task_file": "codex/tasks/backlog-347-stored-xss-and-html-injection-via-form-inputs.json",
+  "task_type": "scanner_runner",
+  "title": "Stored XSS Detection via Form Input Submission: Snippets, Color, and HTML Attributes",
+  "goal": "Gruyere has multiple stored XSS vulnerabilities that require an authenticated session AND form submission to detect: (1) Snippet stored XSS \u2014 POST /newsnippet with snippet=<a onmouseover=alert(1)> causes XSS when anyone views the profile; (2) Color attribute injection \u2014 POST /saveprofile with color=red' onload=alert(1) injects event handler into style attribute; (3) AJAX JSON injection \u2014 stored snippet with special characters breaks JSON response from /feed.gtl. The auth-flow runner currently tests login but does not submit application-specific forms. Extend auth-flow (or create a new stored-xss-probe runner) to: (a) after authenticating, submit XSS payloads to ALL discovered POST forms (from web-crawler backlog-343); (b) retrieve the page that renders the stored content (profile/home/feed); (c) check if the payload appears unescaped (as executable HTML, not HTML-entity-encoded); (d) report stored XSS with the form, parameter, and rendering page.",
+  "scope": "workers/runners/auth_flow/runner.py or new workers/runners/stored_xss_probe/runner.py",
+  "status": "queued",
+  "generated_by": "gap-analysis-no-stored-xss-forms",
+  "generation_reason": "Stored XSS via /newsnippet (snippet parameter) and /saveprofile (color parameter) cannot be detected without authenticating and submitting forms. No current runner does this for generic web apps.",
+  "source_context": {
+    "queue_index": 299,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_backlog": "REQUIRES: backlog-343",
+    "key_files": [
+      "workers/runners/auth_flow/runner.py",
+      "workers/runners/xss_extended/runner.py"
+    ],
+    "prerequisite_active_task": "NEXT_TASK.md"
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "canary_payloads_only": "Use canary payloads (unique random strings embedded in tags) that do NOT execute in the scanner's own browser context. Check for presence in HTML source, not runtime execution.",
+    "scope_enforcement": "Only submit to forms within approved scope.",
+    "cleanup": "After testing, attempt to clean up stored canary content (delete snippet, reset profile) if delete/edit endpoints are available.",
+    "session_required": "This runner requires a valid test session. Use credentials from run_credential_vault or test accounts. Skip if no credentials available.",
+    "existing_tests": "pytest api/tests/ must pass.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Keep implementation bounded to this task package. Defer broader scanner, exploit-chain, UI, or runtime work to separately queued packages."
+  },
+  "implementation_notes": {
+    "canary_pattern": "Generate unique canary: 'aegispt-xss-{uuid4().hex[:8]}'. Embed in payloads: <script>/*aegispt-xss-{canary}*/</script>, <img src=x id='aegispt-xss-{canary}'>. Check if canary appears in response HTML without encoding.",
+    "form_submission_flow": "1. Authenticate. 2. GET form URL to get hidden fields (CSRF tokens if any). 3. POST form with canary payload. 4. GET rendering URL. 5. Check for canary in unencoded form.",
+    "attribute_injection": "For style/class attributes: test payloads like 'red' onmouseover='alert(1)' and 'expression(alert(1))'. Check if the attribute value contains the unescaped quote and event handler.",
+    "ajax_endpoint_test": "For JSON/AJAX endpoints: check if stored content appears in JSON responses without proper JSON escaping (raw quotes, newlines).",
+    "finding_types": [
+      "stored_xss_form_input",
+      "stored_xss_attribute_injection",
+      "stored_xss_ajax_json"
+    ]
+  },
+  "validation": {
+    "required_checks": [
+      "pytest api/tests/",
+      "python3 scripts/validate_backlog_tasks.py"
+    ],
+    "acceptance_criteria": [
+      "Runner detects stored XSS in Gruyere's snippet form (/newsnippet) and reports finding with type='stored_xss_form_input'.",
+      "Runner detects attribute injection in /saveprofile color field and reports type='stored_xss_attribute_injection'.",
+      "Canary cleanup attempted after each test.",
+      "No runtime script execution occurs in the scanner \u2014 detection is source-code based."
+    ]
+  },
+  "success_criteria": [
+    "Runner detects stored XSS in Gruyere's snippet form (/newsnippet) and reports finding with type='stored_xss_form_input'.",
+    "Runner detects attribute injection in /saveprofile color field and reports type='stored_xss_attribute_injection'.",
+    "Canary cleanup attempted after each test.",
+    "No runtime script execution occurs in the scanner \u2014 detection is source-code based."
+  ],
+  "likely_touched_files": [
+    "workers/runners/auth_flow/runner.py",
+    "workers/runners/xss_extended/runner.py"
+  ],
+  "must_not_touch": [
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "workers/runners/core/"
+  ],
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Running live public target scans without explicit operator authorization and approved scope.",
+    "Bypassing approval gates, scope/ROE boundaries, runtime binding, credential protections, or kill-switch behavior.",
+    "Materializing credentials or sensitive data outside protected references.",
+    "Auto-approving active, intrusive, exploit, or destructive follow-up actions."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

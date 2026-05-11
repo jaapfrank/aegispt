@@ -96,6 +96,38 @@
     },
     {
       "blockers": [
+        "no_campaign_import",
+        "live_send_requested",
+        "credential_capture_requested"
+      ],
+      "category": "social-engineering",
+      "cost": "low",
+      "description": "Review-only social-engineering campaign import that normalizes metrics, redacts submitted values, and reports evidence without sending messages.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "campaign_metrics",
+        "redacted_recipient_summaries",
+        "campaign_findings"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [],
+      "name": "social-campaign",
+      "prerequisites": [
+        "approved_scope",
+        "operator_review",
+        "imported_campaign_export"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "social_engineering_campaign_import",
+        "gophish_campaign_export",
+        "operator_campaign_review"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
         "no_aws_context",
         "no_credentials_ref"
       ],
@@ -216,6 +248,42 @@
     },
     {
       "blockers": [
+        "no_web_target",
+        "target_outside_scope",
+        "auto_evasion_requested"
+      ],
+      "category": "web-defense",
+      "cost": "low",
+      "description": "Detects WAF and edge-control fingerprints on approved web targets and emits blocked-request evidence with review-only recommendations.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "waf_vendor_fingerprint",
+        "blocked_request_evidence",
+        "review_only_recommendations"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [
+        "headers-security",
+        "logging-probe"
+      ],
+      "name": "waf-detect",
+      "prerequisites": [
+        "approved_scope",
+        "operator_review"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "edge_control_headers",
+        "blocked_request_signal"
+      ],
+      "weak_triggers": [
+        "cdn_header_present"
+      ]
+    },
+    {
+      "blockers": [
         "no_camera_target"
       ],
       "category": "iot",
@@ -239,6 +307,38 @@
       "triggers": [
         "camera_device_detected",
         "rtsp_service_present"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_c2_export",
+        "command_execution_requested",
+        "session_mutation_requested"
+      ],
+      "category": "assumed-breach",
+      "cost": "low",
+      "description": "Read-only Mythic/Sliver session and command history import for evidence-backed timeline review.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "c2_session_timeline",
+        "redacted_command_history",
+        "attack_path_evidence_refs"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [],
+      "name": "c2-ingest",
+      "prerequisites": [
+        "approved_scope",
+        "operator_review",
+        "imported_c2_export"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "authorized_c2_export",
+        "assumed_breach_session_evidence",
+        "red_team_command_history"
       ],
       "weak_triggers": []
     },
@@ -896,6 +996,39 @@
     },
     {
       "blockers": [
+        "no_leak_metadata",
+        "raw_credential_storage_requested",
+        "credential_attack_auto_queue_requested",
+        "login_attempt_requested"
+      ],
+      "category": "identity",
+      "cost": "low",
+      "description": "Reviews imported or authorized credential-leak metadata with raw secret redaction and no credential attack auto-queue.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "leak_metadata_counts",
+        "redacted_identity_refs",
+        "credential_exposure_findings"
+      ],
+      "false_positive_rate": "medium",
+      "follow_up_tools": [],
+      "name": "leak-check",
+      "prerequisites": [
+        "approved_scope",
+        "operator_review",
+        "imported_leak_metadata"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "active",
+      "triggers": [
+        "credential_leak_metadata",
+        "breach_lookup_result",
+        "domain_exposure_signal"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
         "no_llm_target"
       ],
       "category": "ai",
@@ -974,6 +1107,39 @@
       "triggers": [
         "lan_scope_present",
         "multicast_discovery_requested"
+      ],
+      "weak_triggers": []
+    },
+    {
+      "blockers": [
+        "no_lab_telemetry",
+        "payload_deployment_requested",
+        "live_system_mutation_requested",
+        "external_beacon_requested"
+      ],
+      "category": "defensive-validation",
+      "cost": "low",
+      "description": "Lab-only malware/ransomware telemetry import for EDR/AV detection-response review without deploying payloads.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "lab_telemetry_events",
+        "detection_response_gaps",
+        "dummy_artifact_evidence"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [],
+      "name": "malware-sim",
+      "prerequisites": [
+        "approved_scope",
+        "operator_review",
+        "imported_lab_telemetry"
+      ],
+      "required_approvals": 1,
+      "risk_tier": "intrusive",
+      "triggers": [
+        "lab_malware_simulation_telemetry",
+        "edr_detection_drill",
+        "ransomware_dummy_file_simulation"
       ],
       "weak_triggers": []
     },

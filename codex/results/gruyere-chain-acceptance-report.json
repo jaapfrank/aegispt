@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-05-07T12:17:48.236546+00:00",
+  "generated_at": "2026-05-10T17:54:23.312306+00:00",
   "layers": [
     {
       "ai_shell_used": false,
       "evidence": {
         "marker_reflected": true,
-        "url": "http://127.0.0.1:8008/420446928076610703574086761162755157132/<script>alert(\"aegispt-reflected\")</script>"
+        "url": "http://127.0.0.1:8008/625018691493035033625689796787125619854/<script>alert(\"aegispt-reflected\")</script>"
       },
       "execution_path": "local-gruyere-http-proof-no-ai-shell",
-      "finding_id": "dbb75180-d27a-4af3-a6b9-7229d3740383",
+      "finding_id": "08d5f165-555e-4b76-b570-e42cae202011",
       "layer": 1,
       "name": "Reflected XSS",
       "status": "detected"
@@ -18,11 +18,11 @@
       "evidence": {
         "cookie_material_recorded": false,
         "marker_rendered": true,
-        "test_account": "aegispt56268003",
-        "url": "http://127.0.0.1:8008/420446928076610703574086761162755157132/snippets.gtl"
+        "test_account": "aegispt35663061",
+        "url": "http://127.0.0.1:8008/625018691493035033625689796787125619854/snippets.gtl"
       },
       "execution_path": "local-gruyere-http-proof-no-ai-shell",
-      "finding_id": "76842825-4b1f-4801-a61e-164e8ab2e6bc",
+      "finding_id": "2aa8af4b-be5a-4643-858d-7de08fdcd961",
       "layer": 2,
       "name": "Stored XSS via snippet",
       "status": "detected"
@@ -41,10 +41,10 @@
       "finding_id": null,
       "layer": 3,
       "name": "XSS via file upload",
-      "proposal_id": "b9b7f51c-26b0-48e2-8f33-c60fc2050483",
+      "proposal_id": "e2acb459-281c-4cc5-ad2f-a005885a26aa",
       "proposal_rationale": "Layer 3 requires a governed Free Bash follow-up after prior evidence.",
       "proposal_review": "approved_queued",
-      "queued_task_id": "2d84308d-3b99-4a05-b4f0-01e0112d118c",
+      "queued_task_id": "7188a8bb-ef76-43de-aa6f-aeb60dd594c0",
       "review_block": null,
       "runner_execution": {
         "exit_code": 255,
@@ -68,10 +68,10 @@
       "finding_id": null,
       "layer": 4,
       "name": "Client-state manipulation / privilege escalation",
-      "proposal_id": "1bcfbe94-d174-46de-a37b-2aa778b49f68",
+      "proposal_id": "442f7239-889d-4956-8646-f9b184895ad5",
       "proposal_rationale": "Layer 4 requires a governed Free Bash follow-up after prior evidence.",
       "proposal_review": "approved_queued",
-      "queued_task_id": "46da39ee-4791-4f7e-9ccf-d2a946ffcb78",
+      "queued_task_id": "a271ba13-5c4a-48e4-9c79-8e6a34b40ef0",
       "review_block": null,
       "runner_execution": {
         "exit_code": 255,
@@ -95,10 +95,10 @@
       "finding_id": null,
       "layer": 5,
       "name": "Path traversal plus write",
-      "proposal_id": "9bae5b7a-9738-46de-a813-e73fda78907e",
+      "proposal_id": "f7065295-b83b-487e-b426-46a28fd3fe90",
       "proposal_rationale": "Layer 5 requires a governed Free Bash follow-up after prior evidence.",
       "proposal_review": "approved_queued",
-      "queued_task_id": "d3e72f5a-b4ba-435f-a74a-9072d199e7c0",
+      "queued_task_id": "f84ceab0-cc30-468a-a90f-62ecc9b64673",
       "review_block": null,
       "runner_execution": {
         "exit_code": 255,
@@ -122,10 +122,10 @@
       "finding_id": null,
       "layer": 6,
       "name": "RCE via GTL injection",
-      "proposal_id": "9f081f47-ffbb-4200-87a6-83b5c39e2824",
+      "proposal_id": "086619d4-a527-469b-a3f2-b5406cc65233",
       "proposal_rationale": "Layer 6 requires a governed Free Bash follow-up after prior evidence.",
       "proposal_review": "approved_queued",
-      "queued_task_id": "75ced224-9e14-4bab-ae17-2233c655675d",
+      "queued_task_id": "58e5d651-4f90-4259-a46b-7d8f43b9ea09",
       "review_block": null,
       "runner_execution": {
         "exit_code": 255,
@@ -173,7 +173,7 @@
     "image": "karthequian/gruyere:latest",
     "kind": "local_docker_gruyere",
     "public_target_touched": false,
-    "root_url": "http://127.0.0.1:8008/420446928076610703574086761162755157132/"
+    "root_url": "http://127.0.0.1:8008/625018691493035033625689796787125619854/"
   },
   "task": "backlog-254-gruyere-multi-step-chain-acceptance-test"
 }

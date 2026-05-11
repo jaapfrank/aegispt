@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from api.app.auth import get_current_actor
+from api.app.auth import get_current_actor, require_roles
 from api.app.db import get_session
 from api.app.schemas.threat_intel import (
     CveFeedSyncRunCreate,
@@ -20,6 +20,9 @@ from api.app.schemas.threat_intel import (
     ThreatIntelFeedImportRead,
     ThreatIntelIngestCreate,
     ThreatIntelRecordRead,
+    ZeroDayRapidResponseRead,
+    ZeroDayScanNowCreate,
+    ZeroDayScanNowRead,
 )
 from api.app.services.audit import write_audit_event
 from api.app.services.chatgpt_oauth import chatgpt_oauth_status
@@ -48,6 +51,10 @@ from api.app.services.threat_intel import (
     search_threat_intel_records,
     upsert_threat_intel_record,
 )
+from api.app.services.zero_day_response import (
+    build_zero_day_rapid_response,
+    launch_zero_day_rapid_response_scan,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["threat-intel"])
 
@@ -56,7 +63,7 @@ router = APIRouter(prefix="/api/v1", tags=["threat-intel"])
 def ingest_threat_intel(
     payload: ThreatIntelIngestCreate,
     session: Session = Depends(get_session),
-    actor: str = Depends(get_current_actor),
+    actor: str = Depends(require_roles("operator", "admin")),
 ) -> list[ThreatIntelRecordRead]:
     ingested = [upsert_threat_intel_record(session, record.model_dump()) for record in payload.records]
     write_audit_event(
@@ -232,6 +239,49 @@ def get_cve_feed_sync_status(
     tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> CveFeedSyncStatusRead:
     return CveFeedSyncStatusRead(**latest_feed_sync_status(session, tenant_id=tenant_id))
+
+
+@router.get(
+    "/engagements/{engagement_id}/threat-intel/zero-day-response",
+    response_model=ZeroDayRapidResponseRead,
+)
+def get_zero_day_rapid_response(
+    engagement_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> ZeroDayRapidResponseRead:
+    engagement = load_engagement_for_tenant(session, engagement_id, tenant_id)
+    return ZeroDayRapidResponseRead.model_validate(
+        build_zero_day_rapid_response(session, engagements=[engagement])
+    )
+
+
+@router.post(
+    "/engagements/{engagement_id}/threat-intel/zero-day-response/{record_id}/scan-now",
+    response_model=ZeroDayScanNowRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def scan_zero_day_rapid_response(
+    engagement_id: UUID,
+    record_id: UUID,
+    payload: ZeroDayScanNowCreate,
+    session: Session = Depends(get_session),
+    actor: str = Depends(require_roles("operator", "admin")),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> ZeroDayScanNowRead:
+    engagement = load_engagement_for_tenant(session, engagement_id, tenant_id)
+    try:
+        result = launch_zero_day_rapid_response_scan(
+            session,
+            engagement=engagement,
+            record_id=record_id,
+            actor=actor,
+            target=payload.target,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session.commit()
+    return ZeroDayScanNowRead.model_validate(result)
 
 
 @router.post("/threat-intel/feed-sync/run", response_model=CveFeedSyncRunRead)
