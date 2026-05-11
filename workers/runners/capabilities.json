@@ -92,7 +92,16 @@
         "auth_flow_present",
         "session_cookie_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "login_form_found",
+          "form_with_post_action"
+        ],
+        "weak": [
+          "web_target_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -399,7 +408,16 @@
         "client_state_parameter",
         "session_exposure_risk"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "login_form_found",
+          "session_cookie_present"
+        ],
+        "weak": [
+          "web_target_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -457,7 +475,13 @@
       "triggers": [
         "web_target_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [],
+        "weak": [
+          "http_service_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -517,7 +541,13 @@
         "tls_service_present",
         "certificate_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [],
+        "weak": [
+          "http_service_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -526,7 +556,7 @@
         "no_web_target"
       ],
       "category": "web",
-      "cost": "medium",
+      "cost": "low",
       "description": "Uses controlled proof signals for deserialization risk only when Java or serialized-state evidence exists.",
       "estimated_minutes": 12,
       "expected_evidence": [
@@ -549,7 +579,13 @@
         "java_spring_indicator",
         "serialized_cookie"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": []
+      }
     },
     {
       "blockers": [
@@ -724,7 +760,16 @@
         "graphql_endpoint",
         "graphql_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "graphql_endpoint",
+          "graphql_present"
+        ],
+        "weak": [
+          "api_endpoint_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -752,14 +797,20 @@
         "web_target_present",
         "http_endpoint_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [],
+        "weak": [
+          "http_service_present"
+        ]
+      }
     },
     {
       "blockers": [
         "no_http_service"
       ],
       "category": "web",
-      "cost": "medium",
+      "cost": "low",
       "description": "Checks approved HTTP services for request smuggling timing signals.",
       "estimated_minutes": 10,
       "expected_evidence": [
@@ -781,7 +832,15 @@
         "reverse_proxy_service",
         "http_service_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "http_service_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -842,7 +901,13 @@
         "object_id_parameter",
         "role_context_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": []
+      }
     },
     {
       "blockers": [
@@ -964,7 +1029,13 @@
         "authorization_bearer_header",
         "access_token_in_cookie"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "jwt_in_response"
+        ],
+        "weak": []
+      }
     },
     {
       "blockers": [
@@ -1079,7 +1150,13 @@
         "web_target_present",
         "error_handling_signal"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [],
+        "weak": [
+          "http_service_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1312,7 +1389,13 @@
       "triggers": [
         "web_target_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [],
+        "weak": [
+          "http_service_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1403,7 +1486,15 @@
         "oauth_flow_present",
         "openid_configuration"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "login_form_found"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1552,7 +1643,16 @@
         "login_form_found",
         "session_exposure_risk"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "session_cookie_present",
+          "login_form_found"
+        ],
+        "weak": [
+          "web_target_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1640,7 +1740,16 @@
         "sql_error_pattern",
         "form_with_post_action"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "sql_error_pattern",
+          "injectable_parameter"
+        ],
+        "weak": [
+          "web_target_present"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1678,12 +1787,13 @@
         "no_web_target"
       ],
       "category": "web",
-      "cost": "medium",
+      "cost": "low",
       "description": "Checks approved SSRF candidate parameters with controlled canary evidence.",
       "estimated_minutes": 10,
       "expected_evidence": [
-        "ssrf_canary_evidence",
-        "parameter_reflection_signal"
+        "ssrf_oob_evidence",
+        "ssrf_reflection_evidence",
+        "internal_service_response"
       ],
       "false_positive_rate": "medium",
       "follow_up_tools": [
@@ -1700,7 +1810,15 @@
         "callback_url_parameter",
         "server_side_fetch_signal"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "form_with_post_action"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1708,7 +1826,7 @@
         "no_web_target"
       ],
       "category": "web",
-      "cost": "medium",
+      "cost": "low",
       "description": "Uses controlled proof expressions against approved template-injection candidates.",
       "estimated_minutes": 10,
       "expected_evidence": [
@@ -1730,7 +1848,15 @@
         "server_rendered_input",
         "sql_error_pattern"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "form_with_post_action"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1794,12 +1920,14 @@
         "no_web_target"
       ],
       "category": "web",
-      "cost": "medium",
+      "cost": "low",
       "description": "Checks approved XSS candidates with safe marker evidence.",
       "estimated_minutes": 12,
       "expected_evidence": [
         "xss_context_evidence",
-        "safe_marker_reflection"
+        "safe_marker_reflection",
+        "reflected_payload_evidence",
+        "xssi_data_leakage"
       ],
       "false_positive_rate": "medium",
       "follow_up_tools": [
@@ -1816,7 +1944,16 @@
         "form_inputs_present",
         "reflected_parameter"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present",
+          "http_service_present"
+        ],
+        "weak": [
+          "form_with_post_action"
+        ]
+      }
     },
     {
       "blockers": [
@@ -1874,7 +2011,13 @@
       "triggers": [
         "web_target_present"
       ],
-      "weak_triggers": []
+      "weak_triggers": [],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": []
+      }
     }
   ],
   "metadata_version": "2026-05-07"
