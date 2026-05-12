@@ -1,16 +1,20 @@
 """XSS Proof runner — confirms cookie theft via reflected XSS with authenticated session.
 
-Chain:
-1. Fetches the login/register page HTML to discover the auth form action + method
-2. Uses Claude API on-the-fly to reason about how to authenticate if needed
-3. Tries common registration patterns to obtain a real session cookie
-4. Verifies the session cookie has no HttpOnly flag (stealable via JS)
-5. Confirms the XSS payload is reflected unencoded in the response
-6. Returns CRITICAL finding with full exploit chain if cookie + XSS confirmed
+Strategy (most-generic-first):
+1. Parse HTML forms on login/register pages → submit with detected method/action
+2. If no cookie: Claude API on-the-fly analyzes the page and determines auth steps
+3. Execute AI-determined steps → get session cookie
+4. Check Set-Cookie for HttpOnly flag
+5. Confirm XSS payload reflects unencoded in HTML response
+6. CRITICAL finding if XSS + stealable cookie; HIGH if XSS + HttpOnly
+
+The AI fallback makes this work for any target, not just known patterns.
 """
 from __future__ import annotations
 
 import json
+import logging
+import os
 import random
 import re
 import string
@@ -21,6 +25,8 @@ import httpx as httpx_client
 
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 from workers.runners.httpx.runner import normalize_http_target
+
+logger = logging.getLogger(__name__)
 
 XSS_PROOF_RESULTS_ARTIFACT_NAME = "xss-proof-results.json"
 
@@ -186,6 +192,105 @@ def _try_register(
     return {}
 
 
+def _ai_analyze_auth(base_url: str, page_html: str) -> list[dict[str, Any]]:
+    """Ask Claude to analyze the page and return HTTP steps to create a test account.
+
+    Returns a list of step dicts: [{method, url, params, data, description}]
+    Returns [] if no API key configured or call fails.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return []
+
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=api_key)
+        username = f"aegispt_{''.join(random.choices(string.ascii_lowercase + string.digits, k=6))}"
+        password = f"Proof!{''.join(random.choices(string.ascii_lowercase + string.digits, k=6))}"
+
+        prompt = f"""You are a security testing assistant. Analyze this web application page and determine how to create a test account.
+
+Target URL: {base_url}
+Username to use: {username}
+Password to use: {password}
+
+HTML page content:
+{page_html[:8000]}
+
+Return ONLY valid JSON — a list of HTTP request steps to register/create the test account.
+Each step: {{"method": "GET"|"POST", "url": "full URL", "params": {{}}, "data": {{}}, "description": "what this does"}}
+
+Rules:
+- Use the exact form action URL from the HTML (resolve relative URLs against the base)
+- Use the exact HTTP method from the form tag
+- Include all hidden form fields with their original values
+- Replace username/password fields with: {username} / {password}
+- If registration requires multiple steps, include all steps in order
+- Return [] if you cannot determine the registration flow
+
+JSON only, no explanation:"""
+
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = message.content[0].text.strip()
+        # Extract JSON array from response
+        json_match = re.search(r"\[.*\]", raw, re.DOTALL)
+        if json_match:
+            steps = json.loads(json_match.group(0))
+            return steps if isinstance(steps, list) else []
+    except Exception as exc:
+        logger.debug("AI auth analysis failed: %s", exc)
+
+    return []
+
+
+def _try_register_with_ai(
+    client: httpx_client.Client, base_url: str, page_html: str
+) -> dict[str, Any]:
+    """Use Claude to determine registration steps, then execute them."""
+    steps = _ai_analyze_auth(base_url, page_html)
+    if not steps:
+        return {}
+
+    for step in steps:
+        method = str(step.get("method", "POST")).upper()
+        url = str(step.get("url", ""))
+        params = step.get("params") or {}
+        data = step.get("data") or {}
+
+        if not url:
+            continue
+        try:
+            if method == "GET":
+                resp = client.get(url, params={**params, **data})
+            else:
+                resp = client.post(url, params=params, data=data)
+
+            cookies = dict(resp.cookies) or dict(client.cookies)
+            if cookies:
+                cookie_name, cookie_value = next(iter(cookies.items()))
+                cookie_header = resp.headers.get("set-cookie", "")
+                httponly = "httponly" in cookie_header.lower()
+                return {
+                    "username": data.get("uid") or data.get("username") or "ai-registered",
+                    "cookie_name": cookie_name,
+                    "cookie_value": cookie_value,
+                    "httponly": httponly,
+                    "reg_action": url,
+                    "reg_method": method,
+                    "ai_determined": True,
+                    "steps_executed": len(steps),
+                }
+        except httpx_client.HTTPError:
+            continue
+
+    return {}
+
+
 def execute_xss_proof(
     targets: list[str],
     *,
@@ -202,8 +307,25 @@ def execute_xss_proof(
     exit_code = 0
 
     with httpx_client.Client(follow_redirects=True, timeout=timeout_seconds) as client:
-        # Step 1: auto-register to get a real session cookie
+        # Step 1: HTML form discovery (generic — reads method/action from actual HTML)
         auth = _try_register(client, base_target)
+
+        # Step 2: AI fallback — if HTML parsing didn't yield a cookie,
+        # ask Claude to analyze the page and determine the correct auth flow.
+        if not auth:
+            try:
+                page_resp = client.get(base_target)
+                page_html = page_resp.text
+            except httpx_client.HTTPError:
+                page_html = ""
+            if page_html:
+                auth = _try_register_with_ai(client, base_target, page_html)
+                if auth:
+                    stderr_lines.append(
+                        f"HTML form parsing failed; AI-determined registration succeeded "
+                        f"(ai_determined=True, steps={auth.get('steps_executed', '?')})"
+                    )
+
         session_cookie_name = auth.get("cookie_name", "")
         stealable = bool(session_cookie_name and not auth.get("httponly", True))
 
