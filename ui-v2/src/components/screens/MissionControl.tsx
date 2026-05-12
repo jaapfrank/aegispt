@@ -457,16 +457,17 @@ export default function MissionControl() {
         </div>
       </div>
 
-      <div className="grid flex-1 min-h-[560px] gap-4 grid-cols-1 md:grid-cols-12 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
-        {/* HET ZICHT (Centrum Map) */}
-        <div className="flex min-h-0 flex-col gap-3 md:col-span-12 xl:col-span-7 xl:row-span-3">
-          <div className="max-h-[260px] min-h-[180px] overflow-hidden rounded-xl">
+      {/* AI Narration strip — plain-language summary of what the system is doing */}
+      <NarrationStrip run={selectedRun} tasks={tasks} findings={findings} />
+
+      {/* 3-column layout: Map+Stats | Tasks+Chain | Signal+Console */}
+      <div className="grid flex-1 gap-4 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+
+        {/* Column 1: Scan Map (compact) + Run Summary */}
+        <div className="flex flex-col gap-4 min-h-0">
+          <div className="h-[200px] overflow-hidden rounded-xl shrink-0">
             <ScanMap nodes={mapNodes} inventory={inventory} materialize={Boolean(launchArrival)} />
           </div>
-        </div>
-
-        {/* DE ACTIE (Taken, Samenvatting, Phases) */}
-        <div className="flex min-h-0 flex-col gap-4 md:col-span-6 xl:col-span-2 xl:row-span-3">
           <OperationsSummary
             run={selectedRun}
             taskCount={tasks.length}
@@ -474,6 +475,21 @@ export default function MissionControl() {
             findingCount={findings.length}
             pendingProposalCount={pendingProposalCount}
           />
+          <div className="shrink-0">
+            <button
+              type="button"
+              onClick={() => void handleDispatch()}
+              disabled={!canDispatch || busyAction !== null}
+              className="flex w-full min-h-[2.5rem] items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-[0.9rem] font-semibold text-emerald-200 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Play size={15} />
+              {selectedRunIsAutomatic ? 'Start Queued Checks' : 'Run Queued Checks Now'}
+            </button>
+          </div>
+        </div>
+
+        {/* Column 2: Task Ledger + AI Loop / Phase Chain */}
+        <div className="flex flex-col gap-4 min-h-0">
           <TaskList
             run={selectedRun}
             tasks={tasks}
@@ -494,21 +510,10 @@ export default function MissionControl() {
               onApprove={() => void handleApprovePhase()}
             />
           )}
-          <div className="mt-auto pt-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => void handleDispatch()}
-              disabled={!canDispatch || busyAction !== null}
-              className="flex w-full min-h-[3rem] items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-[0.95rem] font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Play size={16} />
-              {selectedRunIsAutomatic ? 'Start Queued Checks' : 'Run Queued Checks Now'}
-            </button>
-          </div>
         </div>
 
-        {/* DE HERSENS (AI Signal & Terminal) */}
-        <div className="flex min-h-0 flex-col gap-4 md:col-span-6 xl:col-span-3 xl:row-span-3">
+        {/* Column 3: AI Signal + Live Console */}
+        <div className="flex flex-col gap-4 min-h-0">
           <AiSignalPanel
             entries={buildAiSignalEntries(selectedRun, tasks, findings, proposals, aiInsights)}
             proposals={proposals}
@@ -1080,6 +1085,73 @@ function ScanMap({
     </div>
   );
 }
+
+function NarrationStrip({ run, tasks, findings }: { run: Run; tasks: Task[]; findings: Finding[] }) {
+  const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const isAiLoop = run.configuration_json?.run_mode === 'ai_loop' || loop?.run_mode === 'ai_loop';
+
+  const runningTask = tasks.find((t) => ['running', 'dispatching', 'in_progress'].includes(t.status));
+  const queuedTask = tasks.find((t) => ['queued', 'pending'].includes(t.status));
+  const completedCount = tasks.filter((t) => t.status === 'completed').length;
+  const highFindings = findings.filter((f) => ['critical', 'high'].includes(f.severity?.toLowerCase() ?? '')).length;
+  const iterations = loop?.iteration_count ? Number(loop.iteration_count) : 0;
+  const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
+  const lastAction = loop?.latest_next_action as Record<string, unknown> | null | undefined;
+
+  let text = '';
+  let color = 'text-muted';
+
+  if (stopReason) {
+    color = 'text-amber';
+    const reasonMap: Record<string, string> = {
+      stuck_no_new_signals: 'De AI-scan is gestopt: er zijn geen nieuwe signalen meer gevonden na meerdere iteraties.',
+      max_iterations_reached: `De maximale iteratielimiet is bereikt (${iterations} iteraties). Scan voltooid.`,
+      kill_switch: 'De scan is handmatig gestopt via de kill-switch.',
+    };
+    text = reasonMap[stopReason] ?? `Scan gestopt (${stopReason.replace(/_/g, ' ')}).`;
+  } else if (runningTask) {
+    color = 'text-cyan';
+    const toolDescriptions: Record<string, string> = {
+      'httpx': 'scant de website en verzamelt basisinformatie zoals links, headers en formulieren',
+      'xss-extended': 'test op cross-site scripting (XSS) door payloads in te voeren op ontdekte parameters',
+      'zap': 'voert een actieve beveiligingsscan uit op alle ontdekte pagina\'s',
+      'nikto': 'controleert op bekende kwetsbaarheden in de webserver',
+      'session-security': 'analyseert sessiecookies en authenticatiemechanismen',
+      'content-discovery': 'zoekt naar verborgen pagina\'s en endpoints op de server',
+      'headers-security': 'controleert of beveiligingsheaders correct zijn ingesteld',
+      'ssrf-probe': 'test of de server ongeautoriseerde verzoeken naar interne diensten kan sturen',
+      'ssti-probe': 'test op server-side template injectie',
+      'auth-flow': 'analyseert het inlogproces en sessieafhandeling',
+      'client-state': 'test op client-side state manipulatie en cookie-aanpassingen',
+      'crypto-audit': 'controleert de TLS/SSL-configuratie en certificaatinstellingen',
+    };
+    const desc = toolDescriptions[runningTask.tool] ?? `voert beveiligingstests uit`;
+    text = `🔍 ${runningTask.tool} ${desc} op ${(runningTask.target_id ?? '').replace(/^https?:\/\//, '').split('/')[0]}…`;
+  } else if (queuedTask) {
+    color = 'text-muted';
+    text = `⏳ ${queuedTask.tool} staat in de wachtrij en start zodra het vorige resultaat verwerkt is.`;
+  } else if (isAiLoop && lastAction) {
+    color = 'text-emerald-300';
+    const tool = String(lastAction.tool ?? '');
+    text = highFindings > 0
+      ? `✓ Iteratie ${iterations} voltooid — ${highFindings} hoog/kritiek bevinding(en) gevonden. De AI bepaalt de volgende stap op basis van de bewijzen.`
+      : `✓ ${completedCount} tool(s) uitgevoerd in ${iterations} iteraties. De AI zoekt de meest zinvolle volgende stap${tool ? ` na ${tool}` : ''}.`;
+  } else if (completedCount > 0) {
+    color = 'text-emerald-300';
+    text = `✓ Scan voltooid — ${completedCount} tool(s) uitgevoerd, ${findings.length} bevinding(en) gevonden.${highFindings > 0 ? ` Waarvan ${highFindings} hoog/kritiek.` : ''}`;
+  } else if (!run || !tasks.length) {
+    return null;
+  }
+
+  if (!text) return null;
+
+  return (
+    <div className={cn('shrink-0 rounded-lg border border-border bg-surface/40 px-4 py-2.5 text-[0.88rem] leading-5', color)}>
+      {text}
+    </div>
+  );
+}
+
 
 function AiLoopPanel({
   run,
