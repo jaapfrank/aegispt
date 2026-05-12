@@ -136,6 +136,7 @@ from api.app.services.report_pdf import render_pdf_report
 from api.app.services.reports import (
     build_report_catalog,
     build_report_draft,
+    generate_management_nl_report,
     load_run_report,
     render_html_report,
     render_markdown_report,
@@ -2039,6 +2040,7 @@ def export_run_report(
 ) -> Response:
     run = _load_run_report_for_tenant(session, run_id, tenant_id)
     report_context = report_context_for_run(run, session=session)
+    effective_settings = effective_runtime_settings_for_run(session, run=run, settings=settings)
 
     if format == "html":
         content = render_html_report(run, variant=variant, framework=framework, context=report_context)
@@ -2050,13 +2052,23 @@ def export_run_report(
                 run,
                 variant=variant,
                 framework=framework,
-                settings=settings,
+                settings=effective_settings,
                 context=report_context,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         media_type = "application/pdf"
         extension = "pdf"
+    elif variant == "management_nl":
+        # Dutch management report: ChatGPT primary, template fallback
+        content = generate_management_nl_report(
+            run,
+            settings=effective_settings,
+            session=session,
+            context=report_context,
+        )
+        media_type = "text/markdown; charset=utf-8"
+        extension = "md"
     else:
         content = render_markdown_report(run, variant=variant, framework=framework, context=report_context)
         media_type = "text/markdown; charset=utf-8"

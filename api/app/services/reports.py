@@ -1324,6 +1324,78 @@ _NL_SEVERITY_ADVICE = {
 }
 
 
+def generate_management_nl_report(
+    run: Run,
+    *,
+    settings: Settings,
+    session: object | None = None,
+    context: dict[str, object] | None = None,
+) -> str:
+    """Generate a Dutch management report, using ChatGPT when available and template as fallback."""
+    ctx = context or report_context(run)
+    provider = effective_ai_provider_name(settings, settings.ai_report_drafting_provider)
+    use_chatgpt = (
+        settings.ai_report_drafting_enabled
+        and provider == CHATGPT_OAUTH_PROVIDER
+        and session is not None
+    )
+    if use_chatgpt:
+        try:
+            findings = [f for f in ctx.get("findings", []) if isinstance(f, Finding)]
+            severity_counts: dict[str, int] = ctx.get("findings_by_severity", {})  # type: ignore[assignment]
+            target = _report_target_summary(ctx)
+            findings_summary = "\n".join(
+                f"- [{str(f.severity or '?').upper()}] {f.title} op {f.target_id or 'onbekend'}"
+                for f in findings[:30]
+            )
+            prompt = (
+                "Je bent een cybersecurity-expert die een managementrapport schrijft voor niet-technische managers. "
+                "Schrijf het rapport volledig in het Nederlands. Gebruik begrijpelijke taal zonder technisch jargon. "
+                "Leg elke kwetsbaarheid uit in termen van wat de zakelijke impact is. "
+                f"\n\nBeoordeeld systeem: {target}"
+                f"\nAantal bevindingen: {len(findings)}"
+                f"\nErnstverdeling: hoog={severity_counts.get('high',0)}, "
+                f"gemiddeld={severity_counts.get('medium',0)}, "
+                f"laag={severity_counts.get('low',0)}, "
+                f"informatief={severity_counts.get('info',0)}"
+                f"\n\nBevindingen:\n{findings_summary}"
+                f"\n\nSchrijf een managementrapport met de volgende secties (gebruik Markdown):"
+                "\n1. Samenvatting (2-3 zinnen, wat is het risiconiveau?)"
+                "\n2. Wat hebben we getest? (kort, begrijpelijk)"
+                "\n3. De belangrijkste bevindingen (per ernst, in gewone taal met zakelijke impact)"
+                "\n4. Prioriteiten (wat moet als eerste worden gedaan?)"
+                "\n5. Aanbevolen vervolgstappen"
+                "\n\nVermijd technisch jargon. Schrijf alsof je het uitlegt aan de directeur van het bedrijf."
+            )
+            result_payload = send_chatgpt_backend_streaming_json_request(  # type: ignore[arg-type]
+                session=session,
+                engagement_id=run.engagement_id,
+                settings=settings,
+                model=str(settings.chatgpt_oauth_model or "gpt-5.4"),
+                instructions=(
+                    "Genereer een professioneel managementrapport in het Nederlands op basis van de aangeleverde "
+                    "beveiligingsbevindingen. Gebruik Markdown-opmaak. Geef de output als plain tekst, geen JSON."
+                ),
+                input_items=[
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": prompt}],
+                    }
+                ],
+            )
+            if isinstance(result_payload, dict) and result_payload.get("draft_markdown"):
+                return str(result_payload["draft_markdown"])
+            # Some providers return raw text
+            if isinstance(result_payload, str) and len(result_payload) > 100:
+                return result_payload
+        except Exception:
+            pass  # Fall through to template
+
+    # Template fallback
+    return _render_management_nl_markdown(run, ctx)
+
+
 def _render_management_nl_markdown(run: Run, context: dict[str, object]) -> str:
     findings = [f for f in context.get("findings", []) if isinstance(f, Finding)]
     severity_counts: dict[str, int] = context.get("findings_by_severity", {})  # type: ignore[assignment]
