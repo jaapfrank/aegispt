@@ -1647,6 +1647,7 @@
       ],
       "false_positive_rate": "medium",
       "follow_up_tools": [
+        "xss-proof",
         "auth-flow",
         "client-state"
       ],
@@ -1954,6 +1955,9 @@
       ],
       "false_positive_rate": "medium",
       "follow_up_tools": [
+        "xss-proof",
+        "session-security",
+        "auth-flow",
         "playwright-web"
       ],
       "name": "xss-extended",
@@ -2043,6 +2047,37 @@
         ],
         "weak": []
       }
+    },
+    {
+      "name": "xss-proof",
+      "category": "web",
+      "risk_tier": "active",
+      "cost": "low",
+      "description": "Confirms XSS exploitability by combining reflected XSS with cookie theft proof. Returns CRITICAL finding when session cookie is stealable via the XSS sink.",
+      "estimated_minutes": 1,
+      "expected_evidence": [
+        "xss_exploit_confirmed",
+        "cookie_theft_proof",
+        "critical_finding"
+      ],
+      "false_positive_rate": "low",
+      "triggers": [
+        "xss_confirmed",
+        "cookie_weakness",
+        "session_cookie_present"
+      ],
+      "weak_triggers": [
+        "web_target_present"
+      ],
+      "blockers": [
+        "no_web_target"
+      ],
+      "follow_up_tools": [
+        "auth-flow",
+        "idor-bac"
+      ],
+      "required_approvals": 0,
+      "prerequisites": []
     }
   ],
   "metadata_version": "2026-05-07"

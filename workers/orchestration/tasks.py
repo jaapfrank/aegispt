@@ -216,6 +216,7 @@ from workers.runners.wifi_survey.runner import (
     execute_wifi_survey,
 )
 from workers.runners.xss_extended.runner import execute_xss_extended_scan
+from workers.runners.xss_proof.runner import execute_xss_proof
 from workers.runners.zap.runner import execute_zap_scan
 
 redis_broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
@@ -283,6 +284,7 @@ SUPPORTED_TOOLS = {
     "waf-detect",
     "wifi-survey",
     "xss-extended",
+    "xss-proof",
     "xxe-probe",
     "zap",
 }
@@ -1855,6 +1857,16 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 str(request.params.get("ajax_payload"))
                 if isinstance(request.params.get("ajax_payload"), str)
                 else "<script>alert('aegispt-json-xss')</script>"
+            ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "xss-proof":
+        return execute_xss_proof(
+            targets=request.targets,
+            xss_findings=(
+                request.params.get("xss_findings")
+                if isinstance(request.params.get("xss_findings"), list)
+                else None
             ),
             timeout_seconds=timeout_seconds,
         )

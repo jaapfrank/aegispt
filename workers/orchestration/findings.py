@@ -75,6 +75,7 @@ from workers.runners.web_depth.runner import (
 )
 from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
 from workers.runners.xss_extended.runner import XSS_EXTENDED_RESULTS_ARTIFACT_NAME
+from workers.runners.xss_proof.runner import XSS_PROOF_RESULTS_ARTIFACT_NAME
 
 
 @dataclass(slots=True, frozen=True)
@@ -558,6 +559,7 @@ def extract_findings(
         "oauth-probe",
         "logging-probe",
         "xss-extended",
+        "xss-proof",
         "ssrf-probe",
         "deserialization-probe",
         "session-security",
@@ -593,6 +595,7 @@ def extract_findings(
                 OAUTH_PROBE_RESULTS_ARTIFACT_NAME,
                 LOGGING_PROBE_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
+                XSS_PROOF_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,
                 SESSION_SECURITY_RESULTS_ARTIFACT_NAME,
