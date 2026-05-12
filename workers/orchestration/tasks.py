@@ -453,9 +453,31 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             timeout_seconds=timeout_seconds,
         )
     if request.tool == "idor-bac":
+        # Build auth_contexts: start with vault-injected contexts,
+        # then add discovered_users as marker-only contexts so _foreign_marker
+        # can detect their data in responses even without their credentials.
+        idor_auth_contexts = list(request.params.get("auth_contexts") or [])
+        discovered = request.params.get("discovered_users") or []
+        if isinstance(discovered, list):
+            existing_users = {
+                str(ctx.get("username") or "").lower()
+                for ctx in idor_auth_contexts
+                if isinstance(ctx, dict)
+            }
+            for other_user in discovered:
+                user_str = str(other_user or "").strip()
+                if user_str and user_str.lower() not in existing_users:
+                    idor_auth_contexts.append({
+                        "label": f"Discovered user: {user_str}",
+                        "username": user_str,
+                        "role": "discovered-other-user",
+                        "marker_tokens": [user_str],
+                        "headers": {},
+                    })
+
         return execute_idor_bac_probe(
             targets=request.targets,
-            auth_contexts=request.params.get("auth_contexts", []),
+            auth_contexts=idor_auth_contexts,
             scope_allowlist=request.scope_allowlist,
             evidence_records=(
                 request.params.get("evidence_records")
@@ -478,9 +500,8 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else []
             ),
             candidate_object_ids=(
-                request.params.get("candidate_object_ids")
-                if isinstance(request.params.get("candidate_object_ids"), list)
-                else []
+                list(request.params.get("candidate_object_ids") or [])
+                + [str(u) for u in (request.params.get("discovered_users") or []) if u]
             ),
             method_override_paths=(
                 request.params.get("method_override_paths")

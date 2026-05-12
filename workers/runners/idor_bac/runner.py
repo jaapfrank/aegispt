@@ -68,8 +68,14 @@ def _normalize_auth_contexts(auth_contexts: object) -> list[dict[str, Any]]:
             if username and password:
                 normalized_basic_auth = (username, password)
 
-        if not normalized_headers and normalized_basic_auth is None:
-            continue
+        # Marker-only contexts (no credentials) are kept for _foreign_marker detection:
+        # they allow idor-bac to recognise other users' data in responses even when
+        # we only have one real session (e.g. stolen cookie from xss-proof).
+        is_marker_only = not normalized_headers and normalized_basic_auth is None
+        marker_tokens_raw = _normalize_string_list(raw_context.get("marker_tokens"), limit=10)
+        has_markers = bool(marker_tokens_raw or raw_context.get("username"))
+        if is_marker_only and not has_markers:
+            continue  # skip contexts with no credentials AND no markers
 
         label = str(raw_context.get("label") or raw_context.get("username") or f"Account {index + 1}").strip()
         normalized.append(
@@ -85,8 +91,9 @@ def _normalize_auth_contexts(auth_contexts: object) -> list[dict[str, Any]]:
             }
         )
 
-    if not normalized:
-        raise ValueError("idor-bac requires at least one authenticated access account")
+    real_contexts = [c for c in normalized if c.get("headers") or c.get("basic_auth")]
+    if not real_contexts:
+        raise ValueError("idor-bac requires at least one authenticated access account with credentials")
     return normalized
 
 
@@ -226,6 +233,14 @@ def _identifier_replacements(url: str, known_ids: list[str], *, max_id_delta: in
     for key, value in parse_qsl(parsed.query, keep_blank_values=True):
         replacement_values = _numeric_candidate_values(value, known_ids, max_id_delta=max_id_delta)
         replacement_values.extend(_uuid_candidate_values(value, known_ids))
+        # String ID substitution: if the parameter value looks like a username/slug,
+        # try other known string IDs. This handles IDOR via uid=username patterns.
+        if not value.isdigit() and not UUID_PATTERN.fullmatch(value) and len(value) <= 64:
+            string_replacements = [
+                kid for kid in known_ids
+                if kid != value and not kid.isdigit() and not UUID_PATTERN.fullmatch(kid)
+            ]
+            replacement_values.extend(string_replacements[:10])
         for replacement in _dedupe(replacement_values, limit=20):
             candidates.append(
                 {
@@ -451,7 +466,9 @@ def execute_idor_bac_probe(
                 stderr_lines.append(f"link discovery failed for {base_target}: {exc}")
 
             for endpoint_url in endpoint_urls:
-                for requester in normalized_auth_contexts:
+                # Only send requests as contexts with real credentials
+                credentialed = [c for c in normalized_auth_contexts if c.get("headers") or c.get("basic_auth")]
+                for requester in credentialed:
                     for candidate in _identifier_replacements(
                         endpoint_url,
                         known_ids,
