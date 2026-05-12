@@ -1349,23 +1349,19 @@ def generate_management_nl_report(
                 for f in findings[:30]
             )
             prompt = (
-                "Je bent een cybersecurity-expert die een managementrapport schrijft voor niet-technische managers. "
-                "Schrijf het rapport volledig in het Nederlands. Gebruik begrijpelijke taal zonder technisch jargon. "
-                "Leg elke kwetsbaarheid uit in termen van wat de zakelijke impact is. "
-                f"\n\nBeoordeeld systeem: {target}"
-                f"\nAantal bevindingen: {len(findings)}"
-                f"\nErnstverdeling: hoog={severity_counts.get('high',0)}, "
+                f"Beoordeeld systeem: {target}\n"
+                f"Aantal bevindingen: {len(findings)}\n"
+                f"Ernstverdeling: kritiek={severity_counts.get('critical',0)}, "
+                f"hoog={severity_counts.get('high',0)}, "
                 f"gemiddeld={severity_counts.get('medium',0)}, "
-                f"laag={severity_counts.get('low',0)}, "
-                f"informatief={severity_counts.get('info',0)}"
-                f"\n\nBevindingen:\n{findings_summary}"
-                f"\n\nSchrijf een managementrapport met de volgende secties (gebruik Markdown):"
-                "\n1. Samenvatting (2-3 zinnen, wat is het risiconiveau?)"
-                "\n2. Wat hebben we getest? (kort, begrijpelijk)"
-                "\n3. De belangrijkste bevindingen (per ernst, in gewone taal met zakelijke impact)"
-                "\n4. Prioriteiten (wat moet als eerste worden gedaan?)"
-                "\n5. Aanbevolen vervolgstappen"
-                "\n\nVermijd technisch jargon. Schrijf alsof je het uitlegt aan de directeur van het bedrijf."
+                f"laag={severity_counts.get('low',0)}\n\n"
+                f"Bevindingen (per ernst):\n{findings_summary}\n\n"
+                "Schrijf een professioneel managementrapport in het Nederlands voor niet-technische directeuren. "
+                "Gebruik begrijpelijke taal zonder technisch jargon. "
+                "Leg per bevinding de zakelijke impact uit: wat kan een aanvaller doen, wat is het risico voor het bedrijf? "
+                "Structuur het rapport met: Samenvatting, Wat is getest, Bevindingen (in gewone taal), "
+                "Prioriteiten, Vervolgstappen. "
+                "Retourneer ALLEEN een JSON object met key 'draft_markdown' die de volledige Markdown tekst bevat."
             )
             result_payload = send_chatgpt_backend_streaming_json_request(  # type: ignore[arg-type]
                 session=session,
@@ -1373,8 +1369,9 @@ def generate_management_nl_report(
                 settings=settings,
                 model=str(settings.chatgpt_oauth_model or "gpt-5.4"),
                 instructions=(
-                    "Genereer een professioneel managementrapport in het Nederlands op basis van de aangeleverde "
-                    "beveiligingsbevindingen. Gebruik Markdown-opmaak. Geef de output als plain tekst, geen JSON."
+                    "Je bent een ervaren cybersecurity consultant. Genereer een Nederlandstalig managementrapport "
+                    "voor een niet-technisch publiek. Retourneer een JSON object met key 'draft_markdown' "
+                    "met de volledige Markdown inhoud. Geen andere keys, geen uitleg buiten het JSON object."
                 ),
                 input_items=[
                     {
@@ -1386,9 +1383,6 @@ def generate_management_nl_report(
             )
             if isinstance(result_payload, dict) and result_payload.get("draft_markdown"):
                 return str(result_payload["draft_markdown"])
-            # Some providers return raw text
-            if isinstance(result_payload, str) and len(result_payload) > 100:
-                return result_payload
         except Exception:
             pass  # Fall through to template
 
