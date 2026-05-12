@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, CalendarDays, GitCompare, Search } from 'lucide-react';
+import { BarChart3, CalendarDays, GitCompare, Search, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getPortfolioRuns } from '../../api/client';
 import type { PortfolioRun, UUID } from '../../api/types';
 import { useAegisStore } from '../../store';
-import { ActionButton, EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge, formatDate, inputClass } from './screenPrimitives';
+import { ActionButton, EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge } from './screenPrimitives';
+import { formatDate, inputClass } from './screenUtils';
 
 export default function HistoryScreen() {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ export default function HistoryScreen() {
   const setSelectedRun = useAegisStore((state) => state.setSelectedRun);
   const [runs, setRuns] = useState<PortfolioRun[]>([]);
   const [selectedForCompare, setSelectedForCompare] = useState<UUID[]>([]);
+  const [selectedForDelete, setSelectedForDelete] = useState<Set<UUID>>(new Set());
+  const [deleting, setDeleting] = useState(false);
   const [status, setStatus] = useState('all');
   const [engagementId, setEngagementId] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -69,6 +72,48 @@ export default function HistoryScreen() {
     setCompareRequested(false);
   }
 
+  function toggleDeleteSelect(runId: UUID) {
+    setSelectedForDelete((current) => {
+      const next = new Set(current);
+      if (next.has(runId)) next.delete(runId);
+      else next.add(runId);
+      return next;
+    });
+  }
+
+  function selectAllFiltered() {
+    setSelectedForDelete(new Set(filteredRuns.map((r) => r.id)));
+  }
+
+  function clearDeleteSelect() {
+    setSelectedForDelete(new Set());
+  }
+
+  async function deleteSelected() {
+    if (selectedForDelete.size === 0) return;
+    const count = selectedForDelete.size;
+    if (!window.confirm(`Delete ${count} run(s)? This cannot be undone.`)) return;
+    setDeleting(true);
+    setMessage(null);
+    let failed = 0;
+    for (const runId of selectedForDelete) {
+      try {
+        await fetch(`/api/v1/runs/${runId}`, { method: 'DELETE', headers: { 'X-Actor': 'operator-ui' } });
+      } catch {
+        failed++;
+      }
+    }
+    setSelectedForDelete(new Set());
+    try {
+      const payload = await getPortfolioRuns();
+      setRuns(payload);
+    } catch {
+      // ignore reload errors
+    }
+    setDeleting(false);
+    setMessage(failed > 0 ? `${count - failed} deleted, ${failed} failed.` : `${count} run(s) deleted.`);
+  }
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       <PageHeader
@@ -112,7 +157,30 @@ export default function HistoryScreen() {
         <ActionButton onClick={() => setCompareRequested(true)} disabled={selectedForCompare.length !== 2}>
           <GitCompare size={14} />Compare
         </ActionButton>
-        <span className="text-[0.925rem] text-muted">{selectedForCompare.length}/2 runs selected for comparison</span>
+        <span className="text-[0.925rem] text-muted">{selectedForCompare.length}/2 selected for comparison</span>
+
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {selectedForDelete.size > 0 ? (
+            <>
+              <button type="button" onClick={clearDeleteSelect} className="rounded-md border border-border px-3 py-1.5 text-[0.85rem] text-muted hover:text-text">
+                Clear ({selectedForDelete.size})
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteSelected()}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 rounded-md border border-red/30 bg-red/10 px-3 py-1.5 text-[0.85rem] font-semibold text-red hover:bg-red/15 disabled:opacity-50"
+              >
+                <Trash2 size={13} />
+                {deleting ? 'Deleting…' : `Delete ${selectedForDelete.size} run(s)`}
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={selectAllFiltered} className="rounded-md border border-border px-3 py-1.5 text-[0.85rem] text-muted hover:text-text">
+              Select all ({filteredRuns.length})
+            </button>
+          )}
+        </div>
       </div>
 
       {comparison && (
@@ -128,6 +196,14 @@ export default function HistoryScreen() {
           <table className="min-w-[860px] w-full text-left text-[0.925rem]">
             <thead className="sticky top-0 bg-surface text-[0.77rem] uppercase tracking-wider text-muted">
               <tr>
+                <th className="w-8 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all visible"
+                    checked={filteredRuns.length > 0 && filteredRuns.every((r) => selectedForDelete.has(r.id))}
+                    onChange={(e) => e.target.checked ? selectAllFiltered() : clearDeleteSelect()}
+                  />
+                </th>
                 <th className="px-3 py-3">Compare</th>
                 <th className="px-3 py-3">Date</th>
                 <th className="px-3 py-3">Engagement</th>
@@ -139,7 +215,16 @@ export default function HistoryScreen() {
             </thead>
             <tbody>
               {filteredRuns.map((run) => (
-                <tr key={run.id} className="border-t border-border hover:bg-cyan/5">
+                <tr key={run.id} className={`border-t border-border hover:bg-cyan/5 ${selectedForDelete.has(run.id) ? 'bg-red/5' : ''}`}>
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Select for deletion"
+                      checked={selectedForDelete.has(run.id)}
+                      onChange={() => toggleDeleteSelect(run.id)}
+                      className="h-4 w-4 accent-red"
+                    />
+                  </td>
                   <td className="px-3 py-3">
                     <input type="checkbox" checked={selectedForCompare.includes(run.id)} onChange={() => toggleCompare(run.id)} className="h-4 w-4 accent-cyan" />
                   </td>
