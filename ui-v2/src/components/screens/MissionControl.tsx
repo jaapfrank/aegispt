@@ -2848,23 +2848,33 @@ function ExploitChain({ run, tasks, findings }: { run: Run; tasks: Task[]; findi
 
   // Build chain steps from tasks + findings
   const steps = useMemo(() => {
-    const findingsByTask: Record<string, Finding[]> = {};
-    // Map findings to tasks via source_finding_id or by creation time proximity
+    // Sort completed tasks by created_at
+    const doneTasks = [...tasks]
+      .filter(t => t.status === 'completed' || t.status === 'failed')
+      .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+
+    // Match findings to tasks by time window: finding.created_at between task.created_at and next task.created_at
+    const findingsByTaskIdx: Record<number, Finding[]> = {};
     for (const f of findings) {
-      const taskId = (f as Record<string, unknown>).task_id as string | undefined;
-      if (taskId) {
-        (findingsByTask[taskId] ??= []).push(f);
+      const fTime = String((f as Record<string, unknown>).created_at ?? '');
+      if (!fTime) continue;
+      // Find which task time window this finding falls in
+      for (let i = doneTasks.length - 1; i >= 0; i--) {
+        const tTime = String(doneTasks[i].created_at ?? '');
+        if (fTime >= tTime) {
+          (findingsByTaskIdx[i] ??= []).push(f);
+          break;
+        }
       }
     }
 
-    return tasks
-      .filter(t => t.status === 'completed' || t.status === 'failed')
-      .map((task, idx) => {
+    return doneTasks.map((task, idx) => {
         const params = (task.params_json ?? {}) as Record<string, unknown>;
         const nba = (params.next_best_action_selector ?? {}) as Record<string, unknown>;
         const triggers = Array.isArray(nba.matched_triggers) ? nba.matched_triggers as string[] : [];
         const source = String(params.source ?? nba.source ?? '');
-        const taskFindings = findingsByTask[task.id] ?? [];
+        const vaultInjected = Boolean((params.credential_vault as Record<string, unknown>)?.injected);
+        const taskFindings = findingsByTaskIdx[idx] ?? [];
 
         // Highest severity finding for this task
         const topFinding = [...taskFindings].sort((a, b) => {
@@ -2875,11 +2885,12 @@ function ExploitChain({ run, tasks, findings }: { run: Run; tasks: Task[]; findi
         return {
           idx,
           task,
+          vaultInjected,
           triggers,
           source,
           taskFindings,
           topFinding,
-          isLast: idx === tasks.filter(t => t.status === 'completed' || t.status === 'failed').length - 1,
+          isLast: idx === doneTasks.length - 1,
         };
       });
   }, [tasks, findings]);
@@ -2899,14 +2910,14 @@ function ExploitChain({ run, tasks, findings }: { run: Run; tasks: Task[]; findi
         <div className="absolute left-[11px] top-4 bottom-4 w-px bg-border" />
 
         <div className="space-y-0">
-          {steps.map(({ idx, task, triggers, source, taskFindings, topFinding, isLast }) => {
+          {steps.map(({ idx, task, triggers, source, vaultInjected, taskFindings, topFinding, isLast }) => {
             const isExpanded = expanded === task.id;
             const hasCritical = taskFindings.some(f => f.severity === 'critical');
             const hasHigh = taskFindings.some(f => f.severity === 'high');
             const dotColor = hasCritical ? SEVERITY_DOT.critical : hasHigh ? SEVERITY_DOT.high : taskFindings.length ? SEVERITY_DOT.medium : 'bg-border';
 
             const why = triggers.length
-              ? `omdat ${triggers.slice(0, 2).join(' + ')} ${triggers.length > 2 ? `+${triggers.length - 2}` : ''} gevonden`
+              ? `gebruikt: ${triggers.slice(0, 2).join(' + ')}`
               : source === 'pivot_engine_followup'
               ? 'pivot: vervolgonderzoek op bevinding'
               : idx === 0 ? 'startpunt' : 'standaard webrecon';
@@ -2932,7 +2943,7 @@ function ExploitChain({ run, tasks, findings }: { run: Run; tasks: Task[]; findi
                     'border-border bg-surface/20 hover:bg-surface/40',
                   )}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-[0.82rem] font-bold text-text">{task.tool}</span>
                     {hasCritical && (
                       <span className="rounded px-1.5 py-0.5 text-[0.68rem] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30">CRITICAL</span>
@@ -2943,13 +2954,16 @@ function ExploitChain({ run, tasks, findings }: { run: Run; tasks: Task[]; findi
                     {taskFindings.length > 0 && !hasCritical && !hasHigh && (
                       <span className="rounded px-1.5 py-0.5 text-[0.68rem] font-bold bg-amber/10 text-amber border border-amber/30">{taskFindings.length} gevonden</span>
                     )}
+                    {vaultInjected && (
+                      <span className="rounded px-1.5 py-0.5 text-[0.65rem] font-bold bg-cyan/10 text-cyan border border-cyan/20">🔑 met gestolen sessie</span>
+                    )}
                     <span className="ml-auto text-[0.72rem] text-muted">{why}</span>
                   </div>
 
                   {/* Top finding preview */}
                   {topFinding && (
-                    <div className="mt-1 text-[0.78rem] text-muted truncate">
-                      {topFinding.title}
+                    <div className={cn('mt-1 text-[0.78rem] truncate font-medium', hasCritical ? 'text-red-400' : hasHigh ? 'text-orange-300' : 'text-amber')}>
+                      ↳ {topFinding.title}
                     </div>
                   )}
                 </button>

