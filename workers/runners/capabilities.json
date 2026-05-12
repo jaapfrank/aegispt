@@ -2204,7 +2204,8 @@
         "credential-attacks"
       ],
       "required_approvals": 0,
-      "prerequisites": []
+      "prerequisites": [],
+      "false_positive_rate": "low"
     }
   ],
   "metadata_version": "2026-05-07"
