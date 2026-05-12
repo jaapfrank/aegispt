@@ -14,7 +14,10 @@ from api.app.services.runs import target_value_is_allowed
 from api.app.services.task_dispatch import supported_execution_tools
 
 SELECTOR_VERSION = "next-best-action-selector-v1"
-LOW_IMPACT_AUTO_TOOLS = {"httpx", "nmap", "easm-discover", "external-osint", "aws-inventory"}
+# Only httpx stays in LOW_IMPACT_AUTO_TOOLS — it is the universal web discovery starter.
+# nmap/easm-discover require host_target_present/domain_scope_present signals and must
+# not run on URL-only targets; removing them ensures SKIP when those signals are absent.
+LOW_IMPACT_AUTO_TOOLS = {"httpx"}
 ACTION_PRIORITY = {"RUN": 0, "APPROVAL": 1, "WAIT": 2, "SKIP": 3}
 COST_WEIGHT = {"low": 0.05, "medium": 0.1, "high": 0.16}
 RISK_WEIGHT = {"passive": 0.0, "active": 0.04, "intrusive": 0.12}

@@ -393,7 +393,17 @@ def execute_idor_bac_probe(
     normalized_targets = [normalize_http_target(target) for target in targets]
     for target in normalized_targets:
         _assert_allowed(scope_allowlist, target)
-    normalized_auth_contexts = _normalize_auth_contexts(auth_contexts)
+    try:
+        normalized_auth_contexts = _normalize_auth_contexts(auth_contexts)
+    except ValueError as exc:
+        return RunnerExecution(
+            tool="idor-bac",
+            exit_code=0,
+            stdout=f"idor-bac skipped: {exc}. Configure authenticated access accounts via the credential vault to enable IDOR/BAC testing.",
+            stderr="",
+            artifacts=[],
+            metadata={"skipped": True, "skip_reason": str(exc)},
+        )
     known_ids = _dedupe(
         _normalize_string_list(candidate_object_ids, limit=100)
         + [

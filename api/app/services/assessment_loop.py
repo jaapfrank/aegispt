@@ -48,7 +48,7 @@ LOOP_SEED_TOOLS_BY_TARGET_KIND = {
     "domain": "easm-discover",
     "target": "httpx",
 }
-LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx", "nmap", "easm-discover", "external-osint", "aws-inventory"}
+LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx"}
 
 
 @dataclass(frozen=True)
