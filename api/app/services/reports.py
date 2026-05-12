@@ -97,6 +97,7 @@ REPORT_VARIANT_ALIASES = {
 
 REPORT_VARIANT_LABELS = {
     "summary": "Management Summary",
+    "management_nl": "Management Samenvatting (Nederlands)",
     "technical": "Technical Report",
     "compliance": "Compliance Annex",
     "evidence": "Evidence Appendix",
@@ -114,6 +115,7 @@ REPORT_VARIANT_LABELS = {
 
 REPORT_VARIANT_DESCRIPTIONS = {
     "summary": "One-to-two page management view with risk level, top findings, tested scope, gaps, and top remediation priorities.",
+    "management_nl": "Nederlandstalig managementrapport in begrijpelijke taal: risico, prioriteiten en aanbevelingen zonder technisch jargon.",
     "technical": "Full technical narrative with methodology, findings, evidence, and remediation detail.",
     "compliance": "Adaptive framework annex with a selectable NIS2, DORA, SOC 2, ISO 27001, PCI DSS, or NFIR mapping disclaimer.",
     "evidence": "Artifact-oriented appendix for replay, validation, and operator review.",
@@ -1137,6 +1139,8 @@ def _short_run_id(run: Run) -> str:
 
 
 def normalize_report_variant(variant: str | None) -> str:
+    if str(variant or "").strip().lower() == "management_nl":
+        return "management_nl"
     token = str(variant or "technical").strip().lower()
     return REPORT_VARIANT_ALIASES.get(token, token if token in REPORT_VARIANT_LABELS else "technical")
 
@@ -1302,6 +1306,174 @@ def _executive_narrative(run: Run, context: dict[str, object]) -> str:
         f"Immediate remediation planning is recommended for {len(high_priority)} high or critical items, "
         f"with retesting tied back to run {_short_run_id(run)}."
     )
+
+
+_NL_SEVERITY_LABELS = {
+    "critical": "Kritiek",
+    "high": "Hoog",
+    "medium": "Gemiddeld",
+    "low": "Laag",
+    "info": "Informatief",
+}
+_NL_SEVERITY_ADVICE = {
+    "critical": "Onmiddellijke actie vereist — dit risico kan direct schade veroorzaken.",
+    "high": "Dringende aandacht nodig — aanpakken binnen 1-2 weken.",
+    "medium": "Op korte termijn aanpakken — plan herstel binnen 30 dagen.",
+    "low": "Aandachtspunt — meenemen in de eerstvolgende sprint of patchcyclus.",
+    "info": "Ter informatie — geen directe actie nodig, wel bewust van zijn.",
+}
+
+
+def _render_management_nl_markdown(run: Run, context: dict[str, object]) -> str:
+    findings = [f for f in context.get("findings", []) if isinstance(f, Finding)]
+    severity_counts: dict[str, int] = context.get("findings_by_severity", {})  # type: ignore[assignment]
+    target = _report_target_summary(context)
+    client = str(context.get("client_name") or "de opdrachtgever")
+    run_date = run.created_at.strftime("%d %B %Y") if run.created_at else "onbekende datum"
+    high_crit = [f for f in findings if str(f.severity or "").lower() in {"critical", "high"}]
+    medium = [f for f in findings if str(f.severity or "").lower() == "medium"]
+    deduped = _deduplicated_finding_rows(findings)
+
+    # Overall risk label
+    if any(str(f.severity or "").lower() == "critical" for f in findings):
+        risk_label = "🔴 KRITIEK"
+        risk_text = (
+            "De beveiligingsscan heeft kritieke kwetsbaarheden aangetroffen. "
+            "Direct ingrijpen is noodzakelijk om ernstige schade te voorkomen."
+        )
+    elif high_crit:
+        risk_label = "🟠 HOOG"
+        risk_text = (
+            "De beveiligingsscan heeft hoog-risico kwetsbaarheden aangetroffen. "
+            "Snel handelen is sterk aangeraden."
+        )
+    elif medium:
+        risk_label = "🟡 GEMIDDELD"
+        risk_text = (
+            "De scan heeft kwetsbaarheden aangetroffen met gemiddeld risico. "
+            "Herstel is aan te raden binnen de komende weken."
+        )
+    else:
+        risk_label = "🟢 LAAG / SCHOON"
+        risk_text = "Geen hoog- of kritiek-risico problemen aangetroffen. De beveiliging is op orde."
+
+    lines = [
+        "# Managementrapport Beveiligingsbeoordeling",
+        "",
+        f"**Opgesteld voor:** {client}  ",
+        f"**Datum:** {run_date}  ",
+        f"**Beoordeeld systeem:** {target}  ",
+        f"**Algeheel risiconiveau:** {risk_label}",
+        "",
+        "---",
+        "",
+        "## Samenvatting in het kort",
+        "",
+        risk_text,
+        "",
+        f"In totaal zijn **{len(findings)} bevindingen** vastgesteld.",
+        "",
+        "| Ernst | Aantal | Wat betekent dit? |",
+        "|-------|--------|-------------------|",
+    ]
+    for sev in ("critical", "high", "medium", "low", "info"):
+        count = severity_counts.get(sev, 0)
+        if count:
+            label = _NL_SEVERITY_LABELS.get(sev, sev.capitalize())
+            advice = _NL_SEVERITY_ADVICE.get(sev, "")
+            lines.append(f"| **{label}** | {count} | {advice} |")
+    lines += [
+        "",
+        "---",
+        "",
+        "## Wat is er getest?",
+        "",
+        f"Het systeem **{target}** is beoordeeld op veelvoorkomende beveiligingsproblemen. "
+        "De scan is uitgevoerd op basis van gangbare normen (OWASP, PTES). "
+        "De beoordeling omvat het controleren van veelgebruikte aanvalstechnieken "
+        "zoals cross-site scripting, ontbrekende beveiligingsheaders, en sessiebeveiliging.",
+        "",
+        "---",
+        "",
+        "## Wat hebben we gevonden?",
+        "",
+    ]
+
+    if not deduped:
+        lines.append("Geen bevindingen aangetroffen.")
+    else:
+        for row in deduped[:20]:  # max 20 unieke bevindingen voor management
+            sev = str(row.get("severity") or "info").lower()
+            nl_sev = _NL_SEVERITY_LABELS.get(sev, sev.capitalize())
+            title = str(row.get("title") or "Onbekend")
+            # Plain-language explanation of common findings
+            explanations = {
+                "reflected xss": "Een aanvaller kan kwaadaardige code in een webpagina injecteren die bij een nietsvermoedende bezoeker wordt uitgevoerd. Hiermee kunnen sessies worden gestolen.",
+                "stored xss": "Kwaadaardige code wordt opgeslagen op de server en wordt uitgevoerd bij iedere bezoeker die de pagina opent. Dit is gevaarlijker dan reflected XSS.",
+                "csrf": "Een aanvaller kan een gebruiker ongemerkt acties laten uitvoeren in een applicatie waarbij hij al ingelogd is.",
+                "anti-csrf": "Formulieren zijn niet beschermd tegen cross-site verzoeken. Aanvallers kunnen gebruikers ongemerkt acties laten uitvoeren.",
+                "csp": "De Content Security Policy ontbreekt. Dit maakt het eenvoudiger voor aanvallers om scripts te injecteren.",
+                "hsts": "De verbinding is niet geforceerd beveiligd (HTTPS). Aanvallers kunnen communicatie onderscheppen.",
+                "clickjacking": "De website kan in een verborgen frame worden geladen, waardoor gebruikers ongemerkt op knoppen klikken.",
+                "cookie": "Cookies zijn niet goed beveiligd. Aanvallers kunnen sessie-informatie stelen.",
+                "hidden endpoint": "Er zijn onbekende of verborgen pagina's gevonden die buiten de normale navigatie vallen.",
+                "sql injection": "Aanvallers kunnen databaseopdrachten invoeren via invoervelden, waardoor gegevens kunnen worden gestolen of verwijderd.",
+                "path traversal": "Aanvallers kunnen buiten de bedoelde mappen bestanden lezen of schrijven.",
+            }
+            explanation = "Zie de technische bijlage voor details."
+            for key, expl in explanations.items():
+                if key in title.lower():
+                    explanation = expl
+                    break
+            count_str = f" ({row['count']}×)" if int(row.get("count", 1)) > 1 else ""
+            lines += [
+                f"### {nl_sev}: {title}{count_str}",
+                "",
+                explanation,
+                "",
+            ]
+
+    lines += [
+        "---",
+        "",
+        "## Wat moet er als eerste worden gedaan?",
+        "",
+    ]
+    if high_crit:
+        lines.append("De volgende bevindingen vereisen **directe aandacht** van het ontwikkelteam:")
+        lines.append("")
+        for f in high_crit[:5]:
+            sev_nl = _NL_SEVERITY_LABELS.get(str(f.severity or "").lower(), "?")
+            lines.append(f"- **[{sev_nl}]** {f.title} — op {f.target_id or 'onbekende locatie'}")
+        lines.append("")
+    else:
+        lines.append("Er zijn geen hoog- of kritiek-risico bevindingen die directe actie vereisen.")
+        lines.append("")
+
+    lines += [
+        "---",
+        "",
+        "## Aanbevolen vervolgstappen",
+        "",
+        "1. **Directe herstelwerkzaamheden** — pak de hoog- en kritiek-bevindingen als eerste aan. "
+        "Geef het ontwikkelteam een gefaseerd herstelplan.",
+        "2. **Hertest na herstel** — laat na het doorvoeren van patches een gerichte hertest uitvoeren "
+        "om te bevestigen dat de kwetsbaarheden zijn verholpen.",
+        "3. **Beveiligingsbeleid** — overweeg om ontbrekende beveiligingsheaders en cookie-instellingen "
+        "via centrale configuratie op te lossen, zodat dit automatisch voor alle pagina's geldt.",
+        "4. **Bewustwording** — zorg dat het ontwikkelteam op de hoogte is van de bevindingen. "
+        "Een korte training over veilig programmeren (secure coding) vermindert toekomstige risico's.",
+        "",
+        "---",
+        "",
+        "## Disclaimer",
+        "",
+        "_Dit rapport is gebaseerd op geautomatiseerd bewijs uit de AegisPT beveiligingsscan. "
+        "De bevindingen zijn indicatief en dienen te worden beoordeeld door een gekwalificeerde beveiligingsspecialist. "
+        "Het rapport vervangt geen handmatige penetratietest en garandeert geen volledige afwezigheid van kwetsbaarheden._",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def _deduplicated_finding_rows(findings: list[Finding]) -> list[dict[str, object]]:
@@ -6438,6 +6610,8 @@ def render_markdown_report(
     context = context or report_context(run)
     requested_variant = variant
     framework_variant = compliance_framework_for_request(requested_variant, framework)
+    if str(requested_variant or "").strip().lower() == "management_nl":
+        return _render_management_nl_markdown(run, context)
     variant = normalize_report_variant(requested_variant)
     if variant == "summary":
         return _finalize_markdown_report(run, context, variant, _render_executive_markdown(run, context))

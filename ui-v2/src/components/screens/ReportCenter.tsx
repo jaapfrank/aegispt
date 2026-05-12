@@ -281,6 +281,28 @@ export default function ReportCenter() {
                     <ActionButton onClick={() => void handleDownload('pdf')} loading={action === 'pdf'} icon={<Download size={14} />}>
                       Download PDF
                     </ActionButton>
+                    {selectedRunId && (
+                      <button
+                        type="button"
+                        onClick={() => void (async () => {
+                          const resp = await fetch(`/api/v1/runs/${selectedRunId}/report?format=markdown&variant=management_nl`, { headers: { 'X-Actor': 'operator-ui' } });
+                          const text = await resp.text();
+                          const blob = new Blob([text], { type: 'text/markdown' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `aegispt-management-rapport-${selectedRunId.slice(0,8)}.md`;
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          URL.revokeObjectURL(url);
+                        })()}
+                        className="inline-flex items-center gap-2 rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[0.925rem] font-semibold text-amber hover:bg-amber/15"
+                      >
+                        <Download size={14} />
+                        🇳🇱 Nederlands Management Rapport
+                      </button>
+                    )}
                   </div>
                   {message && <div className="mt-3 rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}
                 </div>

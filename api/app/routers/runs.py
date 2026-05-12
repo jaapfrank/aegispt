@@ -2030,7 +2030,7 @@ def export_run_report(
     format: str = Query(default="markdown", pattern="^(markdown|html|pdf)$"),
     variant: str = Query(
         default="technical",
-        pattern="^(summary|technical|compliance|evidence|retest|executive|soc2|iso27001|pci_dss|nis2|dora|nfir|assurance|attack_narrative)$",
+        pattern="^(summary|technical|compliance|evidence|retest|executive|soc2|iso27001|pci_dss|nis2|dora|nfir|assurance|attack_narrative|management_nl)$",
     ),
     framework: str = Query(default="nis2", pattern="^(nis2|dora|soc2|iso27001|pci_dss|nfir)$"),
     session: Session = Depends(get_session),
