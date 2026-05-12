@@ -108,6 +108,33 @@ SIGNAL_TOKENS: dict[str, tuple[str, ...]] = {
         "rce",
         "web shell",
     ),
+    # Signals for proven exploitation chains (from xss-proof, idor-bac)
+    "reflected_xss_confirmed": (
+        "reflected xss",
+        "xss confirmed",
+        "xss via url",
+        "reflected cross-site scripting",
+        "xss_reflected",
+        "cookie theft",
+        "session cookie theft",
+        "critical",  # xss-proof creates CRITICAL findings
+    ),
+    "cookie_no_httponly": (
+        "httponly",
+        "no httponly",
+        "cookie without httponly",
+        "cookie no httponly",
+        "cookie set without httponly",
+        "cwe-1004",
+    ),
+    "idor_confirmed": (
+        "idor",
+        "insecure direct object",
+        "horizontal privilege",
+        "object reference",
+        "unauthorized access",
+        "cwe-639",
+    ),
 }
 
 
@@ -121,6 +148,32 @@ class ChainPattern:
 
 
 CHAIN_PATTERNS: tuple[ChainPattern, ...] = (
+    ChainPattern(
+        pattern_id="xss-plus-cookie-theft-confirmed",
+        title="Reflected XSS with stealable session cookie — confirmed exploitation chain",
+        required_signals=("reflected_xss_confirmed", "cookie_no_httponly"),
+        combined_impact=(
+            "Reflected XSS evidence combined with a session cookie missing the HttpOnly flag "
+            "constitutes a confirmed cookie theft chain. An attacker who tricks a logged-in victim "
+            "into clicking a crafted URL can steal their session token and impersonate them without credentials. "
+            "This is the complete attack: XSS delivers the payload, missing HttpOnly makes the cookie accessible."
+        ),
+        operator_note=(
+            "Evidence confirmed by xss-proof runner: session cookie captured, authenticated pages accessed. "
+            "Severity: CRITICAL when both findings are present on the same target."
+        ),
+    ),
+    ChainPattern(
+        pattern_id="idor-plus-session-access",
+        title="IDOR combined with authenticated session access",
+        required_signals=("idor_confirmed", "reflected_xss_confirmed"),
+        combined_impact=(
+            "Insecure Direct Object Reference combined with confirmed session access demonstrates "
+            "that an attacker with any valid session (obtained via XSS or other means) can access "
+            "resources belonging to other users. The combination enables unauthorized data access at scale."
+        ),
+        operator_note="Validate that the IDOR target and XSS target share the same authentication domain.",
+    ),
     ChainPattern(
         pattern_id="exposed-management-plus-credential-weakness",
         title="Exposed management surface plus credential/session weakness",
