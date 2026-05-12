@@ -506,6 +506,10 @@ export default function MissionControl() {
             />
           </div>
 
+          {isAiLoopRun(selectedRun) && findings.length > 0 && (
+            <ExploitChain run={selectedRun} tasks={tasks} findings={findings} />
+          )}
+
           {isAiLoopRun(selectedRun) && (
             <AiLoopPanel run={selectedRun} proposals={proposals} tasks={tasks} />
           )}
@@ -2818,4 +2822,177 @@ function formatTime(value: string): string {
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'AegisPT API request failed.';
+}
+
+// ── EXPLOITATION CHAIN ────────────────────────────────────────────────────────
+// Shows the step-by-step attack chain: what each tool found and what it triggered next.
+
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: 'border-red-500 bg-red-500/10 text-red-400',
+  high:     'border-orange-400 bg-orange-400/10 text-orange-300',
+  medium:   'border-amber/40 bg-amber/10 text-amber',
+  low:      'border-border bg-surface/40 text-muted',
+  info:     'border-border bg-surface/20 text-muted',
+};
+
+const SEVERITY_DOT: Record<string, string> = {
+  critical: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]',
+  high:     'bg-orange-400',
+  medium:   'bg-amber-400',
+  low:      'bg-border',
+  info:     'bg-muted',
+};
+
+function ExploitChain({ run, tasks, findings }: { run: Run; tasks: Task[]; findings: Finding[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Build chain steps from tasks + findings
+  const steps = useMemo(() => {
+    const findingsByTask: Record<string, Finding[]> = {};
+    // Map findings to tasks via source_finding_id or by creation time proximity
+    for (const f of findings) {
+      const taskId = (f as Record<string, unknown>).task_id as string | undefined;
+      if (taskId) {
+        (findingsByTask[taskId] ??= []).push(f);
+      }
+    }
+
+    return tasks
+      .filter(t => t.status === 'completed' || t.status === 'failed')
+      .map((task, idx) => {
+        const params = (task.params_json ?? {}) as Record<string, unknown>;
+        const nba = (params.next_best_action_selector ?? {}) as Record<string, unknown>;
+        const triggers = Array.isArray(nba.matched_triggers) ? nba.matched_triggers as string[] : [];
+        const source = String(params.source ?? nba.source ?? '');
+        const taskFindings = findingsByTask[task.id] ?? [];
+
+        // Highest severity finding for this task
+        const topFinding = [...taskFindings].sort((a, b) => {
+          const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+          return (order[a.severity] ?? 5) - (order[b.severity] ?? 5);
+        })[0];
+
+        return {
+          idx,
+          task,
+          triggers,
+          source,
+          taskFindings,
+          topFinding,
+          isLast: idx === tasks.filter(t => t.status === 'completed' || t.status === 'failed').length - 1,
+        };
+      });
+  }, [tasks, findings]);
+
+  if (steps.length === 0) return null;
+
+  return (
+    <div className="glass-panel rounded-lg p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <Workflow size={15} className="text-cyan" />
+        <h2 className="text-[1rem] font-semibold text-cyan">Exploitation Chain</h2>
+        <span className="ml-auto text-[0.75rem] text-muted">{steps.length} stappen</span>
+      </div>
+
+      <div className="relative">
+        {/* Vertical connector line */}
+        <div className="absolute left-[11px] top-4 bottom-4 w-px bg-border" />
+
+        <div className="space-y-0">
+          {steps.map(({ idx, task, triggers, source, taskFindings, topFinding, isLast }) => {
+            const isExpanded = expanded === task.id;
+            const hasCritical = taskFindings.some(f => f.severity === 'critical');
+            const hasHigh = taskFindings.some(f => f.severity === 'high');
+            const dotColor = hasCritical ? SEVERITY_DOT.critical : hasHigh ? SEVERITY_DOT.high : taskFindings.length ? SEVERITY_DOT.medium : 'bg-border';
+
+            const why = triggers.length
+              ? `omdat ${triggers.slice(0, 2).join(' + ')} ${triggers.length > 2 ? `+${triggers.length - 2}` : ''} gevonden`
+              : source === 'pivot_engine_followup'
+              ? 'pivot: vervolgonderzoek op bevinding'
+              : idx === 0 ? 'startpunt' : 'standaard webrecon';
+
+            return (
+              <div key={task.id} className="relative pl-7">
+                {/* Step dot */}
+                <div className={cn(
+                  'absolute left-0 top-4 h-[10px] w-[10px] rounded-full border-2 border-bg',
+                  dotColor,
+                  hasCritical && 'animate-pulse',
+                )} />
+
+                {/* Step card */}
+                <button
+                  type="button"
+                  onClick={() => setExpanded(isExpanded ? null : task.id)}
+                  className={cn(
+                    'w-full text-left rounded-md border px-3 py-2 mb-1 transition-colors',
+                    hasCritical ? 'border-red-500/40 bg-red-500/5 hover:bg-red-500/10' :
+                    hasHigh ? 'border-orange-400/30 bg-orange-400/5 hover:bg-orange-400/10' :
+                    taskFindings.length ? 'border-amber/20 bg-amber/5 hover:bg-amber/10' :
+                    'border-border bg-surface/20 hover:bg-surface/40',
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[0.82rem] font-bold text-text">{task.tool}</span>
+                    {hasCritical && (
+                      <span className="rounded px-1.5 py-0.5 text-[0.68rem] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30">CRITICAL</span>
+                    )}
+                    {!hasCritical && hasHigh && (
+                      <span className="rounded px-1.5 py-0.5 text-[0.68rem] font-bold uppercase bg-orange-400/20 text-orange-300 border border-orange-400/30">HIGH</span>
+                    )}
+                    {taskFindings.length > 0 && !hasCritical && !hasHigh && (
+                      <span className="rounded px-1.5 py-0.5 text-[0.68rem] font-bold bg-amber/10 text-amber border border-amber/30">{taskFindings.length} gevonden</span>
+                    )}
+                    <span className="ml-auto text-[0.72rem] text-muted">{why}</span>
+                  </div>
+
+                  {/* Top finding preview */}
+                  {topFinding && (
+                    <div className="mt-1 text-[0.78rem] text-muted truncate">
+                      {topFinding.title}
+                    </div>
+                  )}
+                </button>
+
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div className="mb-2 rounded-md border border-border bg-surface/30 p-3 text-[0.8rem] space-y-2">
+                    {triggers.length > 0 && (
+                      <div>
+                        <span className="text-muted">Geselecteerd op basis van: </span>
+                        <span className="text-cyan">{triggers.join(', ')}</span>
+                      </div>
+                    )}
+                    {taskFindings.map(f => (
+                      <div key={f.id} className={cn('rounded border px-2 py-1.5', SEVERITY_COLOR[f.severity] ?? SEVERITY_COLOR.info)}>
+                        <div className="flex items-center gap-2 font-semibold">
+                          <div className={cn('h-1.5 w-1.5 rounded-full', SEVERITY_DOT[f.severity] ?? 'bg-muted')} />
+                          <span className="uppercase text-[0.68rem]">{f.severity}</span>
+                          <span>{f.title}</span>
+                        </div>
+                        {f.summary && (
+                          <div className="mt-1 text-[0.76rem] opacity-80 leading-relaxed">{f.summary}</div>
+                        )}
+                      </div>
+                    ))}
+                    {taskFindings.length === 0 && (
+                      <div className="text-muted italic">Geen bevindingen — tool voltooid zonder resultaat.</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Arrow to next */}
+                {!isLast && triggers.length > 0 && (
+                  <div className="ml-0.5 mb-1 flex items-center gap-1 text-[0.7rem] text-muted/60">
+                    <ChevronRight size={10} />
+                    <span>triggerde volgende stap</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
