@@ -312,7 +312,10 @@ def _score_capability(capability: dict[str, Any], signals: set[str]) -> dict[str
         else:
             decision = "SKIP"
             confidence = 0.08
-    elif matched_blockers:
+    elif matched_blockers or any(
+        b.startswith("no_") and (b[3:] not in signals) and (f"{b[3:]}_present" not in signals)
+        for b in blockers
+    ):
         decision = "SKIP"
         confidence = 0.88
     elif matched_triggers:
