@@ -456,6 +456,7 @@ def test_list_run_profiles(client) -> None:
         "active-web-client-state",
         "active-web-content-discovery",
         "active-web-deserialization-probe",
+        "active-web-feroxbuster",
         "active-web-graphql-probe",
         "active-web-headers-security",
         "active-web-http-smuggling",

@@ -49,7 +49,7 @@ else:
 # Replace MissionProfile definition
 try:
     mission_profile_def = re.search(r'function MissionProfile\(\{.*?</aside>\s*\n\}', content, flags=re.DOTALL).group(0)
-    
+
     inline_context_strip = """function InlineContextStrip({
   mission,
   authorizationConfirmed,
@@ -87,7 +87,7 @@ try:
           </span>
         ))}
       </div>
-      
+
       {allConfirmed && (
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-[0.925rem] text-text cursor-pointer hover:text-cyan transition-colors">

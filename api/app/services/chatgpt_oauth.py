@@ -678,7 +678,7 @@ class ChatGPTOAuthPostTaskAnalysisProvider:
                 "reasoning_text, risk_tier (passive/active/intrusive), priority (integer 1-100, lower=higher priority), "
                 "confidence_score (0.0-1.0), metadata. "
                 "\nSTEP 5 — REMEMBER: In memory_updates, list key facts to remember (key/value pairs). "
-                "\n\nReturn ONLY JSON with key 'analysis' containing: "
+                "\n\nReturn an object. Return ONLY JSON with key 'analysis' containing: "
                 "summary_text, thought_text, action_text, observations[], hypotheses[], proposals[], memory_updates[]. "
                 "Never propose credential theft, arbitrary code execution, or scope expansion. "
                 "If ai_loop run mode: prefer passive and active proposals over intrusive ones. "

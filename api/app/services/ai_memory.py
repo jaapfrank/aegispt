@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 
 from api.app.models import EngagementMemory
 
-
 _FETCH_TIMEOUT = 8.0
 _FETCH_MAX_BYTES = 32_000
 _MEMORY_RECALL_LIMIT = 30

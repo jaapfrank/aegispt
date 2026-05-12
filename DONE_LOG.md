@@ -1,5 +1,17 @@
 # Done Log
 
+- 2026-05-12: added queued backlog-348 `Management Report Readability and Executive Narrative`:
+  - rationale:
+    - the operator requested a task to improve reports because management reports must be readable by humans and should not contain too many technical details
+  - implementation:
+    - added `codex/tasks/backlog-348-management-report-readability.json`
+    - appended backlog-348 to `TASK_QUEUE.md` after backlog-347
+    - kept `NEXT_TASK.md` unchanged because backlog-336 remains the single active task
+    - framed the package as reporting-only, with no scanning, dispatch, approval, credential, runtime-gate, scope, or finding-schema changes
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with 300 queued task packages mapped one-to-one
+    - `git diff --check` passed
+
 - 2026-05-11: fixed AI-loop worker continuation and Mission Control mission-followability:
   - rationale:
     - the operator reported that Gruyere-style runs were producing counts and badges but not making it clear what the mission was doing

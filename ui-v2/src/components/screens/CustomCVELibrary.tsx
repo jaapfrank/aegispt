@@ -9,7 +9,8 @@ import {
   updateCustomVulnerability,
 } from '../../api/client';
 import type { CustomVulnerability, CustomVulnerabilityInput, UUID } from '../../api/types';
-import { ActionButton, EmptyState, Field, PageHeader, Panel, StatusBadge, inputClass, triggerJsonDownload } from './screenPrimitives';
+import { ActionButton, EmptyState, Field, PageHeader, Panel, StatusBadge } from './screenPrimitives';
+import { inputClass, triggerJsonDownload } from './screenUtils';
 
 const emptyForm: CustomVulnerabilityInput = {
   custom_id: '',

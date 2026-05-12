@@ -3,7 +3,8 @@ import { Boxes, CircleDot, Network, Play, Search } from 'lucide-react';
 import { getLatestEngagementInventory, simulateAttackPaths } from '../../api/client';
 import type { AttackPathSimulation, InventorySnapshot, JsonMap } from '../../api/types';
 import { useAegisStore } from '../../store';
-import { EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge, inputClass, jsonString } from './screenPrimitives';
+import { EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge } from './screenPrimitives';
+import { inputClass, jsonString } from './screenUtils';
 
 type SurfaceTab = 'assets' | 'attack-map' | 'simulation' | 'insights';
 

@@ -184,6 +184,8 @@ def test_full_external_web_chain_includes_crypto_logging_and_oauth_probe() -> No
     assert definition.phases[1].key == "active-web-validation"
     assert "active-web-oauth-probe" in definition.phases[1].profiles
     assert "active-web-rce-nuclei-audit" in definition.phases[1].profiles
+    assert "active-web-content-discovery" in definition.phases[1].profiles
+    assert "active-web-feroxbuster" in definition.phases[1].profiles
 
 
 def test_full_external_web_chain_dispatches_new_web_security_profiles() -> None:
@@ -211,6 +213,8 @@ def test_full_external_web_chain_dispatches_new_web_security_profiles() -> None:
         "active-web-http-smuggling",
         "active-web-idor-bac",
         "active-web-rce-nuclei-audit",
+        "active-web-content-discovery",
+        "active-web-feroxbuster",
     }
 
     assert expected_passive.issubset(passive_profiles)
@@ -660,11 +664,51 @@ def test_full_external_web_chain_keeps_active_phase_on_configured_scope_when_htt
         session.commit()
 
         assert chain is not None and chain.current_run_id is not None
+        content_run = session.get(Run, chain.current_run_id)
+        assert content_run is not None
+        assert content_run.profile is not None
+        assert content_run.profile.name == "active-web-content-discovery"
+        assert content_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
+
+        content_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=content_run.id,
+            actor="runner:content-discovery",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
+        ferox_run = session.get(Run, chain.current_run_id)
+        assert ferox_run is not None
+        assert ferox_run.profile is not None
+        assert ferox_run.profile.name == "active-web-feroxbuster"
+        assert ferox_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
+
+        ferox_run.status = "completed"
+        session.flush()
+        chain = advance_assessment_chain_for_completed_run(
+            session,
+            run_id=ferox_run.id,
+            actor="runner:feroxbuster",
+            settings=get_settings(),
+        )
+        session.commit()
+
+        assert chain is not None and chain.current_run_id is not None
         active_run = session.get(Run, chain.current_run_id)
         assert active_run is not None
         assert active_run.profile is not None
         assert active_run.profile.name == "active-web-safe"
-        assert active_run.configuration_json["targets"]["urls"] == ["https://portal.example.test"]
+        assert active_run.configuration_json["targets"]["urls"] == [
+            "https://portal.example.test"
+        ]
 
 
 def test_full_external_web_url_only_website_starts_with_web_baseline_not_easm(client) -> None:

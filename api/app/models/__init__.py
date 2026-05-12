@@ -2,7 +2,6 @@ from api.app.models.base import Base
 from api.app.models.control import (
     AgentProposal,
     AgentReasoning,
-    EngagementMemory,
     ApiKey,
     Approval,
     AssessmentChain,
@@ -20,6 +19,7 @@ from api.app.models.control import (
     CveProductWatchlistEntry,
     Engagement,
     EngagementCasebookEntry,
+    EngagementMemory,
     EvidenceArtifact,
     ExposureScore,
     Finding,

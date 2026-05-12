@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Box, Check, Rocket, ShieldCheck } from 'lucide-react';
 import { approvePack, deployPack, getEngagementPacks, getPackArtifacts, validatePack } from '../../api/client';
 import type { CapabilityPack, CapabilityPackArtifact, UUID } from '../../api/types';
 import { useAegisStore } from '../../store';
-import { ActionButton, EmptyState, PageHeader, Panel, StatusBadge, formatDate } from './screenPrimitives';
+import { ActionButton, EmptyState, PageHeader, Panel, StatusBadge } from './screenPrimitives';
+import { formatDate } from './screenUtils';
 
 type PackAction = 'validate' | 'approve' | 'deploy' | null;
 
@@ -17,9 +18,29 @@ export default function PacksScreen() {
   const [action, setAction] = useState<PackAction>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const loadPacks = useCallback(async () => {
+    if (!selectedEngagementId) {
+      setPacks([]);
+      setSelectedPackId(null);
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
+    try {
+      const payload = await getEngagementPacks(selectedEngagementId);
+      setPacks(payload);
+      setSelectedPackId((current) => current && payload.some((pack) => pack.id === current) ? current : payload[0]?.id ?? null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Pack list unavailable.');
+      setPacks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedEngagementId]);
+
   useEffect(() => {
     void loadPacks();
-  }, [selectedEngagementId]);
+  }, [loadPacks]);
 
   useEffect(() => {
     if (!selectedPackId) {
@@ -41,26 +62,6 @@ export default function PacksScreen() {
       cancelled = true;
     };
   }, [selectedPackId]);
-
-  async function loadPacks() {
-    if (!selectedEngagementId) {
-      setPacks([]);
-      setSelectedPackId(null);
-      return;
-    }
-    setLoading(true);
-    setMessage(null);
-    try {
-      const payload = await getEngagementPacks(selectedEngagementId);
-      setPacks(payload);
-      setSelectedPackId((current) => current && payload.some((pack) => pack.id === current) ? current : payload[0]?.id ?? null);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Pack list unavailable.');
-      setPacks([]);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function runAction(kind: Exclude<PackAction, null>) {
     if (!selectedPackId || !selectedEngagementId) return;

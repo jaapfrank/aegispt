@@ -3,7 +3,8 @@ import { Download, ScrollText, TerminalSquare } from 'lucide-react';
 import { downloadArtifactContent, getRun, getRunsForEngagement, getTaskDetail } from '../../api/client';
 import type { Run, TaskDetail, UUID } from '../../api/types';
 import { useAegisStore } from '../../store';
-import { ActionButton, EmptyState, Field, PageHeader, Panel, StatusBadge, formatDate, inputClass } from './screenPrimitives';
+import { ActionButton, EmptyState, Field, PageHeader, Panel, StatusBadge } from './screenPrimitives';
+import { formatDate, inputClass } from './screenUtils';
 
 export default function EvidenceReplay() {
   const selectedEngagementId = useAegisStore((state) => state.selectedEngagementId);

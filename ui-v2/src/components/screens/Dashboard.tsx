@@ -16,7 +16,8 @@ import {
 import { getDashboard, launchZeroDayRapidResponseScan } from '../../api/client';
 import type { DashboardRead } from '../../api/types';
 import { useAegisStore } from '../../store';
-import { ActionButton, EmptyState, MetricCard, PageHeader, Panel, StatusBadge, formatDate, jsonNumber, jsonString } from './screenPrimitives';
+import { ActionButton, EmptyState, MetricCard, PageHeader, Panel, StatusBadge } from './screenPrimitives';
+import { formatDate, jsonNumber, jsonString } from './screenUtils';
 
 export default function DashboardScreen() {
   const selectedEngagementId = useAegisStore((state) => state.selectedEngagementId);

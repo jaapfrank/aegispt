@@ -1,0 +1,108 @@
+{
+  "id": "backlog-348-management-report-readability",
+  "task_file": "codex/tasks/backlog-348-management-report-readability.json",
+  "task_type": "reporting",
+  "title": "Management Report Readability and Executive Narrative",
+  "goal": "Improve AegisPT management reports so a human executive or non-technical manager can read the report end-to-end without being buried in technical details, commands, scanner output, or raw evidence noise.",
+  "scope": "Backend report generation, report templates, React v2 Report Center preview, and tests for management-report content quality.",
+  "status": "queued",
+  "generated_by": "operator-requested-reporting-quality",
+  "generation_reason": "The operator noted that management reporting must be genuinely readable by humans and should avoid excessive technical detail.",
+  "source_context": {
+    "queue_index": 300,
+    "queue_file": "TASK_QUEUE.md",
+    "alignment_docs": [
+      "CURRENT_STATE.md",
+      "TESTING_POLICY.md"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: current report generation and React v2 Report Center",
+    "broader_theme": "customer_reporting",
+    "source_documents": [
+      "api/app/services/reports.py",
+      "api/app/routers/reports.py",
+      "ui-v2/src/components/screens/ReportsCenter.tsx",
+      "api/tests/"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Focus on management-report readability and executive narrative. Do not rebuild the entire reporting engine, alter finding schemas, or add unrelated UI redesigns.",
+    "safety_reframe": "Reporting-only change. Do not run scans, create tasks, approve proposals, mutate runtime gates, expand scope, materialize credentials, or access live targets."
+  },
+  "success_criteria": [
+    "Management reports start with a plain-language executive summary that explains business impact, confidence, and overall risk posture.",
+    "Findings are grouped by business impact and remediation priority rather than scanner/tool order.",
+    "Technical details, commands, raw stdout, payloads, and long evidence refs are moved to a separate technical appendix or hidden from the management view.",
+    "Each management claim still maps to evidence references internally so the report remains evidence-first.",
+    "The report clearly separates confirmed risk, suspected risk, untested areas, and residual gaps in non-technical language.",
+    "The report includes an action plan with owner-friendly remediation themes, priority, expected effort, and validation guidance.",
+    "React v2 Report Center can preview or select the management-readable report variant without confusing it with the technical report.",
+    "Tests prove the management report avoids raw commands/stdout-heavy sections while preserving evidence references and findings traceability."
+  ],
+  "likely_touched_files": [
+    "api/app/services/reports.py",
+    "api/app/routers/reports.py",
+    "api/tests/test_reports.py",
+    "ui-v2/src/components/screens/ReportsCenter.tsx",
+    "ui-v2/tests/react-v2-critical-paths.spec.ts",
+    "codex/results/"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/core/",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "pytest api/tests/",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run test:e2e",
+      "cd ui-v2 && npm run lint",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Backend tests cover management-report generation with high-level narrative, business impact grouping, and evidence traceability.",
+      "Backend tests prove raw command/stdout-heavy details are excluded from the management body.",
+      "React v2 tests cover management-report preview or report variant selection when UI changes are made.",
+      "No runtime dispatch, scanning, approval, credential, or scope mutation occurs."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains."
+    ]
+  },
+  "out_of_scope": [
+    "Changing existing finding schema fields.",
+    "Replacing the technical report entirely.",
+    "Generating legal, compliance, or insurance attestations beyond evidence-backed report language.",
+    "Running scans or changing assessment runtime behavior.",
+    "Auto-remediation, proposal approval, or task dispatch."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

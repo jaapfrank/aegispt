@@ -10,10 +10,8 @@ import {
   PageHeader,
   Panel,
   StatusBadge,
-  formatDate,
-  inputClass,
-  jsonString,
 } from './screenPrimitives';
+import { formatDate, inputClass, jsonString } from './screenUtils';
 
 export default function ResearchScreen() {
   const selectedEngagement = useAegisStore((state) => state.selectedEngagement);

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { BadgeAlert, CheckCircle2, Clock, UserRound } from 'lucide-react';
 import { bulkUpdateProblems, getProblems } from '../../api/client';
 import type { ProblemRead, ProblemsQuery, ProblemsRead, UUID } from '../../api/types';
 import { useAegisStore } from '../../store';
-import { ActionButton, EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge, formatDate, inputClass, jsonNumber } from './screenPrimitives';
+import { ActionButton, EmptyState, Field, MetricCard, PageHeader, Panel, StatusBadge } from './screenPrimitives';
+import { formatDate, inputClass, jsonNumber } from './screenUtils';
 
 export default function ProblemsCenter() {
   const engagements = useAegisStore((state) => state.engagements);
@@ -27,11 +28,7 @@ export default function ProblemsCenter() {
     limit: 100,
   }), [age, assignee, engagementId, severity, status]);
 
-  useEffect(() => {
-    void loadProblems();
-  }, [query]);
-
-  async function loadProblems() {
+  const loadProblems = useCallback(async () => {
     setLoading(true);
     setMessage(null);
     try {
@@ -44,7 +41,11 @@ export default function ProblemsCenter() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [query]);
+
+  useEffect(() => {
+    void loadProblems();
+  }, [loadProblems]);
 
   async function runBulk(action: 'assign' | 'resolve' | 'schedule_retest') {
     if (!selectedFindingIds.length) {
