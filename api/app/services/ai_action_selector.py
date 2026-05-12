@@ -382,7 +382,7 @@ def _observed_state(nodes: list[dict[str, Any]]) -> dict[str, Any]:
     )
     signals = _signals_from_text(text)
 
-    # Also extract signals from actual httpx/tool stdout JSON stored in task nodes
+    # Extract signals from actual httpx/tool stdout JSON stored in task nodes
     for node in nodes:
         if node.get("kind") not in {"task", "tool_output"}:
             continue
@@ -392,6 +392,19 @@ def _observed_state(nodes: list[dict[str, Any]]) -> dict[str, Any]:
         stdout = str(data.get("stdout_text") or data.get("stdout") or "").strip()
         if stdout and stdout.startswith("{"):
             signals.update(_signals_from_httpx_json(stdout))
+
+    # Extract signals from confirmed findings — each finding elevates specific next tools
+    for node in nodes:
+        if node.get("kind") != "finding":
+            continue
+        data = node.get("data") or {}
+        title = str(
+            (data.get("title") if isinstance(data, dict) else None)
+            or node.get("label")
+            or ""
+        )
+        if title:
+            signals.update(_signals_from_finding_title(title))
     prerequisites = set()
     if any(node.get("kind") == "scope" for node in nodes):
         prerequisites.add("approved_scope")
@@ -523,6 +536,70 @@ def _signals_from_httpx_json(stdout_text: str) -> set[str]:
         if result.get("ok") or result.get("status_code") in (200, 201, 301, 302):
             signals.add("web_target_present")
             signals.add("http_service_present")
+
+    return signals
+
+
+def _signals_from_finding_title(title: str) -> set[str]:
+    """Map a finding title to the signals it implies for the next iteration.
+
+    This is the core of evidence-based chaining: each confirmed finding
+    elevates the score of the tools that should investigate it further.
+    """
+    signals: set[str] = set()
+    t = title.lower()
+
+    # XSS family → session exploitation tools score highest
+    if any(kw in t for kw in ("xss", "cross-site scripting", "script injection", "html injection")):
+        signals.update({"xss_confirmed", "session_cookie_present", "web_target_present"})
+
+    # CSRF → session-security, client-state
+    if any(kw in t for kw in ("csrf", "xsrf", "anti-csrf", "forgery")):
+        signals.update({"csrf_vulnerable", "session_cookie_present"})
+
+    # Missing security headers → deeper header/CSP analysis
+    if any(kw in t for kw in ("csp", "content security policy", "clickjacking", "x-frame",
+                               "hsts", "strict-transport", "x-content-type")):
+        signals.add("security_header_missing")
+
+    # Cookie issues → session-security, client-state
+    if any(kw in t for kw in ("cookie", "session", "samesite", "httponly", "secure flag")):
+        signals.update({"session_cookie_present", "cookie_weakness"})
+
+    # Hidden endpoints / admin surfaces
+    if any(kw in t for kw in ("hidden endpoint", "admin", "debug", "backup", "/private",
+                               "directory listing", "sensitive file")):
+        signals.add("hidden_endpoint_found")
+
+    # SQL injection
+    if any(kw in t for kw in ("sql injection", "sqli", "sql error", "database error", "syntax error")):
+        signals.update({"sql_error_pattern", "injectable_parameter"})
+
+    # Path traversal / file inclusion
+    if any(kw in t for kw in ("path traversal", "directory traversal", "file inclusion", "lfi", "rfi")):
+        signals.add("path_traversal_confirmed")
+
+    # SSRF
+    if any(kw in t for kw in ("ssrf", "server-side request forgery", "internal service")):
+        signals.update({"ssrf_confirmed", "web_target_present"})
+
+    # Authentication / privilege
+    if any(kw in t for kw in ("auth bypass", "authentication bypass", "privilege escalation",
+                               "access control", "idor", "broken access", "unauthorized")):
+        signals.update({"xss_confirmed", "session_cookie_present"})  # reuse session chain
+
+    # JWT
+    if any(kw in t for kw in ("jwt", "json web token", "bearer", "token forgery")):
+        signals.update({"jwt_in_response", "session_cookie_present"})
+
+    # Information disclosure / leaks
+    if any(kw in t for kw in ("information disclosure", "suspicious comment", "stack trace",
+                               "server version", "sensitive information")):
+        signals.add("info_disclosure_found")
+
+    # Cache / redirect
+    if any(kw in t for kw in ("cache", "redirect", "open redirect")):
+        signals.add("web_target_present")
 
     return signals
 

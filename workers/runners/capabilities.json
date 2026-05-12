@@ -89,9 +89,10 @@
       "risk_tier": "active",
       "triggers": [
         "xss_confirmed",
+        "csrf_vulnerable",
         "login_form_found",
         "registration_form_present",
-        "form_with_post_action"
+        "hidden_endpoint_found"
       ],
       "weak_triggers": [
         "web_target_present",
@@ -410,7 +411,8 @@
       "triggers": [
         "xss_confirmed",
         "session_cookie_present",
-        "login_form_found"
+        "cookie_weakness",
+        "csrf_vulnerable"
       ],
       "weak_triggers": [
         "web_target_present"
@@ -478,11 +480,11 @@
       ],
       "required_approvals": 1,
       "risk_tier": "active",
-      "triggers": [
-        "web_target_present"
-      ],
+      "triggers": [],
       "weak_triggers": [
-        "http_service_present"
+        "hidden_endpoint_found",
+        "http_service_present",
+        "info_disclosure_found"
       ],
       "trigger_signals": {
         "strong": [],
@@ -804,8 +806,7 @@
       "required_approvals": 0,
       "risk_tier": "active",
       "triggers": [
-        "web_target_present",
-        "http_endpoint_present"
+        "security_header_missing"
       ],
       "weak_triggers": [
         "http_service_present"
@@ -910,7 +911,8 @@
       "risk_tier": "active",
       "triggers": [
         "xss_confirmed",
-        "session_cookie_present"
+        "session_cookie_present",
+        "hidden_endpoint_found"
       ],
       "weak_triggers": [
         "web_target_present",
@@ -1041,7 +1043,10 @@
       "triggers": [
         "jwt_in_response"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "session_cookie_present",
+        "web_target_present"
+      ],
       "trigger_signals": {
         "strong": [
           "jwt_in_response"
@@ -1499,10 +1504,11 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "web_target_present"
+        "jwt_in_response",
+        "session_cookie_present"
       ],
       "weak_triggers": [
-        "login_form_found"
+        "web_target_present"
       ],
       "trigger_signals": {
         "strong": [
@@ -1657,6 +1663,8 @@
       "risk_tier": "active",
       "triggers": [
         "xss_confirmed",
+        "csrf_vulnerable",
+        "cookie_weakness",
         "session_cookie_present",
         "login_form_found"
       ],
@@ -1826,10 +1834,11 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "web_target_present"
+        "injectable_parameter",
+        "hidden_endpoint_found"
       ],
       "weak_triggers": [
-        "form_with_post_action"
+        "web_target_present"
       ],
       "trigger_signals": {
         "strong": [
@@ -1864,10 +1873,11 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "web_target_present"
+        "injectable_parameter",
+        "xss_confirmed"
       ],
       "weak_triggers": [
-        "form_with_post_action"
+        "web_target_present"
       ],
       "trigger_signals": {
         "strong": [
@@ -1960,6 +1970,7 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
+        "injectable_parameter",
         "web_target_present",
         "http_service_present"
       ],
