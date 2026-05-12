@@ -134,29 +134,26 @@ def _call_claude(context: dict[str, Any], target_url: str) -> dict[str, Any]:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
 
-        user_content = f"""Analyze this target for penetration testing.
+        extra_paths_summary = {
+            k: f"HTTP {v['status']}: {v['content'][:100]}"
+            for k, v in context.get('extra_paths', {}).items()
+        }
 
-Target URL: {target_url}
-Final URL: {context.get('final_url', target_url)}
-HTTP Status: {context.get('status', '?')}
-
-Response headers:
-{json.dumps(context.get('headers', {}), indent=2)}
-
-Main page HTML (first 6000 chars):
-{context.get('main_page', 'Not available')[:5000]}
-
-Additional paths probed:
-{json.dumps(context.get('extra_paths', {}), indent=2)[:3000]}
-
-Based on what you actually see, identify the technology stack and create a targeted test plan."""
+        user_content = (
+            f"Analyze for pen testing. Target: {target_url}\n"
+            f"HTTP {context.get('status','?')} | Final: {context.get('final_url', target_url)}\n\n"
+            f"Headers: {json.dumps(context.get('headers', {}), indent=2)}\n\n"
+            f"HTML (first 2000 chars):\n{(context.get('main_page') or '')[:2000]}\n\n"
+            f"Endpoints found: {json.dumps(extra_paths_summary, indent=2)[:1500]}\n\n"
+            "Identify tech stack and return targeted test plan JSON."
+        )
 
         msg = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
+            model="claude-haiku-4-5-20251001",  # Haiku: faster + cheaper for initial analysis
+            max_tokens=2048,
             system=ANALYSIS_PROMPT,
             messages=[{"role": "user", "content": user_content}],
-            timeout=45.0,  # explicit timeout prevents indefinite hanging
+            timeout=60.0,
         )
 
         raw = msg.content[0].text.strip()
