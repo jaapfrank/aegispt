@@ -406,8 +406,8 @@ export default function MissionControl() {
   }
 
   return (
-    <section className="flex min-h-full flex-col gap-5">
-      <div className="sticky top-0 z-30 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-bg/95 pb-4 backdrop-blur-sm">
+    <section className="flex h-full flex-col">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-4 mb-5">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-normal text-text">Mission Control</h1>
           <span className={cn('rounded-full px-2.5 py-1 text-[0.8rem] font-bold uppercase tracking-wider', statusTone(runStatus(selectedRun)))}>
@@ -456,6 +456,9 @@ export default function MissionControl() {
           </button>
         </div>
       </div>
+
+      {/* ── scrollable body ── */}
+      <div className="flex flex-1 flex-col gap-5 min-h-0 overflow-y-auto pr-1">
 
       {/* ── STATUS BANNER ── */}
       <MissionStatusBanner run={selectedRun} tasks={tasks} findings={findings} proposals={proposals} />
@@ -521,6 +524,8 @@ export default function MissionControl() {
           </button>
         </div>
       </div>
+
+      </div>{/* end scrollable body */}
 
       {cinemaOpen && (
         <CinemaMode onClose={() => setCinemaOpen(false)} />

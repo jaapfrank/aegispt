@@ -233,8 +233,14 @@ def execute_zap_scan(
     stderr_lines: list[str] = []
     exit_code = 0
 
-    with httpx_client.Client(timeout=10.0, follow_redirects=True) as client:
-        tool_version = get_zap_version(client, base_url=base_url, api_key=api_key)
+    with httpx_client.Client(timeout=30.0, follow_redirects=True) as client:
+        try:
+            tool_version = get_zap_version(client, base_url=base_url, api_key=api_key)
+        except httpx_client.HTTPError as exc:
+            raise RuntimeError(
+                f"ZAP daemon not reachable at {base_url} — start it with "
+                f"scripts/ensure_local_zap_daemon.sh before running a scan. Error: {exc}"
+            ) from exc
 
         for index, target in enumerate(normalized_targets, start=1):
             session_name = f"aegispt-{uuid4().hex[:12]}-{index}"
