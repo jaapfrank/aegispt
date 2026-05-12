@@ -42,13 +42,17 @@ LOOP_ACTIVE_TASK_STATUSES = {"queued", "pending", "running", "dispatching", "in_
 LOOP_TERMINAL_STATUSES = {"completed", "failed", "cancelled", "skipped"}
 LOOP_PROPOSAL_KIND = "assessment_loop_next_action"
 LOOP_SEED_TOOLS_BY_TARGET_KIND = {
-    "url": "httpx",
+    # target-intel runs FIRST for web targets in ai_loop mode.
+    # It analyzes the site with Claude before any scanning tool runs,
+    # detects the technology stack, identifies applicable CVEs, and
+    # creates a targeted scan plan. httpx is the fallback for non-ai_loop runs.
+    "url": "target-intel",
     "host": "nmap",
     "cidr": "nmap",
     "domain": "easm-discover",
-    "target": "httpx",
+    "target": "target-intel",
 }
-LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx"}
+LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx", "target-intel"}
 
 # Depth levels — each level represents a strategic decision point
 # Level 1: Discovery (surface mapping, no findings yet)
@@ -626,6 +630,81 @@ def _goal_oriented_candidate(
                 required_approvals=required_approvals,
                 decision_source="goal_oriented_reasoning",
             )
+    return None
+
+
+def _ai_proposal_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    """Read pending AgentProposal records created by post-task AI analysis.
+
+    This is the PRIMARY candidate source for ai_loop runs. After every tool
+    completes, ChatGPT OAuth analyzes the output and creates AgentProposal
+    records with proposed_tool, proposed_target, and reasoning_text. This
+    function picks the highest-priority pending proposal and turns it into a
+    LoopCandidate — making AI reasoning the driver of the assessment loop.
+
+    Falls back to signal-based selection only when no proposals exist.
+    """
+    proposals = [
+        p for p in list(run.agent_proposals or [])
+        if p.status == "pending_review"
+        and str(p.metadata_json.get("proposal_kind") if isinstance(p.metadata_json, dict) else "") != LOOP_PROPOSAL_KIND
+        and str(p.proposed_tool or "").strip() in supported_execution_tools()
+    ]
+    if not proposals:
+        return None
+
+    # Sort by priority (lower number = higher priority), then by confidence
+    proposals.sort(key=lambda p: (
+        int((p.metadata_json or {}).get("priority", 50)) if isinstance(p.metadata_json, dict) else 50,
+        -float(p.confidence_score or 0.5),
+    ))
+
+    for proposal in proposals:
+        tool = str(proposal.proposed_tool or "").strip()
+        target = str(proposal.proposed_target or "").strip()
+        if not tool or not target:
+            continue
+        if _task_key(tool, target) in tested_keys:
+            continue
+        if not _scope_target_allowed(scope, target):
+            continue
+
+        metadata = proposal.metadata_json if isinstance(proposal.metadata_json, dict) else {}
+        plan_item = _capability_item(plan, tool)
+        tier = str(metadata.get("risk_tier") or _tier_from_capability(plan_item, tool))
+        required_approvals = int(metadata.get("required_approvals") or plan_item.get("required_approvals") or 0)
+        confidence = float(proposal.confidence_score or 0.75)
+
+        return LoopCandidate(
+            tool=tool,
+            target=target,
+            params={
+                "target_kind": metadata.get("target_kind", "url"),
+                "source": "ai_proposal",
+                "ai_proposal": {
+                    "proposal_id": str(proposal.id),
+                    "reasoning": str(proposal.reasoning_text or ""),
+                    "risk_tier": tier,
+                    "priority": metadata.get("priority", 50),
+                    "confidence": confidence,
+                },
+                **(proposal.proposed_params_json or {}),
+            },
+            tier=tier,
+            reasoning=str(proposal.reasoning_text or f"AI proposed {tool} based on post-task analysis."),
+            confidence=confidence,
+            follow_up_hints=list(metadata.get("follow_up_tools") or plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(plan_item.get("expected_evidence") or []),
+            required_approvals=required_approvals,
+            decision_source="ai_proposal",
+        )
+
     return None
 
 

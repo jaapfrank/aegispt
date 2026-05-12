@@ -204,6 +204,7 @@ from workers.runners.social_campaign.runner import execute_social_campaign_revie
 from workers.runners.ssh_brute.runner import execute_ssh_brute_force
 from workers.runners.ssrf_probe.runner import execute_ssrf_probe
 from workers.runners.ssti_probe.runner import execute_ssti_probe
+from workers.runners.target_intel.runner import execute_target_intel
 from workers.runners.waf_detect.runner import execute_waf_detection
 from workers.runners.web_depth.runner import (
     execute_content_discovery,
@@ -290,6 +291,7 @@ SUPPORTED_TOOLS = {
     "xss-proof",
     "smart-web-probe",
     "ai-pentest-agent",
+    "target-intel",
     "xxe-probe",
     "zap",
 }
@@ -1895,6 +1897,11 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else None
             ),
             timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "target-intel":
+        return execute_target_intel(
+            targets=request.targets,
+            timeout_seconds=max(timeout_seconds, 20.0),
         )
     if request.tool == "ai-pentest-agent":
         raw_cookie = request.params.get("session_cookie")
@@ -4559,10 +4566,11 @@ def _maybe_run_post_task_ai_analysis(session, task: Task):
         return None
     if is_validation_task(task):
         return None
-    # ai_loop runs handle tool selection through advance_assessment_loop; the autonomous
-    # post-task agent would create competing tasks on the same run.
-    if task.run is not None and run_uses_ai_loop(task.run):
-        return None
+    # AI reasoning runs for ALL completed tasks, including ai_loop runs.
+    # For ai_loop runs: proposals are stored as AgentReasoning/AgentProposal records
+    # and displayed to the operator. The advance_assessment_loop reads these proposals
+    # as the primary candidate before falling back to signal-based selection.
+    # This is the core AI reasoning loop: every tool completion triggers reasoning.
     try:
         return run_post_task_analysis_for_task(session=session, task_id=task.id)
     except Exception:

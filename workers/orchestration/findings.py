@@ -64,6 +64,7 @@ from workers.runners.social_campaign.runner import SOCIAL_CAMPAIGN_RESULTS_ARTIF
 from workers.runners.ssh_brute.runner import SSH_BRUTE_RESULTS_ARTIFACT_NAME
 from workers.runners.ssrf_probe.runner import SSRF_RESULTS_ARTIFACT_NAME
 from workers.runners.ssti_probe.runner import SSTI_RESULTS_ARTIFACT_NAME
+from workers.runners.target_intel.runner import TARGET_INTEL_ARTIFACT_NAME
 from workers.runners.waf_detect.runner import WAF_DETECT_RESULTS_ARTIFACT_NAME
 from workers.runners.web_depth.runner import (
     CONTENT_DISCOVERY_RESULTS_ARTIFACT_NAME,
@@ -562,6 +563,7 @@ def extract_findings(
         "xss-extended",
         "xss-proof",
         "smart-web-probe",
+        "target-intel",
         "ssrf-probe",
         "deserialization-probe",
         "session-security",
@@ -599,6 +601,7 @@ def extract_findings(
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 XSS_PROOF_RESULTS_ARTIFACT_NAME,
                 SMART_PROBE_RESULTS_ARTIFACT_NAME,
+                TARGET_INTEL_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,
                 SESSION_SECURITY_RESULTS_ARTIFACT_NAME,
