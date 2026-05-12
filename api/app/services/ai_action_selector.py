@@ -253,6 +253,8 @@ def _rank_runner_action(
         target_present=target is not None,
         already_tested=bool(action_key and action_key in tested_action_keys),
         allow_active_without_review=allow_active_without_review,
+        blocker_ids=_normalized_strings(data.get("blockers")),
+        observed_signals=set(observed.get("signals") or []),
     )
     rationale = _action_rationale(
         runner=runner,
@@ -747,6 +749,8 @@ def _decision_for_runner(
     target_present: bool,
     already_tested: bool,
     allow_active_without_review: bool,
+    blocker_ids: list[str] | None = None,
+    observed_signals: set[str] | None = None,
 ) -> tuple[str, list[str]]:
     blockers: list[str] = []
     if already_tested:
@@ -757,6 +761,17 @@ def _decision_for_runner(
         return "WAIT", [f"missing prerequisite: {item}" for item in missing_prerequisites]
     if not matched_triggers and runner not in LOW_IMPACT_AUTO_TOOLS:
         return "SKIP", ["no matching evidence trigger is present in the graph"]
+    # Evaluate capability blockers: "no_X" means X signal must be present to run.
+    # e.g. no_code_artifact blocks semgrep when no source_code_artifact signal is observed.
+    sigs = observed_signals or set()
+    for blocker in blocker_ids or []:
+        if blocker.startswith("no_"):
+            required_signal = blocker[3:]  # strip "no_" prefix
+            # Accept both "web_target" and "web_target_present" naming conventions
+            if required_signal not in sigs and f"{required_signal}_present" not in sigs:
+                return "SKIP", [f"blocker '{blocker}': signal '{required_signal}' not observed"]
+        elif blocker in sigs:
+            return "SKIP", [f"blocker '{blocker}' is active"]
     # Low-impact auto tools (httpx, nmap, easm-discover) are safe discovery runners
     # that always get RUN regardless of risk_tier label.
     if runner in LOW_IMPACT_AUTO_TOOLS:
@@ -810,6 +825,8 @@ def _blocker_reason_ids(
             ids.append("no_approved_target")
         elif "no matching evidence trigger" in lowered:
             ids.append("no_matching_trigger")
+        elif "blocker '" in lowered:
+            ids.append("capability_blocker_active")
         elif "confidence is too low" in lowered:
             ids.append("low_confidence")
         elif "missing runner contract data" in lowered:

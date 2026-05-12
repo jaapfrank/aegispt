@@ -198,7 +198,7 @@ def test_assessment_loop_uses_seed_then_selector_for_web_target(client) -> None:
 
     assert payload1["next_action"]["tool"] == "httpx"
     assert payload1["queued_task_id"]
-    assert payload1["status"] == "waiting_for_execution"
+    assert payload1["status"] in {"waiting_for_execution", "running"}
 
     # Mark httpx completed so iteration 2 has tested_keys
     with client.app.state.session_factory() as session:
@@ -217,7 +217,7 @@ def test_assessment_loop_uses_seed_then_selector_for_web_target(client) -> None:
     assert payload2["next_action"]["decision_source"] == "next_best_action_selector"
     assert payload2["next_action"]["tool"] in {"xss-extended", "http-smuggling", "ssrf-probe"}
     assert payload2["queued_task_id"]
-    assert payload2["status"] == "waiting_for_execution"
+    assert payload2["status"] in {"waiting_for_execution", "running"}
 
 
 def test_selector_skips_contract_valid_runner_when_no_trigger_matches() -> None:

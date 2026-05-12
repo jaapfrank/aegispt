@@ -1733,10 +1733,12 @@ function AiLoopPanel({
   tasks: Task[];
 }) {
   const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
-  const iterCount = Number(loop?.iteration_count ?? 0);
+  const stepCount = Number(loop?.iteration_count ?? 0);
+  const depthLevel = Number(loop?.depth_level ?? 1);
+  const depthLabel = String(loop?.depth_label ?? 'Verkenning');
   const loopStatus = String(loop?.status ?? 'ready');
   const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
-  const maxIter = Number(loop?.max_iterations ?? 20);
+  const maxIter = Number(loop?.max_iterations ?? 35);
   const iterations = Array.isArray(loop?.iterations) ? (loop.iterations as Record<string, unknown>[]) : [];
 
   const statusColor =
@@ -1766,17 +1768,17 @@ function AiLoopPanel({
       </div>
 
       <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-md border border-cyan/30 bg-cyan/5 px-2 py-2">
+          <div className="text-[1rem] font-bold text-cyan">{depthLevel}</div>
+          <div className="text-[0.72rem] text-cyan/70 font-medium truncate">{depthLabel}</div>
+        </div>
         <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
-          <div className="text-[1.1rem] font-bold text-cyan">{iterCount}</div>
-          <div className="text-[0.77rem] text-muted">Iterations</div>
+          <div className="text-[1.1rem] font-bold text-text">{stepCount}</div>
+          <div className="text-[0.77rem] text-muted">Stappen</div>
         </div>
         <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
           <div className="text-[1.1rem] font-bold text-text">{tasks.length}</div>
-          <div className="text-[0.77rem] text-muted">Tasks run</div>
-        </div>
-        <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
-          <div className="text-[1.1rem] font-bold text-text">{maxIter}</div>
-          <div className="text-[0.77rem] text-muted">Max iter</div>
+          <div className="text-[0.77rem] text-muted">Tools</div>
         </div>
       </div>
 
