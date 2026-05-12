@@ -221,6 +221,51 @@ def _fallback_analysis(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_next_step_hints(analysis: dict[str, Any], base_url: str) -> list[dict[str, Any]]:
+    """Convert target-intel analysis into next_step_hints for the assessment loop.
+
+    CVEs found → nuclei with those specific template IDs (not blind scan).
+    Test plan → ordered tool queue with context-specific params.
+    This is what makes target-intel drive the loop, not just annotate it.
+    """
+    hints: list[dict[str, Any]] = []
+
+    # 1. CVEs → nuclei with specific templates
+    cves = [c for c in analysis.get("cves_to_check", []) if isinstance(c, dict)]
+    if cves:
+        cve_ids = [c["cve"] for c in cves if c.get("cve")]
+        if cve_ids:
+            hints.append({
+                "tool": "nuclei",
+                "reason": (
+                    f"Target-intel identified {len(cve_ids)} applicable CVEs: {', '.join(cve_ids[:3])}. "
+                    "Run targeted nuclei templates for these specific vulnerabilities."
+                ),
+                "params": {
+                    "requested_template_ids": cve_ids[:10],
+                    "cve_context": [{"cve": c["cve"], "reason": c.get("reason",""), "severity": c.get("severity","")} for c in cves[:5]],
+                    "priority": 1,
+                },
+            })
+
+    # 2. Test plan steps → ordered tool hints
+    seen_tools: set[str] = {"nuclei"}  # nuclei already added above
+    for step in sorted(analysis.get("test_plan", []), key=lambda s: int(s.get("priority", 99))):
+        tool = str(step.get("tool", "")).strip()
+        if not tool or tool in seen_tools:
+            continue
+        seen_tools.add(tool)
+        hints.append({
+            "tool": tool,
+            "reason": str(step.get("reason", f"Target-intel planned: {tool}"))[:200],
+            "params": dict(step.get("params") or {}),
+        })
+        if len(hints) >= 6:  # cap total hints to avoid overwhelming the queue
+            break
+
+    return hints
+
+
 def execute_target_intel(
     targets: list[str],
     *,
@@ -258,6 +303,10 @@ def execute_target_intel(
             "test_plan_steps": len(analysis.get("test_plan", [])),
             "sensitive_data_found": bool(analysis.get("sensitive_data_found")),
         },
+        # next_step_hints: drive the assessment loop directly from target-intel output.
+        # CVEs → nuclei with specific template IDs.
+        # Test plan steps → other tools in priority order.
+        "next_step_hints": _build_next_step_hints(analysis, base_target),
     }
 
     return RunnerExecution(
