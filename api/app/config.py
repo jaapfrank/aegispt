@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     chatgpt_oauth_scopes: str = "openid profile email offline_access"
     chatgpt_oauth_originator: str = "aegispt"
     chatgpt_oauth_model: str = "gpt-5.4"
-    chatgpt_oauth_timeout_seconds: float = 10.0
+    chatgpt_oauth_timeout_seconds: float = 90.0
     chatgpt_oauth_refresh_margin_seconds: int = 300
     github_oauth_client_id: str | None = None
     github_oauth_client_secret: str | None = None
