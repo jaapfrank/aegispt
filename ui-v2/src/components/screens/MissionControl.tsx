@@ -457,93 +457,45 @@ export default function MissionControl() {
         </div>
       </div>
 
-      {/* What is happening — 1-sentence narration */}
-      <NarrationStrip run={selectedRun} tasks={tasks} findings={findings} />
+      {/* ── STATUS BANNER ── */}
+      <MissionStatusBanner run={selectedRun} tasks={tasks} findings={findings} proposals={proposals} />
 
-      {/* ── MAIN DASHBOARD ── */}
-      <div className="grid flex-1 gap-4 grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      {/* ── MAIN: 3-column ── */}
+      <div className="grid flex-1 gap-4 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)] min-h-0">
 
-        {/* LEFT: Findings overview + Task results */}
-        <div className="flex flex-col gap-4 min-h-0">
+        {/* COL 1: Activity log — what each tool did, plain Dutch */}
+        <ActivityFeed
+          run={selectedRun}
+          tasks={tasks}
+          findings={findings}
+          selectedTaskId={consoleTask?.id ?? null}
+          onSelect={setSelectedTaskId}
+        />
 
-          {/* Findings severity overview */}
-          <FindingsSummaryCard findings={findings} run={selectedRun} tasks={tasks} />
+        {/* COL 2: Findings explained in plain Dutch */}
+        <FindingsExplained findings={findings} />
 
-          {/* Tool results — what ran, what it found */}
-          <TaskResultsPanel
-            run={selectedRun}
-            tasks={tasks}
-            findings={findings}
-            selectedTaskId={consoleTask?.id ?? null}
-            onSelect={setSelectedTaskId}
-          />
-
-          {/* Phase / AI loop state */}
-          {isAiLoopRun(selectedRun) ? (
-            <AiLoopPanel run={selectedRun} proposals={proposals} tasks={tasks} />
-          ) : (
-            <PhaseChain
-              chain={chain}
-              run={selectedRun}
-              tasks={tasks}
-              phases={phases}
-              currentPhase={currentPhase}
-              canApprovePhase={canApprovePhase}
-              busy={busyAction === 'phase'}
-              onApprove={() => void handleApprovePhase()}
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={() => void handleDispatch()}
-            disabled={!canDispatch || busyAction !== null}
-            className="flex w-full min-h-[2.5rem] shrink-0 items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-[0.9rem] font-semibold text-emerald-200 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Play size={15} />
-            {selectedRunIsAutomatic ? 'Start Queued Checks' : 'Run Queued Checks Now'}
-          </button>
-        </div>
-
-        {/* RIGHT: Live console + compact scan map */}
-        <div className="flex flex-col gap-4 min-h-0">
-          {/* Active proposals needing review */}
-          {proposals.filter((p) => p.status === 'pending').length > 0 && (
-            <div className="shrink-0 space-y-2">
-              {proposals.filter((p) => p.status === 'pending').map((proposal) => (
-                <div key={proposal.id} className="rounded-lg border border-amber/25 bg-amber/8 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[0.8rem] font-bold uppercase tracking-wide text-amber">Approval needed</p>
-                      <p className="mt-1 text-[0.88rem] font-semibold text-text">{proposal.proposed_tool}</p>
-                      <p className="mt-0.5 truncate text-[0.78rem] text-muted">{proposal.proposed_target}</p>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleProposalReview(proposal, 'approved')}
-                        disabled={busyAction !== null}
-                        className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[0.8rem] font-semibold text-emerald-300 hover:bg-emerald-400/18"
-                      >
-                        <Check size={12} /> Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleProposalReview(proposal, 'rejected')}
-                        disabled={busyAction !== null}
-                        className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[0.8rem] text-muted hover:text-text"
-                      >
-                        <X size={12} /> Skip
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {/* COL 3: Live console + approval + dispatch */}
+        <div className="flex flex-col gap-3 min-h-0">
+          {proposals.filter((p) => p.status === 'pending').map((proposal) => (
+            <div key={proposal.id} className="shrink-0 rounded-lg border border-amber/30 bg-amber/8 p-3">
+              <p className="mb-2 text-[0.78rem] font-bold uppercase tracking-wide text-amber">Goedkeuring gevraagd</p>
+              <p className="font-mono text-[0.88rem] font-semibold text-text">{proposal.proposed_tool}</p>
+              <p className="mb-3 mt-0.5 truncate text-[0.75rem] text-muted">{proposal.proposed_target}</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => void handleProposalReview(proposal, 'approved')} disabled={busyAction !== null}
+                  className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 py-1.5 text-[0.8rem] font-semibold text-emerald-300 hover:bg-emerald-400/15">
+                  <Check size={12} /> Goedkeuren
+                </button>
+                <button type="button" onClick={() => void handleProposalReview(proposal, 'rejected')} disabled={busyAction !== null}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-[0.8rem] text-muted hover:text-text">
+                  <X size={12} /> Overslaan
+                </button>
+              </div>
             </div>
-          )}
+          ))}
 
-          {/* Live Console — full height */}
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-[200px]">
             <LiveCommandConsole
               run={selectedRun}
               task={consoleTask}
@@ -551,10 +503,22 @@ export default function MissionControl() {
             />
           </div>
 
-          {/* Compact scan map */}
-          <div className="h-[160px] shrink-0 overflow-hidden rounded-xl">
-            <ScanMap nodes={mapNodes} inventory={inventory} materialize={Boolean(launchArrival)} />
-          </div>
+          {isAiLoopRun(selectedRun) && (
+            <AiLoopPanel run={selectedRun} proposals={proposals} tasks={tasks} />
+          )}
+
+          {!isAiLoopRun(selectedRun) && phases.length > 0 && (
+            <PhaseChain chain={chain} run={selectedRun} tasks={tasks} phases={phases}
+              currentPhase={currentPhase} canApprovePhase={canApprovePhase}
+              busy={busyAction === 'phase'} onApprove={() => void handleApprovePhase()} />
+          )}
+
+          <button type="button" onClick={() => void handleDispatch()}
+            disabled={!canDispatch || busyAction !== null}
+            className="flex w-full shrink-0 min-h-[2.5rem] items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-[0.9rem] font-semibold text-emerald-200 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40">
+            <Play size={15} />
+            {selectedRunIsAutomatic ? 'Start wachtrij' : 'Start handmatig'}
+          </button>
         </div>
       </div>
 
@@ -1119,6 +1083,266 @@ function ScanMap({
 // ─────────────────────────────────────────────
 // Findings summary card: severity badges + top findings
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Status banner: big one-line summary + severity row
+// ─────────────────────────────────────────────
+function MissionStatusBanner({ run, tasks, findings, proposals }: { run: Run; tasks: Task[]; findings: Finding[]; proposals: AgentProposal[] }) {
+  const sev = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  for (const f of findings) { const s = (f.severity ?? 'info').toLowerCase() as keyof typeof sev; if (s in sev) sev[s]++; }
+  const running = tasks.find((t) => ['running', 'dispatching', 'in_progress'].includes(t.status));
+  const queued = tasks.filter((t) => ['queued', 'pending'].includes(t.status));
+  const done = tasks.filter((t) => t.status === 'completed').length;
+  const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const iters = loop?.iteration_count ? Number(loop.iteration_count) : 0;
+  const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
+  const pending = proposals.filter((p) => p.status === 'pending').length;
+
+  let bannerText = '';
+  let bannerColor = 'border-cyan/20 bg-cyan/5 text-cyan';
+  if (stopReason === 'stuck_no_new_signals') {
+    bannerColor = 'border-amber/20 bg-amber/5 text-amber';
+    bannerText = `AI-scan gestopt na ${iters} iteraties: geen nieuwe signalen meer. ${findings.length} bevindingen opgeslagen.`;
+  } else if (stopReason) {
+    bannerColor = 'border-muted/20 bg-surface/40 text-muted';
+    bannerText = `Scan gestopt (${stopReason.replace(/_/g, ' ')}). ${done} tools uitgevoerd.`;
+  } else if (running) {
+    bannerColor = 'border-cyan/20 bg-cyan/5 text-cyan';
+    bannerText = `🔍 ${running.tool} is nu aan het scannen…`;
+  } else if (pending > 0) {
+    bannerColor = 'border-amber/20 bg-amber/5 text-amber';
+    bannerText = `${pending} actie${pending > 1 ? 's' : ''} wacht${pending > 1 ? 'en' : ''} op jouw goedkeuring.`;
+  } else if (queued.length > 0) {
+    bannerColor = 'border-emerald-400/20 bg-emerald-400/5 text-emerald-300';
+    bannerText = `${queued.length} tool${queued.length > 1 ? 's' : ''} staat in de wachtrij. Klik 'Start wachtrij' om door te gaan.`;
+  } else if (done > 0) {
+    bannerColor = 'border-emerald-400/20 bg-emerald-400/5 text-emerald-300';
+    bannerText = `✓ ${done} tools uitgevoerd${iters > 0 ? ` in ${iters} iteraties` : ''}. ${findings.length} bevindingen gevonden.`;
+  }
+
+  const sevRow = (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {[
+        { key: 'critical', label: 'Kritiek', cls: 'bg-red/15 text-red border-red/25' },
+        { key: 'high', label: 'Hoog', cls: 'bg-orange-500/15 text-orange-400 border-orange-500/25' },
+        { key: 'medium', label: 'Gemiddeld', cls: 'bg-yellow-400/15 text-yellow-300 border-yellow-400/25' },
+        { key: 'low', label: 'Laag', cls: 'bg-blue-500/15 text-blue-300 border-blue-500/25' },
+        { key: 'info', label: 'Info', cls: 'bg-surface/60 text-muted border-border' },
+      ].filter(({ key }) => sev[key as keyof typeof sev] > 0).map(({ key, label, cls }) => (
+        <span key={key} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[0.8rem] font-bold', cls)}>
+          {sev[key as keyof typeof sev]} {label}
+        </span>
+      ))}
+      {findings.length === 0 && <span className="text-[0.82rem] text-muted">Nog geen bevindingen</span>}
+    </div>
+  );
+
+  return (
+    <div className={cn('shrink-0 rounded-lg border px-4 py-3', bannerColor.split(' ')[0], bannerColor.split(' ')[1])}>
+      <p className={cn('text-[0.9rem] font-semibold', bannerColor.split(' ')[2])}>{bannerText || 'Gereed.'}</p>
+      {sevRow}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Activity feed: each tool + what it did in plain Dutch
+// ─────────────────────────────────────────────
+function ActivityFeed({ run, tasks, findings, selectedTaskId, onSelect }: {
+  run: Run; tasks: Task[]; findings: Finding[];
+  selectedTaskId: UUID | null; onSelect: (id: UUID) => void;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const ordered = [...tasks].sort((a, b) => (a.created_at ?? '') < (b.created_at ?? '') ? -1 : 1);
+
+  const findingsForTool = (tool: string) =>
+    findings.filter((f) => f.methodology_tags?.some((t: string) => t === tool) || (f as unknown as Record<string, unknown>).tool === tool).length;
+
+  const statusBadge = (status: string) => {
+    if (['running', 'dispatching', 'in_progress'].includes(status))
+      return <span className="inline-flex items-center gap-1 rounded-full bg-cyan/15 px-2 py-0.5 text-[0.72rem] font-bold text-cyan"><span className="h-1.5 w-1.5 rounded-full bg-cyan animate-pulse" />Loopt</span>;
+    if (status === 'completed')
+      return <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[0.72rem] font-bold text-emerald-400">Klaar</span>;
+    if (status === 'failed')
+      return <span className="rounded-full bg-red/15 px-2 py-0.5 text-[0.72rem] font-bold text-red">Fout</span>;
+    if (status === 'completed_with_errors')
+      return <span className="rounded-full bg-amber/15 px-2 py-0.5 text-[0.72rem] font-bold text-amber">Overgeslagen</span>;
+    return <span className="rounded-full bg-surface/60 px-2 py-0.5 text-[0.72rem] text-muted">Wacht</span>;
+  };
+
+  return (
+    <div className="glass-panel flex flex-col rounded-lg p-4 min-h-0">
+      <h2 className="mb-3 shrink-0 flex items-center gap-2 text-[1rem] font-semibold text-cyan">
+        <Activity size={15} /> Activiteiten
+      </h2>
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+        {ordered.map((task) => {
+          const info = TOOL_INFO[task.tool ?? ''];
+          const count = findingsForTool(task.tool ?? '');
+          const isOpen = openId === task.id;
+          const isSelected = selectedTaskId === task.id;
+          return (
+            <div key={task.id} className={cn('rounded-lg border transition-colors', isSelected ? 'border-cyan/30 bg-cyan/5' : 'border-border bg-surface/25 hover:bg-surface/40')}>
+              <button type="button" className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+                onClick={() => { onSelect(task.id); setOpenId(isOpen ? null : task.id); }}>
+                <span className="shrink-0">{statusBadge(task.status ?? '')}</span>
+                <span className="flex-1 font-mono text-[0.88rem] font-semibold text-text">{task.tool}</span>
+                {count > 0 && (
+                  <span className="shrink-0 rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[0.72rem] font-bold text-amber">
+                    {count} gevonden
+                  </span>
+                )}
+                <ChevronRight size={12} className={cn('shrink-0 text-muted/50 transition-transform', isOpen && 'rotate-90')} />
+              </button>
+              {isOpen && (
+                <div className="border-t border-border/60 px-3 py-2.5 space-y-2">
+                  {info ? (
+                    <>
+                      <p className="text-[0.82rem] text-text"><span className="font-semibold text-cyan/80">Doel:</span> {info.why}</p>
+                      <p className="text-[0.82rem] text-muted"><span className="font-semibold">Methode:</span> {info.what}</p>
+                      <p className="text-[0.82rem] text-muted"><span className="font-semibold">Risico bij vondst:</span> {info.impact}</p>
+                    </>
+                  ) : (
+                    <p className="text-[0.78rem] text-muted truncate">{task.target_id}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {ordered.length === 0 && <p className="py-6 text-center text-[0.88rem] text-muted">Nog geen activiteit.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Findings explained: each unique finding with plain Dutch explanation
+// ─────────────────────────────────────────────
+const FINDING_EXPLANATIONS: Record<string, { short: string; impact: string; action: string }> = {
+  'reflected xss': {
+    short: 'Een aanvaller kan code in een URL stoppen die wordt uitgevoerd als iemand erop klikt.',
+    impact: 'Sessiecookies kunnen worden gestolen waarmee een aanvaller inlogt als de slachtoffer.',
+    action: 'Zorg dat alle URL-parameters worden gesanitiseerd voordat ze op de pagina worden getoond.',
+  },
+  'stored xss': {
+    short: 'Kwaadaardige code is opgeslagen en wordt bij iedere bezoeker uitgevoerd.',
+    impact: 'Alle bezoekers van de pagina zijn potentieel slachtoffer — niet alleen degene die de link aanklikt.',
+    action: 'Sanitiseer alle gebruikersinvoer bij opslag en bij weergave.',
+  },
+  'csrf': {
+    short: 'Formulieren hebben geen bescherming tegen ongewenste acties van andere websites.',
+    impact: 'Een aanvaller kan een ingelogde gebruiker ongemerkt acties laten uitvoeren (bijv. gegevens wijzigen).',
+    action: 'Voeg een CSRF-token toe aan alle formulieren die gegevens wijzigen.',
+  },
+  'csp': {
+    short: 'De website heeft geen beleid ingesteld dat scripts van onbekende bronnen blokkeert.',
+    impact: 'Dit maakt het eenvoudiger voor aanvallers om via XSS kwaadaardige scripts te laden.',
+    action: 'Stel een Content-Security-Policy header in die alleen vertrouwde bronnen toestaat.',
+  },
+  'hsts': {
+    short: 'De website dwingt geen HTTPS-verbinding af.',
+    impact: 'Op onveilige netwerken kan communicatie worden onderschept (man-in-the-middle).',
+    action: 'Voeg de Strict-Transport-Security header toe met een lange max-age.',
+  },
+  'clickjacking': {
+    short: 'De website kan verborgen in een frame worden geladen op een andere site.',
+    impact: 'Bezoekers kunnen ongemerkt klikken op knoppen van jouw site die verborgen zijn.',
+    action: 'Voeg X-Frame-Options: DENY of een frame-ancestors CSP-richtlijn toe.',
+  },
+  'cookie': {
+    short: 'Sessiecookies zijn niet volledig beveiligd.',
+    impact: 'Cookies kunnen worden gestolen via XSS (ontbrekend HttpOnly) of via onveilige verbindingen (ontbrekend Secure).',
+    action: 'Zet de HttpOnly, Secure en SameSite-attributen op alle sessiecookies.',
+  },
+  'hidden endpoint': {
+    short: 'Er zijn pagina\'s gevonden die niet via de normale navigatie bereikbaar zijn.',
+    impact: 'Verborgen beheer- of testpagina\'s kunnen toegankelijk zijn zonder authenticatie.',
+    action: 'Verwijder niet-gebruikte endpoints of beveilig ze met authenticatie.',
+  },
+  'sql injection': {
+    short: 'Invoervelden geven direct door aan de database zonder filtering.',
+    impact: 'Een aanvaller kan data lezen, wijzigen of verwijderen — inclusief gebruikerswachtwoorden.',
+    action: 'Gebruik parameterized queries of een ORM in plaats van string-concatenatie.',
+  },
+  'path traversal': {
+    short: 'De server geeft bestanden terug buiten de bedoelde map.',
+    impact: 'Aanvallers kunnen configuratiebestanden of private sleutels lezen.',
+    action: 'Valideer bestandspaden en beperk toegang tot een specifieke map.',
+  },
+};
+
+function findingExplanation(title: string): { short: string; impact: string; action: string } | null {
+  const lower = title.toLowerCase();
+  for (const [key, val] of Object.entries(FINDING_EXPLANATIONS)) {
+    if (lower.includes(key)) return val;
+  }
+  return null;
+}
+
+function FindingsExplained({ findings }: { findings: Finding[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const sevOrder = ['critical', 'high', 'medium', 'low', 'info'];
+  const sorted = [...findings].sort((a, b) =>
+    sevOrder.indexOf((a.severity ?? 'info').toLowerCase()) - sevOrder.indexOf((b.severity ?? 'info').toLowerCase())
+  );
+
+  const sevColors: Record<string, string> = {
+    critical: 'border-red/30 bg-red/8',
+    high: 'border-orange-500/30 bg-orange-500/8',
+    medium: 'border-yellow-400/25 bg-yellow-400/5',
+    low: 'border-blue-500/25 bg-blue-500/5',
+    info: 'border-border bg-surface/25',
+  };
+  const sevText: Record<string, string> = {
+    critical: 'text-red', high: 'text-orange-400', medium: 'text-yellow-300', low: 'text-blue-300', info: 'text-muted',
+  };
+  const sevLabel: Record<string, string> = {
+    critical: 'Kritiek', high: 'Hoog', medium: 'Gemiddeld', low: 'Laag', info: 'Info',
+  };
+
+  return (
+    <div className="glass-panel flex flex-col rounded-lg p-4 min-h-0">
+      <h2 className="mb-3 shrink-0 flex items-center gap-2 text-[1rem] font-semibold text-cyan">
+        <AlertTriangle size={15} /> Bevindingen ({findings.length})
+      </h2>
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+        {sorted.map((f) => {
+          const sev = (f.severity ?? 'info').toLowerCase();
+          const expl = findingExplanation(f.title ?? '');
+          const isOpen = openId === f.id;
+          return (
+            <div key={f.id} className={cn('rounded-lg border transition-colors', sevColors[sev] ?? sevColors.info)}>
+              <button type="button" className="flex w-full items-start gap-3 px-3 py-2.5 text-left"
+                onClick={() => setOpenId(isOpen ? null : f.id)}>
+                <span className={cn('shrink-0 mt-0.5 text-[0.72rem] font-bold uppercase', sevText[sev] ?? 'text-muted')}>
+                  {sevLabel[sev] ?? sev}
+                </span>
+                <span className="flex-1 text-[0.85rem] font-semibold text-text leading-5">{f.title}</span>
+                <ChevronRight size={12} className={cn('shrink-0 mt-1 text-muted/50 transition-transform', isOpen && 'rotate-90')} />
+              </button>
+              {isOpen && (
+                <div className="border-t border-border/40 px-3 py-2.5 space-y-2">
+                  {expl ? (
+                    <>
+                      <p className="text-[0.82rem] text-text">{expl.short}</p>
+                      <p className="text-[0.78rem] text-muted"><span className="font-semibold text-amber/80">Risico:</span> {expl.impact}</p>
+                      <p className="text-[0.78rem] text-muted"><span className="font-semibold text-emerald-400/80">Oplossing:</span> {expl.action}</p>
+                    </>
+                  ) : (
+                    <p className="text-[0.78rem] text-muted truncate">{f.target_id}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {sorted.length === 0 && <p className="py-6 text-center text-[0.88rem] text-muted">Nog geen bevindingen.</p>}
+      </div>
+    </div>
+  );
+}
+
+
 function FindingsSummaryCard({ findings, run, tasks }: { findings: Finding[]; run: Run; tasks: Task[] }) {
   const bySev = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   for (const f of findings) {
