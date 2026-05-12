@@ -474,6 +474,13 @@ export async function exportEngagementData(engagementId: UUID): Promise<JsonMap>
   return api<JsonMap>(`/api/v1/engagements/${engagementId}/data-export`);
 }
 
+export async function deleteEngagement(engagementId: UUID, confirmationName: string): Promise<void> {
+  await api<JsonMap>(`/api/v1/engagements/${engagementId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmation: confirmationName }),
+  });
+}
+
 export async function getProblems(query: ProblemsQuery = {}): Promise<ProblemsRead> {
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {

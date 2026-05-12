@@ -25,6 +25,7 @@ import {
   authorizeChatGptOAuth,
   createApiKey,
   createDeceptionTrap,
+  deleteEngagement,
   exportEngagementData,
   getApiKeys,
   getChatGptOAuthStatus,
@@ -61,6 +62,7 @@ type PendingAction =
   | 'chatgpt-connect'
   | 'api-key-create'
   | 'data-export'
+  | 'engagement-delete'
   | 'schedule'
   | 'deception-create'
   | 'deception-refresh'
@@ -446,6 +448,33 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleDeleteEngagement() {
+    if (!selectedEngagementId || !selectedEngagement) {
+      setToast('Select an engagement first.');
+      return;
+    }
+    const name = selectedEngagement.name;
+    const typed = window.prompt(
+      `Type the engagement name to confirm deletion:\n\n"${name}"\n\nThis will permanently delete all runs, findings, and reports.`,
+    );
+    if (typed !== name) {
+      setToast('Deletion cancelled — name did not match.');
+      return;
+    }
+    setPending('engagement-delete');
+    setError(null);
+    try {
+      await deleteEngagement(selectedEngagementId, name);
+      setToast(`Engagement "${name}" deleted.`);
+      // Reload page to clear stale state
+      window.location.reload();
+    } catch (error) {
+      setToast(errorMessage(error));
+    } finally {
+      setPending(null);
+    }
+  }
+
   const activeSaveScope = activeTabToSaveScope(activeTab);
 
   return (
@@ -541,6 +570,8 @@ export default function SettingsScreen() {
             toggleSection={toggleSection}
             updateDraft={updateDraft}
             exportData={handleDataExport}
+            deleteEngagementFn={handleDeleteEngagement}
+            selectedEngagementId={selectedEngagementId}
           />
         )}
         {activeTab === 'deception' && (
@@ -831,11 +862,15 @@ function DataSecurityTab({
   toggleSection,
   updateDraft,
   exportData,
+  deleteEngagementFn,
+  selectedEngagementId,
 }: SettingsPanelProps & {
   selectedEngagementName: string | null;
   retentionDays: number | null;
   pending: PendingAction;
   exportData: () => Promise<void>;
+  deleteEngagementFn: () => Promise<void>;
+  selectedEngagementId: string | null;
 }) {
   return (
     <div className="space-y-3">
@@ -859,13 +894,18 @@ function DataSecurityTab({
             {pending === 'data-export' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Export my data
           </button>
-          <button type="button" disabled className="inline-flex items-center gap-2 rounded-md border border-border bg-bg/40 px-3 py-2 text-[1rem] font-semibold text-muted opacity-70">
-            <Trash2 size={14} />
-            Request purge
+          <button
+            type="button"
+            onClick={() => void deleteEngagementFn()}
+            disabled={!selectedEngagementId || pending === 'engagement-delete'}
+            className="inline-flex items-center gap-2 rounded-md border border-red/30 bg-red/10 px-3 py-2 text-[1rem] font-semibold text-red hover:bg-red/15 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending === 'engagement-delete' ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            Delete this engagement
           </button>
         </div>
         <p className="mt-3 text-[0.925rem] leading-5 text-muted">
-          Purge is intentionally disabled here because the backend requires typed confirmation through its governed purge endpoint.
+          Deletion requires typing the engagement name as confirmation. All runs, findings, and reports are permanently removed.
         </p>
       </SettingsDisclosure>
     </div>
