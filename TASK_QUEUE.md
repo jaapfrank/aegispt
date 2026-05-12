@@ -297,17 +297,34 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 287. ~~Test and Scan Tooling Readiness Gate~~ ✓ DONE 2026-05-11 `codex/tasks/backlog-335-test-scan-tooling-readiness-gate.json`
 288. ~~AI Adaptive Pentest: Intake Creates ai_loop Runs + Auto-Dispatch Passive Tasks~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-336-ai-loop-intake-and-auto-dispatch.json`
 289. ~~Pivot Engine Automatically Queues Follow-Up Scans from Confirmed Findings~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-337-pivot-engine-spawns-followup-scans.json`
-290. Mission Control: AI Adaptive Loop Panel showing Iteration Chain and Hypotheses `codex/tasks/backlog-338-mission-control-ai-loop-panel.json`
+290. ~~Mission Control: AI Adaptive Loop Panel~~ ✓ DONE 2026-05-13 showing Iteration Chain and Hypotheses `codex/tasks/backlog-338-mission-control-ai-loop-panel.json`
 291. Cinema Mode: 3D AI Attack Chain Visualization for ai_loop Runs `codex/tasks/backlog-339-cinema-mode-ai-chain-visualization.json`
 292. Impact Proof Chain: Severity Escalation When Finding Chain Demonstrates Real Access `codex/tasks/backlog-340-impact-proof-and-severity-escalation.json`
 293. Automatic Task Dispatch: Queue Sweeper + Correct Default Mode `codex/tasks/backlog-341-automatic-task-dispatch-and-queue-sweeper.json`
 294. Fix Full Pentest Phase Auto-Advance: No Manual Approval Gates for Phase 2 and 3 `codex/tasks/backlog-342-full-pentest-phase-autoadvance-fix.json`
-295. Web Application Crawler: Discover All Endpoints, Forms, and Parameters Before Injection Tests `codex/tasks/backlog-343-web-crawler-endpoint-discovery.json`
+295. ~~Web Application Crawler~~ ✓ DONE 2026-05-13 (replaced by target-intel + smart-web-probe) Discover All Endpoints, Forms, and Parameters Before Injection Tests `codex/tasks/backlog-343-web-crawler-endpoint-discovery.json`
 296. XSS Detection: Path-Component Injection and Error Page Reflection `codex/tasks/backlog-344-path-xss-and-error-page-detection.json`
-297. CSRF, Client-State Manipulation and Privilege Escalation Detection `codex/tasks/backlog-345-csrf-and-client-state-detection.json`
+297. ~~CSRF, Client-State Manipulation~~ ✓ DONE 2026-05-13 and Privilege Escalation Detection `codex/tasks/backlog-345-csrf-and-client-state-detection.json`
 298. ~~Path Traversal Detection: URL Path, Filename, and Username Vectors~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-346-path-traversal-and-file-upload-detection.json`
 299. ~~Stored XSS Detection via Form Input Submission: Snippets, Color, and HTML Attributes~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-347-stored-xss-and-html-injection-via-form-inputs.json`
-300. Management Report Readability and Executive Narrative `codex/tasks/backlog-348-management-report-readability.json`
+300. ~~Management Report Readability~~ ✓ DONE 2026-05-13 and Executive Narrative `codex/tasks/backlog-348-management-report-readability.json`
 301. ~~Authenticated Web Scanning: Auto-Register, Login, Test Authenticated Surface~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-351-authenticated-web-scanning-chain.json`
 302. ~~AI-Driven Signal Scoring: LLM Analyzes Tool Output to Set Context Signals~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-352-ai-driven-signal-scoring.json`
 303. ~~Gruyere Full Coverage Proof: All Known Vulnerabilities Found~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-353-gruyere-full-coverage-proof.json`
+304. Production Auth Enforcement: Gate X-Actor Fallback Outside Local Dev `codex/tasks/backlog-354-production-auth-fallback-gate.json`
+305. React v2 Mission Control Type Safety and Component Decomposition `codex/tasks/backlog-355-mission-control-type-safety-decomposition.json`
+306. Explicit Runner Registry and Dispatch Contract `codex/tasks/backlog-356-explicit-runner-registry-dispatch-contract.json`
+307. Validation Gate Hygiene: Ruff Clean and CI Alignment with React v2 `codex/tasks/backlog-357-validation-gate-hygiene-ci-alignment.json`
+308. Architecture and Repo Map Refresh for React v2 and Current Runtime `codex/tasks/backlog-358-architecture-repo-map-refresh.json`
+309. React v2 Bundle Splitting and Performance Budget `codex/tasks/backlog-359-react-v2-bundle-splitting-performance-budget.json`
+310. Role-Aware Differential Authorization Testing `codex/tasks/backlog-360-role-aware-differential-authorization-testing.json`
+311. Stateful Business Flow Vulnerability Engine `codex/tasks/backlog-361-stateful-business-flow-vulnerability-engine.json`
+312. Evidence Signal Normalizer V2 for AI Runner Selection `codex/tasks/backlog-362-evidence-signal-normalizer-v2-ai-runner-selection.json`
+313. Confirmed-Finding Variant Hunter `codex/tasks/backlog-363-confirmed-finding-variant-hunter.json`
+314. Coverage Gap and Missed-Vulnerability Explainer `codex/tasks/backlog-364-coverage-gap-missed-vulnerability-explainer.json`
+315. Defensive Codebase Vulnerability Research Lane `codex/tasks/backlog-365-defensive-codebase-vulnerability-research-lane.json`
+316. AI Fuzz Harness Generator and Corpus Curator `codex/tasks/backlog-366-ai-fuzz-harness-generator-corpus-curator.json`
+317. Patch-Diff and N-Day Variant Analyzer `codex/tasks/backlog-367-patch-diff-nday-variant-analyzer.json`
+318. Exploitability Triage and Non-Weaponized Reproduction Builder `codex/tasks/backlog-368-exploitability-triage-nonweaponized-repro-builder.json`
+319. Coordinated Vulnerability Disclosure and Patch Handoff Workflow `codex/tasks/backlog-369-coordinated-disclosure-patch-handoff-workflow.json`
+320. Cyber AI Safety Guardrails for Vulnerability Research `codex/tasks/backlog-370-cyber-ai-safety-guardrails-vulnerability-research.json`
