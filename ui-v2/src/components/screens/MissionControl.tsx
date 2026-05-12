@@ -1152,13 +1152,8 @@ function ActivityFeed({ run, tasks, findings, selectedTaskId, onSelect }: {
   selectedTaskId: UUID | null; onSelect: (id: UUID) => void;
 }) {
   const ordered = [...tasks].sort((a, b) => (a.created_at ?? '') < (b.created_at ?? '') ? -1 : 1);
-  // Auto-expand tasks that found something or are currently running/failed
-  const [openId, setOpenId] = useState<string | null>(() => {
-    const interesting = ordered.find((t) =>
-      ['running', 'dispatching', 'in_progress', 'failed', 'completed_with_errors'].includes(t.status ?? '')
-    );
-    return interesting?.id ?? null;
-  });
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showEmpty, setShowEmpty] = useState(false);
 
   const findingsForTool = (tool: string) =>
     findings.filter((f) => f.methodology_tags?.some((t: string) => t === tool) || (f as unknown as Record<string, unknown>).tool === tool).length;
@@ -1175,47 +1170,71 @@ function ActivityFeed({ run, tasks, findings, selectedTaskId, onSelect }: {
     return <span className="rounded-full bg-surface/60 px-2 py-0.5 text-[0.72rem] text-muted">Wacht</span>;
   };
 
+  // Split: tasks with findings or active/failed always shown; empty completed tasks hidden
+  const withFindings = ordered.filter((t) => {
+    const count = findingsForTool(t.tool ?? '');
+    return count > 0 || ['running', 'dispatching', 'in_progress', 'failed', 'completed_with_errors'].includes(t.status ?? '');
+  });
+  const withoutFindings = ordered.filter((t) => {
+    const count = findingsForTool(t.tool ?? '');
+    return count === 0 && !['running', 'dispatching', 'in_progress', 'failed', 'completed_with_errors'].includes(t.status ?? '');
+  });
+
+  const renderTask = (task: Task) => {
+    const info = TOOL_INFO[task.tool ?? ''];
+    const count = findingsForTool(task.tool ?? '');
+    const isOpen = openId === task.id;
+    const isSelected = selectedTaskId === task.id;
+    return (
+      <div key={task.id} className={cn('rounded-lg border transition-colors', isSelected ? 'border-cyan/30 bg-cyan/5' : 'border-border bg-surface/25 hover:bg-surface/40')}>
+        <button type="button" className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+          onClick={() => { onSelect(task.id); setOpenId(isOpen ? null : task.id); }}>
+          <span className="shrink-0">{statusBadge(task.status ?? '')}</span>
+          <span className="flex-1 font-mono text-[0.88rem] font-semibold text-text">{task.tool}</span>
+          {count > 0 && (
+            <span className="shrink-0 rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[0.72rem] font-bold text-amber">
+              {count} gevonden
+            </span>
+          )}
+          <ChevronRight size={12} className={cn('shrink-0 text-muted/50 transition-transform', isOpen && 'rotate-90')} />
+        </button>
+        {isOpen && (
+          <div className="border-t border-border/60 px-3 py-2.5 space-y-2">
+            {info ? (
+              <>
+                <p className="text-[0.82rem] text-text"><span className="font-semibold text-cyan/80">Doel:</span> {info.why}</p>
+                <p className="text-[0.82rem] text-muted"><span className="font-semibold">Methode:</span> {info.what}</p>
+                <p className="text-[0.82rem] text-muted"><span className="font-semibold">Risico bij vondst:</span> {info.impact}</p>
+              </>
+            ) : (
+              <p className="text-[0.78rem] text-muted truncate">{task.target_id}</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="glass-panel flex flex-col rounded-lg p-4 min-h-0">
       <h2 className="mb-3 shrink-0 flex items-center gap-2 text-[1rem] font-semibold text-cyan">
         <Activity size={15} /> Activiteiten
+        <span className="ml-auto text-[0.8rem] text-muted font-normal">{ordered.length} tools</span>
       </h2>
       <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-        {ordered.map((task) => {
-          const info = TOOL_INFO[task.tool ?? ''];
-          const count = findingsForTool(task.tool ?? '');
-          const isOpen = openId === task.id;
-          const isSelected = selectedTaskId === task.id;
-          return (
-            <div key={task.id} className={cn('rounded-lg border transition-colors', isSelected ? 'border-cyan/30 bg-cyan/5' : 'border-border bg-surface/25 hover:bg-surface/40')}>
-              <button type="button" className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
-                onClick={() => { onSelect(task.id); setOpenId(isOpen ? null : task.id); }}>
-                <span className="shrink-0">{statusBadge(task.status ?? '')}</span>
-                <span className="flex-1 font-mono text-[0.88rem] font-semibold text-text">{task.tool}</span>
-                {count > 0 && (
-                  <span className="shrink-0 rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[0.72rem] font-bold text-amber">
-                    {count} gevonden
-                  </span>
-                )}
-                <ChevronRight size={12} className={cn('shrink-0 text-muted/50 transition-transform', isOpen && 'rotate-90')} />
-              </button>
-              {isOpen && (
-                <div className="border-t border-border/60 px-3 py-2.5 space-y-2">
-                  {info ? (
-                    <>
-                      <p className="text-[0.82rem] text-text"><span className="font-semibold text-cyan/80">Doel:</span> {info.why}</p>
-                      <p className="text-[0.82rem] text-muted"><span className="font-semibold">Methode:</span> {info.what}</p>
-                      <p className="text-[0.82rem] text-muted"><span className="font-semibold">Risico bij vondst:</span> {info.impact}</p>
-                    </>
-                  ) : (
-                    <p className="text-[0.78rem] text-muted truncate">{task.target_id}</p>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {ordered.length === 0 && <p className="py-6 text-center text-[0.88rem] text-muted">Nog geen activiteit.</p>}
+        {withFindings.length === 0 && ordered.length === 0 && (
+          <p className="py-6 text-center text-[0.88rem] text-muted">Nog geen activiteit.</p>
+        )}
+        {withFindings.map(renderTask)}
+        {withoutFindings.length > 0 && (
+          <button type="button"
+            className="flex w-full items-center gap-2 rounded-lg border border-border/50 px-3 py-2 text-[0.8rem] text-muted hover:text-text hover:bg-surface/30 transition-colors"
+            onClick={() => setShowEmpty((s) => !s)}>
+            <ChevronRight size={12} className={cn('transition-transform', showEmpty && 'rotate-90')} />
+            {showEmpty ? 'Verberg' : 'Toon'} {withoutFindings.length} tool{withoutFindings.length !== 1 ? 's' : ''} zonder vondsten
+          </button>
+        )}
+        {showEmpty && withoutFindings.map(renderTask)}
       </div>
     </div>
   );
