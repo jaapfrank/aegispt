@@ -457,45 +457,28 @@ export default function MissionControl() {
         </div>
       </div>
 
-      {/* AI Narration strip — plain-language summary of what the system is doing */}
+      {/* What is happening — 1-sentence narration */}
       <NarrationStrip run={selectedRun} tasks={tasks} findings={findings} />
 
-      {/* 3-column layout: Map+Stats | Tasks+Chain | Signal+Console */}
-      <div className="grid flex-1 gap-4 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+      {/* ── MAIN DASHBOARD ── */}
+      <div className="grid flex-1 gap-4 grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
 
-        {/* Column 1: Scan Map (compact) + Run Summary */}
+        {/* LEFT: Findings overview + Task results */}
         <div className="flex flex-col gap-4 min-h-0">
-          <div className="h-[200px] overflow-hidden rounded-xl shrink-0">
-            <ScanMap nodes={mapNodes} inventory={inventory} materialize={Boolean(launchArrival)} />
-          </div>
-          <OperationsSummary
-            run={selectedRun}
-            taskCount={tasks.length}
-            activeTaskCount={activeTaskCount}
-            findingCount={findings.length}
-            pendingProposalCount={pendingProposalCount}
-          />
-          <div className="shrink-0">
-            <button
-              type="button"
-              onClick={() => void handleDispatch()}
-              disabled={!canDispatch || busyAction !== null}
-              className="flex w-full min-h-[2.5rem] items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-[0.9rem] font-semibold text-emerald-200 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Play size={15} />
-              {selectedRunIsAutomatic ? 'Start Queued Checks' : 'Run Queued Checks Now'}
-            </button>
-          </div>
-        </div>
 
-        {/* Column 2: Task Ledger + AI Loop / Phase Chain */}
-        <div className="flex flex-col gap-4 min-h-0">
-          <TaskList
+          {/* Findings severity overview */}
+          <FindingsSummaryCard findings={findings} run={selectedRun} tasks={tasks} />
+
+          {/* Tool results — what ran, what it found */}
+          <TaskResultsPanel
             run={selectedRun}
             tasks={tasks}
+            findings={findings}
             selectedTaskId={consoleTask?.id ?? null}
             onSelect={setSelectedTaskId}
           />
+
+          {/* Phase / AI loop state */}
           {isAiLoopRun(selectedRun) ? (
             <AiLoopPanel run={selectedRun} proposals={proposals} tasks={tasks} />
           ) : (
@@ -510,21 +493,68 @@ export default function MissionControl() {
               onApprove={() => void handleApprovePhase()}
             />
           )}
+
+          <button
+            type="button"
+            onClick={() => void handleDispatch()}
+            disabled={!canDispatch || busyAction !== null}
+            className="flex w-full min-h-[2.5rem] shrink-0 items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-[0.9rem] font-semibold text-emerald-200 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Play size={15} />
+            {selectedRunIsAutomatic ? 'Start Queued Checks' : 'Run Queued Checks Now'}
+          </button>
         </div>
 
-        {/* Column 3: AI Signal + Live Console */}
+        {/* RIGHT: Live console + compact scan map */}
         <div className="flex flex-col gap-4 min-h-0">
-          <AiSignalPanel
-            entries={buildAiSignalEntries(selectedRun, tasks, findings, proposals, aiInsights)}
-            proposals={proposals}
-            busyAction={busyAction}
-            onReview={(proposal, decision) => void handleProposalReview(proposal, decision)}
-          />
-          <LiveCommandConsole
-            run={selectedRun}
-            task={consoleTask}
-            detail={consoleTask ? taskDetails[consoleTask.id] : undefined}
-          />
+          {/* Active proposals needing review */}
+          {proposals.filter((p) => p.status === 'pending').length > 0 && (
+            <div className="shrink-0 space-y-2">
+              {proposals.filter((p) => p.status === 'pending').map((proposal) => (
+                <div key={proposal.id} className="rounded-lg border border-amber/25 bg-amber/8 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[0.8rem] font-bold uppercase tracking-wide text-amber">Approval needed</p>
+                      <p className="mt-1 text-[0.88rem] font-semibold text-text">{proposal.proposed_tool}</p>
+                      <p className="mt-0.5 truncate text-[0.78rem] text-muted">{proposal.proposed_target}</p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleProposalReview(proposal, 'approved')}
+                        disabled={busyAction !== null}
+                        className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[0.8rem] font-semibold text-emerald-300 hover:bg-emerald-400/18"
+                      >
+                        <Check size={12} /> Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleProposalReview(proposal, 'rejected')}
+                        disabled={busyAction !== null}
+                        className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[0.8rem] text-muted hover:text-text"
+                      >
+                        <X size={12} /> Skip
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Live Console — full height */}
+          <div className="flex-1 min-h-0">
+            <LiveCommandConsole
+              run={selectedRun}
+              task={consoleTask}
+              detail={consoleTask ? taskDetails[consoleTask.id] : undefined}
+            />
+          </div>
+
+          {/* Compact scan map */}
+          <div className="h-[160px] shrink-0 overflow-hidden rounded-xl">
+            <ScanMap nodes={mapNodes} inventory={inventory} materialize={Boolean(launchArrival)} />
+          </div>
         </div>
       </div>
 
@@ -1085,6 +1115,269 @@ function ScanMap({
     </div>
   );
 }
+
+// ─────────────────────────────────────────────
+// Findings summary card: severity badges + top findings
+// ─────────────────────────────────────────────
+function FindingsSummaryCard({ findings, run, tasks }: { findings: Finding[]; run: Run; tasks: Task[] }) {
+  const bySev = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  for (const f of findings) {
+    const s = (f.severity ?? 'info').toLowerCase() as keyof typeof bySev;
+    if (s in bySev) bySev[s]++;
+  }
+  const total = findings.length;
+  const topFindings = [...findings]
+    .sort((a, b) => {
+      const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+      return (order[(a.severity ?? 'info').toLowerCase() as keyof typeof order] ?? 4) -
+             (order[(b.severity ?? 'info').toLowerCase() as keyof typeof order] ?? 4);
+    })
+    .slice(0, 3);
+
+  const sevConfig = [
+    { key: 'critical', label: 'Kritiek', bg: 'bg-red/15', text: 'text-red', border: 'border-red/30' },
+    { key: 'high', label: 'Hoog', bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30' },
+    { key: 'medium', label: 'Gemiddeld', bg: 'bg-yellow-400/15', text: 'text-yellow-300', border: 'border-yellow-400/30' },
+    { key: 'low', label: 'Laag', bg: 'bg-blue-500/15', text: 'text-blue-300', border: 'border-blue-500/30' },
+    { key: 'info', label: 'Info', bg: 'bg-surface/60', text: 'text-muted', border: 'border-border' },
+  ] as const;
+
+  const runningTask = tasks.find((t) => ['running', 'dispatching', 'in_progress'].includes(t.status));
+  const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const iters = loop?.iteration_count ? Number(loop.iteration_count) : 0;
+
+  return (
+    <div className="glass-panel shrink-0 rounded-lg p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
+          <Activity size={15} /> Bevindingen overzicht
+        </h2>
+        <span className="text-[0.85rem] font-bold text-text">{total} totaal{iters > 0 ? ` · ${iters} iteraties` : ''}</span>
+      </div>
+
+      {/* Severity badges */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {sevConfig.map(({ key, label, bg, text, border }) => (
+          bySev[key] > 0 && (
+            <div key={key} className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1', bg, border)}>
+              <span className={cn('text-[1.05rem] font-bold', text)}>{bySev[key]}</span>
+              <span className={cn('text-[0.77rem] font-semibold', text)}>{label}</span>
+            </div>
+          )
+        ))}
+        {total === 0 && <span className="text-[0.88rem] text-muted">Nog geen bevindingen</span>}
+      </div>
+
+      {/* Top findings */}
+      {topFindings.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[0.75rem] font-bold uppercase tracking-wide text-muted">Belangrijkste bevindingen</p>
+          {topFindings.map((f) => {
+            const sev = (f.severity ?? 'info').toLowerCase();
+            const colors: Record<string, string> = { critical: 'text-red', high: 'text-orange-400', medium: 'text-yellow-300', low: 'text-blue-300', info: 'text-muted' };
+            return (
+              <div key={f.id} className="flex items-start gap-2 rounded-md border border-border bg-surface/35 px-3 py-2">
+                <span className={cn('mt-0.5 shrink-0 text-[0.75rem] font-bold uppercase', colors[sev] ?? 'text-muted')}>{sev}</span>
+                <span className="text-[0.85rem] text-text">{f.title}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Running indicator */}
+      {runningTask && (
+        <div className="mt-3 flex items-center gap-2 rounded-md border border-cyan/20 bg-cyan/5 px-3 py-2">
+          <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+          <span className="text-[0.83rem] text-cyan">
+            <strong>{runningTask.tool}</strong> loopt nu
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Task results panel: each tool with status + finding count + Dutch explanation
+// ─────────────────────────────────────────────
+const TOOL_INFO: Record<string, { why: string; what: string; impact: string }> = {
+  httpx: {
+    why: 'Eerste verkenning van het systeem.',
+    what: 'Haalt de pagina op, leest headers, links en formulieren.',
+    impact: 'Geeft een overzicht van het aanvalsoppervlak.',
+  },
+  'xss-extended': {
+    why: 'Testen of gebruikersinvoer als code uitgevoerd kan worden.',
+    what: 'Injecteert testpayloads in URL-parameters en formulieren.',
+    impact: 'XSS kan sessies stelen of gebruikers misleiden.',
+  },
+  zap: {
+    why: 'Actieve scan op bekende kwetsbaarheden.',
+    what: 'Test alle pagina\'s op injection, headers en sessiefouten.',
+    impact: 'Vindt CSRF, clickjacking, missing security headers en meer.',
+  },
+  nikto: {
+    why: 'Controle op bekende webserver-kwetsbaarheden.',
+    what: 'Vergelijkt de server met een database van bekende problemen.',
+    impact: 'Vindt verouderde software, verkeerde configuraties.',
+  },
+  'session-security': {
+    why: 'Controleren of sessies veilig beheerd worden.',
+    what: 'Analyseert cookies, tokens en authenticatiegedrag.',
+    impact: 'Sessiediefstal kan leiden tot accountovername.',
+  },
+  'content-discovery': {
+    why: 'Zoeken naar verborgen pagina\'s en endpoints.',
+    what: 'Probeert bekende padnamen op de server.',
+    impact: 'Verborgen beheerinterfaces of backup-bestanden.',
+  },
+  'headers-security': {
+    why: 'Controleren of beveiligingsheaders aanwezig zijn.',
+    what: 'Leest alle HTTP-responsheaders en vergelijkt met best practices.',
+    impact: 'Ontbrekende headers maken XSS en clickjacking eenvoudiger.',
+  },
+  'logging-probe': {
+    why: 'Testen of fouten onbedoeld informatie lekken.',
+    what: 'Stuurt foute verzoeken en kijkt wat de server teruggeeft.',
+    impact: 'Stack traces en paden helpen aanvallers.',
+  },
+  'crypto-audit': {
+    why: 'Beoordelen van de TLS/SSL-configuratie.',
+    what: 'Controleert certificaat, cipher suites en protocol.',
+    impact: 'Zwakke TLS maakt man-in-the-middle aanvallen mogelijk.',
+  },
+  'ssrf-probe': {
+    why: 'Testen of de server interne diensten kan benaderen.',
+    what: 'Stuurt verzoeken naar interne adressen via het systeem.',
+    impact: 'SSRF geeft toegang tot cloud metadata of interne API\'s.',
+  },
+  'ssti-probe': {
+    why: 'Testen op server-side template injectie.',
+    what: 'Injecteert template-expressies en kijkt of die worden uitgevoerd.',
+    impact: 'SSTI kan leiden tot volledige code-executie.',
+  },
+  'auth-flow': {
+    why: 'Analyseren van het inlogsysteem.',
+    what: 'Test authenticatiegedrag, wachtwoordbeleid en sessieafhandeling.',
+    impact: 'Zwakke auth leidt tot accountovername.',
+  },
+  'client-state': {
+    why: 'Testen op client-side privileges manipulatie.',
+    what: 'Past cookies en lokale opslag aan en kijkt of de server dat accepteert.',
+    impact: 'Privilege escalatie zonder server-side check.',
+  },
+  'idor-bac': {
+    why: 'Testen of je objecten van andere gebruikers kunt benaderen.',
+    what: 'Past ID\'s aan in verzoeken en kijkt of de server reageert.',
+    impact: 'IDOR/BAC lekt data van andere gebruikers.',
+  },
+  'http-smuggling': {
+    why: 'Testen op HTTP request smuggling.',
+    what: 'Stuurt ambigue HTTP-verzoeken die tussenliggende proxies verwarren.',
+    impact: 'Kan sessies kapen of beveiligingscontroles omzeilen.',
+  },
+};
+
+function TaskResultsPanel({
+  run, tasks, findings, selectedTaskId, onSelect,
+}: {
+  run: Run; tasks: Task[]; findings: Finding[];
+  selectedTaskId: UUID | null; onSelect: (id: UUID) => void;
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const ordered = [...tasks].sort((a, b) => (a.created_at ?? '') < (b.created_at ?? '') ? -1 : 1);
+  const findingsByTask = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const f of findings) {
+      // Tool matching via methodology_tags or tool field
+      const tag = f.methodology_tags?.find((t: string) => tasks.some((tk) => tk.tool === t));
+      if (tag) map[tag] = (map[tag] ?? 0) + 1;
+    }
+    return map;
+  }, [findings, tasks]);
+
+  const statusIcon = (status: string) => {
+    if (['running', 'dispatching', 'in_progress'].includes(status))
+      return <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />;
+    if (status === 'completed') return <Check size={13} className="text-emerald-400" />;
+    if (status === 'failed' || status === 'completed_with_errors')
+      return <AlertTriangle size={13} className="text-amber" />;
+    if (['queued', 'pending'].includes(status))
+      return <span className="h-2 w-2 rounded-full bg-muted" />;
+    return null;
+  };
+
+  const statusLabel = (status: string) => {
+    const m: Record<string, string> = {
+      completed: 'Klaar', failed: 'Fout', completed_with_errors: 'Overgeslagen',
+      running: 'Loopt', dispatching: 'Start op', queued: 'Wacht', pending: 'Wacht',
+    };
+    return m[status] ?? status;
+  };
+
+  const statusColor = (status: string) => {
+    if (['running', 'dispatching', 'in_progress'].includes(status)) return 'text-cyan';
+    if (status === 'completed') return 'text-emerald-400';
+    if (status === 'failed') return 'text-red';
+    if (status === 'completed_with_errors') return 'text-amber';
+    return 'text-muted';
+  };
+
+  return (
+    <div className="glass-panel flex min-h-0 flex-col rounded-lg p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
+          <TerminalSquare size={15} /> Scanresultaten
+        </h2>
+        <span className="text-[0.82rem] text-muted">{ordered.length} tools</span>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
+        {ordered.map((task) => {
+          const info = TOOL_INFO[task.tool ?? ''];
+          const taskFindings = findingsByTask[task.tool ?? ''] ?? 0;
+          const isOpen = expanded === task.id;
+          const isSelected = selectedTaskId === task.id;
+          return (
+            <div key={task.id} className={cn('rounded-md border transition-colors', isSelected ? 'border-cyan/30 bg-cyan/5' : 'border-border bg-surface/30')}>
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+                onClick={() => { onSelect(task.id); setExpanded(isOpen ? null : task.id); }}
+              >
+                <span className="shrink-0 w-4 flex justify-center">{statusIcon(task.status ?? '')}</span>
+                <span className="flex-1 font-mono text-[0.85rem] font-semibold text-text">{task.tool}</span>
+                {taskFindings > 0 && (
+                  <span className="shrink-0 rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[0.72rem] font-bold text-amber">
+                    {taskFindings} gevonden
+                  </span>
+                )}
+                <span className={cn('shrink-0 text-[0.77rem] font-semibold', statusColor(task.status ?? ''))}>
+                  {statusLabel(task.status ?? '')}
+                </span>
+                <ChevronRight size={12} className={cn('shrink-0 text-muted transition-transform', isOpen && 'rotate-90')} />
+              </button>
+              {isOpen && info && (
+                <div className="border-t border-border bg-surface/20 px-3 py-2.5 text-[0.82rem] space-y-1">
+                  <p><span className="font-semibold text-cyan">Waarom:</span> <span className="text-muted">{info.why}</span></p>
+                  <p><span className="font-semibold text-cyan">Wat doet het:</span> <span className="text-muted">{info.what}</span></p>
+                  <p><span className="font-semibold text-cyan">Impact:</span> <span className="text-muted">{info.impact}</span></p>
+                </div>
+              )}
+              {isOpen && !info && task.target_id && (
+                <div className="border-t border-border px-3 py-2 text-[0.78rem] text-muted">{task.target_id}</div>
+              )}
+            </div>
+          );
+        })}
+        {ordered.length === 0 && (
+          <p className="px-2 py-4 text-center text-[0.88rem] text-muted">Nog geen taken gestart.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 function NarrationStrip({ run, tasks, findings }: { run: Run; tasks: Task[]; findings: Finding[] }) {
   const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
