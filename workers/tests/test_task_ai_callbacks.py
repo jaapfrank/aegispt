@@ -153,6 +153,57 @@ def _seed_completed_ai_loop_task(session) -> Task:
     return task
 
 
+def _seed_completed_ai_loop_bootstrap_task(session) -> Task:
+    engagement = Engagement(
+        name="Worker AI Loop Bootstrap",
+        client="Acme Corp",
+        roe_ref="ROE-WORKER-AI-LOOP-PASSIVE",
+        status="active",
+    )
+    scope = Scope(
+        engagement=engagement,
+        allowlist_json={"urls": ["https://loop.example.test"]},
+        denylist_json={},
+    )
+    profile = RunProfile(
+        name="worker-ai-loop-passive-profile",
+        run_class="passive",
+        limits_json={
+            "tools": ["httpx"],
+            "required_approvals": 0,
+            "autonomous_mode_default": True,
+        },
+    )
+    run = Run(
+        engagement=engagement,
+        profile=profile,
+        requested_by="worker-test",
+        status="completed",
+        autonomous_mode=True,
+        autonomous_intrusive_allowed=False,
+        configuration_json={
+            "targets": {"urls": ["https://loop.example.test"]},
+            "run_mode": "ai_loop",
+            "ai_assessment_loop": {
+                "enabled": True,
+                "run_mode": "ai_loop",
+                "iteration_count": 0,
+                "iterations": [],
+            },
+        },
+    )
+    task = Task(
+        run=run,
+        tool="bootstrap",
+        target_id="https://loop.example.test",
+        params_json={"assessment_loop": {"run_mode": "ai_loop"}},
+        status="completed",
+    )
+    session.add_all([engagement, scope, profile, run, task])
+    session.flush()
+    return task
+
+
 def test_worker_post_task_ai_callback_is_opt_in_and_stores_pending_review(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("AI_AGENT_POST_TASK_ANALYSIS_ENABLED", "true")
     monkeypatch.setenv("AI_AGENT_POST_TASK_ANALYSIS_PROVIDER", "deterministic")
@@ -175,6 +226,44 @@ def test_worker_post_task_ai_callback_is_opt_in_and_stores_pending_review(monkey
         assert proposals[0].proposed_tool == "httpx"
         assert proposals[0].proposed_target == "10.0.0.5"
         assert proposals[0].metadata_json["dispatches_work"] is False
+
+    get_settings.cache_clear()
+    get_session_factory.cache_clear()
+
+
+def test_worker_ai_loop_advances_after_completed_task_and_queues_passive_work(
+    tmp_path,
+) -> None:
+    get_settings.cache_clear()
+    get_session_factory.cache_clear()
+
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as session:
+        task = _seed_completed_ai_loop_bootstrap_task(session)
+        session.commit()
+
+        outcome = _maybe_advance_assessment_loop_after_task(session, task)
+        session.commit()
+
+        assert outcome is not None
+        assert outcome["run_mode"] == "ai_loop"
+        assert outcome["status"] == "waiting_for_execution"
+        assert outcome["queued_task_id"]
+        assert outcome["proposal_id"]
+        next_action = outcome["next_action"]
+        assert next_action["tool"] == "httpx"
+        assert next_action["tier"] == "passive"
+
+        proposals = list(session.scalars(select(AgentProposal)))
+        tasks = list(session.scalars(select(Task).order_by(Task.created_at, Task.id)))
+        assert len(proposals) == 1
+        assert proposals[0].status == "approved"
+        assert proposals[0].metadata_json["proposal_kind"] == "assessment_loop_next_action"
+        assert proposals[0].metadata_json["dispatches_work"] is True
+        assert {item.tool for item in tasks} == {"bootstrap", "httpx"}
+        queued_httpx = next(item for item in tasks if item.tool == "httpx")
+        assert queued_httpx.status == "queued"
+        assert queued_httpx.params_json["assessment_loop"]["dispatch_mode"] == "queued_for_auto_dispatch"
 
     get_settings.cache_clear()
     get_session_factory.cache_clear()

@@ -119,13 +119,21 @@ type IntakeLaunchState = {
   depth: string | null;
 };
 
+const lowerValue = (value: unknown): string => (typeof value === 'string' ? value.toLowerCase() : '');
+const runStatus = (run: Partial<Run> | null | undefined): string => lowerValue(run?.status);
+const taskStatus = (task: Partial<Task> | null | undefined): string => lowerValue(task?.status);
+const proposalStatus = (proposal: Partial<AgentProposal> | null | undefined): string => lowerValue(proposal?.status);
+const profileName = (run: Partial<Run> | null | undefined): string => run?.profile?.name ?? 'selected run';
+const isPendingProposal = (proposal: Partial<AgentProposal> | null | undefined): boolean =>
+  ['pending', 'pending_review'].includes(proposalStatus(proposal));
+
 const isRunTerminal = (run: Run): boolean => {
-  const status = run.status.toLowerCase();
+  const status = runStatus(run);
   return TERMINAL_STATUSES.has(status) || chainStatus(run.assessment_chain).toLowerCase() === 'completed_with_gaps';
 };
 
-const isTaskActiveForRun = (task: Task, run: Run): boolean => !isRunTerminal(run) && RUNNING_STATUSES.has(task.status);
-const isTaskQueuedForRun = (task: Task, run: Run): boolean => !isRunTerminal(run) && QUEUED_STATUSES.has(task.status);
+const isTaskActiveForRun = (task: Task, run: Run): boolean => !isRunTerminal(run) && RUNNING_STATUSES.has(taskStatus(task));
+const isTaskQueuedForRun = (task: Task, run: Run): boolean => !isRunTerminal(run) && QUEUED_STATUSES.has(taskStatus(task));
 
 export default function MissionControl() {
   const location = useLocation();
@@ -158,11 +166,11 @@ export default function MissionControl() {
   const currentPhase = phases.find((phase) => phase.current) ?? phases[0] ?? null;
   const mapNodes = useMemo(() => buildMapNodes(inventory, tasks, findings, selectedRun), [inventory, selectedRun, tasks, findings]);
   const activeTaskCount = selectedRun ? tasks.filter((task) => isTaskActiveForRun(task, selectedRun)).length : 0;
-  const pendingProposalCount = proposals.filter((proposal) => proposal.status === 'pending').length;
-  const canCancel = Boolean(selectedRun && !TERMINAL_STATUSES.has(selectedRun.status));
+  const pendingProposalCount = proposals.filter((proposal) => proposalStatus(proposal) === 'pending').length;
+  const canCancel = Boolean(selectedRun && !TERMINAL_STATUSES.has(runStatus(selectedRun)));
   const selectedRunIsAutomatic = Boolean(selectedRun && isAutomaticRun(selectedRun));
   const selectedRunIsWargaming = Boolean(selectedRun && isWargamingRun(selectedRun));
-  const canDispatch = Boolean(selectedRun && ['queued', 'requested'].includes(selectedRun.status));
+  const canDispatch = Boolean(selectedRun && ['queued', 'requested'].includes(runStatus(selectedRun)));
   const consoleTask = useMemo(
     () => (selectedRun ? selectConsoleTask(tasks, selectedRun, selectedTaskId) : null),
     [selectedRun, selectedTaskId, tasks],
@@ -173,7 +181,7 @@ export default function MissionControl() {
       currentPhase?.key &&
       (chainStatus(chain) === 'pending_phase_approval' || (currentPhase.requiresApproval && !currentPhase.approved_by))
   );
-  const isPolling = Boolean(selectedRun && ACTIVE_STATUSES.has(selectedRun.status));
+  const isPolling = Boolean(selectedRun && ACTIVE_STATUSES.has(runStatus(selectedRun)));
 
   useEffect(() => {
     const intakeLaunch = readIntakeLaunchState(location.state);
@@ -269,7 +277,7 @@ export default function MissionControl() {
   useEffect(() => {
     if (!consoleTask) return;
     const taskId = consoleTask.id;
-    const shouldPollDetail = selectedRun ? !TERMINAL_STATUSES.has(selectedRun.status) || !TERMINAL_STATUSES.has(consoleTask.status) : false;
+    const shouldPollDetail = selectedRun ? !TERMINAL_STATUSES.has(runStatus(selectedRun)) || !TERMINAL_STATUSES.has(taskStatus(consoleTask)) : false;
     let cancelled = false;
     async function loadTaskDetail() {
       try {
@@ -399,11 +407,11 @@ export default function MissionControl() {
 
   return (
     <section className="flex min-h-full flex-col gap-5">
-      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border pb-4">
-        <div className="flex min-w-0 items-center gap-4">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-normal text-text">Mission Control</h1>
-          <span className={cn('rounded-full px-2.5 py-1 text-[0.8rem] font-bold uppercase tracking-wider', statusTone(selectedRun.status))}>
-            {selectedRun.status}
+          <span className={cn('rounded-full px-2.5 py-1 text-[0.8rem] font-bold uppercase tracking-wider', statusTone(runStatus(selectedRun)))}>
+            {statusLabel(runStatus(selectedRun))}
           </span>
           {isPolling && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[0.75rem] font-bold uppercase tracking-wider text-cyan">
@@ -449,10 +457,12 @@ export default function MissionControl() {
         </div>
       </div>
 
-      <div className="grid flex-1 min-h-[740px] gap-4 grid-cols-1 md:grid-cols-12 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+      <div className="grid flex-1 min-h-[560px] gap-4 grid-cols-1 md:grid-cols-12 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
         {/* HET ZICHT (Centrum Map) */}
-        <div className="flex min-h-0 flex-col gap-4 md:col-span-12 xl:col-span-7 xl:row-span-3">
-          <ScanMap nodes={mapNodes} inventory={inventory} materialize={Boolean(launchArrival)} />
+        <div className="flex min-h-0 flex-col gap-3 md:col-span-12 xl:col-span-7 xl:row-span-3">
+          <div className="max-h-[260px] min-h-[180px] overflow-hidden rounded-xl">
+            <ScanMap nodes={mapNodes} inventory={inventory} materialize={Boolean(launchArrival)} />
+          </div>
         </div>
 
         {/* DE ACTIE (Taken, Samenvatting, Phases) */}
@@ -573,7 +583,7 @@ function ActiveWorkStrip({
               ? `${selectedRunningTask.tool} is ${selectedRunningTask.status} against ${truncateMiddle(selectedRunningTask.target_id || 'recorded target', 96)}.`
               : selectedQueuedTask
                 ? `${selectedQueuedTask.tool} is queued against ${truncateMiddle(selectedQueuedTask.target_id || 'recorded target', 96)}. It is not running until dispatch or a worker picks it up.`
-              : ['queued', 'requested'].includes(selectedRun.status)
+              : ['queued', 'requested'].includes(runStatus(selectedRun))
                 ? 'This run is queued, but no backend task is running yet. Use Start Queued Checks if automatic dispatch did not begin.'
               : selectedRunIsActive
                 ? 'This selected run is active, but the backend has not exposed a current task yet.'
@@ -584,13 +594,14 @@ function ActiveWorkStrip({
         <div className="grid w-full gap-2 lg:w-auto lg:min-w-[22rem]">
           {activeRuns.slice(0, 4).map((run) => {
             const isSelected = run.id === selectedRunId;
-            const activeTask = (run.tasks ?? []).find((task) => RUNNING_STATUSES.has(task.status)) ??
-              (run.tasks ?? []).find((task) => QUEUED_STATUSES.has(task.status));
+            const runState = runStatus(run);
+            const activeTask = (run.tasks ?? []).find((task) => RUNNING_STATUSES.has(taskStatus(task))) ??
+              (run.tasks ?? []).find((task) => QUEUED_STATUSES.has(taskStatus(task)));
             const taskStateCopy = activeTask
-              ? QUEUED_STATUSES.has(activeTask.status)
+              ? QUEUED_STATUSES.has(taskStatus(activeTask))
                 ? `${activeTask.tool} queued; not running`
-                : `${activeTask.tool} is ${activeTask.status}`
-              : run.status;
+                : `${activeTask.tool} is ${statusLabel(taskStatus(activeTask))}`
+              : statusLabel(runState);
             return (
               <button
                 key={run.id}
@@ -604,13 +615,13 @@ function ActiveWorkStrip({
                 )}
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[0.925rem] font-semibold">{run.profile.name}</span>
+                  <span className="block truncate text-[0.925rem] font-semibold">{profileName(run)}</span>
                   <span className="block truncate font-mono text-[0.8rem] text-muted">
                     {compactId(run.id)} · {taskStateCopy}
                   </span>
                 </span>
-                <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.72rem] font-bold uppercase', statusTone(run.status))}>
-                  {isSelected ? 'open' : run.status}
+                <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.72rem] font-bold uppercase', statusTone(runState))}>
+                  {isSelected ? 'open' : statusLabel(runState)}
                 </span>
               </button>
             );
@@ -657,10 +668,10 @@ function MissionNowPanel({
           <h2 className="mt-1 text-[1.15rem] font-semibold text-text">{status.title}</h2>
           <p className="mt-1 max-w-4xl text-[0.95rem] leading-5 text-muted">{status.detail}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <StatusChip label="Run" value={statusLabel(run.status)} />
+            <StatusChip label="Run" value={statusLabel(runStatus(run))} />
             {currentPhase && <StatusChip label="Phase" value={`${currentPhase.label} · ${statusLabel(currentPhase.status)}`} />}
-            {status.currentTask && <StatusChip label="Current" value={`${status.currentTask.tool} · ${statusLabel(status.currentTask.status)}`} />}
-            {status.nextTask && <StatusChip label="Next" value={`${status.nextTask.tool} · ${statusLabel(status.nextTask.status)}`} />}
+            {status.currentTask && <StatusChip label="Current" value={`${status.currentTask.tool} · ${statusLabel(taskStatus(status.currentTask))}`} />}
+            {status.nextTask && <StatusChip label="Next" value={`${status.nextTask.tool} · ${statusLabel(taskStatus(status.nextTask))}`} />}
             {gaps.total > 0 && <StatusChip label="Gaps" value={`${gaps.failed} failed · ${gaps.notRun} not run`} warning />}
           </div>
         </div>
@@ -811,7 +822,7 @@ function LiveCommandConsole({
         </div>
         <pre className="mt-4 min-h-[10rem] overflow-auto rounded-md border border-border bg-black/70 p-4 font-mono text-[0.9rem] leading-6 text-[#c8d6e5]">
 {`aegispt> no backend task is selected
-status > ${statusLabel(run.status)}
+status > ${statusLabel(runStatus(run))}
 hint   > create or dispatch a mission to see command input and stdout here`}
         </pre>
       </section>
@@ -823,8 +834,8 @@ hint   > create or dispatch a mission to see command input and stdout here`}
   const output = detail ? boundedOutput(detail) : pendingOutputForTask(task, run);
   const input = taskInputPreview(task);
   const command = commandPreview(task);
-  const taskStatus = displayStatus.toLowerCase();
-  const live = RUNNING_STATUSES.has(task.status.toLowerCase()) && !isRunTerminal(run);
+  const displayStatusLower = displayStatus.toLowerCase();
+  const live = RUNNING_STATUSES.has(taskStatus(task)) && !isRunTerminal(run);
 
   return (
     <section className="flex flex-1 flex-col rounded-lg border border-cyan/25 bg-[#02060c]/95 p-4 shadow-[0_0_34px_rgba(94,207,255,0.12)]">
@@ -864,7 +875,7 @@ hint   > create or dispatch a mission to see command input and stdout here`}
         <div className="flex min-h-0 flex-1 flex-col rounded-md border border-border bg-black/70 p-3">
           <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
             <p className="text-[0.75rem] font-bold uppercase tracking-widest text-cyan/75">
-              {taskStatus === 'failed' ? 'Stdout / Stderr' : 'Stdout'}
+              {displayStatusLower === 'failed' ? 'Stdout / Stderr' : 'Stdout'}
             </p>
             <span className="font-mono text-[0.75rem] text-muted">
               {detail?.stdout_snapshot?.source || 'task-detail'} {detail?.stdout_snapshot?.stream_terminal === false ? '// streaming' : '// snapshot'}
@@ -927,9 +938,9 @@ function TaskList({
                     <span className={cn('rounded-full px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusTone(displayStatus))}>
                       {statusLabel(displayStatus)}
                     </span>
-                    {displayStatus !== task.status && (
+                    {displayStatus !== String(task.status ?? '') && (
                       <span className="rounded-full border border-border bg-bg/40 px-2 py-0.5 text-[0.7rem] font-semibold uppercase text-muted">
-                        backend: {task.status}
+                        backend: {task.status ?? 'unknown'}
                       </span>
                     )}
                   </div>
@@ -1271,7 +1282,7 @@ function AiSignalPanel({
 }) {
   const feedRef = useRef<HTMLDivElement | null>(null);
   const entryKey = useMemo(() => entries.map((entry) => entry.id).join('|'), [entries]);
-  const pendingProposalCount = proposals.filter((proposal) => proposal.status === 'pending').length;
+  const pendingProposalCount = proposals.filter((proposal) => isPendingProposal(proposal)).length;
   const streaming = busyAction === 'refresh';
   const signalStatus = pendingProposalCount > 0 ? 'Review' : streaming ? 'Fetching' : entries.length > 0 ? 'Live' : 'Idle';
   const statusTone =
@@ -1324,7 +1335,7 @@ function AiSignalPanel({
                 <InlineProposalActions
                   proposal={entry.proposal}
                   busy={busyAction === `proposal-${entry.proposal.id}`}
-                  disabled={busyAction !== null || entry.proposal.status !== 'pending'}
+                  disabled={busyAction !== null || !isPendingProposal(entry.proposal)}
                   onReview={onReview}
                 />
               )}
@@ -1352,10 +1363,11 @@ function InlineProposalActions({
   disabled: boolean;
   onReview: (proposal: AgentProposal, decision: 'approved' | 'rejected') => void;
 }) {
-  if (proposal.status !== 'pending') {
+  if (!isPendingProposal(proposal)) {
+    const status = proposalStatus(proposal);
     return (
       <div className="mt-3 inline-flex items-center rounded-md border border-border bg-bg/40 px-2.5 py-1.5 text-[0.85rem] font-semibold text-muted">
-        {proposal.status === 'approved' ? 'Approved' : proposal.status === 'rejected' ? 'Skipped' : proposal.status}
+        {status === 'approved' ? 'Approved' : status === 'rejected' ? 'Skipped' : status || 'Recorded'}
       </div>
     );
   }
@@ -1552,31 +1564,32 @@ function buildAiSignalEntries(
 ): AiSignalEntry[] {
   const entries: AiSignalEntry[] = [
     {
-      id: `run-${run.id}-${run.updated_at}`,
+      id: `run-${run.id}-${run.updated_at ?? 'updated'}`,
       type: 'status',
-      timestamp: run.updated_at,
-      text: `${run.profile.name} is ${run.status}. ${tasks.length} task(s), ${findings.length} finding(s), and ${proposals.length} AI proposal record(s) are bound to this run.`,
+      timestamp: stringValue(run.updated_at) || new Date().toISOString(),
+      text: `${profileName(run)} is ${statusLabel(runStatus(run))}. ${tasks.length} task(s), ${findings.length} finding(s), and ${proposals.length} AI proposal record(s) are bound to this run.`,
       tone: 'border-cyan/20',
     },
   ];
 
   for (const task of tasks.slice(0, 4)) {
     entries.push({
-      id: `task-${task.id}-${task.updated_at}`,
+      id: `task-${task.id}-${task.updated_at ?? 'updated'}`,
       type: 'task',
-      timestamp: task.updated_at,
-      text: `${task.tool} ${task.status} against ${truncateMiddle(task.target_id || 'recorded target', 86)}. Output stays bounded to stored task evidence.`,
-      tone: ACTIVE_STATUSES.has(task.status) ? 'border-cyan/25 bg-cyan/5' : 'border-border',
+      timestamp: stringValue(task.updated_at) || new Date().toISOString(),
+      text: `${task.tool} ${statusLabel(taskStatus(task))} against ${truncateMiddle(task.target_id || 'recorded target', 86)}. Output stays bounded to stored task evidence.`,
+      tone: ACTIVE_STATUSES.has(taskStatus(task)) ? 'border-cyan/25 bg-cyan/5' : 'border-border',
     });
   }
 
   for (const finding of findings.slice(0, 4)) {
+    const severity = lowerValue(finding.severity) || 'info';
     entries.push({
-      id: `finding-${finding.id}-${finding.created_at}`,
+      id: `finding-${finding.id}-${finding.created_at ?? 'created'}`,
       type: 'finding',
-      timestamp: finding.created_at,
-      text: `${titleCase(finding.severity)} signal: ${finding.title} on ${truncateMiddle(finding.target_id, 82)}. Evidence ref ${finding.evidence_ref || 'recorded by backend'}.`,
-      tone: finding.severity.toLowerCase() === 'critical' ? 'border-red/35 bg-red/10' : 'border-amber/25 bg-amber/5',
+      timestamp: stringValue(finding.created_at) || new Date().toISOString(),
+      text: `${titleCase(severity)} signal: ${finding.title || 'Recorded finding'} on ${truncateMiddle(finding.target_id, 82)}. Evidence ref ${finding.evidence_ref || 'recorded by backend'}.`,
+      tone: severity === 'critical' ? 'border-red/35 bg-red/10' : 'border-amber/25 bg-amber/5',
     });
   }
 
@@ -1587,9 +1600,9 @@ function buildAiSignalEntries(
       stringValue(reasoning.observations_json?.[0]) ||
       'AI reasoning record is available for operator review.';
     entries.push({
-      id: `reasoning-${reasoning.id}-${reasoning.updated_at}`,
+      id: `reasoning-${reasoning.id}-${reasoning.updated_at ?? 'updated'}`,
       type: 'reasoning',
-      timestamp: reasoning.updated_at,
+      timestamp: stringValue(reasoning.updated_at) || new Date().toISOString(),
       text: clampText(summary, 260),
       tone: 'border-violet-300/25 bg-violet-300/5',
     });
@@ -1597,11 +1610,11 @@ function buildAiSignalEntries(
 
   for (const proposal of proposals.slice(0, 5)) {
     entries.push({
-      id: `proposal-${proposal.id}-${proposal.updated_at}`,
+      id: `proposal-${proposal.id}-${proposal.updated_at ?? 'updated'}`,
       type: 'proposal',
-      timestamp: proposal.updated_at,
+      timestamp: stringValue(proposal.updated_at) || new Date().toISOString(),
       text: `Proposal: ${proposal.proposed_tool} on ${truncateMiddle(proposal.proposed_target, 80)}. ${clampText(proposal.reasoning_text || 'Review this proposal before any task can be queued.', 190)} Risk tier ${proposal.risk_tier}.`,
-      tone: proposal.status === 'pending' ? 'border-cyan/35 bg-cyan/10' : 'border-border',
+      tone: isPendingProposal(proposal) ? 'border-cyan/35 bg-cyan/10' : 'border-border',
       proposal,
     });
   }
@@ -1631,7 +1644,7 @@ function isAiLoopRun(run: Run): boolean {
 
 function isWargamingRun(run: Run): boolean {
   const sandbox = run.configuration_json?.wargaming_sandbox;
-  return Boolean(run.profile.limits_json?.wargaming_sandbox || (isJsonMap(sandbox) && sandbox.simulation_only));
+  return Boolean(run.profile?.limits_json?.wargaming_sandbox || (isJsonMap(sandbox) && sandbox.simulation_only));
 }
 
 function fallbackRunForMissingRun(runs: Run[], missingRun: Run | null, missingRunId: string): Run | null {
@@ -1742,7 +1755,7 @@ function buildMissionStatus(
 ): MissionStatus {
   const activeTask = tasks.find((task) => isTaskActiveForRun(task, run)) ?? null;
   const queuedTask = tasks.find((task) => isTaskQueuedForRun(task, run)) ?? null;
-  const pendingProposal = proposals.find((proposal) => proposal.status === 'pending') ?? null;
+  const pendingProposal = proposals.find((proposal) => isPendingProposal(proposal)) ?? null;
   const gaps = taskGapSummary(tasks, run);
   const terminal = isRunTerminal(run);
   const dispatchMode = stringValue(runtimeDispatch(run)?.last_dispatch_mode);
@@ -1812,7 +1825,7 @@ function buildMissionStatus(
     return {
       title: `${currentPhase.label} is ${statusLabel(currentPhase.status)}`,
       detail: 'Mission Control is waiting for the backend to expose the next task, proposal, or phase transition.',
-      operatorAction: ['queued', 'requested'].includes(run.status.toLowerCase()) ? 'Use Start Queued Checks if dispatch did not begin.' : null,
+      operatorAction: ['queued', 'requested'].includes(runStatus(run)) ? 'Use Start Queued Checks if dispatch did not begin.' : null,
       tone: 'waiting',
       currentTask: null,
       nextTask: null,
@@ -1820,9 +1833,9 @@ function buildMissionStatus(
   }
 
   return {
-    title: `${run.profile.name} is ${statusLabel(run.status)}`,
+    title: `${profileName(run)} is ${statusLabel(runStatus(run))}`,
     detail: 'The selected run is loaded, but there is no active backend task or proposal attached to it right now.',
-    operatorAction: ['queued', 'requested'].includes(run.status.toLowerCase()) ? 'Use Start Queued Checks to dispatch accepted work.' : null,
+    operatorAction: ['queued', 'requested'].includes(runStatus(run)) ? 'Use Start Queued Checks to dispatch accepted work.' : null,
     tone: 'waiting',
     currentTask: null,
     nextTask: null,
@@ -1844,7 +1857,7 @@ function selectConsoleTask(tasks: Task[], run: Run, selectedTaskId: UUID | null)
   return (
     tasks.find((task) => isTaskActiveForRun(task, run)) ??
     tasks.find((task) => isTaskQueuedForRun(task, run)) ??
-    tasks.find((task) => task.status.toLowerCase() === 'failed') ??
+    tasks.find((task) => taskStatus(task) === 'failed') ??
     tasks.find((task) => taskDisplayStatus(task, run) === 'not_run') ??
     [...tasks].sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0] ??
     null
@@ -1855,7 +1868,7 @@ function phaseBlockerMessage(run: Run, tasks: Task[], phases: PhaseView[], curre
   if (!currentPhase || isRunTerminal(run)) return null;
   const queuedTask = tasks.find((task) => isTaskQueuedForRun(task, run));
   if (queuedTask) {
-    const nextPendingPhase = phases.find((phase) => !phase.current && phase.status.toLowerCase().includes('pending'));
+    const nextPendingPhase = phases.find((phase) => !phase.current && lowerValue(phase.status).includes('pending'));
     const nextLabel = nextPendingPhase?.label ?? 'the next phase';
     return `${nextLabel} stays pending until ${queuedTask.tool} leaves queued state and Phase ${currentPhase.label} closes.`;
   }
@@ -1863,7 +1876,7 @@ function phaseBlockerMessage(run: Run, tasks: Task[], phases: PhaseView[], curre
   if (runningTask) {
     return `${runningTask.tool} is still ${runningTask.status}; the chain cannot advance until that runner records terminal evidence.`;
   }
-  const failedTask = tasks.find((task) => task.status.toLowerCase() === 'failed');
+  const failedTask = tasks.find((task) => taskStatus(task) === 'failed');
   if (failedTask) {
     return `${failedTask.tool} failed. The chain can only continue after the failed check is reviewed or accepted as a documented gap.`;
   }
@@ -2009,11 +2022,11 @@ function chainStatus(chain: Partial<AssessmentChain> | JsonMap | null): string {
 }
 
 function taskDisplayStatus(task: Task, run: Run): string {
-  const status = task.status.toLowerCase();
+  const status = taskStatus(task);
   if (isRunTerminal(run) && ['queued', 'requested', 'dispatching', 'running'].includes(status)) {
     return 'not_run';
   }
-  return task.status;
+  return status || 'unknown';
 }
 
 function isTaskGap(task: Task, run: Run): boolean {
@@ -2025,14 +2038,14 @@ function taskStatusNote(task: Task, run: Run): string | null {
   if (taskDisplayStatus(task, run) === 'not_run') {
     return 'Run is terminal; backend left this check queued/requested, so Mission Control treats it as not run.';
   }
-  if (task.status.toLowerCase() === 'failed') {
+  if (taskStatus(task) === 'failed') {
     return 'This failed check is why the chain can be completed with gaps.';
   }
   return null;
 }
 
 function taskGapSummary(tasks: Task[], run: Run): { failed: number; notRun: number; total: number } {
-  const failed = tasks.filter((task) => task.status.toLowerCase() === 'failed').length;
+  const failed = tasks.filter((task) => taskStatus(task) === 'failed').length;
   const notRun = tasks.filter((task) => taskDisplayStatus(task, run) === 'not_run').length;
   return { failed, notRun, total: failed + notRun };
 }

@@ -354,7 +354,6 @@ def test_assessment_loop_active_action_in_ai_loop_auto_queues_task(client) -> No
         assert proposal.status == "approved"
         assert proposal.metadata_json["proposal_kind"] == "assessment_loop_next_action"
         assert proposal.metadata_json["dispatches_work"] is True
-        # The queued task is the tool the selector chose
         queued_task = session.scalar(
             select(Task).where(Task.run_id == UUID(run_id),
                                Task.tool == next_action["tool"])

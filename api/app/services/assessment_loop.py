@@ -160,6 +160,8 @@ def _task_key(tool: str, target: str) -> str:
 def _tested_action_keys(run: Run) -> set[str]:
     keys: set[str] = set()
     for task in list(run.tasks or []):
+        if str(task.tool or "").strip() == "bootstrap":
+            continue
         keys.add(_task_key(task.tool, task.target_id))
     for proposal in list(run.agent_proposals or []):
         metadata = _as_dict(proposal.metadata_json)
@@ -574,6 +576,52 @@ def _goal_oriented_candidate(
                 required_approvals=required_approvals,
                 decision_source="goal_oriented_reasoning",
             )
+    return None
+
+
+def _auth_signal_candidate(
+    *,
+    run: Run,
+    scope: Scope,
+    targets: list[dict[str, str]],
+    plan: dict[str, Any],
+    tested_keys: set[str],
+) -> LoopCandidate | None:
+    signal_keys = _run_signal_keys(run)
+    if not ({"login_form_found", "auth_flow_present", "session_cookie_present"} & signal_keys):
+        return None
+    tool = "auth-flow"
+    if tool not in supported_execution_tools():
+        return None
+    plan_item = _capability_item(plan, tool)
+    for target in _target_candidates_for_tool(tool, targets):
+        target_value = str(target.get("value") or "").strip()
+        if not target_value:
+            continue
+        if _task_key(tool, target_value) in tested_keys:
+            continue
+        if not _scope_target_allowed(scope, target_value):
+            continue
+        tier = _tier_from_capability(plan_item, tool)
+        return LoopCandidate(
+            tool=tool,
+            target=target_value,
+            params={
+                "target_kind": target.get("kind"),
+                "source": "auth_signal_priority",
+                "matched_triggers": sorted({"login_form_found", "auth_flow_present", "session_cookie_present"} & signal_keys),
+            },
+            tier=tier,
+            reasoning=(
+                "Authentication and session signals are present, so the next bounded validation is to "
+                "review the auth flow before branching into broader surface probes."
+            ),
+            confidence=0.86,
+            follow_up_hints=list(plan_item.get("follow_up_tools") or []),
+            expected_evidence=list(plan_item.get("expected_evidence") or []),
+            required_approvals=int(plan_item.get("required_approvals") or (1 if tier in {"active", "intrusive"} else 0)),
+            decision_source="auth_signal_priority",
+        )
     return None
 
 
@@ -1378,6 +1426,13 @@ def advance_assessment_loop(
         plan=plan,
         tested_keys=tested_keys,
     )
+    auth_candidate = _auth_signal_candidate(
+        run=run,
+        scope=scope,
+        targets=_context_targets(context_document) or targets,
+        plan=plan,
+        tested_keys=tested_keys,
+    )
     recursive_candidate = _context_micro_plan_candidate(
         scope=scope,
         context_document=context_document,
@@ -1395,7 +1450,7 @@ def advance_assessment_loop(
         )
         else None
     )
-    candidate = goal_candidate or recursive_candidate or selector_candidate or _seed_candidate(
+    candidate = goal_candidate or auth_candidate or recursive_candidate or selector_candidate or _seed_candidate(
         run=run,
         scope=scope,
         targets=_context_targets(context_document) or targets,
