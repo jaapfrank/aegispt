@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Html, Line, OrbitControls, Sphere, Text, Grid, Trail, Box, Octahedron, Cylinder } from '@react-three/drei';
-import { Pause, Play, RotateCcw, X } from 'lucide-react';
+import { BrainCircuit, ChevronRight, Pause, Play, RotateCcw, X } from 'lucide-react';
 import * as THREE from 'three';
 import {
   ApiError,
@@ -532,21 +532,36 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      <CommandReplayPanel
-        activeStepIndex={activeStepIndex}
-        focusStep={focusStep}
-        replayPlaying={replayPlaying}
-        steps={steps}
-        toggleReplay={() => setReplayPlaying((current) => !current)}
-      />
+      {isAiLoopRunCinema(selectedRun) ? (
+        <AiAttackChainPanel run={selectedRun} />
+      ) : (
+        <CommandReplayPanel
+          activeStepIndex={activeStepIndex}
+          focusStep={focusStep}
+          replayPlaying={replayPlaying}
+          steps={steps}
+          toggleReplay={() => setReplayPlaying((current) => !current)}
+        />
+      )}
 
       <div className="font-cinema absolute bottom-4 left-4 z-20 flex max-w-[min(520px,calc(100vw-2rem))] flex-col gap-1 text-[0.72rem] uppercase tracking-widest text-cyan/55 sm:bottom-6 sm:left-6">
-        <p>SYS.TOPOLOGY.MAP // {pollState.toUpperCase()}</p>
-        <p>RUN // {selectedRun ? compactId(selectedRun.id) : 'NO RUN'}</p>
-        <p>REPLAY.TOOL // {activeStep?.tool ?? 'WAITING'}</p>
-        <p>CAMERA // {manualCamera ? 'MANUAL ZOOM/ORBIT' : selectedNode ? `FOCUSED ${truncate(selectedNode.label, 26)}` : 'AUTO FOLLOW'}</p>
-        <p>COLOR // BLUE REPLAY · GREEN CLEAN · YELLOW MEDIUM · AMBER HIGH · RED CRITICAL</p>
-        <p className="break-all">TARGET // {activeStep?.target ?? 'WAITING FOR DISCOVERY'}</p>
+        {isAiLoopRunCinema(selectedRun) ? (
+          <>
+            <p>SYS.AI.ADAPTIVE // {pollState.toUpperCase()}</p>
+            <p>RUN // {selectedRun ? compactId(selectedRun.id) : 'NO RUN'}</p>
+            <p>MODE // AI ADAPTIVE PENTEST — EXPLOITING CONFIRMED FINDINGS</p>
+            <p>CAMERA // {manualCamera ? 'MANUAL ZOOM/ORBIT' : selectedNode ? `FOCUSED ${truncate(selectedNode.label, 26)}` : 'AUTO FOLLOW'}</p>
+          </>
+        ) : (
+          <>
+            <p>SYS.TOPOLOGY.MAP // {pollState.toUpperCase()}</p>
+            <p>RUN // {selectedRun ? compactId(selectedRun.id) : 'NO RUN'}</p>
+            <p>REPLAY.TOOL // {activeStep?.tool ?? 'WAITING'}</p>
+            <p>CAMERA // {manualCamera ? 'MANUAL ZOOM/ORBIT' : selectedNode ? `FOCUSED ${truncate(selectedNode.label, 26)}` : 'AUTO FOLLOW'}</p>
+            <p>COLOR // BLUE REPLAY · GREEN CLEAN · YELLOW MEDIUM · AMBER HIGH · RED CRITICAL</p>
+            <p className="break-all">TARGET // {activeStep?.target ?? 'WAITING FOR DISCOVERY'}</p>
+          </>
+        )}
       </div>
 
       <div className="absolute bottom-4 right-4 z-20 grid w-[min(360px,calc(100vw-2rem))] grid-cols-2 gap-2 sm:bottom-6 sm:right-6">
@@ -621,6 +636,78 @@ function SelectedNodePanel({ node, onClear }: { node: CinemaNode; onClear: () =>
         <DetailRow label="Status" value={node.status} />
         <DetailRow label="Target" value={node.target || 'No target'} />
         <DetailRow label="Findings" value={node.findingCount > 0 ? `${node.findingCount} · ${node.severity}` : '0 · clean'} valueColor={node.findingCount > 0 ? severityColor(node.severity) : '#34d399'} />
+      </div>
+    </aside>
+  );
+}
+
+function isAiLoopRunCinema(run: { configuration_json?: Record<string, unknown> } | null): boolean {
+  if (!run?.configuration_json) return false;
+  const cfg = run.configuration_json;
+  const loop = cfg.ai_assessment_loop as Record<string, unknown> | undefined;
+  return cfg.run_mode === 'ai_loop' || loop?.run_mode === 'ai_loop';
+}
+
+function AiAttackChainPanel({ run }: { run: { configuration_json?: Record<string, unknown> } | null }) {
+  if (!run?.configuration_json) return null;
+  const loop = run.configuration_json.ai_assessment_loop as Record<string, unknown> | undefined;
+  const iterations = Array.isArray(loop?.iterations) ? (loop.iterations as Record<string, unknown>[]) : [];
+  const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
+  const loopStatus = String(loop?.status ?? 'ready');
+  const iterCount = Number(loop?.iteration_count ?? 0);
+
+  const latestIter = iterations[iterations.length - 1] as Record<string, unknown> | undefined;
+  const latestAction = latestIter?.next_action as Record<string, unknown> | undefined;
+  const hypothesis = latestAction?.reasoning ? String(latestAction.reasoning) : null;
+
+  return (
+    <aside className="absolute right-4 top-[5.5rem] z-20 w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-cyan/20 bg-[#06111f]/56 p-3 text-text shadow-[0_0_2rem_rgba(2,6,12,0.36)] backdrop-blur-md sm:right-6">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <BrainCircuit size={14} className="text-cyan" />
+          <p className="font-cinema text-[0.72rem] uppercase tracking-widest text-cyan/80">AI Attack Chain</p>
+        </div>
+        <span className="font-cinema text-[0.65rem] uppercase tracking-widest text-muted">
+          {iterCount} iter{stopReason ? ` · stopped` : loopStatus === 'waiting_for_execution' ? ' · running' : ''}
+        </span>
+      </div>
+
+      {hypothesis && (
+        <div className="mb-3 rounded-md border border-cyan/15 bg-cyan/5 px-3 py-2">
+          <p className="mb-1 font-cinema text-[0.65rem] uppercase tracking-widest text-cyan/65">Current hypothesis</p>
+          <p className="line-clamp-3 text-[0.78rem] leading-5 text-muted">{hypothesis}</p>
+        </div>
+      )}
+
+      <div className="max-h-[240px] space-y-1 overflow-y-auto pr-1">
+        {[...iterations].reverse().map((it, idx) => {
+          const na = it.next_action as Record<string, unknown> | undefined;
+          const tool = String(na?.tool ?? '?');
+          const status = String(it.status ?? 'unknown');
+          const tier = String(na?.tier ?? 'passive');
+          const dotColor = tier === 'intrusive' ? '#a855f7' : tier === 'active' ? '#f97316' : '#5ecfff';
+          return (
+            <div key={idx} className="flex items-start gap-2 rounded-md border border-transparent px-2 py-1.5 hover:border-cyan/15 hover:bg-cyan/5">
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}` }} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-cinema text-[0.72rem] uppercase tracking-widest text-text">{tool}</span>
+                  <ChevronRight size={10} className="text-muted/40" />
+                  <span className="truncate font-mono text-[0.65rem] text-muted">
+                    {na?.target ? String(na.target).replace(/^https?:\/\//, '').substring(0, 40) : ''}
+                  </span>
+                </div>
+                {it.iteration != null && (
+                  <span className="font-cinema text-[0.62rem] text-muted/50">iter {String(it.iteration)}</span>
+                )}
+              </div>
+              <span className={`shrink-0 font-cinema text-[0.62rem] uppercase ${status === 'queued' ? 'text-cyan' : 'text-muted/60'}`}>{status}</span>
+            </div>
+          );
+        })}
+        {iterations.length === 0 && (
+          <p className="px-2 py-3 text-[0.78rem] text-muted">AI loop starting — iterations will appear here.</p>
+        )}
       </div>
     </aside>
   );
