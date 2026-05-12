@@ -1568,6 +1568,47 @@ def advance_assessment_loop(
                     )
                     break
 
+    # LAN intel: after nmap runs for host/cidr targets, lan-intel analyzes services.
+    # Mirrors target-intel's role for web — intelligence before blind attack tools.
+    _lan_intel_candidate: LoopCandidate | None = None
+    if "lan-intel" in supported_execution_tools():
+        lan_targets = [t for t in targets if str(t.get("kind") or "") in ("host", "cidr", "domain", "target")]
+        for target in lan_targets:
+            target_value = str(target.get("value") or "").strip()
+            lan_key = _task_key("lan-intel", target_value)
+            nmap_key = _task_key("nmap", target_value)
+            # Only queue lan-intel if nmap has run AND lan-intel hasn't yet
+            nmap_done = nmap_key in tested_keys
+            lan_done = lan_key in tested_keys
+            if nmap_done and not lan_done and target_value and _scope_target_allowed(scope, target_value):
+                # Get nmap stdout to pass to lan-intel
+                nmap_stdout = ""
+                for task in list(run.tasks or []):
+                    if str(task.tool or "") == "nmap" and str(task.status or "") == "completed":
+                        for exe in list(task.tool_executions or []):
+                            if exe.stdout_text:
+                                nmap_stdout = exe.stdout_text[:8000]
+                                break
+                        if nmap_stdout:
+                            break
+                _lan_intel_candidate = LoopCandidate(
+                    tool="lan-intel",
+                    target=target_value,
+                    params={
+                        "target_kind": str(target.get("kind") or "host"),
+                        "source": "lan-intel-post-nmap",
+                        "nmap_stdout": nmap_stdout,
+                    },
+                    tier="passive",
+                    reasoning="LAN intelligence: AI analyzes nmap service scan to detect AD, CVEs, and create targeted attack plan.",
+                    confidence=0.92,
+                    follow_up_hints=["nuclei", "bloodhound-collect", "ldap-enum", "ssh-brute", "credential-attacks"],
+                    expected_evidence=["service_fingerprint", "targeted_lan_plan"],
+                    required_approvals=0,
+                    decision_source="lan_intel_post_nmap",
+                )
+                break
+
     selector_targets = _context_targets(context_document) or targets
     selector_report = select_next_best_action_for_run(
         session,
@@ -1621,7 +1662,8 @@ def advance_assessment_loop(
     seed_is_intel = seed is not None and seed.tool == "target-intel"
 
     candidate = (
-        _target_intel_candidate  # ALWAYS first: AI site analysis before any scanning
+        _target_intel_candidate  # web: AI site analysis before scanning
+        or _lan_intel_candidate   # LAN: AI service analysis after nmap
         or (_ai_proposal_candidate(run=run, scope=scope, plan=plan, tested_keys=tested_keys) if tested_keys else None)
         or (seed if seed_is_intel else None)
         or goal_candidate

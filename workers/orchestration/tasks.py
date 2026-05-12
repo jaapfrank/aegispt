@@ -163,6 +163,7 @@ from workers.runners.ipv6_discovery.runner import (
     IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME,
     execute_ipv6_discovery,
 )
+from workers.runners.lan_intel.runner import execute_lan_intel
 from workers.runners.ldap_enum.runner import execute_ldap_enum
 from workers.runners.leak_check.runner import execute_leak_check_review
 from workers.runners.llm_probe import execute_llm_probe
@@ -292,6 +293,7 @@ SUPPORTED_TOOLS = {
     "smart-web-probe",
     "ai-pentest-agent",
     "target-intel",
+    "lan-intel",
     "xxe-probe",
     "zap",
 }
@@ -1901,6 +1903,13 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
     if request.tool == "target-intel":
         return execute_target_intel(
             targets=request.targets,
+            timeout_seconds=max(timeout_seconds, 20.0),
+        )
+    if request.tool == "lan-intel":
+        nmap_raw = request.params.get("nmap_stdout") or ""
+        return execute_lan_intel(
+            targets=request.targets,
+            nmap_stdout=str(nmap_raw) if nmap_raw else None,
             timeout_seconds=max(timeout_seconds, 20.0),
         )
     if request.tool == "ai-pentest-agent":

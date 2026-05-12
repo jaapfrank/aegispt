@@ -2175,6 +2175,36 @@
       ],
       "required_approvals": 0,
       "prerequisites": []
+    },
+    {
+      "name": "lan-intel",
+      "category": "network",
+      "risk_tier": "passive",
+      "cost": "low",
+      "description": "Pre-assessment LAN/host intelligence. Runs after nmap, analyzes discovered services with Claude Haiku: detects AD environments, identifies applicable CVEs (Redis RCE, EternalBlue, SSH), creates targeted attack plan. Equivalent of target-intel for network targets.",
+      "estimated_minutes": 1,
+      "expected_evidence": [
+        "service_fingerprint",
+        "cve_candidates",
+        "targeted_lan_plan"
+      ],
+      "triggers": [
+        "http_service_present",
+        "network_service_present"
+      ],
+      "weak_triggers": [
+        "web_target_present"
+      ],
+      "blockers": [],
+      "follow_up_tools": [
+        "nuclei",
+        "ssh-brute",
+        "bloodhound-collect",
+        "ldap-enum",
+        "credential-attacks"
+      ],
+      "required_approvals": 0,
+      "prerequisites": []
     }
   ],
   "metadata_version": "2026-05-07"
