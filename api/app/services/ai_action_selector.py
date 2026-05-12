@@ -759,21 +759,7 @@ def _decision_for_runner(
 ) -> tuple[str, list[str]]:
     blockers: list[str] = []
     if already_tested:
-        # Allow re-running if there are SPECIFIC new signals beyond generic web presence.
-        # A tool that ran before on "web_target_present" can run again if xss_confirmed
-        # or a stolen session now provides new attack context.
-        new_context_signals = (observed_signals or set()) - {
-            "web_target_present", "http_service_present", "injectable_parameter",
-        }
-        has_new_attack_context = bool(
-            new_context_signals & {
-                "xss_confirmed", "csrf_vulnerable", "cookie_weakness", "session_cookie_present",
-                "hidden_endpoint_found", "sql_error_pattern", "authenticated_session",
-            }
-        )
-        if not has_new_attack_context:
-            return "SKIP", ["runner and target already have stored task/proposal evidence"]
-        # Fall through: re-run with new attack context
+        return "SKIP", ["runner and target already have stored task/proposal evidence"]
     if not target_present:
         return "WAIT", ["no approved target is available for this runner"]
     if missing_prerequisites:

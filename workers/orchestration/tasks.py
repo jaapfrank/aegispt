@@ -4671,7 +4671,7 @@ def _maybe_queue_next_step_hints(session, task: Task) -> list[UUID]:
             return []
 
         queued: list[UUID] = []
-        for hint in hints[:3]:  # limit to 3 follow-ups per task
+        for hint in hints[:3]:
             if not isinstance(hint, dict):
                 continue
             tool = str(hint.get("tool") or "").strip()
@@ -4681,9 +4681,8 @@ def _maybe_queue_next_step_hints(session, task: Task) -> list[UUID]:
             if not tool or tool not in supported_execution_tools():
                 continue
 
-            targets = [str(task.target_id or "").strip()]
-            targets = [t for t in targets if t]
-            if not targets:
+            target_id = str(task.target_id or "").strip()
+            if not target_id:
                 continue
 
             task_params = {
@@ -4701,23 +4700,39 @@ def _maybe_queue_next_step_hints(session, task: Task) -> list[UUID]:
                 },
             }
 
-            new_task = Task(
-                run_id=run.id,
-                tool=tool,
-                target_id=targets[0],
-                params_json=task_params,
-                status="queued",
+            # Skip if this exact (tool, target) already ran — prevents infinite loops
+            existing = session.scalar(
+                select(Task)
+                .where(Task.run_id == run.id, Task.tool == tool, Task.target_id == target_id)
+                .limit(1)
             )
-            session.add(new_task)
-            session.flush()
-            inject_run_credential_vault_into_task(session, run=run, task=new_task)
-            session.flush()
-            queued.append(new_task.id)
+            if existing is not None:
+                continue
+
+            # Each hint in its own try-block: one failure doesn't corrupt others
+            try:
+                new_task = Task(
+                    run_id=run.id,
+                    tool=tool,
+                    target_id=target_id,
+                    params_json=task_params,
+                    status="queued",
+                )
+                session.add(new_task)
+                session.flush()
+                try:
+                    inject_run_credential_vault_into_task(session, run=run, task=new_task)
+                    session.flush()
+                except Exception:
+                    pass  # vault injection failure is non-fatal
+                queued.append(new_task.id)
+            except Exception:
+                session.expunge(new_task) if new_task in session else None
+                continue
 
         return queued
     except Exception:
-        session.rollback()
-        return []
+        return []  # no rollback — let outer session handle state
 
 
 def process_task_by_id(task_id: str) -> dict[str, object]:

