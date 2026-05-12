@@ -1419,6 +1419,7 @@ def advance_run_assessment_loop(
     payload: AssessmentLoopAdvanceCreate,
     session: Session = Depends(get_session),
     actor: str = Depends(require_roles("operator", "admin")),
+    settings: Settings = Depends(get_settings),
     tenant_id: str | None = Depends(get_current_tenant_id),
 ) -> AssessmentLoopRead:
     run = _load_run_for_tenant(session, run_id, tenant_id)
@@ -1436,6 +1437,19 @@ def advance_run_assessment_loop(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     session.commit()
+
+    # Dispatch the queued task immediately — do not leave it waiting for a worker callback
+    queued_task_id = outcome.get("queued_task_id")
+    if queued_task_id:
+        from uuid import UUID as _UUID
+
+        from api.app.services.settings import effective_runtime_settings_for_run
+        from api.app.services.task_dispatch import dispatch_task_batch
+        effective_settings = effective_runtime_settings_for_run(session, run=run, settings=settings)
+        try:
+            dispatch_task_batch([_UUID(str(queued_task_id))], effective_settings)
+        except Exception:
+            pass  # Dispatch failure is non-fatal; worker will pick it up
     hydrated_run = load_run(session, run.id)
     if hydrated_run is None:
         raise HTTPException(status_code=500, detail="run could not be reloaded after assessment loop iteration")
