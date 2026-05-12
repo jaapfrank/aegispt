@@ -2112,6 +2112,39 @@
       ],
       "required_approvals": 0,
       "prerequisites": []
+    },
+    {
+      "name": "ai-pentest-agent",
+      "category": "web",
+      "risk_tier": "active",
+      "cost": "high",
+      "description": "Agentic AI-driven penetration test. Claude Sonnet iteratively discovers, exploits, and chains vulnerabilities - each finding informs the next attack. Replaces single-round scanning with genuine investigative reasoning.",
+      "estimated_minutes": 5,
+      "expected_evidence": [
+        "sql_injection_finding",
+        "auth_bypass",
+        "data_exfiltration",
+        "attack_chain"
+      ],
+      "false_positive_rate": "low",
+      "triggers": [
+        "web_target_present",
+        "http_service_present",
+        "xss_confirmed",
+        "injectable_parameter"
+      ],
+      "weak_triggers": [
+        "login_form_found"
+      ],
+      "blockers": [
+        "no_web_target"
+      ],
+      "follow_up_tools": [
+        "idor-bac",
+        "auth-flow"
+      ],
+      "required_approvals": 0,
+      "prerequisites": []
     }
   ],
   "metadata_version": "2026-05-07"

@@ -110,6 +110,7 @@ from api.app.services.soft_delete import purge_expired_soft_deleted_runs
 from api.app.services.task_dispatch import dispatch_task_batch, supported_execution_tools
 from workers.orchestration.findings import store_findings
 from workers.orchestration.runtime import session_scope
+from workers.runners.ai_pentest_agent.runner import execute_ai_pentest_agent
 from workers.runners.ai_shell.runner import execute_ai_shell_command
 from workers.runners.api_assessment.runner import (
     API_ASSESSMENT_INVENTORY_ARTIFACT_NAME,
@@ -288,6 +289,7 @@ SUPPORTED_TOOLS = {
     "xss-extended",
     "xss-proof",
     "smart-web-probe",
+    "ai-pentest-agent",
     "xxe-probe",
     "zap",
 }
@@ -1893,6 +1895,23 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else None
             ),
             timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "ai-pentest-agent":
+        raw_cookie = request.params.get("session_cookie")
+        agent_cookie = dict(raw_cookie) if isinstance(raw_cookie, dict) else None
+        if not agent_cookie:
+            for ctx in (request.params.get("auth_contexts") or []):
+                if isinstance(ctx, dict):
+                    ch = (ctx.get("headers") or {}).get("Cookie", "")
+                    if ch and "=" in ch:
+                        name, _, value = ch.partition("=")
+                        agent_cookie = {name.strip(): value.strip()}
+                        break
+        return execute_ai_pentest_agent(
+            targets=request.targets,
+            max_rounds=int(request.params.get("max_rounds") or 8),
+            session_cookie=agent_cookie,
+            timeout_seconds=max(timeout_seconds, 30.0),
         )
     if request.tool == "smart-web-probe":
         raw_cookie = request.params.get("session_cookie")
