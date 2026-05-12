@@ -55,28 +55,28 @@ _PIVOT_FINDING_PATTERNS: dict[str, tuple[str, list[str], str]] = {
     ),
     "reflected xss": (
         "session_token_pivot",
-        ["session-security", "auth-flow", "client-state"],
-        "Reflected XSS confirmed on {target}. An attacker can steal session cookies "
-        "by tricking a logged-in user into clicking a crafted link. Next step: probe "
-        "session handling and test whether the XSS parameter enables privilege escalation.",
+        ["xss-proof", "session-security", "auth-flow"],
+        "Reflected XSS confirmed on {target}. Proving cookie theft: xss-proof attempts "
+        "to confirm the session cookie is accessible via document.cookie and builds "
+        "the exploit URL. Session-security confirms cookie flag weaknesses.",
     ),
     "xss via url": (
         "session_token_pivot",
-        ["session-security", "auth-flow", "idor-bac"],
-        "XSS via URL parameter confirmed on {target}. Session token theft possible. "
-        "Testing session security and authenticated-surface access.",
+        ["xss-proof", "session-security", "idor-bac"],
+        "XSS via URL parameter confirmed on {target}. xss-proof attempts cookie theft "
+        "proof. If successful, a CRITICAL finding is raised with the full exploit chain.",
     ),
     "stored xss": (
         "session_token_pivot",
-        ["auth-flow", "idor-bac", "client-state"],
-        "Stored XSS confirmed on {target}. Session token extraction enables "
-        "authenticated-surface pivot to probe admin-only attack vectors.",
+        ["xss-proof", "auth-flow", "idor-bac"],
+        "Stored XSS confirmed on {target}. xss-proof attempts cookie exfiltration. "
+        "Stored XSS is more dangerous as no user interaction is needed.",
     ),
     "xss": (
         "session_token_pivot",
-        ["session-security", "auth-flow", "client-state"],
-        "XSS confirmed on {target}. Session material may be accessible. "
-        "Probing session security and authenticated access paths.",
+        ["xss-proof", "session-security", "auth-flow"],
+        "XSS confirmed on {target}. xss-proof proves exploitability by confirming "
+        "cookie accessibility. Then session-security and auth-flow complete the chain.",
     ),
     "cookie theft": (
         "session_token_pivot",
