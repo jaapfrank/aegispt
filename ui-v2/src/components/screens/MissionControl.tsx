@@ -407,7 +407,7 @@ export default function MissionControl() {
 
   return (
     <section className="flex min-h-full flex-col gap-5">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+      <div className="sticky top-0 z-30 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-bg/95 pb-4 backdrop-blur-sm">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-normal text-text">Mission Control</h1>
           <span className={cn('rounded-full px-2.5 py-1 text-[0.8rem] font-bold uppercase tracking-wider', statusTone(runStatus(selectedRun)))}>

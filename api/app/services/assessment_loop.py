@@ -36,7 +36,7 @@ from api.app.services.task_dispatch import supported_execution_tools
 LOOP_VERSION = "2026-05-07.1"
 LOOP_CONFIG_KEY = "ai_assessment_loop"
 GOAL_REASONING_KIND = "assessment_loop_goal_oriented_reasoning"
-LOOP_MAX_ITERATIONS = 20
+LOOP_MAX_ITERATIONS = 35
 LOOP_STUCK_THRESHOLD = 3
 LOOP_ACTIVE_TASK_STATUSES = {"queued", "pending", "running", "dispatching", "in_progress", "started"}
 LOOP_TERMINAL_STATUSES = {"completed", "failed", "cancelled", "skipped"}

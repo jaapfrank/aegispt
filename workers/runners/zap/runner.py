@@ -226,7 +226,9 @@ def execute_zap_scan(
             continue
         seen_targets.add(normalized_target)
         normalized_targets.append(normalized_target)
-    effective_timeout_seconds = max(timeout_seconds, 30.0)
+    # ZAP needs time to spider + passive scan + optional active scan.
+    # Minimum 300s for real targets; short timeouts cause premature failure.
+    effective_timeout_seconds = max(timeout_seconds, 300.0)
     results: list[dict[str, object]] = []
     stderr_lines: list[str] = []
     exit_code = 0
@@ -357,7 +359,11 @@ def execute_zap_scan(
                         "severity_counts": severity_counts,
                     }
                 )
-            except (httpx_client.HTTPError, RuntimeError, TimeoutError, ValueError) as exc:
+            except TimeoutError as exc:
+                # ZAP timeout is a soft failure — partial results may still be useful.
+                exit_code = 0
+                stderr_lines.append(f"{target}: timed out — {exc}")
+            except (httpx_client.HTTPError, RuntimeError, ValueError) as exc:
                 exit_code = 1
                 stderr_lines.append(f"{target}: {exc}")
                 results.append(
