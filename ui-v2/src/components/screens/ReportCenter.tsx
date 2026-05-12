@@ -155,6 +155,33 @@ export default function ReportCenter() {
     }
   }
 
+  async function handleDownloadNlPdf() {
+    if (!selectedRunId) return;
+    setAction('pdf');
+    setMessage('PDF wordt aangemaakt — grafieken en tabellen worden gegenereerd...');
+    try {
+      const resp = await fetch(
+        `/api/v1/runs/${selectedRunId}/report?format=pdf&variant=management_nl`,
+        { headers: { 'X-Actor': 'operator-ui' } },
+      );
+      if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aegispt-management-rapport-${selectedRunId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMessage('PDF management rapport gedownload.');
+    } catch (error) {
+      setMessage(`PDF genereren mislukt: ${errorMessage(error)}`);
+    } finally {
+      setAction(null);
+    }
+  }
+
   async function handleDownloadNl() {
     if (!selectedRunId) return;
     setAction('preview');
@@ -310,11 +337,18 @@ export default function ReportCenter() {
                       Download PDF
                     </ActionButton>
                     <ActionButton
+                      onClick={() => void handleDownloadNlPdf()}
+                      loading={action === 'pdf'}
+                      icon={<Download size={14} />}
+                    >
+                      🇳🇱 Management PDF
+                    </ActionButton>
+                    <ActionButton
                       onClick={() => void handleDownloadNl()}
                       loading={action === 'preview'}
                       icon={<Download size={14} />}
                     >
-                      🇳🇱 Nederlands Management Rapport
+                      🇳🇱 Management Markdown
                     </ActionButton>
                   </div>
                   {message && <div className="mt-3 rounded-md border border-cyan/20 bg-cyan/10 px-3 py-2 text-[0.925rem] text-cyan">{message}</div>}

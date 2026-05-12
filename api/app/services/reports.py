@@ -1324,6 +1324,218 @@ _NL_SEVERITY_ADVICE = {
 }
 
 
+def _render_management_nl_html(run: Run, context: dict[str, object]) -> str:
+    """Full HTML Dutch management report with inline SVG charts for PDF export."""
+    from html import escape as he
+
+    findings = [f for f in context.get("findings", []) if isinstance(f, Finding)]
+    sev_counts: dict[str, int] = context.get("findings_by_severity", {})  # type: ignore[assignment]
+    target = _report_target_summary(context)
+    client = he(str(context.get("client_name") or "De opdrachtgever"))
+    run_date = run.created_at.strftime("%d %B %Y") if run.created_at else "onbekende datum"
+    deduped = _deduplicated_finding_rows(findings)
+
+    # Risk level
+    if sev_counts.get("critical", 0):
+        risk_color = "#dc2626"; risk_label = "KRITIEK"; risk_pct = 100
+    elif sev_counts.get("high", 0):
+        risk_color = "#ea580c"; risk_label = "HOOG"; risk_pct = 75
+    elif sev_counts.get("medium", 0):
+        risk_color = "#d97706"; risk_label = "GEMIDDELD"; risk_pct = 50
+    else:
+        risk_color = "#16a34a"; risk_label = "LAAG"; risk_pct = 25
+
+    # SVG severity bar chart
+    sev_data = [
+        ("Kritiek", sev_counts.get("critical", 0), "#dc2626"),
+        ("Hoog", sev_counts.get("high", 0), "#ea580c"),
+        ("Gemiddeld", sev_counts.get("medium", 0), "#d97706"),
+        ("Laag", sev_counts.get("low", 0), "#2563eb"),
+        ("Info", sev_counts.get("info", 0), "#6b7280"),
+    ]
+    max_count = max((n for _, n, _ in sev_data), default=1) or 1
+    bar_height = 32
+    chart_h = len(sev_data) * (bar_height + 8) + 20
+    chart_w = 400
+    bars_svg = ""
+    for i, (lbl, cnt, col) in enumerate(sev_data):
+        y = i * (bar_height + 8) + 10
+        bar_w = max(4, int(cnt / max_count * (chart_w - 120))) if cnt else 0
+        bars_svg += (
+            f'<rect x="100" y="{y}" width="{bar_w}" height="{bar_height}" fill="{col}" rx="4"/>'
+            f'<text x="95" y="{y + bar_height//2 + 5}" text-anchor="end" font-size="12" fill="#374151">{he(lbl)}</text>'
+            f'<text x="{100 + bar_w + 6}" y="{y + bar_height//2 + 5}" font-size="12" fill="#374151" font-weight="bold">{cnt}</text>'
+        )
+    bar_chart_svg = f'<svg width="{chart_w}" height="{chart_h}" xmlns="http://www.w3.org/2000/svg">{bars_svg}</svg>'
+
+    # SVG gauge
+    import math
+    angle = -180 + (risk_pct / 100) * 180
+    rad = math.radians(angle)
+    gx, gy = 100 + 80 * math.cos(rad), 90 - 80 * math.sin(rad)
+    gauge_svg = f'''<svg width="200" height="110" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" stroke="#e5e7eb" stroke-width="14" stroke-linecap="round"/>
+      <path d="M 20 90 A 80 80 0 0 1 {gx:.1f} {gy:.1f}" fill="none" stroke="{risk_color}" stroke-width="14" stroke-linecap="round"/>
+      <circle cx="100" cy="90" r="6" fill="{risk_color}"/>
+      <text x="100" y="108" text-anchor="middle" font-size="13" font-weight="bold" fill="{risk_color}">{he(risk_label)}</text>
+    </svg>'''
+
+    # Findings table rows
+    sev_nl = {"critical": "Kritiek", "high": "Hoog", "medium": "Gemiddeld", "low": "Laag", "info": "Info"}
+    sev_bg = {"critical": "#fee2e2", "high": "#ffedd5", "medium": "#fef9c3", "low": "#dbeafe", "info": "#f3f4f6"}
+    prio_nl = {"critical": "Direct oplossen", "high": "Oplossen binnen 1-2 weken",
+               "medium": "Oplossen binnen 30 dagen", "low": "Plannen in komende sprint", "info": "Ter kennisname"}
+    table_rows = ""
+    for row in deduped[:25]:
+        sev = str(row.get("severity") or "info").lower()
+        nl_sev = sev_nl.get(sev, sev.capitalize())
+        bg = sev_bg.get(sev, "#f9fafb")
+        title_raw = str(row.get("title") or "Onbekend")
+        count_s = f" ({row['count']}×)" if int(row.get("count", 1)) > 1 else ""
+        prio = prio_nl.get(sev, "")
+        explanations = {
+            "reflected xss": "Aanvaller kan code uitvoeren in browser van gebruiker",
+            "stored xss": "Kwaadaardige code wordt opgeslagen en raakt alle bezoekers",
+            "csrf": "Gebruiker kan ongemerkt acties uitvoeren",
+            "anti-csrf": "Formulieren beschermd tegen ongewenste acties",
+            "csp": "Ontbrekende scriptbeveiliging in browser",
+            "hsts": "Verbinding niet geforceerd beveiligd",
+            "clickjacking": "Website in verborgen frame te laden",
+            "cookie": "Sessiecookie niet goed beschermd",
+            "hidden endpoint": "Verborgen of onbekende pagina aangetroffen",
+        }
+        impact = "Zie technisch rapport voor details."
+        for key, expl in explanations.items():
+            if key in title_raw.lower():
+                impact = expl; break
+        table_rows += (
+            f'<tr style="background:{bg}">'
+            f'<td style="padding:8px 10px;font-weight:bold;white-space:nowrap">{he(nl_sev)}</td>'
+            f'<td style="padding:8px 10px">{he(title_raw)}{he(count_s)}</td>'
+            f'<td style="padding:8px 10px;color:#6b7280">{he(impact)}</td>'
+            f'<td style="padding:8px 10px;font-size:11px;white-space:nowrap">{he(prio)}</td>'
+            f'</tr>\n'
+        )
+
+    high_crit = [f for f in findings if str(f.severity or "").lower() in {"critical", "high"}]
+    priority_items = "".join(
+        f'<li><strong>[{he(sev_nl.get(str(f.severity or "").lower(), "?"))}]</strong> '
+        f'{he(str(f.title or ""))}</li>'
+        for f in high_crit[:5]
+    ) or "<li>Geen kritieke of hoge bevindingen aangetroffen.</li>"
+
+    total = sum(n for _, n, _ in sev_data)
+
+    return f"""<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Management Samenvatting - {he(client)}</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: 'Segoe UI', Helvetica Neue, Arial, sans-serif; font-size: 13px; color: #111827; background: #fff; }}
+  .page {{ max-width: 800px; margin: 0 auto; padding: 32px 36px; }}
+  h1 {{ font-size: 26px; color: #1e3a5f; margin-bottom: 4px; }}
+  h2 {{ font-size: 16px; color: #1e3a5f; margin: 28px 0 10px; border-bottom: 2px solid #e5e7eb; padding-bottom: 4px; }}
+  h3 {{ font-size: 13px; color: #374151; margin: 16px 0 4px; }}
+  .meta {{ color: #6b7280; font-size: 12px; margin-bottom: 24px; }}
+  .summary-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }}
+  .card {{ background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }}
+  .card-title {{ font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; letter-spacing: .05em; margin-bottom: 8px; }}
+  .risk-badge {{ display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 700; font-size: 15px; color: #fff; background: {risk_color}; }}
+  .stat-row {{ display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f3f4f6; }}
+  .stat-label {{ color: #6b7280; }}
+  .stat-value {{ font-weight: 700; }}
+  table {{ width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }}
+  th {{ background: #1e3a5f; color: #fff; padding: 8px 10px; text-align: left; }}
+  td {{ border-bottom: 1px solid #e5e7eb; vertical-align: top; }}
+  ul {{ padding-left: 18px; }}
+  li {{ margin: 4px 0; }}
+  .disclaimer {{ margin-top: 32px; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 12px; }}
+  .section-intro {{ color: #4b5563; margin-bottom: 12px; line-height: 1.6; }}
+  .steps-list li {{ margin: 8px 0; padding-left: 4px; }}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Managementrapport Beveiligingsbeoordeling</h1>
+<div class="meta">
+  <strong>Opdrachtgever:</strong> {client} &nbsp;|&nbsp;
+  <strong>Datum:</strong> {he(run_date)} &nbsp;|&nbsp;
+  <strong>Systeem:</strong> {he(target)}
+</div>
+
+<h2>Samenvatting</h2>
+<div class="summary-grid">
+  <div class="card">
+    <div class="card-title">Algeheel risiconiveau</div>
+    {gauge_svg}
+    <p style="font-size:12px;color:#4b5563;margin-top:8px">
+      Op basis van {total} bevindingen is het algehele risiconiveau beoordeeld als
+      <strong style="color:{risk_color}">{he(risk_label)}</strong>.
+    </p>
+  </div>
+  <div class="card">
+    <div class="card-title">Bevindingen per ernst</div>
+    {bar_chart_svg}
+  </div>
+</div>
+
+<div class="card" style="margin:0 0 20px">
+  <div class="stat-row"><span class="stat-label">Totaal bevindingen</span><span class="stat-value">{total}</span></div>
+  <div class="stat-row"><span class="stat-label" style="color:#dc2626">Kritiek</span><span class="stat-value">{sev_counts.get("critical",0)}</span></div>
+  <div class="stat-row"><span class="stat-label" style="color:#ea580c">Hoog</span><span class="stat-value">{sev_counts.get("high",0)}</span></div>
+  <div class="stat-row"><span class="stat-label" style="color:#d97706">Gemiddeld</span><span class="stat-value">{sev_counts.get("medium",0)}</span></div>
+  <div class="stat-row"><span class="stat-label" style="color:#2563eb">Laag</span><span class="stat-value">{sev_counts.get("low",0)}</span></div>
+  <div class="stat-row" style="border:none"><span class="stat-label">Informatief</span><span class="stat-value">{sev_counts.get("info",0)}</span></div>
+</div>
+
+<h2>Wat is er getest?</h2>
+<p class="section-intro">
+  Het systeem <strong>{he(target)}</strong> is beoordeeld op veelvoorkomende
+  beveiligingsproblemen volgens OWASP- en PTES-normen. De scan omvat controle op
+  cross-site scripting, ontbrekende beveiligingsheaders, sessiebeveiliging, en andere
+  veelgebruikte aanvalstechnieken.
+</p>
+
+<h2>Bevindingen per categorie</h2>
+<p class="section-intro">Onderstaande tabel toont alle unieke bevindingen met zakelijke impact en aanbevolen prioriteit.</p>
+<table>
+  <thead>
+    <tr><th>Ernst</th><th>Bevinding</th><th>Zakelijke impact</th><th>Prioriteit</th></tr>
+  </thead>
+  <tbody>
+    {table_rows}
+  </tbody>
+</table>
+
+<h2>Directe prioriteiten</h2>
+<p class="section-intro">De volgende bevindingen vereisen de hoogste prioriteit:</p>
+<ul>{priority_items}</ul>
+
+<h2>Aanbevolen vervolgstappen</h2>
+<ol class="steps-list">
+  <li><strong>Directe herstelwerkzaamheden</strong> — pak hoog- en kritiek-bevindingen als eerste aan en geef het ontwikkelteam een gefaseerd herstelplan.</li>
+  <li><strong>Hertest na herstel</strong> — laat na het doorvoeren van patches een gerichte hertest uitvoeren.</li>
+  <li><strong>Centrale configuratie</strong> — beveiligingsheaders en cookie-instellingen via centrale configuratie toepassen zodat dit automatisch voor alle pagina's geldt.</li>
+  <li><strong>Bewustwording</strong> — zorg dat het ontwikkelteam op de hoogte is van de bevindingen. Een korte training over veilig programmeren vermindert toekomstige risico's.</li>
+  <li><strong>Herhaling</strong> — plan een periodieke beveiligingsbeoordeling om nieuwe kwetsbaarheden tijdig te ontdekken.</li>
+</ol>
+
+<div class="disclaimer">
+  Dit rapport is gebaseerd op geautomatiseerd bewijs uit de AegisPT beveiligingsscan.
+  De bevindingen zijn indicatief en dienen te worden beoordeeld door een gekwalificeerde beveiligingsspecialist.
+  Het rapport vervangt geen handmatige penetratietest.
+  Run-ID: {he(str(run.id)[:8])} &nbsp;|&nbsp; Gegenereerd door AegisPT
+</div>
+
+</div>
+</body>
+</html>"""
+
+
 def generate_management_nl_report(
     run: Run,
     *,

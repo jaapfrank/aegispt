@@ -9,8 +9,10 @@ from api.app.config import Settings
 from api.app.models import Run
 from api.app.services.reports import (
     REPORT_VARIANT_LABELS,
+    _render_management_nl_html,
     normalize_report_variant,
     render_html_report,
+    report_context,
 )
 
 
@@ -94,7 +96,11 @@ def render_pdf_report(
     framework: str | None = None,
     context: dict[str, object] | None = None,
 ) -> bytes:
-    html = render_html_report(run, variant=variant, framework=framework, context=context)
+    ctx = context or report_context(run)
+    if str(variant or "").strip().lower() == "management_nl":
+        html = _render_management_nl_html(run, ctx)
+    else:
+        html = render_html_report(run, variant=variant, framework=framework, context=ctx)
     prepared_html = _inject_pdf_base_and_styles(html, base_url=settings.app_public_base_url)
     title = REPORT_VARIANT_LABELS.get(normalize_report_variant(variant), "AegisPT Report")
     header_template = f"""

@@ -2060,15 +2060,28 @@ def export_run_report(
         media_type = "application/pdf"
         extension = "pdf"
     elif variant == "management_nl":
-        # Dutch management report: ChatGPT primary, template fallback
-        content = generate_management_nl_report(
-            run,
-            settings=effective_settings,
-            session=session,
-            context=report_context,
-        )
-        media_type = "text/markdown; charset=utf-8"
-        extension = "md"
+        if format == "pdf":
+            try:
+                content = render_pdf_report(
+                    run,
+                    variant="management_nl",
+                    settings=effective_settings,
+                    context=report_context,
+                )
+            except RuntimeError as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            media_type = "application/pdf"
+            extension = "pdf"
+        else:
+            # Markdown: ChatGPT primary, template fallback
+            content = generate_management_nl_report(
+                run,
+                settings=effective_settings,
+                session=session,
+                context=report_context,
+            )
+            media_type = "text/markdown; charset=utf-8"
+            extension = "md"
     else:
         content = render_markdown_report(run, variant=variant, framework=framework, context=report_context)
         media_type = "text/markdown; charset=utf-8"
