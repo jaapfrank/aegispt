@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import pydantic
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -24,7 +25,11 @@ from api.app.services.ai_research import (
     unavailable_generation_payload,
 )
 from api.app.services.audit import write_audit_event
-from api.app.services.chatgpt_oauth import chatgpt_oauth_status
+from api.app.services.chatgpt_oauth import (
+    ChatGPTOAuthError,
+    chatgpt_oauth_status,
+    send_chatgpt_backend_request,
+)
 from api.app.services.settings import effective_runtime_settings
 from api.app.services.tenancy import get_current_tenant_id, load_engagement_for_tenant
 
@@ -157,3 +162,89 @@ def generate_ai_research_script(
     )
     session.commit()
     return AiResearchGenerationRead(**result)
+
+
+# ── Web probe suggestion endpoint ──────────────────────────────────────────────
+# Used by the smart-web-probe runner to get AI-generated test cases via the
+# existing ChatGPT OAuth connection — no separate API key needed.
+
+class WebProbeSuggestRequest(pydantic.BaseModel):
+    engagement_id: UUID
+    app_context: dict  # forms, links, json_endpoints etc from _collect_app_context
+    previous_findings: list[dict] = []
+    session_cookie: dict[str, str] | None = None
+
+
+@router.post("/web-probe-suggest", response_model=None)
+def suggest_web_probe_test_cases(
+    payload: WebProbeSuggestRequest,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict:
+    """Generate web vulnerability test cases using ChatGPT OAuth.
+
+    Called by smart-web-probe runner via HTTP to localhost.
+    Returns a list of test cases with literal check strings.
+    """
+    settings = effective_runtime_settings(session, tenant_id=tenant_id)
+    status = chatgpt_oauth_status(
+        session=session,
+        engagement_id=payload.engagement_id,
+        settings=settings,
+    )
+    if not status.connected:
+        return {"test_cases": [], "provider": "unavailable", "reason": "ChatGPT OAuth not connected"}
+
+    ctx = payload.app_context
+    prompt_parts = [
+        f"Target: {ctx.get('base_url', '?')}",
+        f"\nForms ({len(ctx.get('all_forms', []))}):",
+    ]
+    for form in ctx.get("all_forms", [])[:8]:
+        prompt_parts.append(f"  {form.get('method')} {form.get('action')} fields={form.get('fields', [])}")
+
+    prompt_parts.append(f"\nJSON/JSONP endpoints ({len(ctx.get('json_endpoints', []))}):")
+    for ep in ctx.get("json_endpoints", []):
+        prompt_parts.append(f"  {ep.get('url')}: {ep.get('preview', '')[:80]} (jsonp={ep.get('is_jsonp')})")
+
+    prompt_parts.append(f"\nLinks: {ctx.get('all_links', [])[:10]}")
+
+    if payload.previous_findings:
+        prompt_parts.append(f"\nAlready found: {[f.get('title', '?') for f in payload.previous_findings[:5]]}")
+
+    if payload.session_cookie:
+        prompt_parts.append(f"\nAuthenticated session: cookies={list(payload.session_cookie.keys())}")
+
+    system_prompt = """You are a web application security tester. Generate HTTP test cases.
+Return ONLY a JSON array. Each test case:
+{"name":"short","vuln_type":"stored_xss|xssi|path_traversal|idor|csrf","method":"GET|POST",
+"url":"EXACT full URL","params":{},"data":{},"cookies":{},"check":"LITERAL string in response",
+"verify_url":"URL to check after POST","severity":"critical|high|medium|low"}
+The 'check' MUST be a literal substring of the HTTP response — NOT a description.
+Max 8 test cases. Return [] if nothing to test."""
+
+    try:
+        response = send_chatgpt_backend_request(
+            session=session,
+            engagement_id=payload.engagement_id,
+            settings=settings,
+            feature="web_probe_suggest",
+            model=settings.chatgpt_oauth_model,
+            payload={
+                "instructions": system_prompt,
+                "input": "\n".join(prompt_parts),
+            },
+        )
+        import re
+        raw = str(response.get("output") or response.get("content") or "[]")
+        json_match = re.search(r"\[.*\]", raw, re.DOTALL)
+        test_cases = []
+        if json_match:
+            import json as _json
+            parsed = _json.loads(json_match.group(0))
+            test_cases = parsed if isinstance(parsed, list) else []
+        return {"test_cases": test_cases, "provider": "chatgpt_oauth"}
+    except (ChatGPTOAuthError, Exception) as exc:
+        return {"test_cases": [], "provider": "error", "reason": str(exc)[:200]}
+
+

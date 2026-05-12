@@ -162,15 +162,58 @@ def _collect_app_context(
     return context
 
 
+def _ask_via_aegispt_api(
+    context: dict[str, Any],
+    previous_findings: list[dict[str, Any]],
+    session_cookie: dict[str, str] | None = None,
+    engagement_id: str | None = None,
+) -> list[dict[str, Any]] | None:
+    """Call the AegisPT local API which proxies to ChatGPT OAuth.
+
+    This uses the existing ChatGPT connection the user already set up —
+    no separate API key needed. Returns None if unavailable.
+    """
+    if not engagement_id:
+        return None
+    api_base = os.environ.get("APP_PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    try:
+        resp = httpx_client.post(
+            f"{api_base}/api/v1/ai/research/web-probe-suggest",
+            json={
+                "engagement_id": engagement_id,
+                "app_context": context,
+                "previous_findings": previous_findings or [],
+                "session_cookie": session_cookie,
+            },
+            timeout=30.0,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            cases = data.get("test_cases") or []
+            if cases:
+                logger.debug("web-probe-suggest: %d cases from %s", len(cases), data.get("provider"))
+                return cases
+    except Exception as exc:
+        logger.debug("AegisPT API probe suggest failed: %s", exc)
+    return None
+
+
 def _ask_claude_for_test_cases(
     context: dict[str, Any],
     previous_findings: list[dict[str, Any]],
     session_cookie: dict[str, str] | None = None,
+    engagement_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Call Claude API to generate vulnerability test cases."""
+    """Generate test cases: try ChatGPT OAuth first, then Anthropic API, then heuristics."""
+    # 1. Try existing ChatGPT OAuth via AegisPT API (no extra API key needed)
+    cases = _ask_via_aegispt_api(context, previous_findings, session_cookie, engagement_id)
+    if cases:
+        return cases
+
+    # 2. Try Anthropic API directly if key is configured
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
-        logger.debug("ANTHROPIC_API_KEY not set; using heuristic test cases")
+        logger.debug("No AI available; using heuristic test cases")
         return _heuristic_test_cases(context, session_cookie)
 
     try:
@@ -409,9 +452,14 @@ def execute_smart_web_probe(
     *,
     session_cookie: dict[str, str] | None = None,
     previous_findings: list[dict[str, Any]] | None = None,
+    engagement_id: str | None = None,
     timeout_seconds: float = 30.0,
 ) -> RunnerExecution:
-    """AI-driven web vulnerability probe."""
+    """AI-driven web vulnerability probe.
+
+    Uses ChatGPT OAuth (via AegisPT API) or Anthropic API to generate test cases.
+    Falls back to heuristic patterns if no AI is available.
+    """
     if not targets:
         raise ValueError("at least one target is required")
 
@@ -423,11 +471,13 @@ def execute_smart_web_probe(
         # Step 1: collect app context
         app_context = _collect_app_context(client, base_target, session_cookie)
 
-        # Step 2: AI generates test cases (or heuristic fallback)
+        # Step 2: AI generates test cases
+        # Priority: 1) ChatGPT OAuth via AegisPT API, 2) Anthropic API, 3) heuristics
         test_cases = _ask_claude_for_test_cases(
             app_context,
             previous_findings or [],
             session_cookie,
+            engagement_id=engagement_id,
         )
 
         # Step 3: execute each test case
