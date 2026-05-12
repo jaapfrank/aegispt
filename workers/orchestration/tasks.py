@@ -194,6 +194,7 @@ from workers.runners.smart_home.runner import (
     SMART_HOME_RESULTS_ARTIFACT_NAME,
     execute_smart_home_audit,
 )
+from workers.runners.smart_web_probe.runner import execute_smart_web_probe
 from workers.runners.snmp_enum.runner import (
     SNMP_ENUM_RESULTS_ARTIFACT_NAME,
     execute_snmp_enumeration,
@@ -286,6 +287,7 @@ SUPPORTED_TOOLS = {
     "wifi-survey",
     "xss-extended",
     "xss-proof",
+    "smart-web-probe",
     "xxe-probe",
     "zap",
 }
@@ -1870,6 +1872,29 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else None
             ),
             timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "smart-web-probe":
+        raw_cookie = request.params.get("session_cookie")
+        session_cookie = dict(raw_cookie) if isinstance(raw_cookie, dict) else None
+        # Also accept from credential vault auth_contexts in params
+        if not session_cookie:
+            for ctx in (request.params.get("auth_contexts") or []):
+                if not isinstance(ctx, dict):
+                    continue
+                cookie_header = (ctx.get("headers") or {}).get("Cookie", "")
+                if cookie_header and "=" in cookie_header:
+                    name, _, value = cookie_header.partition("=")
+                    session_cookie = {name.strip(): value.strip()}
+                    break
+        return execute_smart_web_probe(
+            targets=request.targets,
+            session_cookie=session_cookie,
+            previous_findings=(
+                request.params.get("previous_findings")
+                if isinstance(request.params.get("previous_findings"), list)
+                else None
+            ),
+            timeout_seconds=max(timeout_seconds, 30.0),
         )
     if request.tool == "waf-detect":
         return execute_waf_detection(

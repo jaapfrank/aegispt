@@ -128,6 +128,9 @@ export APP_PUBLIC_BASE_URL="${BASE_URL}"
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/aegispt/ms-playwright}"
 export ZAP_BASE_URL="${ZAP_BASE_URL:-http://127.0.0.1:8080}"
 export ZAP_API_KEY="${ZAP_API_KEY:-change-me-zap-key}"
+# Claude API key for smart-web-probe AI-driven testing (optional but recommended)
+# Set via environment or place in ~/.aegispt-secrets: export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
 export AEGISPT_LOCAL_ENSURE_ZAP="${AEGISPT_LOCAL_ENSURE_ZAP:-1}"
 
 bash "${REPO_ROOT}/scripts/ensure_playwright_chromium.sh"

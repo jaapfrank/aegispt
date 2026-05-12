@@ -55,7 +55,7 @@ _PIVOT_FINDING_PATTERNS: dict[str, tuple[str, list[str], str]] = {
     ),
     "reflected xss": (
         "session_token_pivot",
-        ["xss-proof", "session-security", "auth-flow"],
+        ["xss-proof", "smart-web-probe", "session-security"],
         "Reflected XSS confirmed on {target}. Proving cookie theft: xss-proof attempts "
         "to confirm the session cookie is accessible via document.cookie and builds "
         "the exploit URL. Session-security confirms cookie flag weaknesses.",

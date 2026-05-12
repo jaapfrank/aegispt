@@ -58,6 +58,7 @@ from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
 from workers.runners.semgrep.runner import normalize_semgrep_rule_id
 from workers.runners.session_security.runner import SESSION_SECURITY_RESULTS_ARTIFACT_NAME
 from workers.runners.smart_home.runner import SMART_HOME_RESULTS_ARTIFACT_NAME
+from workers.runners.smart_web_probe.runner import SMART_PROBE_RESULTS_ARTIFACT_NAME
 from workers.runners.snmp_enum.runner import SNMP_ENUM_RESULTS_ARTIFACT_NAME
 from workers.runners.social_campaign.runner import SOCIAL_CAMPAIGN_RESULTS_ARTIFACT_NAME
 from workers.runners.ssh_brute.runner import SSH_BRUTE_RESULTS_ARTIFACT_NAME
@@ -560,6 +561,7 @@ def extract_findings(
         "logging-probe",
         "xss-extended",
         "xss-proof",
+        "smart-web-probe",
         "ssrf-probe",
         "deserialization-probe",
         "session-security",
@@ -596,6 +598,7 @@ def extract_findings(
                 LOGGING_PROBE_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 XSS_PROOF_RESULTS_ARTIFACT_NAME,
+                SMART_PROBE_RESULTS_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,
                 DESERIALIZATION_RESULTS_ARTIFACT_NAME,
                 SESSION_SECURITY_RESULTS_ARTIFACT_NAME,

@@ -2078,6 +2078,40 @@
       ],
       "required_approvals": 0,
       "prerequisites": []
+    },
+    {
+      "name": "smart-web-probe",
+      "category": "web",
+      "risk_tier": "active",
+      "cost": "medium",
+      "description": "AI-driven web vulnerability probe. Collects app context (forms, endpoints, cookies) and uses Claude API (or heuristics) to generate specific test cases for stored XSS, XSSI, path traversal, IDOR, and other vulnerabilities.",
+      "estimated_minutes": 2,
+      "expected_evidence": [
+        "stored_xss_finding",
+        "xssi_finding",
+        "path_traversal_finding",
+        "idor_finding"
+      ],
+      "false_positive_rate": "low",
+      "triggers": [
+        "xss_confirmed",
+        "session_cookie_present",
+        "injectable_parameter",
+        "login_form_found"
+      ],
+      "weak_triggers": [
+        "web_target_present",
+        "http_service_present"
+      ],
+      "blockers": [
+        "no_web_target"
+      ],
+      "follow_up_tools": [
+        "idor-bac",
+        "auth-flow"
+      ],
+      "required_approvals": 0,
+      "prerequisites": []
     }
   ],
   "metadata_version": "2026-05-07"
