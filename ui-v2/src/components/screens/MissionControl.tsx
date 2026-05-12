@@ -11,7 +11,7 @@ import {
   CircleStop,
   Copy,
   Loader2,
-  Map,
+  Map as MapIcon,
   MonitorPlay,
   Play,
   RefreshCw,
@@ -968,7 +968,7 @@ function ScanMap({
     <div className={cn('glass-panel flex flex-col h-full min-h-[340px] rounded-lg p-4', materialize && 'animate-[mission-materialize_0.8s_ease-out]')}>
       <div className="mb-4 flex items-center justify-between gap-3 shrink-0">
         <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
-          <Map size={15} />
+          <MapIcon size={15} />
           Scan Map
         </h2>
         <span className="text-[0.85rem] text-muted">{inventory ? inventory.status : 'No inventory'}</span>
@@ -1151,8 +1151,14 @@ function ActivityFeed({ run, tasks, findings, selectedTaskId, onSelect }: {
   run: Run; tasks: Task[]; findings: Finding[];
   selectedTaskId: UUID | null; onSelect: (id: UUID) => void;
 }) {
-  const [openId, setOpenId] = useState<string | null>(null);
   const ordered = [...tasks].sort((a, b) => (a.created_at ?? '') < (b.created_at ?? '') ? -1 : 1);
+  // Auto-expand tasks that found something or are currently running/failed
+  const [openId, setOpenId] = useState<string | null>(() => {
+    const interesting = ordered.find((t) =>
+      ['running', 'dispatching', 'in_progress', 'failed', 'completed_with_errors'].includes(t.status ?? '')
+    );
+    return interesting?.id ?? null;
+  });
 
   const findingsForTool = (tool: string) =>
     findings.filter((f) => f.methodology_tags?.some((t: string) => t === tool) || (f as unknown as Record<string, unknown>).tool === tool).length;
@@ -1279,26 +1285,31 @@ function findingExplanation(title: string): { short: string; impact: string; act
   return null;
 }
 
-function FindingsExplained({ findings }: { findings: Finding[] }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const sevOrder = ['critical', 'high', 'medium', 'low', 'info'];
-  const sorted = [...findings].sort((a, b) =>
-    sevOrder.indexOf((a.severity ?? 'info').toLowerCase()) - sevOrder.indexOf((b.severity ?? 'info').toLowerCase())
-  );
+type SevGroup = { finding: Finding; count: number }[];
 
-  const sevColors: Record<string, string> = {
-    critical: 'border-red/30 bg-red/8',
-    high: 'border-orange-500/30 bg-orange-500/8',
-    medium: 'border-yellow-400/25 bg-yellow-400/5',
-    low: 'border-blue-500/25 bg-blue-500/5',
-    info: 'border-border bg-surface/25',
-  };
-  const sevText: Record<string, string> = {
-    critical: 'text-red', high: 'text-orange-400', medium: 'text-yellow-300', low: 'text-blue-300', info: 'text-muted',
-  };
-  const sevLabel: Record<string, string> = {
-    critical: 'Kritiek', high: 'Hoog', medium: 'Gemiddeld', low: 'Laag', info: 'Info',
-  };
+function dedupeFindings(findings: Finding[], sev: string): SevGroup {
+  const group = findings.filter((f) => (f.severity ?? 'info').toLowerCase() === sev);
+  const seen = new Map<string, { finding: Finding; count: number }>();
+  for (const f of group) {
+    const t = f.title ?? 'Onbekend';
+    const existing = seen.get(t);
+    if (existing) existing.count++;
+    else seen.set(t, { finding: f, count: 1 });
+  }
+  return Array.from(seen.values());
+}
+
+function FindingsExplained({ findings }: { findings: Finding[] }) {
+  const [openSev, setOpenSev] = useState<Record<string, boolean>>({ critical: true, high: true, medium: false, low: false, info: false });
+  const [openFinding, setOpenFinding] = useState<string | null>(null);
+
+  const sevConfig = [
+    { key: 'critical', label: 'Kritiek',    hdr: 'bg-red/10 border-red/30',               txt: 'text-red',          row: 'bg-red/4' },
+    { key: 'high',     label: 'Hoog',       hdr: 'bg-orange-500/10 border-orange-500/25', txt: 'text-orange-400',   row: 'bg-orange-500/4' },
+    { key: 'medium',   label: 'Gemiddeld',  hdr: 'bg-yellow-400/8 border-yellow-400/20',  txt: 'text-yellow-300',   row: 'bg-yellow-400/3' },
+    { key: 'low',      label: 'Laag',       hdr: 'bg-blue-500/8 border-blue-500/20',      txt: 'text-blue-300',     row: 'bg-blue-500/3' },
+    { key: 'info',     label: 'Info',       hdr: 'bg-surface/40 border-border',           txt: 'text-muted',        row: 'bg-surface/20' },
+  ];
 
   return (
     <div className="glass-panel flex flex-col rounded-lg p-4 min-h-0">
@@ -1306,37 +1317,55 @@ function FindingsExplained({ findings }: { findings: Finding[] }) {
         <AlertTriangle size={15} /> Bevindingen ({findings.length})
       </h2>
       <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-        {sorted.map((f) => {
-          const sev = (f.severity ?? 'info').toLowerCase();
-          const expl = findingExplanation(f.title ?? '');
-          const isOpen = openId === f.id;
+        {sevConfig.map(({ key, label, hdr, txt, row }) => {
+          const items = dedupeFindings(findings, key);
+          if (items.length === 0) return null;
+          const total = items.reduce((s, i) => s + i.count, 0);
+          const isOpen = Boolean(openSev[key]);
           return (
-            <div key={f.id} className={cn('rounded-lg border transition-colors', sevColors[sev] ?? sevColors.info)}>
-              <button type="button" className="flex w-full items-start gap-3 px-3 py-2.5 text-left"
-                onClick={() => setOpenId(isOpen ? null : f.id)}>
-                <span className={cn('shrink-0 mt-0.5 text-[0.72rem] font-bold uppercase', sevText[sev] ?? 'text-muted')}>
-                  {sevLabel[sev] ?? sev}
-                </span>
-                <span className="flex-1 text-[0.85rem] font-semibold text-text leading-5">{f.title}</span>
-                <ChevronRight size={12} className={cn('shrink-0 mt-1 text-muted/50 transition-transform', isOpen && 'rotate-90')} />
+            <div key={key} className="rounded-lg border border-border overflow-hidden">
+              <button type="button"
+                className={cn('flex w-full items-center gap-3 px-3 py-2.5 text-left', hdr)}
+                onClick={() => setOpenSev((s) => ({ ...s, [key]: !s[key] }))}>
+                <span className={cn('text-[0.77rem] font-bold uppercase', txt)}>{label}</span>
+                <span className="text-[0.77rem] text-muted/70">{items.length} uniek · {total} totaal</span>
+                <ChevronRight size={13} className={cn('ml-auto text-muted/50 transition-transform', isOpen && 'rotate-90')} />
               </button>
               {isOpen && (
-                <div className="border-t border-border/40 px-3 py-2.5 space-y-2">
-                  {expl ? (
-                    <>
-                      <p className="text-[0.82rem] text-text">{expl.short}</p>
-                      <p className="text-[0.78rem] text-muted"><span className="font-semibold text-amber/80">Risico:</span> {expl.impact}</p>
-                      <p className="text-[0.78rem] text-muted"><span className="font-semibold text-emerald-400/80">Oplossing:</span> {expl.action}</p>
-                    </>
-                  ) : (
-                    <p className="text-[0.78rem] text-muted truncate">{f.target_id}</p>
-                  )}
+                <div className="divide-y divide-border/40">
+                  {items.map(({ finding, count }) => {
+                    const expl = findingExplanation(finding.title ?? '');
+                    const isExpanded = openFinding === finding.id;
+                    return (
+                      <div key={finding.id} className={row}>
+                        <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                          onClick={() => setOpenFinding(isExpanded ? null : finding.id)}>
+                          <span className="flex-1 text-[0.83rem] text-text leading-5">{finding.title}</span>
+                          {count > 1 && <span className="shrink-0 text-[0.72rem] text-muted">×{count}</span>}
+                          <ChevronRight size={11} className={cn('shrink-0 text-muted/40 transition-transform', isExpanded && 'rotate-90')} />
+                        </button>
+                        {isExpanded && (
+                          <div className="px-3 pb-3 border-t border-border/30 space-y-1.5">
+                            {expl ? (
+                              <>
+                                <p className="pt-2 text-[0.8rem] text-text/85">{expl.short}</p>
+                                <p className="text-[0.76rem] text-muted"><span className="font-semibold text-amber/75">Risico:</span> {expl.impact}</p>
+                                <p className="text-[0.76rem] text-muted"><span className="font-semibold text-emerald-400/75">Oplossing:</span> {expl.action}</p>
+                              </>
+                            ) : (
+                              <p className="pt-2 text-[0.76rem] text-muted truncate">{finding.target_id}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           );
         })}
-        {sorted.length === 0 && <p className="py-6 text-center text-[0.88rem] text-muted">Nog geen bevindingen.</p>}
+        {findings.length === 0 && <p className="py-6 text-center text-[0.88rem] text-muted">Nog geen bevindingen.</p>}
       </div>
     </div>
   );
