@@ -106,6 +106,8 @@ def _collect_app_context(
         "all_links": [],
         "cookies_set": [],
         "json_endpoints": [],
+        "rest_api_endpoints": [],
+        "is_spa": False,
     }
 
     for url in pages_to_fetch:
@@ -162,6 +164,54 @@ def _collect_app_context(
             })
         except httpx_client.HTTPError:
             continue
+
+    # SPA detection: if there are no HTML forms, the app likely uses a REST API.
+    # This covers Angular, React, Vue, Next.js, etc.
+    # Also check full page content for framework markers.
+    has_forms = bool(context["all_forms"])
+    try:
+        full_main = client.get(base_url, cookies=session_cookie or {}).text
+        spa_markers = ["ng-app", "data-ng-", "angular", "app-root", "react", "__react",
+                       "vue", "__NEXT", "webpack", "nuxt", "ember", "backbone"]
+        has_spa_markers = any(m in full_main.lower() for m in spa_markers)
+    except httpx_client.HTTPError:
+        full_main = ""
+        has_spa_markers = False
+
+    is_spa = not has_forms or has_spa_markers
+    context["is_spa"] = is_spa
+
+    if is_spa or not has_forms:
+        # Probe common REST API patterns for SPAs
+        api_paths = [
+            "/api/", "/api/Products", "/api/Users", "/rest/user/whoami",
+            "/rest/products/search?q=test", "/graphql", "/swagger.json",
+            "/api-docs", "/openapi.json", "/ftp/", "/metrics",
+            "/admin", "/administration", "/api/SecurityQuestions",
+        ]
+        for path in api_paths:
+            try:
+                url = urljoin(base_origin, path)
+                resp = client.get(url, cookies=session_cookie or {})
+                if resp.status_code < 400 and resp.text.strip():
+                    is_json = "json" in resp.headers.get("content-type","").lower()
+                    preview = resp.text.strip()[:300]
+                    context["rest_api_endpoints"].append({
+                        "url": url,
+                        "status": resp.status_code,
+                        "is_json": is_json,
+                        "preview": preview,
+                    })
+                    # Also add to json_endpoints for existing detection
+                    if is_json or preview.startswith("{") or preview.startswith("["):
+                        context["json_endpoints"].append({
+                            "url": url,
+                            "content_type": resp.headers.get("content-type",""),
+                            "preview": preview[:100],
+                            "is_jsonp": False,
+                        })
+            except httpx_client.HTTPError:
+                continue
 
     return context
 
@@ -233,39 +283,86 @@ def _ask_claude_for_test_cases(
 
         client = anthropic.Anthropic(api_key=api_key)
 
-        # Build prompt with app context
-        prompt_parts = [
-            f"Target: {context['base_url']}",
-            f"\nForms found ({len(context['all_forms'])}):",
-        ]
-        for form in context["all_forms"][:8]:
-            prompt_parts.append(f"  {form['method']} {form['action']} fields={form['fields']}")
+        # Build rich context: page content, technology hints, API discovery
+        pages_content = ""
+        for page in context.get("pages", [])[:3]:
+            pages_content += f"\n--- {page['url']} (HTTP {page['status']}) ---\n"
+            pages_content += page.get("html_excerpt", "")[:1500]
 
-        prompt_parts.append(f"\nJSON/JSONP endpoints ({len(context['json_endpoints'])}):")
-        for ep in context["json_endpoints"]:
-            prompt_parts.append(f"  {ep['url']}: {ep['preview'][:100]} (jsonp={ep['is_jsonp']})")
+        api_context = ""
+        if context.get("is_spa"):
+            api_context = "\n*** THIS IS A SPA (Single Page Application) - no HTML forms, test REST API ***\n"
+        if context.get("rest_api_endpoints"):
+            api_context += "\nREST API endpoints discovered (probe these for vulnerabilities):\n"
+            for ep in context["rest_api_endpoints"][:10]:
+                api_context += f"  GET {ep['url']} → HTTP {ep['status']}: {ep['preview'][:150]}\n"
+        elif context.get("json_endpoints"):
+            api_context += "\nJSON endpoints:\n"
+            for ep in context["json_endpoints"]:
+                api_context += f"  {ep['url']}: {ep.get('preview','')[:150]}\n"
 
-        prompt_parts.append(f"\nLinks found: {context['all_links'][:10]}")
+        form_context = ""
+        if context.get("all_forms"):
+            form_context = "\nHTML forms found:\n"
+            for f in context["all_forms"][:6]:
+                form_context += f"  {f['method']} {f['action']} fields={f['fields']}\n"
 
-        if previous_findings:
-            prompt_parts.append(f"\nAlready found: {[f.get('title','?') for f in previous_findings[:5]]}")
+        link_context = f"\nLinks: {context.get('all_links', [])[:12]}"
 
+        session_info = ""
         if session_cookie:
-            prompt_parts.append(f"\nAuthenticated session available: cookies={list(session_cookie.keys())}")
+            session_info = f"\nAuthenticated session: {list(session_cookie.keys())}"
+
+        prev_findings = ""
+        if previous_findings:
+            prev_findings = f"\nAlready found: {[f.get('title','?') for f in previous_findings[:5]]}"
+
+        user_content = f"""Analyze this web application and generate targeted vulnerability attacks.
+
+Target: {context['base_url']}
+{session_info}
+{prev_findings}
+
+APPLICATION CONTENT:
+{pages_content}
+{api_context}
+{form_context}
+{link_context}
+
+INSTRUCTIONS:
+1. First understand WHAT this application does (its purpose and functionality)
+2. Based on functionality, reason about WHICH vulnerabilities are likely
+3. Generate specific targeted attacks - not generic XSS/SQLi patterns
+4. For SPAs (Angular/React): look for REST API endpoints and test those
+5. For server-rendered apps: test forms with context-appropriate payloads
+6. Follow the logic: ping utility → command injection; search box → SQLi; file browser → path traversal
+
+Return ONLY a JSON array of maximum 6 attacks, no markdown, complete valid JSON:
+[{{"name":"name","method":"GET/POST","url":"full URL","params":{{}},"data":{{}},"json_body":null,"check":"LITERAL","severity":"critical/high/medium","why":"reason"}}]"""
 
         msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=2048,
-            system=AI_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": "\n".join(prompt_parts)}],
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system="""You are an expert penetration tester who reasons about application functionality before generating attacks. You:
+- Understand that a ping form → command injection, a search box → SQLi, file uploads → path traversal
+- Recognize SPAs (Angular/React/Vue) and know they have REST APIs
+- Generate targeted exploits based on what the app DOES, not generic payloads
+- Always provide literal check strings that will appear in vulnerable responses
+- Think like an attacker who just got access to an app for the first time""",
+            messages=[{"role": "user", "content": user_content}],
         )
         raw = msg.content[0].text.strip()
-        json_match = re.search(r"\[.*\]", raw, re.DOTALL)
-        if json_match:
-            cases = json.loads(json_match.group(0))
-            return cases if isinstance(cases, list) else []
+        # Handle both array-only and object-wrapped responses
+        if raw.startswith('['):
+            cases = json.loads(raw)
+        else:
+            json_match = re.search(r"\[.*\]", raw, re.DOTALL)
+            cases = json.loads(json_match.group(0)) if json_match else []
+        if cases and isinstance(cases, list):
+            ai_cases = cases
+            logger.debug("Sonnet reasoning generated %d targeted attacks", len(cases))
     except Exception as exc:
-        logger.debug("Claude API call failed: %s", exc)
+        logger.debug("Claude Sonnet call failed: %s", exc)
 
     # Always merge heuristic tests with AI tests — AI may miss systematic patterns
     # (stored XSS via forms, XSSI via JSONP, path traversal) that heuristics catch.
@@ -434,16 +531,22 @@ def _execute_test_case(
     if not url:
         return {"test": test["name"], "skipped": True}
 
+    json_body = test.get("json_body")
+    headers = dict(test.get("headers") or {})
+
     try:
         if method == "GET":
-            resp = client.get(url, params=params, cookies=cookies)
+            resp = client.get(url, params=params, cookies=cookies, headers=headers)
         elif method == "POST_MULTIPART":
             filename = test.get("filename", "test.html")
             file_content = str(list(data.values())[0] if data else "").encode()
             field_name = list(data.keys())[0] if data else "file"
-            resp = client.post(url, files={field_name: (filename, file_content, "text/html")}, cookies=cookies)
+            resp = client.post(url, files={field_name: (filename, file_content, "text/html")},
+                               cookies=cookies, headers=headers)
+        elif json_body is not None:
+            resp = client.post(url, json=json_body, params=params, cookies=cookies, headers=headers)
         else:
-            resp = client.post(url, data=data, params=params, cookies=cookies)
+            resp = client.post(url, data=data, params=params, cookies=cookies, headers=headers)
 
         body = resp.text or ""
         check_patterns = [p.strip() for p in check.split("|") if p.strip()]
