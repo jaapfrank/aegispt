@@ -50,6 +50,52 @@ LOOP_SEED_TOOLS_BY_TARGET_KIND = {
 }
 LOOP_LOW_IMPACT_AUTO_TOOLS = {"httpx"}
 
+# Depth levels — each level represents a strategic decision point
+# Level 1: Discovery (surface mapping, no findings yet)
+# Level 2: Probing (attack surface identified, testing for weaknesses)
+# Level 3: Confirmation (vulnerability confirmed, exploiting)
+# Level 4: Post-exploitation (session/credential material obtained)
+DEPTH_LEVEL_LABELS = {
+    1: "Verkenning",
+    2: "Kwetsbaarheidstests",
+    3: "Bevestiging & Exploitatie",
+    4: "Escalatie",
+}
+
+# Signals that mark a transition to a new depth level
+_DEPTH_3_SIGNALS = {"xss_confirmed", "ssrf_confirmed", "path_traversal_confirmed",
+                    "sql_error_pattern", "csrf_vulnerable", "cookie_weakness"}
+_DEPTH_4_SIGNALS = {"authenticated_session", "session_obtained", "credential_obtained"}
+_DEPTH_2_SIGNALS = {"injectable_parameter", "login_form_found", "hidden_endpoint_found",
+                    "form_with_post_action", "registration_form_present"}
+
+
+def _compute_depth_level(findings: list[Any], signals: set[str]) -> int:
+    """Determine strategic depth based on what has been confirmed."""
+    finding_titles = [str(f.title if hasattr(f, "title") else (f.get("title") or "")).lower()
+                      for f in (findings or [])]
+
+    # Level 4: post-exploitation (session/credential material obtained)
+    if signals & _DEPTH_4_SIGNALS:
+        return 4
+    if any(kw in t for t in finding_titles for kw in ("session token", "credential", "authenticated", "privilege")):
+        return 4
+
+    # Level 3: vulnerability confirmed (XSS, CSRF, etc.)
+    if signals & _DEPTH_3_SIGNALS:
+        return 3
+    if any(kw in t for t in finding_titles for kw in ("xss", "csrf", "injection", "traversal", "ssrf", "forgery")):
+        return 3
+
+    # Level 2: attack surface identified (forms, parameters, login found)
+    if signals & _DEPTH_2_SIGNALS:
+        return 2
+    if any(kw in t for t in finding_titles for kw in ("hidden endpoint", "missing", "cookie", "header")):
+        return 2
+
+    # Level 1: only initial web target known
+    return 1
+
 
 @dataclass(frozen=True)
 class LoopCandidate:
@@ -90,6 +136,7 @@ def _loop_state(configuration: dict[str, Any]) -> dict[str, Any]:
     state = _as_dict(configuration.get(LOOP_CONFIG_KEY))
     iterations = [dict(item) for item in _as_list(state.get("iterations")) if isinstance(item, dict)]
     goal_reasoning = _as_dict(state.get("goal_oriented_reasoning"))
+    depth_level = int(state.get("depth_level") or 1)
     return {
         "enabled": bool(state.get("enabled", True)),
         "run_mode": "ai_loop",
@@ -97,6 +144,9 @@ def _loop_state(configuration: dict[str, Any]) -> dict[str, Any]:
         "max_iterations": int(state.get("max_iterations") or LOOP_MAX_ITERATIONS),
         "stuck_threshold": int(state.get("stuck_threshold") or LOOP_STUCK_THRESHOLD),
         "iteration_count": int(state.get("iteration_count") or len(iterations)),
+        "step_count": int(state.get("step_count") or len(iterations)),
+        "depth_level": depth_level,
+        "depth_label": DEPTH_LEVEL_LABELS.get(depth_level, "Verkenning"),
         "no_new_signal_iterations": int(state.get("no_new_signal_iterations") or 0),
         "status": str(state.get("status") or "ready"),
         "stop_reason": state.get("stop_reason"),
@@ -1146,12 +1196,17 @@ def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> 
             "micro_plan_step_count": len(list(context_document.micro_plan_json or [])),
             "evidence_ref_count": len(list(context_document.evidence_refs_json or [])),
         }
+    active_tasks = _active_loop_tasks(run)
+    effective_status = loop_state["status"]
+    if active_tasks and effective_status == "waiting_for_execution":
+        effective_status = "running"
+
     return {
         "available": True,
         "run_id": str(run.id),
         "run_mode": "ai_loop",
         "loop_version": LOOP_VERSION,
-        "status": loop_state["status"],
+        "status": effective_status,
         "stop_reason": loop_state.get("stop_reason"),
         "iteration_count": loop_state["iteration_count"],
         "max_iterations": loop_state["max_iterations"],
@@ -1160,7 +1215,7 @@ def build_assessment_loop_state(session: Session, *, run: Run, scope: Scope) -> 
         "current_state": current_state,
         "target_context": context_summary,
         "latest_next_action": loop_state.get("latest_next_action"),
-        "active_tasks": _active_loop_tasks(run),
+        "active_tasks": active_tasks,
         "assessment_plan_summary": plan.get("summary", {}),
         "goal_oriented_reasoning": _as_dict(loop_state.get("goal_oriented_reasoning")),
         "rationale_ledger": _rationale_ledger_payloads(session, run=run),
