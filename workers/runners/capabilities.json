@@ -63,10 +63,7 @@
       "weak_triggers": []
     },
     {
-      "blockers": [
-        "no_login_form",
-        "no_auth_context"
-      ],
+      "blockers": [],
       "category": "authentication",
       "cost": "low",
       "description": "Validates approved authentication flows with operator-provided access context.",
@@ -887,7 +884,6 @@
     },
     {
       "blockers": [
-        "no_auth_context",
         "no_object_reference"
       ],
       "category": "authorization",
@@ -1638,7 +1634,6 @@
     },
     {
       "blockers": [
-        "no_session_signal",
         "no_web_target"
       ],
       "category": "authentication",
@@ -1738,7 +1733,6 @@
     },
     {
       "blockers": [
-        "no_injectable_parameter",
         "no_sql_error_pattern",
         "no_web_forms"
       ],
@@ -1946,7 +1940,6 @@
     },
     {
       "blockers": [
-        "no_form_or_parameter",
         "no_web_target"
       ],
       "category": "web",
