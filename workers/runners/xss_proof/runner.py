@@ -23,7 +23,11 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import httpx as httpx_client
 
-from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
+from workers.runners.base.contracts import (
+    EvidenceArtifact,
+    ProtectedSecretMaterial,
+    RunnerExecution,
+)
 from workers.runners.httpx.runner import normalize_http_target
 
 logger = logging.getLogger(__name__)
@@ -61,20 +65,54 @@ def _inject_param(url: str, param: str, payload: str) -> str:
     return urlunparse(parsed._replace(query=urlencode(replaced)))
 
 
-def _discover_auth_forms(client: httpx_client.Client, base_url: str) -> list[dict[str, Any]]:
-    """Fetch login/register pages and extract form actions, methods, and fields."""
+_REG_LINK_KEYWORDS = re.compile(
+    r'register|signup|sign.up|create.account|new.account|newaccount|join|aanmeld',
+    re.IGNORECASE,
+)
+_REG_PATH_PATTERNS = ["/register", "/signup", "/join", "/create-account", "/new-account"]
+
+
+def _discover_candidate_pages(client: httpx_client.Client, base_url: str) -> list[str]:
+    """Discover registration/login page URLs by:
+    1. Scanning links on the main page for registration keywords (generic)
+    2. Falling back to common path patterns
+    """
     parsed = urlparse(base_url)
     base_origin = f"{parsed.scheme}://{parsed.netloc}"
     path_parts = [p for p in parsed.path.strip("/").split("/") if p]
     instance_prefix = f"/{path_parts[0]}" if path_parts else ""
 
-    candidate_pages = [
-        base_url,
-        f"{base_origin}{instance_prefix}/newaccount.gtl",
-        f"{base_origin}{instance_prefix}/login",
-        f"{base_origin}{instance_prefix}/register",
-        f"{base_origin}{instance_prefix}/signup",
-    ]
+    candidates: list[str] = [base_url]
+
+    # Scan the main page HTML for registration-related links
+    try:
+        resp = client.get(base_url)
+        html = resp.text
+        for href_m in re.finditer(r'href=["\']([^"\'#][^"\']*)["\']', html, re.IGNORECASE):
+            href = href_m.group(1).strip()
+            link_text_start = href_m.start()
+            # Also grab surrounding anchor text
+            surrounding = html[max(0, link_text_start - 10):link_text_start + len(href) + 100]
+            if _REG_LINK_KEYWORDS.search(href) or _REG_LINK_KEYWORDS.search(surrounding):
+                full = urljoin(base_origin, href) if not href.startswith("http") else href
+                if full.startswith(base_origin) and full not in candidates:
+                    candidates.append(full)
+    except httpx_client.HTTPError:
+        pass
+
+    # Add common patterns relative to the instance prefix
+    for path in _REG_PATH_PATTERNS:
+        url = f"{base_origin}{instance_prefix}{path}"
+        if url not in candidates:
+            candidates.append(url)
+
+    return candidates[:10]  # limit to avoid excessive requests
+
+
+def _discover_auth_forms(client: httpx_client.Client, base_url: str) -> list[dict[str, Any]]:
+    """Fetch discovered pages and extract all HTML forms generically."""
+    base_origin = f"{urlparse(base_url).scheme}://{urlparse(base_url).netloc}"
+    candidate_pages = _discover_candidate_pages(client, base_url)
 
     forms: list[dict[str, Any]] = []
     for page_url in candidate_pages:
@@ -435,11 +473,39 @@ def execute_xss_proof(
         },
     }
 
+    # Store the stolen session cookie in the credential vault so subsequent tools
+    # (idor-bac, auth-flow, client-state) automatically receive it as an authenticated
+    # session context. This is how exploitation context flows through the chain:
+    # xss-proof steals the cookie → vault stores it → next tool uses it.
+    protected_outputs: list[ProtectedSecretMaterial] = []
+    if stealable and auth.get("cookie_value"):
+        cookie_value = str(auth["cookie_value"])
+        username = str(auth.get("username") or "xss-proof-user")
+        # Cookie header format: "NAME=VALUE" — resolved by tasks.py into Cookie: header
+        # for idor-bac, auth-flow, client-state, session-security automatically.
+        raw_cookie_header = f"{session_cookie_name}={cookie_value}"
+        protected_outputs.append(ProtectedSecretMaterial(
+            artifact_name="xss-proof-session.json",
+            value=raw_cookie_header,
+            secret_kind="session",
+            purpose="task.xss_proof.stolen_session",
+            display_label=f"XSS-stolen session: {username} ({session_cookie_name})",
+            content_type="text/plain",
+            metadata={
+                "username": username,
+                "target": base_target,
+                "cookie_name": session_cookie_name,
+                "obtained_via": "xss_cookie_theft",
+                "raw_secret_material_exposed": False,
+            },
+        ))
+
     return RunnerExecution(
         tool="xss-proof",
         exit_code=exit_code,
         stdout=json.dumps(result),
         stderr="\n".join(stderr_lines),
-        metadata={"status": "ok", "tool_version": "xss-proof:v3"},
+        metadata={"status": "ok", "tool_version": "xss-proof:v4"},
         artifacts=[_artifact(XSS_PROOF_RESULTS_ARTIFACT_NAME, result)],
+        protected_outputs=protected_outputs,
     )
