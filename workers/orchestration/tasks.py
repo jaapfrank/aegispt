@@ -4977,11 +4977,18 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                 settings=active_settings,
             )
             session.commit()
-        ai_outcome = _maybe_run_post_task_ai_analysis(session, task)
+        # Order matters: advance the loop FIRST (picks next tool from AI proposals or signals),
+        # then run the AI analysis IN A SEPARATE COMMIT so it doesn't cause DB lock.
+        # SQLite allows only one writer; the ChatGPT analysis makes HTTP calls that
+        # create nested sessions, causing "database is locked" if run before the main commit.
         pivot_followup_ids = _maybe_detect_and_record_pivots(session, task)
         hint_followup_ids = _maybe_queue_next_step_hints(session, task)
         loop_outcome = _maybe_advance_assessment_loop_after_task(session, task)
         session.commit()
+        # AI analysis runs AFTER commit — uses its own session, no lock conflict
+        ai_outcome = _maybe_run_post_task_ai_analysis(session, task)
+        if ai_outcome and ai_outcome.autonomous_task_ids:
+            session.commit()  # commit AI-created tasks before dispatching them
         dispatch_settings = get_settings()
         if ai_outcome and ai_outcome.autonomous_task_ids:
             if execution_kill_switch_enabled(dispatch_settings):

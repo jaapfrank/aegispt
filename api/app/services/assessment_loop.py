@@ -1545,6 +1545,29 @@ def advance_assessment_loop(
         if str(tool).strip()
     }
     tested_keys = _tested_action_keys(run)
+    # FIRST: target-intel must run before any other tool in ai_loop web assessments.
+    # It analyzes the target with Claude to detect technology, CVEs, and build a
+    # targeted test plan — replacing blind tool execution with intelligence-driven testing.
+    _target_intel_candidate: LoopCandidate | None = None
+    if targets and "target-intel" in supported_execution_tools():
+        for target in targets:
+            target_value = str(target.get("value") or "").strip()
+            if target_value and _task_key("target-intel", target_value) not in tested_keys:
+                if _scope_target_allowed(scope, target_value):
+                    _target_intel_candidate = LoopCandidate(
+                        tool="target-intel",
+                        target=target_value,
+                        params={"target_kind": str(target.get("kind") or "url"), "source": "target-intel-first"},
+                        tier="passive",
+                        reasoning="Target intelligence: AI analyzes the target FIRST to detect technology stack, applicable CVEs, and create a targeted test plan.",
+                        confidence=0.95,
+                        follow_up_hints=["xss-extended", "nuclei", "smart-web-probe", "ai-pentest-agent"],
+                        expected_evidence=["technology_fingerprint", "targeted_scan_plan"],
+                        required_approvals=0,
+                        decision_source="target_intel_first",
+                    )
+                    break
+
     selector_targets = _context_targets(context_document) or targets
     selector_report = select_next_best_action_for_run(
         session,
@@ -1584,20 +1607,36 @@ def advance_assessment_loop(
         )
         else None
     )
-    candidate = goal_candidate or auth_candidate or recursive_candidate or selector_candidate or _seed_candidate(
+    # target-intel runs as the FIRST tool in every ai_loop web assessment,
+    # before xss-extended, sqlmap, or any other probe. It must come before
+    # selector_candidate so the AI analysis happens before blind scanning.
+    seed = _seed_candidate(
         run=run,
         scope=scope,
         targets=_context_targets(context_document) or targets,
         plan=plan,
         tested_keys=tested_keys,
         recommended_tools=recommended_tools,
-    ) or _plan_candidate(
-        run=run,
-        scope=scope,
-        targets=_context_targets(context_document) or targets,
-        plan=plan,
-        tested_keys=tested_keys,
-        recommended_tools=recommended_tools,
+    )
+    seed_is_intel = seed is not None and seed.tool == "target-intel"
+
+    candidate = (
+        _target_intel_candidate  # ALWAYS first: AI site analysis before any scanning
+        or (_ai_proposal_candidate(run=run, scope=scope, plan=plan, tested_keys=tested_keys) if tested_keys else None)
+        or (seed if seed_is_intel else None)
+        or goal_candidate
+        or auth_candidate
+        or recursive_candidate
+        or selector_candidate
+        or (seed if not seed_is_intel else None)
+        or _plan_candidate(
+            run=run,
+            scope=scope,
+            targets=_context_targets(context_document) or targets,
+            plan=plan,
+            tested_keys=tested_keys,
+            recommended_tools=recommended_tools,
+        )
     )
     if candidate is None:
         loop_state["status"] = "stopped"

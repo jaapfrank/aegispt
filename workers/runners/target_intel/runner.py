@@ -156,6 +156,7 @@ Based on what you actually see, identify the technology stack and create a targe
             max_tokens=4096,
             system=ANALYSIS_PROMPT,
             messages=[{"role": "user", "content": user_content}],
+            timeout=45.0,  # explicit timeout prevents indefinite hanging
         )
 
         raw = msg.content[0].text.strip()
