@@ -88,6 +88,7 @@ from api.app.services.on_demand_cve_intel import maybe_refresh_after_discovery_t
 from api.app.services.redaction import redact_artifact_bytes, redact_text
 from api.app.services.run_credential_vault import (
     clear_run_credential_vault_if_terminal,
+    inject_run_credential_vault_into_task,
     run_uses_ai_loop,
     store_run_credential_vault_secret,
 )
@@ -4635,6 +4636,90 @@ def _maybe_detect_and_record_pivots(session, task: Task) -> list[UUID]:
         return []
 
 
+def _maybe_queue_next_step_hints(session, task: Task) -> list[UUID]:
+    """Read next_step_hints from a completed task's stdout and queue follow-up tasks.
+
+    Runners can output next_step_hints in their JSON stdout:
+      {"next_step_hints": [{"tool": "idor-bac", "reason": "...", "params": {...}}]}
+
+    This makes the exploitation chain self-directing: each runner decides
+    what should happen next based on what it found, without hardcoding
+    the chain in the orchestration layer.
+    """
+    if task.status != "completed" or task.run is None:
+        return []
+    if not run_uses_ai_loop(task.run):
+        return []
+    try:
+        exe = session.scalar(
+            select(ToolExecution)
+            .where(ToolExecution.task_id == task.id)
+            .order_by(ToolExecution.created_at.desc())
+            .limit(1)
+        )
+        if exe is None or not exe.stdout_text:
+            return []
+
+        output = json.loads(exe.stdout_text)
+        hints = output.get("next_step_hints") or []
+        if not isinstance(hints, list) or not hints:
+            return []
+
+        run = task.run
+        scope = session.scalar(latest_scope_query(run.engagement_id))
+        if scope is None:
+            return []
+
+        queued: list[UUID] = []
+        for hint in hints[:3]:  # limit to 3 follow-ups per task
+            if not isinstance(hint, dict):
+                continue
+            tool = str(hint.get("tool") or "").strip()
+            reason = str(hint.get("reason") or "next-step-hint follow-up")
+            extra_params = dict(hint.get("params") or {})
+
+            if not tool or tool not in supported_execution_tools():
+                continue
+
+            targets = [str(task.target_id or "").strip()]
+            targets = [t for t in targets if t]
+            if not targets:
+                continue
+
+            task_params = {
+                "target_kind": "url",
+                "source": "next_step_hint",
+                "next_step_hint_tool": task.tool,
+                "next_step_hint_reason": reason,
+                **extra_params,
+                "assessment_loop": {
+                    "enabled": True,
+                    "run_mode": "ai_loop",
+                    "tier": "active",
+                    "required_approvals": 0,
+                    "registered_runner_required": True,
+                },
+            }
+
+            new_task = Task(
+                run_id=run.id,
+                tool=tool,
+                target_id=targets[0],
+                params_json=task_params,
+                status="queued",
+            )
+            session.add(new_task)
+            session.flush()
+            inject_run_credential_vault_into_task(session, run=run, task=new_task)
+            session.flush()
+            queued.append(new_task.id)
+
+        return queued
+    except Exception:
+        session.rollback()
+        return []
+
+
 def process_task_by_id(task_id: str) -> dict[str, object]:
     task_uuid = UUID(task_id)
 
@@ -4805,6 +4890,7 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             session.commit()
         ai_outcome = _maybe_run_post_task_ai_analysis(session, task)
         pivot_followup_ids = _maybe_detect_and_record_pivots(session, task)
+        hint_followup_ids = _maybe_queue_next_step_hints(session, task)
         loop_outcome = _maybe_advance_assessment_loop_after_task(session, task)
         session.commit()
         dispatch_settings = get_settings()
@@ -4818,6 +4904,11 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                 _cancel_autonomous_tasks_by_id(pivot_followup_ids)
             else:
                 dispatch_task_batch(pivot_followup_ids, dispatch_settings)
+        if hint_followup_ids:
+            if execution_kill_switch_enabled(dispatch_settings):
+                _cancel_autonomous_tasks_by_id(hint_followup_ids)
+            else:
+                dispatch_task_batch(hint_followup_ids, dispatch_settings)
         queued_loop_task_id = loop_outcome.get("queued_task_id") if loop_outcome else None
         if queued_loop_task_id:
             loop_task_ids = [UUID(str(queued_loop_task_id))]

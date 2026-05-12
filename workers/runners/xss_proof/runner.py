@@ -432,12 +432,43 @@ def _test_authenticated_access(
         except httpx_client.HTTPError:
             continue
 
+    # Collect all other users found across all pages
+    all_other_users: list[str] = []
+    for page in accessible:
+        for marker in page.get("data_found", []):
+            users_match = re.search(r"other users visible: \[([^\]]+)\]", str(marker))
+            if users_match:
+                found = [u.strip("' ") for u in users_match.group(1).split(",")]
+                all_other_users.extend(u for u in found if u not in all_other_users)
+
+    # Build next_step_hints: what the system should do next based on findings
+    next_steps: list[dict[str, Any]] = []
+    if all_other_users and accessible:
+        # IDOR: try accessing other users' data with our session
+        first_accessible = accessible[0]["url"] if accessible else base_url
+        next_steps.append({
+            "tool": "idor-bac",
+            "reason": f"Other users found: {all_other_users}. Test if our session can access their private data.",
+            "params": {
+                "discovered_users": all_other_users,
+                "authenticated_base_url": first_accessible,
+            },
+        })
+    if privilege_escalation:
+        next_steps.append({
+            "tool": "auth-flow",
+            "reason": "Privilege escalation hints found. Test admin/elevated access with stolen session.",
+            "params": {"session_obtained": True},
+        })
+
     return {
         "accessible_pages": accessible,
         "data_seen": "; ".join(data_seen) if data_seen else "authenticated content accessible",
         "privilege_escalation_hints": privilege_escalation,
         "pages_tested": len(probe_targets),
         "pages_accessible": len(accessible),
+        "other_users_found": all_other_users,
+        "next_step_hints": next_steps,
     }
 
 
