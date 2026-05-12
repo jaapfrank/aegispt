@@ -124,20 +124,24 @@ def test_auth_flow_detects_reset_and_login_flow_weaknesses() -> None:
     assert all("auth_flow" in finding.methodology_tags for finding in findings)
 
 
-def test_auth_flow_rejects_missing_credentials_and_out_of_scope_targets() -> None:
-    with pytest.raises(ValueError, match="configured username/password"):
-        execute_auth_flow_analysis(
-            ["https://app.example.test/app/"],
-            scope_allowlist={"urls": ["https://app.example.test/app/"]},
-            auth_contexts=[{"username": "alice@example.test"}],
-        )
+def test_auth_flow_skips_gracefully_when_credentials_missing() -> None:
+    # Missing credentials -> graceful skip with exit_code=0
+    result = execute_auth_flow_analysis(
+        ["https://app.example.test/app/"],
+        scope_allowlist={"urls": ["https://app.example.test/app/"]},
+        auth_contexts=[{"username": "analyst@example.test"}],
+    )
+    assert result.exit_code == 0
+    assert result.metadata.get("skipped") is True
 
+    # Out-of-scope target still raises ValueError (scope always enforced)
     with pytest.raises(ValueError, match="outside approved web scope"):
         execute_auth_flow_analysis(
             ["https://other.example.test/app/"],
             scope_allowlist={"urls": ["https://app.example.test/app/"]},
-            auth_contexts=[{"username": "alice@example.test", "password": "secret"}],
+            auth_contexts=[{"username": "analyst@example.test", "password": "secret"}],
         )
+
 
 
 def test_auth_flow_is_supported() -> None:

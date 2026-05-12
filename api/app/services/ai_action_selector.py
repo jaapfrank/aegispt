@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from datetime import UTC, datetime
 from typing import Any
@@ -380,6 +381,17 @@ def _observed_state(nodes: list[dict[str, Any]]) -> dict[str, Any]:
         if node.get("kind") != "runner_metadata"
     )
     signals = _signals_from_text(text)
+
+    # Also extract signals from actual httpx/tool stdout JSON stored in task nodes
+    for node in nodes:
+        if node.get("kind") not in {"task", "tool_output"}:
+            continue
+        data = node.get("data") or {}
+        if not isinstance(data, dict):
+            continue
+        stdout = str(data.get("stdout_text") or data.get("stdout") or "").strip()
+        if stdout and stdout.startswith("{"):
+            signals.update(_signals_from_httpx_json(stdout))
     prerequisites = set()
     if any(node.get("kind") == "scope" for node in nodes):
         prerequisites.add("approved_scope")
@@ -442,6 +454,77 @@ def _target_for_runner(
     if match:
         return {"kind": "url", "value": match.group(0)}
     return None
+
+
+def _signals_from_httpx_json(stdout_text: str) -> set[str]:
+    """Extract signals from actual httpx JSON output (links, forms, cookies).
+
+    httpx outputs: {"results": [{"links": [...], "forms": [...], "cookies": [...], ...}]}
+    This is more reliable than text-matching because it reads structured data.
+    """
+    signals: set[str] = set()
+    try:
+        data = json.loads(stdout_text)
+    except (json.JSONDecodeError, ValueError):
+        return signals
+
+    results = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        return signals
+
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+
+        # Links discovered — check for login/registration/upload/API paths
+        for link in result.get("links") or []:
+            lnk = str(link or "").lower()
+            if any(kw in lnk for kw in ("/login", "/signin", "/sign-in", "login.gtl")):
+                signals.add("login_form_found")
+            if any(kw in lnk for kw in ("/newaccount", "/register", "/signup", "/join", "/create")):
+                signals.add("registration_form_present")
+            if "?" in lnk:
+                signals.add("injectable_parameter")
+            if any(kw in lnk for kw in ("/upload", "/file", "multipart")):
+                signals.add("upload_form_present")
+            if any(kw in lnk for kw in ("/api/", "/v1/", "/rest/", ".json")):
+                signals.add("api_endpoint_present")
+            if any(kw in lnk for kw in ("/graphql", " graphql")):
+                signals.update({"graphql_endpoint", "graphql_present", "api_endpoint_present"})
+
+        # Forms — real form elements
+        for form in result.get("forms") or []:
+            if isinstance(form, dict):
+                method = str(form.get("method") or "get").lower()
+                if method == "post":
+                    signals.add("form_with_post_action")
+                action = str(form.get("action") or "").lower()
+                if any(kw in action for kw in ("login", "signin", "auth")):
+                    signals.add("login_form_found")
+                if any(kw in action for kw in ("register", "newaccount", "signup")):
+                    signals.add("registration_form_present")
+                if any(kw in action for kw in ("upload", "file")):
+                    signals.add("upload_form_present")
+
+        # Cookies — session detection
+        for cookie in result.get("cookies") or []:
+            cookie_name = str(cookie.get("name") or cookie if isinstance(cookie, str) else "").lower()
+            if any(kw in cookie_name for kw in ("session", "sid", "jsessionid", "phpsessid", "auth")):
+                signals.add("session_cookie_present")
+            if any(kw in cookie_name for kw in ("jwt", "token", "bearer")):
+                signals.add("jwt_in_response")
+
+        # Content-type / headers
+        ct = str(result.get("content_type") or "").lower()
+        if "json" in ct or "javascript" in ct:
+            signals.add("api_endpoint_present")
+
+        # Status indicates something is there
+        if result.get("ok") or result.get("status_code") in (200, 201, 301, 302):
+            signals.add("web_target_present")
+            signals.add("http_service_present")
+
+    return signals
 
 
 def _signals_from_text(text: str) -> set[str]:

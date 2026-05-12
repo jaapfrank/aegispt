@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import secrets
 import time
 from hashlib import sha256
 from typing import Any, Callable
@@ -71,6 +72,41 @@ def _allowed(scope_allowlist: dict[str, Any] | None, url: str) -> bool:
 def _assert_allowed(scope_allowlist: dict[str, Any] | None, url: str) -> None:
     if not _allowed(scope_allowlist, url):
         raise ValueError(f"target outside approved web scope: {url}")
+
+
+def _try_auto_register(
+    client: httpx_client.Client,
+    *,
+    registration_url: str,
+    scope_allowlist: dict[str, Any] | None,
+    reg_username_field: str = "username",
+    reg_password_field: str = "password",
+    extra_reg_fields: dict[str, Any] | None = None,
+) -> tuple[str, str] | None:
+    """Attempt to register a disposable test account.
+
+    Returns (username, password) on success, None on failure.
+    The username/password are random AegisPT test credentials — never real.
+    """
+    if not _allowed(scope_allowlist, registration_url):
+        return None
+    test_user = f"aegispt-test-{secrets.token_hex(6)}"
+    test_pass = f"AegisPT_T{secrets.token_hex(8)}!9"
+    try:
+        payload = {
+            reg_username_field: test_user,
+            reg_password_field: test_pass,
+            **(extra_reg_fields or {}),
+        }
+        response = client.post(registration_url, data=payload, follow_redirects=True, timeout=12.0)
+        # Gruyere and similar apps return 200/302 on success, no "error" in body
+        error_markers = ("error", "invalid", "already taken", "already exists", "failed", "captcha")
+        body_lower = response.text.lower()
+        if response.status_code in (200, 201, 301, 302, 303) and not any(m in body_lower for m in error_markers):
+            return test_user, test_pass
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 def _normalize_auth_contexts(auth_contexts: object) -> list[dict[str, Any]]:
@@ -246,6 +282,10 @@ def execute_auth_flow_analysis(
     auth_contexts: list[dict[str, Any]] | object,
     scope_allowlist: dict[str, Any] | None = None,
     login_url: str | None = None,
+    registration_url: str | None = None,
+    reg_username_field: str = "username",
+    reg_password_field: str = "password",
+    extra_reg_fields: dict[str, Any] | None = None,
     password_reset_url: str | None = None,
     reset_consume_url: str | None = None,
     login_method: str = "POST",
@@ -275,7 +315,36 @@ def execute_auth_flow_analysis(
     for target in normalized_targets:
         _assert_allowed(scope_allowlist, target)
 
-    safe_auth_contexts = _normalize_auth_contexts(auth_contexts)
+    # Auto-register: if no credentials are configured but a registration URL is provided,
+    # create a disposable test account and proceed with those credentials.
+    effective_auth_contexts = auth_contexts
+    auto_registered: tuple[str, str] | None = None
+    if registration_url and (not isinstance(auth_contexts, list) or not auth_contexts):
+        rendered_reg_url = _render_url(normalized_targets[0], registration_url)
+        with client_factory(follow_redirects=True, timeout=timeout_seconds) as reg_client:
+            auto_registered = _try_auto_register(
+                reg_client,
+                registration_url=rendered_reg_url,
+                scope_allowlist=scope_allowlist,
+                reg_username_field=reg_username_field,
+                reg_password_field=reg_password_field,
+                extra_reg_fields=extra_reg_fields,
+            )
+        if auto_registered:
+            effective_auth_contexts = [{"username": auto_registered[0], "password": auto_registered[1]}]
+
+    # Graceful skip when no credentials are available (and auto-register was not possible)
+    try:
+        safe_auth_contexts = _normalize_auth_contexts(effective_auth_contexts)
+    except ValueError as exc:
+        return RunnerExecution(
+            tool="auth-flow",
+            exit_code=0,
+            stdout=f"auth-flow skipped: {exc}. Configure credentials via the credential vault or set registration_url for auto-register.",
+            stderr="",
+            artifacts=[],
+            metadata={"skipped": True, "skip_reason": str(exc)},
+        )
     auth_context = safe_auth_contexts[0]
     target = normalized_targets[0]
     rendered_login_url = _render_url(target, login_url or "login")

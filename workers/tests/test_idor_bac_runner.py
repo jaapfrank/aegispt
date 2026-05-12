@@ -25,13 +25,14 @@ def _client_factory(handler):
     return factory
 
 
-def test_idor_bac_rejects_missing_auth_contexts() -> None:
-    with pytest.raises(ValueError, match="authenticated access account"):
-        execute_idor_bac_probe(
-            ["https://app.example.test/app/"],
-            auth_contexts=[],
-            scope_allowlist={"urls": ["https://app.example.test/app/"]},
-        )
+def test_idor_bac_skips_gracefully_when_credentials_missing() -> None:
+    result = execute_idor_bac_probe(
+        ["https://app.example.test/app/"],
+        auth_contexts=[],
+        scope_allowlist={"urls": ["https://app.example.test/app/"]},
+    )
+    assert result.exit_code == 0
+    assert result.metadata.get("skipped") is True
 
 
 def test_idor_bac_detects_confirmed_broken_access_control_signals() -> None:

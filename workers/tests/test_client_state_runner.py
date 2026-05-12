@@ -161,13 +161,14 @@ def test_client_state_detects_configured_authorization_bypass_variants() -> None
     assert all("client_state" in finding.methodology_tags for finding in findings)
 
 
-def test_client_state_rejects_missing_auth_contexts_and_out_of_scope_targets() -> None:
-    with pytest.raises(ValueError, match="authenticated access account"):
-        execute_client_state_analysis(
-            ["https://shop.example.test/app/"],
-            scope_allowlist={"urls": ["https://shop.example.test/app/"]},
-            auth_contexts=[],
-        )
+def test_client_state_skips_gracefully_when_credentials_missing() -> None:
+    result = execute_client_state_analysis(
+        ["https://shop.example.test/app/"],
+        scope_allowlist={"urls": ["https://shop.example.test/app/"]},
+        auth_contexts=[],
+    )
+    assert result.exit_code == 0
+    assert result.metadata.get("skipped") is True
 
     with pytest.raises(ValueError, match="outside approved web scope"):
         execute_client_state_analysis(

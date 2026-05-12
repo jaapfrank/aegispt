@@ -596,12 +596,13 @@ def test_vulnerable_components_scan_matches_local_cve_fixture(
     assert payload["safety"]["exploitation"] is False
 
 
-def test_external_osint_requires_api_credentials() -> None:
-    with pytest.raises(ValueError, match="requires SHODAN_API_KEY"):
-        execute_external_osint_recon(
-            ["example.com"],
-            scope_allowlist={"domains": ["example.com"]},
-        )
+def test_external_osint_skips_gracefully_when_no_api_credentials() -> None:
+    result = execute_external_osint_recon(
+        ["example.com"],
+        scope_allowlist={"domains": ["example.com"]},
+    )
+    assert result.exit_code == 0
+    assert result.metadata.get("skipped") is True
 
 
 class _FakeResponse:

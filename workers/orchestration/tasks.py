@@ -2032,10 +2032,27 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             timeout_seconds=timeout_seconds,
         )
     if request.tool == "auth-flow":
+        # Detect registration URL from candidate_paths (httpx-discovered links)
+        candidate_paths = request.params.get("candidate_paths") or []
+        auto_reg_url: str | None = request.params.get("registration_url")
+        if not auto_reg_url and isinstance(candidate_paths, list):
+            for path in candidate_paths:
+                p = str(path or "").lower()
+                if any(kw in p for kw in ("/newaccount", "/register", "/signup", "/sign-up", "/create-account", "/join")):
+                    auto_reg_url = str(path)
+                    break
         return execute_auth_flow_analysis(
             targets=request.targets,
             auth_contexts=request.params.get("auth_contexts", []),
             scope_allowlist=request.scope_allowlist,
+            registration_url=auto_reg_url,
+            reg_username_field=str(request.params.get("reg_username_field") or "username"),
+            reg_password_field=str(request.params.get("reg_password_field") or "password"),
+            extra_reg_fields=(
+                request.params.get("extra_reg_fields")
+                if isinstance(request.params.get("extra_reg_fields"), dict)
+                else None
+            ),
             login_url=(
                 str(request.params.get("login_url")).strip()
                 if request.params.get("login_url")
