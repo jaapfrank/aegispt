@@ -91,8 +91,12 @@ def _collect_app_context(
         f"{base_origin}{instance}/login",
         f"{base_origin}{instance}/profile.gtl",
         f"{base_origin}{instance}/snippets.gtl",
+        f"{base_origin}{instance}/newsnippet.gtl",  # snippet creation form
         f"{base_origin}{instance}/upload.gtl",
         f"{base_origin}{instance}/feed.gtl",
+        f"{base_origin}{instance}/new",
+        f"{base_origin}{instance}/create",
+        f"{base_origin}{instance}/post",
     ]
 
     context: dict[str, Any] = {
@@ -204,17 +208,25 @@ def _ask_claude_for_test_cases(
     session_cookie: dict[str, str] | None = None,
     engagement_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Generate test cases: try ChatGPT OAuth first, then Anthropic API, then heuristics."""
-    # 1. Try existing ChatGPT OAuth via AegisPT API (no extra API key needed)
-    cases = _ask_via_aegispt_api(context, previous_findings, session_cookie, engagement_id)
-    if cases:
-        return cases
+    """Generate test cases: AI + heuristics combined.
 
-    # 2. Try Anthropic API directly if key is configured
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        logger.debug("No AI available; using heuristic test cases")
-        return _heuristic_test_cases(context, session_cookie)
+    AI generates creative/contextual tests. Heuristics ensure critical
+    vulnerability patterns (stored XSS, XSSI, path traversal) are always
+    covered even when AI misses them. Results are merged and deduplicated.
+    """
+    ai_cases: list[dict[str, Any]] = []
+
+    # 1. Try existing ChatGPT OAuth via AegisPT API (no extra API key needed)
+    chatgpt_cases = _ask_via_aegispt_api(context, previous_findings, session_cookie, engagement_id)
+    if chatgpt_cases:
+        ai_cases = chatgpt_cases
+
+    # 2. Try Anthropic API directly if key is configured and ChatGPT didn't work
+    if not ai_cases:
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if not api_key:
+            logger.debug("No AI available; using heuristic test cases only")
+            return _heuristic_test_cases(context, session_cookie)
 
     try:
         import anthropic
@@ -253,9 +265,21 @@ def _ask_claude_for_test_cases(
             cases = json.loads(json_match.group(0))
             return cases if isinstance(cases, list) else []
     except Exception as exc:
-        logger.debug("Claude API call failed: %s — falling back to heuristics", exc)
+        logger.debug("Claude API call failed: %s", exc)
 
-    return _heuristic_test_cases(context, session_cookie)
+    # Always merge heuristic tests with AI tests — AI may miss systematic patterns
+    # (stored XSS via forms, XSSI via JSONP, path traversal) that heuristics catch.
+    heuristic = _heuristic_test_cases(context, session_cookie)
+
+    # Deduplicate: skip heuristic if AI already covers same vuln_type + url prefix
+    ai_vuln_urls = {(c.get("vuln_type"), c.get("url", "")[:60]) for c in ai_cases}
+    merged = list(ai_cases)
+    for h in heuristic:
+        key = (h.get("vuln_type"), h.get("url", "")[:60])
+        if key not in ai_vuln_urls:
+            merged.append(h)
+
+    return merged[:12]  # cap at 12 total
 
 
 def _heuristic_test_cases(
@@ -275,13 +299,18 @@ def _heuristic_test_cases(
     instance = f"/{path_parts[0]}" if path_parts else ""
 
     # Stored XSS: inject into text fields that get rendered back
-    xss_payload = "<script>alert('aegispt-stored-xss-'+document.cookie)</script>"
+    # Marker must be a string that appears LITERALLY in the HTML source
+    xss_marker = "aegispt-stored-xss"
+    xss_payload = f"<script>alert('{xss_marker}-'+document.cookie)</script>"
     for form in context["all_forms"]:
         text_fields = [f for f in form["fields"] if f.lower() not in ("submit", "action", "private", "is_author", "is_admin")]
         if not text_fields:
             continue
-        if any(kw in form["action"].lower() for kw in ("snippet", "comment", "post", "message", "content", "profile")):
+        if any(kw in form["action"].lower() for kw in ("snippet", "newsnippet", "comment", "post", "message", "content")):
             test_data = {field: xss_payload for field in text_fields[:2]}
+            # verify_url: where does the stored content appear?
+            # Use the global snippets feed — includes all users' content
+            verify = f"{base_origin}{instance}/snippets.gtl"
             if form["method"] == "GET":
                 cases.append({
                     "name": f"Stored XSS via {form['action'].split('/')[-1]}",
@@ -291,9 +320,9 @@ def _heuristic_test_cases(
                     "params": {**test_data, "private": ""},
                     "data": {},
                     "cookies": session_cookie or {},
-                    "check": "aegispt-stored-xss",
+                    "check": xss_marker,  # literal string in the stored payload
                     "severity": "high",
-                    "verify_url": f"{base_origin}{instance}/snippets.gtl",
+                    "verify_url": verify,
                 })
             else:
                 cases.append({
@@ -310,18 +339,29 @@ def _heuristic_test_cases(
                 })
 
     # XSSI: check discovered JSON/JSONP endpoints
+    # The check string must be a LITERAL substring of the response body
     for ep in context["json_endpoints"]:
         if ep.get("is_jsonp"):
+            # Extract the actual JSONP callback name from the preview (e.g. "_feed(")
+            preview = ep.get("preview", "")
+            import re as _re
+            cb_match = _re.match(r'^([a-zA-Z_]\w*)\s*\(', preview.strip())
+            check_str = (cb_match.group(1) + "(") if cb_match else "_feed("
             cases.append({
-                "name": f"XSSI via {ep['url'].split('/')[-1]}",
+                "name": f"XSSI — JSONP data theft via {ep['url'].split('/')[-1]}",
                 "vuln_type": "xssi",
                 "method": "GET",
                 "url": ep["url"],
                 "params": {},
                 "data": {},
                 "cookies": session_cookie or {},
-                "check": "JSONP callback with sensitive data",
-                "severity": "medium",
+                "check": check_str,  # literal callback name from response
+                "severity": "high",
+                "xssi_proof": (
+                    f"The endpoint returns `{check_str}({{...}})`. "
+                    "An attacker can include this URL as a <script> tag on a malicious page "
+                    "and override the callback function to steal the data."
+                ),
             })
 
     # Path traversal: try URL-encoded traversal on known endpoints
