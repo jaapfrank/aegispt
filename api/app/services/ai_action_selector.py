@@ -552,6 +552,11 @@ def _signals_from_text(text: str) -> set[str]:
     if any(token in lower for token in ("/upload", "file_upload", "upload_url", "file_field", "multipart")):
         signals.add("upload_form_present")
 
+    # XSS confirmed — critical signal for session chaining
+    if any(token in lower for token in ("reflected xss", "stored xss", "xss confirmed", "xss via url",
+                                         "cross-site scripting", "xss_context_evidence")):
+        signals.update({"xss_confirmed", "session_cookie_present", "web_target_present"})
+
     # URL parameters — injectable candidates
     if any(token in text for token in ("?uid=", "?id=", "?q=", "?search=", "?page=", "?name=",
                                         "injectable_parameter", "snippets.gtl")):

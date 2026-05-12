@@ -88,11 +88,14 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
+        "xss_confirmed",
         "login_form_found",
+        "registration_form_present",
         "form_with_post_action"
       ],
       "weak_triggers": [
-        "web_target_present"
+        "web_target_present",
+        "session_cookie_present"
       ],
       "trigger_signals": {
         "strong": [
@@ -405,8 +408,9 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "login_form_found",
-        "session_cookie_present"
+        "xss_confirmed",
+        "session_cookie_present",
+        "login_form_found"
       ],
       "weak_triggers": [
         "web_target_present"
@@ -905,9 +909,13 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
-        "web_target_present"
+        "xss_confirmed",
+        "session_cookie_present"
       ],
-      "weak_triggers": [],
+      "weak_triggers": [
+        "web_target_present",
+        "injectable_parameter"
+      ],
       "trigger_signals": {
         "strong": [
           "web_target_present"
@@ -1648,6 +1656,7 @@
       "required_approvals": 1,
       "risk_tier": "active",
       "triggers": [
+        "xss_confirmed",
         "session_cookie_present",
         "login_form_found"
       ],

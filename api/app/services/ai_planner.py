@@ -53,11 +53,30 @@ _PIVOT_FINDING_PATTERNS: dict[str, tuple[str, list[str], str]] = {
         "RCE confirmed on {target}. Pivot context enables depth-first enumeration "
         "from the compromised execution environment.",
     ),
+    "reflected xss": (
+        "session_token_pivot",
+        ["session-security", "auth-flow", "client-state"],
+        "Reflected XSS confirmed on {target}. An attacker can steal session cookies "
+        "by tricking a logged-in user into clicking a crafted link. Next step: probe "
+        "session handling and test whether the XSS parameter enables privilege escalation.",
+    ),
+    "xss via url": (
+        "session_token_pivot",
+        ["session-security", "auth-flow", "idor-bac"],
+        "XSS via URL parameter confirmed on {target}. Session token theft possible. "
+        "Testing session security and authenticated-surface access.",
+    ),
     "stored xss": (
         "session_token_pivot",
         ["auth-flow", "idor-bac", "client-state"],
-        "Stored XSS in admin context confirmed on {target}. Session token extraction "
-        "enables authenticated-surface pivot to probe admin-only attack vectors.",
+        "Stored XSS confirmed on {target}. Session token extraction enables "
+        "authenticated-surface pivot to probe admin-only attack vectors.",
+    ),
+    "xss": (
+        "session_token_pivot",
+        ["session-security", "auth-flow", "client-state"],
+        "XSS confirmed on {target}. Session material may be accessible. "
+        "Probing session security and authenticated access paths.",
     ),
     "cookie theft": (
         "session_token_pivot",
