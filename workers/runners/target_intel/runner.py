@@ -30,41 +30,39 @@ logger = logging.getLogger(__name__)
 
 TARGET_INTEL_ARTIFACT_NAME = "target-intel.json"
 
-ANALYSIS_PROMPT = """You are an expert penetration tester performing pre-assessment target intelligence.
+ANALYSIS_PROMPT = """You are an expert penetration tester. You just fetched a web target.
+Analyze ONLY what you can see in the HTTP response and produce a targeted test plan.
 
-Analyze the target and produce a TARGETED test plan based on what you actually see.
-Do NOT generate generic plans — every tool and finding must be specific to THIS target.
+Your job:
+1. IDENTIFY: What technology is running? (server headers, HTML patterns, JS frameworks, CMS markers, API styles)
+2. MATCH CVEs: What known vulnerabilities apply to the DETECTED version/technology?
+3. PLAN: Which tools should run, in what order, and WHY for THIS specific target?
 
-Return ONLY valid JSON (no markdown):
+Rules:
+- Base EVERYTHING on what you actually see in the response — not assumptions
+- If you see WordPress markers: prioritize wp-specific CVE checks
+- If you see Magento: prioritize Magento RCE CVEs (CosmicSting, etc.)
+- If you see Angular/React: prioritize REST API enumeration and JWT testing
+- If you see a login form: auth-flow and session-security are high priority
+- If you see GraphQL: graphql-probe first
+- If you see Java/.NET/PHP in headers: check known framework CVEs via nuclei
+- If response reveals version numbers: immediately look up relevant CVEs
+- Sensitive data in JS (API keys, tokens, internal URLs): report and prioritize
+
+Return ONLY valid JSON, max 8 test_plan entries:
 {
-  "site_type": "what this site/application is",
-  "technology_stack": ["specific detected technologies with version hints"],
-  "cves_to_check": [{"cve": "CVE-YYYY-XXXXX", "reason": "why this applies here", "severity": "critical/high"}],
-  "attack_surface": ["specific attack vectors for THIS site"],
-  "test_plan": [
-    {
-      "priority": 1,
-      "tool": "tool_name_from_aegispt",
-      "reason": "specific reason for THIS target",
-      "params": {},
-      "expected_finding": "what you expect to find"
-    }
-  ],
-  "sensitive_data_found": ["any credentials, keys, or sensitive info in the response"]
+  "site_type": "concise description of what this application is and does",
+  "technology_stack": ["technology:version if detectable"],
+  "cves_to_check": [{"cve": "CVE-YYYY-NNNNN", "reason": "why this version/tech is affected", "severity": "critical/high/medium"}],
+  "attack_surface": ["specific vectors visible in this response"],
+  "test_plan": [{"priority": 1, "tool": "aegispt_tool_name", "reason": "why for THIS target specifically", "params": {}, "expected_finding": "what to look for"}],
+  "sensitive_data_found": ["any keys/tokens/credentials visible in the response"]
 }
 
-Available AegisPT tools: httpx, nmap, xss-extended, xss-proof, smart-web-probe,
+AegisPT tools available: httpx, nmap, xss-extended, xss-proof, smart-web-probe,
 ai-pentest-agent, zap, nikto, content-discovery, nuclei, sqlmap, ssrf-probe,
 ssti-probe, auth-flow, session-security, idor-bac, headers-security, burp,
-graphql-probe, jwt-probe, waf-detect, path-traversal (use this name), stored-xss
-
-Priority rules:
-- If Magento detected: nuclei with Magento CVE templates is priority 1
-- If WordPress: nuclei with WP templates + content-discovery for wp-admin
-- If SPA (Angular/React/Vue): ai-pentest-agent for REST API testing
-- If login form: auth-flow + session-security
-- If search functionality: xss-extended + sqlmap
-- Always: headers-security, then technology-specific tools"""
+graphql-probe, jwt-probe, waf-detect"""
 
 
 def _probe_target(base_url: str, timeout: float) -> dict[str, Any]:
