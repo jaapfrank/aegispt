@@ -157,6 +157,7 @@ export default function MissionControl() {
   const [taskDetails, setTaskDetails] = useState<Record<UUID, TaskDetail>>({});
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [cinemaOpen, setCinemaOpen] = useState(false);
+  const [briefing, setBriefing] = useState<string | null>(null);
   const [launchArrival, setLaunchArrival] = useState(() => readIntakeLaunchState(location.state));
   const refreshInFlightRef = useRef(false);
 
@@ -273,6 +274,19 @@ export default function MissionControl() {
     }, POLL_MS);
     return () => window.clearInterval(timer);
   }, [isPolling, refreshRun, selectedRunId]);
+
+  // Fetch briefing when run completes and has findings
+  useEffect(() => {
+    if (!selectedRunId || !selectedRun) return;
+    const isComplete = TERMINAL_STATUSES.has(runStatus(selectedRun));
+    if (!isComplete || briefing || findings.length === 0) return;
+    fetch(`/api/v1/runs/${selectedRunId}/briefing`)
+      .then((r) => r.json())
+      .then((d: Record<string, unknown>) => {
+        if (typeof d.briefing === 'string' && d.briefing) setBriefing(d.briefing);
+      })
+      .catch(() => undefined);
+  }, [selectedRunId, selectedRun, briefing, findings.length]);
 
   useEffect(() => {
     if (!consoleTask) return;
@@ -459,6 +473,17 @@ export default function MissionControl() {
 
       {/* ── scrollable body ── */}
       <div className="flex flex-1 flex-col gap-5 min-h-0 overflow-y-auto pr-1">
+
+      {/* ── AI BRIEFING HERO (operator-grade: shows after run completes) ── */}
+      {briefing && (
+        <div className="rounded border border-line-soft bg-surface px-4 py-3">
+          <div className="mb-1 flex items-center gap-2">
+            <BrainCircuit size={13} className="text-ai shrink-0" />
+            <span className="font-mono text-[0.7rem] font-semibold uppercase tracking-widest text-ai/70">AI · BRIEFING</span>
+          </div>
+          <p className="text-[0.95rem] font-medium leading-relaxed text-text">{briefing}</p>
+        </div>
+      )}
 
       {/* ── STATUS BANNER ── */}
       <MissionStatusBanner run={selectedRun} tasks={tasks} findings={findings} proposals={proposals} />
