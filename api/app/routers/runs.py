@@ -1566,6 +1566,99 @@ def get_run_ai_insights(
     )
 
 
+@router.get("/runs/{run_id}/briefing", response_model=None)
+def get_run_briefing(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict:
+    """Generate an operator briefing for a completed run.
+
+    Returns a one-paragraph narrative describing what was found, how, and what matters most.
+    Like the design: 'We cracked the snippet handler — two reflective XSS sinks in uid...'
+    Uses Anthropic API directly (no ChatGPT OAuth session needed for this read-only call).
+    """
+    import json as _json
+    import os
+
+    run = _load_run_for_tenant(session, run_id, tenant_id)
+
+    # Collect findings
+    findings = list(run.findings or [])
+    if not findings:
+        return {"briefing": "No findings recorded for this run yet.", "generated": False}
+
+    # Build context for briefing
+    top_findings = sorted(
+        findings,
+        key=lambda f: {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}.get(
+            str(f.severity or "").lower(), 5
+        ),
+    )[:8]
+
+    finding_list = "\n".join(
+        f"- [{f.severity.upper()}] {f.title}: {(f.summary or '')[:120]}"
+        for f in top_findings
+    )
+
+    tasks_done = [t for t in list(run.tasks or []) if str(t.status or "") == "completed"]
+    tool_list = ", ".join(dict.fromkeys(t.tool for t in tasks_done if t.tool))
+    target = str(run.configuration_json.get("targets", {}) if run.configuration_json else "")
+    site_type = ""
+
+    # Try to get site type from target-intel output
+    for task in tasks_done:
+        if task.tool == "target-intel":
+            for exe in list(task.tool_executions or []):
+                try:
+                    d = _json.loads(exe.stdout_text or "")
+                    site_type = d.get("analysis", {}).get("site_type", "")
+                except Exception:
+                    pass
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        # Fallback: deterministic briefing
+        critical = [f for f in top_findings if str(f.severity or "").lower() == "critical"]
+        high = [f for f in top_findings if str(f.severity or "").lower() == "high"]
+        briefing = (
+            f"Assessment completed on {site_type or 'the target'}. "
+            f"Ran {len(tasks_done)} tools. "
+        )
+        if critical:
+            briefing += f"Critical: {critical[0].title}. "
+        if high:
+            briefing += f"High: {'; '.join(f.title for f in high[:2])}. "
+        briefing += f"Total findings: {len(findings)}."
+        return {"briefing": briefing, "generated": False, "model": "deterministic"}
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            system=(
+                "You are a penetration testing expert writing operator briefings. "
+                "Write ONE punchy paragraph (2-4 sentences) that captures what was found and why it matters. "
+                "Start with the most critical finding. Use specific details (parameter names, tool names, CVEs). "
+                "Tone: direct, technical, operator-to-operator. No fluff."
+            ),
+            messages=[{"role": "user", "content": (
+                f"Target: {target}\n"
+                f"Site type: {site_type or 'unknown'}\n"
+                f"Tools run: {tool_list}\n"
+                f"Findings:\n{finding_list}\n\n"
+                "Write the briefing paragraph."
+            )}],
+            timeout=20.0,
+        )
+        briefing = msg.content[0].text.strip()
+        return {"briefing": briefing, "generated": True, "model": "claude-haiku-4-5-20251001"}
+    except Exception as exc:
+        return {"briefing": f"Briefing generation failed: {exc}", "generated": False}
+
+
 @router.get(
     "/engagements/{engagement_id}/runs/{run_id}/ai-proposals",
     response_model=list[AgentProposalRead],
