@@ -511,6 +511,54 @@ def _heuristic_test_cases(
                 "severity": "high",
             })
 
+    # CSRF: test if state-changing actions lack token protection
+    # Look for POST forms without CSRF token fields
+    for form in context["all_forms"]:
+        if form["method"] != "POST":
+            continue
+        has_csrf = any(
+            f.lower() in ("csrf_token", "_token", "authenticity_token", "user_token", "__requestverificationtoken")
+            for f in form["fields"]
+        )
+        if not has_csrf and any(
+            kw in form["action"].lower()
+            for kw in ("save", "delete", "update", "create", "submit", "logout", "profile", "snippet")
+        ):
+            cases.append({
+                "name": f"CSRF — State-changing POST without token ({form['action'].split('/')[-1]})",
+                "vuln_type": "csrf",
+                "method": "POST",
+                "url": form["action"],
+                "params": {},
+                "data": {f: "csrf-test-payload" for f in form["fields"][:2] if f not in ("submit",)},
+                "cookies": session_cookie or {},
+                "check": "csrf-test-payload",  # verifies request was accepted without token
+                "severity": "medium",
+            })
+
+    # Privilege Escalation via URL parameters
+    # Common pattern: ?is_admin=True or ?action=update&is_admin=True accepted without server validation
+    if session_cookie:
+        escalation_targets = [
+            (f"{base_origin}{instance}/saveprofile", {"action": "update", "is_admin": "True"}, "is_admin"),
+            (f"{base_origin}{instance}/saveprofile", {"action": "update", "role": "admin"}, "admin"),
+            (f"{base_origin}{instance}/editprofile", {"is_admin": "1"}, "admin"),
+        ]
+        for url, params, check in escalation_targets:
+            if any(link for link in context["all_links"] if "saveprofile" in link or "editprofile" in link or "profile" in link):
+                cases.append({
+                    "name": f"Privilege Escalation via URL parameter ({list(params.keys())[1]})",
+                    "vuln_type": "privilege_escalation",
+                    "method": "GET",
+                    "url": url,
+                    "params": params,
+                    "data": {},
+                    "cookies": session_cookie or {},
+                    "check": check,
+                    "severity": "critical",
+                })
+                break  # one escalation test is enough
+
     return cases[:10]
 
 

@@ -1767,91 +1767,138 @@ function AiLoopPanel({
   const depthLabel = String(loop?.depth_label ?? 'Verkenning');
   const loopStatus = String(loop?.status ?? 'ready');
   const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
-  const maxIter = Number(loop?.max_iterations ?? 35);
   const iterations = Array.isArray(loop?.iterations) ? (loop.iterations as Record<string, unknown>[]) : [];
 
-  const statusColor =
-    loopStatus === 'stopped' || stopReason
-      ? 'border-amber/40 bg-amber/10 text-amber'
-      : loopStatus === 'waiting_for_execution'
-        ? 'border-cyan/40 bg-cyan/10 text-cyan'
-        : 'border-border bg-surface/40 text-muted';
+  const isRunning = loopStatus === 'running' || loopStatus === 'waiting_for_execution';
+  const isStopped = loopStatus === 'stopped' || Boolean(stopReason);
 
-  const latestIteration = iterations[iterations.length - 1] as Record<string, unknown> | undefined;
-  const latestAction = latestIteration?.next_action as Record<string, unknown> | undefined;
+  // Latest iteration for hypothesis
+  const latestIter = iterations[iterations.length - 1] as Record<string, unknown> | undefined;
+  const latestAction = latestIter?.next_action as Record<string, unknown> | undefined;
+  const latestParams = (latestAction?.params ?? {}) as Record<string, unknown>;
+  const nba = (latestParams.next_best_action_selector ?? {}) as Record<string, unknown>;
+  const triggers = Array.isArray(nba.matched_triggers) ? (nba.matched_triggers as string[]) : [];
+  const hypothesis = String(latestAction?.reasoning ?? '');
+  const currentTool = String(latestAction?.tool ?? '');
 
-  const loopProposals = proposals.filter(
-    (p) => (p.metadata_json as Record<string, unknown>)?.proposal_kind === 'assessment_loop_next_action',
-  );
+  // Pending proposals = next up
+  const pendingProps = proposals
+    .filter((p) => p.status === 'pending_review' || p.status === 'approved')
+    .slice(0, 3);
+
+  // Build reasoning chain: last 5 iterations → what tool and why
+  const recentIters = [...iterations].slice(-5).reverse();
+
+  const statusDot = isStopped ? 'bg-amber' : isRunning ? 'bg-ok' : 'bg-line';
 
   return (
-    <div className="glass-panel min-h-[230px] rounded-lg p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
-          <BrainCircuit size={15} />
-          AI Adaptive Loop
-        </h2>
-        <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusColor)}>
-          {stopReason ? `stopped: ${stopReason.replace(/_/g, ' ')}` : loopStatus.replace(/_/g, ' ')}
-        </span>
-      </div>
-
-      <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-md border border-cyan/30 bg-cyan/5 px-2 py-2">
-          <div className="text-[1rem] font-bold text-cyan">{depthLevel}</div>
-          <div className="text-[0.72rem] text-cyan/70 font-medium truncate">{depthLabel}</div>
+    <div className="op-card p-0 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-line-soft">
+        <div className="flex items-center gap-2">
+          <BrainCircuit size={13} className="text-ai" />
+          <span className="font-mono text-[0.7rem] font-semibold uppercase tracking-widest text-ai/80">
+            AI · ADAPTIVE PENTEST
+          </span>
         </div>
-        <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
-          <div className="text-[1.1rem] font-bold text-text">{stepCount}</div>
-          <div className="text-[0.77rem] text-muted">Stappen</div>
-        </div>
-        <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
-          <div className="text-[1.1rem] font-bold text-text">{tasks.length}</div>
-          <div className="text-[0.77rem] text-muted">Tools</div>
+        <div className="flex items-center gap-2">
+          <div className={cn('h-1.5 w-1.5 rounded-full', statusDot, isRunning && 'animate-pulse')} />
+          <span className="font-mono text-[0.68rem] text-muted uppercase">
+            {isStopped ? (stopReason?.replace(/_/g, ' ') ?? 'stopped') : loopStatus.replace(/_/g, ' ')}
+          </span>
         </div>
       </div>
 
-      {latestAction && (
-        <div className="mb-3 rounded-md border border-cyan/20 bg-cyan/5 px-3 py-2 text-[0.85rem]">
-          <div className="mb-1 flex items-center gap-2 font-semibold text-cyan">
-            <ChevronRight size={13} />
-            Last action: <span className="font-mono">{String(latestAction.tool ?? '')}</span>
+      {/* KPIs — tight row */}
+      <div className="grid grid-cols-3 divide-x divide-line-soft border-b border-line-soft">
+        {[
+          { label: depthLabel, value: String(depthLevel), accent: true },
+          { label: 'Stappen', value: String(stepCount), accent: false },
+          { label: 'Tools', value: String(tasks.length), accent: false },
+        ].map(({ label, value, accent }) => (
+          <div key={label} className="px-3 py-2 text-center">
+            <div className={cn('text-[1rem] font-bold tabular', accent ? 'text-ai' : 'text-text')}>{value}</div>
+            <div className="text-[0.65rem] text-muted truncate">{label}</div>
           </div>
-          {latestAction.reasoning && (
-            <p className="line-clamp-2 text-muted">{String(latestAction.reasoning)}</p>
+        ))}
+      </div>
+
+      {/* Hypothesis — what is the AI doing now */}
+      {hypothesis && (
+        <div className="px-3 py-2 border-b border-line-soft">
+          <div className="mb-0.5 font-mono text-[0.62rem] uppercase tracking-widest text-muted">HYPOTHESIS</div>
+          <p className="text-[0.8rem] leading-relaxed text-soft line-clamp-3">{hypothesis}</p>
+          {triggers.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {triggers.slice(0, 3).map((t) => (
+                <span key={t} className="font-mono text-[0.62rem] px-1.5 py-0.5 rounded bg-ai/10 text-ai border border-ai/20">{t}</span>
+              ))}
+            </div>
           )}
         </div>
       )}
 
-      {iterations.length > 0 ? (
-        <div className="max-h-[120px] overflow-y-auto space-y-1 pr-1">
-          {[...iterations].reverse().map((it, idx) => {
-            const na = it.next_action as Record<string, unknown> | undefined;
-            const tool = String(na?.tool ?? '?');
-            const status = String(it.status ?? 'unknown');
-            const matching = loopProposals.find(
-              (p) => String((p.metadata_json as Record<string, unknown>)?.iteration) === String(it.iteration),
-            );
-            const tone =
-              status === 'completed' || matching?.status === 'approved'
-                ? 'text-emerald-300'
-                : status === 'queued'
-                  ? 'text-cyan'
-                  : 'text-muted';
-            return (
-              <div key={idx} className="flex items-center gap-2 rounded px-2 py-1 text-[0.82rem] hover:bg-surface/40">
-                <TerminalSquare size={11} className={tone} />
-                <span className={cn('font-mono font-semibold', tone)}>{tool}</span>
-                <span className="flex-1 truncate text-muted">{na?.target ? String(na.target).replace(/^https?:\/\//, '') : ''}</span>
-                <span className={cn('text-[0.75rem] font-bold uppercase', tone)}>{status}</span>
-              </div>
-            );
-          })}
+      {/* Reasoning chain */}
+      {recentIters.length > 0 && (
+        <div className="flex-1 overflow-y-auto px-3 py-2 border-b border-line-soft min-h-0 max-h-[140px]">
+          <div className="mb-1 font-mono text-[0.62rem] uppercase tracking-widest text-muted">REASONING CHAIN</div>
+          <div className="space-y-0.5">
+            {recentIters.map((it, idx) => {
+              const na = it.next_action as Record<string, unknown> | undefined;
+              const tool = String(na?.tool ?? '?');
+              const src = String((na?.params as Record<string, unknown>)?.source ?? '');
+              const isPivot = src === 'pivot_engine_followup';
+              const isHint = src === 'next_step_hint';
+              const isFirst = idx === 0;
+              return (
+                <div key={idx} className={cn('flex items-start gap-2 text-[0.78rem] py-0.5', isFirst ? 'text-text' : 'text-muted')}>
+                  <span className="font-mono shrink-0 text-[0.65rem] text-ink-4 tabular w-3">{recentIters.length - idx}</span>
+                  <TerminalSquare size={10} className={cn('mt-0.5 shrink-0', isFirst ? 'text-ai' : 'text-ink-4')} />
+                  <span className="font-mono font-medium shrink-0">{tool}</span>
+                  {isPivot && <span className="text-[0.62rem] text-amber/70 shrink-0">pivot</span>}
+                  {isHint && <span className="text-[0.62rem] text-ok/70 shrink-0">chain</span>}
+                  <span className="truncate text-[0.72rem]">{String(na?.reasoning ?? '').slice(0, 60)}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      ) : (
-        <EmptyBlock title="Loop starting" detail="Iterations will appear here as the AI selects tools." />
+      )}
+
+      {/* Next up */}
+      {pendingProps.length > 0 && (
+        <div className="px-3 py-2">
+          <div className="mb-1 font-mono text-[0.62rem] uppercase tracking-widest text-muted">NEXT UP</div>
+          {pendingProps.map((p) => (
+            <div key={p.id} className="flex items-center justify-between gap-2 py-0.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-mono text-[0.78rem] font-semibold text-text shrink-0">{p.proposed_tool}</span>
+                <span className="text-[0.72rem] text-muted truncate">{String(p.reasoning_text ?? '').slice(0, 50)}</span>
+              </div>
+              <span className="font-mono text-[0.68rem] text-ok shrink-0">
+                {Math.round(Number(p.confidence_score ?? 0) * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {iterations.length === 0 && !hypothesis && (
+        <div className="flex-1 flex items-center justify-center text-[0.8rem] text-muted p-4">
+          Loop starts after first tool completes.
+        </div>
       )}
     </div>
+  );
+}
+
+// Keep the old shape so TypeScript doesn't break the dead code below:
+function _AiLoopPanelOldIterRow({ it, loopProposals }: { it: Record<string, unknown>; loopProposals: AgentProposal[] }) {
+  const na = it.next_action as Record<string, unknown> | undefined;
+  const tool = String(na?.tool ?? '?');
+  const status = String(it.status ?? 'unknown');
+  const matching = loopProposals.find(
+    (p) => String((p.metadata_json as Record<string, unknown>)?.iteration) === String(it.iteration),
   );
 }
 

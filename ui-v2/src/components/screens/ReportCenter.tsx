@@ -63,6 +63,8 @@ export default function ReportCenter() {
   const [compareRunId, setCompareRunId] = useState<UUID | ''>('');
   const [comparison, setComparison] = useState<ComparisonSummary | null>(null);
   const [loadingComparison, setLoadingComparison] = useState(false);
+  const [briefing, setBriefing] = useState<string | null>(null);
+  const [loadingBriefing, setLoadingBriefing] = useState(false);
 
   const selectedReport = catalog.find((report) => report.variant === selectedVariant) ?? catalog[0] ?? null;
   const reportRuns = useMemo(() => reportRunOptions(runs, selectedRun), [runs, selectedRun]);
@@ -78,8 +80,20 @@ export default function ReportCenter() {
       setCatalog([]);
       setSelectedVariant(null);
       setMarkdown(null);
+      setBriefing(null);
       return;
     }
+
+    // Fetch AI briefing for the executive summary section
+    setBriefing(null);
+    setLoadingBriefing(true);
+    fetch(`/api/v1/runs/${selectedRunId}/briefing`)
+      .then((r) => r.json())
+      .then((d: Record<string, unknown>) => {
+        if (typeof d.briefing === 'string') setBriefing(d.briefing);
+      })
+      .catch(() => undefined)
+      .finally(() => setLoadingBriefing(false));
 
     const runId = selectedRunId;
     let cancelled = false;
@@ -295,6 +309,26 @@ export default function ReportCenter() {
           <TabButton active={activeTab === 'dossier'} onClick={() => setActiveTab('dossier')} icon={<History size={14} />}>Dossier</TabButton>
         </div>
       </header>
+
+      {/* AI Executive Briefing — shown when available */}
+      {(briefing || loadingBriefing) && activeTab === 'reports' && (
+        <div className="mb-4 rounded border border-line-soft bg-surface px-4 py-3">
+          <div className="mb-1 flex items-center gap-2">
+            <Shield size={12} className="text-ai shrink-0" />
+            <span className="font-mono text-[0.62rem] font-semibold uppercase tracking-widest text-ai/70">
+              AI · EXECUTIVE BRIEFING
+            </span>
+          </div>
+          {loadingBriefing ? (
+            <div className="flex items-center gap-2 text-[0.82rem] text-muted">
+              <Loader2 size={12} className="animate-spin" />
+              Generating briefing…
+            </div>
+          ) : (
+            <p className="text-[0.9rem] font-medium leading-relaxed text-text">{briefing}</p>
+          )}
+        </div>
+      )}
 
       {activeTab === 'reports' ? (
         <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[40fr_60fr]">
