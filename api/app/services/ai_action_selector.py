@@ -109,6 +109,11 @@ def select_next_best_action_for_run(
             "actions": [],
         }
     session.flush()
+    # Expire the run so SQLAlchemy re-fetches findings/tasks from DB.
+    # Without this, findings committed in the same request (e.g. xss-extended
+    # completing and findings being saved) may not be visible when the graph
+    # is built immediately after — causing xss_confirmed to be missing.
+    session.expire(run)
     graph = build_assessment_graph(session, run=run)
     allowed_targets = [
         target
