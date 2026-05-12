@@ -295,8 +295,8 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 285. ~~AI Phishing Triage & Auto-Purge (O365/Google Workspace)~~ ✓ DONE 2026-05-10 `codex/tasks/backlog-333-ai-phishing-triage-auto-purge.json`
 286. ~~Legacy UI Test Gate Retirement and React v2 Coverage Migration~~ ✓ DONE 2026-05-11 `codex/tasks/backlog-334-legacy-ui-test-gate-retirement.json`
 287. ~~Test and Scan Tooling Readiness Gate~~ ✓ DONE 2026-05-11 `codex/tasks/backlog-335-test-scan-tooling-readiness-gate.json`
-288. AI Adaptive Pentest: Intake Creates ai_loop Runs + Auto-Dispatch Passive Tasks `codex/tasks/backlog-336-ai-loop-intake-and-auto-dispatch.json`
-289. Pivot Engine Automatically Queues Follow-Up Scans from Confirmed Findings `codex/tasks/backlog-337-pivot-engine-spawns-followup-scans.json`
+288. ~~AI Adaptive Pentest: Intake Creates ai_loop Runs + Auto-Dispatch Passive Tasks~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-336-ai-loop-intake-and-auto-dispatch.json`
+289. ~~Pivot Engine Automatically Queues Follow-Up Scans from Confirmed Findings~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-337-pivot-engine-spawns-followup-scans.json`
 290. Mission Control: AI Adaptive Loop Panel showing Iteration Chain and Hypotheses `codex/tasks/backlog-338-mission-control-ai-loop-panel.json`
 291. Cinema Mode: 3D AI Attack Chain Visualization for ai_loop Runs `codex/tasks/backlog-339-cinema-mode-ai-chain-visualization.json`
 292. Impact Proof Chain: Severity Escalation When Finding Chain Demonstrates Real Access `codex/tasks/backlog-340-impact-proof-and-severity-escalation.json`

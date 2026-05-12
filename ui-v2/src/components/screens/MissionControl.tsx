@@ -17,6 +17,8 @@ import {
   RefreshCw,
   ShieldAlert,
   TerminalSquare,
+  BrainCircuit,
+  ChevronRight,
   Workflow,
   X,
 } from 'lucide-react';
@@ -468,16 +470,20 @@ export default function MissionControl() {
             selectedTaskId={consoleTask?.id ?? null}
             onSelect={setSelectedTaskId}
           />
-          <PhaseChain
-            chain={chain}
-            run={selectedRun}
-            tasks={tasks}
-            phases={phases}
-            currentPhase={currentPhase}
-            canApprovePhase={canApprovePhase}
-            busy={busyAction === 'phase'}
-            onApprove={() => void handleApprovePhase()}
-          />
+          {isAiLoopRun(selectedRun) ? (
+            <AiLoopPanel run={selectedRun} proposals={proposals} tasks={tasks} />
+          ) : (
+            <PhaseChain
+              chain={chain}
+              run={selectedRun}
+              tasks={tasks}
+              phases={phases}
+              currentPhase={currentPhase}
+              canApprovePhase={canApprovePhase}
+              busy={busyAction === 'phase'}
+              onApprove={() => void handleApprovePhase()}
+            />
+          )}
           <div className="mt-auto pt-1 shrink-0">
             <button
               type="button"
@@ -1063,6 +1069,108 @@ function ScanMap({
     </div>
   );
 }
+
+function AiLoopPanel({
+  run,
+  proposals,
+  tasks,
+}: {
+  run: Run;
+  proposals: AgentProposal[];
+  tasks: Task[];
+}) {
+  const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const iterCount = Number(loop?.iteration_count ?? 0);
+  const loopStatus = String(loop?.status ?? 'ready');
+  const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
+  const maxIter = Number(loop?.max_iterations ?? 20);
+  const iterations = Array.isArray(loop?.iterations) ? (loop.iterations as Record<string, unknown>[]) : [];
+
+  const statusColor =
+    loopStatus === 'stopped' || stopReason
+      ? 'border-amber/40 bg-amber/10 text-amber'
+      : loopStatus === 'waiting_for_execution'
+        ? 'border-cyan/40 bg-cyan/10 text-cyan'
+        : 'border-border bg-surface/40 text-muted';
+
+  const latestIteration = iterations[iterations.length - 1] as Record<string, unknown> | undefined;
+  const latestAction = latestIteration?.next_action as Record<string, unknown> | undefined;
+
+  const loopProposals = proposals.filter(
+    (p) => (p.metadata_json as Record<string, unknown>)?.proposal_kind === 'assessment_loop_next_action',
+  );
+
+  return (
+    <div className="glass-panel min-h-[230px] rounded-lg p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-[1rem] font-semibold text-cyan">
+          <BrainCircuit size={15} />
+          AI Adaptive Loop
+        </h2>
+        <span className={cn('rounded-full border px-2 py-0.5 text-[0.77rem] font-bold uppercase', statusColor)}>
+          {stopReason ? `stopped: ${stopReason.replace(/_/g, ' ')}` : loopStatus.replace(/_/g, ' ')}
+        </span>
+      </div>
+
+      <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
+          <div className="text-[1.1rem] font-bold text-cyan">{iterCount}</div>
+          <div className="text-[0.77rem] text-muted">Iterations</div>
+        </div>
+        <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
+          <div className="text-[1.1rem] font-bold text-text">{tasks.length}</div>
+          <div className="text-[0.77rem] text-muted">Tasks run</div>
+        </div>
+        <div className="rounded-md border border-border bg-surface/40 px-2 py-2">
+          <div className="text-[1.1rem] font-bold text-text">{maxIter}</div>
+          <div className="text-[0.77rem] text-muted">Max iter</div>
+        </div>
+      </div>
+
+      {latestAction && (
+        <div className="mb-3 rounded-md border border-cyan/20 bg-cyan/5 px-3 py-2 text-[0.85rem]">
+          <div className="mb-1 flex items-center gap-2 font-semibold text-cyan">
+            <ChevronRight size={13} />
+            Last action: <span className="font-mono">{String(latestAction.tool ?? '')}</span>
+          </div>
+          {latestAction.reasoning && (
+            <p className="line-clamp-2 text-muted">{String(latestAction.reasoning)}</p>
+          )}
+        </div>
+      )}
+
+      {iterations.length > 0 ? (
+        <div className="max-h-[120px] overflow-y-auto space-y-1 pr-1">
+          {[...iterations].reverse().map((it, idx) => {
+            const na = it.next_action as Record<string, unknown> | undefined;
+            const tool = String(na?.tool ?? '?');
+            const status = String(it.status ?? 'unknown');
+            const matching = loopProposals.find(
+              (p) => String((p.metadata_json as Record<string, unknown>)?.iteration) === String(it.iteration),
+            );
+            const tone =
+              status === 'completed' || matching?.status === 'approved'
+                ? 'text-emerald-300'
+                : status === 'queued'
+                  ? 'text-cyan'
+                  : 'text-muted';
+            return (
+              <div key={idx} className="flex items-center gap-2 rounded px-2 py-1 text-[0.82rem] hover:bg-surface/40">
+                <TerminalSquare size={11} className={tone} />
+                <span className={cn('font-mono font-semibold', tone)}>{tool}</span>
+                <span className="flex-1 truncate text-muted">{na?.target ? String(na.target).replace(/^https?:\/\//, '') : ''}</span>
+                <span className={cn('text-[0.75rem] font-bold uppercase', tone)}>{status}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyBlock title="Loop starting" detail="Iterations will appear here as the AI selects tools." />
+      )}
+    </div>
+  );
+}
+
 
 function PhaseChain({
   chain,
