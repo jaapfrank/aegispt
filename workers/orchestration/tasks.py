@@ -4986,7 +4986,7 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
         hint_followup_ids = _maybe_queue_next_step_hints(session, task)
         loop_outcome = _maybe_advance_assessment_loop_after_task(session, task)
         session.commit()
-        ai_outcome = None  # disabled for ai_loop: causes DB lock with nested HTTP sessions
+        ai_outcome = _maybe_run_post_task_ai_analysis(session, task)  # WAL mode fixes concurrent access
         if ai_outcome and ai_outcome.autonomous_task_ids:
             session.commit()
         dispatch_settings = get_settings()

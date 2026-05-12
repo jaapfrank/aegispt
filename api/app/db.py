@@ -56,9 +56,18 @@ def build_engine(database_url: str, db_key: str | None = None) -> Engine:
             creator=lambda: _connect_sqlcipher_sqlite(database_url, db_key),
         )
 
-    connect_args: dict[str, bool] = {}
+    connect_args: dict = {}
     if database_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
+        # Enable WAL mode and busy timeout for concurrent access (AI analysis + loop)
+        def _sqlite_connect():
+            import sqlite3 as _sqlite3
+            url_path = database_url.replace("sqlite+pysqlite:///", "").replace("sqlite:///", "")
+            conn = _sqlite3.connect(url_path, check_same_thread=False)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
+            return conn
+        return create_engine("sqlite://", pool_pre_ping=True, future=True, creator=_sqlite_connect)
 
     return create_engine(database_url, pool_pre_ping=True, future=True, connect_args=connect_args)
 
