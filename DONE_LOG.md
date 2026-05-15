@@ -1,5 +1,28 @@
 # Done Log
 
+- 2026-05-15: completed Mythos task #325 (backlog-375 — Auth Discoverer HTML Form Detection and Application Fingerprint):
+  - rationale: Phase 2 building block. The 5 Gruyere-specific probes hardcode saveprofile?action=new auth and silently no-op on non-Gruyere stacks. Form detection + application fingerprint is the first shared building block that #326 (AI recipe builder) and #327 (pattern cache) sit on top of.
+  - implementation:
+    - new api/app/services/auth_discoverer.py (~470 lines): two pure functions plus internal helpers
+      - fetch_auth_pages(base_url, scope_allowlist, ...) — probes common register/login paths (15 register + 13 login, NONE Gruyere-specific), respects scope_allowlist via web_target_value_is_allowed_with_path on every request, scans the index page for additional same-origin register/login links, handles redirects on the index, truncates response bodies to 200KB
+      - fingerprint_application(html_documents) — parses forms via regex (same pattern as xss_proof reference; bs4 not in venv), scores each form for register/login likelihood with `page_kind` as the strongest signal, picks best-fit forms above threshold, emits normalized dict with stack_hints (heuristic via Server/X-Powered-By headers, meta-generator, framework markers in HTML, hidden field signatures like __VIEWSTATE/csrfmiddlewaretoken, file extensions like .aspx/.jsp/.gtl/.php, cookie names like JSESSIONID/PHPSESSID/connect.sid), deterministic sha256 fingerprint_hash over canonical normalized form
+      - guards: probe_limit=12 default, MAX_FIELDS_PER_FORM=30, FINGERPRINT_MAX_BYTES=1900 enforced by tail-trimming, no AI calls in this task
+    - 4 HTML fixtures under api/tests/fixtures/auth_pages/: gruyere_signup.html (Python/Gruyere form with uid/pw/profile.email), testfire_register.html (ASP.NET WebForms with __VIEWSTATE + confirm-password), testasp_register.html (PHP signup with upass/upass2), juiceshop_index.html (Angular SPA - no traditional form)
+    - new api/tests/test_auth_discoverer.py with 17 tests:
+      - fingerprint pure-function: empty input, non-list input, 4 stack-specific assertions, 4-stack distinguishability (4 distinct hashes), determinism, <2KB acceptance, no-Gruyere-strings-in-production source check, form-score-penalizes-no-password
+      - fetch_auth_pages via httpx MockTransport (zero live HTTP): returns 200-only pages, respects scope_allowlist, probe_limit cap, http-error tolerance, no /saveprofile in REGISTER_PATHS sanity, default probe limit reasonable
+  - constraints honored:
+    - workers/runners/ untouched (must_not_touch)
+    - api/app/services/assessment_loop.py untouched (must_not_touch)
+    - api/app/services/memory_backend.py untouched (must_not_touch)
+    - NO AI calls (that is #326)
+    - NO cache logic (that is #327)
+    - NO probe migration (that is #328)
+    - production module has zero Gruyere-specific identifiers (verified by test_no_gruyere_strings_in_module which greps for /saveprofile, google-gruyere, the specific instance path, aegispt_ prefixes — only test fixtures and the SESSION_COOKIE_STACK_HINTS catalog entry "GRUYERE" remain, the latter is analogous to PHPSESSID/JSESSIONID)
+  - validation: scripts/validate_backlog_tasks.py reports 339 queued mapped 1:1 (no change to queue). pytest api/tests/test_auth_discoverer.py shows 17/17 pass. compileall -q api clean. ruff check api/app/services/auth_discoverer.py all checks passed. git diff --check clean on staged files.
+  - acceptance criteria met: 4-stack distinguishability (4 distinct hashes), deterministic, fingerprint <2KB, no live HTTP in tests (all via MockTransport or fixture files), no Gruyere-specific identifiers in production code.
+  - next: promote backlog-376 (#326 Auth Discoverer AI Recipe Builder) into NEXT_TASK.md.
+
 - 2026-05-15: queued new backlog-389 (#339 — Mission Control Approve-Next Button Broken onClick Wiring) during #324 checkpoint:
   - rationale: operator surfaced that the Approve-next button in MissionControlV3.tsx has no effect when clicked. Code inspection confirmed line 244 is a visual placeholder with no onClick handler. The backend endpoint POST /api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review exists and is correct; UI just doesn't call it.
   - filed as concrete backlog task per "no_untracked_future_work" constraint.

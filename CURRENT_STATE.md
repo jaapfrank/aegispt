@@ -1,6 +1,10 @@
 # Current State
 
-## Latest Continuation — Mythos Phase 1 CLOSED, GO for Phase 2 (2026-05-15)
+## Latest Continuation — Mythos Phase 2 Started: Auth Discoverer Form Detection (2026-05-15)
+
+Mythos task #325 (backlog-375 — Auth Discoverer Form Detection + Application Fingerprint) completed. New `api/app/services/auth_discoverer.py` exposes two pure functions: `fetch_auth_pages()` (scope-aware probe of 28 generic register/login paths plus index link scan) and `fingerprint_application()` (form parsing + heuristic stack detection + deterministic sha256 fingerprint hash). 4 HTML fixtures + 17 unit tests covering 4 contrasting stacks (Gruyere/Python, ASP.NET WebForms with __VIEWSTATE, PHP signup, Angular SPA with no forms). All tests pass; ruff clean; production module has zero Gruyere-specific identifiers (verified by test). No AI calls (that is #326). NEXT_TASK promoted to backlog-376 (#326 Auth Discoverer AI Recipe Builder).
+
+## Earlier — Mythos Phase 1 CLOSED, GO for Phase 2 (2026-05-15)
 
 Mythos task #324 (Phase 1 Review Checkpoint) executed with live runs on 3 contrasting target stacks (Gruyere/Python, juice-shop/Node SPA, testfire/Java JSP). All Phase 1 success criteria met: pilot observations persist (asset, api, identity, credential_ref entities across all 3 targets), build_normalized_evidence_graph merges them correctly (69-146 nodes per run), project_graph_for_picker renders well under 4KB budget (994-3870 chars), picker user_content cache_creation tokens prove graph block reaches the prompt. Surfaced 7 failed tasks in Heartbeat — 5 exec-plan URL-construction issues + 1 sqlmap missing-parameter + 1 Gruyere exec-plan — all caught by existing safety gates. Not Phase 1 regressions; same class of failure observed pre-Phase-1. Phase 3 #330 will fix permanently via JSON schema. Decision: **GO for Phase 2.** Checkpoint report: `docs/checkpoints/2026-mythos-phase1-review.md`. AGENT_SYSTEM_MAP section 4 updated to post-Phase-1 reality. NEXT_TASK promoted to backlog-375 (#325 Auth Discoverer Form Detection + Application Fingerprint).
 

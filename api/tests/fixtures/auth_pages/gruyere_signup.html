@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Sign up for Gruyere</title>
+</head>
+<body>
+<h1>Gruyere</h1>
+<p>Welcome to Gruyere. Please create an account to continue.</p>
+
+<form action="/saveprofile" method="get">
+  <input type="hidden" name="action" value="new" />
+  <label>User name: <input type="text" name="uid" /></label><br/>
+  <label>Password: <input type="password" name="pw" /></label><br/>
+  <label>Email: <input type="text" name="profile.email" /></label><br/>
+  <input type="submit" value="Create Account" />
+</form>
+
+<p><a href="/login">Already have an account? Sign in.</a></p>
+</body>
+</html>

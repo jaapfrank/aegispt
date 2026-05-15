@@ -2,41 +2,39 @@
 
 ## Title
 
-Auth Discoverer: HTML Form Detection and Application Fingerprint
+Auth Discoverer: AI-Driven Recipe Builder from Fingerprint
 
 ## Goal
 
-Implement a shared service that fetches a target's registration / login page, parses the HTML form structure (action URL, method, field names, hidden inputs), and emits a normalized application fingerprint suitable for use as a cache key and as input to the AI recipe builder (task #326).
+Add an AI-driven function that takes the fingerprint from task #325 and produces an executable auth recipe (sequence of HTTP requests with field mappings, expected status codes, and a verification step that confirms a session was established).
 
 ## Scope
 
-- Create `api/app/services/auth_discoverer.py` with two pure functions:
-  - `fetch_auth_pages(base_url, scope_allowlist)` — probes common register/login paths
-  - `fingerprint_application(html_documents)` — parses HTML forms and returns normalized fingerprint dict
-- Reuse existing scope check helpers
-- No AI calls in this task (that is #326)
-- Pure HTML parsing + heuristic stack detection
+- Extend `api/app/services/auth_discoverer.py` with `build_recipe(fingerprint) -> AuthRecipe`.
+- Uses Claude Haiku (cheap) for recipe synthesis.
+- Recipe is a structured object that any runner can execute via existing HTTP primitives.
+- No probe-side migration in this task.
 
 ## Constraints
 
-- Form detection + fingerprint only. No AI calls in this task. No cache logic (that is #327). No probe migration (that is #328).
-- All HTTP requests must respect the passed scope_allowlist via `web_target_value_is_allowed_with_path`.
-- Fingerprint must be deterministic for identical inputs.
+- Recipe builder only. Do NOT add caching (task #327). Do NOT migrate probes (task #328). Do NOT touch the picker.
+- Use `claude-haiku-4-5-20251001` for cost efficiency. Single short prompt. No tool use loop.
+- No recipes seeded in code per `feedback_no_prescriptive_recipes` memory. AI must derive recipes from the fingerprint at runtime.
 
 ## Source Package
 
-`codex/tasks/backlog-375-auth-discoverer-form-detection.json`
+`codex/tasks/backlog-376-auth-discoverer-ai-recipe-builder.json`
 
 ## Reference
 
-- `docs/evidence_graph_adoption_plan.md`
-- `workers/runners/xss_proof/runner.py` (`_try_register_with_ai` reference implementation)
-- `docs/checkpoints/2026-mythos-phase1-review.md` (Phase 1 GO decision context)
+- `api/app/services/auth_discoverer.py` (#325 output — fingerprint shape)
+- `workers/runners/xss_proof/runner.py` (`_ai_analyze_auth` reference)
+- `docs/evidence_graph_adoption_plan.md` Section 6.2
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_auth_discoverer.py`
+- `.venv/bin/pytest api/tests/test_auth_discoverer_recipe.py`
 - `python3 -m compileall -q api`
 - `.venv/bin/ruff check api/app/services/auth_discoverer.py`
 - `git diff --check`
