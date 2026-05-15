@@ -1,0 +1,121 @@
+{
+  "id": "backlog-388-specialized-tool-pack-fork-from-hexstrike",
+  "task_file": "codex/tasks/backlog-388-specialized-tool-pack-fork-from-hexstrike.json",
+  "task_type": "runner_expansion",
+  "title": "Specialized Tool Pack: Fork 10-15 Wrappers from HexStrike for Tools We Lack",
+  "goal": "Expand AegisPT runner coverage to specialized areas (binary analysis, forensics, credential cracking, advanced recon) by lifting wrapper logic from 0x4m4/hexstrike-ai (MIT licensed) into our runner contract, with our scope allowlist + audit + intrusive-tier governance added at the runner boundary.",
+  "scope": "Fork specifically the wrapper logic (CLI invocation + parameter handling) for tools we currently lack. Add proper attribution per MIT license. Implement each as a workers/runners/<name>/runner.py following base.contracts.RunnerExecution shape. Wire into workers/orchestration/tasks.py SUPPORTED_TOOLS, workers/orchestration/findings.py extractor map, and workers/runners/capabilities.json triggers.",
+  "status": "queued",
+  "generated_by": "mythos-spike-verdict-20260515",
+  "generation_reason": "HexStrike spike on 2026-05-15 confirmed that their tool-wrapper pattern is trivially liftable - a Volatility wrapper is ~45 lines Flask handler + 20 lines MCP layer. Their server is monolithic (no clean library exists to depend on), but per-tool fork is ~30-60 minutes AI-paced. Forking adds capabilities we don't have without taking architectural lock-in. Spike report: docs/research/2026-05-15-hexstrike-code-spike.md.",
+  "source_context": {
+    "queue_index": 338,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_tool_breadth_expansion",
+    "key_files": [
+      "workers/runners/base/contracts.py",
+      "workers/orchestration/tasks.py",
+      "workers/orchestration/findings.py",
+      "workers/runners/capabilities.json",
+      "docs/research/2026-05-15-hexstrike-code-spike.md",
+      "docs/AGENT_SYSTEM_MAP.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Fork only the named 10-15 tools. Do NOT lift the broader HexStrike framework (BrowserAgent, Intelligent Decision Engine, MCP server scaffold). Each tool becomes a standalone AegisPT runner. No HexStrike runtime dependency at any point.",
+    "license_attribution": "Each forked runner file MUST contain a header comment crediting 0x4m4/hexstrike-ai (MIT) and the original commit hash. licenses/HEXSTRIKE-MIT.txt must contain a copy of their LICENSE file.",
+    "governance_required": "Every forked runner MUST call web_target_value_is_allowed_with_path (or equivalent host-scope check) before executing the tool subprocess. Findings emitted via standard findings.py extractor.",
+    "tier_classification": "Each tool gets a default risk_tier (passive | active | intrusive) in capabilities.json matching its destructive potential."
+  },
+  "success_criteria": [
+    "10-15 new runners exist under workers/runners/ for tools not previously in AegisPT.",
+    "Recommended initial set: volatility, foremost, steghide, hydra, john, hashcat, ghidra, radare2, binwalk, exiftool, pwntools, angr, subfinder, amass, katana. Final set may be reduced based on availability of upstream tool binaries on supported OS targets.",
+    "Each runner has unit tests covering happy path + scope rejection.",
+    "Each runner registered in SUPPORTED_TOOLS, has a findings extractor entry, and a capabilities.json entry.",
+    "License attribution header in every forked file. licenses/HEXSTRIKE-MIT.txt present.",
+    "AGENT_SYSTEM_MAP.md section 3 updated to list the new runners under Verified-generic."
+  ],
+  "likely_touched_files": [
+    "workers/runners/volatility/runner.py",
+    "workers/runners/foremost/runner.py",
+    "workers/runners/steghide/runner.py",
+    "workers/runners/hydra/runner.py",
+    "workers/runners/john_the_ripper/runner.py",
+    "workers/runners/hashcat/runner.py",
+    "workers/runners/ghidra/runner.py",
+    "workers/runners/radare2/runner.py",
+    "workers/runners/binwalk/runner.py",
+    "workers/runners/exiftool/runner.py",
+    "workers/runners/pwntools/runner.py",
+    "workers/runners/angr/runner.py",
+    "workers/runners/subfinder/runner.py",
+    "workers/runners/amass/runner.py",
+    "workers/runners/katana/runner.py",
+    "workers/orchestration/tasks.py",
+    "workers/orchestration/findings.py",
+    "workers/runners/capabilities.json",
+    "licenses/HEXSTRIKE-MIT.txt",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/auth_discoverer.py (will not exist yet; if it does from #325, do not modify)",
+    "Existing runners' implementations.",
+    "api/app/models/control.py finding schema fields"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_volatility_runner.py workers/tests/test_hydra_runner.py workers/tests/test_ghidra_runner.py",
+      "python3 -m compileall -q workers",
+      ".venv/bin/ruff check workers/runners/volatility workers/runners/hydra workers/runners/ghidra",
+      "test -f licenses/HEXSTRIKE-MIT.txt",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Each new runner executes locally if the underlying CLI tool is installed; otherwise emits a clear status=skip with reason.",
+      "Scope check rejects out-of-scope targets before subprocess execution.",
+      "License attribution header in every forked file.",
+      "No HexStrike runtime dependency. No Flask, no fastmcp, no hexstrike imports."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Phase 2 or later must be reached (auth_discoverer should exist - some of these tools need authenticated sessions)."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Record in NEXT_TASK.md whether further phase work remains queued; if Mythos backlog completes here, mark NEXT_TASK.md as awaiting operator planning per docs/MYTHOS_PLAN_FINALITY.md Section 7."
+    ]
+  },
+  "out_of_scope": [
+    "Lifting HexStrike's BrowserAgent (Selenium-based SPA discovery is separate scope).",
+    "Lifting HexStrike's AI Decision Engine.",
+    "Running HexStrike as a sidecar service.",
+    "Wrapping all 150 tools - this task is the 10-15 highest-value subset.",
+    "Re-licensing - all forked content stays MIT-compatible per HexStrike's LICENSE."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
