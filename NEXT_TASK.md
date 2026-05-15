@@ -2,35 +2,40 @@
 
 ## Title
 
-AI Picker Consumes Normalized Evidence Graph for Decision Context
+Review Checkpoint: Evidence-Graph Foundation On Target
 
 ## Goal
 
-Replace the picker's flat findings + tested_keys + task_outcomes context with a compact projection of the normalized evidence graph so the AI sees first-class entities and relationships when choosing the next action, enabling cross-runner pivoting and cross-target chains.
+Step back after #321-#323 and verify the evidence-graph adoption work is on track. Confirm graph entities flow end-to-end from runners through ingestion helpers into the picker context. Catch architectural drift before committing to Phase 2.
 
 ## Scope
 
-- Modify `api/app/services/assessment_loop.py` `_claude_select_next_action` user_content construction to project the normalized graph into a token-efficient representation.
-- Add a graph-summarizer service that emits the projection.
-- Keep existing fallback for runs without graph data.
+Operator + agent review of work merged from backlog-371, -372, -373. Live test on at least 2 contrasting targets (Gruyere + one non-Gruyere) showing graph-aware picker decisions. Written checkpoint report with go/no-go on Phase 2.
 
 ## Constraints
 
-- Picker context projection only. Do NOT change the system prompt structure, exec_plan grammar, or memory tool behavior.
-- Token budget: projection must stay under 4 KB on typical runs to preserve prompt caching benefit. Larger graphs should be summarized, not dumped verbatim.
+- Review only. No production code changes. Output is a checkpoint report and a yes/no decision on Phase 2 promotion.
+- Decision gate: if review surfaces architectural drift or scope creep, the report must identify the corrective task before #325 is promoted.
 
 ## Source Package
 
-`codex/tasks/backlog-373-picker-reads-evidence-graph.json`
+`codex/tasks/backlog-374-review-checkpoint-foundation.json`
 
 ## Reference
 
-`docs/evidence_graph_adoption_plan.md` — Section 6.2 sketches the project_graph_for_picker design
+- `docs/evidence_graph_adoption_plan.md` (#321 audit output)
+- `docs/MYTHOS_PLAN_FINALITY.md` (governance contract)
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_assessment_loop_graph_projection.py api/tests/test_assessment_loop.py`
-- `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/assessment_graph.py`
-- `git diff --check`
+- `test -f docs/checkpoints/2026-mythos-phase1-review.md`
+
+## REVIEW CHECKPOINT — STOP
+
+This is a Phase 1 review checkpoint per the Mythos plan. Per the universal session prompt:
+- The agent must NOT auto-execute this checkpoint without operator authorization.
+- Live runs against contrasting targets need operator decision on which targets are in scope.
+- The checkpoint report itself is a deliberation document, not a coding task.
+
+Operator action required before this task can proceed: say "go" and confirm which non-Gruyere target to run against (juice-shop / testfire / testasp / your lab AD).

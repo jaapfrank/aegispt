@@ -469,6 +469,138 @@ def build_normalized_evidence_graph(
     }
 
 
+_PROJECTION_GROUP_ORDER: tuple[tuple[str, str], ...] = (
+    ("ASSETS", "asset"),
+    ("APIS", "api"),
+    ("IDENTITIES", "identity"),
+    ("CREDENTIALS", "credential_ref"),
+    ("PERMISSIONS", "permission"),
+    ("SAAS_CONNECTORS", "saas_connector"),
+    ("ATTACK_PATHS", "attack_path"),
+)
+
+_PROJECTION_DEFAULT_BUDGET = 3500  # tokens; ~4 KB at 4 chars/token
+_PROJECTION_MIN_LINES_PER_GROUP = 3
+_PROJECTION_MAX_LINES_PER_GROUP = 25
+_PROJECTION_LINE_CHAR_CAP = 200
+
+
+def project_graph_for_picker(
+    graph: dict[str, Any],
+    *,
+    max_tokens: int = _PROJECTION_DEFAULT_BUDGET,
+) -> str:
+    """Token-bounded compact text projection of the normalized evidence graph
+    for LLM consumption by the AI picker.
+
+    Output structure:
+        === EVIDENCE GRAPH (from normalized run state) ===
+        ASSETS (N): host:label (conf=0.X) | host:label2 | ...
+        APIS (N): /path1 (conf=0.X) | /path2 | ...
+        IDENTITIES (N): ...
+        CREDENTIALS (N): ...
+        ATTACK_PATHS (N): ...
+
+    Behavior:
+    - Returns "" for an empty / nodeless graph (caller decides whether to
+      include a header).
+    - Prioritizes nodes by confidence descending within each group.
+    - Caps each group at _PROJECTION_MAX_LINES_PER_GROUP entries; emits a
+      "+N more" suffix when truncated.
+    - Char-bounded per line at _PROJECTION_LINE_CHAR_CAP to defend against
+      pathological label content.
+    - Whole-projection char cap at max_tokens*4 (rough token estimate).
+
+    Deterministic for the same graph input.
+    """
+    if not isinstance(graph, dict):
+        return ""
+    nodes = graph.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        return ""
+
+    nodes_by_type: dict[str, list[dict[str, Any]]] = {}
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        node_type = str(node.get("type") or "")
+        if not node_type:
+            continue
+        nodes_by_type.setdefault(node_type, []).append(node)
+
+    if not nodes_by_type:
+        return ""
+
+    char_budget = max(1024, int(max_tokens) * 4)
+    lines: list[str] = ["=== EVIDENCE GRAPH (from normalized run state) ==="]
+    used_chars = len(lines[0]) + 1
+
+    for header, node_type in _PROJECTION_GROUP_ORDER:
+        group_nodes = nodes_by_type.get(node_type) or []
+        if not group_nodes:
+            continue
+        ranked = sorted(
+            group_nodes,
+            key=lambda n: (
+                -float(n.get("confidence") or 0.0),
+                str(n.get("label") or ""),
+            ),
+        )
+        kept: list[str] = []
+        total = len(ranked)
+        for node in ranked[:_PROJECTION_MAX_LINES_PER_GROUP]:
+            label = str(node.get("label") or "")[:_PROJECTION_LINE_CHAR_CAP]
+            subtype = str(node.get("subtype") or "").strip()
+            conf = node.get("confidence")
+            conf_part = f" (conf={float(conf):.2f})" if isinstance(conf, (int, float)) else ""
+            subtype_part = f"[{subtype}] " if subtype else ""
+            kept.append(f"{subtype_part}{label}{conf_part}")
+        suffix = ""
+        if total > _PROJECTION_MAX_LINES_PER_GROUP:
+            suffix = f" | +{total - _PROJECTION_MAX_LINES_PER_GROUP} more"
+        line = f"{header} ({total}): " + " | ".join(kept) + suffix
+        if len(line) > char_budget - used_chars:
+            line = line[: max(0, char_budget - used_chars - 4)] + " ..."
+        if line.strip() == "":
+            continue
+        lines.append(line)
+        used_chars += len(line) + 1
+        if used_chars >= char_budget:
+            break
+
+    # Finding nodes are surfaced separately by the picker (existing findings
+    # block). We intentionally do NOT duplicate them here to keep the
+    # projection focused on entities/relationships and to stay within the
+    # token budget.
+
+    edges = graph.get("edges") or []
+    captured_edges: list[dict[str, Any]] = [
+        e for e in edges
+        if isinstance(e, dict)
+        and str(e.get("relationship") or "").startswith("has_")
+        and str(e.get("relationship") or "") != "has_finding"
+    ]
+    if captured_edges:
+        # Compact summary of run-to-entity edges so the AI sees the run owns
+        # these entities (vs them being detached). Capped tightly.
+        ent_counts: dict[str, int] = {}
+        for edge in captured_edges:
+            rel = str(edge.get("relationship") or "")
+            ent_counts[rel] = ent_counts.get(rel, 0) + 1
+        summary = ", ".join(f"{k}={v}" for k, v in sorted(ent_counts.items())[:6])
+        edge_line = f"RUN_RELATIONSHIPS: {summary}"
+        if len(edge_line) <= char_budget - used_chars:
+            lines.append(edge_line)
+            used_chars += len(edge_line) + 1
+
+    if len(lines) == 1:
+        # Only the header — no actual content. Suppress the header so the
+        # picker context stays clean.
+        return ""
+
+    return "\n".join(lines) + "\n"
+
+
 def _load_run(session: Session, *, run: Run | None, run_id: UUID | str | None) -> Run:
     if run is not None:
         return run

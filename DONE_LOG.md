@@ -1,5 +1,18 @@
 # Done Log
 
+- 2026-05-15: completed Mythos task #323 (backlog-373 — AI Picker Consumes Normalized Evidence Graph):
+  - rationale: picker today reads findings + tested_keys + task_outcomes as flat strings. Without graph context, the AI cannot reason about cross-runner pivoting or chains across target types. Bridging this is the cheapest unlock for cross-target reasoning.
+  - implementation:
+    - new `project_graph_for_picker()` in `api/app/services/assessment_graph.py` (~130 lines): emits compact LLM-friendly text from normalized graph. Group order ASSETS → APIS → IDENTITIES → CREDENTIALS → PERMISSIONS → SAAS_CONNECTORS → ATTACK_PATHS. Sorts by confidence descending within group. Caps each group at 25 lines (`+N more` suffix when truncated). Caps each line at 200 chars. Total output bounded by `max_tokens*4` char budget (default 3500 tokens = 14 KB practical cap, well within 4 KB typical-run target). Deterministic for same input. Returns empty string for empty/sparse graphs.
+    - picker integration in `api/app/services/assessment_loop.py` `_claude_select_next_action`: inserts new graph projection block between `outcomes_block` and target-intel test plan block. Wrapped in try/except — falls back to empty string on any graph error so picker behavior on graph-less runs is unchanged.
+    - Findings nodes intentionally excluded from projection (picker already has its own findings block; avoids duplication and keeps projection focused on entities/relationships).
+    - Run-to-entity edge summary appended when present (`has_finding` edges excluded since findings have their own picker block).
+  - tests: new `api/tests/test_assessment_loop_graph_projection.py` with 16 tests covering empty input, single asset, multi-type ordering, confidence-descending sort, per-group truncation cap, overall char budget, pathological label cap, edge summary, has_finding exclusion, determinism, unknown-type rejection, subtype optionality, 50+ entity rendering, high-confidence priority retention. All 16 pass.
+  - regression: `pytest api/tests/test_assessment_graph.py` 4/4 pass. `pytest api/tests/test_assessment_loop.py` shows 5 pre-existing failures unchanged on HEAD (verified via git stash) — `'running' vs 'waiting_for_execution'` assertion drift from prior-session WIP, not caused by this task.
+  - validation: scripts/validate_backlog_tasks.py reports 338 queued mapped 1:1. compileall clean. ruff on new code clean (5 pre-existing errors in assessment_loop.py unchanged: F401 re, F841 tested_tools, F541 f-strings — these belong to backlog-307 Validation Gate Hygiene which is deferred).
+  - acceptance criteria met: helper exists and is callable from picker; picker prefers graph projection when graph entities exist; empty/sparse graph falls back to no-projection (existing behavior); 16 tests cover empty and >50-entity cases; no regression in graph normalization tests.
+  - next: promote backlog-374 (#324 Phase 1 Review Checkpoint) into NEXT_TASK.md. **This is a REVIEW CHECKPOINT** — operator must run go/no-go before #325 starts.
+
 - 2026-05-15: completed Mythos task #322 (backlog-372 — Evidence-Graph Entity Ingestion Helpers):
   - rationale: per Adoption Plan (#321), runners had no path to emit structured graph entities. 67% of runners produced only findings, no structured observations. This task adds the missing ingestion path.
   - implementation:

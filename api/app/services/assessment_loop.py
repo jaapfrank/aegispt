@@ -621,12 +621,33 @@ def _claude_select_next_action(
             + "\n\n"
         )
 
+    # Normalized evidence graph projection (backlog-373). Compact text view of
+    # first-class entities the picker should reason over. Falls back to empty
+    # string when graph is sparse / unavailable, so picker behavior on runs
+    # without graph data is unchanged.
+    graph_block = ""
+    if session is not None:
+        try:
+            from api.app.services.assessment_graph import (
+                build_normalized_evidence_graph,
+                project_graph_for_picker,
+            )
+
+            _graph_for_picker = build_normalized_evidence_graph(session, run=run)
+            graph_projection = project_graph_for_picker(_graph_for_picker)
+            if graph_projection:
+                graph_block = graph_projection + "\n"
+        except Exception as _graph_exc:
+            logger.debug("AI loop: graph projection skipped: %s", _graph_exc)
+            graph_block = ""
+
     user_content = (
         f"Primary target (always in scope): {primary_target}\n\n"
         + intrusive_block
         + failures_block
         + rejections_block
         + outcomes_block
+        + graph_block
         + f"=== TARGET-INTEL RECOMMENDED TEST PLAN (from AI analysis of the actual site) ===\n"
         + (("\n".join(plan_recommendations) + "\n\n") if plan_recommendations else "(no test plan available)\n\n")
         + "These are the highest-value tools FOR THIS SPECIFIC TARGET based on its\n"

@@ -1,6 +1,10 @@
 # Current State
 
-## Latest Continuation — Mythos Phase 1 Ingestion Helpers Landed (2026-05-15)
+## Latest Continuation — Mythos Phase 1 Picker Reads Graph (2026-05-15)
+
+Mythos task #323 (backlog-373 — AI Picker Consumes Normalized Evidence Graph) completed. New `project_graph_for_picker()` in assessment_graph.py emits token-bounded compact text from the normalized graph; picker `_claude_select_next_action` inserts the projection between outcomes and target-intel plan blocks. Empty/sparse graph falls back to no projection (existing behavior unchanged). 16 new tests in test_assessment_loop_graph_projection.py all pass; existing test_assessment_graph.py 4/4 pass; 5 pre-existing test_assessment_loop.py failures (status drift) unchanged on HEAD. Phase 1 evidence-graph work (#321-#323) complete. NEXT_TASK promoted to backlog-374 (#324 Phase 1 Review Checkpoint — STOP, operator go/no-go required before #325).
+
+## Earlier — Mythos Phase 1 Ingestion Helpers Landed (2026-05-15)
 
 Mythos task #322 (backlog-372 — Evidence-Graph Entity Ingestion Helpers) completed. New `EvidenceObservation` model + Alembic migration `20260515_0033` + service `api/app/services/evidence_ingest.py` + graph integration via `_runner_observation_nodes()` + orchestrator wiring in `workers/orchestration/tasks.py`. 4 pilot runners emit structured observations: target_intel (asset+api), smart_web_probe (api), xss_proof (identity+credential_ref), web_depth.content_discovery (api). 11 new tests in test_evidence_ingest.py all pass; test_assessment_graph.py regression test 4/4 still pass. Additive only — existing runners that did not opt in continue to work via source-graph reconstruction. NEXT_TASK promoted to backlog-373 #323 (Picker Reads Evidence Graph).
 
