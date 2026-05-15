@@ -2,39 +2,39 @@
 
 ## Title
 
-Auth Discoverer: AI-Driven Recipe Builder from Fingerprint
+Auth Pattern Cache Backed by Claude Memory Store
 
 ## Goal
 
-Add an AI-driven function that takes the fingerprint from task #325 and produces an executable auth recipe (sequence of HTTP requests with field mappings, expected status codes, and a verification step that confirms a session was established).
+Add a per-engagement cache layer over `auth_discoverer` so successful recipes are stored against the application fingerprint and reused on subsequent runs against similar targets. Cache contents persist via the existing Claude memory backend at `/memories/auth-recipes/<fingerprint-hash>.json`.
 
 ## Scope
 
-- Extend `api/app/services/auth_discoverer.py` with `build_recipe(fingerprint) -> AuthRecipe`.
-- Uses Claude Haiku (cheap) for recipe synthesis.
-- Recipe is a structured object that any runner can execute via existing HTTP primitives.
-- No probe-side migration in this task.
+- Extend `api/app/services/auth_discoverer.py` with `lookup_recipe(fingerprint)` and `store_recipe(fingerprint, recipe, confidence)`.
+- Uses `memory_backend.execute` as storage.
+- Includes confidence scoring, `last_confirmed_at` timestamp, replay-verification before trust, and aging so stale recipes are not returned.
 
 ## Constraints
 
-- Recipe builder only. Do NOT add caching (task #327). Do NOT migrate probes (task #328). Do NOT touch the picker.
-- Use `claude-haiku-4-5-20251001` for cost efficiency. Single short prompt. No tool use loop.
-- No recipes seeded in code per `feedback_no_prescriptive_recipes` memory. AI must derive recipes from the fingerprint at runtime.
+- Cache for auth recipes only. Do NOT generalize cache for other attack patterns in this task. Do NOT migrate probes (task #328).
+- Scope isolation: cache is per-engagement. No cross-engagement or cross-tenant sharing.
+- Size cap: each recipe file under 2 KB. Total `/memories/auth-recipes/` under 50 KB.
+- Aging: recipes older than 30 days OR with last replay failure within last hour MUST be returned as stale to caller (caller may then trigger fresh discovery).
 
 ## Source Package
 
-`codex/tasks/backlog-376-auth-discoverer-ai-recipe-builder.json`
+`codex/tasks/backlog-377-auth-pattern-cache-memory-backend.json`
 
 ## Reference
 
-- `api/app/services/auth_discoverer.py` (#325 output — fingerprint shape)
-- `workers/runners/xss_proof/runner.py` (`_ai_analyze_auth` reference)
-- `docs/evidence_graph_adoption_plan.md` Section 6.2
+- `api/app/services/auth_discoverer.py` (#325 fingerprint + #326 build_recipe — both merged)
+- `api/app/services/memory_backend.py`
+- `docs/AGENT_SYSTEM_MAP.md` section 12
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_auth_discoverer_recipe.py`
+- `.venv/bin/pytest api/tests/test_auth_discoverer_cache.py`
 - `python3 -m compileall -q api`
 - `.venv/bin/ruff check api/app/services/auth_discoverer.py`
 - `git diff --check`

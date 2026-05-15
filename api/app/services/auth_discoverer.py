@@ -1,6 +1,6 @@
-"""Auth discovery service — Mythos task #325 (backlog-375).
+"""Auth discovery service — Mythos tasks #325 + #326.
 
-Generic HTML-form auth flow discovery. Two pure functions:
+Generic HTML-form auth flow discovery. Three pure functions:
 
 - :func:`fetch_auth_pages` probes a base URL for common register/login
   paths and returns observed pages whose response is 200. All HTTP
@@ -8,14 +8,18 @@ Generic HTML-form auth flow discovery. Two pure functions:
 
 - :func:`fingerprint_application` parses HTML form documents and emits a
   normalized fingerprint dict suitable as a cache key (#327) and as
-  input to the AI recipe builder (#326).
+  input to the AI recipe builder.
+
+- :func:`build_recipe` (#326) takes a fingerprint and uses Claude Haiku
+  to synthesize an executable AuthRecipe (steps + verification) any
+  runner can execute via existing HTTP primitives.
 
 Constraints honored:
-- No AI calls in this task (those are #326).
 - No cache logic (that is #327).
 - No probe migration (that is #328).
 - No imports from workers/runners or assessment_loop.
-- Pure parsing + heuristic stack detection.
+- No app-specific patterns seeded in code or prompts. The AI must
+  derive the recipe from the fingerprint at runtime.
 
 Reference implementation studied: ``workers/runners/xss_proof/runner.py``
 (``_try_register_with_ai``, ``_discover_candidate_pages``,
@@ -28,6 +32,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
 import re
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -35,6 +41,8 @@ from urllib.parse import urljoin, urlparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+
+logger = logging.getLogger(__name__)
 
 # Common register / login paths. Intentionally NOT Gruyere-specific —
 # only widely-used patterns across the OWASP ecosystem and common
@@ -668,3 +676,454 @@ def fingerprint_application(
         serialized = json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
     return payload
+
+
+# ---------------------------------------------------------------------------
+# #326 — AI-driven recipe builder
+# ---------------------------------------------------------------------------
+
+RECIPE_VERSION = "auth-recipe-v1"
+RECIPE_MODEL = "claude-haiku-4-5-20251001"
+RECIPE_MAX_STEPS = 6
+RECIPE_MAX_FIELDS_PER_STEP = 30
+RECIPE_MAX_TOKENS = 1500
+RECIPE_TIMEOUT_SECONDS = 30.0
+
+_ALLOWED_FIELD_INTENTS: frozenset[str] = frozenset(
+    {
+        "username",
+        "password",
+        "confirm_password",
+        "email",
+        "csrf_token",
+        "hidden_passthrough",
+        "literal",
+    }
+)
+_ALLOWED_STEP_INTENTS: frozenset[str] = frozenset(
+    {"register", "login", "csrf_fetch", "post_login"}
+)
+_ALLOWED_HTTP_METHODS: frozenset[str] = frozenset(
+    {"GET", "POST", "PUT", "PATCH"}
+)
+
+
+_RECIPE_SYSTEM_PROMPT = (
+    "You are an authentication recipe synthesizer. You receive a normalized "
+    "fingerprint of an unknown web application's auth surface (observed "
+    "forms and stack hints — NOT app-specific patterns). You produce a "
+    "structured AuthRecipe: an ordered list of HTTP steps with field "
+    "mappings plus a verification step. The recipe must be JSON only, no "
+    "prose. Do not invent URLs that are not in the fingerprint. Do not "
+    "embed credentials — use placeholder intents."
+)
+
+
+def _recipe_user_prompt(fingerprint: dict[str, Any]) -> str:
+    """Build the user-side prompt. Contains ONLY fingerprint data — no
+    application-specific guidance (per feedback_no_prescriptive_recipes)."""
+    fp_json = json.dumps(fingerprint, separators=(",", ":"), sort_keys=True)
+    schema_example = {
+        "recipe_version": RECIPE_VERSION,
+        "steps": [
+            {
+                "name": "register",
+                "intent": "register",
+                "method": "POST",
+                "url": "<exact action URL from fingerprint>",
+                "field_mappings": {
+                    "<observed_field_name>": "username|password|confirm_password|email|csrf_token|hidden_passthrough|literal:<value>",
+                },
+                "expected_status": [200, 302, 303],
+                "description": "<short purpose>",
+            }
+        ],
+        "verification": {
+            "method": "GET",
+            "url": "<URL same-origin to a page reachable after auth>",
+            "expect_status": [200],
+            "expect_set_cookie": "<session cookie name observed in fingerprint, or null>",
+            "expect_body_contains": [],
+            "description": "<how to confirm session>",
+        },
+    }
+    schema_json = json.dumps(schema_example, indent=2)
+    return (
+        "Fingerprint:\n"
+        f"{fp_json}\n\n"
+        "Output schema (JSON, exact field names; produce ONLY this object):\n"
+        f"{schema_json}\n\n"
+        "Rules:\n"
+        f"- steps[].url MUST match an action URL appearing in the fingerprint (register_form.action or login_form.action). Maximum {RECIPE_MAX_STEPS} steps.\n"
+        "- For every form field observed in register_form/login_form fields you choose to fill, map it to one of: username, password, confirm_password, email, csrf_token, hidden_passthrough, or literal:<value>.\n"
+        "- hidden_passthrough means: replay the value observed in the form on initial GET.\n"
+        "- verification.url must be same-origin as the step URLs.\n"
+        "- If fingerprint has no register_form and no login_form, return {\"recipe_version\":\"" + RECIPE_VERSION + "\",\"steps\":[],\"verification\":null}.\n"
+        "- Output ONLY the JSON object. No markdown fences, no prose."
+    )
+
+
+def _extract_text_from_response(response: Any) -> str:
+    """Pull the text content out of an Anthropic SDK response or a duck
+    type that mimics it. Returns empty string on shape mismatch."""
+    try:
+        content = response.content  # type: ignore[attr-defined]
+    except AttributeError:
+        return ""
+    if not content:
+        return ""
+    first = content[0]
+    # Real SDK blocks have a `.text` attribute. Duck types may use dict access.
+    text = getattr(first, "text", None)
+    if text is None and isinstance(first, dict):
+        text = first.get("text")
+    return str(text or "")
+
+
+def _extract_json_object(text: str) -> dict[str, Any] | None:
+    """Find the outermost JSON object in raw model text. Handles fenced
+    code blocks and surrounding prose defensively."""
+    if not text:
+        return None
+    stripped = text.strip()
+    # Strip ```json fences if present.
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```[a-zA-Z]*\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped)
+    try:
+        candidate = json.loads(stripped)
+        if isinstance(candidate, dict):
+            return candidate
+    except json.JSONDecodeError:
+        pass
+    # Fall back: find the first balanced { ... } object.
+    start = stripped.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    for idx in range(start, len(stripped)):
+        ch = stripped[idx]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                blob = stripped[start : idx + 1]
+                try:
+                    candidate = json.loads(blob)
+                    if isinstance(candidate, dict):
+                        return candidate
+                except json.JSONDecodeError:
+                    return None
+                break
+    return None
+
+
+def _collect_allowed_action_urls(fingerprint: dict[str, Any]) -> set[str]:
+    """The set of action URLs the AI may legally reference in its
+    steps. URL hijack defense: anything the model returns outside this
+    set is rejected."""
+    urls: set[str] = set()
+    for key in ("register_form", "login_form"):
+        form = fingerprint.get(key)
+        if isinstance(form, dict):
+            action = form.get("action")
+            if isinstance(action, str) and action:
+                urls.add(action)
+    return urls
+
+
+def _collect_field_names(fingerprint: dict[str, Any]) -> dict[str, set[str]]:
+    """Map of action_url -> set of field names observed on that form.
+    Used to validate that field_mappings only reference real fields."""
+    out: dict[str, set[str]] = {}
+    for key in ("register_form", "login_form"):
+        form = fingerprint.get(key)
+        if not isinstance(form, dict):
+            continue
+        action = form.get("action")
+        if not isinstance(action, str) or not action:
+            continue
+        names = {
+            str(f.get("name") or "")
+            for f in (form.get("fields") or [])
+            if isinstance(f, dict) and f.get("name")
+        }
+        out[action] = names
+    return out
+
+
+def _validate_step(
+    step: Any,
+    *,
+    allowed_urls: set[str],
+    fields_by_url: dict[str, set[str]],
+) -> dict[str, Any] | None:
+    """Coerce + validate a single recipe step. Returns sanitized dict or None."""
+    if not isinstance(step, dict):
+        return None
+    name = str(step.get("name") or "").strip()
+    intent = str(step.get("intent") or "").strip().lower()
+    method = str(step.get("method") or "").strip().upper()
+    url = str(step.get("url") or "").strip()
+    field_mappings_raw = step.get("field_mappings") or {}
+    expected_status_raw = step.get("expected_status") or []
+    description = str(step.get("description") or "")[:240]
+
+    if not name or len(name) > 64:
+        return None
+    if intent not in _ALLOWED_STEP_INTENTS:
+        return None
+    if method not in _ALLOWED_HTTP_METHODS:
+        return None
+    if url not in allowed_urls:
+        return None
+    if not isinstance(field_mappings_raw, dict):
+        return None
+    if not isinstance(expected_status_raw, list):
+        return None
+
+    expected_status: list[int] = []
+    for code in expected_status_raw[:6]:
+        try:
+            value = int(code)
+        except (TypeError, ValueError):
+            continue
+        if 100 <= value < 600:
+            expected_status.append(value)
+    if not expected_status:
+        expected_status = [200]
+
+    legal_field_names = fields_by_url.get(url, set())
+    field_mappings: dict[str, str] = {}
+    for field_name, mapping in list(field_mappings_raw.items())[:RECIPE_MAX_FIELDS_PER_STEP]:
+        if not isinstance(field_name, str) or not field_name:
+            continue
+        # Only map fields the form actually has. Prevents the model from
+        # injecting arbitrary parameters.
+        if legal_field_names and field_name not in legal_field_names:
+            continue
+        if not isinstance(mapping, str) or not mapping:
+            continue
+        head = mapping.split(":", 1)[0].strip().lower()
+        if head not in _ALLOWED_FIELD_INTENTS:
+            continue
+        field_mappings[field_name] = mapping[:200]
+
+    return {
+        "name": name,
+        "intent": intent,
+        "method": method,
+        "url": url,
+        "field_mappings": field_mappings,
+        "expected_status": expected_status,
+        "description": description,
+    }
+
+
+def _validate_verification(
+    verification: Any,
+    *,
+    allowed_origin: str,
+) -> dict[str, Any] | None:
+    if not isinstance(verification, dict):
+        return None
+    method = str(verification.get("method") or "GET").strip().upper()
+    url = str(verification.get("url") or "").strip()
+    expect_status_raw = verification.get("expect_status") or [200]
+    expect_set_cookie = verification.get("expect_set_cookie")
+    expect_body_contains_raw = verification.get("expect_body_contains") or []
+    description = str(verification.get("description") or "")[:240]
+
+    if method not in _ALLOWED_HTTP_METHODS:
+        return None
+    if not url:
+        return None
+    # Same-origin guard.
+    if allowed_origin:
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.netloc:
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+            if origin != allowed_origin:
+                return None
+    if not isinstance(expect_status_raw, list):
+        return None
+    expect_status: list[int] = []
+    for code in expect_status_raw[:6]:
+        try:
+            value = int(code)
+        except (TypeError, ValueError):
+            continue
+        if 100 <= value < 600:
+            expect_status.append(value)
+    if not expect_status:
+        expect_status = [200]
+    if expect_set_cookie is not None and not isinstance(expect_set_cookie, str):
+        expect_set_cookie = None
+    if isinstance(expect_set_cookie, str):
+        expect_set_cookie = expect_set_cookie[:80] or None
+
+    expect_body_contains: list[str] = []
+    if isinstance(expect_body_contains_raw, list):
+        for token in expect_body_contains_raw[:8]:
+            if isinstance(token, str) and token:
+                expect_body_contains.append(token[:120])
+
+    return {
+        "method": method,
+        "url": url,
+        "expect_status": expect_status,
+        "expect_set_cookie": expect_set_cookie,
+        "expect_body_contains": expect_body_contains,
+        "description": description,
+    }
+
+
+def _allowed_origin_from_fingerprint(fingerprint: dict[str, Any]) -> str:
+    for key in ("register_form", "login_form"):
+        form = fingerprint.get(key)
+        if isinstance(form, dict):
+            action = form.get("action") or ""
+            parsed = urlparse(action)
+            if parsed.scheme and parsed.netloc:
+                return f"{parsed.scheme}://{parsed.netloc}"
+    return ""
+
+
+def build_recipe(
+    fingerprint: dict[str, Any],
+    *,
+    anthropic_client: Any = None,
+    timeout_seconds: float = RECIPE_TIMEOUT_SECONDS,
+) -> dict[str, Any] | None:
+    """Synthesize an executable AuthRecipe from a fingerprint via Claude Haiku.
+
+    Returns a JSON-serializable dict::
+
+        {
+          "recipe_version": "auth-recipe-v1",
+          "fingerprint_hash": str,
+          "model": str,
+          "steps": [
+              {
+                "name": str,
+                "intent": "register"|"login"|"csrf_fetch"|"post_login",
+                "method": "GET"|"POST"|...,
+                "url": str,                # must match a fingerprint action URL
+                "field_mappings": {field_name: intent_string},
+                "expected_status": [int, ...],
+                "description": str,
+              }, ...
+          ],
+          "verification": {
+              "method": "GET",
+              "url": str,                  # same-origin
+              "expect_status": [int, ...],
+              "expect_set_cookie": str | None,
+              "expect_body_contains": [str, ...],
+              "description": str,
+          } | None,
+        }
+
+    Returns ``None`` on:
+    - no auth surface in fingerprint (no register_form AND no login_form),
+    - no ANTHROPIC_API_KEY env var (and no ``anthropic_client`` injected),
+    - SDK call exception,
+    - JSON parse failure,
+    - validation rejection (e.g. model returned URLs not in the fingerprint).
+
+    Pass ``anthropic_client`` for tests — any duck-typed object exposing
+    ``.messages.create(model=..., max_tokens=..., system=..., messages=[...])``
+    that returns an object with ``.content[0].text``.
+    """
+    if not isinstance(fingerprint, dict):
+        return None
+
+    has_register = isinstance(fingerprint.get("register_form"), dict)
+    has_login = isinstance(fingerprint.get("login_form"), dict)
+    if not has_register and not has_login:
+        return None
+
+    client = anthropic_client
+    if client is None:
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if not api_key:
+            return None
+        try:
+            import anthropic
+        except ImportError:
+            return None
+        try:
+            client = anthropic.Anthropic(api_key=api_key)
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.debug("auth_discoverer.build_recipe: client init failed: %s", exc)
+            return None
+
+    user_prompt = _recipe_user_prompt(fingerprint)
+    try:
+        response = client.messages.create(
+            model=RECIPE_MODEL,
+            max_tokens=RECIPE_MAX_TOKENS,
+            system=_RECIPE_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+            timeout=timeout_seconds,
+        )
+    except TypeError:
+        # Mock clients may not accept the `timeout` kwarg.
+        try:
+            response = client.messages.create(
+                model=RECIPE_MODEL,
+                max_tokens=RECIPE_MAX_TOKENS,
+                system=_RECIPE_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+        except Exception as exc:
+            logger.debug("auth_discoverer.build_recipe: call failed: %s", exc)
+            return None
+    except Exception as exc:
+        logger.debug("auth_discoverer.build_recipe: call failed: %s", exc)
+        return None
+
+    raw_text = _extract_text_from_response(response)
+    parsed = _extract_json_object(raw_text)
+    if parsed is None:
+        logger.debug("auth_discoverer.build_recipe: JSON parse failed, raw=%r", raw_text[:300])
+        return None
+
+    allowed_urls = _collect_allowed_action_urls(fingerprint)
+    fields_by_url = _collect_field_names(fingerprint)
+    allowed_origin = _allowed_origin_from_fingerprint(fingerprint)
+
+    steps_raw = parsed.get("steps")
+    if not isinstance(steps_raw, list):
+        return None
+
+    steps: list[dict[str, Any]] = []
+    for step in steps_raw[:RECIPE_MAX_STEPS]:
+        validated = _validate_step(
+            step, allowed_urls=allowed_urls, fields_by_url=fields_by_url
+        )
+        if validated is not None:
+            steps.append(validated)
+
+    if not steps:
+        logger.debug(
+            "auth_discoverer.build_recipe: no valid steps after validation "
+            "(allowed_urls=%s)",
+            sorted(allowed_urls),
+        )
+        return None
+
+    verification_raw = parsed.get("verification")
+    verification = _validate_verification(
+        verification_raw, allowed_origin=allowed_origin
+    )
+
+    fingerprint_hash = str(fingerprint.get("fingerprint_hash") or "")
+    return {
+        "recipe_version": RECIPE_VERSION,
+        "fingerprint_hash": fingerprint_hash,
+        "model": RECIPE_MODEL,
+        "steps": steps,
+        "verification": verification,
+    }

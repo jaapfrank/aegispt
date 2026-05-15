@@ -1,5 +1,43 @@
 # Done Log
 
+- 2026-05-15: completed Mythos task #326 (backlog-376 — Auth Discoverer AI-Driven Recipe Builder):
+  - rationale: Phase 2 day-2. Fingerprint alone (#325) is not actionable; runners need an executable recipe (which fields to fill, in what order, against which endpoint, with what verification). Reference impl `_ai_analyze_auth` in xss_proof/runner.py is tied to Gruyere assumptions — generalize it as a shared service that derives the recipe from the #325 fingerprint at runtime, with no app-specific seeds.
+  - implementation:
+    - extended `api/app/services/auth_discoverer.py` (~330 added lines) with `build_recipe(fingerprint, *, anthropic_client=None, timeout_seconds=30.0) -> dict | None`. Returns a structured AuthRecipe with `recipe_version`, `fingerprint_hash`, `model`, ordered `steps[]` (each: name, intent, method, url, field_mappings, expected_status, description) and `verification` (method, url, expect_status, expect_set_cookie, expect_body_contains, description).
+    - uses `claude-haiku-4-5-20251001` via single short prompt (no tool-use loop) per cost/scope constraint. System prompt is the fixed seed; user prompt relays the fingerprint JSON + schema example + rules. Seeded prompt text is verified clean of app-specific terms (no Gruyere/juice-shop/testfire seeds — only the relayed fingerprint, which is target data).
+    - validation layer enforces:
+      * step URLs MUST match a fingerprint action URL (URL-hijack defense against prompt injection)
+      * field_mappings only reference field names observed on the form (smuggled-parameter defense)
+      * verification URL must be same-origin as the fingerprint
+      * step count capped at RECIPE_MAX_STEPS=6
+      * field intent vocabulary limited to {username, password, confirm_password, email, csrf_token, hidden_passthrough, literal}
+      * HTTP methods restricted to {GET, POST, PUT, PATCH}; step intents to {register, login, csrf_fetch, post_login}
+    - graceful failure: returns None when (a) fingerprint has no auth surface, (b) no ANTHROPIC_API_KEY and no injected client, (c) SDK exception, (d) JSON parse failure, (e) all returned steps rejected by validation.
+    - defensive JSON extraction (`_extract_json_object`): strips ```json fences and falls back to balanced-brace scan for prose-wrapped responses.
+  - tests (new `api/tests/test_auth_discoverer_recipe.py`, 20 tests, all pass):
+    - happy path across 3 distinct stacks (Gruyere/Python, ASP.NET WebForms with __VIEWSTATE, PHP with confirm-password) — each yields a distinct step URL (matches success criterion ≥3 fingerprint shapes)
+    - JSON-serializable round-trip (cache contract for #327)
+    - URL hijack guard — model returning evil.example.com causes build_recipe to return None
+    - unknown-field smuggling guard — model adding `admin_override` field gets filtered
+    - cross-origin verification gets dropped to None while valid steps survive
+    - edge cases: empty fingerprint → None, non-dict input → None, client exception → None, unparseable JSON → None, missing steps field → None, no ANTHROPIC_API_KEY → None
+    - prompt-seed cleanliness: system prompt + `_recipe_user_prompt` with a generic fingerprint contains no app-specific terms (gruyere, testfire, /saveprofile, altoro, aegispt_, google-gruyere)
+    - prompt structure assertions: model=claude-haiku-4-5-20251001, fingerprint hash relayed in user content
+    - `_extract_json_object` helper covers fences, prose-wrapped objects, and garbage
+    - step-cap defense: returning 10 valid steps caps to RECIPE_MAX_STEPS=6
+  - constraints honored:
+    - `workers/runners/` untouched (must_not_touch)
+    - `api/app/services/assessment_loop.py` untouched (must_not_touch)
+    - `api/app/services/memory_backend.py` untouched (must_not_touch)
+    - NO cache logic (that is #327)
+    - NO probe migration (that is #328)
+    - NO picker changes
+    - NO app-specific recipe seeds — per [[feedback_no_prescriptive_recipes]]: validated by test_build_recipe_prompt_seed_has_no_app_specific_text against system prompt + generic-fingerprint user prompt
+    - duck-typed mock client interface (any object exposing `.messages.create(...)` returning `.content[0].text`) keeps tests free of live HTTP and live Anthropic API calls
+  - validation: scripts/validate_backlog_tasks.py reports 339 queued mapped 1:1 (no queue change). pytest api/tests/test_auth_discoverer_recipe.py + test_auth_discoverer.py shows 37/37 pass. compileall -q api clean. ruff check api/app/services/auth_discoverer.py all checks passed. git diff --check clean.
+  - acceptance criteria met: structured AuthRecipe with steps + field mappings (✓), verification step detecting cookie/redirect/body (✓), JSON-serializable for #327 caching (✓), no app-specific recipe text in source (✓ verified by both test_no_gruyere_strings_in_module from #325 and the new seed-cleanliness test), 3 fingerprint shapes covered (Gruyere/aspnet/php — 4 if testing helper considered, since juice-shop fixture has no form so build_recipe correctly returns None there).
+  - next: promote backlog-377 (#327 Auth Pattern Cache Backed by Claude Memory Store) into NEXT_TASK.md.
+
 - 2026-05-15: completed Mythos task #325 (backlog-375 — Auth Discoverer HTML Form Detection and Application Fingerprint):
   - rationale: Phase 2 building block. The 5 Gruyere-specific probes hardcode saveprofile?action=new auth and silently no-op on non-Gruyere stacks. Form detection + application fingerprint is the first shared building block that #326 (AI recipe builder) and #327 (pattern cache) sit on top of.
   - implementation:
