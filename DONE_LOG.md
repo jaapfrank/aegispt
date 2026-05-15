@@ -1,5 +1,36 @@
 # Done Log
 
+- 2026-05-15: partially completed Mythos task #328 (backlog-378 — Migrate Five Probes from Gruyere Auth Pattern to Auth Discoverer) — **foundation only; #328 remains active in NEXT_TASK.md**:
+  - rationale: After reading all 5 probes, the migration is bigger than the task package implied — the probes fall into 3 distinct patterns (Cat A: clean-auth-needed for stored_xss + file_upload + param_pollution, Cat B: register-IS-the-attack for cookie_tamper, Cat C: no-auth-just-strip-Gruyere-paths for info_disclosure). Plus the task spec references `auth_discoverer.acquire_session()` which did not yet exist (#325-#327 stopped at lookup/store/verify/mark_stale). Operator approved splitting #328 across sessions to preserve quality on the trickier probe restructures (cookie_tamper especially) and on the live-HTTP generality validation.
+  - what landed in this commit (foundation):
+    - new `api/app/services/auth_discoverer.acquire_session(base_url, *, scope_allowlist=None, http_client=None, force_refresh=False, anthropic_client=None, timeout_seconds=20.0, probe_limit=12, now=None) -> dict | None`. Orchestrates the full pipeline: `fetch_auth_pages` -> `fingerprint_application` -> `lookup_recipe` (cache check) -> on miss `build_recipe` (Claude Haiku, single short prompt) -> execute steps with `_execute_recipe_steps` (field_mappings resolved via intent vocabulary) -> post-execute `verify_recipe` (replay-before-trust) -> `store_recipe` on success or `mark_recipe_stale` on failure.
+    - return value: dict with `client` (httpx.Client with populated cookie jar), `username`, `password`, `email`, `fingerprint_hash`, `from_cache`, `recipe`, `session_cookies`. On any pipeline failure: None, and an owned client is closed so the caller cannot leak it.
+    - supporting helpers: `_generate_credentials()` (random `aegispt_<8>` username, `Pw!<8>` password, `<user>@aegispt.test` email), `_resolve_field_value(mapping, ...)` (maps the field_mappings intent vocabulary — username/password/confirm_password/email/csrf_token/hidden_passthrough/literal:<value> — to concrete values), `_execute_recipe_steps(...)` (runs each step.method+url+payload through the client, asserts response.status_code is in step.expected_status, accumulates cookies on the client jar; scope_allowlist re-checked per step URL even though build_recipe already validated against fingerprint actions), `_form_field_value_map(pages)` (reads raw HTML pages — not the size-stripped fingerprint — so hidden_passthrough can replay original __VIEWSTATE etc. values).
+    - constants: `ACQUIRE_DEFAULT_PROBE_LIMIT=12`, `ACQUIRE_DEFAULT_TIMEOUT=20.0`, `ACQUIRE_USERNAME_PREFIX="aegispt_"`.
+    - module imports `random` and `string` at the top (clean module-level imports, no inline imports).
+  - tests (new `api/tests/test_auth_discoverer_acquire_session.py`, 16 tests, all pass):
+    - happy-path with cache miss (Anthropic called once, recipe synthesized, executed, verified, session cookies returned)
+    - cache-hit on second call (Anthropic NOT called, verdict `fresh`, `from_cache=True`)
+    - `force_refresh=True` bypasses cache and re-calls Anthropic
+    - returns None when fetch_auth_pages yields no pages (unreachable target)
+    - returns None when pages contain no form (e.g. SPA without traditional auth)
+    - returns None on verify-fails (server returns 200 but no expected cookie)
+    - returns None on execute-fail (register endpoint returns 500)
+    - returns None on empty/None base_url
+    - returns None when build_recipe fails (Claude returns garbage)
+    - session_cookies dict populated with GRUYERE=session_abc
+    - hidden_passthrough resolution: form has `<input type=hidden name="action" value="new">`, recipe maps `action -> hidden_passthrough`, execute step sends `action=new` (not the literal string `hidden_passthrough`). Captured via param-recording mock transport.
+    - scope_allowlist enforced on execute steps (probes outside scope yield None)
+    - cookie jar persists into the returned client.cookies.jar (caller can run subsequent authenticated requests)
+    - pre-warmed cache via store_recipe: second acquire_session reuses without Anthropic
+    - `_generate_credentials` format (prefix + length + email shape)
+    - `_resolve_field_value` covers full intent vocabulary including unknown-intent fallback to empty
+  - test_no_gruyere_strings_in_module updated to drop `aegispt_` from the forbidden token list: that prefix is now a structural platform tag (acquire_session emergent username, also used by xss_proof and param_pollution_probe), not a Gruyere-specific identifier.
+  - validation: scripts/validate_backlog_tasks.py reports 339 queued mapped 1:1 (no queue change). pytest auth_discoverer tests show 82/82 pass (17 #325 + 20 #326 + 29 #327 + 16 #328a). compileall -q api clean. ruff check api/app/services/auth_discoverer.py all checks passed.
+  - constraints honored: workers/runners/ untouched in this commit (probe migrations deferred to next session). api/app/services/assessment_loop.py untouched. memory_backend.py core API untouched.
+  - what remains for #328 (next session): refactor 5 probes (3 patterns — Cat A x3 use acquire_session, Cat B cookie_tamper uses fetch_auth_pages+fingerprint only, Cat C info_disclosure just strips .gtl paths), write 5 mock-based parity test files in workers/tests/, build `scripts/test_probe_generality.py`, run it against Gruyere + juice-shop + testfire + testasp, update AGENT_SYSTEM_MAP section 3 to move probes from Gruyere-specific to Verified-generic, then promote backlog-379 (#329 Phase 2 review checkpoint) into NEXT_TASK.md — at which point the agent MUST stop and ask operator for go/no-go before proceeding to Phase 3.
+  - NEXT_TASK.md unchanged: still points at backlog-378 (#328) so the next session resumes the same task.
+
 - 2026-05-15: completed Mythos task #327 (backlog-377 — Auth Pattern Cache Backed by Claude Memory Store):
   - rationale: Phase 2 day-3. #325 + #326 produce recipes via AI; #327 makes those recipes reusable across runs against similar targets without re-paying the Claude Haiku call. Operator proposal: "AI checkt site, ziet wat voor site het is, kijkt in cache of er al een website is met vergelijkbare code, probeert de cached aanvalspad". Scoped to auth flow first per `feedback_no_prescriptive_recipes` — recipes are still emergent, the cache just stops us from rediscovering the same fingerprint on every run.
   - implementation:

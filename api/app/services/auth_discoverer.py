@@ -43,7 +43,9 @@ import hashlib
 import json
 import logging
 import os
+import random
 import re
+import string
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -1516,3 +1518,312 @@ def verify_recipe(
     finally:
         if owned:
             client.close()
+
+
+# ---------------------------------------------------------------------------
+# #328 — Integration helper: acquire_session
+# ---------------------------------------------------------------------------
+
+ACQUIRE_DEFAULT_PROBE_LIMIT = 12
+ACQUIRE_DEFAULT_TIMEOUT = 20.0
+ACQUIRE_USERNAME_PREFIX = "aegispt_"
+
+
+def _generate_credentials() -> tuple[str, str, str]:
+    """Generate (username, password, email) for an emergent auth attempt."""
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    username = f"{ACQUIRE_USERNAME_PREFIX}{suffix}"
+    password_suffix = "".join(
+        random.choices(string.ascii_lowercase + string.digits, k=8)
+    )
+    password = f"Pw!{password_suffix}"
+    email = f"{username}@aegispt.test"
+    return username, password, email
+
+
+def _resolve_field_value(
+    mapping: str,
+    *,
+    username: str,
+    password: str,
+    email: str,
+    original_value: str,
+) -> str:
+    """Resolve a field_mappings intent to a concrete value.
+
+    Intent vocabulary mirrors build_recipe's contract:
+    - username / password / confirm_password / email -> generated creds
+    - hidden_passthrough -> original value from the form (for __VIEWSTATE etc.)
+    - literal:<value> -> the literal after the colon
+    - csrf_token -> empty for now (capture-from-prior-step is out of scope
+      until #330+)
+    - anything else -> empty string (defensive)
+    """
+    head, _, tail = mapping.partition(":")
+    head_lower = head.strip().lower()
+    if head_lower == "username":
+        return username
+    if head_lower in {"password", "confirm_password"}:
+        return password
+    if head_lower == "email":
+        return email
+    if head_lower == "hidden_passthrough":
+        return original_value or ""
+    if head_lower == "literal":
+        return tail
+    if head_lower == "csrf_token":
+        return ""
+    return ""
+
+
+def _execute_recipe_steps(
+    recipe: dict[str, Any],
+    *,
+    client: httpx_client.Client,
+    username: str,
+    password: str,
+    email: str,
+    form_field_values: dict[str, dict[str, str]],
+    scope_allowlist: dict[str, Any] | None,
+) -> bool:
+    """Replay each step of `recipe.steps` through `client`. Returns True if
+    all steps complete with an acceptable status code (one of
+    step.expected_status). Cookies accumulate on the client jar."""
+    for step in recipe.get("steps") or []:
+        url = str(step.get("url") or "")
+        method = str(step.get("method") or "POST").upper()
+        if not url:
+            return False
+        if (
+            scope_allowlist
+            and not web_target_value_is_allowed_with_path(scope_allowlist, url)
+        ):
+            return False
+        mappings = step.get("field_mappings") or {}
+        if not isinstance(mappings, dict):
+            return False
+        per_url_originals = form_field_values.get(url, {})
+        payload: dict[str, str] = {}
+        for field_name, mapping in mappings.items():
+            payload[field_name] = _resolve_field_value(
+                mapping,
+                username=username,
+                password=password,
+                email=email,
+                original_value=per_url_originals.get(field_name, ""),
+            )
+        try:
+            if method == "GET":
+                response = client.get(url, params=payload, follow_redirects=False)
+            else:
+                response = client.request(
+                    method, url, data=payload, follow_redirects=False
+                )
+        except httpx_client.HTTPError as exc:
+            logger.debug("auth_discoverer.acquire_session: step %s errored: %s", url, exc)
+            return False
+        expected = step.get("expected_status") or [200, 302]
+        try:
+            if int(response.status_code) not in {int(s) for s in expected}:
+                logger.debug(
+                    "auth_discoverer.acquire_session: step %s got %s, expected %s",
+                    url, response.status_code, expected,
+                )
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
+def _form_field_value_map(pages: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
+    """Build {form_action: {field_name: original_value}} for hidden_passthrough resolution.
+
+    Reads from the *pages* (raw HTML) rather than the fingerprint, because
+    :func:`fingerprint_application` deliberately strips field values from
+    its canonical output to keep the fingerprint under 2 KB. Values are
+    needed at execute time to replay __VIEWSTATE, hidden flags etc.
+    """
+    out: dict[str, dict[str, str]] = {}
+    for page in pages or []:
+        if not isinstance(page, dict):
+            continue
+        html = page.get("html") or ""
+        page_url = page.get("url") or ""
+        for form in _parse_forms(html, page_url=page_url):
+            action = form.get("action")
+            if not isinstance(action, str) or not action:
+                continue
+            values: dict[str, str] = {}
+            for field in form.get("fields") or []:
+                if not isinstance(field, dict):
+                    continue
+                name = str(field.get("name") or "")
+                if not name:
+                    continue
+                values[name] = str(field.get("value") or "")
+            if values:
+                # If two pages reference the same action, merge — later
+                # pages win on collision (deterministic).
+                out.setdefault(action, {}).update(values)
+    return out
+
+
+def acquire_session(
+    base_url: str,
+    *,
+    scope_allowlist: dict[str, Any] | None = None,
+    http_client: httpx_client.Client | None = None,
+    force_refresh: bool = False,
+    anthropic_client: Any = None,
+    timeout_seconds: float = ACQUIRE_DEFAULT_TIMEOUT,
+    probe_limit: int = ACQUIRE_DEFAULT_PROBE_LIMIT,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
+    """End-to-end integration helper: discover -> fingerprint -> cache ->
+    (build_recipe on miss) -> verify -> execute -> return session.
+
+    Pipeline:
+
+    1. ``fetch_auth_pages(base_url, scope_allowlist, probe_limit=probe_limit)``
+    2. ``fingerprint_application(pages)``
+    3. ``lookup_recipe(fingerprint)`` — if ``force_refresh`` or verdict is
+       ``stale`` / ``absent``, fall through to (4); if ``fresh``, the cached
+       recipe is verified and reused.
+    4. ``build_recipe(fingerprint, anthropic_client=anthropic_client)``
+    5. ``verify_recipe(recipe, http_client=client)``
+    6. Execute ``recipe.steps`` against ``client`` so the session cookie
+       jar is populated.
+    7. ``store_recipe(fingerprint, recipe)`` on success of fresh discovery.
+    8. ``mark_recipe_stale(fingerprint)`` on verify or execute failure.
+
+    Returns a dict on success::
+
+        {
+          "client": httpx.Client,                  # session cookie jar populated
+          "username": str,
+          "password": str,
+          "email": str,
+          "fingerprint_hash": str,
+          "from_cache": bool,
+          "recipe": dict,
+          "session_cookies": {name: value, ...},
+        }
+
+    Returns ``None`` when any of the pipeline steps fail or no auth surface
+    is observable. The caller is responsible for closing ``client`` if
+    they own it (i.e. did not pass it in).
+
+    Probes that craft malicious registrations themselves (cookie_tamper_probe)
+    should use :func:`fetch_auth_pages` + :func:`fingerprint_application`
+    directly — :func:`acquire_session` is intentionally for probes that need
+    a clean authenticated session.
+    """
+    if not isinstance(base_url, str) or not base_url:
+        return None
+
+    owns_client = False
+    client = http_client
+    if client is None:
+        client = httpx_client.Client(
+            timeout=timeout_seconds, follow_redirects=False, verify=True
+        )
+        owns_client = True
+
+    success = False
+    try:
+        pages = fetch_auth_pages(
+            base_url,
+            scope_allowlist=scope_allowlist,
+            timeout_seconds=timeout_seconds,
+            probe_limit=probe_limit,
+            client=client,
+        )
+        if not pages:
+            return None
+        fingerprint = fingerprint_application(pages)
+        if not (fingerprint.get("register_form") or fingerprint.get("login_form")):
+            return None
+
+        cached_recipe: dict[str, Any] | None = None
+        verdict = VERDICT_ABSENT
+        if not force_refresh:
+            cached_recipe, verdict = lookup_recipe(fingerprint, now=now)
+
+        if verdict == VERDICT_FRESH and isinstance(cached_recipe, dict):
+            recipe = cached_recipe
+            from_cache = True
+        else:
+            recipe = build_recipe(fingerprint, anthropic_client=anthropic_client)
+            if recipe is None:
+                return None
+            from_cache = False
+
+        username, password, email = _generate_credentials()
+        form_field_values = _form_field_value_map(pages)
+        ok = _execute_recipe_steps(
+            recipe,
+            client=client,
+            username=username,
+            password=password,
+            email=email,
+            form_field_values=form_field_values,
+            scope_allowlist=scope_allowlist,
+        )
+        if not ok:
+            if not from_cache:
+                # Fresh recipe that failed at execute time — store as stale
+                # so we don't immediately re-use it via cache.
+                store_recipe(fingerprint, recipe, now=now)
+            mark_recipe_stale(fingerprint, now=now)
+            return None
+
+        # Post-execute verification: replay the verification step against
+        # the *now-populated* client cookie jar. This is the "replay-
+        # before-trust" gate from the cache contract.
+        if not verify_recipe(
+            recipe, http_client=client, timeout_seconds=timeout_seconds
+        ):
+            if not from_cache:
+                store_recipe(fingerprint, recipe, now=now)
+            mark_recipe_stale(fingerprint, now=now)
+            return None
+
+        if not from_cache:
+            # Only store a fresh recipe AFTER it successfully authenticates
+            # and verifies. Caching a broken recipe is worse than not caching.
+            store_recipe(fingerprint, recipe, now=now)
+
+        cookies: dict[str, str] = {}
+        try:
+            for cookie in client.cookies.jar:
+                if cookie.name:
+                    cookies[cookie.name] = cookie.value or ""
+        except AttributeError:
+            try:
+                cookies = {k: v for k, v in client.cookies.items()}
+            except AttributeError:
+                cookies = {}
+
+        success = True
+        return {
+            "client": client,
+            "username": username,
+            "password": password,
+            "email": email,
+            "fingerprint_hash": str(fingerprint.get("fingerprint_hash") or ""),
+            "from_cache": from_cache,
+            "recipe": recipe,
+            "session_cookies": cookies,
+        }
+    except Exception as exc:
+        logger.debug("auth_discoverer.acquire_session: unexpected error: %s", exc)
+        return None
+    finally:
+        # Only close the client when we own it AND we are returning None
+        # (or raising). On success the caller takes ownership of the
+        # client + populated cookie jar.
+        if owns_client and not success:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover — defensive
+                pass

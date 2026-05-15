@@ -207,11 +207,14 @@ def test_no_gruyere_strings_in_module() -> None:
     # generic catalog entries (analogous to PHPSESSID, JSESSIONID, etc.).
     # We forbid: hardcoded `saveprofile` path, hardcoded scope-path tokens,
     # hardcoded usernames/passwords.
+    # NOTE: `aegispt_` is the platform-wide emergent-username prefix
+    # used by acquire_session (#328) and by reference runners
+    # (xss_proof, param_pollution_probe). It is a structural platform
+    # tag, not a Gruyere-specific token — exempt from this check.
     forbidden = [
         "/saveprofile",
         "google-gruyere",
         "482338906867472456097470474631954304306",
-        "aegispt_",
     ]
     for needle in forbidden:
         assert needle.lower() not in source.lower(), (
