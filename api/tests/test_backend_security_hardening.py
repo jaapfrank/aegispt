@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 
 def _fresh_client(tmp_path, monkeypatch) -> TestClient:
@@ -160,3 +161,57 @@ def test_auto_create_tables_false_requires_database_encryption_key(tmp_path, mon
         with TestClient(create_app()):
             pass
     get_settings.cache_clear()
+
+
+def test_x_actor_fallback_allowed_in_local_dev(tmp_path, monkeypatch) -> None:
+    """X-Actor fallback must work in development (existing local workflow preserved)."""
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.delenv("AEGISPT_ENV", raising=False)
+    with _fresh_client(tmp_path, monkeypatch) as client:
+        response = client.get("/api/v1/run-profiles", headers={"X-Actor": "test-operator"})
+        assert response.status_code != 401, "X-Actor fallback must work in local dev"
+
+
+def test_x_actor_fallback_blocked_in_production_env(client: TestClient) -> None:
+    """AEGISPT_ENV=production must block X-Actor fallback on auth-protected endpoints."""
+    from api.app.config import Settings
+    prod_settings = Settings(aegispt_env="production", allow_x_actor_fallback=True, app_env="production")
+    assert not prod_settings.is_local_dev_environment
+    # Use a POST route that definitely requires operator/admin role via get_current_principal
+    with patch("api.app.auth.get_settings", return_value=prod_settings):
+        response = client.post(
+            "/api/v1/engagements",
+            headers={"X-Actor": "intruder"},
+            json={"name": "test", "client": None, "roe_ref": None},
+        )
+        assert response.status_code == 401
+        body = response.json()
+        detail = body.get("detail", "")
+        assert "Authentication required" in detail or "authentication" in detail.lower()
+
+
+def test_x_actor_fallback_blocked_when_flag_disabled(client: TestClient) -> None:
+    """allow_x_actor_fallback=False must block fallback on auth-protected endpoints."""
+    from api.app.config import Settings
+    no_fallback = Settings(app_env="development", allow_x_actor_fallback=False)
+    with patch("api.app.auth.get_settings", return_value=no_fallback):
+        response = client.post(
+            "/api/v1/engagements",
+            headers={"X-Actor": "intruder"},
+            json={"name": "test", "client": None, "roe_ref": None},
+        )
+        assert response.status_code == 401
+
+
+def test_is_local_dev_environment_detection() -> None:
+    """Environment detection logic covers known environment names."""
+    from api.app.config import Settings
+    assert Settings(app_env="development").is_local_dev_environment is True
+    assert Settings(app_env="dev").is_local_dev_environment is True
+    assert Settings(app_env="test").is_local_dev_environment is True
+    assert Settings(app_env="local").is_local_dev_environment is True
+    assert Settings(app_env="production").is_local_dev_environment is False
+    assert Settings(app_env="staging").is_local_dev_environment is False
+    # aegispt_env overrides app_env
+    assert Settings(app_env="development", aegispt_env="production").is_local_dev_environment is False
+    assert Settings(app_env="production", aegispt_env="local").is_local_dev_environment is True

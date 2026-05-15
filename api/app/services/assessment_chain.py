@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import copy
+import logging
 import subprocess
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from datetime import UTC, datetime
 from ipaddress import ip_network
 from typing import Any
@@ -2279,12 +2282,23 @@ def advance_assessment_chain_for_completed_run(
         previous_rank = _phase_rank(phase)
         next_rank = _phase_rank(next_phase)
         next_phase_pre_authorized = _phase_is_pre_authorized(chain, next_phase)
-        if (
-            (bool(next_phase.get("never_auto_start")) and not next_phase_pre_authorized)
-            or (next_phase_requires_approval and not next_phase_pre_authorized)
-            or not bool(chain.auto_advance_on_phase_complete)
-            or (next_rank > previous_rank and not next_phase_pre_authorized)
-        ):
+        gate_never_auto_start = bool(next_phase.get("never_auto_start")) and not next_phase_pre_authorized
+        gate_requires_approval = next_phase_requires_approval and not next_phase_pre_authorized
+        gate_no_auto_advance = not bool(chain.auto_advance_on_phase_complete)
+        gate_rank_jump = next_rank > previous_rank and not next_phase_pre_authorized
+        if gate_never_auto_start or gate_requires_approval or gate_no_auto_advance or gate_rank_jump:
+            logger.info(
+                "chain %s gate fired on phase '%s': never_auto_start=%s requires_approval=%s "
+                "no_auto_advance=%s rank_jump=%s pre_authorized=%s auto_advance=%s",
+                chain.id,
+                next_phase.get("key"),
+                gate_never_auto_start,
+                gate_requires_approval,
+                gate_no_auto_advance,
+                gate_rank_jump,
+                next_phase_pre_authorized,
+                chain.auto_advance_on_phase_complete,
+            )
             next_phase["status"] = "pending_approval"
             chain.status = "pending_phase_approval"
             _store_chain_phases(chain, phases)

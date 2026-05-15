@@ -19,6 +19,15 @@ SEVERITY_SCORE = {
     "info": 0.28,
 }
 
+# Ranks for severity escalation comparison (higher = more severe)
+SEVERITY_RANK: dict[str, int] = {
+    "info": 0,
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "critical": 4,
+}
+
 CHAIN_BOUNDARY = {
     "message": (
         "Vulnerability chains are additive analysis records built from existing findings. "
@@ -489,3 +498,147 @@ def _pattern_catalog() -> list[dict[str, Any]]:
         }
         for pattern in CHAIN_PATTERNS
     ]
+
+
+def link_pivot_chain_findings(
+    *,
+    session: Session,
+    original_finding: Finding,
+    follow_up_finding: Finding,
+    pivot_type: str,
+    run_id: UUID,
+) -> FindingChain | None:
+    """Create a FindingChain linking original → follow_up via a confirmed pivot.
+
+    Requirements (both must hold, otherwise returns None):
+    - follow_up_finding.status == 'open'
+    - follow_up_finding.evidence_ref is non-empty
+
+    If the follow-up severity outranks the original AND original is low/medium,
+    escalates original_finding.severity in place.  Caller must flush/commit.
+
+    Returns the upserted FindingChain, or None when prerequisites are not met.
+    """
+    if str(follow_up_finding.status or "").strip().lower() != "open":
+        return None
+    if not str(follow_up_finding.evidence_ref or "").strip():
+        return None
+    if str(follow_up_finding.id) == str(original_finding.id):
+        return None
+
+    orig_sev = str(original_finding.severity or "info").lower()
+    followup_sev = str(follow_up_finding.severity or "info").lower()
+    orig_rank = SEVERITY_RANK.get(orig_sev, 0)
+    followup_rank = SEVERITY_RANK.get(followup_sev, 0)
+
+    # Only escalate low/medium → higher
+    severity_escalated = followup_rank > orig_rank and orig_rank <= SEVERITY_RANK["medium"]
+    pre_escalation_severity = orig_sev
+    if severity_escalated:
+        original_finding.severity = followup_sev
+
+    impact_summary = (
+        f"{original_finding.title} → {pivot_type.replace('_', ' ')} → "
+        f"{follow_up_finding.title} at {follow_up_finding.target_id or '(target)'} — "
+        f"real access demonstrated"
+    )
+    impact_proof = {
+        "original_finding_id": str(original_finding.id),
+        "original_finding_title": original_finding.title,
+        "pivot_type": pivot_type,
+        "follow_up_finding_id": str(follow_up_finding.id),
+        "follow_up_finding_title": follow_up_finding.title,
+        "what_was_accessed": follow_up_finding.target_id,
+        "summary": impact_summary,
+        "severity_escalated": severity_escalated,
+        "original_severity": pre_escalation_severity,
+        "escalated_to": followup_sev if severity_escalated else None,
+    }
+
+    pattern_id = f"pivot-chain-{pivot_type or 'session'}"
+    component_ids = sorted([str(original_finding.id), str(follow_up_finding.id)])
+    component_hash = hashlib.sha256("|".join(component_ids).encode("utf-8")).hexdigest()
+    confidence = _confidence_score([original_finding, follow_up_finding])
+    status = "confirmed_pivot_chain" if confidence >= 0.55 else "low_confidence"
+    evidence_refs = sorted(
+        {str(original_finding.evidence_ref or "").strip(), str(follow_up_finding.evidence_ref or "").strip()} - {""}
+    )
+    rationale = [
+        {
+            "finding_id": str(original_finding.id),
+            "title": original_finding.title,
+            "severity": original_finding.severity,
+            "target_id": original_finding.target_id,
+            "evidence_ref": original_finding.evidence_ref,
+            "role": "source",
+        },
+        {
+            "finding_id": str(follow_up_finding.id),
+            "title": follow_up_finding.title,
+            "severity": follow_up_finding.severity,
+            "target_id": follow_up_finding.target_id,
+            "evidence_ref": follow_up_finding.evidence_ref,
+            "role": "follow_up",
+        },
+    ]
+    metadata = {
+        "chain_record_type": "pivot_chain",
+        "pivot_type": pivot_type,
+        "impact_proof_json": impact_proof,
+        "auto_escalates_severity": severity_escalated,
+        "mutates_component_findings": severity_escalated,
+        "executes_exploits": False,
+    }
+
+    existing = session.scalar(
+        select(FindingChain).where(
+            FindingChain.run_id == run_id,
+            FindingChain.pattern_id == pattern_id,
+            FindingChain.component_hash == component_hash,
+        )
+    )
+    if existing is None:
+        chain = FindingChain(
+            run_id=run_id,
+            pattern_id=pattern_id,
+            component_hash=component_hash,
+            title=f"Pivot chain: {original_finding.title} → {follow_up_finding.title}",
+            status=status,
+            component_finding_ids_json=component_ids,
+            confidence_score=confidence,
+            combined_impact_text=impact_summary,
+            evidence_refs_json=evidence_refs,
+            rationale_json=rationale,
+            metadata_json=metadata,
+        )
+        session.add(chain)
+        # Concurrent workers may both reach this point with the same
+        # (run, pattern, component_hash) and both attempt INSERT. The unique
+        # constraint catches it; we just need to recover gracefully so the
+        # whole post-task pipeline doesn't get poisoned by a rollback.
+        try:
+            session.flush()
+        except Exception as exc:
+            msg = str(exc).lower()
+            if "uniqueviolation" in msg or "unique constraint" in msg or "duplicate key" in msg:
+                session.rollback()
+                # Re-query — another worker won the race.
+                chain = session.scalar(
+                    select(FindingChain).where(
+                        FindingChain.run_id == run_id,
+                        FindingChain.pattern_id == pattern_id,
+                        FindingChain.component_hash == component_hash,
+                    )
+                )
+                if chain is not None:
+                    return chain
+            raise
+    else:
+        existing.status = status
+        existing.confidence_score = confidence
+        existing.rationale_json = rationale
+        existing.metadata_json = {**dict(existing.metadata_json or {}), **metadata}
+        chain = existing
+
+    session.flush()
+    return chain

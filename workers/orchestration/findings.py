@@ -44,6 +44,11 @@ from workers.runners.ldap_enum.runner import LDAP_ENUM_ARTIFACT_NAME
 from workers.runners.leak_check.runner import LEAK_CHECK_RESULTS_ARTIFACT_NAME
 from workers.runners.llm_probe import LLM_PROBE_ARTIFACT_NAME
 from workers.runners.logging_probe.runner import LOGGING_PROBE_RESULTS_ARTIFACT_NAME
+from workers.runners.info_disclosure_probe.runner import RESULTS_ARTIFACT_NAME as INFO_DISCLOSURE_RESULTS_ARTIFACT_NAME
+from workers.runners.param_pollution_probe.runner import RESULTS_ARTIFACT_NAME as PARAM_POLLUTION_RESULTS_ARTIFACT_NAME
+from workers.runners.stored_xss_probe.runner import RESULTS_ARTIFACT_NAME as STORED_XSS_PROBE_RESULTS_ARTIFACT_NAME
+from workers.runners.cookie_tamper_probe.runner import RESULTS_ARTIFACT_NAME as COOKIE_TAMPER_PROBE_RESULTS_ARTIFACT_NAME
+from workers.runners.file_upload_probe.runner import RESULTS_ARTIFACT_NAME as FILE_UPLOAD_PROBE_RESULTS_ARTIFACT_NAME
 from workers.runners.malware_sim.runner import MALWARE_SIM_RESULTS_ARTIFACT_NAME
 from workers.runners.mdns_ssdp.runner import MDNS_SSDP_ARTIFACT_NAME
 from workers.runners.metasploit.runner import METASPLOIT_RESULTS_ARTIFACT_NAME
@@ -78,6 +83,7 @@ from workers.runners.web_depth.runner import (
 from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
 from workers.runners.xss_extended.runner import XSS_EXTENDED_RESULTS_ARTIFACT_NAME
 from workers.runners.xss_proof.runner import XSS_PROOF_RESULTS_ARTIFACT_NAME
+from workers.runners.exec_plan.runner import EXEC_PLAN_ARTIFACT_NAME
 
 
 @dataclass(slots=True, frozen=True)
@@ -560,6 +566,11 @@ def extract_findings(
         "http-smuggling",
         "oauth-probe",
         "logging-probe",
+        "info-disclosure-probe",
+        "param-pollution-probe",
+        "stored-xss-probe",
+        "cookie-tamper-probe",
+        "file-upload-probe",
         "xss-extended",
         "xss-proof",
         "smart-web-probe",
@@ -598,8 +609,14 @@ def extract_findings(
                 HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME,
                 OAUTH_PROBE_RESULTS_ARTIFACT_NAME,
                 LOGGING_PROBE_RESULTS_ARTIFACT_NAME,
+                INFO_DISCLOSURE_RESULTS_ARTIFACT_NAME,
+                PARAM_POLLUTION_RESULTS_ARTIFACT_NAME,
+                STORED_XSS_PROBE_RESULTS_ARTIFACT_NAME,
+                COOKIE_TAMPER_PROBE_RESULTS_ARTIFACT_NAME,
+                FILE_UPLOAD_PROBE_RESULTS_ARTIFACT_NAME,
                 XSS_EXTENDED_RESULTS_ARTIFACT_NAME,
                 XSS_PROOF_RESULTS_ARTIFACT_NAME,
+                EXEC_PLAN_ARTIFACT_NAME,
                 SMART_PROBE_RESULTS_ARTIFACT_NAME,
                 TARGET_INTEL_ARTIFACT_NAME,
                 SSRF_RESULTS_ARTIFACT_NAME,

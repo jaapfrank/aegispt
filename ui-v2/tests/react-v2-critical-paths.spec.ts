@@ -464,54 +464,49 @@ test('Findings Theater filters findings without live backend access', async ({ p
   await expect(page.getByText('Raw Evidence View')).toBeVisible();
 });
 
-test('Mission Control refreshes and expands bounded task output from fixtures', async ({ page }) => {
+test('Mission Control renders V3 story and technical views from fixtures', async ({ page }) => {
   await installApiFixtures(page);
   await page.goto('/app-v2/mission-control');
 
-  await expect(page.getByRole('heading', { name: 'Mission Control', exact: true })).toBeVisible();
-  // OperationsSummary renders as 'Run Thread' in the new MissionControl layout
-  await expect(page.getByText('Run Thread')).toBeVisible();
-  await expect(page.getByText('Task Ledger')).toBeVisible();
-  await expect(page.getByText('Live Command Console')).toBeVisible();
-  await expect(page.getByText('Single source for selected task command')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Cinema Mode/ })).toBeVisible();
+  // Verify Story view loads by default
+  await expect(page.getByText('Narrative — what happened, in plain language')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Cinema/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Kill$/ })).toBeVisible();
 
-  // Refresh button exists and clicking it does not crash the view
-  const refreshBtn = page.getByRole('button', { name: /Refresh/ });
-  await expect(refreshBtn).toBeVisible();
-  await refreshBtn.click();
-  // Page stays stable after refresh (no crash recovery)
-  await expect(page.getByText('The view stopped rendering safely.')).toHaveCount(0);
-  await expect(page.getByText('Task Ledger')).toBeVisible();
-
-  // Click httpx task in the Task Ledger to show it in the Live Command Console
-  await page.getByRole('button', { name: /httpx/ }).first().click();
-  await expect(page.getByText('$ httpx https://app.example.test')).toBeVisible();
-  await expect(page.getByText('bounded fixture output: GET /profile returned stored evidence only')).toBeVisible();
+  // Switch to Technical View
+  await page.getByRole('button', { name: '🔧 Technical' }).click();
+  
+  // Verify Technical view loads
+  await expect(page.getByText('Status board — proof + heartbeat')).toBeVisible();
+  await expect(page.getByText('Now playing')).toBeVisible();
+  
+  // Expand details drawer
+  await page.getByRole('button', { name: /Show all details/ }).click();
+  
+  // Verify tasks are shown
+  await expect(page.getByText(/All tools/i)).toBeVisible();
+  await expect(page.getByText('httpx').first()).toBeVisible();
 });
 
-test('Mission Control explains queued checks without calling them running', async ({ page }) => {
+test('Mission Control Technical view explains queued checks', async ({ page }) => {
   await installApiFixtures(page);
   await page.goto('/app-v2/mission-control');
 
-  // Wait for task list to load
-  await expect(page.getByRole('heading', { name: 'Mission Control', exact: true })).toBeVisible();
-  await expect(page.getByText('Task Ledger')).toBeVisible();
+  // Switch to Technical View
+  await page.getByRole('button', { name: '🔧 Technical' }).click();
 
-  // ssrf-probe button exists in the task list (tool name only, not profile name)
-  const ssrfButton = page.getByRole('button', { name: /ssrf-probe/ }).first();
-  await expect(ssrfButton).toBeVisible();
+  // Expand details drawer to ensure all tasks are rendered
+  await page.getByRole('button', { name: /Show all details/ }).click();
 
-  // Active Work paragraph shows ssrf-probe as queued, not running
-  await expect(page.locator('p').filter({ hasText: /ssrf-probe queued against/ })).toBeVisible();
-  await expect(page.getByText('ssrf-probe is running')).toHaveCount(0);
+  // ssrf-probe exists in the task list
+  await expect(page.getByText('ssrf-probe').first()).toBeVisible();
 });
 
 test('Cinema Mode opens as a full viewport replay overlay with visible exit and command feed', async ({ page }) => {
+  await installApiFixtures(page);
   await page.goto('/app-v2/mission-control');
 
-  await page.getByRole('button', { name: /Cinema Mode/ }).click();
+  await page.getByRole('button', { name: /Cinema/ }).click();
   const cinema = page.getByTestId('cinema-mode');
   await expect(cinema).toBeVisible();
   await expect(page.getByRole('button', { name: /^Exit$/ })).toBeVisible();

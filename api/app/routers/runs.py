@@ -756,7 +756,42 @@ def create_run(
         if payload.autonomous_mode is not None
         else bool(profile_limits.get("autonomous_mode_default"))
     )
-    autonomous_intrusive_allowed = bool(payload.autonomous_intrusive_allowed or False)
+    # Operator intent inference: when the intake wizard signals full-pentest
+    # depth (multiple possible places depending on which intake variant), the
+    # autonomous_intrusive_allowed flag should follow automatically. Otherwise
+    # the operator effectively asked for a full pentest but the AI loop silently
+    # demoted itself to active tier, leaving level 8-10 attacks unreachable.
+    auth_meta = (sanitized_configuration.get("assessment") or {}).get("authorization_metadata") or {}
+    if not isinstance(auth_meta, dict):
+        auth_meta = {}
+    explicit_payload = payload.autonomous_intrusive_allowed
+    # Collect possible signals across the entire config — different intake
+    # variants put the depth flag in different places.
+    test_profile = str(sanitized_configuration.get("test_profile") or "").lower()
+    depth = str(sanitized_configuration.get("depth") or "").lower()
+    mission_depth = str(
+        (sanitized_configuration.get("mission") or {}).get("depth") or ""
+    ).lower()
+    assessment_depth = str(
+        (sanitized_configuration.get("assessment") or {}).get("depth") or ""
+    ).lower()
+    inferred_intrusive = bool(
+        auth_meta.get("intrusive_lan_authorized")
+        or auth_meta.get("exploit_confirmation_authorized")
+        or str(auth_meta.get("authorization_level") or "").lower() == "full"
+        or "full" in test_profile
+        or "full" in depth
+        or "full" in mission_depth
+        or "full" in assessment_depth
+    )
+    autonomous_intrusive_allowed = (
+        bool(explicit_payload) if explicit_payload is not None else inferred_intrusive
+    )
+    import logging
+    logging.getLogger(__name__).info(
+        "run-create: autonomous_intrusive_allowed=%s (explicit=%s inferred=%s test_profile=%r)",
+        autonomous_intrusive_allowed, explicit_payload, inferred_intrusive, test_profile,
+    )
     try:
         if "biz-logic-probe" in planned_tools(profile):
             validate_business_logic_run_configuration(
@@ -1165,6 +1200,23 @@ def get_run(
 ) -> RunRead:
     run = _load_run_for_tenant(session, run_id, tenant_id)
     return serialize_run(run, session=session)
+
+
+@router.get("/runs/{run_id}/narrative-panels")
+def get_run_narrative_panels(
+    run_id: UUID,
+    session: Session = Depends(get_session),
+    tenant_id: str | None = Depends(get_current_tenant_id),
+) -> dict[str, object]:
+    """Return the ChatGPT/Haiku-generated comic-strip panels for a run.
+
+    Stored as append-only audit_events rows so concurrent advance calls
+    can't overwrite each other. Returned chronologically (oldest first).
+    """
+    _load_run_for_tenant(session, run_id, tenant_id)
+    from api.app.services import narrator as _narrator
+    panels = _narrator.fetch_panels_for_run(session, run_id)
+    return {"run_id": str(run_id), "panels": panels, "count": len(panels)}
 
 
 @router.get("/runs/{run_id}/continuous-exposure-drift")
@@ -1609,7 +1661,7 @@ def get_run_briefing(
     # Try to get site type from target-intel output
     for task in tasks_done:
         if task.tool == "target-intel":
-            for exe in list(task.tool_executions or []):
+            for exe in list(task.executions or []):
                 try:
                     d = _json.loads(exe.stdout_text or "")
                     site_type = d.get("analysis", {}).get("site_type", "")

@@ -4,7 +4,7 @@ import json
 import re
 from hashlib import sha256
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunparse
 
 import httpx as httpx_client
 
@@ -466,6 +466,91 @@ def execute_xss_extended_scan(
                         evidence={**check, "response_excerpt": _body_excerpt(response)},
                     )
 
+            # Path-component XSS: append raw XSS payloads as URL path segments.
+            # Covers error pages that reflect the path verbatim (e.g. Gruyere /id/INVALID_PATH).
+            _PATH_XSS_PAYLOADS = [
+                "<script>alert('aegispt-xss')</script>",
+                "<img src=x onerror=alert(1)>",
+                "\"><script>alert(1)</script>",
+            ]
+            # Also probe generic invalid paths to detect reflection surfaces first.
+            _PROBE_PATHS = [
+                "aegispt-404-probe",
+                "undefined-path-xss-probe",
+                "error-test-aegispt",
+            ]
+            base_stripped = base_target.rstrip("/")
+            reflection_detected = False
+
+            for probe in _PROBE_PATHS:
+                probe_url = f"{base_stripped}/{probe}"
+                if not _allowed(scope_allowlist, probe_url):
+                    continue
+                try:
+                    resp = client.get(probe_url)
+                except httpx_client.HTTPError:
+                    continue
+                ct = resp.headers.get("Content-Type", "").lower()
+                if "text/html" not in ct and ct:
+                    continue
+                if probe in resp.text:
+                    reflection_detected = True
+                    break
+
+            path_payloads_to_test = _PATH_XSS_PAYLOADS if not reflection_detected else _PATH_XSS_PAYLOADS[:1]
+            for payload_str in path_payloads_to_test:
+                # Encode only characters that would break HTTP path parsing, keeping < > " ' intact
+                encoded_path = quote(payload_str, safe="/<>\"'!()-_.")
+                path_url = f"{base_stripped}/{encoded_path}"
+                if not _allowed(scope_allowlist, path_url):
+                    continue
+                try:
+                    resp = client.get(path_url)
+                except httpx_client.HTTPError as exc:
+                    stderr_lines.append(f"path XSS check failed for {path_url}: {exc}")
+                    continue
+                ct = resp.headers.get("Content-Type", "").lower()
+                html_ctx = "text/html" in ct or not ct
+                # Detection: raw payload or its html-decoded form appears unencoded in response body
+                raw_reflected = payload_str in resp.text
+                # Also check for partial match: just the <script> or onerror= token unencoded
+                script_token = "<script>" in resp.text.lower() or "onerror=" in resp.text.lower()
+                unencoded_angle = "<" in resp.text and ">" in resp.text and not all(
+                    enc in resp.text for enc in ["&lt;", "&gt;"]
+                )
+                reflected = raw_reflected or (script_token and unencoded_angle)
+                check = {
+                    "check_type": "reflected_xss_path_component",
+                    "target": path_url,
+                    "base_target": base_target,
+                    "payload": payload_str,
+                    "status_code": resp.status_code,
+                    "content_type": resp.headers.get("Content-Type", ""),
+                    "payload_reflected": reflected,
+                    "html_context": html_ctx,
+                    "response_hash": _response_hash(resp),
+                }
+                checks.append(check)
+                if html_ctx and reflected:
+                    _append_finding(
+                        findings,
+                        seen_findings,
+                        finding_type="reflected_xss_path_component",
+                        title="Reflected XSS via URL Path Component",
+                        severity="high",
+                        target=path_url,
+                        summary=(
+                            f"An XSS payload injected as a URL path segment was reflected "
+                            f"unencoded in the HTML response from {base_target}."
+                        ),
+                        evidence={
+                            **check,
+                            "response_excerpt": _body_excerpt(resp),
+                            "reflection_detected_on_probe": reflection_detected,
+                        },
+                    )
+                    break  # One confirmed path XSS per target is enough
+
             # Reflected XSS via URL parameters: inject into every query-string param in discovered paths.
             for param_url, param_names in _urls_with_query_params(candidate_paths, base_target, scope_allowlist):
                 injected_url = _inject_query(param_url, ajax_payload, param_names)
@@ -514,11 +599,12 @@ def execute_xss_extended_scan(
             "ajax_json_findings": sum(1 for finding in findings if finding.get("type") == "ajax_json_xss_response_context"),
             "xssi_findings": sum(1 for finding in findings if finding.get("type") == "xssi_json_data_leakage"),
             "reflected_url_param_findings": sum(1 for finding in findings if finding.get("type") == "reflected_xss_url_parameter"),
+            "reflected_path_findings": sum(1 for finding in findings if finding.get("type") == "reflected_xss_path_component"),
         },
         "safety": {
             "scope_enforced": True,
             "approved_web_root_only": True,
-            "variants": ["file-upload-xss", "ajax-json-xss", "xssi", "reflected-url-param"],
+            "variants": ["file-upload-xss", "ajax-json-xss", "xssi", "reflected-url-param", "reflected-path-component"],
             "zap_configuration_changed": False,
             "runtime_mutation": False,
             "requires_active_approval": True,

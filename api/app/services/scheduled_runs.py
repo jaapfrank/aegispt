@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import logging
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -11,6 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from api.app.config import Settings
 from api.app.models import Engagement, Run, RunProfile, ScheduledRun
+from api.app.models.control import Task
 from api.app.services.audit import write_audit_event
 from api.app.services.packs import bind_pack_to_run, latest_pack_deployment
 from api.app.services.run_profiles import ensure_default_run_profiles
@@ -22,6 +25,49 @@ from api.app.services.runs import (
     required_approvals,
 )
 from api.app.services.secrets import materialize_run_configuration_secrets
+
+logger = logging.getLogger(__name__)
+
+_TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled", "errored"}
+# Aggressive sweep: dispatch tasks that have been queued for more than 3 seconds.
+# This catches AI loop iterations where the worker's inline dispatch path didn't fire,
+# closing the gap that otherwise forces operators to manually click "Start queue".
+_QUEUED_TASK_STALE_SECONDS = 3
+# At startup, any task still in 'running'/'dispatching' belongs to a dead worker
+# (the previous API process died/restarted). Reset them so the sweeper redispatches.
+_ORPHANED_TASK_STATUSES = ("running", "dispatching")
+
+
+def reset_orphaned_tasks_at_startup(app: Any) -> int:
+    """Reset tasks that were stuck running when the previous API process died.
+
+    Called once at API startup. Resets status='running'/'dispatching' to 'queued'
+    so the queue sweeper picks them up and redispatches them via a fresh worker.
+    Without this, restarting the API leaves UI showing "scanning..." for tasks
+    that no process is actually executing.
+    """
+    session_factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
+    if session_factory is None:
+        return 0
+    try:
+        with session_factory() as session:
+            orphaned = list(
+                session.scalars(
+                    select(Task).where(Task.status.in_(list(_ORPHANED_TASK_STATUSES)))
+                ).all()
+            )
+            if not orphaned:
+                return 0
+            now = datetime.now(tz=UTC)
+            for t in orphaned:
+                t.status = "queued"
+                t.updated_at = now
+            session.commit()
+            logger.info("startup: reset %d orphaned running/dispatching task(s) to queued", len(orphaned))
+            return len(orphaned)
+    except Exception as exc:
+        logger.warning("startup: orphan reset failed: %s", exc)
+        return 0
 
 
 @dataclass(frozen=True)
@@ -330,6 +376,101 @@ def launch_due_scheduled_runs_for_all_engagements(
     return results
 
 
+_SWEEP_DISPATCH_LOCK = threading.Lock()
+_SWEEP_DISPATCH_INFLIGHT: set[str] = set()
+
+
+def _sweep_dispatch_worker(task_ids: list[UUID], settings: Settings) -> None:
+    """Run task dispatch off the scheduler thread, marking tasks as in-flight
+    so the next sweep does not pick them up again. Dispatches one task at a
+    time with retry on SQLite lock contention so a single locked task does
+    not block the rest."""
+    from time import sleep
+    from api.app.services.task_dispatch import dispatch_task_batch
+
+    task_id_strs = [str(tid) for tid in task_ids]
+    try:
+        for tid in task_ids:
+            for attempt in range(5):
+                try:
+                    dispatch_task_batch([tid], settings)
+                    break
+                except Exception as exc:
+                    msg = str(exc).lower()
+                    if "database is locked" in msg or "locked" in msg:
+                        logger.info(
+                            "sweep: db locked on task %s (attempt %d/5), retrying", tid, attempt + 1
+                        )
+                        sleep(1.0 + attempt * 0.5)
+                        continue
+                    logger.warning("sweep: dispatch task %s failed: %s", tid, exc)
+                    break
+    finally:
+        with _SWEEP_DISPATCH_LOCK:
+            for tid in task_id_strs:
+                _SWEEP_DISPATCH_INFLIGHT.discard(tid)
+
+
+def sweep_stuck_queued_tasks(app: Any, settings: Settings) -> int:
+    """Dispatch tasks stuck in 'queued' status for active runs.
+
+    Runs every 5 seconds via APScheduler. Covers tasks that were created by
+    next_step_hints, pivot engine, or AI loop iteration but not immediately
+    dispatched. Dispatch runs in a background thread so the sweeper returns
+    quickly and the next scheduled run is not skipped by APScheduler's
+    max_instances=1 guard.
+    """
+    session_factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
+    if session_factory is None:
+        return 0
+
+    stale_cutoff = datetime.now(tz=UTC) - timedelta(seconds=_QUEUED_TASK_STALE_SECONDS)
+
+    with session_factory() as session:
+        # Find runs that are active (not terminal)
+        active_run_ids = list(
+            session.scalars(
+                select(Run.id).where(Run.status.not_in(list(_TERMINAL_RUN_STATUSES)))
+            ).all()
+        )
+        if not active_run_ids:
+            return 0
+
+        # Find queued tasks for those runs that have been waiting too long
+        stale_tasks = session.scalars(
+            select(Task).where(
+                Task.status == "queued",
+                Task.run_id.in_(active_run_ids),
+                Task.created_at <= stale_cutoff,
+            ).order_by(Task.created_at.asc()).limit(20)
+        ).all()
+
+        if not stale_tasks:
+            return 0
+
+        # Filter out tasks already being dispatched by an earlier sweep
+        with _SWEEP_DISPATCH_LOCK:
+            pending = [t for t in stale_tasks if str(t.id) not in _SWEEP_DISPATCH_INFLIGHT]
+            for t in pending:
+                _SWEEP_DISPATCH_INFLIGHT.add(str(t.id))
+
+        if not pending:
+            return 0
+
+        task_ids = [t.id for t in pending]
+        logger.info("sweep: dispatching %d stuck queued tasks in background", len(task_ids))
+
+        thread = threading.Thread(
+            target=_sweep_dispatch_worker,
+            args=(task_ids, settings),
+            name=f"aegispt-sweep-dispatch-{len(task_ids)}",
+            daemon=True,
+        )
+        thread.start()
+
+        return len(task_ids)
+
+
 def run_scheduled_scan_tick(app: Any, settings: Settings) -> list[ScheduledRunDispatchResult]:
     session_factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
     if session_factory is None:
@@ -361,9 +502,18 @@ def start_scheduled_run_scheduler(app: Any, settings: Settings) -> dict[str, Any
         max_instances=1,
         coalesce=True,
     )
+    scheduler.add_job(
+        sweep_stuck_queued_tasks,
+        trigger=IntervalTrigger(seconds=5),
+        args=[app, settings],
+        id="aegispt-queue-sweeper",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.start()
     app.state.scheduled_run_scheduler = scheduler
-    status = {"enabled": True, "interval": "1 minute"}
+    status = {"enabled": True, "interval": "1 minute", "sweeper_interval": "5 seconds"}
     app.state.scheduled_run_scheduler_status = status
     return status
 

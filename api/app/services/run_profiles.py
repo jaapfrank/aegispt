@@ -418,9 +418,9 @@ DEFAULT_RUN_PROFILES: tuple[dict[str, object], ...] = (
         "name": "autonomous-web",
         "run_class": RunClass.PASSIVE.value,
         "limits_json": {
-            "description": "Opt-in autonomous web profile that starts with bounded HTTP fingerprinting and can chain in-scope AI follow-up tasks.",
+            "description": "Opt-in autonomous web profile that starts with AI-driven target intelligence (target-intel analyzes the target with Claude FIRST), then lets the AI loop chain in-scope follow-up tasks.",
             "required_approvals": 0,
-            "tools": ["httpx"],
+            "tools": ["target-intel"],
             "max_rps": 2,
             "max_concurrency": 2,
             "autonomous_mode_default": True,

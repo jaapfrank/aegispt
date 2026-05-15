@@ -1,8 +1,19 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# Configure application loggers to INFO so post-task hooks, AI loop decisions,
+# and sweeper activity are visible. Honors LOG_LEVEL env override.
+_log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, _log_level, logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+for _name in ("api.app", "workers.orchestration", "workers.runners"):
+    logging.getLogger(_name).setLevel(getattr(logging, _log_level, logging.INFO))
 
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -41,6 +52,7 @@ from api.app.services.cve_sync_scheduler import start_cve_feed_scheduler, stop_c
 from api.app.services.gdpr_data import start_gdpr_retention_scheduler, stop_gdpr_retention_scheduler
 from api.app.services.rate_limit import InMemoryRateLimiter, client_identifier
 from api.app.services.scheduled_runs import (
+    reset_orphaned_tasks_at_startup,
     start_scheduled_run_scheduler,
     stop_scheduled_run_scheduler,
 )
@@ -109,6 +121,8 @@ def create_app() -> FastAPI:
         enforce_database_encryption_key(settings)
         warn_if_database_unencrypted(settings)
         configure_database(app, settings)
+        # Recover from previous process death: tasks left running/dispatching are orphaned.
+        reset_orphaned_tasks_at_startup(app)
         start_cve_feed_scheduler(app, settings)
         start_gdpr_retention_scheduler(app)
         start_scheduled_run_scheduler(app, settings)

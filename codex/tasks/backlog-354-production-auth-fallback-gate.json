@@ -1,0 +1,110 @@
+{
+  "id": "backlog-354-production-auth-fallback-gate",
+  "task_file": "codex/tasks/backlog-354-production-auth-fallback-gate.json",
+  "task_type": "security_hardening",
+  "title": "Production Auth Enforcement: Gate X-Actor Fallback Outside Local Dev",
+  "goal": "Make the current X-Actor admin fallback explicitly local-development-only so production-style startup requires bearer API key authentication and cannot silently grant admin access without credentials.",
+  "scope": "Authentication settings, auth dependency behavior, backend security tests, deployment documentation, and identity readiness reporting.",
+  "status": "queued",
+  "generated_by": "codex-codebase-review-20260512",
+  "generation_reason": "Code review found api/app/auth/__init__.py returns role=admin through X-Actor fallback whenever no bearer token is supplied. This is acceptable for local build-lane use only, but should be environment-gated before production-style use.",
+  "source_context": {
+    "queue_index": 304,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "api/app/auth/__init__.py:get_current_principal local fallback grants admin",
+      "api/tests/test_auth.py documents local fallback",
+      "CURRENT_STATE.md and security docs describe production-hardening boundaries"
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "enterprise_security_hardening",
+    "key_files": [
+      "api/app/auth/__init__.py",
+      "api/app/config.py",
+      "api/app/services/settings.py",
+      "api/app/routers/auth.py",
+      "api/tests/test_auth.py",
+      "api/tests/test_backend_security_hardening.py",
+      ".env.example",
+      "docs/security_self_assessment.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Limit the slice to authentication fallback gating and tests. Do not build full SSO, SCIM, session management, or tenant membership enforcement here.",
+    "local_dev_preserved": "Local development and existing tests may keep X-Actor fallback when APP_ENV/AEGISPT_ENV is development, test, or local and the explicit local fallback setting allows it."
+  },
+  "success_criteria": [
+    "Production-style environments reject unauthenticated requests instead of falling back to X-Actor admin.",
+    "Development/test/local environments preserve the existing explicit X-Actor fallback behavior with warning headers.",
+    "A configuration flag or derived setting makes the fallback boundary visible in identity readiness output.",
+    "API key bearer authentication remains compatible with existing role enforcement tests.",
+    "Tests prove fallback allowed locally, blocked in production-style startup, and documented as not enterprise SSO."
+  ],
+  "likely_touched_files": [
+    "api/app/auth/__init__.py",
+    "api/app/config.py",
+    "api/app/routers/auth.py",
+    "api/tests/test_auth.py",
+    "api/tests/test_backend_security_hardening.py",
+    ".env.example",
+    "docs/security_self_assessment.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/core/",
+    "api/app/services/run_credential_vault.py",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_auth.py api/tests/test_backend_security_hardening.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/auth api/app/config.py api/app/routers/auth.py api/tests/test_auth.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Unauthenticated production-style requests return 401 rather than admin fallback.",
+      "Local/test fallback still returns the explicit deprecation warning headers.",
+      "Bearer API key requests continue to enforce admin/operator/reviewer roles.",
+      "No live runtime behavior, runner dispatch, scope, credential materialization, or approval gate behavior is changed."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Implementing full enterprise SSO.",
+    "Adding SCIM, browser session enforcement, or tenant membership administration.",
+    "Changing assessment runtime, runner dispatch, approvals, scope/ROE, or kill-switch behavior.",
+    "Changing existing finding schema fields."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

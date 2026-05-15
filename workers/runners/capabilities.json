@@ -1205,6 +1205,212 @@
     },
     {
       "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Probes for debug/admin/info-disclosure endpoints that leak passwords, secrets, or internal state. Covers /dump.gtl-style debug pages, .env / .git config leaks, phpinfo, Spring Actuator, and similar misconfigurations. Confirms leaks by content (not just status 200) so HIGH/CRITICAL findings are evidence-backed.",
+      "estimated_minutes": 1,
+      "expected_evidence": [
+        "info_disclosure_confirmed",
+        "secret_leak",
+        "config_leak"
+      ],
+      "false_positive_rate": "low",
+      "follow_up_tools": [
+        "exec-plan",
+        "credential-attacks"
+      ],
+      "name": "info-disclosure-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "http_service_present"
+      ],
+      "weak_triggers": [
+        "hidden_endpoint_found"
+      ],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "http_service_present"
+        ]
+      }
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Probes for privilege-escalation bugs caused by mass assignment / parameter pollution. Registers a fresh test user and tries common admin-flag parameter names (is_admin, is_superuser, role, is_author, permission_level, etc.) on profile/registration endpoints, then verifies admin context was actually granted by hitting admin-only paths. Generates CRITICAL findings when escalation is proven end-to-end. Highly effective against Django / Rails / Sinatra-style mass-assignment vulnerabilities.",
+      "estimated_minutes": 2,
+      "expected_evidence": [
+        "privilege_escalation_proven",
+        "admin_context_after_pollution",
+        "polluted_parameter"
+      ],
+      "false_positive_rate": "very-low",
+      "follow_up_tools": [
+        "idor-bac",
+        "exec-plan"
+      ],
+      "name": "param-pollution-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "auth_endpoint_present"
+      ],
+      "weak_triggers": [
+        "http_service_present"
+      ],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "auth_endpoint_present",
+          "http_service_present"
+        ]
+      }
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "medium",
+      "description": "Confirms STORED XSS by submitting a payload to user-content endpoints (snippet/comment/post forms) and verifying it reflects verbatim on the rendering page that other users would see. Tests multiple sanitiser-bypass payloads (script tag, onerror, onmouseover, javascript:, svg onload, malformed <p <script>, style expression). Stored XSS is more dangerous than reflected because it affects every visitor, not just those who click a crafted link.",
+      "estimated_minutes": 2,
+      "expected_evidence": [
+        "stored_xss_confirmed",
+        "persistent_payload_reflection",
+        "cross_user_impact"
+      ],
+      "false_positive_rate": "very-low",
+      "follow_up_tools": [
+        "xss-proof",
+        "exec-plan"
+      ],
+      "name": "stored-xss-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "user_content_present"
+      ],
+      "weak_triggers": [
+        "http_service_present",
+        "reflected_xss_found"
+      ],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "user_content_present",
+          "http_service_present"
+        ]
+      }
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Detects identity-token forging via input-field delimiter injection. Some apps build session cookies by concatenating user-controlled strings with delimiters (pipe, colon, semicolon) without escaping. By registering a username like `foo|admin|author`, an attacker forges a cookie that decodes to an admin identity. This runner attempts delimiter injection during registration and verifies admin context — CRITICAL when successful.",
+      "estimated_minutes": 1,
+      "expected_evidence": [
+        "identity_forgery_confirmed",
+        "admin_context_after_tampering",
+        "cookie_delimiter_injection"
+      ],
+      "false_positive_rate": "very-low",
+      "follow_up_tools": [
+        "exec-plan"
+      ],
+      "name": "cookie-tamper-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "auth_endpoint_present"
+      ],
+      "weak_triggers": [
+        "http_service_present"
+      ],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "auth_endpoint_present",
+          "http_service_present"
+        ]
+      }
+    },
+    {
+      "blockers": [
+        "no_web_target"
+      ],
+      "category": "web",
+      "cost": "low",
+      "description": "Detects file upload XSS and path-traversal exploits. Registers as author, uploads HTML payload with a unique marker, then verifies the server serves it back as text/html with payload reflected verbatim (stored XSS). Also tests filename-based path traversal (`../foo.html`) — if uploaded file lands outside the user's directory, the server is writing attacker-chosen paths. CRITICAL findings per success.",
+      "estimated_minutes": 2,
+      "expected_evidence": [
+        "uploaded_html_served_as_text_html",
+        "stored_xss_payload_reflected",
+        "path_traversal_via_filename_confirmed"
+      ],
+      "false_positive_rate": "very-low",
+      "follow_up_tools": [
+        "exec-plan",
+        "stored-xss-probe"
+      ],
+      "name": "file-upload-probe",
+      "prerequisites": [
+        "approved_scope"
+      ],
+      "required_approvals": 0,
+      "risk_tier": "active",
+      "triggers": [
+        "web_target_present",
+        "upload_endpoint_present"
+      ],
+      "weak_triggers": [
+        "http_service_present",
+        "user_content_present"
+      ],
+      "trigger_signals": {
+        "strong": [
+          "web_target_present"
+        ],
+        "weak": [
+          "upload_endpoint_present",
+          "user_content_present",
+          "http_service_present"
+        ]
+      }
+    },
+    {
+      "blockers": [
         "no_lan_scope"
       ],
       "category": "network",
@@ -2077,6 +2283,39 @@
         ],
         "weak": []
       }
+    },
+    {
+      "name": "exec-plan",
+      "category": "web",
+      "risk_tier": "active",
+      "cost": "low",
+      "description": "Structured test plan executor. Claude (or another planner) provides a JSON sequence of HTTP request steps with variable capture and expectation checks. Runs each step scope-bounded, captures cookies/tokens/IDs, and emits findings when an exploitation sequence (e.g. privilege escalation via parameter manipulation, IDOR via stolen identity, multi-step CSRF chain) succeeds. The way Claude exploits app-specific logic that generic runners cannot encode.",
+      "estimated_minutes": 1,
+      "expected_evidence": [
+        "exec_plan_success",
+        "privilege_escalation_proof",
+        "multi_step_exploit_chain",
+        "authenticated_action_proof"
+      ],
+      "false_positive_rate": "low",
+      "triggers": [
+        "ai_loop_post_compromise",
+        "session_or_cookie_captured",
+        "auth_surface_discovered",
+        "endpoint_with_state_change"
+      ],
+      "weak_triggers": [
+        "web_target_present"
+      ],
+      "blockers": [
+        "no_web_target"
+      ],
+      "follow_up_tools": [
+        "idor-bac",
+        "auth-flow"
+      ],
+      "required_approvals": 0,
+      "prerequisites": []
     },
     {
       "name": "xss-proof",

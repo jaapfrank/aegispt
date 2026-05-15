@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     aegispt_allowed_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
     task_dispatch_mode: str = "inline"  # inline=run tasks in-process; manual=operator must click dispatch; dramatiq=worker queue
-    database_url: str = "sqlite+pysqlite:///./aegispt.db"
+    database_url: str = "postgresql+psycopg://aegispt:aegispt_dev_pw@127.0.0.1:5432/aegispt"
     aegispt_db_key: str | None = None
     redis_url: str = "redis://localhost:6379/0"
     artifacts_storage_mode: str = "inline"
@@ -140,6 +140,15 @@ class Settings(BaseSettings):
     cve_feed_timeout_seconds: float = 20.0
     cve_feed_max_records_per_source: int = 1000
     cve_feed_min_cvss_score: float = 6.0
+    # X-Actor fallback: set to False in production to require bearer API key authentication.
+    # When True AND the resolved environment is local/dev/test, unauthenticated requests
+    # fall back to admin role via X-Actor header (legacy local dev convenience).
+    allow_x_actor_fallback: bool = True
+
+    @property
+    def is_local_dev_environment(self) -> bool:
+        env = str(self.aegispt_env or self.app_env or "development").strip().lower()
+        return env in {"development", "dev", "test", "local"}
 
 
 @lru_cache

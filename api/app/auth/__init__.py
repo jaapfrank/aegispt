@@ -8,6 +8,7 @@ from fastapi import Depends, Header, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.app.config import get_settings
 from api.app.db import get_session
 from api.app.models import ApiKey
 
@@ -68,6 +69,15 @@ def get_current_principal(
             auth_method="api_key",
         )
 
+    settings = get_settings()
+    if not (settings.allow_x_actor_fallback and settings.is_local_dev_environment):
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Authentication required. Use Authorization: Bearer <api-key>. "
+                "X-Actor fallback is disabled in production-style environments."
+            ),
+        )
     response.headers.setdefault("Warning", X_ACTOR_DEPRECATION_WARNING)
     response.headers.setdefault("X-AegisPT-Auth-Warning", "x-actor-deprecated")
     return CurrentActor(name=x_actor or "local-dev", role="admin", auth_method="x_actor_fallback")

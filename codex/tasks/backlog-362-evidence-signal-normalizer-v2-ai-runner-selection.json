@@ -1,0 +1,109 @@
+{
+  "id": "backlog-362-evidence-signal-normalizer-v2-ai-runner-selection",
+  "task_file": "codex/tasks/backlog-362-evidence-signal-normalizer-v2-ai-runner-selection.json",
+  "task_type": "ai_evidence_planning",
+  "title": "Evidence Signal Normalizer V2 for AI Runner Selection",
+  "goal": "Improve AI runner selection by converting raw tool output into richer, typed evidence signals that describe technology, routes, parameters, auth state, data flows, and test context.",
+  "scope": "Evidence graph/signal normalization, runner capability matching, AI-loop next-action selection, and tests for signal-to-runner decisions.",
+  "status": "queued",
+  "generated_by": "operator-ai-first-evidence-first-gap-analysis",
+  "generation_reason": "The codebase already has signal scoring and AI runner selection, but discovering more vulnerabilities requires better normalized evidence signals so AI chooses targeted follow-up tests instead of broad batteries.",
+  "source_context": {
+    "queue_index": 312,
+    "queue_file": "TASK_QUEUE.md",
+    "review_findings": [
+      "AI-first vulnerability discovery depends on evidence-to-hypothesis quality.",
+      "Signals should include context such as JWT, upload, GraphQL, forms, object IDs, roles, auth-only routes, and parameter locations.",
+      "Runner choice must remain deterministic and evidence-backed."
+    ],
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "prerequisite_backlog": "REQUIRES: backlog-352 AI-driven signal scoring and existing evidence graph normalizer",
+    "broader_theme": "ai_first_evidence_first_vulnerability_discovery",
+    "key_files": [
+      "api/app/services/evidence_graph_normalizer.py",
+      "api/app/services/assessment_graph.py",
+      "api/app/services/next_evidence_action.py",
+      "api/app/services/assessment_loop.py",
+      "api/app/services/runner_registry.py",
+      "api/tests/test_next_evidence_action.py",
+      "api/tests/test_assessment_loop.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Improve signal normalization and planner decisions only. Do not add new scanner capabilities or change runner execution semantics.",
+    "deterministic_planning": "AI-facing signals and next-action choices must be reproducible from stored evidence."
+  },
+  "success_criteria": [
+    "Evidence normalizer emits typed signals for route, method, parameter location, auth requirement, role context, object identifier, upload surface, token/JWT, GraphQL, redirect, and reflected/stored context where evidence exists.",
+    "Runner selection uses richer signals to prefer targeted tests and document blockers for irrelevant tests.",
+    "AI-loop next-action records include explicit signal refs that justify why a runner was selected or skipped.",
+    "Tests prove a small fixture evidence graph selects targeted runners instead of a broad generic queue.",
+    "Signal output remains redacted and evidence-first."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_graph.py",
+    "api/app/services/evidence_graph_normalizer.py",
+    "api/app/services/next_evidence_action.py",
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_next_evidence_action.py",
+    "api/tests/test_assessment_loop.py",
+    "api/tests/test_assessment_graph.py",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md"
+  ],
+  "must_not_touch": [
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/core/",
+    "api/app/services/secrets.py",
+    "api/app/services/roe_policy.py",
+    "Prompt 1 and Prompt 2 foundations"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_next_evidence_action.py api/tests/test_assessment_loop.py api/tests/test_assessment_graph.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_graph.py api/app/services/next_evidence_action.py api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Planner tests show evidence-backed runner selection improves from raw tool names to typed signals.",
+      "Skipped runners include blocker reasons tied to missing signals.",
+      "No new runtime execution path, approval bypass, or credential materialization is introduced."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next true open task into NEXT_TASK.md, or record that no active backlog task remains in NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new offensive runners.",
+    "Changing runner risk tiers or approval requirements.",
+    "Running live scans.",
+    "Changing existing finding schema fields."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

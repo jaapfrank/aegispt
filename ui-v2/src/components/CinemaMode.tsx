@@ -13,7 +13,7 @@ import {
   getTaskDetail,
   getTasksForRunContext,
 } from '../api/client';
-import type { Finding, InventorySnapshot, JsonMap, Task, TaskDetail, UUID } from '../api/types';
+import type { AgentProposal, Finding, InventorySnapshot, JsonMap, Task, TaskDetail, UUID } from '../api/types';
 import { useAegisStore } from '../store';
 
 const POLL_MS = 4000;
@@ -54,6 +54,157 @@ type ReplayStep = {
   taskNodeId: string | null;
   targetNodeId: string | null;
 };
+
+type ChainNode = {
+  id: string;
+  label: string;
+  tool: string;
+  kind: 'tool' | 'finding' | 'pivot';
+  severity: CinemaNode['severity'];
+  position: THREE.Vector3;
+  color: string;
+  reasoningText: string | null;
+  iterationIndex: number;
+  pulsing: boolean;
+};
+
+type ChainLink = {
+  from: ChainNode;
+  to: ChainNode;
+  color: string;
+};
+
+function PulsingNode({ color, radius = 0.6 }: { color: string; radius?: number }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const matRef = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame((state) => {
+    if (!matRef.current) return;
+    matRef.current.emissiveIntensity = 1.5 + Math.sin(state.clock.getElapsedTime() * 2.2) * 1.0;
+  });
+  return (
+    <Sphere ref={meshRef} args={[radius, 20, 20]}>
+      <meshStandardMaterial ref={matRef} color={color} emissive={color} emissiveIntensity={1.5} toneMapped={false} />
+    </Sphere>
+  );
+}
+
+function AiChainNetwork({
+  nodes,
+  links,
+  manualCamera,
+  selectedNodeId,
+  onSelectNode,
+}: {
+  nodes: ChainNode[];
+  links: ChainLink[];
+  manualCamera: boolean;
+  selectedNodeId: string | null;
+  onSelectNode: (id: string) => void;
+}) {
+  const desiredPosition = useMemo(() => new THREE.Vector3(), []);
+  const lookAtVec = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame((state) => {
+    if (manualCamera) return;
+    const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) ?? null : null;
+    if (selectedNode) {
+      desiredPosition.set(selectedNode.position.x + 8, selectedNode.position.y + 12, selectedNode.position.z + 40);
+      state.camera.position.lerp(desiredPosition, 0.05);
+      lookAtVec.lerp(selectedNode.position, 0.1);
+      state.camera.lookAt(lookAtVec);
+      return;
+    }
+    const elapsed = state.clock.getElapsedTime() * 0.06;
+    desiredPosition.set(Math.cos(elapsed) * 10, 22, 90 + Math.sin(elapsed) * 12);
+    state.camera.position.lerp(desiredPosition, 0.012);
+    lookAtVec.set(0, 0, 0);
+    lookAtVec.lerp(new THREE.Vector3(0, 0, 0), 0.02);
+    state.camera.lookAt(lookAtVec);
+  });
+
+  return (
+    <group>
+      <LaneLabel label="PASSIVE" position={[-56, 18, -30]} />
+      <LaneLabel label="ACTIVE" position={[0, 18, -30]} />
+      <LaneLabel label="INTRUSIVE" position={[56, 18, -30]} />
+
+      {links.map((link, i) => (
+        <Line
+          key={`${link.from.id}:${link.to.id}:${i}`}
+          points={[link.from.position, link.to.position]}
+          color={link.color}
+          opacity={0.55}
+          lineWidth={1.6}
+          transparent
+        />
+      ))}
+
+      {nodes.map((node) => {
+        const isSelected = selectedNodeId === node.id;
+        const nc = isSelected ? '#5ecfff' : node.color;
+        return (
+          <group
+            key={node.id}
+            position={node.position}
+            onClick={(e) => { e.stopPropagation(); onSelectNode(node.id); }}
+          >
+            {node.kind === 'finding' ? (
+              <PulsingNode color={nc} radius={isSelected ? 1.1 : 0.65} />
+            ) : node.kind === 'pivot' ? (
+              <Octahedron args={[isSelected ? 1.0 : 0.55]}>
+                <meshStandardMaterial color={nc} emissive={nc} emissiveIntensity={isSelected ? 3 : 1.8} toneMapped={false} />
+              </Octahedron>
+            ) : (
+              <Cylinder args={[isSelected ? 0.65 : 0.38, isSelected ? 0.65 : 0.38, isSelected ? 1.4 : 0.8, 28]}>
+                <meshStandardMaterial color={nc} emissive={nc} emissiveIntensity={isSelected ? 3 : 1.8} toneMapped={false} />
+              </Cylinder>
+            )}
+
+            {/* glow halo */}
+            {node.kind === 'finding' ? (
+              <Sphere args={[isSelected ? 1.8 : 1.1, 20, 20]}>
+                <meshStandardMaterial color={nc} transparent opacity={isSelected ? 0.18 : 0.1} emissive={nc} emissiveIntensity={0.6} toneMapped={false} />
+              </Sphere>
+            ) : node.kind === 'pivot' ? (
+              <Octahedron args={[isSelected ? 1.6 : 0.95]}>
+                <meshStandardMaterial color={nc} transparent opacity={isSelected ? 0.18 : 0.1} emissive={nc} emissiveIntensity={0.5} toneMapped={false} />
+              </Octahedron>
+            ) : (
+              <Cylinder args={[isSelected ? 1.1 : 0.7, isSelected ? 1.1 : 0.7, isSelected ? 2.2 : 1.4, 28]}>
+                <meshStandardMaterial color={nc} transparent opacity={isSelected ? 0.18 : 0.1} emissive={nc} emissiveIntensity={0.5} toneMapped={false} />
+              </Cylinder>
+            )}
+
+            <Text
+              position={[0, (node.kind === 'finding' ? 1.8 : 1.4) + (isSelected ? 0.6 : 0), 0]}
+              fontSize={isSelected ? 0.86 : 0.58}
+              color={nc}
+              anchorX="center"
+              anchorY="middle"
+              font={FONT_URL}
+              maxWidth={13}
+              textAlign="center"
+            >
+              {node.label}
+              <meshBasicMaterial attach="material" toneMapped={false} color={nc} />
+            </Text>
+
+            {isSelected && node.reasoningText && (
+              <Html position={[2, 0, 0]} center className="pointer-events-none">
+                <div className="min-w-[280px] max-w-[340px] rounded border border-cyan/30 bg-[rgba(4,10,20,0.72)] p-3 text-xs leading-5 text-muted backdrop-blur-md">
+                  <p className="mb-1 font-bold uppercase tracking-widest text-cyan/70" style={{ fontSize: '0.65rem' }}>
+                    AI REASONING · ITER {node.iterationIndex}
+                  </p>
+                  <p className="line-clamp-4">{node.reasoningText}</p>
+                </div>
+              </Html>
+            )}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
 
 function Terminal3D({ steps, activeStepIndex }: { steps: ReplayStep[]; activeStepIndex: number }) {
   const visibleSteps = steps.length
@@ -343,6 +494,7 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
   const setTasks = useAegisStore((state) => state.setTasks);
   const setFindings = useAegisStore((state) => state.setFindings);
   const setInventory = useAegisStore((state) => state.setInventory);
+  const isAiLoop = isAiLoopRunCinema(selectedRun);
 
   const [logs, setLogs] = useState<EventLog[]>([]);
   const [pollState, setPollState] = useState<'connected' | 'waiting' | 'error'>('waiting');
@@ -356,6 +508,18 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
   const nodes = useMemo(() => buildNodes(inventory, findings, storeTasks), [findings, inventory, storeTasks]);
   const steps = useMemo(() => buildReplaySteps(nodes, storeTasks, findings, logs), [findings, logs, nodes, storeTasks]);
   const activeStep = steps[activeStepIndex] ?? steps[0] ?? null;
+
+  // AI chain nodes derived from proposals (only for ai_loop mode)
+  const { chainNodes, chainLinks } = useMemo(
+    () => (isAiLoop ? buildAiChain(proposals, findings) : { chainNodes: [], chainLinks: [] }),
+    [findings, isAiLoop, proposals],
+  );
+  const latestHypothesis = useMemo(() => {
+    if (!isAiLoop || proposals.length === 0) return null;
+    const sorted = [...proposals].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+    return sorted[0]?.reasoning_text ?? null;
+  }, [isAiLoop, proposals]);
+
   const stats = useMemo(
     () => ({
       critical: findings.filter((finding) => finding.severity.toLowerCase() === 'critical').length,
@@ -532,8 +696,8 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {isAiLoopRunCinema(selectedRun) ? (
-        <AiAttackChainPanel run={selectedRun} />
+      {isAiLoop ? (
+        <AiAttackChainPanel proposals={proposals} hypothesis={latestHypothesis} />
       ) : (
         <CommandReplayPanel
           activeStepIndex={activeStepIndex}
@@ -545,7 +709,7 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
       )}
 
       <div className="font-cinema absolute bottom-4 left-4 z-20 flex max-w-[min(520px,calc(100vw-2rem))] flex-col gap-1 text-[0.72rem] uppercase tracking-widest text-cyan/55 sm:bottom-6 sm:left-6">
-        {isAiLoopRunCinema(selectedRun) ? (
+        {isAiLoop ? (
           <>
             <p>SYS.AI.ADAPTIVE // {pollState.toUpperCase()}</p>
             <p>RUN // {selectedRun ? compactId(selectedRun.id) : 'NO RUN'}</p>
@@ -580,15 +744,25 @@ export default function CinemaMode({ onClose }: { onClose: () => void }) {
         <fog attach="fog" args={['#010204', 50, 180]} />
         <ambientLight intensity={0.4} />
         <Grid position={[0, -18, 0]} args={[400, 400]} cellSize={5} cellThickness={1.2} cellColor="#0a1a36" sectionSize={25} sectionThickness={1.8} sectionColor="#18325c" fadeDistance={160} fadeStrength={2} />
-        <Network
-          activeStep={activeStep}
-          activeStepIndex={activeStepIndex}
-          manualCamera={manualCamera}
-          nodes={nodes}
-          onSelectNode={(nodeId) => focusNode(nodeId)}
-          selectedNodeId={selectedNodeId}
-          steps={steps}
-        />
+        {isAiLoop ? (
+          <AiChainNetwork
+            nodes={chainNodes}
+            links={chainLinks}
+            manualCamera={manualCamera}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={(nodeId) => focusNode(nodeId)}
+          />
+        ) : (
+          <Network
+            activeStep={activeStep}
+            activeStepIndex={activeStepIndex}
+            manualCamera={manualCamera}
+            nodes={nodes}
+            onSelectNode={(nodeId) => focusNode(nodeId)}
+            selectedNodeId={selectedNodeId}
+            steps={steps}
+          />
+        )}
         <OrbitControls
           makeDefault
           enableDamping
@@ -648,17 +822,17 @@ function isAiLoopRunCinema(run: { configuration_json?: Record<string, unknown> }
   return cfg.run_mode === 'ai_loop' || loop?.run_mode === 'ai_loop';
 }
 
-function AiAttackChainPanel({ run }: { run: { configuration_json?: Record<string, unknown> } | null }) {
-  if (!run?.configuration_json) return null;
-  const loop = run.configuration_json.ai_assessment_loop as Record<string, unknown> | undefined;
-  const iterations = Array.isArray(loop?.iterations) ? (loop.iterations as Record<string, unknown>[]) : [];
-  const stopReason = loop?.stop_reason ? String(loop.stop_reason) : null;
-  const loopStatus = String(loop?.status ?? 'ready');
-  const iterCount = Number(loop?.iteration_count ?? 0);
-
-  const latestIter = iterations[iterations.length - 1] as Record<string, unknown> | undefined;
-  const latestAction = latestIter?.next_action as Record<string, unknown> | undefined;
-  const hypothesis = latestAction?.reasoning ? String(latestAction.reasoning) : null;
+function AiAttackChainPanel({
+  proposals,
+  hypothesis,
+}: {
+  proposals: AgentProposal[];
+  hypothesis: string | null;
+}) {
+  const sorted = useMemo(
+    () => [...proposals].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)),
+    [proposals],
+  );
 
   return (
     <aside className="absolute right-4 top-[5.5rem] z-20 w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-cyan/20 bg-[#06111f]/56 p-3 text-text shadow-[0_0_2rem_rgba(2,6,12,0.36)] backdrop-blur-md sm:right-6">
@@ -668,45 +842,64 @@ function AiAttackChainPanel({ run }: { run: { configuration_json?: Record<string
           <p className="font-cinema text-[0.72rem] uppercase tracking-widest text-cyan/80">AI Attack Chain</p>
         </div>
         <span className="font-cinema text-[0.65rem] uppercase tracking-widest text-muted">
-          {iterCount} iter{stopReason ? ` · stopped` : loopStatus === 'waiting_for_execution' ? ' · running' : ''}
+          {proposals.length} proposal{proposals.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {hypothesis && (
         <div className="mb-3 rounded-md border border-cyan/15 bg-cyan/5 px-3 py-2">
-          <p className="mb-1 font-cinema text-[0.65rem] uppercase tracking-widest text-cyan/65">Current hypothesis</p>
+          <p className="mb-1 font-cinema text-[0.65rem] uppercase tracking-widest text-cyan/65">
+            Current hypothesis
+          </p>
           <p className="line-clamp-3 text-[0.78rem] leading-5 text-muted">{hypothesis}</p>
         </div>
       )}
 
-      <div className="max-h-[240px] space-y-1 overflow-y-auto pr-1">
-        {[...iterations].reverse().map((it, idx) => {
-          const na = it.next_action as Record<string, unknown> | undefined;
-          const tool = String(na?.tool ?? '?');
-          const status = String(it.status ?? 'unknown');
-          const tier = String(na?.tier ?? 'passive');
-          const dotColor = tier === 'intrusive' ? '#a855f7' : tier === 'active' ? '#f97316' : '#5ecfff';
+      <div className="max-h-[260px] space-y-1 overflow-y-auto pr-1">
+        {sorted.map((proposal, idx) => {
+          const tier = proposal.risk_tier ?? 'passive';
+          const dotColor =
+            tier === 'intrusive' ? '#a855f7' : tier === 'active' ? '#f97316' : '#5ecfff';
+          const status = proposal.status;
           return (
-            <div key={idx} className="flex items-start gap-2 rounded-md border border-transparent px-2 py-1.5 hover:border-cyan/15 hover:bg-cyan/5">
-              <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}` }} />
+            <div
+              key={proposal.id}
+              className="flex items-start gap-2 rounded-md border border-transparent px-2 py-1.5 hover:border-cyan/15 hover:bg-cyan/5"
+            >
+              <span
+                className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}` }}
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-cinema text-[0.72rem] uppercase tracking-widest text-text">{tool}</span>
+                  <span className="font-cinema text-[0.72rem] uppercase tracking-widest text-text">
+                    {prettyTool(proposal.proposed_tool)}
+                  </span>
                   <ChevronRight size={10} className="text-muted/40" />
                   <span className="truncate font-mono text-[0.65rem] text-muted">
-                    {na?.target ? String(na.target).replace(/^https?:\/\//, '').substring(0, 40) : ''}
+                    {proposal.proposed_target.replace(/^https?:\/\//, '').substring(0, 40)}
                   </span>
                 </div>
-                {it.iteration != null && (
-                  <span className="font-cinema text-[0.62rem] text-muted/50">iter {String(it.iteration)}</span>
+                {proposal.reasoning_text && idx === 0 && (
+                  <p className="mt-0.5 line-clamp-2 text-[0.65rem] text-muted/70">
+                    {proposal.reasoning_text}
+                  </p>
                 )}
               </div>
-              <span className={`shrink-0 font-cinema text-[0.62rem] uppercase ${status === 'queued' ? 'text-cyan' : 'text-muted/60'}`}>{status}</span>
+              <span
+                className={`shrink-0 font-cinema text-[0.62rem] uppercase ${
+                  status === 'approved' ? 'text-cyan' : status === 'pending' ? 'text-amber-400' : 'text-muted/60'
+                }`}
+              >
+                {status}
+              </span>
             </div>
           );
         })}
-        {iterations.length === 0 && (
-          <p className="px-2 py-3 text-[0.78rem] text-muted">AI loop starting — iterations will appear here.</p>
+        {proposals.length === 0 && (
+          <p className="px-2 py-3 text-[0.78rem] text-muted">
+            AI loop starting — proposals will appear here.
+          </p>
         )}
       </div>
     </aside>
@@ -1215,4 +1408,108 @@ function titleCase(value: string): string {
   return value
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function buildAiChain(
+  proposals: AgentProposal[],
+  findings: Finding[],
+): { chainNodes: ChainNode[]; chainLinks: ChainLink[] } {
+  if (proposals.length === 0) return { chainNodes: [], chainLinks: [] };
+
+  const sorted = [...proposals].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const chainNodes: ChainNode[] = [];
+  const chainLinks: ChainLink[] = [];
+
+  const tierX: Record<string, number> = { passive: -52, active: 0, intrusive: 52 };
+
+  sorted.forEach((proposal, index) => {
+    const tier = (proposal.risk_tier ?? 'passive').toLowerCase().includes('intrusive')
+      ? 'intrusive'
+      : (proposal.risk_tier ?? 'passive').toLowerCase().includes('active')
+      ? 'active'
+      : 'passive';
+    const baseX = tierX[tier] ?? 0;
+    const ySpacing = 14;
+    const totalInTier = sorted.filter((p) => {
+      const t = (p.risk_tier ?? 'passive').toLowerCase();
+      return tier === 'intrusive' ? t.includes('intrusive') : tier === 'active' ? t.includes('active') && !t.includes('intrusive') : !t.includes('active') && !t.includes('intrusive');
+    }).length;
+    const tierIndex = sorted.slice(0, index + 1).filter((p) => {
+      const t = (p.risk_tier ?? 'passive').toLowerCase();
+      return tier === 'intrusive' ? t.includes('intrusive') : tier === 'active' ? t.includes('active') && !t.includes('intrusive') : !t.includes('active') && !t.includes('intrusive');
+    }).length - 1;
+    const yBase = (tierIndex - (totalInTier - 1) / 2) * ySpacing;
+    const xJitter = hashString(proposal.id) % 8 - 4;
+
+    const toolColor = tier === 'intrusive' ? '#a855f7' : tier === 'active' ? '#f97316' : '#5ecfff';
+    const toolNode: ChainNode = {
+      id: `ct:${proposal.id}`,
+      label: prettyTool(proposal.proposed_tool),
+      tool: proposal.proposed_tool,
+      kind: tier === 'intrusive' ? 'pivot' : 'tool',
+      severity: 'none',
+      position: new THREE.Vector3(baseX + xJitter, yBase, 0),
+      color: toolColor,
+      reasoningText: proposal.reasoning_text,
+      iterationIndex: index + 1,
+      pulsing: false,
+    };
+    chainNodes.push(toolNode);
+
+    // Finding node: match findings by tool name
+    const toolToken = normalizeToken(proposal.proposed_tool);
+    const relatedFindings = findings.filter((f) => {
+      const blob = normalizeToken([f.finding_origin ?? '', f.evidence_ref, JSON.stringify(f.proof_reference ?? {})].join(' '));
+      return toolToken.length > 3 && blob.includes(toolToken);
+    });
+
+    if (relatedFindings.length > 0) {
+      const sev = severityLevel(strongestSeverity(relatedFindings.map((f) => f.severity)));
+      const findingNode: ChainNode = {
+        id: `cf:${proposal.id}`,
+        label: `${relatedFindings.length} FINDING${relatedFindings.length > 1 ? 'S' : ''}`,
+        tool: proposal.proposed_tool,
+        kind: 'finding',
+        severity: sev,
+        position: new THREE.Vector3(baseX + xJitter + 10, yBase + 8, 0),
+        color: severityColor(sev),
+        reasoningText: null,
+        iterationIndex: index + 1,
+        pulsing: true,
+      };
+      chainNodes.push(findingNode);
+      chainLinks.push({ from: toolNode, to: findingNode, color: severityColor(sev) });
+
+      // Pivot link: if the next proposal follows this finding, connect it
+      if (index + 1 < sorted.length) {
+        const nextTool = sorted[index + 1];
+        const nextTier = (nextTool.risk_tier ?? 'passive').toLowerCase().includes('intrusive')
+          ? 'intrusive'
+          : (nextTool.risk_tier ?? 'passive').toLowerCase().includes('active')
+          ? 'active'
+          : 'passive';
+        if (nextTier !== tier) {
+          const nextNodeId = `ct:${nextTool.id}`;
+          chainLinks.push({
+            from: findingNode,
+            to: { ...findingNode, id: nextNodeId, position: new THREE.Vector3(tierX[nextTier] ?? 0, yBase, 0) },
+            color: '#f97316',
+          });
+        }
+      }
+    }
+
+    // Sequential link to previous tool node in same tier
+    if (index > 0) {
+      const prevInSameTier = chainNodes
+        .slice(0, -relatedFindings.length > 0 ? -2 : -1)
+        .filter((n) => n.kind !== 'finding' && n.tool !== toolNode.tool)
+        .slice(-1)[0] ?? null;
+      if (prevInSameTier && prevInSameTier.color === toolColor) {
+        chainLinks.push({ from: prevInSameTier, to: toolNode, color: toolColor });
+      }
+    }
+  });
+
+  return { chainNodes, chainLinks };
 }

@@ -59,17 +59,34 @@ def build_engine(database_url: str, db_key: str | None = None) -> Engine:
     connect_args: dict = {}
     if database_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
-        # Enable WAL mode and busy timeout for concurrent access (AI analysis + loop)
+        # Enable WAL mode and high busy timeout for concurrent access
+        # (sweeper background thread + AI analysis + loop iteration + worker)
         def _sqlite_connect():
             import sqlite3 as _sqlite3
             url_path = database_url.replace("sqlite+pysqlite:///", "").replace("sqlite:///", "")
-            conn = _sqlite3.connect(url_path, check_same_thread=False)
+            conn = _sqlite3.connect(url_path, check_same_thread=False, timeout=30.0)
             conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=5000")
+            # Wait up to 30s for a contended lock to release before raising
+            conn.execute("PRAGMA busy_timeout=30000")
+            conn.execute("PRAGMA synchronous=NORMAL")  # faster writes, still durable with WAL
             return conn
-        return create_engine("sqlite://", pool_pre_ping=True, future=True, creator=_sqlite_connect)
+        return create_engine(
+            "sqlite://",
+            pool_pre_ping=True,
+            future=True,
+            creator=_sqlite_connect,
+        )
 
-    return create_engine(database_url, pool_pre_ping=True, future=True, connect_args=connect_args)
+    # PostgreSQL or other RDBMS: enable a healthy connection pool for concurrent access
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        future=True,
+        connect_args=connect_args,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=3600,
+    )
 
 
 def configure_database(app: FastAPI, settings: Settings) -> None:

@@ -50,11 +50,29 @@
     height: 100%;
     background-color: var(--bg);
     color: var(--text);
-    font-size: 13px;
+    /* Base font scale: 15px works well on 1080p, 4K@150%, and 27" 1440p displays.
+       Previously 13px which read as cramped to most users. */
+    font-size: 15px;
     text-rendering: geometricPrecision;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Custom scrollbars — thin, OKLCH-toned, blend with the surface */
+  * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--line) 70%, transparent);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--line) 90%, transparent);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-corner { background: transparent; }
 
   body, #root {
     height: 100%;
@@ -620,4 +638,94 @@
   /* Remove heavy background effects from layout elements */
   .aegis-background { display: none; }
   .aegis-scanline   { display: none; }
+
+  /* === Operator HUD component classes (from spec 2026-05-13) === */
+  /* Generic instrument-grade primitives used across all screens. */
+
+  .ab-card {
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+  }
+
+  .ab-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 7px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 500;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    border: 1px solid var(--line);
+    color: var(--soft);
+    background: var(--bg-2);
+  }
+  .ab-chip.hi   { color: var(--hi);   border-color: color-mix(in oklch, var(--hi) 35%, transparent);   background: color-mix(in oklch, var(--hi) 10%, transparent); }
+  .ab-chip.med  { color: var(--med);  border-color: color-mix(in oklch, var(--med) 35%, transparent);  background: color-mix(in oklch, var(--med) 10%, transparent); }
+  .ab-chip.info { color: var(--info); border-color: color-mix(in oklch, var(--info) 35%, transparent); background: color-mix(in oklch, var(--info) 10%, transparent); }
+  .ab-chip.ok   { color: var(--ok);   border-color: color-mix(in oklch, var(--ok) 35%, transparent);   background: color-mix(in oklch, var(--ok) 10%, transparent); }
+  .ab-chip.ai   { color: var(--ai);   border-color: color-mix(in oklch, var(--ai) 35%, transparent);   background: color-mix(in oklch, var(--ai) 10%, transparent); }
+
+  .ab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .ab-dot.pulse { box-shadow: 0 0 0 0 currentColor; animation: ab-pulse 1.6s infinite; }
+  @keyframes ab-pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 60%, transparent); }
+    70%  { box-shadow: 0 0 0 6px color-mix(in oklch, currentColor 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 0%, transparent); }
+  }
+
+  .ab-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: var(--r);
+    background: var(--surface-2); color: var(--soft);
+    border: 1px solid var(--line);
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all .12s;
+  }
+  .ab-btn:hover { background: var(--line-soft); color: var(--text); }
+  .ab-btn.primary { background: color-mix(in oklch, var(--ok) 15%, var(--surface-2)); color: var(--ok); border-color: color-mix(in oklch, var(--ok) 35%, transparent); }
+  .ab-btn.danger  { background: color-mix(in oklch, var(--hi) 12%, var(--surface-2)); color: var(--hi); border-color: color-mix(in oklch, var(--hi) 35%, transparent); }
+  .ab-btn.cyan    { background: color-mix(in oklch, var(--info) 15%, var(--surface-2)); color: var(--info); border-color: color-mix(in oklch, var(--info) 35%, transparent); }
+
+  .ab-hairline { background: var(--line-soft); height: 1px; width: 100%; }
+  .ab-vrule    { background: var(--line-soft); width: 1px;  height: 100%; }
+
+  .ab-kbd {
+    display: inline-block; padding: 1px 5px; border-radius: 3px;
+    background: var(--bg-2); border: 1px solid var(--line); border-bottom-width: 2px;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 10px; color: var(--soft);
+  }
+
+  .ab-grid-bg {
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+  .ab-dot-bg {
+    background-image: radial-gradient(circle, var(--line) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  .ab-scan { position: relative; overflow: hidden; }
+  .ab-scan::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, transparent 0%, color-mix(in oklch, var(--ok) 6%, transparent) 50%, transparent 100%);
+    animation: ab-scan-anim 6s linear infinite;
+  }
+  @keyframes ab-scan-anim {
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+
+  .ab-uc      { text-transform: uppercase; letter-spacing: 0.08em; }
+  .ab-tabular { font-variant-numeric: tabular-nums; }
+
+  /* Slow pulse for live-scene emoji — breathing animation */
+  .animate-pulse-slow {
+    animation: pulse-slow 3s ease-in-out infinite;
+  }
+  @keyframes pulse-slow {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.08); opacity: 0.9; }
+  }
 }

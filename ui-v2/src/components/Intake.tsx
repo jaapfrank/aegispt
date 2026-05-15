@@ -1171,14 +1171,26 @@ function buildRunRequest(mission: MissionSummary, inventoryId: UUID, forceAdapti
           intrusive_lan_authorized: isFullPentest,
           exploit_confirmation_authorized: isFullPentest,
         }
-      : { enabled: false },
+      : {
+          enabled: false,
+          // Preserve authorization metadata even for ai_loop runs so any chain created later
+          // inherits the correct level and exploit gate.
+          authorization_level: isFullPentest ? authLevel : 'active',
+          confirmed_scope: mission.scope || '',
+          confirmation_target: firstTarget,
+          typed_scope_confirmation: isFullPentest ? firstTarget : '',
+          intrusive_lan_authorized: isFullPentest,
+          exploit_confirmation_authorized: isFullPentest,
+        },
   };
   return {
     profile_name: profile,
     source_inventory_snapshot_id: inventoryId,
     configuration_json: configuration,
     assessment_mode: assessmentMode,
-    assessment_auto_advance_on_phase_complete: Boolean(assessmentMode),
+    // Full Pentest always auto-advances phases; non-chain ai_loop runs also set this
+    // so any phase chain that gets created inherits the correct gate behaviour.
+    assessment_auto_advance_on_phase_complete: Boolean(assessmentMode) || isFullPentest,
     dispatch_after_create: true,
     autonomous_mode: useAiLoop ? true : undefined,
   };

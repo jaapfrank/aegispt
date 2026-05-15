@@ -20,6 +20,7 @@ from sqlalchemy.orm import joinedload
 from api.app.config import get_settings
 from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
 from api.app.models import (
+    Finding,
     InventorySnapshot,
     Run,
     Scope,
@@ -35,6 +36,7 @@ from api.app.services.ai_planner import (
     generate_pivot_contexts_for_run,
     latest_context_document,
 )
+from api.app.services.finding_chains import link_pivot_chain_findings
 from api.app.services.ai_shell_safety import (
     AiShellSafetyError,
     ai_shell_command_preview,
@@ -171,6 +173,11 @@ from workers.runners.ldap_enum.runner import execute_ldap_enum
 from workers.runners.leak_check.runner import execute_leak_check_review
 from workers.runners.llm_probe import execute_llm_probe
 from workers.runners.logging_probe.runner import execute_logging_probe
+from workers.runners.info_disclosure_probe.runner import execute_info_disclosure_probe
+from workers.runners.param_pollution_probe.runner import execute_param_pollution_probe
+from workers.runners.stored_xss_probe.runner import execute_stored_xss_probe
+from workers.runners.cookie_tamper_probe.runner import execute_cookie_tamper_probe
+from workers.runners.file_upload_probe.runner import execute_file_upload_probe
 from workers.runners.malware_sim.runner import execute_malware_simulation_review
 from workers.runners.mdns_ssdp.runner import (
     MDNS_SSDP_ARTIFACT_NAME,
@@ -223,6 +230,7 @@ from workers.runners.wifi_survey.runner import (
     WIFI_SURVEY_RESULTS_ARTIFACT_NAME,
     execute_wifi_survey,
 )
+from workers.runners.exec_plan.runner import execute_exec_plan
 from workers.runners.xss_extended.runner import execute_xss_extended_scan
 from workers.runners.xss_proof.runner import execute_xss_proof
 from workers.runners.zap.runner import execute_zap_scan
@@ -265,6 +273,11 @@ SUPPORTED_TOOLS = {
     "leak-check",
     "llm-probe",
     "logging-probe",
+    "info-disclosure-probe",
+    "param-pollution-probe",
+    "stored-xss-probe",
+    "cookie-tamper-probe",
+    "file-upload-probe",
     "malware-sim",
     "metasploit",
     "mdns-ssdp",
@@ -299,6 +312,7 @@ SUPPORTED_TOOLS = {
     "lan-intel",
     "xxe-probe",
     "zap",
+    "exec-plan",
 }
 
 
@@ -715,6 +729,36 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 if isinstance(request.params.get("client_id"), str)
                 else None
             ),
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "info-disclosure-probe":
+        return execute_info_disclosure_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "param-pollution-probe":
+        return execute_param_pollution_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "stored-xss-probe":
+        return execute_stored_xss_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "cookie-tamper-probe":
+        return execute_cookie_tamper_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "file-upload-probe":
+        return execute_file_upload_probe(
+            targets=request.targets,
+            scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
         )
     if request.tool == "logging-probe":
@@ -1902,6 +1946,16 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
                 else None
             ),
             timeout_seconds=timeout_seconds,
+        )
+    if request.tool == "exec-plan":
+        plan_obj = request.params.get("plan")
+        if not isinstance(plan_obj, dict):
+            raise ValueError("exec-plan requires a 'plan' dict in params")
+        return execute_exec_plan(
+            targets=request.targets,
+            plan=plan_obj,
+            scope_allowlist=request.scope_allowlist,
+            timeout_seconds=max(timeout_seconds, 20.0),
         )
     if request.tool == "target-intel":
         return execute_target_intel(
@@ -3490,6 +3544,18 @@ def _update_run_status(session, run: Run) -> None:
         run.status = "running"
         return
     if statuses == {"completed"}:
+        # For ai_loop runs: do NOT mark the run completed just because all current
+        # tasks finished. The AI loop may still want to queue iteration N+1 based on
+        # the latest evidence. Only the assessment_loop itself (via loop_state.status)
+        # decides when an AI-driven run is truly done.
+        if run_uses_ai_loop(run):
+            loop_state = (run.configuration_json or {}).get("ai_assessment_loop") or {}
+            loop_status = str(loop_state.get("status") or "").strip().lower()
+            if loop_status not in {"stopped", "completed", "failed"}:
+                # Keep run in 'running' so post-task hooks can call advance_assessment_loop
+                # which may queue another iteration. Run stays "alive" until loop explicitly stops.
+                run.status = "running"
+                return
         run.status = "completed"
         clear_run_credential_vault_if_terminal(
             session,
@@ -3499,6 +3565,14 @@ def _update_run_status(session, run: Run) -> None:
         )
         return
     if "failed" in statuses and statuses.issubset({"completed", "failed"}):
+        # Same ai_loop guard: a single failed runner shouldn't kill the AI loop.
+        # The loop keeps planning — Claude can pick a different tool next.
+        if run_uses_ai_loop(run):
+            loop_state = (run.configuration_json or {}).get("ai_assessment_loop") or {}
+            loop_status = str(loop_state.get("status") or "").strip().lower()
+            if loop_status not in {"stopped", "completed", "failed"}:
+                run.status = "running"
+                return
         run.status = "completed_with_errors"
         clear_run_credential_vault_if_terminal(
             session,
@@ -4614,7 +4688,7 @@ def _maybe_run_post_task_ai_analysis(session, task: Task):
 
 
 def _maybe_advance_assessment_loop_after_task(session, task: Task) -> dict[str, object] | None:
-    if task.id is None or task.status != "completed":
+    if task.id is None or task.status not in ("completed", "failed"):
         return None
     if is_validation_task(task):
         return None
@@ -4622,16 +4696,27 @@ def _maybe_advance_assessment_loop_after_task(session, task: Task) -> dict[str, 
         return None
     scope = session.scalar(latest_scope_query(task.run.engagement_id))
     if scope is None:
+        logger.warning("post-task: advance skipped run=%s — no scope", str(task.run_id)[:8])
         return None
+    logger.info(
+        "post-task: advancing loop after task=%s tool=%s run=%s",
+        str(task.id)[:8], task.tool, str(task.run_id)[:8],
+    )
     try:
-        return advance_assessment_loop(
+        result = advance_assessment_loop(
             session=session,
             run=task.run,
             scope=scope,
             actor=f"runner:{task.tool}",
             operator_note="Automatically continue the evidence-driven AI loop after a completed runner task.",
         )
-    except Exception:
+        logger.info(
+            "post-task: advance returned queued_task_id=%s",
+            result.get("queued_task_id") if isinstance(result, dict) else None,
+        )
+        return result
+    except Exception as exc:
+        logger.exception("post-task: advance_assessment_loop raised: %s", exc)
         session.rollback()
         return None
 
@@ -4704,6 +4789,80 @@ def _queue_pivot_followup_task(
         "follow_up_target": target,
     }
     return pivot_task.id
+
+
+def _maybe_link_pivot_chain_findings(session, task: Task) -> None:
+    """After a pivot-spawned task completes, link its findings to the source finding.
+
+    Reads source_finding_id and pivot_type from task.params_json (set by the pivot
+    engine when it queues the follow-up task). For each confirmed follow-up finding
+    (status=open, evidence_ref non-empty), creates a FindingChain via
+    link_pivot_chain_findings, escalating the source finding's severity if warranted,
+    and writes an audit event for any escalation.
+    """
+    if task.status != "completed" or task.run_id is None:
+        return
+    params = dict(task.params_json or {})
+    source_finding_id = params.get("source_finding_id")
+    pivot_type = str(params.get("pivot_type") or "session_token_pivot")
+    if not source_finding_id:
+        return
+    try:
+        source_uuid = UUID(str(source_finding_id))
+    except (ValueError, AttributeError):
+        return
+
+    source_finding = session.scalar(select(Finding).where(Finding.id == source_uuid))
+    if source_finding is None:
+        return
+
+    # Collect recent confirmed findings from this task's run (newest first)
+    follow_ups = list(
+        session.scalars(
+            select(Finding)
+            .where(
+                Finding.run_id == task.run_id,
+                Finding.status == "open",
+                Finding.evidence_ref.isnot(None),
+                Finding.id != source_uuid,
+            )
+            .order_by(Finding.created_at.desc())
+            .limit(5)
+        ).all()
+    )
+
+    for follow_up in follow_ups:
+        if not str(follow_up.evidence_ref or "").strip():
+            continue
+        try:
+            chain = link_pivot_chain_findings(
+                session=session,
+                original_finding=source_finding,
+                follow_up_finding=follow_up,
+                pivot_type=pivot_type,
+                run_id=task.run_id,
+            )
+        except Exception:
+            continue
+        if chain is None:
+            continue
+        proof = dict((chain.metadata_json or {}).get("impact_proof_json") or {})
+        if proof.get("severity_escalated"):
+            write_audit_event(
+                session=session,
+                actor="system:pivot_chain",
+                action="finding.severity_escalated_by_pivot_chain",
+                object_type="finding",
+                object_id=str(source_finding.id),
+                metadata={
+                    "chain_id": str(chain.id),
+                    "pivot_type": pivot_type,
+                    "escalated_from": proof.get("original_severity"),
+                    "escalated_to": proof.get("escalated_to"),
+                    "follow_up_finding_id": str(follow_up.id),
+                    "impact_summary": proof.get("summary"),
+                },
+            )
 
 
 def _maybe_detect_and_record_pivots(session, task: Task) -> list[UUID]:
@@ -4879,7 +5038,22 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             raise ValueError(f"scope missing for run {task.run_id}")
         for task_target in task_targets:
             if not target_is_allowed(scope, task_target):
-                raise ValueError(f"target outside scope: {task_target}")
+                # Don't raise — mark task as failed gracefully so the loop
+                # continues and Claude sees a rejection_sink entry rather
+                # than a 500 from the dispatch chain. Out-of-scope targets
+                # typically come from Claude hallucinations (typos in domain)
+                # that should be a recoverable error, not a crash.
+                logger.warning(
+                    "post-task: rejecting task %s — target %s out of scope (graceful fail)",
+                    str(task.id)[:8], task_target[:80],
+                )
+                task.status = "failed"
+                mark_task_stdout_unavailable(
+                    task.id,
+                    f"Task rejected: target outside scope: {task_target}",
+                )
+                session.commit()
+                return {"task_id": task_id, "status": "failed", "reason": "out_of_scope"}
 
         task.status = "running"
         task.run.status = "running"
@@ -5017,8 +5191,33 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
         # ChatGPT OAuth makes nested HTTP calls that create new DB sessions,
         # causing SQLite "database is locked" errors (SQLite single-writer limit).
         # TODO: enable when migrating to PostgreSQL or enabling SQLite WAL mode.
+        _maybe_link_pivot_chain_findings(session, task)
+        # AI loop runs: enable heuristic chains conditionally.
+        # - next_step_hints from target-intel/lan-intel: ENABLED (these come
+        #   directly from Claude's site analysis — top-priority tools that
+        #   should always run, even before the ai-loop picker takes over).
+        # - next_step_hints from other tools: DISABLED (would duplicate Claude).
+        # - pivot engine: ENABLED for ai_loop (auto-spawns xss-proof on XSS
+        #   findings, idor-bac on session theft, etc. — high-confidence chains
+        #   that Claude tends to skip). Hard duplicate guard in the assessment
+        #   loop's Claude path prevents Claude from re-picking the same pair.
+        run_is_ai_loop = task.run is not None and run_uses_ai_loop(task.run)
         pivot_followup_ids = _maybe_detect_and_record_pivots(session, task)
-        hint_followup_ids = _maybe_queue_next_step_hints(session, task)
+        if run_is_ai_loop:
+            # Only let hints from intelligence runners (target-intel, lan-intel)
+            # queue follow-ups in ai_loop mode — they reflect a real per-target
+            # plan and provide the seed chain Claude builds on top of.
+            seed_intel_tools = {"target-intel", "lan-intel"}
+            if str(task.tool or "") in seed_intel_tools:
+                hint_followup_ids = _maybe_queue_next_step_hints(session, task)
+                logger.info(
+                    "post-task: ai_loop — letting %s next_step_hints fire (%d tasks)",
+                    task.tool, len(hint_followup_ids or []),
+                )
+            else:
+                hint_followup_ids = []
+        else:
+            hint_followup_ids = _maybe_queue_next_step_hints(session, task)
         loop_outcome = _maybe_advance_assessment_loop_after_task(session, task)
         session.commit()
         ai_outcome = _maybe_run_post_task_ai_analysis(session, task)  # WAL mode fixes concurrent access

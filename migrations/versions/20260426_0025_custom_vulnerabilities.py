@@ -70,19 +70,19 @@ def upgrade() -> None:
         ),
     )
     op.create_index(
-        "ix_custom_vulnerability_engagement_settings_custom_vulnerability_id",
+        "ix_cv_eng_settings_cv_id",
         "custom_vulnerability_engagement_settings",
         ["custom_vulnerability_id"],
         unique=False,
     )
     op.create_index(
-        "ix_custom_vulnerability_engagement_settings_engagement_id",
+        "ix_cv_eng_settings_engagement_id",
         "custom_vulnerability_engagement_settings",
         ["engagement_id"],
         unique=False,
     )
     op.create_index(
-        "ix_custom_vulnerability_engagement_settings_enabled",
+        "ix_cv_eng_settings_enabled",
         "custom_vulnerability_engagement_settings",
         ["enabled"],
         unique=False,
@@ -91,15 +91,15 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index(
-        "ix_custom_vulnerability_engagement_settings_enabled",
+        "ix_cv_eng_settings_enabled",
         table_name="custom_vulnerability_engagement_settings",
     )
     op.drop_index(
-        "ix_custom_vulnerability_engagement_settings_engagement_id",
+        "ix_cv_eng_settings_engagement_id",
         table_name="custom_vulnerability_engagement_settings",
     )
     op.drop_index(
-        "ix_custom_vulnerability_engagement_settings_custom_vulnerability_id",
+        "ix_cv_eng_settings_cv_id",
         table_name="custom_vulnerability_engagement_settings",
     )
     op.drop_table("custom_vulnerability_engagement_settings")

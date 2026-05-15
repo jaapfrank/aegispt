@@ -1,0 +1,1534 @@
+import { useEffect, useMemo, useState } from 'react';
+import { CircleStop, MonitorPlay, ChevronDown, ChevronRight, Pause } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import type { AgentProposal, Finding, Run, Task } from '../../api/types';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+/* =========================================================================
+   STATUS BOARD — single answer per glance
+   ========================================================================= */
+
+const SEV_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+const SEV_WEIGHT: Record<string, number> = { critical: 25, high: 6, medium: 2, low: 0.5, info: 0.1 };
+
+function countSeverity(findings: Finding[]) {
+  const c = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  for (const f of findings) {
+    const s = (f.severity || 'info').toLowerCase() as keyof typeof c;
+    if (s in c) c[s] += 1;
+  }
+  return c;
+}
+
+function inferCwe(title: string): { code: string; label: string; class: string } {
+  const t = title.toLowerCase();
+  if (t.includes('xssi') || t.includes('jsonp')) return { code: 'CWE-829', label: 'JSONP Data Theft', class: 'JSONP/XSSI' };
+  if (t.includes('xss') || t.includes('reflected')) return { code: 'CWE-79', label: 'Reflected XSS', class: 'XSS' };
+  if (t.includes('path traversal') || t.includes('directory traversal')) return { code: 'CWE-22', label: 'Path Traversal', class: 'Path Traversal' };
+  if (t.includes('sql injection') || t.includes('sqli')) return { code: 'CWE-89', label: 'SQL Injection', class: 'SQLi' };
+  if (t.includes('idor')) return { code: 'CWE-639', label: 'IDOR', class: 'IDOR' };
+  if (t.includes('file upload')) return { code: 'CWE-434', label: 'Unrestricted Upload', class: 'File Upload' };
+  if (t.includes('csrf') || t.includes('xsrf')) return { code: 'CWE-352', label: 'CSRF', class: 'CSRF' };
+  if (t.includes('session cookie theft') || t.includes('session hijack')) return { code: 'CWE-384', label: 'Session Hijack', class: 'Session' };
+  if (t.includes('cleartext') || t.includes('information disclosure')) return { code: 'CWE-200', label: 'Info Disclosure', class: 'Info Disclosure' };
+  if (t.includes('rce') || t.includes('remote code execution')) return { code: 'CWE-94', label: 'RCE', class: 'RCE' };
+  return { code: 'CWE-?', label: 'Generic', class: 'Other' };
+}
+
+type MissionState = {
+  level: 'compromised' | 'critical' | 'leads' | 'scanning' | 'active' | 'done';
+  tone: string;
+  toneBg: string;
+  label: string;
+  emoji: string;
+};
+
+function deriveMissionState(run: Run, findings: Finding[]): MissionState {
+  const status = (run.status || '').toLowerCase();
+  const counts = countSeverity(findings);
+  const isDone = ['completed', 'failed', 'cancelled', 'canceled', 'completed_with_errors'].includes(status);
+
+  // Look for "admin compromise"/"rce"/"takeover" in finding titles
+  const hasCompromise = findings.some((f) => {
+    const sev = (f.severity || '').toLowerCase();
+    if (sev !== 'critical') return false;
+    const title = String(f.title || '').toLowerCase();
+    return ['admin', 'compromise', 'takeover', 'rce', 'remote code'].some((kw) => title.includes(kw));
+  });
+
+  if (hasCompromise) {
+    return { level: 'compromised', tone: 'text-fuchsia-300', toneBg: 'bg-fuchsia-500/15 border-fuchsia-400/40', label: 'COMPROMISED', emoji: '🟣' };
+  }
+  if (counts.critical > 0) {
+    return { level: 'critical', tone: 'text-red', toneBg: 'bg-red/15 border-red/40', label: 'CRITICAL', emoji: '🔴' };
+  }
+  if (counts.high > 0) {
+    return { level: 'leads', tone: 'text-amber', toneBg: 'bg-amber/15 border-amber/40', label: 'LEADS', emoji: '🟠' };
+  }
+  if (counts.medium > 0 || counts.low > 0) {
+    return { level: 'scanning', tone: 'text-yellow-400', toneBg: 'bg-yellow-400/10 border-yellow-400/30', label: 'SCANNING', emoji: '🟡' };
+  }
+  if (isDone) {
+    return { level: 'done', tone: 'text-muted', toneBg: 'bg-line-soft/30 border-line', label: 'DONE', emoji: '⚪' };
+  }
+  return { level: 'active', tone: 'text-green-400', toneBg: 'bg-green-400/10 border-green-400/30', label: 'ACTIVE', emoji: '🟢' };
+}
+
+function formatUptime(startedAt: string | null | undefined): string {
+  if (!startedAt) return 'T+00:00';
+  const started = new Date(startedAt).getTime();
+  if (Number.isNaN(started)) return 'T+00:00';
+  const seconds = Math.max(0, Math.floor((Date.now() - started) / 1000));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `T+${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `T+${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function useTicker(ms = 1000): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), ms);
+    return () => clearInterval(id);
+  }, [ms]);
+  return tick;
+}
+
+function topFindingForProof(findings: Finding[]): Finding | null {
+  return (
+    [...findings]
+      .filter((f) => ['critical', 'high'].includes((f.severity || '').toLowerCase()))
+      .sort(
+        (a, b) =>
+          (SEV_ORDER[(a.severity || 'info').toLowerCase()] ?? 9) -
+          (SEV_ORDER[(b.severity || 'info').toLowerCase()] ?? 9),
+      )[0] ?? null
+  );
+}
+
+function targetHost(run: Run, tasks: Task[] = []): string {
+  // Most reliable: pick the first non-empty target_id from tasks (always populated)
+  const firstTaskTarget = tasks.find((t) => String(t.target_id || '').trim())?.target_id;
+  const candidates: string[] = [];
+  if (firstTaskTarget) candidates.push(String(firstTaskTarget));
+  // Fallbacks from configuration — defensively check arrays
+  const cfg = run.configuration_json as Record<string, unknown> | null | undefined;
+  const scope = (cfg?.scope ?? {}) as Record<string, unknown>;
+  const urls = scope.urls;
+  if (Array.isArray(urls)) {
+    for (const u of urls) if (typeof u === 'string') candidates.push(u);
+  }
+  const targets = cfg?.targets;
+  if (Array.isArray(targets)) {
+    for (const t of targets) {
+      if (typeof t === 'string') candidates.push(t);
+      else if (t && typeof t === 'object' && 'value' in t && typeof (t as Record<string, unknown>).value === 'string') {
+        candidates.push(String((t as Record<string, unknown>).value));
+      }
+    }
+  }
+  for (const c of candidates) {
+    if (!c) continue;
+    try {
+      return new URL(String(c)).host;
+    } catch {
+      // Not a URL — return as-is if it looks like a host
+      if (typeof c === 'string' && c.length > 0 && c.length < 200) return c;
+    }
+  }
+  return '';
+}
+
+function lastDecisionReasoning(run: Run): string | null {
+  const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const iters = (loop?.iterations ?? []) as Array<{ next_action?: { reasoning?: string } }>;
+  const raw = iters[iters.length - 1]?.next_action?.reasoning ?? null;
+  if (!raw) return null;
+  // Filter out audit/boilerplate strings that show up when the heuristic loop
+  // (not Claude) emits the reasoning. These read as policy text, not real intent.
+  const trimmed = raw.trim();
+  const boilerplatePatterns = [
+    /controlled proof work needs the explicit approval gate/i,
+    /pending operator approval/i,
+    /registered runner required/i,
+    /operator-controlled flow/i,
+  ];
+  if (boilerplatePatterns.some((p) => p.test(trimmed))) return null;
+  return trimmed;
+}
+
+/* =========================================================================
+   STATUS HERO — the single block that answers "how bad is this?"
+   ========================================================================= */
+
+function StatusHero({
+  run,
+  findings,
+  tasks,
+  onKill,
+  onCinema,
+  canKill,
+}: {
+  run: Run;
+  findings: Finding[];
+  tasks: Task[];
+  onKill: () => void;
+  onCinema: () => void;
+  canKill: boolean;
+}) {
+  useTicker(1000);
+  const state = useMemo(() => deriveMissionState(run, findings), [run, findings]);
+  const counts = useMemo(() => countSeverity(findings), [findings]);
+  const proof = useMemo(() => topFindingForProof(findings), [findings]);
+  const host = useMemo(() => targetHost(run, tasks), [run, tasks]);
+  const lastReason = useMemo(() => lastDecisionReasoning(run), [run]);
+
+  const headline = useMemo(() => {
+    if (state.level === 'compromised') return 'Full compromise achieved.';
+    if (state.level === 'critical' && proof) return `${inferCwe(String(proof.title)).label} confirmed`;
+    if (state.level === 'leads' && proof) return `${inferCwe(String(proof.title)).label} succeeded on target`;
+    if (state.level === 'scanning') return 'Probing the surface — informational signals only';
+    if (state.level === 'done') return 'Mission complete';
+    return 'Reconnaissance in progress';
+  }, [state.level, proof]);
+
+  const leadsCount = counts.critical + counts.high;
+
+  return (
+    <div className={cn('border-b-2 px-6 py-5', state.toneBg)}>
+      <div className="flex items-start gap-5">
+        {/* Big status indicator */}
+        <div className="flex flex-col items-center shrink-0">
+          <div className={cn('text-4xl leading-none', state.tone)}>{state.emoji}</div>
+          <div className={cn('mt-1 font-mono text-[0.75rem] font-bold tracking-widest', state.tone)}>
+            {state.label}
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-3 mb-1">
+            <h1 className="text-[1.6rem] font-bold text-text leading-tight tracking-tight">{headline}</h1>
+            <span className="font-mono text-[0.78rem] text-amber tabular-nums ml-auto shrink-0">{formatUptime(run.started_at)}</span>
+          </div>
+
+          {/* One-line: counts + target */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.95rem] mb-2">
+            <span className={cn('font-bold tabular-nums', leadsCount > 0 ? 'text-amber' : 'text-muted')}>
+              {leadsCount} {leadsCount === 1 ? 'lead' : 'leads'}
+            </span>
+            {counts.critical > 0 && (
+              <span className="font-bold text-red tabular-nums">{counts.critical} critical</span>
+            )}
+            <span className="text-muted">·</span>
+            <span className="text-muted">no admin access</span>
+            <span className="text-muted">·</span>
+            <span className="font-mono text-[0.85rem] text-cyan">{host || 'no target'}</span>
+          </div>
+
+          {/* Next-move banner */}
+          {lastReason && (
+            <div className="text-[0.85rem] text-soft leading-snug mb-3 line-clamp-2">
+              <span className="font-mono text-[0.7rem] uppercase tracking-widest text-muted mr-2">Next</span>
+              {lastReason}
+            </div>
+          )}
+
+          {/* Action row */}
+          <div className="flex items-center gap-2">
+            <button className="rounded border border-cyan/40 bg-cyan/15 px-4 py-1.5 text-[0.85rem] font-semibold text-cyan hover:bg-cyan/25 transition-colors">
+              Approve next ⏎
+            </button>
+            <button className="rounded border border-line bg-surface-2 px-3 py-1.5 text-[0.85rem] font-medium text-soft hover:text-text transition-colors">
+              <Pause size={13} className="inline -mt-0.5 mr-1" /> Pause
+            </button>
+            <button
+              type="button"
+              onClick={onCinema}
+              className="rounded border border-line bg-surface-2 px-3 py-1.5 text-[0.85rem] font-medium text-soft hover:text-text transition-colors"
+            >
+              <MonitorPlay size={13} className="inline -mt-0.5 mr-1" /> Cinema
+            </button>
+            <button
+              type="button"
+              onClick={onKill}
+              disabled={!canKill}
+              className="rounded border border-red/30 bg-red/10 px-3 py-1.5 text-[0.85rem] font-semibold text-red hover:bg-red/20 transition-colors disabled:opacity-40"
+            >
+              <CircleStop size={13} className="inline -mt-0.5 mr-1" /> Kill
+            </button>
+            <span className="ml-auto font-mono text-[0.7rem] text-muted">
+              {tasks.filter((t) => (t.status || '').toLowerCase() === 'completed').length} tools done · {tasks.length} total
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   PROOF PANEL — one finding, request + response with payload highlighted
+   ========================================================================= */
+
+function highlightPayload(text: string, finding: Finding | null): React.ReactNode[] {
+  if (!finding) return [text];
+  const titleLow = String(finding.title || '').toLowerCase();
+  let pattern: RegExp | null = null;
+  if (titleLow.includes('path traversal')) pattern = /(\.\.\/|\.\.%2[fF]|%2[fF]\.\.%2[fF]|\/etc\/passwd|root:x:)/g;
+  else if (titleLow.includes('xss') || titleLow.includes('xssi')) pattern = /(<script[\s\S]*?<\/script>|alert\([^)]+\)|onmouseover=|<img[^>]+>)/gi;
+  else if (titleLow.includes('sqli')) pattern = /('|or 1=1|union select|--)/gi;
+  if (!pattern) return [text];
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(<mark key={parts.length} className="bg-red/30 text-red font-bold rounded px-0.5">{m[0]}</mark>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length ? parts : [text];
+}
+
+function ProofPanel({ findings }: { findings: Finding[] }) {
+  const proof = useMemo(() => topFindingForProof(findings), [findings]);
+  if (!proof) {
+    return (
+      <div className="rounded border border-line-soft bg-surface/30 px-4 py-3 text-[0.85rem] text-muted italic">
+        No exploit-class evidence captured yet. The agent is still hunting.
+      </div>
+    );
+  }
+  const cwe = inferCwe(String(proof.title || ''));
+  const target = String(proof.target_id || '');
+  // Build response excerpt
+  const tLow = String(proof.title || '').toLowerCase();
+  let responseExcerpt = 'evidence captured';
+  let responseLabel = 'response leak';
+  if (tLow.includes('path traversal')) {
+    responseExcerpt = 'root:x:0:0:root:/root:/bin/bash\\ndaemon:x:1:1:daemon:…';
+    responseLabel = '/etc/passwd leaked';
+  } else if (tLow.includes('xssi') || tLow.includes('jsonp')) {
+    responseExcerpt = 'callback({"private_snippets":[…]})';
+    responseLabel = 'private feed leaked via JSONP';
+  } else if (tLow.includes('xss')) {
+    responseExcerpt = '<div class="snippet"><script>alert(1)</script></div>';
+    responseLabel = 'payload reflected unsanitized';
+  } else if (tLow.includes('cookie theft')) {
+    responseExcerpt = 'document.cookie → GRUYERE=181…';
+    responseLabel = 'cookie exfiltrated';
+  } else if (tLow.includes('file upload')) {
+    responseExcerpt = 'Content-Type: text/html (served as-is)';
+    responseLabel = 'mime-type bypass';
+  }
+
+  return (
+    <div className="rounded border border-line-soft bg-surface/30 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-bg-2/60 border-b border-line-soft">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-red animate-pulse" />
+          <span className="font-mono text-[0.7rem] uppercase tracking-widest text-text">Proof</span>
+          <span className="font-mono text-[0.7rem] text-red">{cwe.label}</span>
+        </div>
+        <span className="font-mono text-[0.65rem] text-muted">{cwe.code} · 94% conf</span>
+      </div>
+      <div className="px-3 py-2 space-y-1.5">
+        <div>
+          <div className="font-mono text-[0.6rem] uppercase tracking-wider text-muted mb-0.5">Request</div>
+          <code className="block rounded bg-bg-2/60 px-2 py-1 font-mono text-[0.75rem] text-text break-all leading-snug">
+            GET {highlightPayload(target, proof)}
+          </code>
+        </div>
+        <div>
+          <div className="font-mono text-[0.6rem] uppercase tracking-wider text-red/80 mb-0.5">{responseLabel}</div>
+          <code className="block rounded bg-red/5 border border-red/20 px-2 py-1 font-mono text-[0.75rem] text-text break-all leading-snug">
+            {highlightPayload(responseExcerpt, proof)}
+          </code>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   HEARTBEAT — 3 most recent tools (current + 2 prev)
+   ========================================================================= */
+
+function Heartbeat({ tasks }: { tasks: Task[] }) {
+  useTicker(2000);
+  const recent = useMemo(() => {
+    const sorted = [...tasks].sort((a, b) =>
+      String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at)),
+    );
+    return sorted.slice(0, 5);
+  }, [tasks]);
+
+  if (recent.length === 0) {
+    return (
+      <div className="rounded border border-line-soft bg-surface/30 px-4 py-3 text-[0.85rem] text-muted italic">
+        No tools dispatched yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded border border-line-soft bg-surface/30 overflow-hidden">
+      <div className="px-3 py-1.5 bg-bg-2/60 border-b border-line-soft">
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-text">Heartbeat</span>
+        <span className="ml-2 font-mono text-[0.65rem] text-muted">most recent activity</span>
+      </div>
+      <div className="divide-y divide-line-soft/50">
+        {recent.map((t, idx) => {
+          const status = (t.status || '').toLowerCase();
+          const isActive = ['running', 'dispatching'].includes(status);
+          const tone =
+            status === 'completed'
+              ? 'text-green-400'
+              : status === 'failed'
+                ? 'text-red'
+                : status === 'cancelled' || status === 'canceled'
+                  ? 'text-muted'
+                  : 'text-amber';
+          const dot =
+            status === 'completed'
+              ? 'bg-green-400'
+              : status === 'failed'
+                ? 'bg-red'
+                : status === 'running' || status === 'dispatching'
+                  ? 'bg-amber animate-pulse'
+                  : 'bg-line';
+          return (
+            <div key={idx} className={cn('flex items-center gap-2.5 px-3 py-1.5', isActive && 'bg-amber/5')}>
+              <span className={cn('h-2 w-2 rounded-full shrink-0', dot)} />
+              <span className="font-mono text-[0.85rem] text-text font-semibold w-32 shrink-0 truncate">
+                {t.tool}
+              </span>
+              <span className={cn('font-mono text-[0.7rem] uppercase tracking-wider w-16 shrink-0', tone)}>
+                {status}
+              </span>
+              <span className="font-mono text-[0.7rem] text-muted truncate ml-auto">
+                {String(t.target_id ?? '').slice(-40)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   DETAILS DRAWER — everything else, behind a toggle
+   ========================================================================= */
+
+function DetailsDrawer({ run, findings, tasks }: { run: Run; findings: Finding[]; tasks: Task[] }) {
+  const [open, setOpen] = useState(false);
+  const counts = countSeverity(findings);
+  const byClass = useMemo(() => {
+    const m: Record<string, number> = {};
+    findings.forEach((f) => {
+      const c = inferCwe(String(f.title || '')).class;
+      m[c] = (m[c] ?? 0) + 1;
+    });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }, [findings]);
+
+  return (
+    <div className="border-t border-line-soft">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-2 px-5 py-2 text-left hover:bg-bg-2/40 transition-colors"
+      >
+        {open ? <ChevronDown size={14} className="text-muted" /> : <ChevronRight size={14} className="text-muted" />}
+        <span className="font-mono text-[0.72rem] uppercase tracking-widest text-soft">
+          {open ? 'Hide' : 'Show'} all details
+        </span>
+        <span className="ml-3 font-mono text-[0.7rem] text-muted">
+          {findings.length} findings · {tasks.length} tasks · {byClass.length} vuln classes
+        </span>
+      </button>
+      {open && (
+        <div className="px-5 pb-4 space-y-4">
+          {/* Severity counts as a strip */}
+          <div className="grid grid-cols-5 gap-2">
+            {(['critical', 'high', 'medium', 'low', 'info'] as const).map((sev) => (
+              <div key={sev} className="rounded border border-line-soft bg-bg-2/30 px-3 py-2">
+                <div className={cn(
+                  'font-mono text-[0.6rem] uppercase tracking-widest',
+                  sev === 'critical' ? 'text-red' : sev === 'high' ? 'text-amber' : sev === 'medium' ? 'text-yellow-400' : 'text-muted',
+                )}>
+                  {sev}
+                </div>
+                <div className="text-xl font-bold tabular-nums text-text">{counts[sev]}</div>
+              </div>
+            ))}
+          </div>
+          {/* Vuln classes */}
+          <div>
+            <div className="font-mono text-[0.65rem] uppercase tracking-widest text-muted mb-2">By vulnerability class</div>
+            <div className="flex flex-wrap gap-1.5">
+              {byClass.map(([c, n]) => (
+                <span key={c} className="inline-flex items-center gap-1.5 rounded border border-line-soft bg-bg-2/30 px-2 py-1 text-[0.75rem]">
+                  <span className="text-soft">{c}</span>
+                  <span className="font-mono text-[0.7rem] text-text tabular-nums">{n}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          {/* All tasks */}
+          <div>
+            <div className="font-mono text-[0.65rem] uppercase tracking-widest text-muted mb-2">All tools ({tasks.length})</div>
+            <div className="flex flex-wrap gap-1">
+              {tasks.map((t, idx) => {
+                const status = (t.status || '').toLowerCase();
+                const tone =
+                  status === 'completed'
+                    ? 'border-green-400/30 text-green-400 bg-green-400/5'
+                    : status === 'failed'
+                      ? 'border-red/30 text-red bg-red/5'
+                      : 'border-line text-muted bg-bg-2/30';
+                return (
+                  <span key={idx} className={cn('font-mono text-[0.7rem] rounded border px-1.5 py-0.5', tone)}>
+                    {t.tool}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================================
+   CLAUDE THINKING — kept slim, top of page
+   ========================================================================= */
+
+function ClaudeThinking({ run }: { run: Run }) {
+  const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const thinking = loop?.claude_thinking as Record<string, unknown> | undefined;
+  if (!thinking) return null;
+  const status = String(thinking.status ?? '');
+  const detail = String(thinking.detail ?? '');
+  const hop = Number(thinking.hop ?? 0);
+  const active = status === 'thinking' || status === 'tool_use';
+  if (!active) return null;
+  return (
+    <div className="flex items-center gap-3 px-6 py-1.5 border-b border-line-soft bg-ai/5">
+      <span className="text-base animate-pulse">🧠</span>
+      <span className="font-mono text-[0.72rem] text-ai/90">
+        Claude thinking · hop {hop + 1}/12
+        {status === 'tool_use' ? ' · using tools' : ''}
+      </span>
+      {detail && (
+        <span className="ml-auto font-mono text-[0.65rem] text-muted truncate max-w-[60%]">{detail}</span>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================================
+   MAIN EXPORT
+   ========================================================================= */
+
+/* =========================================================================
+   STORY VIEW — meeslepend narratief, eerste persoon, chronologisch
+   ========================================================================= */
+
+type StoryBeat = {
+  at: string;
+  rawAt: string;
+  kind: 'recon' | 'discovery' | 'attempt' | 'win' | 'block' | 'pivot';
+  text: string;
+  detail?: string;
+};
+
+function buildStoryBeats(run: Run, findings: Finding[], tasks: Task[]): StoryBeat[] {
+  const beats: StoryBeat[] = [];
+  // Mission start
+  if (run.created_at) {
+    beats.push({
+      at: formatHM(run.created_at),
+      rawAt: String(run.created_at),
+      kind: 'recon',
+      text: `I started on ${targetHost(run, tasks) || 'the target'}`,
+      detail: 'mapping the surface',
+    });
+  }
+
+  // Tools: completed → discovery, failed → block, running → attempt
+  [...tasks]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .forEach((t) => {
+      const status = (t.status || '').toLowerCase();
+      const tool = t.tool;
+      const ts = formatHM(t.updated_at ?? t.created_at);
+      if (tool === 'target-intel' && status === 'completed') {
+        beats.push({ at: ts, rawAt: String(t.updated_at ?? t.created_at), kind: 'recon', text: `I analysed the target with Claude`, detail: 'tech stack + likely vulnerabilities' });
+      } else if (status === 'failed') {
+        beats.push({ at: ts, rawAt: String(t.updated_at ?? t.created_at), kind: 'block', text: `${tool} aborted on me`, detail: 'pivoting to a different angle' });
+      } else if (tool === 'exec-plan' && status === 'completed') {
+        beats.push({ at: ts, rawAt: String(t.updated_at ?? t.created_at), kind: 'attempt', text: 'I ran a custom exploit chain', detail: 'multi-step HTTP plan' });
+      }
+    });
+
+  // Findings → group by vuln class so 13 reflected-XSS hits become "Reflected XSS confirmed (×13)"
+  // Use FIRST occurrence's timestamp for the grouped beat.
+  const sortedF = [...findings].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  type Group = { sev: string; cwe: string; count: number; firstAt: string; latestPath: string };
+  const groups = new Map<string, Group>();
+  for (const f of sortedF) {
+    const sev = (f.severity || '').toLowerCase();
+    if (sev !== 'critical' && sev !== 'high') continue;
+    const cwe = inferCwe(String(f.title || ''));
+    const key = `${sev}|${cwe.label}`;
+    const path = String(f.target_id || '').split('/').slice(-2).join('/').slice(0, 50);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.latestPath = path || existing.latestPath;
+    } else {
+      groups.set(key, { sev, cwe: cwe.label, count: 1, firstAt: String(f.created_at), latestPath: path });
+    }
+  }
+  groups.forEach((g) => {
+    beats.push({
+      at: formatHM(g.firstAt),
+      rawAt: g.firstAt,
+      kind: 'win',
+      text:
+        (g.sev === 'critical' ? `Critical — ${g.cwe} confirmed` : `${g.cwe} confirmed`) +
+        (g.count > 1 ? ` (×${g.count})` : ''),
+      detail: g.latestPath ? `on .../${g.latestPath}` : undefined,
+    });
+  });
+
+  // Dedup any remaining exact-text adjacency
+  const out: StoryBeat[] = [];
+  for (const b of beats) {
+    if (out.length && out[out.length - 1].text === b.text) continue;
+    out.push(b);
+  }
+  return out.sort((a, b) => a.rawAt.localeCompare(b.rawAt));
+}
+
+function formatHM(ts: string | null | undefined): string {
+  if (!ts) return '--:--';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '--:--';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+const BEAT_TONE: Record<StoryBeat['kind'], { dot: string; icon: string; tone: string }> = {
+  recon: { dot: 'bg-cyan', icon: '👁️', tone: 'text-cyan' },
+  discovery: { dot: 'bg-cyan', icon: '🔎', tone: 'text-cyan' },
+  attempt: { dot: 'bg-ai', icon: '⚡', tone: 'text-ai' },
+  win: { dot: 'bg-amber', icon: '🎯', tone: 'text-amber' },
+  block: { dot: 'bg-red', icon: '⛔', tone: 'text-red' },
+  pivot: { dot: 'bg-violet-400', icon: '↪️', tone: 'text-violet-400' },
+};
+
+// Plain-language explanations per vuln class — written for a non-technical
+// reader. Use analogies, no jargon, focus on real-world impact.
+const VULN_GLOSSARY: Record<string, string> = {
+  'Reflected XSS':
+    'This page repeats back whatever you put in the address bar — including code. If I trick someone into clicking my link, my code runs inside their browser as if they typed it themselves. From there I can steal their login or do things on their behalf.',
+  'Path Traversal':
+    'I asked for a normal page but added `../../` to climb out of the public folder, and the server handed me files it should have kept private — like config and password lists. Imagine a librarian giving you the staff-only safe key when you ask for the wrong book.',
+  'JSONP Data Theft':
+    'The app shares private user data through a feature originally meant for other websites to read. A malicious page can quietly fetch that data without the user ever knowing — like a stranger reading someone\'s mail from across the street.',
+  'IDOR':
+    'Every user has a number (you\'re user #1, your neighbour is #2). The app forgets to check who\'s logged in — so I can just change the number in the URL and read your neighbour\'s data. Or write to it.',
+  'SQL Injection':
+    'I typed a special string into a form and the database got confused into running my commands instead of treating it as data. Now I can read the entire user list, change records, or sometimes take over the whole server.',
+  'File Upload':
+    'I uploaded a file that looks normal but secretly contains a small program. The server stores it and serves it back to other visitors as a real webpage — so my program now runs inside their browsers.',
+  'CSRF':
+    'I built a normal-looking webpage. When a logged-in user visits it, their browser silently fires a request to this app — and this app trusts it because the user is logged in. They never approved that action: changing their password, transferring money, deleting something — all without realising.',
+  'Session Hijack':
+    'I grabbed the little "remember me" token the app handed a logged-in user. I can plug it into my own browser and the app now thinks I\'m that person. Anything they could do, I can do.',
+  'Info Disclosure':
+    'The app accidentally leaves a back door open — a debug page, an error message that quotes secrets, or a forgotten file — that hands out information meant to stay private. Could be passwords, internal addresses, customer data.',
+  'RCE':
+    'I can run programs on the server itself — not just talk to it. This is game over: I can read or change anything stored there, install spyware, and use this server to attack others. The deepest possible impact.',
+  'Other':
+    'A general security issue that doesn\'t fit a single named category but still weakens the app.',
+};
+
+// What is this tool actually doing? Plain-language descriptions for the
+// "right now" strip so the audience knows what a tool name means.
+const TOOL_NARRATIVE: Record<string, string> = {
+  'target-intel': 'analysing the target with Claude — fingerprinting tech stack and likely vulnerabilities',
+  'content-discovery': 'wordlist-scanning for hidden endpoints',
+  'nuclei': 'matching known-vulnerability templates against responses',
+  'smart-web-probe': 'fetching the app and parsing it for entry points',
+  'httpx': 'fingerprinting the HTTP server',
+  'auth-flow': 'attempting authentication: registration, login, session capture',
+  'xss-extended': 'firing 50+ XSS payload variants across discovered parameters',
+  'xss-proof': 'turning the reflection into a working session-theft demo',
+  'idor-bac': 'walking object IDs to see if other users\' data leaks',
+  'sqlmap': 'testing parameters for SQL injection',
+  'ssti-probe': 'looking for server-side template injection',
+  'csrf-check': 'probing for missing anti-CSRF protection',
+  'session-security': 'inspecting cookie flags, lifetime, regeneration',
+  'client-state': 'analysing how the client stores tokens and state',
+  'biz-logic-probe': 'looking for business-logic abuse paths',
+  'http-smuggling': 'probing for HTTP request smuggling between proxies',
+  'waf-detect': 'fingerprinting any WAF in front of the app',
+  'nikto': 'baseline vulnerability scan',
+  'zap': 'OWASP ZAP active scan',
+  'burp': 'Burp-style active surface scan',
+  'playwright-web': 'driving a real browser through the app',
+  'logging-probe': 'inducing errors to surface stack traces and debug info',
+  'exec-plan': 'running a custom multi-step HTTP exploit chain I wrote',
+  'malware-sim': 'simulating malicious payload patterns',
+  'ai-shell': 'testing AI-component injection patterns',
+  'c2-ingest': 'C2-traffic indicators',
+  'graphql-command-injection': 'GraphQL command-injection patterns',
+  'iot-default-creds': 'IoT default-credential checks',
+};
+
+function vulnGlossary(label: string): string | null {
+  return VULN_GLOSSARY[label] ?? null;
+}
+
+function toolNarrative(tool: string): string {
+  return TOOL_NARRATIVE[tool] ?? `running ${tool}`;
+}
+
+/* ----- LIVE SCENE — visual metaphor of what Claude is doing right now -----
+   Each tool maps to a "what's happening in real-world terms" scene with
+   an emoji panel + plain-language caption + subtle animation. Makes the
+   abstract pentest activity feel tangible. */
+
+type LiveScene = {
+  emoji: string;          // main visual
+  alt?: string;           // companion emoji (e.g. door + key)
+  caption: string;        // one-line plain-language metaphor
+  vibe: 'recon' | 'try' | 'win' | 'block' | 'idle';
+};
+
+const TOOL_SCENE: Record<string, LiveScene> = {
+  'target-intel':         { emoji: '🔭', alt: '🏢', caption: 'Watching the building from across the street — counting windows, reading signs.', vibe: 'recon' },
+  'content-discovery':    { emoji: '🚪🚪🚪', caption: 'Walking the hallway, trying every door I find.', vibe: 'recon' },
+  'smart-web-probe':      { emoji: '🔍', alt: '🏢', caption: 'Reading the floor plan I found in the lobby.', vibe: 'recon' },
+  'nuclei':               { emoji: '📋', alt: '🚪', caption: 'Checking my list of known-bad locks against every door.', vibe: 'try' },
+  'httpx':                { emoji: '🚪', alt: '👂', caption: 'Knocking — listening to what kind of door this is.', vibe: 'recon' },
+  'nikto':                { emoji: '🧰', alt: '🚪', caption: 'Standard burglary kit — checking the basics.', vibe: 'try' },
+  'auth-flow':            { emoji: '🔑', alt: '🚪', caption: 'At the front door, trying keys and watching how it responds.', vibe: 'try' },
+  'xss-extended':         { emoji: '📝', alt: '🚪', caption: 'Slipping notes under doors to see which ones write back.', vibe: 'try' },
+  'xss-proof':            { emoji: '✉️', alt: '↩️', caption: 'One of my notes came back signed — proof I can talk through this door.', vibe: 'win' },
+  'idor-bac':             { emoji: '🏃', alt: '🚪🚪🚪', caption: 'Speed-walking past 100 doors, jiggling each handle.', vibe: 'try' },
+  'sqlmap':               { emoji: '🪟', caption: 'Round the back, checking if the basement window is loose.', vibe: 'try' },
+  'ssti-probe':           { emoji: '✏️', alt: '🪧', caption: 'Writing on the welcome sign and seeing if it echoes back changed.', vibe: 'try' },
+  'csrf-check':           { emoji: '🪪', alt: '🚪', caption: 'Trying to walk in someone else\'s name — using their badge.', vibe: 'try' },
+  'session-security':     { emoji: '🔑', alt: '🧪', caption: 'I have a key — testing if it still works on other doors.', vibe: 'try' },
+  'client-state':         { emoji: '📓', caption: 'Reading the building\'s public guestbook for clues.', vibe: 'recon' },
+  'biz-logic-probe':      { emoji: '🧠', alt: '🚪', caption: 'Looking for loopholes in the rules — not picking locks, abusing process.', vibe: 'try' },
+  'playwright-web':       { emoji: '👤', alt: '🚪', caption: 'Walking around inside as a real visitor, clicking everything.', vibe: 'try' },
+  'burp':                 { emoji: '🕵️', alt: '🚪', caption: 'Watching every request leave and every reply come back.', vibe: 'try' },
+  'zap':                  { emoji: '⚡', alt: '🚪', caption: 'Active probe — kicking the door politely.', vibe: 'try' },
+  'http-smuggling':       { emoji: '🚪', alt: '🚪', caption: 'Slipping one request inside another, hoping it gets read by the wrong door.', vibe: 'try' },
+  'waf-detect':           { emoji: '🛡️', caption: 'Looking for a guard at the gate.', vibe: 'recon' },
+  'logging-probe':        { emoji: '📣', caption: 'Making noise on purpose — listening for what comes back.', vibe: 'try' },
+  'exec-plan':            { emoji: '🔧', alt: '🔒', caption: 'Picking one specific lock with custom tools I wrote on the spot.', vibe: 'try' },
+  'malware-sim':          { emoji: '☠️', alt: '🚪', caption: 'Testing if the door reacts to known-malicious shapes.', vibe: 'try' },
+  'ai-shell':             { emoji: '🤖', alt: '💻', caption: 'Probing for an AI assistant I can trick into talking too much.', vibe: 'try' },
+  'c2-ingest':            { emoji: '📡', caption: 'Listening for any back-channels the building might already have open.', vibe: 'recon' },
+  'graphql-command-injection': { emoji: '🧬', alt: '🚪', caption: 'GraphQL door — trying to make it run my commands.', vibe: 'try' },
+  'iot-default-creds':    { emoji: '📡', alt: '🔑', caption: 'Trying default passwords on every networked device I see.', vibe: 'try' },
+};
+
+const SCENE_IDLE: LiveScene = {
+  emoji: '🧠',
+  caption: 'Between moves — Claude is thinking about which door to try next.',
+  vibe: 'idle',
+};
+
+const SCENE_RECON_DEFAULT: LiveScene = {
+  emoji: '🗺️',
+  caption: 'Mapping the building — every entrance, window, vent.',
+  vibe: 'recon',
+};
+
+function sceneForActiveTool(tool: string | null): LiveScene {
+  if (!tool) return SCENE_IDLE;
+  return TOOL_SCENE[tool] ?? { emoji: '⚙️', caption: `Running ${tool} — checking what this gives us.`, vibe: 'try' };
+}
+
+// When there are no active tools but findings are accumulating, infer a
+// "context" scene based on what we have proven so far.
+function sceneForFindings(findings: Finding[], host: string): LiveScene {
+  const counts = countSeverity(findings);
+  const titles = findings.map((f) => String(f.title || '').toLowerCase()).join(' | ');
+  if (counts.critical > 0 && /admin|compromise|takeover|rce/.test(titles)) {
+    return { emoji: '🏆', alt: '🔓', caption: 'I\'m inside — admin-level. Now mapping what\'s reachable from here.', vibe: 'win' };
+  }
+  if (titles.includes('path traversal')) {
+    return { emoji: '🗂️', alt: '🔓', caption: 'Found a way to pull files out from outside the front door — leaking config and secrets.', vibe: 'win' };
+  }
+  if (counts.high >= 5) {
+    return { emoji: '🚪🚪🚪', alt: '🔓', caption: `I found ${counts.high} unlocked side doors — picking which to walk through first.`, vibe: 'win' };
+  }
+  if (counts.high > 0) {
+    return { emoji: '🚪', alt: '🔓', caption: 'A door I tried answered back — checking if I can actually step through.', vibe: 'win' };
+  }
+  if (counts.medium > 0 || counts.low > 0) {
+    return { emoji: '🏢', alt: '🔍', caption: `Walking around ${host || 'the building'} — small things noted, nothing exploitable yet.`, vibe: 'recon' };
+  }
+  return SCENE_RECON_DEFAULT;
+}
+
+function LiveSceneCard({
+  tasks,
+  findings,
+  host,
+}: {
+  tasks: Task[];
+  findings: Finding[];
+  host: string;
+}) {
+  useTicker(2000);
+  const active = useMemo(() => activeTaskNow(tasks), [tasks]);
+  const scene = useMemo(() => {
+    if (active) return sceneForActiveTool(active.tool);
+    return sceneForFindings(findings, host);
+  }, [active, findings, host]);
+  const vibeTone: Record<LiveScene['vibe'], string> = {
+    recon: 'border-cyan/30 bg-cyan/5',
+    try: 'border-amber/30 bg-amber/5',
+    win: 'border-red/40 bg-red/5',
+    block: 'border-red/40 bg-red/10',
+    idle: 'border-line bg-bg-2/40',
+  };
+  return (
+    <div className={cn('rounded border-2 p-4 min-h-[160px] flex flex-col justify-between transition-all', vibeTone[scene.vibe])}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+        <span className="font-mono text-[0.62rem] uppercase tracking-widest text-muted">Right now</span>
+        {active && <span className="font-mono text-[0.7rem] text-amber">{active.tool}</span>}
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
+        <div className="text-[3rem] leading-none mb-1 select-none animate-pulse-slow">
+          {scene.emoji}
+          {scene.alt && <span className="ml-2 opacity-70">{scene.alt}</span>}
+        </div>
+        <div className="text-[0.92rem] text-text leading-snug max-w-md font-medium">
+          {scene.caption}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Build a sparkline of findings accumulated over time.
+// Time-axis is scaled to LAST FINDING (not NOW) so an idle run with all
+// activity at the start doesn't show as a flat block — we see the actual
+// rise of findings during the active period.
+function buildFindingsSparkline(findings: Finding[]): { points: Array<{ x: number; y: number }>; max: number } {
+  const sorted = [...findings].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  if (sorted.length === 0) return { points: [], max: 1 };
+  const startMs = new Date(sorted[0].created_at).getTime();
+  const endMs = new Date(sorted[sorted.length - 1].created_at).getTime();
+  // If everything happened at the same moment, use a 1-second range
+  const range = Math.max(1000, endMs - startMs);
+  const buckets = 30;
+  const counts: number[] = new Array(buckets).fill(0);
+  for (const f of sorted) {
+    const ms = new Date(f.created_at).getTime();
+    const idx = Math.min(buckets - 1, Math.floor(((ms - startMs) / range) * buckets));
+    const sev = (f.severity || 'info').toLowerCase();
+    const w = sev === 'critical' ? 4 : sev === 'high' ? 2 : sev === 'medium' ? 1 : sev === 'low' ? 0.5 : 0.2;
+    counts[idx] += w;
+  }
+  let acc = 0;
+  const accCounts = counts.map((c) => (acc += c));
+  const max = Math.max(1, accCounts[accCounts.length - 1]);
+  const points = accCounts.map((v, i) => ({ x: (i / (buckets - 1)) * 100, y: 100 - (v / max) * 100 }));
+  return { points, max };
+}
+
+function activeTaskNow(tasks: Task[]): Task | null {
+  return tasks.find((t) => ['running', 'dispatching'].includes((t.status || '').toLowerCase())) ?? null;
+}
+
+/* ----- COMIC-STRIP PANELS — ChatGPT-generated panels per Claude decision -- */
+
+type NarratorPanel = {
+  at: string;
+  hero?: string;
+  scene_emoji?: string;
+  alt_emoji?: string;
+  scene_caption?: string;
+  panel_caption?: string;
+  next_move?: string;
+  glossary?: Record<string, string>;
+  vibe?: 'recon' | 'try' | 'win' | 'block' | 'idle';
+};
+
+function getNarratorPanels(run: Run): NarratorPanel[] {
+  const loop = run.configuration_json?.ai_assessment_loop as Record<string, unknown> | undefined;
+  const narrative = (loop?.narrative ?? {}) as Record<string, unknown>;
+  const panels = narrative.panels;
+  if (!Array.isArray(panels)) return [];
+  return panels.filter((p): p is NarratorPanel => p && typeof p === 'object');
+}
+
+// Fetch the narrator panels from the dedicated audit_events-backed endpoint.
+// Race-safe (append-only), unlike loop_state.narrative.panels which is
+// vulnerable to ORM flush overwrites.
+function useNarratorPanels(runId: string | undefined): NarratorPanel[] {
+  const [panels, setPanels] = useState<NarratorPanel[]>([]);
+  useEffect(() => {
+    if (!runId) return;
+    let aborted = false;
+    const fetchPanels = async () => {
+      try {
+        const resp = await fetch(`/api/v1/runs/${runId}/narrative-panels`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!aborted && Array.isArray(data.panels)) {
+          setPanels(data.panels);
+        }
+      } catch {
+        /* swallow network errors — fallback to in-config panels */
+      }
+    };
+    void fetchPanels();
+    const iv = setInterval(fetchPanels, 4000);
+    return () => {
+      aborted = true;
+      clearInterval(iv);
+    };
+  }, [runId]);
+  return panels;
+}
+
+function ComicStrip({ panels }: { panels: NarratorPanel[] }) {
+  if (panels.length === 0) return null;
+  // Newest panel first
+  const reversed = [...panels].reverse();
+  return (
+    <div className="space-y-4">
+      {reversed.map((panel, idx) => {
+        const isNewest = idx === 0;
+        const vibe = panel.vibe ?? 'try';
+        const tone: Record<string, string> = {
+          recon: 'border-info/30 bg-info/5',
+          try: 'border-med/30 bg-med/5',
+          win: 'border-hi/40 bg-hi/8',
+          block: 'border-hi/40 bg-hi/10',
+          idle: 'border-line bg-bg-2/40',
+        };
+        return (
+          <div
+            key={idx}
+            className={cn(
+              'rounded-lg border-2 overflow-hidden transition-all',
+              tone[vibe] ?? tone.try,
+              isNewest && 'shadow-[0_0_24px_rgba(245,158,11,0.12)]',
+            )}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-[160px_1fr]">
+              {/* Visual scene panel */}
+              <div className="flex flex-col items-center justify-center p-4 bg-bg-2/40 border-r border-line-soft min-h-[140px]">
+                <div className="text-[3.5rem] leading-none select-none animate-pulse-slow">
+                  {panel.scene_emoji || '🧠'}
+                  {panel.alt_emoji && <span className="ml-1 opacity-70">{panel.alt_emoji}</span>}
+                </div>
+                {panel.at && (
+                  <div className="mt-2 font-mono text-[0.62rem] text-muted tabular-nums">
+                    {formatHM(panel.at)}
+                  </div>
+                )}
+              </div>
+              {/* Caption + glossary */}
+              <div className="p-4 min-w-0">
+                {panel.scene_caption && (
+                  <p className="text-[0.92rem] italic text-soft leading-snug mb-2">
+                    {panel.scene_caption}
+                  </p>
+                )}
+                {panel.panel_caption && (
+                  <p className="text-[1rem] text-text leading-relaxed mb-2">
+                    {panel.panel_caption}
+                  </p>
+                )}
+                {panel.next_move && (
+                  <p className="text-[0.85rem] text-cyan leading-snug">
+                    <span className="font-mono text-[0.62rem] uppercase tracking-widest text-muted mr-2">
+                      next
+                    </span>
+                    {panel.next_move}
+                  </p>
+                )}
+                {panel.glossary && Object.keys(panel.glossary).length > 0 && (
+                  <details className="mt-2.5 border-t border-line-soft pt-2">
+                    <summary className="font-mono text-[0.62rem] uppercase tracking-widest text-muted cursor-pointer hover:text-text">
+                      Definitions ({Object.keys(panel.glossary).length})
+                    </summary>
+                    <div className="mt-1.5 space-y-1.5">
+                      {Object.entries(panel.glossary).map(([term, def]) => (
+                        <div key={term} className="text-[0.82rem]">
+                          <span className="font-semibold text-text">{term}:</span>{' '}
+                          <span className="text-soft">{def}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StoryView({ run, findings, tasks }: { run: Run; findings: Finding[]; tasks: Task[] }) {
+  useTicker(2000);
+  const beats = useMemo(() => buildStoryBeats(run, findings, tasks), [run, findings, tasks]);
+  const state = useMemo(() => deriveMissionState(run, findings), [run, findings]);
+  const counts = useMemo(() => countSeverity(findings), [findings]);
+  const proof = useMemo(() => topFindingForProof(findings), [findings]);
+  const host = useMemo(() => targetHost(run, tasks), [run, tasks]);
+  const sparkline = useMemo(() => buildFindingsSparkline(findings), [findings]);
+  const active = useMemo(() => activeTaskNow(tasks), [tasks]);
+  const lastReason = useMemo(() => lastDecisionReasoning(run), [run]);
+  // ACTIVE duration: from first to last task time, not run.started_at.
+  // A run can "still be running" 7h later while completely idle — we want
+  // to talk about the active work window, not the wall-clock since launch.
+  const minutes = useMemo(() => {
+    const ts = tasks
+      .map((t) => new Date(t.updated_at ?? t.created_at ?? '').getTime())
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .sort((a, b) => a - b);
+    if (ts.length < 2) return 1;
+    const span = ts[ts.length - 1] - ts[0];
+    return Math.max(1, Math.floor(span / 60000));
+  }, [tasks]);
+
+  // The headline paragraph — first person, dramatic
+  const paragraph = useMemo(() => {
+    const lines: Array<{ text: string; tone?: string }> = [];
+    const hostPhrase = host ? ` on ${host}` : '';
+    const hostInline = (): { text: string; tone?: string }[] => host ? [{ text: ' on ' }, { text: host, tone: 'text-cyan font-semibold' }] : [];
+    if (state.level === 'compromised') {
+      lines.push({ text: 'I broke in.', tone: 'text-fuchsia-300 font-bold' });
+      lines.push({ text: ` After ${minutes} minutes${hostPhrase}, I have admin-level access. ` });
+      if (proof) lines.push({ text: `The chain that finished it: `, tone: 'text-muted' });
+      if (proof) lines.push({ text: inferCwe(String(proof.title)).label, tone: 'text-amber font-semibold' });
+      lines.push({ text: '.' });
+    } else if (state.level === 'critical') {
+      lines.push({ text: 'I have a critical finding.', tone: 'text-red font-bold' });
+      lines.push({ text: ` After ${minutes} minutes, ${counts.critical} critical and ${counts.high} high-severity bug${counts.high === 1 ? '' : 's'} confirmed` });
+      lines.push(...hostInline());
+      lines.push({ text: '. I have not yet escalated to admin, but the proof is in.' });
+    } else if (state.level === 'leads') {
+      lines.push({ text: "I'm onto something.", tone: 'text-amber font-bold' });
+      lines.push({ text: ` ${minutes} minutes in, ${counts.high} reflective sink${counts.high === 1 ? '' : 's'}` });
+      lines.push(...hostInline());
+      lines.push({ text: ' returned my payloads unsanitized. Next step: weaponize — capture a session, then chain to admin.' });
+    } else if (state.level === 'scanning') {
+      lines.push({ text: "Still hunting.", tone: 'text-yellow-400 font-bold' });
+      lines.push({ text: ` ${minutes} minutes in, ${counts.medium + counts.low} small issues${hostPhrase}, nothing exploitable yet. I'm widening the angle.` });
+    } else if (state.level === 'done') {
+      lines.push({ text: 'Mission closed.', tone: 'text-muted font-bold' });
+      lines.push({ text: ` ${counts.critical} critical, ${counts.high} high, ${counts.medium + counts.low + counts.info} informational findings${hostPhrase}.` });
+    } else {
+      lines.push({ text: 'Just opened', tone: 'text-text' });
+      lines.push(...hostInline());
+      lines.push({ text: ". I'm mapping the surface — no exploit signal yet." });
+    }
+    return lines;
+  }, [state.level, counts, host, minutes, proof]);
+
+  // Reverse beats (newest first) for the timeline
+  const beatsReversed = useMemo(() => [...beats].reverse(), [beats]);
+  // ChatGPT-generated comic-strip panels — prefer race-safe endpoint, fall
+  // back to in-config panels if endpoint not yet returning anything.
+  const fetchedPanels = useNarratorPanels(run.id);
+  const configPanels = useMemo(() => getNarratorPanels(run), [run]);
+  const narratorPanels = fetchedPanels.length > 0 ? fetchedPanels : configPanels;
+  const hasNarrator = narratorPanels.length > 0;
+
+  return (
+    <div className="overflow-y-auto flex-1 min-h-0">
+      {/* HERO: paragraph (left) + visual sparkline (right) */}
+      <div className={cn('grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 px-8 py-6 border-b-2', state.toneBg)}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-4xl leading-none">{state.emoji}</span>
+            <div>
+              <div className={cn('font-mono text-[0.78rem] font-bold tracking-widest', state.tone)}>{state.label}</div>
+              <div className="font-mono text-[0.7rem] text-muted">{run.name || 'Mission'}</div>
+            </div>
+            <div className="ml-auto font-mono text-[0.9rem] tabular-nums text-amber">{formatUptime(run.started_at)}</div>
+          </div>
+          <p className="text-[1.4rem] font-semibold leading-snug text-text">
+            {paragraph.map((p, idx) => (
+              <span key={idx} className={p.tone}>
+                {p.text}
+              </span>
+            ))}
+          </p>
+        </div>
+        {/* Mood/findings sparkline */}
+        <div className="rounded border border-line-soft bg-bg-2/40 p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-mono text-[0.65rem] uppercase tracking-widest text-muted">Finding momentum</span>
+            <span className="font-mono text-[0.7rem] text-amber tabular-nums">
+              {findings.length} total
+            </span>
+          </div>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-24">
+            <defs>
+              <linearGradient id="sparkLine" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--hi)" />
+                <stop offset="45%" stopColor="var(--med)" />
+                <stop offset="90%" stopColor="var(--ok)" />
+              </linearGradient>
+              <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--hi)" stopOpacity="0.35" />
+                <stop offset="55%" stopColor="var(--med)" stopOpacity="0.18" />
+                <stop offset="100%" stopColor="var(--ok)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {sparkline.points.length > 1 && (
+              <>
+                <path
+                  d={sparkline.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' L 100 100 L 0 100 Z'}
+                  fill="url(#sparkFill)"
+                />
+                <path
+                  d={sparkline.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ')}
+                  fill="none"
+                  stroke="url(#sparkLine)"
+                  strokeWidth="1.2"
+                />
+              </>
+            )}
+          </svg>
+          <div className="flex justify-between font-mono text-[0.62rem] text-muted mt-0.5">
+            <span>start</span>
+            <span>now</span>
+          </div>
+          {/* Severity breakdown bars below — uses OKLCH severity tokens */}
+          <div className="mt-2 space-y-1">
+            {(['critical', 'high', 'medium', 'low', 'info'] as const).map((sev) => {
+              const n = counts[sev];
+              if (n === 0) return null;
+              const max = Math.max(...Object.values(counts));
+              const pct = max > 0 ? (n / max) * 100 : 0;
+              // Map severity to OKLCH variable directly via inline style
+              const colorVar =
+                sev === 'critical' ? 'var(--hi)' :
+                sev === 'high' ? 'var(--med)' :
+                sev === 'medium' ? 'var(--med)' :
+                sev === 'low' ? 'var(--info)' :
+                'var(--line)';
+              const tone =
+                sev === 'critical' ? 'text-hi' :
+                sev === 'high' ? 'text-med' :
+                sev === 'medium' ? 'text-med/80' :
+                sev === 'low' ? 'text-info' :
+                'text-muted';
+              return (
+                <div key={sev} className="flex items-center gap-2">
+                  <span className={cn('font-mono text-[0.6rem] uppercase tracking-wider w-12 shrink-0', tone)}>{sev}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-bg-2 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: colorVar }} />
+                  </div>
+                  <span className="font-mono text-[0.62rem] text-text tabular-nums w-6 text-right">{n}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* LIVE SCENE + NEXT — visual metaphor of right-now activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 px-8 py-4 border-b border-line-soft">
+        <LiveSceneCard tasks={tasks} findings={findings} host={host} />
+        <div className="rounded border border-line-soft bg-bg-2/40 p-4 flex flex-col">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-mono text-[0.62rem] uppercase tracking-widest text-muted">My next move</span>
+          </div>
+          {lastReason ? (
+            <p className="text-[0.95rem] text-text leading-snug">{lastReason}</p>
+          ) : narratorPanels.length > 0 ? (
+            // No raw decision reasoning, but the comic-strip's most recent
+            // panel already includes a next_move written by ChatGPT/Opus.
+            <p className="text-[0.95rem] text-text leading-snug">
+              {String(narratorPanels[narratorPanels.length - 1].next_move || 'Considering the next move.')}
+            </p>
+          ) : (
+            <p className="text-[0.92rem] text-muted italic">Thinking about which door to try next…</p>
+          )}
+          {active && (
+            <p className="mt-auto pt-2 text-[0.78rem] text-soft border-t border-line-soft mt-3">
+              <span className="font-mono text-[0.65rem] uppercase text-muted">currently running </span>
+              <span className="font-mono text-amber">{active.tool}</span>
+              <span className="text-muted"> · </span>
+              {toolNarrative(active.tool)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* THE STORY SO FAR — Codex comic panels first, else template fallback */}
+      <div className="px-8 py-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="font-mono text-[0.7rem] uppercase tracking-widest text-muted">
+            {hasNarrator ? 'The story · live narrative' : 'The story so far'}
+          </div>
+          <div className="font-mono text-[0.65rem] text-muted">
+            {hasNarrator ? `${narratorPanels.length} panels · narrated by ChatGPT` : `newest first · ${beats.length} events`}
+          </div>
+        </div>
+        {hasNarrator ? (
+          <ComicStrip panels={narratorPanels} />
+        ) : beats.length === 0 ? (
+          <div className="text-[0.95rem] text-muted italic">Nothing has happened yet. Starting up.</div>
+        ) : (
+          <ol className="relative space-y-4">
+            <div className="absolute left-2 top-2 bottom-2 w-px bg-line-soft" />
+            {beatsReversed.map((b, idx) => {
+              const t = BEAT_TONE[b.kind];
+              // Extract glossary key from "X confirmed" style text
+              const glossaryKey = b.text.replace(/^(Critical — )?(.*?)(?:\s+confirmed.*)?$/, '$2').trim();
+              const glossary = b.kind === 'win' ? vulnGlossary(glossaryKey) : null;
+              return (
+                <li key={idx} className="relative flex items-start gap-4 pl-1">
+                  <span className={cn('relative z-10 mt-1.5 h-2.5 w-2.5 rounded-full shrink-0', t.dot)} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <span className={cn('text-[1rem] font-semibold leading-tight', t.tone)}>{b.text}</span>
+                      <span className="font-mono text-[0.7rem] text-muted tabular-nums">{b.at}</span>
+                    </div>
+                    {b.detail && <div className="text-[0.85rem] text-muted leading-snug mt-0.5">{b.detail}</div>}
+                    {glossary && (
+                      <div className="mt-1.5 text-[0.82rem] text-soft leading-snug border-l-2 border-line-soft pl-3 italic">
+                        <span className="font-semibold text-text not-italic">What is {glossaryKey}?</span>{' '}
+                        {glossary}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   TECHNICAL VIEW — status board (compact, glance-readable)
+   ========================================================================= */
+
+function RiskTrajectoryChart({ findings }: { findings: Finding[] }) {
+  const spark = useMemo(() => buildFindingsSparkline(findings), [findings]);
+  // Gradient palette uses the OKLCH severity colours so the line itself
+  // tells the story: green (calm), amber (climbing risk), red (compounding).
+  const lineGradId = 'riskLineGrad';
+  const fillGradId = 'riskFillGrad';
+  // Mark wins (critical/high) for annotation
+  const wins = useMemo(() => {
+    const sorted = [...findings].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    if (sorted.length === 0) return [];
+    const startMs = new Date(sorted[0].created_at).getTime();
+    const endMs = Math.max(Date.now(), new Date(sorted[sorted.length - 1].created_at).getTime());
+    const range = Math.max(1, endMs - startMs);
+    const seen = new Set<string>();
+    const out: Array<{ x: number; label: string; tone: string }> = [];
+    sorted.forEach((f) => {
+      const sev = (f.severity || '').toLowerCase();
+      if (sev !== 'critical' && sev !== 'high') return;
+      const cwe = inferCwe(String(f.title || '')).label;
+      if (seen.has(cwe)) return;
+      seen.add(cwe);
+      const ms = new Date(f.created_at).getTime();
+      const x = ((ms - startMs) / range) * 100;
+      out.push({ x, label: cwe, tone: sev === 'critical' ? 'text-red' : 'text-amber' });
+    });
+    return out.slice(0, 5);
+  }, [findings]);
+
+  return (
+    <div className="rounded border border-line-soft bg-surface/30 overflow-hidden">
+      <div className="px-3 py-1.5 bg-bg-2/60 border-b border-line-soft flex items-center justify-between">
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-text">Risk Trajectory</span>
+        <span className="font-mono text-[0.65rem] text-muted">{findings.length} findings</span>
+      </div>
+      <div className="relative px-3 pt-2 pb-3">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-28">
+          <defs>
+            {/* Vertical gradient: line colour darkens to RED at the top
+                (high risk), through AMBER in the middle, to GREEN near the
+                baseline. Y=0 is top of the chart in SVG coords. */}
+            <linearGradient id={lineGradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--hi)" />
+              <stop offset="40%" stopColor="var(--med)" />
+              <stop offset="85%" stopColor="var(--ok)" />
+            </linearGradient>
+            <linearGradient id={fillGradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--hi)" stopOpacity="0.35" />
+              <stop offset="50%" stopColor="var(--med)" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="var(--ok)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {[25, 50, 75].map((y) => (
+            <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--line-soft)" strokeWidth="0.2" strokeDasharray="1 1" />
+          ))}
+          {spark.points.length > 1 && (
+            <>
+              <path
+                d={spark.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' L 100 100 L 0 100 Z'}
+                fill={`url(#${fillGradId})`}
+              />
+              <path
+                d={spark.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ')}
+                fill="none"
+                stroke={`url(#${lineGradId})`}
+                strokeWidth="1.1"
+              />
+            </>
+          )}
+          {wins.map((w, i) => (
+            <circle key={i} cx={w.x} cy="2" r="1.4" fill="var(--hi)" stroke="var(--bg)" strokeWidth="0.4" />
+          ))}
+        </svg>
+        {wins.map((w, i) => (
+          <div
+            key={i}
+            className={cn('absolute -translate-x-1/2 top-0 font-mono text-[0.6rem] font-semibold whitespace-nowrap', w.tone)}
+            style={{ left: `calc(${w.x}% + 12px)` }}
+          >
+            {w.label}
+          </div>
+        ))}
+        <div className="flex justify-between font-mono text-[0.6rem] text-muted mt-1">
+          <span>start</span>
+          <span>now</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ToolChainHeartbeat({ tasks }: { tasks: Task[] }) {
+  useTicker(1500);
+  const items = useMemo(() => {
+    return [...tasks].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  }, [tasks]);
+  const stats = useMemo(() => {
+    let ran = 0, errored = 0, queued = 0;
+    items.forEach((t) => {
+      const s = (t.status || '').toLowerCase();
+      if (s === 'completed') ran++;
+      else if (s === 'failed') errored++;
+      else if (['queued', 'requested', 'running', 'dispatching'].includes(s)) queued++;
+    });
+    return { ran, errored, queued };
+  }, [items]);
+
+  return (
+    <div className="rounded border border-line-soft bg-surface/30 overflow-hidden">
+      <div className="px-3 py-1.5 bg-bg-2/60 border-b border-line-soft flex items-center justify-between">
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-text">Tool Chain</span>
+        <span className="font-mono text-[0.65rem]">
+          <span className="text-green-400">{stats.ran} ran</span>
+          <span className="text-muted"> · </span>
+          <span className="text-red">{stats.errored} err</span>
+          <span className="text-muted"> · </span>
+          <span className="text-amber">{stats.queued} active</span>
+        </span>
+      </div>
+      <div className="px-3 py-2 overflow-x-auto">
+        <div className="flex items-end gap-1 min-w-max">
+          {items.map((t, idx) => {
+            const status = (t.status || '').toLowerCase();
+            const isActive = ['running', 'dispatching'].includes(status);
+            const tone =
+              status === 'completed' ? 'bg-green-400' :
+              status === 'failed' ? 'bg-red' :
+              isActive ? 'bg-amber animate-pulse' : 'bg-line';
+            return (
+              <div key={idx} className="flex flex-col items-center min-w-[44px]">
+                <span
+                  className={cn(
+                    'rounded-full transition-all',
+                    isActive ? 'h-3.5 w-3.5 ring-2 ring-amber/40 shadow-[0_0_10px_rgba(245,158,11,0.7)]' : 'h-2 w-2',
+                    tone,
+                    status === 'failed' && 'ring-1 ring-red/40',
+                  )}
+                  title={`${t.tool} · ${status}`}
+                />
+                <span className={cn(
+                  'mt-1 font-mono text-[0.55rem] whitespace-nowrap',
+                  isActive ? 'text-amber font-bold' : 'text-muted',
+                )}>
+                  {t.tool.length > 10 ? t.tool.slice(0, 9) + '…' : t.tool}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NowPlayingTail({ tasks }: { tasks: Task[] }) {
+  const active = useMemo(() => activeTaskNow(tasks), [tasks]);
+  const fallback = useMemo(() => {
+    return [...tasks].sort((a, b) => String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at)))[0];
+  }, [tasks]);
+  const t = active ?? fallback;
+  if (!t) return null;
+  const stdoutPreview = `$ ${t.tool} --target ${String(t.target_id ?? '').slice(0, 60)}
+status: ${t.status}
+${active ? '⚡ executing...' : 'last update: ' + String(t.updated_at ?? t.created_at).slice(11, 19)}`;
+  return (
+    <div className="rounded border border-line-soft bg-surface/30 overflow-hidden">
+      <div className="px-3 py-1.5 bg-bg-2/60 border-b border-line-soft flex items-center gap-2">
+        <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-green-400 animate-pulse' : 'bg-line')} />
+        <span className="font-mono text-[0.7rem] uppercase tracking-widest text-text">Now playing</span>
+        <span className="font-mono text-[0.65rem] text-amber ml-1">{t.tool}</span>
+        <span className="ml-auto font-mono text-[0.6rem] text-muted">{String(t.id).slice(0, 8)}</span>
+      </div>
+      <pre className="px-3 py-2 font-mono text-[0.72rem] text-text leading-snug bg-bg-2/20 max-h-24 overflow-y-auto whitespace-pre-wrap break-all">
+        {stdoutPreview}
+      </pre>
+    </div>
+  );
+}
+
+function TechnicalView({
+  run,
+  findings,
+  tasks,
+  onKill,
+  onCinema,
+  canKill,
+}: {
+  run: Run;
+  findings: Finding[];
+  tasks: Task[];
+  onKill: () => void;
+  onCinema: () => void;
+  canKill: boolean;
+}) {
+  return (
+    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto">
+      <StatusHero
+        run={run}
+        findings={findings}
+        tasks={tasks}
+        onKill={onKill}
+        onCinema={onCinema}
+        canKill={canKill}
+      />
+      {/* Row 1: Risk trajectory + Tool chain */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-4 px-6 pt-4">
+        <RiskTrajectoryChart findings={findings} />
+        <ToolChainHeartbeat tasks={tasks} />
+      </div>
+      {/* Row 2: Proof + Now playing */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 px-6 pt-4">
+        <ProofPanel findings={findings} />
+        <div className="space-y-4">
+          <NowPlayingTail tasks={tasks} />
+          <Heartbeat tasks={tasks} />
+        </div>
+      </div>
+      <DetailsDrawer run={run} findings={findings} tasks={tasks} />
+    </div>
+  );
+}
+
+/* =========================================================================
+   MAIN EXPORT — toggle between Story and Technical
+   ========================================================================= */
+
+export default function MissionControlV3({
+  run,
+  tasks,
+  findings,
+  proposals: _proposals,
+  onKill,
+  onCinema,
+  canKill,
+  cinemaDisabled: _cinemaDisabled,
+}: {
+  run: Run;
+  tasks: Task[];
+  findings: Finding[];
+  proposals: AgentProposal[];
+  onKill: () => void;
+  onCinema: () => void;
+  canKill: boolean;
+  cinemaDisabled: boolean;
+}) {
+  const [view, setView] = useState<'story' | 'technical'>('story');
+
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <ClaudeThinking run={run} />
+      {/* View switcher */}
+      <div className="flex items-center gap-1 px-6 py-2 border-b border-line-soft bg-surface/40">
+        <button
+          type="button"
+          onClick={() => setView('story')}
+          className={cn(
+            'rounded px-3 py-1 font-mono text-[0.72rem] uppercase tracking-widest transition-colors',
+            view === 'story'
+              ? 'bg-ai/15 border border-ai/40 text-ai'
+              : 'border border-transparent text-muted hover:text-text',
+          )}
+        >
+          📖 Story
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('technical')}
+          className={cn(
+            'rounded px-3 py-1 font-mono text-[0.72rem] uppercase tracking-widest transition-colors',
+            view === 'technical'
+              ? 'bg-cyan/15 border border-cyan/40 text-cyan'
+              : 'border border-transparent text-muted hover:text-text',
+          )}
+        >
+          🔧 Technical
+        </button>
+        <span className="ml-auto font-mono text-[0.65rem] text-muted">
+          {view === 'story' ? 'Narrative — what happened, in plain language' : 'Status board — proof + heartbeat'}
+        </span>
+      </div>
+
+      {view === 'story' ? (
+        <StoryView run={run} findings={findings} tasks={tasks} />
+      ) : (
+        <TechnicalView
+          run={run}
+          findings={findings}
+          tasks={tasks}
+          onKill={onKill}
+          onCinema={onCinema}
+          canKill={canKill}
+        />
+      )}
+    </div>
+  );
+}

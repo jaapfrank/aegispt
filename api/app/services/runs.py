@@ -4201,9 +4201,12 @@ def web_target_value_is_allowed_with_path(
     for raw_allowed in url_constraints:
         allowed = urlparse(raw_allowed)
         allowed_path = allowed.path or "/"
+        # Treat trailing slash as cosmetic: /{instance} and /{instance}/ must
+        # both be accepted when the scope allowlist has one or the other.
         if (
             allowed_path == "/"
             or candidate_path == allowed_path
+            or candidate_path.rstrip("/") == allowed_path.rstrip("/")
             or candidate_path.startswith(allowed_path.rstrip("/") + "/")
         ):
             return True
