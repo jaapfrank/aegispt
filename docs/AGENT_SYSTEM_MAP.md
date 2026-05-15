@@ -74,16 +74,16 @@ External-tool wrappers — generic by virtue of being thin layers on mature tool
 - `smart_web_probe` (Claude Sonnet 4.6 reasoning per app)
 - `xss_proof` (uses `_try_register_with_ai` for app-agnostic auth — important reference implementation)
 - `lan_intel` (Claude Haiku, generic LAN analysis)
+- **`info_disclosure_probe`** (migrated #328 — generic catalog only, `.gtl` paths stripped)
+- **`stored_xss_probe`** (migrated #328 — uses `auth_discoverer.acquire_session()` for emergent auth)
+- **`file_upload_probe`** (migrated #328 — uses `auth_discoverer.acquire_session()`)
+- **`param_pollution_probe`** (migrated #328 — uses `auth_discoverer.fetch_auth_pages` + `fingerprint_application` for endpoint discovery; mass-assignment attack stays custom)
+- **`cookie_tamper_probe`** (migrated #328 — uses `auth_discoverer.fetch_auth_pages` + `fingerprint_application` for endpoint discovery; crafted-username register stays custom)
 
-### Verified Gruyere-specific (silently no-op on other apps)
-Built in the recent push to catch Gruyere R1/R2/R3/R4/R5/R7/R10/R15/R20 — hardcoded `saveprofile?action=new&uid=...&pw=...` registration:
-- `info_disclosure_probe` (works generically but probes Gruyere-named paths first)
-- `param_pollution_probe` (Gruyere registration flow)
-- `stored_xss_probe` (Gruyere registration flow)
-- `cookie_tamper_probe` (Gruyere registration flow)
-- `file_upload_probe` (Gruyere registration flow)
+**Empirical test 2026-05-16 (post-#328 generality run)**: `scripts/test_probe_generality.py` against juice-shop + demo.testfire.net + testasp.vulnweb.com confirms all 5 probes reach the testing stage (`attempts > 0`) on all 3 non-Gruyere targets, satisfying the no-regression-on-non-Gruyere acceptance criterion. Gruyere parity verified via 15/15 mock-based parity tests in `workers/tests/test_*_probe.py`.
 
-**Empirical test 2026-05-15**: all 5 produced 0 findings on `testasp.vulnweb.com`, `demo.testfire.net`, `juice-shop.herokuapp.com`. Root cause: hardcoded Gruyere auth pattern. See planned tasks #321-#330 to fix.
+### (no longer present) Verified Gruyere-specific
+This category was empty after #328. The 5 probes formerly listed here have been migrated and moved to "Verified generic" above. The reference history is kept in `DONE_LOG.md` under the #328 entry.
 
 ### The exec_plan engine (the existing primitive composer)
 `workers/runners/exec_plan/runner.py` (391 lines, 9 functions). **This is the closest thing to "Mythos-stijl" we already have.** Claude generates multi-step HTTP plans with capture/expect/on_success.create_finding. Used via `action: "exec_plan"` from picker. Grammar documented in `_AI_PICKER_SYSTEM_PROMPT` lines 210-300.

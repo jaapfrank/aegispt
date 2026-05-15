@@ -30,6 +30,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx as httpx_client
 
+from api.app.services.auth_discoverer import acquire_session
 from api.app.services.runs import web_target_value_is_allowed_with_path
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
@@ -83,23 +84,16 @@ def _path_root(target: str) -> str:
     return target
 
 
-def _register_as_author(client: httpx_client.Client, base: str) -> str | None:
-    uid = "fu" + _suffix()
-    pw = "pw" + _suffix()
-    candidates = [
-        ("saveprofile", {"action": "new", "uid": uid, "pw": pw, "is_author": "True"}),
-        ("saveprofile", {"action": "new", "uid": uid, "pw": pw}),
-        ("register", {"username": uid, "password": pw, "is_author": "True"}),
-        ("signup", {"username": uid, "password": pw}),
-    ]
-    for endpoint, params in candidates:
-        try:
-            resp = client.get(urljoin(base, endpoint), params=params, follow_redirects=False)
-        except httpx_client.RequestError:
-            continue
-        if resp.status_code in (200, 302) and len(client.cookies) > 0:
-            return uid
-    return None
+def _acquire_session_for_target(
+    base: str, scope_allowlist: dict[str, Any] | None
+) -> tuple[httpx_client.Client | None, str | None]:
+    """Migration #328: replaces the previous Gruyere-specific
+    `_register_as_author` helper with the shared auth_discoverer
+    pipeline. Returns (client, username) on success or (None, None)."""
+    session = acquire_session(base, scope_allowlist=scope_allowlist)
+    if session is None:
+        return None, None
+    return session.get("client"), session.get("username")
 
 
 def _extract_uploaded_url(response_body: str, base: str, uid: str, filename: str) -> str | None:
@@ -153,14 +147,22 @@ def execute_file_upload_probe(
         trace_entry: dict[str, Any] = {"target": target, "base": base, "attempts": []}
         seen_xss = False
         seen_traversal = False
-        for endpoint in UPLOAD_ENDPOINTS:
+
+        # Acquire session ONCE per target via the shared auth_discoverer
+        # pipeline (replaces the previous per-endpoint Gruyere-specific
+        # _register_as_author). Cache makes repeats cheap.
+        client, uid = _acquire_session_for_target(base, scope_allowlist)
+        if client is None or uid is None:
+            trace_entry["attempts"].append({"result": "auth_unavailable"})
+            trace.append(trace_entry)
+            continue
+
+        try:
+          for endpoint in UPLOAD_ENDPOINTS:
             upload_url = urljoin(base, endpoint)
             if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, upload_url):
                 continue
-            with httpx_client.Client(timeout=timeout_seconds, follow_redirects=False) as client:
-                uid = _register_as_author(client, base)
-                if uid is None:
-                    continue
+            if True:
                 for variant_label, filename_template in FILENAME_VARIANTS:
                     marker = "AEGISFU_" + "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
                     filename = filename_template.replace("{MARK}", marker)
@@ -245,6 +247,11 @@ def execute_file_upload_probe(
                                 f"CRITICAL: path traversal via filename — wrote to {served_url}"
                             )
                             seen_traversal = True
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
         trace.append(trace_entry)
 
     result = {

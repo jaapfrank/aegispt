@@ -7,11 +7,11 @@ and produces "Hidden Endpoint Discovered" findings without checking the
 signals (cleartext passwords, dump-like payloads, config secrets) and
 flags HIGH-severity info-disclosure findings only when content confirms.
 
-Target gaps explicitly addressed:
-- Google Gruyere `/dump.gtl` (R20 — cleartext password dump)
-- `.env`, `.git/config`, `phpinfo.php` style misconfigs
-- Java/Spring Actuator endpoints
-- Generic admin/debug pages that return JSON of records
+Migration #328: hardcoded Google-Gruyere `.gtl` paths removed from the
+probe list. The generic catalog (`/dump`, `/dump.json`, `/debug`, etc.)
+covers the same surface on any stack. Where authenticated debug endpoints
+exist, callers can chain with auth_discoverer.acquire_session, but this
+probe itself runs unauthenticated against generic info-disclosure paths.
 """
 from __future__ import annotations
 
@@ -35,17 +35,17 @@ MAX_BODY_BYTES = 32_768
 MAX_PROBES_PER_TARGET = 60
 
 # Paths grouped by what they typically reveal.
+# NOTE: Gruyere-specific `.gtl` paths removed in #328 — the generic
+# catalog below covers the same surface on any stack.
 PROBE_PATHS: tuple[tuple[str, str], ...] = (
     # --- generic debug dumps ---
     ("/dump", "debug-dump"),
-    ("/dump.gtl", "debug-dump"),  # Google Gruyere R20
     ("/dump.json", "debug-dump"),
     ("/dump.txt", "debug-dump"),
     ("/_dump", "debug-dump"),
     ("/__dump__", "debug-dump"),
     ("/debug", "debug-dump"),
     ("/_debug", "debug-dump"),
-    ("/debug.gtl", "debug-dump"),
     ("/debug/vars", "debug-dump"),
     ("/debug/pprof", "debug-dump"),
     ("/console", "debug-console"),
@@ -182,10 +182,10 @@ def _probe_urls(target_url: str) -> list[tuple[str, str]]:
 def _detect_sensitive(text: str) -> list[tuple[str, str]]:
     hits: list[tuple[str, str]] = []
     truncated = text[:MAX_BODY_BYTES]
-    for label, pattern in _SENSITIVE_PATTERNS:
+    for pattern_label, pattern in _SENSITIVE_PATTERNS:
         m = pattern.search(truncated)
         if m:
-            hits.append((label, m.group(0)[:120]))
+            hits.append((pattern_label, m.group(0)[:120]))
     return hits
 
 
@@ -243,7 +243,7 @@ def execute_info_disclosure_probe(
                     continue
                 hits = _detect_sensitive(body) if status == 200 else []
                 if status == 200 and hits:
-                    severity = "critical" if any(label in {"password_leak", "etc_passwd", "user_dump", "private_key_leak", "aws_secret", "env_secret"} for label, _ in hits) else "high"
+                    severity = "critical" if any(hit_label in {"password_leak", "etc_passwd", "user_dump", "private_key_leak", "aws_secret", "env_secret"} for hit_label, _ in hits) else "high"
                     findings_payload.append({
                         "title": f"Info Disclosure — {category} — {hits[0][0]}",
                         "severity": severity,
@@ -253,7 +253,7 @@ def execute_info_disclosure_probe(
                             "url": url,
                             "status": status,
                             "category": category,
-                            "leak_patterns": [{"type": l, "sample": s} for l, s in hits[:5]],
+                            "leak_patterns": [{"type": hit_label, "sample": sample} for hit_label, sample in hits[:5]],
                             "body_excerpt": body[:600],
                         },
                     })

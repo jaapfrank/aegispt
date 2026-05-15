@@ -2,41 +2,45 @@
 
 ## Title
 
-Migrate Five Probes from Gruyere Auth Pattern to Auth Discoverer
+Review Checkpoint: Universal Auth Probes Working Across Stacks (Phase 2 close-out)
 
 ## Goal
 
-Refactor `info_disclosure_probe`, `param_pollution_probe`, `stored_xss_probe`, `cookie_tamper_probe`, and `file_upload_probe` to call `auth_discoverer` (cache → fingerprint → AI recipe → verify) instead of their hardcoded `saveprofile?action=new` pattern. Validate that all five produce non-zero findings on at least 2 non-Gruyere targets and continue to find Gruyere R1/R2/R3/R5/R7/R10/R15/R20 on Gruyere.
+After #325-#328, verify the 5 migrated probes actually find vulnerabilities on at least 2 non-Gruyere targets, Gruyere parity is preserved, the cache is working, and no Gruyere-specific patterns remain in production code. Decide go/no-go for Phase 3.
 
 ## Scope
 
-- Replace each probe's local `_register_as_author` / `_register_with_delimiter` logic with a call to the auth_discoverer pipeline (lookup_recipe → build_recipe → verify_recipe → store_recipe).
-- Keep each probe's vulnerability-specific testing logic.
-- Add an empirical generality test (`scripts/test_probe_generality.py`) that runs each probe against Gruyere + juice-shop + demo.testfire.net + testasp.vulnweb.com and records `findings_count` per `(probe, target)`.
-- Update `docs/AGENT_SYSTEM_MAP.md` section 3 to move the 5 probes from "Gruyere-specific" to "Verified-generic" once parity + generality are met.
+- Operator + agent review of work from backlog-375 (#325), backlog-376 (#326), backlog-377 (#327), backlog-378 (#328).
+- Live run of `scripts/test_probe_generality.py` across Gruyere + juice-shop + demo.testfire.net + testasp.vulnweb.com.
+- Written checkpoint report at `docs/checkpoints/2026-mythos-phase2-review.md` with go/no-go on Phase 3.
+
+## REVIEW CHECKPOINT — AGENT MUST STOP
+
+**This is a review checkpoint (#329 in the Mythos plan; #324 was Phase 1's equivalent).** Per the universal prompt rule, the agent **STOPS** here and asks operator for explicit go/no-go before executing the checkpoint's body (live runs + report generation + Phase 3 promotion).
+
+When operator approves: agent proceeds to (1) run the generality script against all 4 targets (operator may want to spin up a local Gruyere first since the previous run found it unreachable in this WSL env), (2) write `docs/checkpoints/2026-mythos-phase2-review.md` citing real findings_count numbers from the matrix (no aspirational claims), (3) confirm cache hit rate via second-run replay, (4) reconfirm AGENT_SYSTEM_MAP section 3 reflects the migration, (5) emit explicit GO or NO-GO with justification, (6) on GO: promote backlog-380 (#330 Picker Structured Outputs) into NEXT_TASK; on NO-GO: name + queue a corrective task.
 
 ## Constraints
 
-- Migrate ONLY the named 5 probes. Do NOT touch `xss_proof`, `smart_web_probe`, or other runners.
-- No-regression on Gruyere: each migrated probe MUST still find the same vulnerability classes it found before migration (R1/R2/R3/R5/R7/R10/R15/R20 as applicable).
-- Test targets: probes must be validated against at least Gruyere + 2 of {juice-shop.herokuapp.com, demo.testfire.net, testasp.vulnweb.com}. Zero-findings is acceptable on targets that lack the vulnerability class, but `attempts > 0` is required.
-- Must NOT touch: `api/app/services/assessment_loop.py`, `api/app/services/auth_discoverer.py` core API, `workers/runners/xss_proof/`, `workers/runners/smart_web_probe/`, `workers/orchestration/tasks.py` SUPPORTED_TOOLS set.
+- Review only. NO production code changes. Output is a checkpoint report and a yes/no decision on Phase 3 promotion.
+- Evidence requirement: report must cite real findings_count numbers, not aspirational claims.
+- Must NOT touch: `api/app/services/`, `workers/runners/`, `workers/orchestration/`, `ui-v2/` — review-only task.
 
 ## Source Package
 
-`codex/tasks/backlog-378-migrate-five-probes-to-auth-discoverer.json`
+`codex/tasks/backlog-379-review-checkpoint-universal-probes.json`
 
 ## Reference
 
-- `api/app/services/auth_discoverer.py` (#325 + #326 + #327 — all merged)
-- `workers/runners/xss_proof/runner.py` (reference for auth-aware probe pattern; do NOT modify)
-- `docs/AGENT_SYSTEM_MAP.md` section 3
+- `DONE_LOG.md` (entries for #325, #326, #327, #328a foundation, #328 completion)
+- `docs/AGENT_SYSTEM_MAP.md` section 3 (post-migration runner inventory)
+- `scripts/test_probe_generality.py` (the generality test harness)
+- `api/app/services/auth_discoverer.py` (~1500 lines: fetch_auth_pages, fingerprint_application, build_recipe, lookup/store/verify/mark_stale, acquire_session)
+- `workers/runners/{info_disclosure,stored_xss,file_upload,param_pollution,cookie_tamper}_probe/runner.py` (the 5 migrated probes)
+- `docs/checkpoints/2026-mythos-phase1-review.md` (template format for the Phase 2 checkpoint report)
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest workers/tests/test_info_disclosure_probe.py workers/tests/test_param_pollution_probe.py workers/tests/test_stored_xss_probe.py workers/tests/test_cookie_tamper_probe.py workers/tests/test_file_upload_probe.py`
-- `python3 -m compileall -q workers`
-- `.venv/bin/ruff check workers/runners/info_disclosure_probe workers/runners/param_pollution_probe workers/runners/stored_xss_probe workers/runners/cookie_tamper_probe workers/runners/file_upload_probe`
+- `test -f docs/checkpoints/2026-mythos-phase2-review.md`
 - `python3 scripts/test_probe_generality.py`
-- `git diff --check`

@@ -22,13 +22,13 @@ from __future__ import annotations
 import json
 import logging
 import random
-import re
 import string
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx as httpx_client
 
+from api.app.services.auth_discoverer import acquire_session
 from api.app.services.runs import web_target_value_is_allowed_with_path
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
@@ -91,26 +91,17 @@ def _path_root(target: str) -> str:
     return target
 
 
-def _register_as_author(client: httpx_client.Client, base: str) -> str | None:
-    """Register with author-grant attempts. Returns username on success."""
-    uid, pw = _random_creds()
-    # Try Gruyere-style register with author flag
-    candidates = [
-        ("saveprofile", {"action": "new", "uid": uid, "pw": pw, "is_author": "True"}),
-        ("saveprofile", {"action": "new", "uid": uid, "pw": pw}),
-        ("register", {"username": uid, "password": pw, "is_author": "True"}),
-        ("register", {"username": uid, "password": pw}),
-        ("signup", {"username": uid, "password": pw}),
-    ]
-    for endpoint, params in candidates:
-        url = urljoin(base, endpoint)
-        try:
-            resp = client.get(url, params=params, follow_redirects=False)
-        except httpx_client.RequestError:
-            continue
-        if resp.status_code in (200, 302) and len(client.cookies) > 0:
-            return uid
-    return None
+def _acquire_session_for_target(
+    base: str, scope_allowlist: dict[str, Any] | None
+) -> tuple[httpx_client.Client | None, str | None]:
+    """Migration #328: replaces the previous Gruyere-specific
+    `_register_as_author` helper with the shared auth_discoverer
+    pipeline (fingerprint -> cache -> AI recipe -> verify -> execute).
+    Returns (client, username) on success or (None, None) on failure."""
+    session = acquire_session(base, scope_allowlist=scope_allowlist)
+    if session is None:
+        return None, None
+    return session.get("client"), session.get("username")
 
 
 def _is_unescaped(payload: str, body: str) -> bool:
@@ -153,25 +144,31 @@ def execute_stored_xss_probe(
     for target in web_targets:
         base = _path_root(target)
         trace_entry: dict[str, Any] = {"target": target, "base": base, "attempts": []}
-        for submit_path, param_name, render_path in SUBMIT_RENDER_PAIRS:
-            submit_url = urljoin(base, submit_path)
-            render_url = urljoin(base, render_path)
-            if scope_allowlist:
-                if not web_target_value_is_allowed_with_path(scope_allowlist, submit_url):
-                    continue
-                if not web_target_value_is_allowed_with_path(scope_allowlist, render_url):
-                    continue
-            with httpx_client.Client(timeout=timeout_seconds, follow_redirects=False) as client:
-                uid = _register_as_author(client, base)
-                if uid is None:
-                    continue
+
+        # Acquire session ONCE per target via the shared auth_discoverer
+        # pipeline. Cache makes repeats cheap; verify guarantees the
+        # session is alive before submitting payloads.
+        client, uid = _acquire_session_for_target(base, scope_allowlist)
+        if client is None or uid is None:
+            trace_entry["attempts"].append({"result": "auth_unavailable"})
+            trace.append(trace_entry)
+            continue
+
+        try:
+            for submit_path, param_name, render_path in SUBMIT_RENDER_PAIRS:
+                submit_url = urljoin(base, submit_path)
+                render_url = urljoin(base, render_path)
+                if scope_allowlist:
+                    if not web_target_value_is_allowed_with_path(scope_allowlist, submit_url):
+                        continue
+                    if not web_target_value_is_allowed_with_path(scope_allowlist, render_url):
+                        continue
                 for label, template in PAYLOAD_TEMPLATES:
                     marker = "AEGISXSS_" + "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
                     payload = template.replace("{MARK}", marker)
                     try:
-                        # Try both GET-with-params (Gruyere) and POST-with-form
                         submit_resp = client.get(submit_url, params={param_name: payload}, follow_redirects=False)
-                        if submit_resp.status_code == 405:  # method not allowed
+                        if submit_resp.status_code == 405:
                             submit_resp = client.post(submit_url, data={param_name: payload}, follow_redirects=False)
                     except httpx_client.RequestError:
                         continue
@@ -213,9 +210,11 @@ def execute_stored_xss_probe(
                         stderr_lines.append(
                             f"CRITICAL: stored XSS ({label}) reflected on {render_url}"
                         )
-            # Note: not breaking after success — try all submission endpoints
-            # so we get full coverage. But within a (submit,render) pair, all
-            # payloads run sequentially; that's fine.
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
         trace.append(trace_entry)
 
     result = {"trace": trace, "findings": findings_payload, "attempt_count": sum(len(t["attempts"]) for t in trace)}
