@@ -1,6 +1,10 @@
 # Current State
 
-## Latest Continuation — Mythos Phase 1 Picker Reads Graph (2026-05-15)
+## Latest Continuation — Mythos Phase 1 CLOSED, GO for Phase 2 (2026-05-15)
+
+Mythos task #324 (Phase 1 Review Checkpoint) executed with live runs on 3 contrasting target stacks (Gruyere/Python, juice-shop/Node SPA, testfire/Java JSP). All Phase 1 success criteria met: pilot observations persist (asset, api, identity, credential_ref entities across all 3 targets), build_normalized_evidence_graph merges them correctly (69-146 nodes per run), project_graph_for_picker renders well under 4KB budget (994-3870 chars), picker user_content cache_creation tokens prove graph block reaches the prompt. Surfaced 7 failed tasks in Heartbeat — 5 exec-plan URL-construction issues + 1 sqlmap missing-parameter + 1 Gruyere exec-plan — all caught by existing safety gates. Not Phase 1 regressions; same class of failure observed pre-Phase-1. Phase 3 #330 will fix permanently via JSON schema. Decision: **GO for Phase 2.** Checkpoint report: `docs/checkpoints/2026-mythos-phase1-review.md`. AGENT_SYSTEM_MAP section 4 updated to post-Phase-1 reality. NEXT_TASK promoted to backlog-375 (#325 Auth Discoverer Form Detection + Application Fingerprint).
+
+## Earlier — Mythos Phase 1 Picker Reads Graph (2026-05-15)
 
 Mythos task #323 (backlog-373 — AI Picker Consumes Normalized Evidence Graph) completed. New `project_graph_for_picker()` in assessment_graph.py emits token-bounded compact text from the normalized graph; picker `_claude_select_next_action` inserts the projection between outcomes and target-intel plan blocks. Empty/sparse graph falls back to no projection (existing behavior unchanged). 16 new tests in test_assessment_loop_graph_projection.py all pass; existing test_assessment_graph.py 4/4 pass; 5 pre-existing test_assessment_loop.py failures (status drift) unchanged on HEAD. Phase 1 evidence-graph work (#321-#323) complete. NEXT_TASK promoted to backlog-374 (#324 Phase 1 Review Checkpoint — STOP, operator go/no-go required before #325).
 

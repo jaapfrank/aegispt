@@ -92,24 +92,34 @@ last_verified: 2026-05-15
 
 ---
 
-## 4. Evidence model — what exists vs what is underused
+## 4. Evidence model — what exists, post Phase-1 reality
 
 | Component | Path | Status |
 |---|---|---|
 | Findings model | `api/app/models/control.py` | Used everywhere |
 | Tasks model | `api/app/models/control.py` | Used everywhere |
+| **EvidenceObservation model** | `api/app/models/control.py` (added #322) | Runner-emitted structured entities (asset, api, identity, credential_ref, etc.) — table `evidence_observations`, migration `20260515_0033` |
 | Audit events (append-only) | DB table `audit_events` | Active. Narrator panels stored here. |
 | `build_assessment_graph()` | `api/app/services/assessment_graph.py` | Source graph from run/task/finding tables |
-| `build_normalized_evidence_graph()` | `api/app/services/assessment_graph.py:371` | Normalized graph (nodes by entity type, edges with provenance + confidence). **Exists, mature, but underused by picker.** |
+| `build_normalized_evidence_graph()` | `api/app/services/assessment_graph.py:371` | Normalized graph; now also merges EvidenceObservation rows via `_runner_observation_nodes()` |
+| **`project_graph_for_picker()`** | `api/app/services/assessment_graph.py` (added #323) | Token-bounded compact text projection. Default 3500-token budget. Per-group cap 25, per-line cap 200 chars, char-budget `max_tokens*4`. Returns empty string for sparse graphs. |
+| **`evidence_ingest.py`** | `api/app/services/evidence_ingest.py` (added #322) | Runner-side `make_observation()` + orchestrator-side `persist_runner_observations()` + graph-side `load_run_observations()` |
 | Evidence integrity service | `api/app/services/evidence_integrity.py` | Hash chain + signatures |
-| Next-evidence-action recommender | `api/app/services/next_evidence_action.py` | Picker hint generator (used) |
+| Next-evidence-action recommender | `api/app/services/next_evidence_action.py` | Picker hint generator (used alongside graph projection) |
 | Hypothesis confidence | `api/app/services/hypothesis_confidence.py` | Scoring of finding hypotheses |
 | SaaS identity trust | `api/app/services/saas_identity_trust.py` | SaaS-specific evidence trust |
-| Docs | `docs/evidence_graph_normalizer.md` | Schema reference |
+| Docs | `docs/evidence_graph_normalizer.md`, `docs/evidence_graph_adoption_plan.md` | Schema + adoption plan |
+| **Picker integration** | `assessment_loop.py` `_claude_select_next_action` (#323) | Picker inserts graph projection block between outcomes and target-intel plan. Falls back to empty when graph sparse. Confirmed on live Gruyere/juice-shop/testfire runs 2026-05-15. |
 
-**Key insight**: the normalized evidence graph already represents nodes (asset, api, identity, saas_connector, permission, credential_ref, finding) with edges that carry `confidence`, `evidence_refs`, `provenance`. The picker today reads findings + tested_keys + task_outcomes (string-shaped), not the graph. Bridging this is task **#323**.
+**Phase 1 status (closed 2026-05-15 via checkpoint #324):**
 
-last_verified: 2026-05-15
+- 4 pilot runners migrated to emit observations: `target_intel`, `smart_web_probe`, `xss_proof`, `web_depth.content_discovery`.
+- On the three contrasting target stacks tested at the checkpoint (Gruyere/Python, juice-shop/Node SPA, testfire/Java JSP), `target_intel` + `smart_web_probe` emit assets+apis universally. `xss_proof` emits identity+credential_ref on Gruyere and testfire (form-based auth) but not juice-shop (REST API auth — Phase 2 #325-#329 will add this).
+- Graph projection produces 994-3,870 chars per run on real data — well under the 4 KB soft target. See `docs/checkpoints/2026-mythos-phase1-review.md`.
+
+**Remaining underuse (Phase 2+ scope):** the 5 Gruyere-specific vulnerability probes (info_disclosure_probe, param_pollution_probe, stored_xss_probe, cookie_tamper_probe, file_upload_probe) do not yet emit observations and remain hardcoded to Gruyere's `saveprofile?action=new` auth pattern. Their migration is Phase 2 work (#325-#328).
+
+last_verified: 2026-05-15 (post Phase-1 review #324)
 
 ---
 

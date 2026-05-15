@@ -2,40 +2,41 @@
 
 ## Title
 
-Review Checkpoint: Evidence-Graph Foundation On Target
+Auth Discoverer: HTML Form Detection and Application Fingerprint
 
 ## Goal
 
-Step back after #321-#323 and verify the evidence-graph adoption work is on track. Confirm graph entities flow end-to-end from runners through ingestion helpers into the picker context. Catch architectural drift before committing to Phase 2.
+Implement a shared service that fetches a target's registration / login page, parses the HTML form structure (action URL, method, field names, hidden inputs), and emits a normalized application fingerprint suitable for use as a cache key and as input to the AI recipe builder (task #326).
 
 ## Scope
 
-Operator + agent review of work merged from backlog-371, -372, -373. Live test on at least 2 contrasting targets (Gruyere + one non-Gruyere) showing graph-aware picker decisions. Written checkpoint report with go/no-go on Phase 2.
+- Create `api/app/services/auth_discoverer.py` with two pure functions:
+  - `fetch_auth_pages(base_url, scope_allowlist)` — probes common register/login paths
+  - `fingerprint_application(html_documents)` — parses HTML forms and returns normalized fingerprint dict
+- Reuse existing scope check helpers
+- No AI calls in this task (that is #326)
+- Pure HTML parsing + heuristic stack detection
 
 ## Constraints
 
-- Review only. No production code changes. Output is a checkpoint report and a yes/no decision on Phase 2 promotion.
-- Decision gate: if review surfaces architectural drift or scope creep, the report must identify the corrective task before #325 is promoted.
+- Form detection + fingerprint only. No AI calls in this task. No cache logic (that is #327). No probe migration (that is #328).
+- All HTTP requests must respect the passed scope_allowlist via `web_target_value_is_allowed_with_path`.
+- Fingerprint must be deterministic for identical inputs.
 
 ## Source Package
 
-`codex/tasks/backlog-374-review-checkpoint-foundation.json`
+`codex/tasks/backlog-375-auth-discoverer-form-detection.json`
 
 ## Reference
 
-- `docs/evidence_graph_adoption_plan.md` (#321 audit output)
-- `docs/MYTHOS_PLAN_FINALITY.md` (governance contract)
+- `docs/evidence_graph_adoption_plan.md`
+- `workers/runners/xss_proof/runner.py` (`_try_register_with_ai` reference implementation)
+- `docs/checkpoints/2026-mythos-phase1-review.md` (Phase 1 GO decision context)
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `test -f docs/checkpoints/2026-mythos-phase1-review.md`
-
-## REVIEW CHECKPOINT — STOP
-
-This is a Phase 1 review checkpoint per the Mythos plan. Per the universal session prompt:
-- The agent must NOT auto-execute this checkpoint without operator authorization.
-- Live runs against contrasting targets need operator decision on which targets are in scope.
-- The checkpoint report itself is a deliberation document, not a coding task.
-
-Operator action required before this task can proceed: say "go" and confirm which non-Gruyere target to run against (juice-shop / testfire / testasp / your lab AD).
+- `.venv/bin/pytest api/tests/test_auth_discoverer.py`
+- `python3 -m compileall -q api`
+- `.venv/bin/ruff check api/app/services/auth_discoverer.py`
+- `git diff --check`

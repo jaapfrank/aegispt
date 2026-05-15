@@ -1,0 +1,96 @@
+{
+  "id": "backlog-389-ui-approve-next-button-broken-onclick-wiring",
+  "task_file": "codex/tasks/backlog-389-ui-approve-next-button-broken-onclick-wiring.json",
+  "task_type": "ui_bugfix",
+  "title": "Mission Control Approve-Next Button: Wire onClick to ai-proposals Review Endpoint",
+  "goal": "The 'Approve next' button in MissionControlV3.tsx is currently a visual placeholder with no onClick handler — clicking it produces no effect. Wire it to POST /api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review so operators can actually approve intrusive pivots from the UI. Same fix needed for the 'Pause' button.",
+  "scope": "Modify ui-v2/src/components/screens/MissionControlV3.tsx Action row to derive the most recent pending intrusive proposal for the active run and wire the button to call the review endpoint with decision='approved'. Add a similar handler for Pause (sets a run-level pause flag).",
+  "status": "queued",
+  "generated_by": "phase1-checkpoint-bug-surface-20260515",
+  "generation_reason": "Operator surfaced on 2026-05-15 during Phase 1 checkpoint #324 that clicking the Approve-next button has no effect. Code inspection confirmed MissionControlV3.tsx:244 has no onClick handler — pure cosmetic placeholder. The correct backend endpoint exists (POST /runs/{run_id}/ai-proposals/{proposal_id}/review at api/app/routers/runs.py:1921) but the UI is not calling it. This is a real operator workflow break: intrusive-tier governance shows the approval gate but cannot be acted on from the UI.",
+  "source_context": {
+    "queue_index": 339,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mission_control_governance_ux_correctness",
+    "key_files": [
+      "ui-v2/src/components/screens/MissionControlV3.tsx",
+      "ui-v2/src/api/runs.ts",
+      "ui-v2/src/api/types.ts",
+      "api/app/routers/runs.py",
+      "docs/checkpoints/2026-mythos-phase1-review.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Approve-next + Pause button wiring only. Do NOT redesign the Action row layout, do NOT add new proposal types, do NOT change the underlying approval API contract.",
+    "no_governance_bypass": "The new onClick must use the existing POST /runs/{run_id}/ai-proposals/{proposal_id}/review endpoint. Do not add a new bypass route. Server-side scope/tier governance remains authoritative."
+  },
+  "success_criteria": [
+    "MissionControlV3.tsx Approve-next button has an onClick handler that resolves the most recent pending intrusive AgentProposal for the active run and POSTs review with decision='approved'.",
+    "Button shows a loading state during the request and a brief success/error indicator on completion.",
+    "Pause button has an onClick handler that marks the run paused (existing run-state mechanism).",
+    "Playwright test covers the happy path: approval succeeds + UI updates run status.",
+    "If no pending proposal exists, button is disabled with a tooltip explaining why.",
+    "Cinema + Kill buttons are unchanged."
+  ],
+  "likely_touched_files": [
+    "ui-v2/src/components/screens/MissionControlV3.tsx",
+    "ui-v2/src/api/runs.ts",
+    "ui-v2/tests/react-v2-critical-paths.spec.ts",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/routers/runs.py review endpoint (already correct)",
+    "api/app/services/approvals.py",
+    "Backend governance logic"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "cd ui-v2 && npm run lint",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run test:e2e -- --grep approve-next",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Approve-next click results in actual POST to /api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review.",
+      "UI state reflects the approval result (success/error).",
+      "No regression in Cinema, Kill, or other UI flows."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Record in NEXT_TASK.md the next queued task or operator decision per Mythos plan continuation."
+    ]
+  },
+  "out_of_scope": [
+    "Pause-button design beyond the simple click-to-pause action.",
+    "Multi-proposal selection UI (current behavior: most recent pending wins).",
+    "Server-side approval logic changes (already correct).",
+    "Approval audit trail UI surface (separate scope)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

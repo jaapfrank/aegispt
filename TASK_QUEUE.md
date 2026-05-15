@@ -358,3 +358,4 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 336. Mythos Phase 4 — Non-HTTP Primitives: SMB and LDAP as exec_plan Steps `codex/tasks/backlog-386-non-http-primitives-smb-ldap.json`
 337. Mythos Final Review — Convergence Demo and Capability Sign-Off `codex/tasks/backlog-387-final-review-mythos-convergence-demo.json`
 338. Mythos Tool Breadth — Specialized Tool Pack Fork from HexStrike (10-15 wrappers) `codex/tasks/backlog-388-specialized-tool-pack-fork-from-hexstrike.json`
+339. Mission Control Approve-Next Button — Wire onClick to ai-proposals review endpoint (UI bug surfaced during #324 checkpoint) `codex/tasks/backlog-389-ui-approve-next-button-broken-onclick-wiring.json`

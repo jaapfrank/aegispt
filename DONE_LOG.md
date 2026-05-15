@@ -1,5 +1,21 @@
 # Done Log
 
+- 2026-05-15: queued new backlog-389 (#339 — Mission Control Approve-Next Button Broken onClick Wiring) during #324 checkpoint:
+  - rationale: operator surfaced that the Approve-next button in MissionControlV3.tsx has no effect when clicked. Code inspection confirmed line 244 is a visual placeholder with no onClick handler. The backend endpoint POST /api/v1/runs/{run_id}/ai-proposals/{proposal_id}/review exists and is correct; UI just doesn't call it.
+  - filed as concrete backlog task per "no_untracked_future_work" constraint.
+  - workaround until fix lands: agent uses API endpoint directly per [[intrusive-pivot-auto-approval]] memory entry.
+
+- 2026-05-15: completed Mythos task #324 (backlog-374 — Phase 1 Review Checkpoint): **GO for Phase 2**
+  - executed live runs on 3 contrasting target stacks:
+    - Gruyere (run fd03c908): 146 graph nodes, 3870 char projection, asset+api+identity+credential+attack_path observations all present
+    - juice-shop (run c1bf6793): 99 graph nodes, 2095 char projection, asset+api observations present (no identity/credential — expected, REST-API auth not yet supported by xss_proof)
+    - testfire (run e839aa74): 69 graph nodes, 994 char projection, asset+api+identity+credential observations present (Java JSP form auth WORKS with existing _try_register_with_ai)
+  - confirmed: pilot observations persist via evidence_observations table; build_normalized_evidence_graph merges them correctly; project_graph_for_picker renders well under 4KB; picker user_content cache_creation tokens prove the graph block is in the prompt
+  - surfaced + analyzed: 7 failed tasks visible in Mission Control Heartbeat — 5 exec-plan URL-construction issues (Claude omits slash between ${target} and step path; scope check correctly rejects) and 1 sqlmap missing-parameter + 1 Gruyere exec-plan with same URL bug. ALL caught by existing safety gates. NOT a Phase 1 regression; same class of failure observed on pre-Phase-1 Gruyere run. Phase 3 task #330 (Picker Structured Outputs JSON Schema) will eliminate this class by enforcing format=uri on URL fields.
+  - deliverables: docs/checkpoints/2026-mythos-phase1-review.md (this checkpoint report) + AGENT_SYSTEM_MAP.md section 4 updated to post-Phase-1 reality + retained scripts/_checkpoint_*.py for future similar verifications (gitignored)
+  - decision: **GO for Phase 2.** All success criteria met. No legitimate revisit trigger fired. Promote backlog-375 (#325 Auth Discoverer Form Detection + Application Fingerprint).
+  - cost: 3 runs × multiple picker advances × ~$0.25 each = approximately $5-8 total (well within $10 operator-set budget).
+
 - 2026-05-15: completed Mythos task #323 (backlog-373 — AI Picker Consumes Normalized Evidence Graph):
   - rationale: picker today reads findings + tested_keys + task_outcomes as flat strings. Without graph context, the AI cannot reason about cross-runner pivoting or chains across target types. Bridging this is the cheapest unlock for cross-target reasoning.
   - implementation:
