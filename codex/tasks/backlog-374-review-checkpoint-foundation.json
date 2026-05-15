@@ -1,0 +1,95 @@
+{
+  "id": "backlog-374-review-checkpoint-foundation",
+  "task_file": "codex/tasks/backlog-374-review-checkpoint-foundation.json",
+  "task_type": "review_checkpoint",
+  "title": "Review Checkpoint: Evidence-Graph Foundation On Target",
+  "goal": "Step back after #321-#323 and verify the evidence-graph adoption work is on track. Confirm graph entities flow end-to-end from runners through ingestion helpers into the picker context. Catch architectural drift before committing to Phase 2.",
+  "scope": "Operator + agent review of work merged from backlog-371, -372, -373. Live test on at least 2 contrasting targets (Gruyere + one non-Gruyere) showing graph-aware picker decisions. Written checkpoint report with go/no-go on Phase 2.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Per operator request 2026-05-15: 'Zet in die taken na x aantal taken een taak om het allemaal weer netjes te controleren en te zorgen dat we on target blijven.' This is the first such checkpoint, gating Phase 2 (universal auth + pattern cache).",
+  "source_context": {
+    "queue_index": 324,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_1_review",
+    "key_files": [
+      "docs/AGENT_SYSTEM_MAP.md",
+      "docs/evidence_graph_adoption_plan.md",
+      "api/app/services/assessment_loop.py",
+      "api/app/services/assessment_graph.py",
+      "api/app/services/evidence_ingest.py",
+      "CURRENT_STATE.md",
+      "DONE_LOG.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Review only. No production code changes. Output is a checkpoint report and a yes/no decision on Phase 2 promotion.",
+    "decision_gate": "If review surfaces architectural drift or scope creep, the report must identify the corrective task before #325 is promoted."
+  },
+  "success_criteria": [
+    "docs/checkpoints/2026-mythos-phase1-review.md exists with: (a) what was built, (b) what works, (c) what is broken, (d) any deviation from #371 audit plan, (e) explicit go/no-go for Phase 2.",
+    "Live picker run on Gruyere shows graph entities consumed in decision context (logged or recorded in report).",
+    "Live picker run on one non-Gruyere target (e.g. juice-shop or demo.testfire.net) shows graph entities consumed.",
+    "AGENT_SYSTEM_MAP.md section 4 is updated to reflect post-Phase-1 reality.",
+    "If go: backlog-375 is promoted into NEXT_TASK.md. If no-go: corrective task is identified and queued."
+  ],
+  "likely_touched_files": [
+    "docs/checkpoints/2026-mythos-phase1-review.md",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "NEXT_TASK.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/",
+    "workers/runners/",
+    "workers/orchestration/",
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "test -f docs/checkpoints/2026-mythos-phase1-review.md"
+    ],
+    "acceptance_criteria": [
+      "Checkpoint report names specific evidence-graph entities visible in picker context on at least 2 targets.",
+      "Phase 2 go/no-go decision is explicit and justified.",
+      "Any drift from #371 audit is named and either accepted or scheduled to be corrected."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Tasks #321, #322, #323 must show as DONE in DONE_LOG.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-375 (or corrective task) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Any code change.",
+    "Implementing Phase 2 tasks early.",
+    "Reopening Phase 1 scope unless drift is documented."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

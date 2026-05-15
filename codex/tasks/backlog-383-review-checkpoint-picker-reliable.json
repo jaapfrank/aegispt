@@ -1,0 +1,92 @@
+{
+  "id": "backlog-383-review-checkpoint-picker-reliable",
+  "task_file": "codex/tasks/backlog-383-review-checkpoint-picker-reliable.json",
+  "task_type": "review_checkpoint",
+  "title": "Review Checkpoint: Picker Reliable, Cost-Controlled, On Target",
+  "goal": "After #330-#332, confirm the picker is now (a) parse-failure-free, (b) resilient to transient failures, (c) measurably cheaper per advance. Decide go/no-go for Phase 4 (cross-target + verifier).",
+  "scope": "Live run for at least 30 picker advances across 2 different runs (one Gruyere, one non-Gruyere). Measure parse-fail rate, retry rate, cost per advance from logs. Written checkpoint report with go/no-go on Phase 4.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Per operator request, a checkpoint after Phase 3 confirms picker hardening before Phase 4 (cross-target chains + verifier) is started. Cost data is critical: the original 2026-05-15 analysis showed ~$300/day, with caching + Phase 3 expected to land under $100/day.",
+  "source_context": {
+    "queue_index": 333,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_3_review",
+    "key_files": [
+      "docs/AGENT_SYSTEM_MAP.md",
+      "api/app/services/assessment_loop.py",
+      "api/app/services/memory_backend.py",
+      "CURRENT_STATE.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Review only. No production code changes. Output is a checkpoint report and a yes/no decision on Phase 4 promotion.",
+    "evidence_requirement": "Report must cite real numbers from logs: parse-fail count, retry count, avg input/output/cache tokens per hop, estimated daily cost."
+  },
+  "success_criteria": [
+    "docs/checkpoints/2026-mythos-phase3-review.md exists with: (a) parse-fail rate across 30+ advances, (b) retry-survival count, (c) avg cost per advance pre vs post Phase 3, (d) any deviation from #330-#332 plans, (e) explicit go/no-go for Phase 4.",
+    "Parse-fail rate is 0% over the test window.",
+    "Estimated daily cost (extrapolated from sample) is at most 35% of pre-Phase-3 baseline (was ~$300/day; target ~$100/day).",
+    "AGENT_SYSTEM_MAP.md section 2 'Known issues' on JSON parse and memory bloat are updated or removed.",
+    "If go: backlog-384 is promoted into NEXT_TASK.md. If no-go: corrective task is named and queued."
+  ],
+  "likely_touched_files": [
+    "docs/checkpoints/2026-mythos-phase3-review.md",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "NEXT_TASK.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/",
+    "workers/runners/",
+    "workers/orchestration/",
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "test -f docs/checkpoints/2026-mythos-phase3-review.md"
+    ],
+    "acceptance_criteria": [
+      "Cost reduction is empirical, not aspirational.",
+      "Parse-fail count is documented as a concrete number, ideally 0.",
+      "Phase 4 go/no-go decision is explicit and justified."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Tasks #330, #331, #332 must show as DONE in DONE_LOG.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-384 (or corrective task) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Any code change.",
+    "Implementing Phase 4 tasks early.",
+    "Reopening Phase 3 scope unless drift is documented."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

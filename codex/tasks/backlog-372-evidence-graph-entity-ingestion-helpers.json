@@ -1,0 +1,97 @@
+{
+  "id": "backlog-372-evidence-graph-entity-ingestion-helpers",
+  "task_file": "codex/tasks/backlog-372-evidence-graph-entity-ingestion-helpers.json",
+  "task_type": "service_layer",
+  "title": "Evidence-Graph Entity Ingestion Helpers Shared by Runners",
+  "goal": "Implement a thin shared helper module that runners call to register structured graph entities (asset, identity, credential_ref, endpoint, finding) and relationships during execution, so the normalized graph accumulates first-class entities rather than being reconstructed from stdout heuristics.",
+  "scope": "Create api/app/services/evidence_ingest.py (or equivalent) exposing a stable contract that runners can import to emit graph fragments. Wire it through build_normalized_evidence_graph so emitted fragments merge correctly with existing source-graph nodes. Migrate 3-5 high-value runners identified in the audit (#321) as pilot consumers.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Audit task #321 will identify that most runners produce evidence only via stdout strings + JSON artifacts. Without a shared ingestion helper, every runner reinvents how to write entities into the graph, causing inconsistent provenance and confidence handling.",
+  "source_context": {
+    "queue_index": 322,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_1_evidence_graph",
+    "key_files": [
+      "api/app/services/assessment_graph.py",
+      "api/app/services/evidence_integrity.py",
+      "workers/runners/base/contracts.py",
+      "docs/evidence_graph_adoption_plan.md",
+      "docs/evidence_graph_normalizer.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Helper module + pilot integration in 3-5 runners only. Do NOT migrate every runner here. Do NOT change the picker (that is task #323).",
+    "additive_only": "Helper must be additive. Existing runners that do not opt in continue to work via the source-graph reconstruction path."
+  },
+  "success_criteria": [
+    "New shared module exists with a typed contract for emitting (entity_type, entity_id, attributes, provenance) and (source_id, target_id, relationship, confidence) records.",
+    "build_normalized_evidence_graph merges directly-emitted entities with the existing source-graph nodes without duplicates.",
+    "3-5 pilot runners (selection driven by audit #321) call the helper and write at least one structured entity per execution.",
+    "Existing runner tests pass without modification for non-pilot runners.",
+    "New unit tests prove helper round-trips entities through the graph and merges with existing nodes."
+  ],
+  "likely_touched_files": [
+    "api/app/services/evidence_ingest.py",
+    "api/app/services/assessment_graph.py",
+    "api/tests/test_evidence_ingest.py",
+    "workers/runners/<3-5 pilot runners>/runner.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/assessment_loop.py",
+    "api/app/models/control.py finding schema fields",
+    "workers/runners/exec_plan/runner.py",
+    "workers/runners/capabilities.json"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_evidence_ingest.py api/tests/test_assessment_graph.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check api/app/services/evidence_ingest.py api/app/services/assessment_graph.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Helper emits entities that appear in build_normalized_evidence_graph output without duplication.",
+      "At least 3 runners produce structured entities during integration tests.",
+      "No regression in existing graph normalization tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-371 audit document must exist."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-373 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Picker changes.",
+    "Migrating all 75 runners in this task.",
+    "New node or edge types beyond what build_normalized_evidence_graph already supports."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

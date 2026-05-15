@@ -1,0 +1,96 @@
+{
+  "id": "backlog-380-picker-structured-outputs-schema",
+  "task_file": "codex/tasks/backlog-380-picker-structured-outputs-schema.json",
+  "task_type": "ai_loop",
+  "title": "Picker Structured Outputs via output_config.format JSON Schema",
+  "goal": "Replace the picker's text-then-JSON-parse path with Anthropic structured outputs (output_config.format with a json_schema) so Claude is forced to produce a syntactically valid JSON action that matches the pick/level_up/stop/exec_plan discriminator. Eliminates the entire class of JSON parse failures observed on 2026-05-15.",
+  "scope": "Modify api/app/services/assessment_loop.py _claude_select_next_action to add output_config={'format': {'type': 'json_schema', 'schema': ...}}. Define the schema for the 4 action shapes. For the exec_plan 'plan' field (which has freeform inner objects incompatible with strict additionalProperties: false), use a JSON-stringified pattern with a one-line system prompt note and a single client-side json.loads step.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "On 2026-05-15 the picker produced an exec_plan with an unescaped quote inside reasoning at char 2533 - _tolerant_json_fix could not repair it, the loop hit candidate is None and stopped. This pattern recurred multiple times. Structured outputs is the canonical fix per Anthropic docs.",
+  "source_context": {
+    "queue_index": 330,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_3_picker_hardening",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "docs/AGENT_SYSTEM_MAP.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Schema + plumbing only. Do NOT change the system prompt body. Do NOT alter the hop loop, tool definitions, or evidence consumption.",
+    "schema_constraints": "Anthropic strict mode requires additionalProperties: false on every object. For exec_plan.plan inner objects (params, data, capture, expect.body_contains) which have freeform keys/types, treat plan as a JSON-stringified string field with a 1-2 sentence system prompt directive and a client-side json.loads step.",
+    "compatibility": "Tool use (memory + http_fetch) must continue to work. Structured outputs constrains FINAL text output, not tool_use intermediate hops."
+  },
+  "success_criteria": [
+    "Picker call includes output_config.format with the 4-action discriminated schema.",
+    "Schema validates pick / level_up / stop / exec_plan with correct required fields per action.",
+    "Plan field handled via stringified pattern with 1 client-side decode step.",
+    "Live test on Gruyere produces zero JSON parse failures across 20+ picker advances.",
+    "Existing _tolerant_json_fix retained as defensive layer but Path is deprecated for warning-log only.",
+    "AGENT_SYSTEM_MAP.md section 2 known-issues entry on JSON parse failures is removed."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_assessment_loop_structured_outputs.py",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT body lines 1-200 (only the brief plan-stringification note is appended).",
+    "workers/runners/",
+    "workers/orchestration/",
+    "api/app/services/memory_backend.py",
+    "api/app/services/http_fetch_backend.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_assessment_loop_structured_outputs.py api/tests/test_assessment_loop.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "20 consecutive live picker advances on Gruyere succeed with no JSON parse failures.",
+      "exec_plan with nested plan body parses successfully end-to-end.",
+      "Prompt cache hit ratio remains within 5% of pre-change baseline (logged usage)."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-379 must show Phase 3 go."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-381 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Auto-resume soft retry (task #381).",
+    "Memory tool truncation (task #382).",
+    "Switching picker to a different Claude model."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

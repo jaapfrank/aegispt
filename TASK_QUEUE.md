@@ -298,12 +298,12 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 288. ~~AI Adaptive Pentest: Intake Creates ai_loop Runs + Auto-Dispatch Passive Tasks~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-336-ai-loop-intake-and-auto-dispatch.json`
 289. ~~Pivot Engine Automatically Queues Follow-Up Scans from Confirmed Findings~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-337-pivot-engine-spawns-followup-scans.json`
 290. ~~Mission Control: AI Adaptive Loop Panel~~ ✓ DONE 2026-05-13 showing Iteration Chain and Hypotheses `codex/tasks/backlog-338-mission-control-ai-loop-panel.json`
-291. Cinema Mode: 3D AI Attack Chain Visualization for ai_loop Runs `codex/tasks/backlog-339-cinema-mode-ai-chain-visualization.json`
-292. Impact Proof Chain: Severity Escalation When Finding Chain Demonstrates Real Access `codex/tasks/backlog-340-impact-proof-and-severity-escalation.json`
-293. Automatic Task Dispatch: Queue Sweeper + Correct Default Mode `codex/tasks/backlog-341-automatic-task-dispatch-and-queue-sweeper.json`
-294. Fix Full Pentest Phase Auto-Advance: No Manual Approval Gates for Phase 2 and 3 `codex/tasks/backlog-342-full-pentest-phase-autoadvance-fix.json`
+291. ~~Cinema Mode: 3D AI Attack Chain Visualization for ai_loop Runs~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-339-cinema-mode-ai-chain-visualization.json`
+292. ~~Impact Proof Chain: Severity Escalation When Finding Chain Demonstrates Real Access~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-340-impact-proof-and-severity-escalation.json`
+293. ~~Automatic Task Dispatch: Queue Sweeper + Correct Default Mode~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-341-automatic-task-dispatch-and-queue-sweeper.json`
+294. ~~Fix Full Pentest Phase Auto-Advance: No Manual Approval Gates for Phase 2 and 3~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-342-full-pentest-phase-autoadvance-fix.json`
 295. ~~Web Application Crawler~~ ✓ DONE 2026-05-13 (replaced by target-intel + smart-web-probe) Discover All Endpoints, Forms, and Parameters Before Injection Tests `codex/tasks/backlog-343-web-crawler-endpoint-discovery.json`
-296. XSS Detection: Path-Component Injection and Error Page Reflection `codex/tasks/backlog-344-path-xss-and-error-page-detection.json`
+296. ~~XSS Detection: Path-Component Injection and Error Page Reflection~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-344-path-xss-and-error-page-detection.json`
 297. ~~CSRF, Client-State Manipulation~~ ✓ DONE 2026-05-13 and Privilege Escalation Detection `codex/tasks/backlog-345-csrf-and-client-state-detection.json`
 298. ~~Path Traversal Detection: URL Path, Filename, and Username Vectors~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-346-path-traversal-and-file-upload-detection.json`
 299. ~~Stored XSS Detection via Form Input Submission: Snippets, Color, and HTML Attributes~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-347-stored-xss-and-html-injection-via-form-inputs.json`
@@ -311,8 +311,8 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 301. ~~Authenticated Web Scanning: Auto-Register, Login, Test Authenticated Surface~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-351-authenticated-web-scanning-chain.json`
 302. ~~AI-Driven Signal Scoring: LLM Analyzes Tool Output to Set Context Signals~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-352-ai-driven-signal-scoring.json`
 303. ~~Gruyere Full Coverage Proof: All Known Vulnerabilities Found~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-353-gruyere-full-coverage-proof.json`
-304. Production Auth Enforcement: Gate X-Actor Fallback Outside Local Dev `codex/tasks/backlog-354-production-auth-fallback-gate.json`
-305. React v2 Mission Control Type Safety and Component Decomposition `codex/tasks/backlog-355-mission-control-type-safety-decomposition.json`
+304. ~~Production Auth Enforcement: Gate X-Actor Fallback Outside Local Dev~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-354-production-auth-fallback-gate.json`
+305. ~~React v2 Mission Control Type Safety and Component Decomposition~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-355-mission-control-type-safety-decomposition.json`
 306. Explicit Runner Registry and Dispatch Contract `codex/tasks/backlog-356-explicit-runner-registry-dispatch-contract.json`
 307. Validation Gate Hygiene: Ruff Clean and CI Alignment with React v2 `codex/tasks/backlog-357-validation-gate-hygiene-ci-alignment.json`
 308. Architecture and Repo Map Refresh for React v2 and Current Runtime `codex/tasks/backlog-358-architecture-repo-map-refresh.json`
@@ -328,3 +328,26 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 318. Exploitability Triage and Non-Weaponized Reproduction Builder `codex/tasks/backlog-368-exploitability-triage-nonweaponized-repro-builder.json`
 319. Coordinated Vulnerability Disclosure and Patch Handoff Workflow `codex/tasks/backlog-369-coordinated-disclosure-patch-handoff-workflow.json`
 320. Cyber AI Safety Guardrails for Vulnerability Research `codex/tasks/backlog-370-cyber-ai-safety-guardrails-vulnerability-research.json`
+
+<!-- Mythos Convergence Plan — 2026-05-15
+     17 tasks covering 4 phases with 4 review checkpoints.
+     Goal: take AegisPT from runner-orchestrator to evidence-graph-driven universal pentest engine.
+     See docs/AGENT_SYSTEM_MAP.md section 10 for the strategic context. -->
+
+321. Mythos Phase 1 — Evidence-Graph First-Class Adoption Audit and Plan `codex/tasks/backlog-371-evidence-graph-adoption-audit.json`
+322. Mythos Phase 1 — Evidence-Graph Entity Ingestion Helpers Shared by Runners `codex/tasks/backlog-372-evidence-graph-entity-ingestion-helpers.json`
+323. Mythos Phase 1 — Picker Consumes Normalized Evidence Graph for Decision Context `codex/tasks/backlog-373-picker-reads-evidence-graph.json`
+324. Mythos Phase 1 — Review Checkpoint: Evidence-Graph Foundation On Target `codex/tasks/backlog-374-review-checkpoint-foundation.json`
+325. Mythos Phase 2 — Auth Discoverer: HTML Form Detection and Application Fingerprint `codex/tasks/backlog-375-auth-discoverer-form-detection.json`
+326. Mythos Phase 2 — Auth Discoverer: AI-Driven Recipe Builder from Fingerprint `codex/tasks/backlog-376-auth-discoverer-ai-recipe-builder.json`
+327. Mythos Phase 2 — Auth Pattern Cache Backed by Claude Memory Store `codex/tasks/backlog-377-auth-pattern-cache-memory-backend.json`
+328. Mythos Phase 2 — Migrate Five Probes from Gruyere Auth Pattern to Auth Discoverer `codex/tasks/backlog-378-migrate-five-probes-to-auth-discoverer.json`
+329. Mythos Phase 2 — Review Checkpoint: Universal Auth Probes Working Across Stacks `codex/tasks/backlog-379-review-checkpoint-universal-probes.json`
+330. Mythos Phase 3 — Picker Structured Outputs via output_config.format JSON Schema `codex/tasks/backlog-380-picker-structured-outputs-schema.json`
+331. Mythos Phase 3 — AI Loop Soft Retry on Parse/Decision Failure Instead of Hard Stop `codex/tasks/backlog-381-loop-soft-retry-on-failure.json`
+332. Mythos Phase 3 — Memory Tool Result Truncation and Bloat Containment `codex/tasks/backlog-382-memory-tool-result-truncation.json`
+333. Mythos Phase 3 — Review Checkpoint: Picker Reliable, Cost-Controlled, On Target `codex/tasks/backlog-383-review-checkpoint-picker-reliable.json`
+334. Mythos Phase 4 — Cross-Target Provenance: Captured Values Carry Lineage Across Tasks `codex/tasks/backlog-384-cross-target-provenance-tracking.json`
+335. Mythos Phase 4 — Cross-Runner Verifier: Independent Confirmation for Critical Findings `codex/tasks/backlog-385-cross-runner-verifier-system.json`
+336. Mythos Phase 4 — Non-HTTP Primitives: SMB and LDAP as exec_plan Steps `codex/tasks/backlog-386-non-http-primitives-smb-ldap.json`
+337. Mythos Final Review — Convergence Demo and Capability Sign-Off `codex/tasks/backlog-387-final-review-mythos-convergence-demo.json`

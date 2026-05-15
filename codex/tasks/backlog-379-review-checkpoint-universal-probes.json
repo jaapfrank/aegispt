@@ -1,0 +1,98 @@
+{
+  "id": "backlog-379-review-checkpoint-universal-probes",
+  "task_file": "codex/tasks/backlog-379-review-checkpoint-universal-probes.json",
+  "task_type": "review_checkpoint",
+  "title": "Review Checkpoint: Universal Auth Probes Working Across Stacks",
+  "goal": "After #325-#328, verify the 5 migrated probes actually find vulnerabilities on at least 2 non-Gruyere targets, Gruyere parity is preserved, the cache is working, and no Gruyere-specific patterns remain in production code. Decide go/no-go for Phase 3.",
+  "scope": "Operator + agent review of work from backlog-375, -376, -377, -378. Live run of the generality test across Gruyere + juice-shop + demo.testfire.net + testasp.vulnweb.com. Written checkpoint report with go/no-go on Phase 3.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Per operator request, a checkpoint after Phase 2 confirms the universal-auth investment paid off before Phase 3 (picker hardening + structured outputs) is started.",
+  "source_context": {
+    "queue_index": 329,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_2_review",
+    "key_files": [
+      "docs/AGENT_SYSTEM_MAP.md",
+      "api/app/services/auth_discoverer.py",
+      "workers/runners/info_disclosure_probe/runner.py",
+      "workers/runners/param_pollution_probe/runner.py",
+      "workers/runners/stored_xss_probe/runner.py",
+      "workers/runners/cookie_tamper_probe/runner.py",
+      "workers/runners/file_upload_probe/runner.py",
+      "scripts/test_probe_generality.py",
+      "CURRENT_STATE.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Review only. No production code changes. Output is a checkpoint report and a yes/no decision on Phase 3 promotion.",
+    "evidence_requirement": "Checkpoint report must cite real findings_count numbers from the generality matrix, not aspirational claims."
+  },
+  "success_criteria": [
+    "docs/checkpoints/2026-mythos-phase2-review.md exists with: (a) generality matrix (5 probes x 4 targets), (b) Gruyere parity confirmation, (c) cache hit rate observed during testing, (d) deviation from #325-#328 plans if any, (e) explicit go/no-go for Phase 3.",
+    "At least 3 of the 5 probes produce at least 1 finding on at least 1 non-Gruyere target (no longer silent no-op).",
+    "Auth recipe cache is observed serving hits on second-run replay (logged).",
+    "AGENT_SYSTEM_MAP.md section 3 is updated to reflect that the 5 probes are now Verified-generic.",
+    "If go: backlog-380 is promoted into NEXT_TASK.md. If no-go: corrective task is named and queued."
+  ],
+  "likely_touched_files": [
+    "docs/checkpoints/2026-mythos-phase2-review.md",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "NEXT_TASK.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/",
+    "workers/runners/",
+    "workers/orchestration/",
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "test -f docs/checkpoints/2026-mythos-phase2-review.md",
+      "python3 scripts/test_probe_generality.py"
+    ],
+    "acceptance_criteria": [
+      "Generality matrix is captured in the checkpoint report.",
+      "Phase 3 go/no-go decision is explicit and justified by the matrix data.",
+      "Any deviation from #375-#378 scope is named."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Tasks #325, #326, #327, #328 must show as DONE in DONE_LOG.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-380 (or corrective task) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Any code change.",
+    "Implementing Phase 3 tasks early.",
+    "Reopening Phase 2 scope unless drift is documented."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -1,0 +1,101 @@
+{
+  "id": "backlog-386-non-http-primitives-smb-ldap",
+  "task_file": "codex/tasks/backlog-386-non-http-primitives-smb-ldap.json",
+  "task_type": "primitive_layer",
+  "title": "Non-HTTP Primitives: SMB and LDAP as exec_plan Steps",
+  "goal": "Extend the exec_plan grammar to allow SMB (list shares, file read, NTLM auth attempt) and LDAP (bind, search) as step types alongside HTTP. This is the first move toward truly universal cross-protocol attack composition: AI can now write a single exec_plan that proves web -> SMB or web -> LDAP chains in one continuous narrative.",
+  "scope": "Extend workers/runners/exec_plan/runner.py with two new step kinds: smb_request (subcommands list/read/auth using existing impacket or netexec primitives) and ldap_request (using existing ldap_enum primitives). Reuse the existing scope check + capture/expect/on_success contract. Schema updates documented in system prompt minimally.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "exec_plan currently composes HTTP only. Cross-target chains demand non-HTTP step types. SMB and LDAP are the two highest-value additions because they unlock the canonical web -> infra -> AD pivot story. Underlying tooling (impacket, netexec, ldap_enum) already exists as runners; this exposes them as primitives Claude can compose.",
+  "source_context": {
+    "queue_index": 336,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_4_cross_target",
+    "key_files": [
+      "workers/runners/exec_plan/runner.py",
+      "workers/runners/impacket/",
+      "workers/runners/netexec/runner.py",
+      "workers/runners/ldap_enum/runner.py",
+      "api/app/services/assessment_loop.py (system prompt grammar section only)"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "SMB + LDAP only. Do NOT add SSH, RDP, Kerberos, or DNS step kinds in this task. Those are follow-up scope.",
+    "reuse_existing": "Implementation MUST wrap existing impacket/netexec/ldap_enum primitives, not re-implement protocol clients.",
+    "scope_governance": "SMB step kinds are intrusive tier by default. LDAP queries can be active tier (read-only).",
+    "system_prompt_minimal": "System prompt grammar section gets a brief addendum showing the two new step kinds. Do NOT rewrite existing exec_plan grammar."
+  },
+  "success_criteria": [
+    "exec_plan accepts step kind smb_request with at least list_shares, read_file, ntlm_auth_attempt subcommands.",
+    "exec_plan accepts step kind ldap_request with bind + search subcommands.",
+    "Each new step kind respects scope_allowlist (host check) and intrusive-tier gating.",
+    "Capture/expect contract works on the new step kinds (e.g. capture domain controller hostname from LDAP search, expect specific ACE).",
+    "Unit tests cover happy path + scope rejection for each new step kind.",
+    "Live integration test on a lab AD environment proves at least one web -> ldap chain via a single exec_plan."
+  ],
+  "likely_touched_files": [
+    "workers/runners/exec_plan/runner.py",
+    "workers/tests/test_exec_plan_smb.py",
+    "workers/tests/test_exec_plan_ldap.py",
+    "api/app/services/assessment_loop.py (system prompt addendum only)",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/impacket/ core logic",
+    "workers/runners/netexec/runner.py core logic",
+    "workers/runners/ldap_enum/runner.py core logic",
+    "api/app/models/control.py",
+    "api/app/services/run_credential_vault.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest workers/tests/test_exec_plan.py workers/tests/test_exec_plan_smb.py workers/tests/test_exec_plan_ldap.py",
+      "python3 -m compileall -q workers api",
+      ".venv/bin/ruff check workers/runners/exec_plan/runner.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "exec_plan can compose at least one HTTP + LDAP step in a single plan and emit a finding from the chain.",
+      "Scope and tier checks block out-of-scope or improperly-tiered SMB/LDAP steps.",
+      "No regression in existing exec_plan HTTP step tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-384 and backlog-385 must be merged."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-387 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "SSH / RDP / Kerberos primitives.",
+    "Full AD pack with BloodHound chain reasoning (would be next-phase work).",
+    "Cross-target verifier (already in #385)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

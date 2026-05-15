@@ -1,0 +1,93 @@
+{
+  "id": "backlog-381-loop-soft-retry-on-failure",
+  "task_file": "codex/tasks/backlog-381-loop-soft-retry-on-failure.json",
+  "task_type": "ai_loop",
+  "title": "AI Loop Soft Retry on Parse / Decision Failure Instead of Hard Stop",
+  "goal": "When the picker returns None (parse fail, empty text, or unrecoverable hop loop exit), the assessment loop currently sets status=stopped with reason no_registered_runner_candidate and halts the run. Replace this with bounded soft retry (max 2 attempts with fresh per-call backoff) so a single bad output does not kill an otherwise healthy run.",
+  "scope": "Modify api/app/services/assessment_loop.py advance_assessment_loop to detect parse-fail / None-candidate distinctly from genuine exhaustion. On parse-fail, retry up to 2 times with the same context. On exhaustion (no candidate after retries), THEN set stopped.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Observed 2026-05-15: one JSON parse failure on iteration 17 caused the loop to set status=stopped/no_registered_runner_candidate. Manual operator intervention required to resume. With structured outputs (task #380) the parse-fail class disappears, but other transient failures (network blip on http_fetch, momentary credit pause) should also not kill an entire run.",
+  "source_context": {
+    "queue_index": 331,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_3_picker_hardening",
+    "key_files": [
+      "api/app/services/assessment_loop.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Retry logic only. Do NOT change tool definitions, the schema, or the system prompt.",
+    "max_retries": "Hard cap retries per advance at 2. Beyond that, mark loop stopped with descriptive reason (e.g. picker_retry_exhausted).",
+    "no_infinite_loops": "Each retry attempt must increment a counter visible in loop_state so the operator can see retry history."
+  },
+  "success_criteria": [
+    "Parse-fail or empty-text from picker triggers retry, not stop.",
+    "Retry attempts visible in loop_state under retries_this_advance.",
+    "After 2 failed retries, loop sets stopped with reason picker_retry_exhausted (distinguishable from no_registered_runner_candidate).",
+    "Unit test simulates 1 fail + 1 success per advance and proves loop continues.",
+    "Unit test simulates 3 fails per advance and proves loop sets retry_exhausted after the third."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_assessment_loop_soft_retry.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/",
+    "workers/orchestration/",
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "api/app/services/memory_backend.py",
+    "api/app/services/http_fetch_backend.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_assessment_loop_soft_retry.py api/tests/test_assessment_loop.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Loop survives 1 transient picker failure per advance.",
+      "Loop stops decisively after 2 consecutive picker failures on a single advance.",
+      "No regression on the happy-path live picker test."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-380 must be merged."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-382 into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Memory tool truncation (task #382).",
+    "Cross-target provenance.",
+    "Auto-restart of fully-stopped runs (operator action, not loop)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

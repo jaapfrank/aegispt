@@ -1,0 +1,94 @@
+{
+  "id": "backlog-387-final-review-mythos-convergence-demo",
+  "task_file": "codex/tasks/backlog-387-final-review-mythos-convergence-demo.json",
+  "task_type": "review_checkpoint",
+  "title": "Final Review: Mythos Convergence Demo and Capability Sign-Off",
+  "goal": "Demonstrate end-to-end that AegisPT now performs cross-target attack composition. Single demo run starts on a web app, captures a token, pivots to internal infrastructure via SMB or LDAP, and produces verified critical findings. This is the proof-of-capability milestone for the substrate investment.",
+  "scope": "Run a demonstration scenario against a controlled lab environment. Live capture of evidence-graph contents, picker decisions, cross-target chain. Written demo report. Update AGENT_SYSTEM_MAP.md to reflect new capability baseline. Decide what comes next.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Closes the 17-task Mythos convergence plan with a tangible demonstration. Operator on 2026-05-15 set the goal as 'the best pentest tool that exists' - this checkpoint validates whether the substrate investment delivered the cross-target reasoning that competitors cannot easily match.",
+  "source_context": {
+    "queue_index": 337,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_final_review",
+    "key_files": [
+      "docs/AGENT_SYSTEM_MAP.md",
+      "api/app/services/auth_discoverer.py",
+      "api/app/services/finding_verifier.py",
+      "api/app/services/evidence_ingest.py",
+      "workers/runners/exec_plan/runner.py",
+      "CURRENT_STATE.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Demo + report + roadmap-update only. No new code in this task.",
+    "controlled_lab_only": "Demo must run against a controlled lab target (Gruyere + lab AD + lab SMB share). NOT against production systems or third-party services without written authorization."
+  },
+  "success_criteria": [
+    "Single demo run produces: (a) web-app exploitation with confirmed finding (verifier confirmed), (b) credential or token captured, (c) cross-target pivot using captured value via an exec_plan with SMB or LDAP step, (d) follow-up finding in the new target with provenance pointing back to the web finding.",
+    "Evidence graph for the run contains both web and infra entities with edges showing the captured-value lineage.",
+    "Demo report (docs/checkpoints/2026-mythos-final-demo.md) captures: timeline, decisions, evidence, screenshots, cost per advance.",
+    "AGENT_SYSTEM_MAP.md is updated to a new baseline (sections 3, 4, 5, 10 reflect post-Mythos state).",
+    "Next-phase work (target-pack expansion: AD, cloud, mobile, OT) is named with rough scope but NOT queued as concrete tasks yet - that is a separate planning session with the operator."
+  ],
+  "likely_touched_files": [
+    "docs/checkpoints/2026-mythos-final-demo.md",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "CURRENT_STATE.md",
+    "DONE_LOG.md",
+    "NEXT_TASK.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/",
+    "workers/runners/",
+    "workers/orchestration/",
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      "test -f docs/checkpoints/2026-mythos-final-demo.md"
+    ],
+    "acceptance_criteria": [
+      "Cross-target chain is concretely demonstrated (not asserted).",
+      "Verifier verdict is recorded for the final critical finding.",
+      "Next-phase scope is sketched, with operator approval gate before any new tasks are queued."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Tasks #334, #335, #336 must show as DONE in DONE_LOG.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Record in NEXT_TASK.md that the Mythos convergence backlog is complete and no active task is queued. Operator must open a planning session before scheduling the next phase (target-pack expansion: AD, cloud, mobile, OT). Do NOT auto-queue next-phase tasks."
+    ]
+  },
+  "out_of_scope": [
+    "Any code change.",
+    "Pre-queuing next-phase tasks (must go through operator planning).",
+    "Production-target demos."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

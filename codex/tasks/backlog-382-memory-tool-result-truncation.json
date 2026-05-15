@@ -1,0 +1,93 @@
+{
+  "id": "backlog-382-memory-tool-result-truncation",
+  "task_file": "codex/tasks/backlog-382-memory-tool-result-truncation.json",
+  "task_type": "cost_optimization",
+  "title": "Memory Tool Result Truncation and Bloat Containment",
+  "goal": "Cap memory_backend.execute response size at 2 KB per call and refactor /memories/run-progress.md from an unbounded log into a bounded structured summary. Reduces ~9 KB per memory tool call wasted on the picker prompt (~922 calls/day observed = ~$30/day saving with current pricing).",
+  "scope": "Modify api/app/services/memory_backend.py to truncate view command results to 2 KB with a trailing [...truncated, N more bytes] marker. Add a separate maintenance helper that periodically rotates /memories/run-progress.md when it exceeds 8 KB, keeping only the most recent 6 KB of content.",
+  "status": "queued",
+  "generated_by": "mythos-convergence-planning-20260515",
+  "generation_reason": "Observed 2026-05-15: /memories/run-progress.md grew to 77 KB causing every picker hop with a memory view to inject ~11 KB into the prompt. Memory tool result mean is 11 KB across 922 calls/day. Truncation is purely cost optimization with minimal quality impact: Claude can read incremental notes per file instead of one giant file.",
+  "source_context": {
+    "queue_index": 332,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_3_picker_hardening",
+    "key_files": [
+      "api/app/services/memory_backend.py",
+      "api/app/services/assessment_loop.py",
+      "docs/AGENT_SYSTEM_MAP.md"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Truncation + rotation only. Do NOT change the memory tool schema, the system prompt directives about /memories paths, or any storage backend.",
+    "preserve_writes": "Writes are NOT capped. Only reads are truncated for prompt-injection bounds. The full file remains on disk.",
+    "no_quality_regression": "Truncation must include a clear marker that prompts Claude to view sub-paths or read further if needed. Do not silently drop content."
+  },
+  "success_criteria": [
+    "memory_backend.execute view results capped at 2 KB with truncation marker.",
+    "Rotation helper for /memories/run-progress.md keeps file under 8 KB.",
+    "Logged cache_read_input_tokens per picker hop drops measurably after deployment (memory tool result is a major fraction of cached prefix).",
+    "Unit test confirms truncation marker is present and byte count is bounded.",
+    "Live test on Gruyere run shows picker continues to use memory tool meaningfully after truncation."
+  ],
+  "likely_touched_files": [
+    "api/app/services/memory_backend.py",
+    "api/tests/test_memory_backend_truncation.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "_AI_PICKER_SYSTEM_PROMPT",
+    "workers/runners/",
+    "workers/orchestration/",
+    "api/app/services/assessment_loop.py (only the log message lines may change to show truncation activity)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_memory_backend_truncation.py api/tests/test_memory_backend.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/memory_backend.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "View results are bounded at 2 KB.",
+      "Truncation marker present and parseable by Claude.",
+      "No regression in memory_backend write/create/str_replace tests."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote backlog-383 (review checkpoint) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Cross-target work.",
+    "Cache invalidation policy beyond rotation.",
+    "Memory backend storage migration."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
