@@ -313,21 +313,27 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 303. ~~Gruyere Full Coverage Proof: All Known Vulnerabilities Found~~ ✓ DONE 2026-05-12 `codex/tasks/backlog-353-gruyere-full-coverage-proof.json`
 304. ~~Production Auth Enforcement: Gate X-Actor Fallback Outside Local Dev~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-354-production-auth-fallback-gate.json`
 305. ~~React v2 Mission Control Type Safety and Component Decomposition~~ ✓ DONE 2026-05-13 `codex/tasks/backlog-355-mission-control-type-safety-decomposition.json`
-306. Explicit Runner Registry and Dispatch Contract `codex/tasks/backlog-356-explicit-runner-registry-dispatch-contract.json`
-307. Validation Gate Hygiene: Ruff Clean and CI Alignment with React v2 `codex/tasks/backlog-357-validation-gate-hygiene-ci-alignment.json`
-308. Architecture and Repo Map Refresh for React v2 and Current Runtime `codex/tasks/backlog-358-architecture-repo-map-refresh.json`
-309. React v2 Bundle Splitting and Performance Budget `codex/tasks/backlog-359-react-v2-bundle-splitting-performance-budget.json`
-310. Role-Aware Differential Authorization Testing `codex/tasks/backlog-360-role-aware-differential-authorization-testing.json`
-311. Stateful Business Flow Vulnerability Engine `codex/tasks/backlog-361-stateful-business-flow-vulnerability-engine.json`
-312. Evidence Signal Normalizer V2 for AI Runner Selection `codex/tasks/backlog-362-evidence-signal-normalizer-v2-ai-runner-selection.json`
-313. Confirmed-Finding Variant Hunter `codex/tasks/backlog-363-confirmed-finding-variant-hunter.json`
-314. Coverage Gap and Missed-Vulnerability Explainer `codex/tasks/backlog-364-coverage-gap-missed-vulnerability-explainer.json`
-315. Defensive Codebase Vulnerability Research Lane `codex/tasks/backlog-365-defensive-codebase-vulnerability-research-lane.json`
-316. AI Fuzz Harness Generator and Corpus Curator `codex/tasks/backlog-366-ai-fuzz-harness-generator-corpus-curator.json`
-317. Patch-Diff and N-Day Variant Analyzer `codex/tasks/backlog-367-patch-diff-nday-variant-analyzer.json`
-318. Exploitability Triage and Non-Weaponized Reproduction Builder `codex/tasks/backlog-368-exploitability-triage-nonweaponized-repro-builder.json`
-319. Coordinated Vulnerability Disclosure and Patch Handoff Workflow `codex/tasks/backlog-369-coordinated-disclosure-patch-handoff-workflow.json`
-320. Cyber AI Safety Guardrails for Vulnerability Research `codex/tasks/backlog-370-cyber-ai-safety-guardrails-vulnerability-research.json`
+<!-- Pre-Mythos backlog items 306-320 reviewed 2026-05-15 against the Mythos
+     convergence plan (see docs/MYTHOS_PLAN_FINALITY.md). Two items cancelled
+     (308 superseded by AGENT_SYSTEM_MAP, 312 absorbed into Mythos #322-#323),
+     thirteen deferred behind Mythos and to be reconsidered after #338. None
+     blocked the Mythos plan from starting; deferral keeps slot indexes stable. -->
+
+306. Explicit Runner Registry and Dispatch Contract — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-356-explicit-runner-registry-dispatch-contract.json`
+307. Validation Gate Hygiene: Ruff Clean and CI Alignment with React v2 — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-357-validation-gate-hygiene-ci-alignment.json`
+308. ~~Architecture and Repo Map Refresh for React v2 and Current Runtime~~ ⊘ CANCELLED 2026-05-15: superseded by docs/AGENT_SYSTEM_MAP.md `codex/tasks/backlog-358-architecture-repo-map-refresh.json`
+309. React v2 Bundle Splitting and Performance Budget — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-359-react-v2-bundle-splitting-performance-budget.json`
+310. Role-Aware Differential Authorization Testing — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-360-role-aware-differential-authorization-testing.json`
+311. Stateful Business Flow Vulnerability Engine — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-361-stateful-business-flow-vulnerability-engine.json`
+312. ~~Evidence Signal Normalizer V2 for AI Runner Selection~~ ⊘ CANCELLED 2026-05-15: intent absorbed by Mythos #322 ingestion helpers + #323 picker reads evidence-graph `codex/tasks/backlog-362-evidence-signal-normalizer-v2-ai-runner-selection.json`
+313. Confirmed-Finding Variant Hunter — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-363-confirmed-finding-variant-hunter.json`
+314. Coverage Gap and Missed-Vulnerability Explainer — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-364-coverage-gap-missed-vulnerability-explainer.json`
+315. Defensive Codebase Vulnerability Research Lane — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-365-defensive-codebase-vulnerability-research-lane.json`
+316. AI Fuzz Harness Generator and Corpus Curator — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-366-ai-fuzz-harness-generator-corpus-curator.json`
+317. Patch-Diff and N-Day Variant Analyzer — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-367-patch-diff-nday-variant-analyzer.json`
+318. Exploitability Triage and Non-Weaponized Reproduction Builder — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-368-exploitability-triage-nonweaponized-repro-builder.json`
+319. Coordinated Vulnerability Disclosure and Patch Handoff Workflow — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-369-coordinated-disclosure-patch-handoff-workflow.json`
+320. Cyber AI Safety Guardrails for Vulnerability Research — DEFERRED 2026-05-15: reconsider after Mythos #338 `codex/tasks/backlog-370-cyber-ai-safety-guardrails-vulnerability-research.json`
 
 <!-- Mythos Convergence Plan — 2026-05-15
      17 tasks covering 4 phases with 4 review checkpoints.

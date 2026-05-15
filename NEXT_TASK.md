@@ -2,27 +2,38 @@
 
 ## Title
 
-Mission Control: AI Adaptive Loop Panel showing Iteration Chain and Hypotheses
+Evidence-Graph Entity Ingestion Helpers Shared by Runners
 
 ## Goal
 
-When a run uses run_mode=ai_loop, Mission Control must replace the Phase Chain panel with an AI Loop panel showing: current iteration and status; last AI hypothesis (what and why); chain of findings→actions; what is queued next and why; label 'AI Adaptive Pentest'. Standard/chain runs keep the existing Phase Chain panel.
+Implement a thin shared helper module that runners call to register structured graph entities (asset, identity, credential_ref, endpoint, finding) and relationships during execution, so the normalized graph accumulates first-class entities rather than being reconstructed from stdout heuristics.
 
 ## Scope
 
-- `ui-v2/src/components/screens/MissionControl.tsx`
+- Create `api/app/services/evidence_ingest.py` (helper module + typed contract)
+- Extend `api/app/services/assessment_graph.py` to read emitted entities and merge with existing source-graph nodes
+- Migrate 3-5 pilot runners (per Adoption Plan Section 6.1: target_intel, smart_web_probe, http_fetch_backend, xss_proof, exec_plan)
+- Alembic migration for new `evidence_observations` table
 
 ## Constraints
 
-- No new backend API endpoints — use existing `/api/v1/runs/{id}/ai-insights`.
-- Standard and chain run views must remain unchanged.
-- `npm run build` must pass with no TypeScript errors.
+- Additive only. Existing runners that do not opt in continue to work via source-graph reconstruction path.
+- No picker changes (that is task #323).
+- No new node types beyond those enumerated in Adoption Plan Section 5 (asset, api, identity, credential_hint, tech_signal, observed_url).
+- Helper must be additive — existing runner contracts unchanged.
 
 ## Source Package
 
-`codex/tasks/backlog-338-mission-control-ai-loop-panel.json`
+`codex/tasks/backlog-372-evidence-graph-entity-ingestion-helpers.json`
+
+## Reference
+
+`docs/evidence_graph_adoption_plan.md` — full audit and design
 
 ## Validation
 
-- `cd ui-v2 && npm run build`
 - `python3 scripts/validate_backlog_tasks.py`
+- `.venv/bin/pytest api/tests/test_evidence_ingest.py api/tests/test_assessment_graph.py`
+- `python3 -m compileall -q api workers`
+- `.venv/bin/ruff check api/app/services/evidence_ingest.py api/app/services/assessment_graph.py`
+- `git diff --check`

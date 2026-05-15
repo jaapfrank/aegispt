@@ -1,5 +1,111 @@
 # Done Log
 
+- 2026-05-15: completed Mythos task #321 (backlog-371 — Evidence-Graph First-Class Adoption Audit):
+  - rationale: audit the existing build_normalized_evidence_graph and surrounding services to scope the per-runner ingestion + picker consumption work for tasks #322 + #323
+  - work performed:
+    - read api/app/services/assessment_graph.py (1522 lines), evidence_integrity.py, next_evidence_action.py, hypothesis_confidence.py end-to-end
+    - confirmed picker (assessment_loop._claude_select_next_action) does NOT consume the normalized graph — only finds + tested_keys + task_outcomes as flat strings
+    - classified all 75 runners by emission type: 9 inventory-emitting, ~50 findings-only, 3 credential-emitting, 3 context-emitting, 2 proposal-emitting, ~15 stdout-only external-tool wrappers
+    - identified the core bottleneck: 67% of runners produce only findings, no structured entity emissions for observations they make but don't flag
+  - deliverable: docs/evidence_graph_adoption_plan.md (12 sections)
+    - per-runner emission classification table
+    - existing node taxonomy (15 normalized node types via _normalize_source_graph_node)
+    - recommended new entity types (asset, api, identity, credential_hint, tech_signal, observed_url)
+    - LOC estimates for #322 (~450 lines + schema migration ~60 + tests ~150, 4-6 hours AI-tempo) and #323 (~180 lines + tests ~100, 2-4 hours)
+    - pilot-runner selection in order: target_intel, smart_web_probe, http_fetch_backend, xss_proof, exec_plan
+    - risks + mitigations documented
+  - housekeeping done in same session before audit:
+    - pre-Mythos backlog items #306-#320 reviewed against current state
+    - 2 cancelled: #308 (architecture refresh - superseded by AGENT_SYSTEM_MAP.md), #312 (evidence signal normalizer V2 - intent absorbed by Mythos #322-#323)
+    - 13 deferred behind Mythos to be reconsidered after #338: #306, #307, #309, #310, #311, #313-#320
+    - NEXT_TASK promoted from stale backlog-354 to backlog-371 (#321)
+  - validation: python3 scripts/validate_backlog_tasks.py reports 338 queued task packages mapped 1:1 (no regression). test -f docs/evidence_graph_adoption_plan.md passes.
+  - no runtime, runner, picker, scope, or finding schema mutation during this task.
+  - next: promote backlog-372 (#322) into NEXT_TASK.md per the adoption plan.
+
+- 2026-05-13: completed backlog tasks #340, #344, #354 — impact proof chain, path XSS, production auth gate:
+  - rationale:
+    - #340 Impact Proof Chain: pivot engine linked original finding → follow-up finding in a FindingChain but did not escalate severity or generate a human-readable impact proof. Operators missed the full attack chain severity.
+    - #344 XSS Path-Component Injection: xss_extended only tested query params and forms. Gruyere's most obvious XSS (path segment reflection in error page) was completely missed.
+    - #354 Production Auth Gate: X-Actor admin fallback was unconditionally granted to any unauthenticated request, acceptable for local dev but dangerous in production-style deployments.
+  - implementation:
+    - `api/app/services/finding_chains.py`: added `SEVERITY_RANK` dict; added `link_pivot_chain_findings()` that creates a `FindingChain` with `pattern_id="pivot-chain-{pivot_type}"`, escalates `original_finding.severity` if follow_up is higher-ranked AND original is low/medium, stores `impact_proof_json` in `metadata_json`; only acts when `follow_up.status=="open"` and `evidence_ref` is non-empty
+    - `workers/orchestration/tasks.py`: imported `Finding` and `link_pivot_chain_findings`; added `_maybe_link_pivot_chain_findings()` that reads `source_finding_id`/`pivot_type` from `task.params_json`, fetches source finding and recent confirmed follow-up findings, calls `link_pivot_chain_findings`, writes audit event for severity escalations; called in `process_task_by_id` before `session.commit()`
+    - `workers/runners/xss_extended/runner.py`: added path-component XSS test loop — probes 3 generic invalid paths to detect reflection surface, then tries 3 XSS payloads as URL path segments; detection logic checks for unencoded `<script>` or `onerror=` in HTML response; added `reflected_path_findings` to summary; added `reflected-path-component` to safety variants list
+    - `api/app/config.py`: added `allow_x_actor_fallback: bool = True` and `is_local_dev_environment` property (True for development/dev/test/local env names)
+    - `api/app/auth/__init__.py`: imported `get_settings`; gated X-Actor fallback — raises 401 unless `allow_x_actor_fallback AND is_local_dev_environment` both True
+    - `api/tests/test_backend_security_hardening.py`: added 4 new tests: local dev allows fallback, production env blocks fallback (mocked), flag-disabled blocks fallback, and environment detection logic unit test
+  - validation:
+    - `python3 -m pytest api/tests/test_pivot_engine.py api/tests/test_ai_chain_detection.py` — 12 passed
+    - `python3 -m pytest api/tests/test_auth.py api/tests/test_backend_security_hardening.py` — 14 passed
+    - `python3 -m compileall -q api workers` — clean
+    - `python3 scripts/validate_backlog_tasks.py` — 320 queued task packages one-to-one
+
+- 2026-05-13: completed backlog tasks #341, #342, #339 — queue sweeper, phase auto-advance, cinema mode AI chain:
+  - rationale:
+    - #341 Queue Sweeper: tasks created by next_step_hints or pivot engine were getting stuck in "queued" status when the inline-background dispatcher had already returned
+    - #342 Phase Auto-Advance: Full Pentest Phase 2 and 3 could block on manual approval gates even when written authorization was confirmed; exploit_confirmation_authorized was not being forwarded through the ai_loop configuration path
+    - #339 Cinema Mode: ai_loop runs had no live 3D chain visualization; only a text list of iterations was shown
+  - implementation:
+    - `api/app/services/scheduled_runs.py`: added `sweep_stuck_queued_tasks()` (scans for tasks in queued status >30s in active runs, dispatches them); registered as APScheduler job every 30 seconds
+    - `ui-v2/src/components/Intake.tsx`: fixed `assessment_auto_advance_on_phase_complete: Boolean(assessmentMode) || isFullPentest` so full pentest runs always set this flag; added authorization metadata (exploit_confirmation_authorized, intrusive_lan_authorized, typed_scope_confirmation) to the ai_loop assessment_mode config block so any chain created later has the correct gate state
+    - `api/app/services/assessment_chain.py`: added diagnostic logging at every phase gate check (logs which gate condition fired, pre_authorized status, auto_advance value); added `logging` import
+    - `ui-v2/src/components/CinemaMode.tsx`: added `ChainNode`/`ChainLink` types, `PulsingNode` component (pulsing finding spheres via useFrame), `AiChainNetwork` 3D component (tool cylinders, finding octahedrons, pivot spheres, colored Lines); added `buildAiChain()` that maps proposals + findings to positioned chain nodes; Canvas now shows AiChainNetwork for ai_loop runs, standard Network for standard runs; updated AiAttackChainPanel to use proposals directly instead of parsing configuration_json iterations; added `created_at` to AgentProposal TypeScript interface
+    - `ui-v2/src/api/types.ts`: confirmed AgentProposal already had created_at; no change needed
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed: 320 queued task packages mapped one-to-one
+    - `cd ui-v2 && npm run build` passed: tsc clean + vite built successfully
+
+- 2026-05-12: added queued Mythos-style defensive vulnerability research packages backlog-365 through backlog-370:
+  - rationale:
+    - the operator asked whether the Mythos discussion implied more tasks should be added
+    - the new packages capture a safe, defense-first version of the capabilities implied by frontier AI vulnerability discovery: codebase research, fuzz harness generation, patch-diff/N-day analysis, exploitability triage, disclosure handoff, and cyber-AI guardrails
+  - implementation:
+    - appended six queued items to `TASK_QUEUE.md` without changing `NEXT_TASK.md`
+    - added `codex/tasks/backlog-365-defensive-codebase-vulnerability-research-lane.json`
+    - added `codex/tasks/backlog-366-ai-fuzz-harness-generator-corpus-curator.json`
+    - added `codex/tasks/backlog-367-patch-diff-nday-variant-analyzer.json`
+    - added `codex/tasks/backlog-368-exploitability-triage-nonweaponized-repro-builder.json`
+    - added `codex/tasks/backlog-369-coordinated-disclosure-patch-handoff-workflow.json`
+    - added `codex/tasks/backlog-370-cyber-ai-safety-guardrails-vulnerability-research.json`
+    - kept all packages queued and safety-scoped; none of the packages installs tools, runs targets, mutates runtime gates, bypasses approvals, changes finding schemas, or changes live assessment behavior
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with 320 queued task packages mapped one-to-one
+    - `git diff --check` passed
+
+- 2026-05-12: added queued AI-first/evidence-first vulnerability discovery packages backlog-360 through backlog-364:
+  - rationale:
+    - the operator asked to create the proposed tasks for discovering more vulnerabilities in an AI-first, evidence-first pentest system
+    - the new packages focus on the highest-yield discovery improvements: role-differential authorization testing, stateful business-flow testing, richer evidence signal normalization, confirmed-finding variant hunting, and honest coverage-gap explanation
+  - implementation:
+    - appended five queued items to `TASK_QUEUE.md` without changing `NEXT_TASK.md`
+    - added `codex/tasks/backlog-360-role-aware-differential-authorization-testing.json`
+    - added `codex/tasks/backlog-361-stateful-business-flow-vulnerability-engine.json`
+    - added `codex/tasks/backlog-362-evidence-signal-normalizer-v2-ai-runner-selection.json`
+    - added `codex/tasks/backlog-363-confirmed-finding-variant-hunter.json`
+    - added `codex/tasks/backlog-364-coverage-gap-missed-vulnerability-explainer.json`
+    - kept all packages queued and safety-scoped; none of the packages installs tools, runs targets, mutates runtime gates, bypasses approvals, changes finding schemas, or changes live assessment behavior
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with 314 queued task packages mapped one-to-one
+    - `git diff --check` passed
+
+- 2026-05-12: added queued codebase-review backlog packages backlog-354 through backlog-359:
+  - rationale:
+    - the operator asked to review all remaining work and add new tasks based on the codebase assessment
+    - the review found concrete maintenance/security gaps not already represented by the active backlog: local-only auth fallback gating, Mission Control TypeScript escape hatch, regex-based runner registry discovery, validation/CI gate drift, stale architecture/repo-map documentation, and React v2 bundle-size risk
+  - implementation:
+    - appended six queued items to `TASK_QUEUE.md` without changing `NEXT_TASK.md`
+    - added `codex/tasks/backlog-354-production-auth-fallback-gate.json`
+    - added `codex/tasks/backlog-355-mission-control-type-safety-decomposition.json`
+    - added `codex/tasks/backlog-356-explicit-runner-registry-dispatch-contract.json`
+    - added `codex/tasks/backlog-357-validation-gate-hygiene-ci-alignment.json`
+    - added `codex/tasks/backlog-358-architecture-repo-map-refresh.json`
+    - added `codex/tasks/backlog-359-react-v2-bundle-splitting-performance-budget.json`
+    - kept all packages queued and build-lane scoped; none of the packages installs tools, runs targets, mutates runtime gates, bypasses approvals, changes finding schemas, or changes live assessment behavior
+  - validation:
+    - `python3 scripts/validate_backlog_tasks.py` passed with 309 queued task packages mapped one-to-one
+    - `git diff --check` passed
+
 - 2026-05-12: added queued backlog-348 `Management Report Readability and Executive Narrative`:
   - rationale:
     - the operator requested a task to improve reports because management reports must be readable by humans and should not contain too many technical details
