@@ -718,12 +718,46 @@ def execute_smart_web_probe(
         },
     }
 
+    # Emit observations for unique URLs touched during the smart probe
+    # (backlog-372). Each distinct URL becomes an `api` entity.
+    observations: list[dict[str, Any]] = []
+    try:
+        from api.app.services.evidence_ingest import make_observation
+
+        seen_urls: set[str] = set()
+        for case in test_cases or []:
+            url = str((case or {}).get("url") or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            observations.append(
+                make_observation(
+                    entity_type="api",
+                    entity_source_id=url,
+                    entity_label=url,
+                    entity_subtype="probed_endpoint",
+                    attributes={
+                        "method": (case or {}).get("method") or "GET",
+                        "vuln_type": (case or {}).get("vuln_type"),
+                    },
+                    confidence=0.7,
+                    evidence_refs=[base_target],
+                )
+            )
+    except Exception as obs_exc:
+        logger.debug("smart-web-probe observation emit skipped: %s", obs_exc)
+        observations = []
+
     return RunnerExecution(
         tool="smart-web-probe",
         exit_code=0,
         stdout=json.dumps(result_payload),
         stderr="",
-        metadata={"status": "ok", "tool_version": "smart-web-probe:v1"},
+        metadata={
+            "status": "ok",
+            "tool_version": "smart-web-probe:v1",
+            "observations": observations,
+        },
         artifacts=[EvidenceArtifact(
             name=SMART_PROBE_RESULTS_ARTIFACT_NAME,
             content_type="application/json",

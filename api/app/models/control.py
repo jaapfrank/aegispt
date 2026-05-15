@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -594,6 +595,40 @@ class InventorySnapshot(UUIDMixin, TimestampMixin, Base):
     )
 
 
+class EvidenceObservation(UUIDMixin, TimestampMixin, Base):
+    """Runner-emitted structured entity observation.
+
+    Augments InventorySnapshot for finer-grained evidence: each row represents
+    one observed entity (asset, api, identity, credential_ref, etc.) with its
+    label, attributes, confidence, and the task that emitted it. Read by
+    build_normalized_evidence_graph alongside source-graph reconstruction.
+
+    Additive only — runners that do not emit observations continue to work via
+    the source-graph reconstruction path. See docs/evidence_graph_adoption_plan.md.
+    """
+
+    __tablename__ = "evidence_observations"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("runs.id"), nullable=False, index=True
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tasks.id"), nullable=True, index=True
+    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_source_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    entity_label: Mapped[str] = mapped_column(String(512), nullable=False)
+    entity_subtype: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attributes_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    evidence_refs_json: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.7)
+    emitted_by_tool: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
 class ThreatIntelRecord(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "threat_intel_records"
 
@@ -705,14 +740,15 @@ class CustomVulnerabilityEngagementSetting(UUIDMixin, TimestampMixin, Base):
         UniqueConstraint(
             "custom_vulnerability_id",
             "engagement_id",
-            name="uq_custom_vulnerability_engagement_setting",
+            name="uq_cv_engagement_setting",
         ),
+        # Postgres has a 63-char identifier limit; auto-generated names exceed this.
+        Index("ix_cv_engagement_setting_cv_id", "custom_vulnerability_id"),
     )
 
     custom_vulnerability_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("custom_vulnerabilities.id"),
         nullable=False,
-        index=True,
     )
     engagement_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("engagements.id"),

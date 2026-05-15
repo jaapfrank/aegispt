@@ -1,6 +1,10 @@
 # Current State
 
-## Latest Continuation — Mythos Phase 1 Audit Executed (2026-05-15)
+## Latest Continuation — Mythos Phase 1 Ingestion Helpers Landed (2026-05-15)
+
+Mythos task #322 (backlog-372 — Evidence-Graph Entity Ingestion Helpers) completed. New `EvidenceObservation` model + Alembic migration `20260515_0033` + service `api/app/services/evidence_ingest.py` + graph integration via `_runner_observation_nodes()` + orchestrator wiring in `workers/orchestration/tasks.py`. 4 pilot runners emit structured observations: target_intel (asset+api), smart_web_probe (api), xss_proof (identity+credential_ref), web_depth.content_discovery (api). 11 new tests in test_evidence_ingest.py all pass; test_assessment_graph.py regression test 4/4 still pass. Additive only — existing runners that did not opt in continue to work via source-graph reconstruction. NEXT_TASK promoted to backlog-373 #323 (Picker Reads Evidence Graph).
+
+## Earlier — Mythos Phase 1 Audit Executed (2026-05-15)
 
 Mythos task #321 (backlog-371 — Evidence-Graph First-Class Adoption Audit) completed. Deliverable `docs/evidence_graph_adoption_plan.md` produced. Confirmed: picker does not consume normalized evidence graph today; 67% of 75 runners emit only Findings with no structured entity observations. Adoption plan scopes #322 (ingestion helpers, est ~4-6h AI-tempo, 5 pilot runners) and #323 (picker reads graph projection, est ~2-4h). 2 pre-Mythos backlog items cancelled (#308 superseded by AGENT_SYSTEM_MAP, #312 absorbed by Mythos #322-#323), 13 deferred behind Mythos. NEXT_TASK promoted to backlog-372 (#322 — Evidence-Graph Entity Ingestion Helpers).
 

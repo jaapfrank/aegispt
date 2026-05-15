@@ -2,38 +2,35 @@
 
 ## Title
 
-Evidence-Graph Entity Ingestion Helpers Shared by Runners
+AI Picker Consumes Normalized Evidence Graph for Decision Context
 
 ## Goal
 
-Implement a thin shared helper module that runners call to register structured graph entities (asset, identity, credential_ref, endpoint, finding) and relationships during execution, so the normalized graph accumulates first-class entities rather than being reconstructed from stdout heuristics.
+Replace the picker's flat findings + tested_keys + task_outcomes context with a compact projection of the normalized evidence graph so the AI sees first-class entities and relationships when choosing the next action, enabling cross-runner pivoting and cross-target chains.
 
 ## Scope
 
-- Create `api/app/services/evidence_ingest.py` (helper module + typed contract)
-- Extend `api/app/services/assessment_graph.py` to read emitted entities and merge with existing source-graph nodes
-- Migrate 3-5 pilot runners (per Adoption Plan Section 6.1: target_intel, smart_web_probe, http_fetch_backend, xss_proof, exec_plan)
-- Alembic migration for new `evidence_observations` table
+- Modify `api/app/services/assessment_loop.py` `_claude_select_next_action` user_content construction to project the normalized graph into a token-efficient representation.
+- Add a graph-summarizer service that emits the projection.
+- Keep existing fallback for runs without graph data.
 
 ## Constraints
 
-- Additive only. Existing runners that do not opt in continue to work via source-graph reconstruction path.
-- No picker changes (that is task #323).
-- No new node types beyond those enumerated in Adoption Plan Section 5 (asset, api, identity, credential_hint, tech_signal, observed_url).
-- Helper must be additive — existing runner contracts unchanged.
+- Picker context projection only. Do NOT change the system prompt structure, exec_plan grammar, or memory tool behavior.
+- Token budget: projection must stay under 4 KB on typical runs to preserve prompt caching benefit. Larger graphs should be summarized, not dumped verbatim.
 
 ## Source Package
 
-`codex/tasks/backlog-372-evidence-graph-entity-ingestion-helpers.json`
+`codex/tasks/backlog-373-picker-reads-evidence-graph.json`
 
 ## Reference
 
-`docs/evidence_graph_adoption_plan.md` — full audit and design
+`docs/evidence_graph_adoption_plan.md` — Section 6.2 sketches the project_graph_for_picker design
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_evidence_ingest.py api/tests/test_assessment_graph.py`
-- `python3 -m compileall -q api workers`
-- `.venv/bin/ruff check api/app/services/evidence_ingest.py api/app/services/assessment_graph.py`
+- `.venv/bin/pytest api/tests/test_assessment_loop_graph_projection.py api/tests/test_assessment_loop.py`
+- `python3 -m compileall -q api`
+- `.venv/bin/ruff check api/app/services/assessment_loop.py api/app/services/assessment_graph.py`
 - `git diff --check`

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shlex
 import uuid
@@ -10,6 +11,8 @@ from hashlib import sha256
 from uuid import UUID
 
 import dramatiq
+
+logger = logging.getLogger(__name__)
 from dramatiq.brokers.redis import RedisBroker
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
@@ -3715,6 +3718,29 @@ def _store_execution(session, task: Task, execution: RunnerExecution) -> StoredE
     )
     if snapshot is not None:
         maybe_refresh_after_discovery_task(session, task=task, settings=get_settings())
+
+    # Runner-emitted structured observations (backlog-372). Runners that opt in
+    # populate metadata["observations"]; orchestrator persists them so
+    # build_normalized_evidence_graph can merge them as first-class nodes.
+    try:
+        observations = execution.metadata.get("observations") if execution.metadata else None
+        if observations and task.run is not None:
+            from api.app.services.evidence_ingest import persist_runner_observations
+
+            persist_runner_observations(
+                session,
+                run=task.run,
+                task=task,
+                tool=execution.tool,
+                observations=observations,
+            )
+    except Exception as obs_exc:
+        # Observations are advisory — a bad emission must not fail the task.
+        logger.warning(
+            "evidence_observations persist skipped for task=%s tool=%s: %s",
+            task.id, execution.tool, obs_exc,
+        )
+
     return StoredExecutionResult(created_finding_ids=[finding.id for finding in created_findings])
 
 

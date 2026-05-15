@@ -395,6 +395,9 @@ def build_normalized_evidence_graph(
     for node in _inventory_semantic_nodes(assessment_run):
         _merge_normalized_node(normalized_nodes, node)
 
+    for node in _runner_observation_nodes(session, assessment_run):
+        _merge_normalized_node(normalized_nodes, node)
+
     run_node_id = _normalized_node_id("run", str(assessment_run.id))
     for node_id, node in sorted(normalized_nodes.items()):
         if node_id == run_node_id:
@@ -793,6 +796,52 @@ def _inventory_semantic_nodes(run: Run) -> list[dict[str, Any]]:
                         data=_safe_dict(permission),
                     )
                 )
+    return nodes
+
+
+def _runner_observation_nodes(session: Session, run: Run) -> list[dict[str, Any]]:
+    """Load runner-emitted entity observations (backlog-372) and emit them as
+    normalized graph nodes. These augment _inventory_semantic_nodes with
+    finer-grained per-task entity emissions written via evidence_ingest.
+
+    Observations carry their own confidence, attributes, and evidence_refs.
+    Type validation is enforced upstream in evidence_ingest.persist_runner_observations,
+    so we only filter against the same accepted set here for defense-in-depth.
+    """
+    # Local import to avoid a circular import at module load time.
+    from api.app.services.evidence_ingest import (
+        ACCEPTED_ENTITY_TYPES,
+        load_run_observations,
+    )
+
+    nodes: list[dict[str, Any]] = []
+    for observation in load_run_observations(session, run_id=run.id):
+        if observation.entity_type not in ACCEPTED_ENTITY_TYPES:
+            # Defensive: a stored row with an unexpected type is skipped here
+            # rather than corrupting the graph.
+            continue
+        source_id = (
+            f"observation:{observation.entity_type}:{observation.entity_source_id}"
+        )
+        nodes.append(
+            _normalized_node(
+                node_type=str(observation.entity_type),
+                subtype=observation.entity_subtype,
+                source_id=source_id,
+                label=observation.entity_label,
+                confidence=float(observation.confidence or 0.7),
+                evidence_refs=list(observation.evidence_refs_json or []),
+                source_ids=[f"evidence_observation:{observation.id}"],
+                data={
+                    "observation_id": str(observation.id),
+                    "task_id": str(observation.task_id)
+                    if observation.task_id is not None
+                    else None,
+                    "emitted_by_tool": observation.emitted_by_tool,
+                    "attributes": dict(observation.attributes_json or {}),
+                },
+            )
+        )
     return nodes
 
 

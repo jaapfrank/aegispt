@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import re
 import subprocess
 import tempfile
@@ -12,6 +13,8 @@ from typing import Any, Callable
 from urllib.parse import urljoin, urlparse
 
 import httpx as httpx_client
+
+logger = logging.getLogger(__name__)
 
 from api.app.services.runs import target_value_is_allowed
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
@@ -1735,6 +1738,43 @@ def execute_content_discovery(
             "rate_limit": rate_limit,
         },
     }
+
+    # Emit observations for each discovered endpoint hit (backlog-372).
+    # Every successful hit becomes an `api` entity (subtype: discovered_endpoint).
+    observations: list[dict[str, Any]] = []
+    try:
+        from api.app.services.evidence_ingest import make_observation
+
+        seen_urls: set[str] = set()
+        for target_result in results:
+            target_base = str((target_result or {}).get("target") or "")
+            for hit in (target_result or {}).get("hits", []) or []:
+                if not isinstance(hit, dict):
+                    continue
+                hit_url = str(hit.get("url") or "").strip()
+                if not hit_url or hit_url in seen_urls:
+                    continue
+                seen_urls.add(hit_url)
+                observations.append(
+                    make_observation(
+                        entity_type="api",
+                        entity_source_id=hit_url,
+                        entity_label=hit_url,
+                        entity_subtype="discovered_endpoint",
+                        attributes={
+                            "status": hit.get("status"),
+                            "content_length": hit.get("length"),
+                            "content_type": hit.get("content_type"),
+                            "discovered_via": binary,
+                        },
+                        confidence=0.8,
+                        evidence_refs=[target_base] if target_base else [],
+                    )
+                )
+    except Exception as obs_exc:
+        logger.debug("content-discovery observation emit skipped: %s", obs_exc)
+        observations = []
+
     return RunnerExecution(
         tool="content-discovery",
         exit_code=exit_code,
@@ -1746,6 +1786,7 @@ def execute_content_discovery(
             "tool_version": binary,
             "finding_count": len(findings),
             "target_count": len(normalized_targets),
+            "observations": observations,
         },
         artifacts=[_json_artifact(CONTENT_DISCOVERY_RESULTS_ARTIFACT_NAME, artifact_payload)],
     )

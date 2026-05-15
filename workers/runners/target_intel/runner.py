@@ -309,12 +309,61 @@ def execute_target_intel(
         "next_step_hints": _build_next_step_hints(analysis, base_target),
     }
 
+    # Emit structured observations for the evidence graph (backlog-372).
+    # The host itself becomes an asset; discovered extra_paths become apis.
+    observations: list[dict[str, Any]] = []
+    try:
+        from api.app.services.evidence_ingest import make_observation
+        from urllib.parse import urlparse
+
+        host = urlparse(base_target).hostname or base_target
+        observations.append(
+            make_observation(
+                entity_type="asset",
+                entity_source_id=host,
+                entity_label=host,
+                entity_subtype="host",
+                attributes={
+                    "site_type": analysis.get("site_type"),
+                    "technology_stack": analysis.get("technology_stack") or [],
+                    "server_header": (context.get("headers") or {}).get("server"),
+                },
+                confidence=0.85,
+                evidence_refs=[base_target],
+            )
+        )
+        for path, info in (context.get("extra_paths") or {}).items():
+            if not isinstance(info, dict):
+                continue
+            url = f"{base_target.rstrip('/')}{path if path.startswith('/') else '/' + path}"
+            observations.append(
+                make_observation(
+                    entity_type="api",
+                    entity_source_id=url,
+                    entity_label=path,
+                    entity_subtype="discovered_endpoint",
+                    attributes={
+                        "status": info.get("status"),
+                        "content_type": info.get("content_type"),
+                    },
+                    confidence=0.75,
+                    evidence_refs=[base_target],
+                )
+            )
+    except Exception as obs_exc:  # observations are advisory
+        logger.debug("target-intel observation emit skipped: %s", obs_exc)
+        observations = []
+
     return RunnerExecution(
         tool="target-intel",
         exit_code=0,
         stdout=json.dumps(result),
         stderr="",
-        metadata={"status": "ok", "tool_version": "target-intel:v1"},
+        metadata={
+            "status": "ok",
+            "tool_version": "target-intel:v1",
+            "observations": observations,
+        },
         artifacts=[EvidenceArtifact(
             name=TARGET_INTEL_ARTIFACT_NAME,
             content_type="application/json",

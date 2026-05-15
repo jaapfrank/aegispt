@@ -744,12 +744,58 @@ def execute_xss_proof(
             },
         ))
 
+    # Emit observations for registered identity + captured credential (backlog-372).
+    # Identity = the test user we created. Credential_ref = the captured session cookie.
+    observations: list[dict[str, Any]] = []
+    try:
+        from api.app.services.evidence_ingest import make_observation
+
+        if auth.get("username"):
+            observations.append(
+                make_observation(
+                    entity_type="identity",
+                    entity_source_id=f"{base_target}#user:{auth['username']}",
+                    entity_label=str(auth["username"]),
+                    entity_subtype="registered_test_user",
+                    attributes={
+                        "target": base_target,
+                        "registered_via": "xss_proof_auto_register",
+                    },
+                    confidence=0.9,
+                    evidence_refs=[base_target],
+                )
+            )
+        if stealable and auth.get("cookie_name"):
+            observations.append(
+                make_observation(
+                    entity_type="credential_ref",
+                    entity_source_id=f"{base_target}#cookie:{auth['cookie_name']}",
+                    entity_label=str(auth["cookie_name"]),
+                    entity_subtype="session_cookie",
+                    attributes={
+                        "target": base_target,
+                        "cookie_name": auth.get("cookie_name"),
+                        "obtained_via": "xss_cookie_theft",
+                        "httponly": auth.get("httponly"),
+                    },
+                    confidence=0.95,
+                    evidence_refs=[base_target],
+                )
+            )
+    except Exception as obs_exc:
+        logger.debug("xss-proof observation emit skipped: %s", obs_exc)
+        observations = []
+
     return RunnerExecution(
         tool="xss-proof",
         exit_code=exit_code,
         stdout=json.dumps(result),
         stderr="\n".join(stderr_lines),
-        metadata={"status": "ok", "tool_version": "xss-proof:v4"},
+        metadata={
+            "status": "ok",
+            "tool_version": "xss-proof:v4",
+            "observations": observations,
+        },
         artifacts=[_artifact(XSS_PROOF_RESULTS_ARTIFACT_NAME, result)],
         protected_outputs=protected_outputs,
     )

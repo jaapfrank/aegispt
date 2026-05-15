@@ -1,5 +1,25 @@
 # Done Log
 
+- 2026-05-15: completed Mythos task #322 (backlog-372 — Evidence-Graph Entity Ingestion Helpers):
+  - rationale: per Adoption Plan (#321), runners had no path to emit structured graph entities. 67% of runners produced only findings, no structured observations. This task adds the missing ingestion path.
+  - implementation:
+    - new model `EvidenceObservation` added to `api/app/models/control.py` between InventorySnapshot and ThreatIntelRecord. Fields: run_id, task_id, entity_type, entity_source_id, entity_label, entity_subtype, attributes_json, evidence_refs_json, confidence, emitted_by_tool. Exported in `api/app/models/__init__.py`.
+    - Alembic migration `migrations/versions/20260515_0033_evidence_observations.py` creates `evidence_observations` table with composite index on (run_id, entity_type). down_revision = 2594463d9e10.
+    - new service `api/app/services/evidence_ingest.py` (~200 lines): `make_observation()` runner-side constructor, `persist_runner_observations()` orchestrator-side writer with type validation + size caps (MAX_OBSERVATIONS_PER_TASK=200), `load_run_observations()` graph-side reader. ACCEPTED_ENTITY_TYPES = {asset, api, identity, credential_ref, permission, saas_connector} — strictly the existing taxonomy per task #322 out_of_scope (no new node types).
+    - graph integration: `api/app/services/assessment_graph.py` extended with `_runner_observation_nodes()` helper called from `build_normalized_evidence_graph()` alongside `_inventory_semantic_nodes()` and `_run_vault_credential_nodes()`. Observations merge as normalized nodes with their own confidence + provenance.
+    - orchestrator wiring: `workers/orchestration/tasks.py` reads `execution.metadata["observations"]` after `_store_inventory_snapshot_from_execution` and calls `persist_runner_observations`. Defensive try/except — observation failures never fail the task.
+    - 4 pilot runners migrated to emit observations:
+      - `workers/runners/target_intel/runner.py`: emits 1 `asset` (host) + N `api` (discovered_endpoint) observations
+      - `workers/runners/smart_web_probe/runner.py`: emits unique `api` (probed_endpoint) observations
+      - `workers/runners/xss_proof/runner.py`: emits `identity` (registered test user) + `credential_ref` (session_cookie) observations
+      - `workers/runners/web_depth/runner.py` (execute_content_discovery): emits `api` (discovered_endpoint) observations
+    - `workers/runners/exec_plan/runner.py` was a pilot candidate in adoption plan but is in must_not_touch for #322; left untouched.
+  - tests: new `api/tests/test_evidence_ingest.py` with 11 tests covering: make_observation validation, persist_runner_observations write/load round-trip, invalid-row filtering, size cap, graph integration, empty input, scoped retrieval. All 11 pass. Existing `test_assessment_graph.py` (4 tests) still passes — no regression.
+  - validation: `scripts/validate_backlog_tasks.py` reports 338 queued. `pytest api/tests/test_evidence_ingest.py api/tests/test_assessment_graph.py` 15 passed. `compileall -q api workers` clean. `ruff check api/app/services/evidence_ingest.py api/app/services/assessment_graph.py` all clean.
+  - acceptance criteria met: helper round-trips entities through graph; 4 runners produce structured entities; no regression in graph normalization tests.
+  - additive only: existing runners that did not opt in continue to work via source-graph reconstruction.
+  - next: promote backlog-373 (#323 Picker Reads Evidence Graph) into NEXT_TASK.md.
+
 - 2026-05-15: completed Mythos task #321 (backlog-371 — Evidence-Graph First-Class Adoption Audit):
   - rationale: audit the existing build_normalized_evidence_graph and surrounding services to scope the per-runner ingestion + picker consumption work for tasks #322 + #323
   - work performed:
