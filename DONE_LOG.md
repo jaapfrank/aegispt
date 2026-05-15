@@ -1,5 +1,50 @@
 # Done Log
 
+- 2026-05-15: completed Mythos task #327 (backlog-377 — Auth Pattern Cache Backed by Claude Memory Store):
+  - rationale: Phase 2 day-3. #325 + #326 produce recipes via AI; #327 makes those recipes reusable across runs against similar targets without re-paying the Claude Haiku call. Operator proposal: "AI checkt site, ziet wat voor site het is, kijkt in cache of er al een website is met vergelijkbare code, probeert de cached aanvalspad". Scoped to auth flow first per `feedback_no_prescriptive_recipes` — recipes are still emergent, the cache just stops us from rediscovering the same fingerprint on every run.
+  - implementation:
+    - extended `api/app/services/auth_discoverer.py` (~350 added lines) with four pure functions plus internal helpers:
+      * `lookup_recipe(fingerprint, *, now=None) -> tuple[recipe|None, verdict]` — reads `/memories/auth-recipes/<fingerprint-hash>.json` via memory_backend.execute, parses, applies aging rules, returns one of `fresh`/`stale`/`absent`. Zero AI calls on the cache-hit path (acceptance criterion).
+      * `store_recipe(fingerprint, recipe, *, confidence=1.0, now=None) -> bool` — serializes a cache entry with `schema_version`, `created_at`, `last_confirmed_at`, `last_replay_failure_at`, `replay_failures`. Enforces per-file 2 KB and total-dir 50 KB caps; overwrites atomically (delete + create). Returns False when the entry is oversized or the dir cap is breached.
+      * `mark_recipe_stale(fingerprint, *, now=None) -> bool` — stamps `last_replay_failure_at` and increments `replay_failures`. The failure cooldown window (1 hour) then makes subsequent lookups return stale.
+      * `verify_recipe(recipe, *, http_client=None, timeout_seconds=10.0) -> bool` — executes ONLY the recipe's verification step (cookie/redirect/body assertions). Used by callers as the replay-before-trust gate before they execute the rest of the recipe.
+    - aging rules: entry is stale when (a) `last_confirmed_at` (falling back to `created_at`) is older than `CACHE_MAX_AGE_SECONDS=30 days`, or (b) `last_replay_failure_at` is within `CACHE_FAILURE_COOLDOWN_SECONDS=3600` of now. Both timestamps are stored UTC ISO-8601.
+    - path sanitization: fingerprint hash is regex-filtered to `[a-zA-Z0-9_-]{1,80}` before composing the logical cache path, so traversal/control chars cannot escape `CACHE_DIR_LOGICAL`. Empty/fully-sanitized-empty hashes yield `None` and force the absent verdict.
+    - corruption safety: garbled JSON files and schema-version mismatches both return `absent` (caller falls through to fresh discovery via #326 build_recipe), they do not raise.
+    - per-engagement isolation: relies on the existing `AEGISPT_MEMORY_ROOT` env var being set per engagement by the runtime — no cross-tenant logic added (per scope_isolation).
+    - memory_backend.py core API untouched: the new helpers use only `view`, `create`, `delete` commands; no schema or signature change to memory_backend.
+  - tests (new `api/tests/test_auth_discoverer_cache.py`, 29 tests, all pass):
+    - all four success-criteria scenarios: fresh hit, stale hit (aged out + failure cooldown), miss, replay-failure-marks-stale (full chain via real httpx MockTransport on a 500 response → `verify_recipe` returns False → `mark_recipe_stale` stamps → next `lookup_recipe` returns stale)
+    - aging boundary at exactly 30 days = still fresh; at 30 days + 1 second = stale
+    - cooldown boundary at 3600 seconds = stale; > 3600 seconds = fresh again
+    - store rejects oversized entries (deliberately blown to >2 KB by injecting 5 KB description) — nothing written, lookup absent
+    - store rejects when dir cap engages (loop writes ~140 entries until dir reaches 50 KB, then a fresh hash also fails)
+    - store overwrites existing entries idempotently and updates content
+    - store clamps confidence to [0,1]
+    - mark_stale no-op when no entry, increments `replay_failures` counter across multiple invocations
+    - `verify_recipe` happy path (200 + cookie + body), wrong status, missing cookie, body-token presence + absence, network error (httpx.ConnectError), malformed verification block (missing dict, invalid method), non-dict recipe
+    - cache-hit path makes ZERO AI calls — verified by monkeypatching `build_recipe` to raise AssertionError if called
+    - path sanitization rejects traversal sequences, empty input, and characters that fully sanitize to empty
+    - corrupt cache file → absent verdict (recovery path)
+    - schema_version mismatch → absent verdict (forward-compat path)
+    - cache-size accounting includes only `.json` recipe files under CACHE_DIR_LOGICAL
+    - constants sanity: CACHE_MAX_FILE_BYTES=2048, CACHE_MAX_TOTAL_BYTES=51200, CACHE_MAX_AGE_SECONDS=2592000, CACHE_FAILURE_COOLDOWN_SECONDS=3600, CACHE_SCHEMA_VERSION="auth-recipe-cache-v1"
+    - all tests use an isolated tmp_path memory root via `AEGISPT_MEMORY_ROOT` env var — zero pollution of the user's real memory dir
+    - zero live HTTP — verify_recipe uses httpx.MockTransport with deterministic handlers
+  - constraints honored:
+    - workers/runners/ untouched (must_not_touch)
+    - api/app/services/assessment_loop.py untouched (must_not_touch)
+    - api/app/services/memory_backend.py core API untouched — only consumed via `execute("view"/"create"/"delete", ...)` (must_not_touch)
+    - NO probe migration (that is #328)
+    - cache is per-engagement only (scope_isolation): inherits memory_backend's per-engagement root
+    - size caps enforced at both file-level (2 KB) and dir-level (50 KB)
+    - aging enforced (30-day expiry + 1-hour failure cooldown)
+    - cache hit path performs zero AI calls (acceptance criterion verified by monkeypatched build_recipe assertion)
+    - emergent only: cache stores fingerprint-keyed recipes generated by build_recipe; no app-specific recipes seeded in code or tests
+  - validation: scripts/validate_backlog_tasks.py reports 339 queued mapped 1:1 (no queue change). pytest covering all auth_discoverer tests shows 66/66 pass (17 #325 + 20 #326 + 29 #327). compileall -q api clean. ruff check api/app/services/auth_discoverer.py all checks passed. git diff --check clean.
+  - acceptance criteria met: cache hit path = zero AI calls (✓ verified by monkeypatch), replay verification reuses the recipe verification step exactly as designed by #326 (no parallel verifier — verify_recipe just executes recipe.verification) (✓), stale/unverified recipes never returned as fresh (✓ verdict is part of the contract; callers can choose to trust fresh and trigger discovery on stale/absent).
+  - next: promote backlog-378 (#328 Migrate Five Probes from Gruyere Auth Pattern to Auth Discoverer) into NEXT_TASK.md.
+
 - 2026-05-15: completed Mythos task #326 (backlog-376 — Auth Discoverer AI-Driven Recipe Builder):
   - rationale: Phase 2 day-2. Fingerprint alone (#325) is not actionable; runners need an executable recipe (which fields to fill, in what order, against which endpoint, with what verification). Reference impl `_ai_analyze_auth` in xss_proof/runner.py is tied to Gruyere assumptions — generalize it as a shared service that derives the recipe from the #325 fingerprint at runtime, with no app-specific seeds.
   - implementation:

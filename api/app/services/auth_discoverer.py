@@ -1,25 +1,34 @@
-"""Auth discovery service — Mythos tasks #325 + #326.
+"""Auth discovery service — Mythos tasks #325 + #326 + #327.
 
-Generic HTML-form auth flow discovery. Three pure functions:
+Generic HTML-form auth flow discovery. Public surface:
 
-- :func:`fetch_auth_pages` probes a base URL for common register/login
-  paths and returns observed pages whose response is 200. All HTTP
+- :func:`fetch_auth_pages` (#325) probes a base URL for common register/
+  login paths and returns observed pages whose response is 200. All HTTP
   respects the passed scope_allowlist.
 
-- :func:`fingerprint_application` parses HTML form documents and emits a
-  normalized fingerprint dict suitable as a cache key (#327) and as
+- :func:`fingerprint_application` (#325) parses HTML form documents and
+  emits a normalized fingerprint dict suitable as a cache key and as
   input to the AI recipe builder.
 
 - :func:`build_recipe` (#326) takes a fingerprint and uses Claude Haiku
   to synthesize an executable AuthRecipe (steps + verification) any
   runner can execute via existing HTTP primitives.
 
+- :func:`lookup_recipe` / :func:`store_recipe` / :func:`verify_recipe` /
+  :func:`mark_recipe_stale` (#327) layer a per-engagement cache on top
+  of build_recipe. Cache files live at
+  ``/memories/auth-recipes/<fingerprint-hash>.json`` via the existing
+  Claude memory backend. Aging + replay-before-trust + size caps
+  enforced.
+
 Constraints honored:
-- No cache logic (that is #327).
 - No probe migration (that is #328).
 - No imports from workers/runners or assessment_loop.
 - No app-specific patterns seeded in code or prompts. The AI must
   derive the recipe from the fingerprint at runtime.
+- Cache is per-engagement. The memory_backend root is already per-
+  engagement (one root path per runtime), so isolation is inherited
+  rather than reimplemented.
 
 Reference implementation studied: ``workers/runners/xss_proof/runner.py``
 (``_try_register_with_ai``, ``_discover_candidate_pages``,
@@ -35,11 +44,13 @@ import json
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx as httpx_client
 
+from api.app.services import memory_backend
 from api.app.services.runs import web_target_value_is_allowed_with_path
 
 logger = logging.getLogger(__name__)
@@ -1127,3 +1138,381 @@ def build_recipe(
         "steps": steps,
         "verification": verification,
     }
+
+
+# ---------------------------------------------------------------------------
+# #327 — Auth pattern cache backed by Claude memory store
+# ---------------------------------------------------------------------------
+
+CACHE_SCHEMA_VERSION = "auth-recipe-cache-v1"
+CACHE_DIR_LOGICAL = "/memories/auth-recipes"
+CACHE_MAX_FILE_BYTES = 2048           # 2 KB per recipe file
+CACHE_MAX_TOTAL_BYTES = 50 * 1024     # 50 KB across all recipe files
+CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60     # 30 days
+CACHE_FAILURE_COOLDOWN_SECONDS = 60 * 60      # 1 hour
+
+VERDICT_FRESH = "fresh"
+VERDICT_STALE = "stale"
+VERDICT_ABSENT = "absent"
+
+
+def _utc_now(now: datetime | None = None) -> datetime:
+    if isinstance(now, datetime):
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now.astimezone(timezone.utc)
+    return datetime.now(timezone.utc)
+
+
+def _to_iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def _from_iso(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        # `fromisoformat` handles +00:00 offsets natively; "Z" suffix
+        # needs translation for Python <3.11 compatibility.
+        normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+        dt = datetime.fromisoformat(normalized)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _cache_path_for(fingerprint_hash: str) -> str | None:
+    """Return the logical /memories/... path for a fingerprint, or None
+    if the hash is unusable."""
+    if not isinstance(fingerprint_hash, str):
+        return None
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]", "", fingerprint_hash)[:80]
+    if not cleaned:
+        return None
+    return f"{CACHE_DIR_LOGICAL}/{cleaned}.json"
+
+
+def _load_cache_entry(logical_path: str) -> dict[str, Any] | None:
+    """Read+parse a cache file. Returns None on any error (missing file,
+    not-JSON, schema-mismatch). Defensive — the file is on disk under a
+    path Claude can also write to."""
+    response = memory_backend.execute("view", path=logical_path)
+    if response.startswith("Error") or response.startswith("The path"):
+        return None
+    # `view` returns a header line + line-numbered content. Strip the
+    # header and the `<lineno>\t` prefix from each remaining line.
+    lines = response.splitlines()
+    if not lines:
+        return None
+    body_lines: list[str] = []
+    for line in lines[1:]:
+        stripped = line.lstrip()
+        # Lines from memory_backend are "<right-padded lineno>\t<text>".
+        # Find the tab and keep everything after it.
+        if "\t" in line:
+            body_lines.append(line.split("\t", 1)[1])
+        else:
+            body_lines.append(stripped)
+    body = "\n".join(body_lines)
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        logger.debug(
+            "auth_discoverer.cache: JSON decode failed for %s",
+            logical_path,
+        )
+        return None
+    if not isinstance(data, dict):
+        return None
+    if data.get("schema_version") != CACHE_SCHEMA_VERSION:
+        return None
+    return data
+
+
+def _list_cache_files() -> list[str]:
+    """List logical paths of all cache files under CACHE_DIR_LOGICAL.
+    Empty list if directory doesn't exist."""
+    response = memory_backend.execute("view", path=CACHE_DIR_LOGICAL)
+    if response.startswith("The path") or response.startswith("Error"):
+        return []
+    files: list[str] = []
+    for line in response.splitlines()[1:]:
+        # Each line is "<size>\t<logical_path>". Skip the directory
+        # itself (which is the inserted root entry).
+        parts = line.split("\t", 1)
+        if len(parts) != 2:
+            continue
+        logical = parts[1].strip()
+        if logical.endswith(".json") and logical != CACHE_DIR_LOGICAL:
+            files.append(logical)
+    return files
+
+
+def _current_cache_size_bytes() -> int:
+    """Sum the sizes of every cache file. Best-effort — counts only
+    files we can read."""
+    total = 0
+    for logical in _list_cache_files():
+        response = memory_backend.execute("view", path=logical)
+        if response.startswith("Error") or response.startswith("The path"):
+            continue
+        # Strip header + line-number prefixes to get a tight estimate of
+        # the actual JSON payload size.
+        body_chars = 0
+        for line in response.splitlines()[1:]:
+            if "\t" in line:
+                body_chars += len(line.split("\t", 1)[1]) + 1  # +1 for newline
+            else:
+                body_chars += len(line) + 1
+        total += body_chars
+    return total
+
+
+def _verdict_for_entry(entry: dict[str, Any], now: datetime) -> str:
+    """Apply aging rules to determine fresh vs stale."""
+    last_confirmed = _from_iso(entry.get("last_confirmed_at"))
+    created = _from_iso(entry.get("created_at"))
+    anchor = last_confirmed or created
+    if anchor is not None and (now - anchor).total_seconds() > CACHE_MAX_AGE_SECONDS:
+        return VERDICT_STALE
+    last_failure = _from_iso(entry.get("last_replay_failure_at"))
+    if (
+        last_failure is not None
+        and (now - last_failure).total_seconds() < CACHE_FAILURE_COOLDOWN_SECONDS
+    ):
+        return VERDICT_STALE
+    return VERDICT_FRESH
+
+
+def lookup_recipe(
+    fingerprint: dict[str, Any],
+    *,
+    now: datetime | None = None,
+) -> tuple[dict[str, Any] | None, str]:
+    """Look up a cached recipe for ``fingerprint``.
+
+    Returns ``(recipe, verdict)`` where verdict is one of:
+    - ``"fresh"`` — recipe is usable; caller may proceed to verify-then-use
+    - ``"stale"`` — recipe found but aged out OR within failure-cooldown;
+      caller should treat as needing fresh discovery
+    - ``"absent"`` — no cache entry exists
+
+    Cache miss (``absent``) and parse failures both return
+    ``(None, "absent")``. The caller can then run full discovery.
+
+    The cache hit path performs **zero AI calls** (acceptance criterion).
+    """
+    if not isinstance(fingerprint, dict):
+        return None, VERDICT_ABSENT
+    fingerprint_hash = str(fingerprint.get("fingerprint_hash") or "")
+    logical = _cache_path_for(fingerprint_hash)
+    if not logical:
+        return None, VERDICT_ABSENT
+    entry = _load_cache_entry(logical)
+    if entry is None:
+        return None, VERDICT_ABSENT
+    recipe = entry.get("recipe")
+    if not isinstance(recipe, dict):
+        return None, VERDICT_ABSENT
+    verdict = _verdict_for_entry(entry, _utc_now(now))
+    return recipe, verdict
+
+
+def store_recipe(
+    fingerprint: dict[str, Any],
+    recipe: dict[str, Any],
+    *,
+    confidence: float = 1.0,
+    now: datetime | None = None,
+) -> bool:
+    """Persist ``recipe`` against ``fingerprint`` in the memory backend.
+
+    Returns ``True`` on success, ``False`` if:
+    - inputs are malformed
+    - the serialized entry exceeds ``CACHE_MAX_FILE_BYTES`` (2 KB)
+    - writing it would push the total cache dir over ``CACHE_MAX_TOTAL_BYTES`` (50 KB)
+
+    Existing entry for the same fingerprint is overwritten (atomically:
+    delete + create). ``last_confirmed_at`` and ``created_at`` are
+    stamped to ``now`` (UTC). Caller can later flag a failed replay via
+    :func:`mark_recipe_stale`.
+    """
+    if not isinstance(fingerprint, dict) or not isinstance(recipe, dict):
+        return False
+    fingerprint_hash = str(fingerprint.get("fingerprint_hash") or "")
+    logical = _cache_path_for(fingerprint_hash)
+    if not logical:
+        return False
+    if not (0.0 <= float(confidence) <= 1.0):
+        confidence = max(0.0, min(1.0, float(confidence)))
+
+    now_dt = _utc_now(now)
+    now_iso = _to_iso(now_dt)
+    entry: dict[str, Any] = {
+        "schema_version": CACHE_SCHEMA_VERSION,
+        "fingerprint_hash": fingerprint_hash,
+        "recipe": recipe,
+        "confidence": float(confidence),
+        "created_at": now_iso,
+        "last_confirmed_at": now_iso,
+        "last_replay_failure_at": None,
+        "replay_failures": 0,
+    }
+    serialized = json.dumps(entry, separators=(",", ":"))
+    if len(serialized.encode("utf-8")) > CACHE_MAX_FILE_BYTES:
+        logger.debug(
+            "auth_discoverer.cache: entry too large (%d bytes > %d), skipping store",
+            len(serialized.encode("utf-8")),
+            CACHE_MAX_FILE_BYTES,
+        )
+        return False
+
+    # Compute projected total dir size with this entry added. If the
+    # fingerprint already exists, subtract its current contribution.
+    current_total = _current_cache_size_bytes()
+    existing = _load_cache_entry(logical)
+    if existing is not None:
+        existing_bytes = len(
+            json.dumps(existing, separators=(",", ":")).encode("utf-8")
+        )
+        current_total = max(0, current_total - existing_bytes)
+    projected = current_total + len(serialized.encode("utf-8"))
+    if projected > CACHE_MAX_TOTAL_BYTES:
+        logger.debug(
+            "auth_discoverer.cache: dir cap reached (%d + %d > %d), skipping store",
+            current_total,
+            len(serialized.encode("utf-8")),
+            CACHE_MAX_TOTAL_BYTES,
+        )
+        return False
+
+    # Overwrite atomically: delete existing then create.
+    if existing is not None:
+        memory_backend.execute("delete", path=logical)
+    response = memory_backend.execute("create", path=logical, file_text=serialized)
+    if response.startswith("Error"):
+        logger.debug(
+            "auth_discoverer.cache: store failed: %s",
+            response[:200],
+        )
+        return False
+    return True
+
+
+def mark_recipe_stale(
+    fingerprint: dict[str, Any],
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """Stamp ``last_replay_failure_at`` on the cached entry for
+    ``fingerprint``. The recipe becomes stale to subsequent lookups
+    until ``CACHE_FAILURE_COOLDOWN_SECONDS`` elapses.
+
+    Returns ``True`` if a cache entry was updated, ``False`` otherwise."""
+    if not isinstance(fingerprint, dict):
+        return False
+    fingerprint_hash = str(fingerprint.get("fingerprint_hash") or "")
+    logical = _cache_path_for(fingerprint_hash)
+    if not logical:
+        return False
+    entry = _load_cache_entry(logical)
+    if entry is None:
+        return False
+    entry["last_replay_failure_at"] = _to_iso(_utc_now(now))
+    entry["replay_failures"] = int(entry.get("replay_failures") or 0) + 1
+    serialized = json.dumps(entry, separators=(",", ":"))
+    if len(serialized.encode("utf-8")) > CACHE_MAX_FILE_BYTES:
+        return False
+    memory_backend.execute("delete", path=logical)
+    response = memory_backend.execute("create", path=logical, file_text=serialized)
+    return not response.startswith("Error")
+
+
+def verify_recipe(
+    recipe: dict[str, Any],
+    *,
+    http_client: httpx_client.Client | None = None,
+    timeout_seconds: float = 10.0,
+) -> bool:
+    """Replay-before-trust. Executes ONLY the verification step of
+    ``recipe`` and checks the response against the expectations.
+
+    Verification passes when ALL the following hold (when specified):
+    - response status_code ∈ ``expect_status``
+    - if ``expect_set_cookie`` is set, the response sets a cookie with
+      that name (case-insensitive)
+    - every token in ``expect_body_contains`` appears in the response body
+
+    Returns ``True`` on success, ``False`` otherwise. HTTP errors,
+    timeouts, and malformed verification blocks all return ``False``.
+    Caller is expected to follow up with :func:`mark_recipe_stale` on
+    failure.
+    """
+    if not isinstance(recipe, dict):
+        return False
+    verification = recipe.get("verification")
+    if not isinstance(verification, dict):
+        return False
+    url = str(verification.get("url") or "").strip()
+    method = str(verification.get("method") or "GET").strip().upper()
+    if not url or method not in _ALLOWED_HTTP_METHODS:
+        return False
+    expect_status = verification.get("expect_status") or [200]
+    if not isinstance(expect_status, list):
+        return False
+    expect_set_cookie = verification.get("expect_set_cookie")
+    expect_body_contains = verification.get("expect_body_contains") or []
+
+    owned = False
+    client = http_client
+    if client is None:
+        client = httpx_client.Client(
+            timeout=timeout_seconds, follow_redirects=False, verify=True
+        )
+        owned = True
+
+    try:
+        try:
+            response = client.request(method, url)
+        except httpx_client.HTTPError as exc:
+            logger.debug("auth_discoverer.verify_recipe: HTTP error: %s", exc)
+            return False
+
+        try:
+            if int(response.status_code) not in {int(s) for s in expect_status}:
+                return False
+        except (TypeError, ValueError):
+            return False
+
+        if isinstance(expect_set_cookie, str) and expect_set_cookie:
+            cookie_names: set[str] = set()
+            try:
+                for cookie in response.cookies.jar:
+                    if cookie.name:
+                        cookie_names.add(cookie.name)
+            except AttributeError:
+                # Fallback for very old/odd httpx response shapes
+                raw_cookies = (
+                    response.headers.get_list("set-cookie")
+                    if hasattr(response.headers, "get_list")
+                    else []
+                )
+                for raw in raw_cookies:
+                    name = raw.split("=", 1)[0].strip()
+                    if name:
+                        cookie_names.add(name)
+            if expect_set_cookie not in cookie_names:
+                return False
+
+        if isinstance(expect_body_contains, list) and expect_body_contains:
+            body = response.text or ""
+            for token in expect_body_contains:
+                if isinstance(token, str) and token and token not in body:
+                    return False
+
+        return True
+    finally:
+        if owned:
+            client.close()
