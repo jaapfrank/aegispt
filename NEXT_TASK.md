@@ -2,41 +2,39 @@
 
 ## Title
 
-AI Loop Soft Retry on Parse / Decision Failure Instead of Hard Stop (Phase 3 day 2)
+Memory Tool Result Truncation and Bloat Containment (Phase 3 day 3)
 
 ## Goal
 
-When the picker returns `None` (parse fail, empty text, or unrecoverable hop loop exit), `advance_assessment_loop` currently sets `status=stopped` with reason `no_registered_runner_candidate` and halts the run. Replace this with bounded soft retry (max 2 attempts with fresh per-call backoff) so a single bad output does not kill an otherwise healthy run.
+Cap `memory_backend.execute` response size at 2 KB per call and refactor `/memories/run-progress.md` from an unbounded log into a bounded structured summary. Reduces the ~9 KB per memory-tool call wasted on the picker prompt (~922 calls/day observed = ~$30/day saving at current pricing). Closes the third known-issue bullet in `AGENT_SYSTEM_MAP.md` section 2: "Memory file `/memories/run-progress.md` grows unbounded".
 
 ## Scope
 
-- Modify `api/app/services/assessment_loop.py:advance_assessment_loop` to detect parse-fail / None-candidate distinctly from genuine exhaustion.
-- On parse-fail or empty picker output: retry up to 2 times with the same context.
-- On exhaustion (no candidate after retries): THEN set `status=stopped` with descriptive reason `picker_retry_exhausted` (distinguishable from `no_registered_runner_candidate`).
-- Retry attempts visible in `loop_state.retries_this_advance` so operator can see retry history.
+- Modify `api/app/services/memory_backend.py` to truncate `view` command results to 2 KB with a trailing `[...truncated, N more bytes]` marker.
+- Add a separate maintenance helper that periodically rotates `/memories/run-progress.md` when it exceeds 8 KB, keeping only the most recent 6 KB of content.
 
 ## Constraints
 
-- Retry logic only. Do NOT change tool definitions, the schema, or the system prompt.
-- Hard cap retries per advance at 2. Beyond that, mark loop stopped with descriptive reason.
-- Each retry attempt must increment a counter visible in loop_state so the operator can see retry history. No infinite loops.
-- Must NOT touch: `workers/runners/`, `workers/orchestration/`, picker tool definitions, the system prompt body.
+- Truncation + rotation only. Do NOT change the memory tool schema, the system prompt directives about /memories paths, or any storage backend.
+- Writes are NOT capped. Only reads are truncated for prompt-injection bounds. The full file remains on disk.
+- Truncation must include a clear marker that prompts Claude to view sub-paths or read further if needed. Do not silently drop content.
+- Must NOT touch: `_AI_PICKER_SYSTEM_PROMPT`, `workers/runners/`, `workers/orchestration/`, `api/app/services/assessment_loop.py` (only log-message lines that show truncation activity may change there if needed).
 
 ## Source Package
 
-`codex/tasks/backlog-381-loop-soft-retry-on-failure.json`
+`codex/tasks/backlog-382-memory-tool-result-truncation.json`
 
 ## Reference
 
-- `api/app/services/assessment_loop.py:advance_assessment_loop` + `_claude_select_next_action`
-- `docs/AGENT_SYSTEM_MAP.md` section 2 (Known issues — "Loop stops hard on first parse failure, no soft retry")
-- #330 added structured outputs to eliminate JSON parse failures; #331 hardens against the residual transient failures (network blip on http_fetch, momentary credit pause, etc.)
+- `api/app/services/memory_backend.py` (`execute("view", ...)` is the read path that needs truncation)
+- `docs/AGENT_SYSTEM_MAP.md` section 2 ("Memory file `/memories/run-progress.md` grows unbounded") and section 6 (memory tool integration)
+- Cost data: ~922 memory-tool calls/day × ~11 KB avg result = ~10 MB/day injected into the picker prompt; truncation to 2 KB saves ~80% per call.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_assessment_loop_soft_retry.py api/tests/test_assessment_loop.py`
+- `.venv/bin/pytest api/tests/test_memory_backend_truncation.py api/tests/test_memory_backend.py`
 - `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/assessment_loop.py`
+- `.venv/bin/ruff check api/app/services/memory_backend.py`
 - `git diff --check`
-- Acceptance: 1 fail + 1 success per advance → loop continues; 3 fails per advance → loop sets `retry_exhausted` reason after the third attempt.
+- Acceptance: `memory_backend.execute view` capped at 2 KB with truncation marker; rotation helper keeps `/memories/run-progress.md` under 8 KB; logged `cache_read_input_tokens` per picker hop drops measurably (deferred to operator validation on live runs).

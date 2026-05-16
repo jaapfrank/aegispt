@@ -1,5 +1,53 @@
 # Done Log
 
+- 2026-05-16: completed Mythos task #331 (backlog-381 — AI Loop Soft Retry on Parse / Decision Failure Instead of Hard Stop):
+  - rationale: Phase 3 day-2. #330 (structured outputs) removed the JSON-parse-fail class of `_claude_select_next_action` returning None, but transient causes remain — network blip on http_fetch, momentary credit pause, empty text block, SDK-level exception caught upstream. Before #331, a single None from any of those terminated the run with `status=stopped, stop_reason=no_registered_runner_candidate`, requiring manual operator intervention. Now: bounded soft retry (1 initial attempt + 2 retries = 3 total) before falling through; if every retry returns None AND the fallback heuristic chain also fails, the stop reason is now the distinct `picker_retry_exhausted` so operators can tell "Claude died on every retry" apart from "no fallback applicable".
+  - implementation:
+    - new `_call_picker_with_retries(*, run, tested_keys, available_tools, targets, scope, session, loop_state) -> dict | None` wrapper in `api/app/services/assessment_loop.py` immediately before `_claude_select_next_action`. Drop-in replacement at the call site — same kwargs (plus `loop_state` for telemetry).
+    - on entry: resets `loop_state["retries_this_advance"] = 0` and `loop_state["picker_retry_exhausted"] = False` so stale values from prior advances don't leak into the current advance's view.
+    - attempt loop: iterates `range(PICKER_MAX_RETRIES + 1)` = 3 times total. On success at attempt 0, returns immediately. On failure, increments `retries_this_advance` and continues. On success at attempt > 0, logs "AI loop: picker recovered after N retry(ies)" and returns the decision.
+    - on full exhaustion: logs `WARNING` "AI loop: picker exhausted retries (3 attempts) — proceeding to fallback heuristics", sets `loop_state["picker_retry_exhausted"] = True`, returns None.
+    - `PICKER_MAX_RETRIES = 2` module-level constant (per task package contract; success criterion #5 "Unit test simulates 3 fails per advance and proves loop sets retry_exhausted after the third").
+    - advance_assessment_loop wired through the wrapper instead of calling `_claude_select_next_action` directly. When `candidate is None` later in the function (which happens when wrapper's None propagates AND every fallback in the chain also yields None), the stop_reason branches on `loop_state["picker_retry_exhausted"]`:
+      * exhausted → `stop_reason = "picker_retry_exhausted"`, audit metadata includes `retries_this_advance` integer, credential vault clears with reason `assessment_loop_picker_retry_exhausted`
+      * not exhausted (Claude succeeded but no fallback matched) → `stop_reason = "no_registered_runner_candidate"` (existing behavior)
+    - The audit event now also exposes `retries_this_advance` so operator-facing telemetry shows whether the run died gracefully (Claude returned decision, fallback chain failed = unfortunate but not flapping) vs flapped (Claude died 3 times in a row, then fallback also empty = something is wrong).
+  - tests (new `api/tests/test_assessment_loop_soft_retry.py`, 9 tests, all pass):
+    - `test_first_attempt_success_no_retries` — happy path: counter stays 0, exhausted stays False
+    - `test_one_fail_then_success_continues` — acceptance criterion #4 explicit case
+    - `test_two_fails_then_success_continues` — edge of the retry budget (last attempt succeeds)
+    - `test_three_fails_marks_exhausted` — acceptance criterion #5 explicit case (counter = 2 = PICKER_MAX_RETRIES, exhausted = True, result None)
+    - `test_state_is_initialized_each_advance` — stale loop_state values reset on entry
+    - `test_logs_warning_on_exhaustion` — operator sees "picker exhausted retries" line
+    - `test_logs_info_on_recovery` — "picker recovered after N retry(ies)" emitted when soft retry saves the day
+    - `test_retry_budget_constant` — sentinel: changing PICKER_MAX_RETRIES is now a deliberate decision, not silent drift
+    - `test_wrapper_treats_empty_dict_as_valid_decision` — wrapper only retries on explicit None sentinel, not on other falsy values (an empty dict from picker is still a "decision" the caller handles)
+  - constraints honored (must_not_touch from task package):
+    - workers/runners/ untouched
+    - workers/orchestration/ untouched
+    - `_AI_PICKER_SYSTEM_PROMPT` body untouched (no changes to lines 1-200 or any prompt text)
+    - api/app/services/memory_backend.py untouched
+    - api/app/services/http_fetch_backend.py untouched
+    - tool definitions unchanged; schema unchanged; hop loop unchanged
+    - retry counter bounded at 2 (hard cap from task package)
+    - each retry increments visible counter (no infinite loops)
+  - pre-existing test_assessment_loop.py failures (5 tests) remain — same 5 status-drift / picker-default-tool tests verified pre-existing in #330 baseline check; tracked under backlog-307 hygiene. Not introduced by #331; not fixed by #331 either.
+  - validation:
+    - scripts/validate_backlog_tasks.py: 339 queued 1:1 (no change)
+    - pytest api/tests/test_assessment_loop_soft_retry.py: 9/9 pass
+    - pytest api/tests/test_assessment_loop_structured_outputs.py: 17/17 pass (no regression from #330)
+    - pytest api/tests/test_assessment_loop.py: 4 pass, 5 pre-existing fail (same as before #330 and #331)
+    - compileall -q api: clean
+    - ruff check api/app/services/assessment_loop.py: All checks passed
+    - git diff --check: clean on staged files
+  - acceptance criteria status:
+    - "Parse-fail or empty-text from picker triggers retry, not stop" → ✓ (test_one_fail_then_success_continues, test_two_fails_then_success_continues)
+    - "Retry attempts visible in loop_state under retries_this_advance" → ✓ (asserted in every test)
+    - "After 2 failed retries, loop sets stopped with reason picker_retry_exhausted (distinguishable from no_registered_runner_candidate)" → ✓ (test_three_fails_marks_exhausted + advance_assessment_loop branch update; verifiable in the audit event metadata)
+    - "Unit test simulates 1 fail + 1 success per advance and proves loop continues" → ✓ (test_one_fail_then_success_continues)
+    - "Unit test simulates 3 fails per advance and proves loop sets retry_exhausted after the third" → ✓ (test_three_fails_marks_exhausted)
+  - next: promote backlog-382 (#332 Memory Tool Result Truncation and Bloat Containment) into NEXT_TASK.md. Phase 3 day 3 — closes the third known-issue bullet in AGENT_SYSTEM_MAP section 2 (unbounded `/memories/run-progress.md`) and unlocks the ~$30/day projected saving from capping the 11 KB-avg memory tool result at 2 KB.
+
 - 2026-05-16: completed Mythos task #330 (backlog-380 — Picker Structured Outputs via output_config.format JSON Schema):
   - rationale: Phase 3 day-1. The 2026-05-15 incident — picker emitted an exec_plan with an unescaped quote inside `reasoning` at char 2533, `_tolerant_json_fix` could not repair it, loop hit `candidate is None` and stopped — is the canonical case for Anthropic's structured-outputs feature. The SDK enforces a JSON schema server-side; Claude is forced to produce a syntactically valid action that fits the discriminator, eliminating the entire class of parse failures.
   - implementation:

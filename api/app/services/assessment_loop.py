@@ -621,6 +621,90 @@ def _extract_target_intel_test_plan(run: Run) -> list[dict[str, Any]]:
     return []
 
 
+# ---------------------------------------------------------------------------
+# #331 — Bounded soft retry around the picker
+# ---------------------------------------------------------------------------
+#
+# `_claude_select_next_action` can return `None` for transient reasons:
+# a network blip on http_fetch, a momentary credit pause, an empty text
+# block, an SDK-level exception caught upstream. Before #331 the loop
+# treated `None` as terminal: status was set to stopped with reason
+# `no_registered_runner_candidate` after one bad output.
+#
+# `_call_picker_with_retries` wraps the picker call with a bounded retry
+# budget (1 initial attempt + 2 retries = 3 total). It updates
+# `loop_state` in place so the operator can see retry history:
+#
+#   retries_this_advance:   int, number of retries this advance (0 if
+#                           the first attempt succeeded)
+#   picker_retry_exhausted: bool, set True when the full budget is spent
+#                           AND every attempt returned None. The caller
+#                           uses this to set a distinct stop_reason
+#                           (`picker_retry_exhausted`) so genuine
+#                           "no fallback candidate" vs "Claude died on
+#                           every retry" cases are diagnosable.
+#
+# #330 (structured outputs) already removed the JSON-parse-fail class of
+# Nones; #331 hardens the loop against the remaining transient cases.
+
+PICKER_MAX_RETRIES = 2
+
+
+def _call_picker_with_retries(
+    *,
+    run: Run,
+    tested_keys: set[str],
+    available_tools: list[str],
+    targets: list[dict[str, Any]],
+    scope: Scope | None,
+    session: Session | None,
+    loop_state: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Call :func:`_claude_select_next_action` with bounded soft retry.
+
+    Records retry telemetry on ``loop_state`` so operators can spot a
+    flapping picker even when the eventual outcome is success. The
+    function is otherwise a drop-in replacement — same signature shape,
+    same return value (decision dict or None)."""
+    loop_state["retries_this_advance"] = 0
+    loop_state["picker_retry_exhausted"] = False
+    total_attempts = PICKER_MAX_RETRIES + 1
+    for attempt_index in range(total_attempts):
+        if attempt_index > 0:
+            loop_state["retries_this_advance"] = attempt_index
+            logger.info(
+                "AI loop: picker retry attempt %d/%d",
+                attempt_index, PICKER_MAX_RETRIES,
+            )
+        decision = _claude_select_next_action(
+            run=run,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+            targets=targets,
+            scope=scope,
+            session=session,
+        )
+        if decision is not None:
+            if attempt_index > 0:
+                logger.info(
+                    "AI loop: picker recovered after %d retry(ies)",
+                    attempt_index,
+                )
+            return decision
+        logger.info(
+            "AI loop: picker returned None (attempt %d of %d)",
+            attempt_index + 1, total_attempts,
+        )
+    loop_state["picker_retry_exhausted"] = True
+    logger.warning(
+        "AI loop: picker exhausted retries (%d attempts) — proceeding to "
+        "fallback heuristics; if no candidate emerges, loop will set "
+        "stop_reason=picker_retry_exhausted",
+        total_attempts,
+    )
+    return None
+
+
 def _claude_select_next_action(
     *,
     run: Run,
@@ -3011,13 +3095,14 @@ def advance_assessment_loop(
     )
     if tested_keys:
         available_tools = supported_execution_tools()
-        decision = _claude_select_next_action(
+        decision = _call_picker_with_retries(
             run=run,
             tested_keys=tested_keys,
             available_tools=sorted(available_tools),
             targets=targets,
             scope=scope,
             session=session,
+            loop_state=loop_state,
         )
         action = str((decision or {}).get("action") or "").lower() if decision else ""
         if decision is None:
@@ -3308,14 +3393,24 @@ def advance_assessment_loop(
             type(seed).__name__ if 'seed' in locals() else 'N/A',
         )
         loop_state["status"] = "stopped"
-        loop_state["stop_reason"] = "no_registered_runner_candidate"
+        # #331: distinguish between "no fallback candidate" (genuine
+        # exhaustion of the heuristic chain) and "picker retried but
+        # never produced a usable decision". Both end the run, but the
+        # cause is different — operators get a clear signal which one.
+        if loop_state.get("picker_retry_exhausted"):
+            stop_reason_value = "picker_retry_exhausted"
+            credential_clear_reason = "assessment_loop_picker_retry_exhausted"
+        else:
+            stop_reason_value = "no_registered_runner_candidate"
+            credential_clear_reason = "assessment_loop_no_registered_runner_candidate"
+        loop_state["stop_reason"] = stop_reason_value
         _store_loop_state(configuration, loop_state)
         run.configuration_json = configuration
         clear_run_credential_vault_if_terminal(
             session,
             run=run,
             actor=actor,
-            reason="assessment_loop_no_registered_runner_candidate",
+            reason=credential_clear_reason,
         )
         write_audit_event(
             session=session,
@@ -3323,7 +3418,10 @@ def advance_assessment_loop(
             action="assessment_loop.stopped",
             object_type="run",
             object_id=str(run.id),
-            metadata={"reason": "no_registered_runner_candidate"},
+            metadata={
+                "reason": stop_reason_value,
+                "retries_this_advance": int(loop_state.get("retries_this_advance") or 0),
+            },
         )
         return build_assessment_loop_state(session, run=run, scope=scope)
 
