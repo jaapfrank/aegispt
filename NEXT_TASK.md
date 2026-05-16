@@ -2,41 +2,41 @@
 
 ## Title
 
-Picker Structured Outputs via output_config.format JSON Schema (Phase 3 start)
+AI Loop Soft Retry on Parse / Decision Failure Instead of Hard Stop (Phase 3 day 2)
 
 ## Goal
 
-Replace the picker's text-then-JSON-parse path with Anthropic structured outputs (`output_config.format` with a `json_schema`) so Claude is forced to produce a syntactically valid JSON action that matches the `pick / level_up / stop / exec_plan` discriminator. Eliminates the entire class of JSON parse failures observed on 2026-05-15 (unescaped quote in `reasoning` at char 2533, etc.).
+When the picker returns `None` (parse fail, empty text, or unrecoverable hop loop exit), `advance_assessment_loop` currently sets `status=stopped` with reason `no_registered_runner_candidate` and halts the run. Replace this with bounded soft retry (max 2 attempts with fresh per-call backoff) so a single bad output does not kill an otherwise healthy run.
 
 ## Scope
 
-- Modify `api/app/services/assessment_loop.py:_claude_select_next_action` to add `output_config={"format": {"type": "json_schema", "schema": ...}}` on the picker call.
-- Define the schema for the 4 action shapes (pick, level_up, stop, exec_plan).
-- For the `exec_plan.plan` field — which has freeform inner objects (params, data, capture, expect.body_contains) incompatible with Anthropic strict mode's `additionalProperties: false` — use a JSON-stringified pattern: declare `plan` as a string in the outer schema, add a 1-2 sentence directive to the system prompt instructing Claude to serialize the plan, and decode it client-side with one `json.loads` step.
+- Modify `api/app/services/assessment_loop.py:advance_assessment_loop` to detect parse-fail / None-candidate distinctly from genuine exhaustion.
+- On parse-fail or empty picker output: retry up to 2 times with the same context.
+- On exhaustion (no candidate after retries): THEN set `status=stopped` with descriptive reason `picker_retry_exhausted` (distinguishable from `no_registered_runner_candidate`).
+- Retry attempts visible in `loop_state.retries_this_advance` so operator can see retry history.
 
 ## Constraints
 
-- Schema + plumbing only. Do NOT change the system prompt body. Do NOT alter the hop loop, tool definitions, or evidence consumption.
-- Anthropic strict mode requires `additionalProperties: false` on every object. The exec_plan.plan stringification is the only acceptable workaround for inner freeform objects.
-- Tool use (memory + http_fetch) must continue to work — structured outputs constrains the FINAL text output, not tool_use intermediate hops.
-- Must NOT touch: `_AI_PICKER_SYSTEM_PROMPT` body lines 1-200 (only the brief plan-stringification note is appended), `workers/runners/`, `workers/orchestration/`, `api/app/services/memory_backend.py`, `api/app/services/http_fetch_backend.py`.
+- Retry logic only. Do NOT change tool definitions, the schema, or the system prompt.
+- Hard cap retries per advance at 2. Beyond that, mark loop stopped with descriptive reason.
+- Each retry attempt must increment a counter visible in loop_state so the operator can see retry history. No infinite loops.
+- Must NOT touch: `workers/runners/`, `workers/orchestration/`, picker tool definitions, the system prompt body.
 
 ## Source Package
 
-`codex/tasks/backlog-380-picker-structured-outputs-schema.json`
+`codex/tasks/backlog-381-loop-soft-retry-on-failure.json`
 
 ## Reference
 
-- `api/app/services/assessment_loop.py` (`_AI_PICKER_SYSTEM_PROMPT`, `_claude_select_next_action`, `_tolerant_json_fix`)
-- `docs/AGENT_SYSTEM_MAP.md` section 2 (Known issues — JSON parse failures)
-- Anthropic structured outputs docs (output_config.format json_schema strict mode)
-- `docs/checkpoints/2026-mythos-phase2-review.md` (Phase 2 close-out, GO decision for Phase 3)
+- `api/app/services/assessment_loop.py:advance_assessment_loop` + `_claude_select_next_action`
+- `docs/AGENT_SYSTEM_MAP.md` section 2 (Known issues — "Loop stops hard on first parse failure, no soft retry")
+- #330 added structured outputs to eliminate JSON parse failures; #331 hardens against the residual transient failures (network blip on http_fetch, momentary credit pause, etc.)
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_assessment_loop_structured_outputs.py api/tests/test_assessment_loop.py`
+- `.venv/bin/pytest api/tests/test_assessment_loop_soft_retry.py api/tests/test_assessment_loop.py`
 - `python3 -m compileall -q api`
 - `.venv/bin/ruff check api/app/services/assessment_loop.py`
 - `git diff --check`
-- Acceptance: 20 consecutive live picker advances on Gruyere succeed with no JSON parse failures; exec_plan with nested plan body parses end-to-end; prompt cache hit ratio stays within 5% of pre-change baseline.
+- Acceptance: 1 fail + 1 success per advance → loop continues; 3 fails per advance → loop sets `retry_exhausted` reason after the third attempt.

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -298,7 +297,180 @@ tool="exec-plan", include a "plan" body with non-empty "steps", and provide
 phase advances AND the exec-plan runs in the new phase. Use this for moves
 like "now I have a session token, level up to authenticated-admin-escalation
 and run this 4-step chain that injects is_admin=True into the snippet form".
+
+STRUCTURED OUTPUT NOTE (#330): your final decision is constrained by a JSON
+schema enforced server-side. For exec_plan and for level_up actions that
+include a plan, the `plan` field MUST be a JSON-encoded STRING of the plan
+body — not a nested object. Example: `"plan": "{\"name\":\"slug\",\"steps\":[...]}"`.
+The client decodes this back to an object before execution. All other
+fields are plain JSON values (strings, numbers, arrays, enums).
 """
+
+
+# ---------------------------------------------------------------------------
+# #330 — Picker structured-output JSON schema
+# ---------------------------------------------------------------------------
+#
+# The picker emits one of four action shapes (pick / level_up / stop /
+# exec_plan). Anthropic strict mode requires every property in `required`
+# and `additionalProperties: false` on every object, so we cannot mark
+# optional fields. Instead we list five `anyOf` variants:
+#
+#   - pick
+#   - level_up                  (no plan body)
+#   - level_up + exec-plan      (with `plan_name` + stringified `plan`)
+#   - stop
+#   - exec_plan                 (with `plan_name` + stringified `plan`)
+#
+# `plan` is intentionally a STRING field. The exec-plan inner objects
+# (steps[].params, steps[].data, steps[].capture, steps[].expect.body_*)
+# have freeform keys/types that are incompatible with strict mode's
+# additionalProperties=false closure. The system-prompt directive tells
+# Claude to JSON-encode the plan; client-side we `json.loads` it once
+# before passing to the exec_plan runner. See the "STRUCTURED OUTPUT
+# NOTE" appended above for the operator-facing directive.
+
+_PICKER_TIER_ENUM = ["passive", "active", "intrusive"]
+_PICKER_ACTIVE_INTRUSIVE = ["active", "intrusive"]
+_PICKER_STOP_REASONS = ["admin_compromise_proven", "exhausted", "scope_complete"]
+
+
+def _picker_variant_pick() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "action", "tool", "target", "tier",
+            "reasoning", "expected_evidence", "confidence",
+        ],
+        "properties": {
+            "action": {"type": "string", "const": "pick"},
+            "tool": {"type": "string"},
+            "target": {"type": "string"},
+            "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
+            "reasoning": {"type": "string"},
+            "expected_evidence": {"type": "array", "items": {"type": "string"}},
+            "confidence": {"type": "number"},
+        },
+    }
+
+
+def _picker_variant_level_up(*, with_plan: bool) -> dict[str, Any]:
+    base_required = [
+        "action", "previous_phase_summary", "new_phase_label",
+        "tool", "target", "tier",
+        "reasoning", "expected_evidence", "confidence",
+    ]
+    base_properties: dict[str, Any] = {
+        "action": {"type": "string", "const": "level_up"},
+        "previous_phase_summary": {"type": "string"},
+        "new_phase_label": {"type": "string"},
+        "tool": {"type": "string"},
+        "target": {"type": "string"},
+        "tier": {"type": "string", "enum": _PICKER_TIER_ENUM},
+        "reasoning": {"type": "string"},
+        "expected_evidence": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "number"},
+    }
+    if with_plan:
+        base_required.extend(["plan_name", "plan"])
+        base_properties["tool"] = {"type": "string", "const": "exec-plan"}
+        base_properties["tier"] = {"type": "string", "enum": _PICKER_ACTIVE_INTRUSIVE}
+        base_properties["plan_name"] = {"type": "string"}
+        base_properties["plan"] = {
+            "type": "string",
+            "description": (
+                "JSON-encoded plan body. The string must json.loads() to an "
+                "object with `name` and `steps` keys."
+            ),
+        }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": base_required,
+        "properties": base_properties,
+    }
+
+
+def _picker_variant_stop() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action", "stop_reason", "summary", "confidence"],
+        "properties": {
+            "action": {"type": "string", "const": "stop"},
+            "stop_reason": {"type": "string", "enum": _PICKER_STOP_REASONS},
+            "summary": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+    }
+
+
+def _picker_variant_exec_plan() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action", "plan_name", "tier", "reasoning", "confidence", "plan"],
+        "properties": {
+            "action": {"type": "string", "const": "exec_plan"},
+            "plan_name": {"type": "string"},
+            "tier": {"type": "string", "enum": _PICKER_ACTIVE_INTRUSIVE},
+            "reasoning": {"type": "string"},
+            "confidence": {"type": "number"},
+            "plan": {
+                "type": "string",
+                "description": (
+                    "JSON-encoded plan body. The string must json.loads() to "
+                    "an object with `name` and `steps` keys."
+                ),
+            },
+        },
+    }
+
+
+def _picker_output_schema() -> dict[str, Any]:
+    """Discriminated schema for the 4 picker action shapes (#330)."""
+    return {
+        "anyOf": [
+            _picker_variant_pick(),
+            _picker_variant_level_up(with_plan=False),
+            _picker_variant_level_up(with_plan=True),
+            _picker_variant_stop(),
+            _picker_variant_exec_plan(),
+        ],
+    }
+
+
+# Pre-built schema dict reused on every picker call (no dynamic content
+# so the messages.create call stays cache-friendly).
+_PICKER_OUTPUT_SCHEMA: dict[str, Any] = _picker_output_schema()
+
+
+def _decode_picker_plan(decision: dict[str, Any]) -> dict[str, Any]:
+    """If the decision is an exec_plan (or level_up + plan) variant, the
+    `plan` field arrives as a JSON-encoded string (per the schema). Decode
+    it in place so downstream consumers see the same dict shape they used
+    to before #330. No-op for actions without a `plan` field.
+
+    Returns the (possibly mutated) decision dict for chaining.
+    """
+    if not isinstance(decision, dict):
+        return decision
+    plan = decision.get("plan")
+    if not isinstance(plan, str) or not plan:
+        return decision
+    try:
+        decoded = json.loads(plan)
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "AI loop: picker plan field was not valid JSON despite schema "
+            "constraint — raw=%r (%s)",
+            plan[:240], exc,
+        )
+        return decision
+    if isinstance(decoded, dict):
+        decision["plan"] = decoded
+    return decision
 
 
 def _summarize_findings_for_ai(run: Run, max_items: int = 25) -> list[dict[str, Any]]:
@@ -475,7 +647,7 @@ def _claude_select_next_action(
         return None
 
     findings = _summarize_findings_for_ai(run)
-    tested_tools = _tested_tools_summary(tested_keys)
+    _ = _tested_tools_summary(tested_keys)  # invoked for side effects/logging; result unused
     primary_target = ""
     if targets:
         primary_target = str(targets[0].get("value") or "")
@@ -648,7 +820,7 @@ def _claude_select_next_action(
         + rejections_block
         + outcomes_block
         + graph_block
-        + f"=== TARGET-INTEL RECOMMENDED TEST PLAN (from AI analysis of the actual site) ===\n"
+        + "=== TARGET-INTEL RECOMMENDED TEST PLAN (from AI analysis of the actual site) ===\n"
         + (("\n".join(plan_recommendations) + "\n\n") if plan_recommendations else "(no test plan available)\n\n")
         + "These are the highest-value tools FOR THIS SPECIFIC TARGET based on its\n"
         "technology stack and likely vulnerability classes. Prefer 'NOT YET USED' items\n"
@@ -699,7 +871,7 @@ def _claude_select_next_action(
     )
 
     try:
-        from api.app.services import memory_backend, http_fetch_backend
+        from api.app.services import http_fetch_backend, memory_backend
         client = anthropic.Anthropic(api_key=api_key)
         tools: list[dict[str, Any]] = [
             {"type": "memory_20250818", "name": "memory"},
@@ -778,6 +950,12 @@ def _claude_select_next_action(
                 }],
                 tools=tools,
                 messages=messages,
+                output_config={
+                    "format": {
+                        "type": "json_schema",
+                        "schema": _PICKER_OUTPUT_SCHEMA,
+                    },
+                },
                 timeout=90.0,
             )
             stop = getattr(msg, "stop_reason", None)
@@ -887,17 +1065,27 @@ def _claude_select_next_action(
             return None
         candidate_text = text[start : end + 1]
         try:
-            return json.loads(candidate_text)
+            decision = json.loads(candidate_text)
+            return _decode_picker_plan(decision)
         except json.JSONDecodeError as je:
-            # Common Claude mistake: unescaped backslash-r/n in plan body strings.
-            # Try a tolerant pass that escapes them inside string literals.
+            # With #330 structured outputs the schema should make this path
+            # unreachable. Keep _tolerant_json_fix as a defensive fallback
+            # but log a warning so any regression is visible. If we see
+            # this warning, it means structured outputs is not enforcing
+            # the schema (SDK fallback, server-side beta unavailable, etc.).
+            logger.warning(
+                "AI loop: picker JSON parse failed despite structured-output "
+                "schema (deprecated fallback engaged); err=%s raw=%r",
+                je, candidate_text[:240],
+            )
             fixed = _tolerant_json_fix(candidate_text)
             try:
-                return json.loads(fixed)
+                decision = json.loads(fixed)
+                return _decode_picker_plan(decision)
             except json.JSONDecodeError:
                 logger.warning(
-                    "AI loop: Claude JSON parse failed (%s) — raw=%r",
-                    je, candidate_text[:240],
+                    "AI loop: Claude JSON parse failed even after tolerant "
+                    "fix — raw=%r", candidate_text[:240],
                 )
                 return None
     except Exception as exc:
@@ -909,7 +1097,8 @@ def _claude_select_next_action(
                 ls["claude_thinking"] = {"status": "error", "detail": str(exc)[:200], "since": _now()}
                 cfg[LOOP_CONFIG_KEY] = ls
                 run.configuration_json = cfg
-                session.flush(); session.commit()
+                session.flush()
+                session.commit()
         except Exception:
             pass
         return None

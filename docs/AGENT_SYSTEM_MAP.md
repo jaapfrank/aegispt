@@ -49,14 +49,16 @@ last_verified: 2026-05-15
 
 **Prompt caching**: `cache_control: {type: "ephemeral"}` on system prompt as of 2026-05-15. Tools auto-cached due to render order. Logged via `AI loop: hop=N usage input=X cache_read=Y cache_creation=Z output=W` per hop.
 
+**Structured outputs (#330, 2026-05-16)**: `output_config={"format": {"type": "json_schema", "schema": _PICKER_OUTPUT_SCHEMA}}` on the picker call. Schema is a 5-variant `anyOf` (pick / level_up / level_up+plan / stop / exec_plan) with `additionalProperties: false` on every variant. The `plan` field is a stringified JSON body (strict-mode workaround for freeform inner objects); `_decode_picker_plan()` json.loads it client-side. `_tolerant_json_fix` retained as defensive fallback but path is deprecated — engagement logs a warning if it fires.
+
 **Model**: `claude-opus-4-7`. Picker outputs 4 action types: `pick`, `level_up`, `stop`, `exec_plan`.
 
 **Known issues**:
-- JSON parse failures on complex `exec_plan` outputs (unescaped quotes in `reasoning`/`previous_phase_summary`). Loop stops with `candidate is None`.
-- Memory file `/memories/run-progress.md` grows unbounded (~77 KB observed). No truncation.
-- Loop stops hard on first parse failure, no soft retry.
+- ~~JSON parse failures on complex `exec_plan` outputs~~ — **resolved by #330** via structured outputs; the SDK now constrains the response shape server-side.
+- Memory file `/memories/run-progress.md` grows unbounded (~77 KB observed). No truncation. (Task #332 will address this.)
+- Loop stops hard on first parse failure, no soft retry. (Task #331 will add soft retry.)
 
-last_verified: 2026-05-15
+last_verified: 2026-05-16
 
 ---
 

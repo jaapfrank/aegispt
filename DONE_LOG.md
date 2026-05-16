@@ -1,5 +1,50 @@
 # Done Log
 
+- 2026-05-16: completed Mythos task #330 (backlog-380 — Picker Structured Outputs via output_config.format JSON Schema):
+  - rationale: Phase 3 day-1. The 2026-05-15 incident — picker emitted an exec_plan with an unescaped quote inside `reasoning` at char 2533, `_tolerant_json_fix` could not repair it, loop hit `candidate is None` and stopped — is the canonical case for Anthropic's structured-outputs feature. The SDK enforces a JSON schema server-side; Claude is forced to produce a syntactically valid action that fits the discriminator, eliminating the entire class of parse failures.
+  - implementation:
+    - new `_PICKER_OUTPUT_SCHEMA` module-level constant in `api/app/services/assessment_loop.py` (built via `_picker_output_schema()` from 5 anyOf variants: pick / level_up / level_up+plan / stop / exec_plan). Each variant has `additionalProperties: false` and every property in `required` — Anthropic strict-mode compliance. Helpers `_picker_variant_pick / _picker_variant_level_up(with_plan=True|False) / _picker_variant_stop / _picker_variant_exec_plan` keep the variant builders small and reviewable.
+    - `plan` field is a `type: string` (the strict-mode workaround for exec_plan's freeform inner objects: `steps[].params`, `steps[].data`, `steps[].capture`, `steps[].expect.body_*`). System prompt directive appended below line 301 tells Claude to JSON-encode the plan body. Client-side `_decode_picker_plan()` runs one `json.loads` step before returning to `advance_assessment_loop`. Plan is decoded to a dict in place; non-dict decoded values stay as a string (defensive).
+    - `output_config={"format": {"type": "json_schema", "schema": _PICKER_OUTPUT_SCHEMA}}` wired into the `client.messages.create()` call inside `_claude_select_next_action`. Tool-use hops still work (per Anthropic structured-output contract, the schema constrains FINAL text output, not intermediate tool_use blocks).
+    - `_tolerant_json_fix` retained as defensive fallback but the path now logs a warning when invoked: "picker JSON parse failed despite structured-output schema (deprecated fallback engaged)". If this warning fires, it indicates structured-outputs server-side enforcement failed (beta unavailable, SDK fallback, etc.) — operator can investigate. Both parse paths route through `_decode_picker_plan` so the downstream dict shape is unchanged.
+    - 5 pre-existing ruff errors in `assessment_loop.py` fixed as part of `ruff check` validation: removed unused `import re`, replaced unused `tested_tools` assignment with `_ = ...` discard form (preserving side effects of `_tested_tools_summary` if any), removed extraneous f-prefix on a string without placeholders, sorted the local `memory_backend / http_fetch_backend` import, split `session.flush(); session.commit()` into two statements. All 5 outside the protected `_AI_PICKER_SYSTEM_PROMPT` body lines 1-200.
+  - tests: new `api/tests/test_assessment_loop_structured_outputs.py` with 17 tests (all pass):
+    - schema shape: 5 anyOf variants; action const for each; `additionalProperties: false` on every variant; every property in required; plan is `type: string` on the 2 plan-bearing variants
+    - field-set assertions per action: pick requires (action, tool, target, tier, reasoning, expected_evidence, confidence); stop has stop_reason enum {admin_compromise_proven, exhausted, scope_complete}; exec_plan tier excludes "passive"
+    - `_decode_picker_plan` round-trip: stringified plan → dict; no-op when no plan field or empty string; warning log on invalid JSON (defensive — original string stays); non-dict input handled; non-object decoded plan (e.g. JSON array) left as string
+    - picker call shape: source check that `output_config={...}` is literally wired into messages.create with `_PICKER_OUTPUT_SCHEMA` and `"json_schema"` literal
+    - AGENT_SYSTEM_MAP.md section 2 known-issues update: JSON-parse-failures bullet either removed or marked "resolved by #330" (test reads the file and asserts)
+    - schema constant is module-level singleton (identity check) — no per-call dynamic content, stays cache-friendly
+  - AGENT_SYSTEM_MAP.md section 2 updated:
+    - new "Structured outputs (#330, 2026-05-16)" paragraph documents the schema + plan-stringification workaround + tolerant fallback deprecation
+    - known-issues bullet on JSON parse failures struck through with "resolved by #330" annotation
+    - memory truncation and soft retry remain (tracked to #332 and #331 respectively)
+    - last_verified bumped to 2026-05-16
+  - pre-existing test_assessment_loop.py failures: 5 tests fail on baseline (without my changes) — verified by `git stash` of assessment_loop.py + AGENT_SYSTEM_MAP.md and re-running pytest: same 5 failures. These are status-drift / picker-default-tool assertions that pre-date #330 and are tracked under backlog-307 hygiene. Not introduced by #330; not fixed by #330 either (scope creep). The 17 new structured-output tests + the unchanged 4 passing pre-existing tests all pass with my changes.
+  - constraints honored (must_not_touch from task package):
+    - `_AI_PICKER_SYSTEM_PROMPT` body lines 1-200 untouched (only the brief "STRUCTURED OUTPUT NOTE (#330)" appended at line 303 area, outside the protected range)
+    - workers/runners/ untouched
+    - workers/orchestration/ untouched
+    - api/app/services/memory_backend.py untouched
+    - api/app/services/http_fetch_backend.py untouched
+    - hop loop unchanged; tool definitions unchanged; evidence consumption unchanged
+    - schema is built once at import (cache-friendly, no per-call dynamic content)
+  - validation:
+    - scripts/validate_backlog_tasks.py: 339 queued 1:1 (no change)
+    - pytest api/tests/test_assessment_loop_structured_outputs.py: 17/17 pass
+    - pytest api/tests/test_assessment_loop.py: 4 pass, 5 pre-existing fail (verified baseline)
+    - compileall -q api: clean
+    - ruff check api/app/services/assessment_loop.py: All checks passed
+    - git diff --check: clean on staged files
+  - acceptance criteria status:
+    - "Picker call includes output_config.format with the 4-action discriminated schema" → ✓ (5 anyOf variants because level_up has 2 shapes; functionally 4-action with the second level_up shape covering exec-plan combination)
+    - "Schema validates pick / level_up / stop / exec_plan with correct required fields per action" → ✓ (per-variant required field sets asserted in tests)
+    - "Plan field handled via stringified pattern with 1 client-side decode step" → ✓ (`_decode_picker_plan`)
+    - "Live test on Gruyere produces zero JSON parse failures across 20+ picker advances" → DEFERRED to operator validation (requires live run with Anthropic credits + reachable target). Mock + schema-shape tests cover the unit path. Operator can run the assessment loop against any target to validate live.
+    - "Existing _tolerant_json_fix retained as defensive layer but Path is deprecated for warning-log only" → ✓ (kept, fires warning when used)
+    - "AGENT_SYSTEM_MAP.md section 2 known-issues entry on JSON parse failures is removed" → ✓ (marked "resolved by #330")
+  - next: promote backlog-381 (#331 AI Loop Soft Retry on Parse / Decision Failure Instead of Hard Stop) into NEXT_TASK.md. Phase 3 day 2.
+
 - 2026-05-16: completed Mythos task #329 (backlog-379 — Phase 2 Review Checkpoint: Universal Auth Probes Working Across Stacks): **GO for Phase 3**
   - rationale: per the universal-prompt convention, every Mythos phase closes with a review checkpoint where the agent enumerates evidence and the operator approves or blocks the next phase. Phase 2 (#325-#328) built fingerprint + AI recipe + cache + acquire_session + 5 probe migrations; this checkpoint verifies the resulting universal-auth probes actually work and decides go/no-go for Phase 3 (#330-#333 picker hardening).
   - executed checkpoint body (operator pre-approved GO at end of previous session):
