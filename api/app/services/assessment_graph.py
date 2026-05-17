@@ -484,6 +484,12 @@ _PROJECTION_MIN_LINES_PER_GROUP = 3
 _PROJECTION_MAX_LINES_PER_GROUP = 25
 _PROJECTION_LINE_CHAR_CAP = 200
 
+# #334: captured_value entities get a dedicated "Recent Captures" section
+# in the projection (instead of bulk-listing) because the lineage metadata
+# (origin step, source URL) is what the picker reasons over for cross-target
+# chains. Top-N most-recent values, redacted preview only.
+_PROJECTION_RECENT_CAPTURES_LIMIT = 5
+
 
 def project_graph_for_picker(
     graph: dict[str, Any],
@@ -572,6 +578,43 @@ def project_graph_for_picker(
     # block). We intentionally do NOT duplicate them here to keep the
     # projection focused on entities/relationships and to stay within the
     # token budget.
+
+    # #334 — Recent Captures: surface the most-recent captured_value
+    # observations with lineage so the picker can chain across tasks
+    # ("token captured in step X of task Y → use it as auth in step Z").
+    capture_nodes = nodes_by_type.get("captured_value") or []
+    if capture_nodes:
+        # Sort by created_at desc when available (most-recent first); fall
+        # back to label for stability.
+        def _capture_sort_key(n: dict[str, Any]) -> tuple[str, str]:
+            attrs = n.get("attributes") if isinstance(n.get("attributes"), dict) else {}
+            created_at = str((attrs or {}).get("created_at") or n.get("created_at") or "")
+            return (created_at, str(n.get("label") or ""))
+
+        ranked_captures = sorted(capture_nodes, key=_capture_sort_key, reverse=True)
+        capture_lines: list[str] = []
+        for node in ranked_captures[:_PROJECTION_RECENT_CAPTURES_LIMIT]:
+            attrs = node.get("attributes") if isinstance(node.get("attributes"), dict) else {}
+            attrs = attrs or {}
+            var_name = str(attrs.get("var_name") or node.get("label") or "?")[:80]
+            value_kind = str(attrs.get("value_kind") or node.get("subtype") or "other")[:32]
+            origin_step = str(attrs.get("origin_step_name") or "?")[:80]
+            preview = str(attrs.get("redacted_preview") or "")[:80]
+            line = f"[{value_kind}] {var_name} from step={origin_step} preview={preview}"
+            if len(line) > _PROJECTION_LINE_CHAR_CAP:
+                line = line[: _PROJECTION_LINE_CHAR_CAP - 4] + " ..."
+            capture_lines.append(line)
+        more_suffix = ""
+        if len(ranked_captures) > _PROJECTION_RECENT_CAPTURES_LIMIT:
+            more_suffix = f" | +{len(ranked_captures) - _PROJECTION_RECENT_CAPTURES_LIMIT} more"
+        section = (
+            f"RECENT_CAPTURES ({len(ranked_captures)}): "
+            + " | ".join(capture_lines)
+            + more_suffix
+        )
+        if len(section) <= char_budget - used_chars:
+            lines.append(section)
+            used_chars += len(section) + 1
 
     edges = graph.get("edges") or []
     captured_edges: list[dict[str, Any]] = [

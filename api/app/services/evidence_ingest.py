@@ -217,3 +217,100 @@ def load_run_observations(
         .order_by(EvidenceObservation.created_at.asc())
     )
     return list(session.scalars(stmt))
+
+
+# ---------------------------------------------------------------------------
+# #334 — Cross-target provenance: captured-value observations
+# ---------------------------------------------------------------------------
+
+
+def _redact_value(value: str, *, value_kind: str) -> tuple[str, str]:
+    """Return ``(redacted_preview, sha256_hex)`` for a captured value.
+
+    Redaction policy:
+    - ``token`` / ``cookie`` → ``"…<last 4 chars>"`` + sha256
+    - ``credential_ref`` → sha256 only; preview is ``"<redacted>"``
+    - ``hostname`` / ``url`` → full value if ≤ VALUE_KEEP_FULL_MAX chars,
+      else ``"<first 32>…<last 4>"`` + sha256
+    - ``other`` → full value if ≤ VALUE_KEEP_FULL_MAX chars else sha256
+
+    The preview is what callers display in graph projections; the sha256 is
+    a stable identity key for cache/dedup. Full values stay in run_credential_vault
+    (existing mechanism) — never in this entity's attributes.
+    """
+    if not isinstance(value, str):
+        value = str(value)
+    digest = hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest()
+    kind = (value_kind or "other").lower()
+
+    if kind == "credential_ref":
+        return "<redacted>", digest
+    if kind in {"token", "cookie"}:
+        tail = value[-REDACT_TAIL_CHARS:] if len(value) > REDACT_TAIL_CHARS else value
+        return f"…{tail}", digest
+    if kind in {"hostname", "url"}:
+        if len(value) <= VALUE_KEEP_FULL_MAX:
+            return value, digest
+        tail = value[-REDACT_TAIL_CHARS:]
+        return f"{value[:32]}…{tail}", digest
+    # other
+    if len(value) <= VALUE_KEEP_FULL_MAX:
+        return value, digest
+    return digest[:16], digest
+
+
+def make_captured_value_observation(
+    *,
+    var_name: str,
+    value: str,
+    value_kind: str,
+    origin_step_name: str,
+    source_url: str | None = None,
+    confidence: float = 0.85,
+) -> dict[str, Any]:
+    """Runner-side constructor for a ``captured_value`` observation (#334).
+
+    Composes the entity_label as ``"{var_name} ({value_kind})"`` and uses
+    the sha256 of the full value as ``entity_source_id`` so repeated
+    captures of the same value dedupe across tasks. The full value is
+    redacted per :func:`_redact_value` before going into attributes.
+
+    Callers:
+    - ``var_name``: the name the runner gave the captured value
+      (e.g. ``"session_cookie"``, ``"csrf_token"``).
+    - ``value``: the raw captured value.
+    - ``value_kind``: one of CAPTURED_VALUE_KINDS (free-form string; the
+      known list is for documentation, not validation).
+    - ``origin_step_name``: the exec_plan step that produced the value
+      (so the picker can trace "this token came from step X").
+    - ``source_url``: optional URL the value was observed at; used by the
+      graph projection to show provenance.
+
+    Returns the dict shape expected by :func:`make_observation`. Note: the
+    orchestrator's ``persist_runner_observations`` stamps ``task_id`` from
+    its DB-side ``Task`` context — the runner does not need to set it.
+    """
+    if not var_name or not isinstance(var_name, str):
+        raise ValueError("var_name must be a non-empty string")
+    if not origin_step_name or not isinstance(origin_step_name, str):
+        raise ValueError("origin_step_name must be a non-empty string")
+    if value is None:
+        value = ""
+    preview, digest = _redact_value(str(value), value_kind=value_kind)
+    attributes: dict[str, Any] = {
+        "var_name": str(var_name)[:120],
+        "value_kind": str(value_kind or "other")[:32],
+        "origin_step_name": str(origin_step_name)[:120],
+        "redacted_preview": preview,
+        "value_sha256": digest,
+    }
+    if source_url:
+        attributes["source_url"] = str(source_url)[:480]
+    return make_observation(
+        entity_type="captured_value",
+        entity_source_id=digest[:MAX_SOURCE_ID_LEN],
+        entity_label=f"{var_name} ({value_kind or 'other'})"[:MAX_LABEL_LEN],
+        entity_subtype=str(value_kind or "other")[:64],
+        attributes=attributes,
+        confidence=float(confidence),
+    )

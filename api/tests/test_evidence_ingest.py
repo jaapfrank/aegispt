@@ -109,7 +109,11 @@ def test_make_observation_clamps_confidence_range() -> None:
 def test_accepted_entity_types_match_graph_taxonomy() -> None:
     # The accepted types must be a subset of those that
     # build_normalized_evidence_graph already handles. This guards against
-    # accidentally introducing a new entity type via #322 (out_of_scope).
+    # accidentally introducing a new entity type without a corresponding
+    # graph-side reader update.
+    # Set extended in #334 (backlog-384) to add ``captured_value`` for
+    # cross-target provenance — the project_graph_for_picker projection
+    # surfaces these under a "RECENT_CAPTURES" section.
     expected_supported = {
         "asset",
         "api",
@@ -117,6 +121,7 @@ def test_accepted_entity_types_match_graph_taxonomy() -> None:
         "credential_ref",
         "permission",
         "saas_connector",
+        "captured_value",  # #334
     }
     assert ACCEPTED_ENTITY_TYPES == expected_supported
 

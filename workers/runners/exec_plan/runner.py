@@ -30,8 +30,42 @@ from urllib.parse import urlparse
 
 import httpx as httpx_client
 
+from api.app.services.evidence_ingest import make_captured_value_observation
 from api.app.services.runs import web_target_value_is_allowed_with_path
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
+
+
+def _infer_value_kind(var_name: str, capture_spec_kind: str) -> str:
+    """Map an exec_plan capture `from` source + variable name to a
+    captured_value subtype (#334). Heuristic only — keep emergent, no
+    app-specific seeding."""
+    name_lower = (var_name or "").lower()
+    kind = (capture_spec_kind or "").lower()
+    if kind == "cookie":
+        return "cookie"
+    if kind == "header":
+        if "auth" in name_lower or "token" in name_lower:
+            return "token"
+        return "other"
+    if kind == "redirect_path":
+        return "url"
+    if kind == "body_regex":
+        if "token" in name_lower or "jwt" in name_lower or "csrf" in name_lower:
+            return "token"
+        if "host" in name_lower or "domain" in name_lower:
+            return "hostname"
+        if "url" in name_lower:
+            return "url"
+        if "pw" in name_lower or "pass" in name_lower or "secret" in name_lower:
+            return "credential_ref"
+        return "other"
+    if kind == "request_field":
+        if "pw" in name_lower or "pass" in name_lower or "secret" in name_lower:
+            return "credential_ref"
+        if "user" in name_lower or "uid" in name_lower or "email" in name_lower:
+            return "other"
+        return "other"
+    return "other"
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +255,10 @@ def execute_exec_plan(
     findings: list[dict[str, Any]] = []
     step_results: list[dict[str, Any]] = []
     stderr_lines: list[str] = []
+    # #334: emit captured_value observations so cross-target chains are
+    # visible in the graph + picker projection. Orchestrator picks them
+    # up from execution.metadata["observations"] via persist_runner_observations.
+    captured_observations: list[dict[str, Any]] = []
     exit_code = 0
 
     import time
@@ -299,6 +337,32 @@ def execute_exec_plan(
             captured = _capture_values(step.get("capture") or {}, response, data if isinstance(data, dict) else None)
             if captured:
                 ctx[name] = captured
+                # #334: each captured value also becomes a graph entity
+                # with provenance (origin step, source URL, redacted value).
+                # The orchestrator persists these as EvidenceObservation rows
+                # so subsequent tasks can reference them via the picker's
+                # graph projection.
+                capture_spec = step.get("capture") or {}
+                for var_name, raw_value in captured.items():
+                    if raw_value in (None, ""):
+                        continue
+                    spec_rule = capture_spec.get(var_name) or {}
+                    spec_kind = str(spec_rule.get("from") or "") if isinstance(spec_rule, dict) else ""
+                    value_kind = _infer_value_kind(var_name, spec_kind)
+                    try:
+                        observation = make_captured_value_observation(
+                            var_name=var_name,
+                            value=str(raw_value),
+                            value_kind=value_kind,
+                            origin_step_name=name,
+                            source_url=url,
+                        )
+                        captured_observations.append(observation)
+                    except (ValueError, TypeError) as obs_exc:
+                        logger.debug(
+                            "exec-plan: failed to construct captured_value observation for %s: %s",
+                            var_name, obs_exc,
+                        )
 
             # Store this step's response cookies in a named jar
             cookie_jars[name] = {k: v for k, v in response.cookies.items()}
@@ -379,6 +443,10 @@ def execute_exec_plan(
             "plan_name": plan_name,
             "step_count": len(step_results),
             "finding_count": len(findings),
+            # #334: orchestrator's persist_runner_observations consumes
+            # this list and writes EvidenceObservation rows so captured
+            # values are queryable across tasks.
+            "observations": captured_observations,
         },
         artifacts=[
             EvidenceArtifact(

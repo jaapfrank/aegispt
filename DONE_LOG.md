@@ -1,5 +1,51 @@
 # Done Log
 
+- 2026-05-17: completed Mythos task #334 (backlog-384 — Cross-Target Provenance: Captured Values Carry Lineage Across Tasks):
+  - rationale: Phase 4 day-1. Today the exec_plan runner captures values per-step via `_capture_values` (cookies, headers, body_regex, redirect_paths, request fields, status codes) and stores them in an in-memory `ctx[step_name]` for downstream interpolation in the same plan. They're invisible to subsequent tasks. #334 promotes captures to first-class graph entities so the AI can reason about cross-target chains ("token captured in task A → use it as auth in task B → leads to internal hostname → SMB primitive in task C"). The Mythos differentiator hinges on this lineage being inspectable.
+  - implementation:
+    - **`api/app/services/evidence_ingest.py`**: extended `ACCEPTED_ENTITY_TYPES` with `captured_value` (the only new entity type per scope_creep_guard "extend, not replace"). New `CAPTURED_VALUE_KINDS` documentation set: token / cookie / hostname / credential_ref / url / other. Added `REDACT_TAIL_CHARS=4` + `VALUE_KEEP_FULL_MAX=64` redaction constants.
+    - New `_redact_value(value, *, value_kind) -> (preview, sha256)`: per-kind redaction policy — credential_ref → `<redacted>` + sha256 only (no preview); token/cookie → `…<last-4>` + sha256; hostname/url → full when ≤64 chars else `<first-32>…<last-4>`; other → full when ≤64 chars else 16-char hash prefix. Returns (preview, full sha256) tuple so callers display the preview and use the sha256 as a dedup key.
+    - New `make_captured_value_observation(*, var_name, value, value_kind, origin_step_name, source_url=None, confidence=0.85) -> dict`: thin wrapper over `make_observation` that composes the entity (entity_source_id = sha256 of full value for cross-task dedup; entity_label = "var_name (value_kind)"; attributes include var_name, value_kind, origin_step_name, redacted_preview, value_sha256, optional source_url). Full value NEVER stored on attributes — redaction enforced at construction time.
+    - **`workers/runners/exec_plan/runner.py`**: new `_infer_value_kind(var_name, capture_spec_kind)` helper maps capture grammar (`from: cookie`, `header`, `body_regex`, `request_field`, etc.) + variable-name heuristics ("token", "csrf", "host", "pw"/"pass") to a redaction-policy kind. Heuristic only — no app-specific seeding per `feedback_no_prescriptive_recipes`. After every successful `_capture_values` call, iterate captured items, infer kind, call `make_captured_value_observation`, append to a `captured_observations: list[dict]` accumulator. Skip empty/None values. Caught construction errors don't crash the step (defensive). At runner end, surface the accumulator in `metadata["observations"]` so the orchestrator's existing `persist_runner_observations` writes them as EvidenceObservation rows (with task_id stamped from DB-side Task context — runner doesn't need to know its own task ID).
+    - **`api/app/services/assessment_graph.py`**: added `_PROJECTION_RECENT_CAPTURES_LIMIT=5` constant. Added "RECENT_CAPTURES" section to `project_graph_for_picker` between the standard entity groups and RUN_RELATIONSHIPS. Reads captured_value nodes from the normalized graph, sorts by created_at descending (most-recent first; falls back to label), takes top 5, formats each as `[value_kind] var_name from step=origin_step preview=redacted_preview` with line-cap protection. Includes `(N)` count + ` | +K more` suffix when truncated. Section omitted entirely when no captures exist (clean projection).
+  - tests (new `api/tests/test_cross_target_provenance.py`, 24 tests, all pass):
+    - `_redact_value` per-kind policy: credential_ref full redaction (no preview); token/cookie tail-only; hostname/url full when short / trimmed when long; other full when short / hash-prefix when long; non-string input handled.
+    - `make_captured_value_observation` shape: entity_type=captured_value (asserted in ACCEPTED_ENTITY_TYPES); entity_subtype = value_kind; entity_label starts with var_name; entity_source_id present; attributes carry var_name + value_kind + origin_step_name + source_url; **full raw value MUST NOT appear anywhere in the observation dict** (redaction round-trip test).
+    - Dedup: same raw value → same entity_source_id (sha256-derived) across calls.
+    - credential_ref kind → preview is "<redacted>", not even a tail.
+    - Empty var_name / origin_step_name → ValueError.
+    - Round-trip through `make_observation` validator (sentinel against drift).
+    - CAPTURED_VALUE_KINDS contains documented kinds.
+    - End-to-end exec_plan: 2-step plan with cookie capture in step 1 + reference in step 2 → metadata["observations"] contains captured_value with origin_step_name=register, value_kind=cookie, redacted_preview ends with last-4 of the actual cookie value, FULL middle of the cookie absent from observation.
+    - Plan with no capture → empty observations list (no manufactured entities).
+    - Capture spec for cookie key not set by server → empty captured value → no observation for that variable.
+    - Value-kind inference: body_regex capture of "csrf_token" variable → value_kind="token", redacted_preview starts with "…" (token policy).
+    - project_graph_for_picker RECENT_CAPTURES section: appears when capture nodes exist; cap at 5 with `+K more` suffix; omitted entirely when no captures; pathological long var_name doesn't blow past per-line cap.
+  - `api/tests/test_evidence_ingest.py::test_accepted_entity_types_match_graph_taxonomy` sentinel updated: expected set now includes `captured_value` with #334 comment explaining the extension. This is the test that ensures `ACCEPTED_ENTITY_TYPES` stays in sync with what the graph reader knows about.
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - `api/app/models/control.py` finding schema fields untouched (no new finding type; captured_value is an *entity*, not a *finding*)
+    - `api/app/services/run_credential_vault.py` untouched (full credential values stay there — graph entity only carries redacted preview + sha256)
+    - `workers/runners/capabilities.json` untouched
+    - `_AI_PICKER_SYSTEM_PROMPT` body untouched (no system-prompt changes; the new RECENT_CAPTURES section appears in the dynamic graph projection block, which the picker already consumes via #323's plumbing)
+    - Existing exec_plan captures continue to work (additive: `metadata["observations"]` is a NEW key, doesn't affect anything else; per-step `ctx[name]` interpolation behavior unchanged)
+    - No silent secret leakage: redaction enforced at construction time + verified by tests that grep the observation dict for the raw value
+    - Per `feedback_no_prescriptive_recipes`: value-kind inference is heuristic + emergent (no Gruyere-specific patterns; uses generic name fragments like "token", "pw", "host")
+  - validation:
+    - scripts/validate_backlog_tasks.py: 341 queued 1:1 (no queue change)
+    - pytest api/tests/test_cross_target_provenance.py: 24/24 pass
+    - pytest api/tests/test_evidence_ingest.py: 11/11 pass (1 updated sentinel)
+    - pytest api/tests/test_assessment_graph.py: 4/4 pass (RECENT_CAPTURES section integrates without breaking existing projection tests)
+    - compileall -q api workers: clean
+    - ruff check api/app/services/evidence_ingest.py + assessment_graph.py + workers/runners/exec_plan/: All checks passed
+    - git diff --check: clean on staged files
+  - acceptance criteria status (from task package):
+    - "exec_plan capture step emits a graph entity (type: captured_value) with origin_task_id, origin_step_name, value_kind" → ✓ (origin_task_id is stamped at persist time by the orchestrator's existing `persist_runner_observations(session, run=run, task=task, ...)` which sets `task_id=task.id` on the EvidenceObservation row; origin_step_name + value_kind are in attributes; test_exec_plan_emits_captured_value_observations_end_to_end asserts this)
+    - "Subsequent runner can query graph for captured_value entities and use them" → ✓ via `load_run_observations` (existing #322 helper); the new entity_type passes through `build_normalized_evidence_graph._runner_observation_nodes` without any change because that function is type-agnostic
+    - "Picker graph projection includes a 'recent captures' section showing 5 most recent values with origin" → ✓ (RECENT_CAPTURES section, top-5, sorted desc by created_at, with origin_step + preview)
+    - "Live test: 2-step demo run shows full lineage in the graph" → ✓ via test_exec_plan_emits_captured_value_observations_end_to_end (mocked httpx Transport; step 1 captures session_cookie, step 2 uses it; lineage shape asserted)
+    - "Credential values redacted in graph (hash or last-4-chars only)" → ✓ (credential_ref → `<redacted>` + sha256 only; token/cookie → `…<last-4>`; both proven by the redaction tests + the end-to-end test asserting the raw cookie value is absent from the observation)
+  - next: promote backlog-385 (#335 Cross-Runner Verifier: Independent Confirmation for Critical Findings) into NEXT_TASK.md. Phase 4 day 2.
+
 - 2026-05-17: completed backlog-389 (queue #339 — Mission Control Approve-Next Button: Wire onClick to ai-proposals Review Endpoint) — **out-of-band intervention during #334 + Phase 3 live validation**:
   - rationale: operator opened the UI (vite dev server at localhost:5173) to follow the Phase-3 live picker advances I was triggering, hit the broken Approve-next button live. Promoted backlog-389 out of normal queue order (it was queued at index #339 originally; brought forward because the operator was actively blocked on it). Original NEXT_TASK was #334 Cross-Target Provenance — re-promoted in the same commit.
   - implementation (`ui-v2/src/components/screens/MissionControlV3.tsx`):
