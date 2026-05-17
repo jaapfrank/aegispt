@@ -1,5 +1,45 @@
 # Done Log
 
+- 2026-05-17: completed Mythos task #332 (backlog-382 — Memory Tool Result Truncation and Bloat Containment):
+  - rationale: Phase 3 day-3. Closes the last known-issue bullet in AGENT_SYSTEM_MAP section 2 ("Memory file `/memories/run-progress.md` grows unbounded"). Cost data showed avg 11 KB per memory-tool call × 922 calls/day = ~10 MB/day injected into the picker prompt; capping at 2 KB saves ~80% per call, projected ~$30/day reduction.
+  - implementation:
+    - new constants in `api/app/services/memory_backend.py`: `VIEW_MAX_BYTES=2048`, `ROTATE_THRESHOLD_BYTES=8192`, `ROTATE_KEEP_BYTES=6144`, `RUN_PROGRESS_LOGICAL_PATH="/memories/run-progress.md"`.
+    - new pure helper `_truncate_for_view(payload, *, logical_path=None) -> str`: passthrough when ≤VIEW_MAX_BYTES; otherwise UTF-8-safe truncation (re-decode with `errors="ignore"` at the cap so multi-byte codepoints don't cause raise) + trailing marker `[...truncated, N more bytes from /memories/path — re-view this file with a view_range parameter, or view a sub-path with fewer files, if the missing content matters]`. Logs INFO with original-byte-count + capped-byte-count per truncation.
+    - new `rotate_run_progress(*, threshold_bytes=ROTATE_THRESHOLD_BYTES, keep_bytes=ROTATE_KEEP_BYTES) -> dict | None`: returns None when file is missing or under threshold; otherwise reads the file, keeps the trailing `keep_bytes` (snapping to the first newline within the first 128 bytes of the tail so the rotated head reads cleanly), writes a small header (`# Rotated by memory_backend.rotate_run_progress (#332)` + original/kept/dropped byte counts) followed by the tail, and returns `{"before", "after", "dropped"}` so callers can log. Safe to call repeatedly. Caller (assessment loop) can invoke between advances; out of #332 scope to wire that call.
+    - wired truncation into `_list_dir` and `_read_with_line_numbers` (both wrap their return value in `_truncate_for_view(..., logical_path=...)`).
+    - all writes (`create`, `str_replace`, `insert`) are UNCHANGED — full content stays on disk per `preserve_writes` constraint. Only reads are bounded for prompt-injection size control.
+    - module logger added; no other behavior change to `execute()` or the security guards.
+  - tests:
+    - new `api/tests/test_memory_backend.py` (15 baseline tests) covers existing operations create / view / str_replace / insert / delete / rename + security guards (traversal rejected, unknown command returns Error string not raise, root delete refused) — establishes the regression baseline the task spec mentioned in success criterion #3 "No regression in memory_backend write/create/str_replace tests". All 15 pass.
+    - new `api/tests/test_memory_backend_truncation.py` (17 tests) covers:
+      * `_truncate_for_view` pure helper: passthrough below cap; marker present above cap; reports dropped byte count; includes logical_path hint; handles None input; UTF-8 boundary safety with multi-byte chars
+      * `view` command integration: 20 KB file → response ≤ VIEW_MAX_BYTES + 256 marker overhead with truncation marker; small file passes through unchanged; writes uncapped (on-disk 20 KB content equals what was written); directory listing of 500 files also capped
+      * `rotate_run_progress`: noop when file missing; noop when under threshold; trims oversized file to ≤ROTATE_KEEP_BYTES + 512 header overhead; preserves recent tail (FRESH_TAIL_KEEP_ME_PLEASE survives; ANCIENT_HEADER_DROP_ME dropped); rotation header present and parseable; idempotent on already-small files; honors custom threshold/keep overrides
+      * constants sentinel: bytes match task contract (2048 / 8192 / 6144); RUN_PROGRESS_LOGICAL_PATH matches; keep < threshold
+    - 32/32 memory_backend tests pass.
+  - AGENT_SYSTEM_MAP updates:
+    - section 2 known-issues: third bullet ("Memory file unbounded") struck through with "resolved by #332" annotation; all three Phase-3 bullets now show as resolved (JSON parse #330, soft retry #331, memory bloat #332). last_verified bumped to 2026-05-17.
+    - section 6 memory tool integration: new "Truncation (#332, 2026-05-17)" paragraph documents the view cap + rotation helper + cost saving estimate. last_verified bumped to 2026-05-17.
+  - constraints honored (must_not_touch from task package):
+    - `_AI_PICKER_SYSTEM_PROMPT` untouched (no system prompt changes)
+    - workers/runners/ untouched
+    - workers/orchestration/ untouched
+    - api/app/services/assessment_loop.py untouched (truncation applies inside memory_backend; no call-site change needed; assessment_loop.py log lines unchanged this commit per task spec "only log message lines may change")
+    - writes preserved (only reads truncated)
+    - truncation marker is parseable + tells Claude how to re-read (view_range, sub-path)
+  - validation:
+    - scripts/validate_backlog_tasks.py: 339 queued 1:1 (no change)
+    - pytest api/tests/test_memory_backend_truncation.py + test_memory_backend.py: 32/32 pass
+    - compileall -q api: clean
+    - ruff check api/app/services/memory_backend.py: All checks passed
+    - git diff --check: clean on staged files
+  - acceptance criteria status:
+    - "View results are bounded at 2 KB" → ✓ (test_view_command_caps_large_file: 20 KB file → response ≤ 2 KB + marker)
+    - "Truncation marker present and parseable by Claude" → ✓ (test_truncate_caps_oversized_payload_with_marker + test_truncate_includes_logical_path_hint)
+    - "No regression in memory_backend write/create/str_replace tests" → ✓ (15 baseline tests in test_memory_backend.py all pass)
+    - "Logged cache_read_input_tokens per picker hop drops measurably after deployment" → DEFERRED to operator live validation (will surface in Phase 3 review checkpoint #333)
+  - next: promote backlog-383 (#333 Review Checkpoint: Picker Reliable, Cost-Controlled, On Target) into NEXT_TASK.md. **This is a review checkpoint — agent STOPS at #333 per universal prompt rule and asks operator for go/no-go before executing the checkpoint body.**
+
 - 2026-05-16: completed Mythos task #331 (backlog-381 — AI Loop Soft Retry on Parse / Decision Failure Instead of Hard Stop):
   - rationale: Phase 3 day-2. #330 (structured outputs) removed the JSON-parse-fail class of `_claude_select_next_action` returning None, but transient causes remain — network blip on http_fetch, momentary credit pause, empty text block, SDK-level exception caught upstream. Before #331, a single None from any of those terminated the run with `status=stopped, stop_reason=no_registered_runner_candidate`, requiring manual operator intervention. Now: bounded soft retry (1 initial attempt + 2 retries = 3 total) before falling through; if every retry returns None AND the fallback heuristic chain also fails, the stop reason is now the distinct `picker_retry_exhausted` so operators can tell "Claude died on every retry" apart from "no fallback applicable".
   - implementation:

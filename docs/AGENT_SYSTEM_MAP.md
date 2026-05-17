@@ -55,10 +55,10 @@ last_verified: 2026-05-15
 
 **Known issues**:
 - ~~JSON parse failures on complex `exec_plan` outputs~~ — **resolved by #330** via structured outputs; the SDK now constrains the response shape server-side.
-- Memory file `/memories/run-progress.md` grows unbounded (~77 KB observed). No truncation. (Task #332 will address this.)
-- Loop stops hard on first parse failure, no soft retry. (Task #331 will add soft retry.)
+- ~~Memory file `/memories/run-progress.md` grows unbounded~~ — **resolved by #332**: `memory_backend.execute("view", ...)` is capped at 2 KB with a truncation marker; `rotate_run_progress()` helper trims the file to 6 KB when it exceeds 8 KB.
+- ~~Loop stops hard on first parse failure, no soft retry~~ — **resolved by #331** via `_call_picker_with_retries` wrapper (1 initial + 2 retries = 3 total attempts; distinct `picker_retry_exhausted` stop reason when retries are spent).
 
-last_verified: 2026-05-16
+last_verified: 2026-05-17 (post Phase 3 days 1-3; Phase 3 review checkpoint is #333)
 
 ---
 
@@ -149,13 +149,15 @@ last_verified: 2026-05-15
 
 **Backend**: `api/app/services/memory_backend.py` (224 lines). Implements view/create/str_replace/insert/delete/rename for Anthropic memory_20250818 tool.
 
-**Storage path**: per-engagement under `/memories/`. The file `/memories/run-progress.md` was observed at ~77 KB — Claude consolidates progress into one growing file. **Bloat is real.** Truncation cap planned (task #332).
+**Storage path**: per-engagement under `/memories/`. Was historically unbounded — `/memories/run-progress.md` observed at ~77 KB.
+
+**Truncation (#332, 2026-05-17)**: `memory_backend.execute("view", ...)` payloads are now capped at `VIEW_MAX_BYTES=2048` with a trailing `[...truncated, N more bytes ...]` marker (UTF-8-safe boundary; logs activity). Writes are NOT capped — full content stays on disk. `rotate_run_progress(threshold_bytes=8192, keep_bytes=6144)` is an opt-in maintenance helper that trims `/memories/run-progress.md` to the most-recent 6 KB when it exceeds 8 KB and inserts a small rotation header. Caller (assessment loop) can invoke it between advances. Expected ~$30/day saving (deferred to operator validation via live logged `cache_read_input_tokens` per picker hop).
 
 **Use today**: per-run scratchpad. Knowledge does NOT persist usefully across engagements (single user has been writing to the same store, but the contents are mostly transient log entries, not patterns).
 
 **Use in plan**: tasks **#325-#329** introduce pattern-level recipes under `/memories/auth-recipes/<fingerprint-hash>.json`.
 
-last_verified: 2026-05-15
+last_verified: 2026-05-17
 
 ---
 

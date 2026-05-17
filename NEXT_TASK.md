@@ -2,39 +2,43 @@
 
 ## Title
 
-Memory Tool Result Truncation and Bloat Containment (Phase 3 day 3)
+Review Checkpoint: Picker Reliable, Cost-Controlled, On Target (Phase 3 close-out)
 
 ## Goal
 
-Cap `memory_backend.execute` response size at 2 KB per call and refactor `/memories/run-progress.md` from an unbounded log into a bounded structured summary. Reduces the ~9 KB per memory-tool call wasted on the picker prompt (~922 calls/day observed = ~$30/day saving at current pricing). Closes the third known-issue bullet in `AGENT_SYSTEM_MAP.md` section 2: "Memory file `/memories/run-progress.md` grows unbounded".
+After #330-#332, confirm the picker is now (a) parse-failure-free, (b) resilient to transient failures, (c) measurably cheaper per advance. Decide go/no-go for Phase 4 (cross-target + verifier).
 
 ## Scope
 
-- Modify `api/app/services/memory_backend.py` to truncate `view` command results to 2 KB with a trailing `[...truncated, N more bytes]` marker.
-- Add a separate maintenance helper that periodically rotates `/memories/run-progress.md` when it exceeds 8 KB, keeping only the most recent 6 KB of content.
+- Live run for at least 30 picker advances across 2 different runs (one Gruyere, one non-Gruyere) — observable from `/tmp/aegispt-api.log` AI-loop hop usage lines.
+- Measure parse-fail rate (target: 0%), retry rate (any `retries_this_advance > 0` events), and cost per advance from logged `input + cache_read + cache_creation + output` token counts.
+- Written checkpoint report at `docs/checkpoints/2026-mythos-phase3-review.md` with explicit GO/NO-GO on Phase 4.
+
+## REVIEW CHECKPOINT — AGENT MUST STOP
+
+**This is a review checkpoint (#333 in the Mythos plan; #324 was Phase 1's, #329 was Phase 2's).** Per the universal prompt rule, the agent **STOPS** here and asks operator for explicit go/no-go before executing the checkpoint body (live runs, log mining, cost extrapolation, report generation, Phase 4 promotion).
+
+When operator approves: agent proceeds to (1) execute 30+ picker advances across one Gruyere + one non-Gruyere target (operator should confirm Anthropic credits + target reachability), (2) extract parse-fail count, retry count, avg tokens per hop from `/tmp/aegispt-api.log`, (3) write `docs/checkpoints/2026-mythos-phase3-review.md` citing real numbers, (4) emit GO/NO-GO with justification, (5) on GO: promote backlog-384 (#334 Phase 4 day 1) into NEXT_TASK; on NO-GO: name + queue a corrective task.
 
 ## Constraints
 
-- Truncation + rotation only. Do NOT change the memory tool schema, the system prompt directives about /memories paths, or any storage backend.
-- Writes are NOT capped. Only reads are truncated for prompt-injection bounds. The full file remains on disk.
-- Truncation must include a clear marker that prompts Claude to view sub-paths or read further if needed. Do not silently drop content.
-- Must NOT touch: `_AI_PICKER_SYSTEM_PROMPT`, `workers/runners/`, `workers/orchestration/`, `api/app/services/assessment_loop.py` (only log-message lines that show truncation activity may change there if needed).
+- Review only. NO production code changes. Output is a checkpoint report and a yes/no decision on Phase 4 promotion.
+- Evidence requirement: report must cite real numbers from logs (parse-fail count, retry count, avg input/output/cache tokens per hop, estimated daily cost) — no aspirational claims.
+- Must NOT touch: `api/app/services/`, `workers/runners/`, `workers/orchestration/`, `ui-v2/` — review-only task.
 
 ## Source Package
 
-`codex/tasks/backlog-382-memory-tool-result-truncation.json`
+`codex/tasks/backlog-383-review-checkpoint-picker-reliable.json`
 
 ## Reference
 
-- `api/app/services/memory_backend.py` (`execute("view", ...)` is the read path that needs truncation)
-- `docs/AGENT_SYSTEM_MAP.md` section 2 ("Memory file `/memories/run-progress.md` grows unbounded") and section 6 (memory tool integration)
-- Cost data: ~922 memory-tool calls/day × ~11 KB avg result = ~10 MB/day injected into the picker prompt; truncation to 2 KB saves ~80% per call.
+- `DONE_LOG.md` entries for #330 (structured outputs), #331 (soft retry), #332 (memory truncation)
+- `docs/AGENT_SYSTEM_MAP.md` section 2 (all three Phase-3 known issues now resolved) + section 6 (memory truncation paragraph)
+- `docs/checkpoints/2026-mythos-phase2-review.md` (template format for the Phase 3 checkpoint report)
+- Cost baseline: ~$300/day pre-Phase 3 per AGENT_SYSTEM_MAP section 5; target ≤35% of that (~$100/day) per success criterion #3.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_memory_backend_truncation.py api/tests/test_memory_backend.py`
-- `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/memory_backend.py`
-- `git diff --check`
-- Acceptance: `memory_backend.execute view` capped at 2 KB with truncation marker; rotation helper keeps `/memories/run-progress.md` under 8 KB; logged `cache_read_input_tokens` per picker hop drops measurably (deferred to operator validation on live runs).
+- `test -f docs/checkpoints/2026-mythos-phase3-review.md`
+- Acceptance: parse-fail rate is 0% over the test window; estimated daily cost ≤35% of pre-Phase-3 baseline.

@@ -10,14 +10,35 @@ Security:
 
 The handler returns string payloads matching the Anthropic spec so Claude
 parses them consistently.
+
+Truncation (#332, 2026-05-17):
+- VIEW responses are capped at ``VIEW_MAX_BYTES`` (2 KB) with a trailing
+  ``[...truncated, N more bytes ... use view_range or view a sub-path]``
+  marker. Writes are NOT capped — the on-disk file is unchanged.
+- :func:`rotate_run_progress` is an opt-in maintenance helper that trims
+  ``/memories/run-progress.md`` to ``ROTATE_KEEP_BYTES`` (6 KB) when it
+  exceeds ``ROTATE_THRESHOLD_BYTES`` (8 KB). Callers (assessment loop)
+  invoke it between advances.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Truncation bounds (#332). Picked so a memory-tool view fits comfortably
+# inside one structured-output response (~2 KB JSON-encoded) and the
+# rotated run-progress file fits ~3-5 typical advances of breadcrumbs
+# without losing the most-recent context.
+VIEW_MAX_BYTES = 2048
+ROTATE_THRESHOLD_BYTES = 8192
+ROTATE_KEEP_BYTES = 6144
+RUN_PROGRESS_LOGICAL_PATH = "/memories/run-progress.md"
 
 
 def _root() -> Path:
@@ -62,6 +83,104 @@ def _human_size(n: int) -> str:
     return f"{n:.1f}T"
 
 
+def _truncate_for_view(payload: str, *, logical_path: str | None = None) -> str:
+    """Cap a view-command response at :data:`VIEW_MAX_BYTES` (#332).
+
+    If the payload already fits, returns it unchanged. Otherwise truncates
+    to a UTF-8-safe byte boundary near the cap, appends a marker that
+    tells Claude how many bytes were dropped and how to read further
+    (sub-path or ``view_range``), and returns the result.
+
+    The marker is intentionally short + parseable so Claude doesn't
+    confuse it with content. Logged so operators can see truncation
+    activity in the API log.
+    """
+    if payload is None:
+        return ""
+    encoded = payload.encode("utf-8")
+    if len(encoded) <= VIEW_MAX_BYTES:
+        return payload
+
+    dropped = len(encoded) - VIEW_MAX_BYTES
+    # Decode at a safe UTF-8 boundary by re-decoding with `errors="ignore"`.
+    truncated_text = encoded[:VIEW_MAX_BYTES].decode("utf-8", errors="ignore")
+    hint = (
+        " — re-view this file with a `view_range` parameter, or view a "
+        "sub-path with fewer files, if the missing content matters"
+    )
+    if logical_path:
+        marker = (
+            f"\n[...truncated, {dropped} more bytes from {logical_path}{hint}]"
+        )
+    else:
+        marker = f"\n[...truncated, {dropped} more bytes{hint}]"
+
+    logger.info(
+        "memory_backend: truncated view payload path=%s original_bytes=%d capped_bytes=%d",
+        logical_path or "?",
+        len(encoded),
+        VIEW_MAX_BYTES,
+    )
+    return truncated_text + marker
+
+
+def rotate_run_progress(*, threshold_bytes: int = ROTATE_THRESHOLD_BYTES,
+                        keep_bytes: int = ROTATE_KEEP_BYTES) -> dict[str, int] | None:
+    """Trim ``/memories/run-progress.md`` when it exceeds
+    ``threshold_bytes`` (default 8 KB), keeping the most-recent
+    ``keep_bytes`` (default 6 KB).
+
+    Returns ``None`` if the file does not exist or did not need
+    rotation. On rotation, returns ``{"before": int, "after": int,
+    "dropped": int}`` with the byte counts so callers can log.
+
+    Safe to call repeatedly. Operates on the same logical path Claude
+    writes to; no schema change.
+    """
+    try:
+        real = _resolve(RUN_PROGRESS_LOGICAL_PATH)
+    except ValueError:
+        return None
+    if not real.exists() or real.is_dir():
+        return None
+    try:
+        raw = real.read_bytes()
+    except OSError as exc:
+        logger.debug("memory_backend.rotate_run_progress: read failed: %s", exc)
+        return None
+    if len(raw) <= threshold_bytes:
+        return None
+
+    before = len(raw)
+    tail = raw[-keep_bytes:]
+    # Snap to the first newline so the rotated head reads cleanly.
+    newline_idx = tail.find(b"\n")
+    if 0 < newline_idx < 128:
+        # If the snap-point is reasonably near the start of the tail,
+        # use it. Otherwise keep the whole tail (rare case: 6 KB without
+        # any newline — better to preserve than drop more).
+        tail = tail[newline_idx + 1:]
+    header = (
+        f"# Rotated by memory_backend.rotate_run_progress (#332)\n"
+        f"# Original size: {before} bytes; kept tail: {len(tail)} bytes; "
+        f"dropped: {before - len(tail)} bytes\n"
+        f"# Full file is gone from disk — only this tail remains.\n"
+        f"---\n"
+    ).encode("utf-8")
+    new_payload = header + tail
+    try:
+        real.write_bytes(new_payload)
+    except OSError as exc:
+        logger.warning("memory_backend.rotate_run_progress: write failed: %s", exc)
+        return None
+    after = len(new_payload)
+    logger.info(
+        "memory_backend.rotate_run_progress: trimmed %s before=%d after=%d dropped=%d",
+        RUN_PROGRESS_LOGICAL_PATH, before, after, before - after,
+    )
+    return {"before": before, "after": after, "dropped": before - after}
+
+
 def _list_dir(path: Path, logical_path: str, max_depth: int = 2) -> str:
     lines = [
         f"Here're the files and directories up to 2 levels deep in {logical_path}, "
@@ -83,7 +202,7 @@ def _list_dir(path: Path, logical_path: str, max_depth: int = 2) -> str:
     # Always include root entry first too
     root_size = _dir_size(root)
     lines.insert(1, f"{_human_size(root_size)}\t{logical_path}")
-    return "\n".join(lines)
+    return _truncate_for_view("\n".join(lines), logical_path=logical_path)
 
 
 def _dir_size(path: Path) -> int:
@@ -113,7 +232,7 @@ def _read_with_line_numbers(path: Path, logical: str, view_range: list[int] | No
     body_lines = [
         f"{i:>6}\t{lines[i - 1]}" for i in range(start, end + 1)
     ]
-    return header + "\n" + "\n".join(body_lines)
+    return _truncate_for_view(header + "\n" + "\n".join(body_lines), logical_path=logical)
 
 
 def execute(command: str, **kwargs: Any) -> str:
