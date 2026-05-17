@@ -3717,6 +3717,28 @@ def advance_assessment_loop(
         },
     )
 
+    # === Cross-runner verifier (#335) ===
+    # After this advance is persisted, verify any newly-arrived critical/
+    # high findings that don't yet have a verdict. The verifier uses a
+    # DIFFERENT code path than the originating runner (raw httpx +
+    # scope check; no runner imports) so it acts as an independent
+    # confirmation. Bounded at 10 per advance for cost control. Failures
+    # here MUST NOT crash the advance — verifier is enrichment, not
+    # gating.
+    try:
+        from api.app.services.finding_verifier import verify_pending_critical_findings
+        _verdicts = verify_pending_critical_findings(
+            session, run=run, scope=scope, limit=10,
+        )
+        if _verdicts:
+            logger.info(
+                "AI loop: verifier processed %d critical/high finding(s) verdicts=%s",
+                len(_verdicts),
+                ",".join(v.verdict for v in _verdicts),
+            )
+    except Exception as _verifier_exc:
+        logger.warning("finding_verifier: skipped (%s)", _verifier_exc)
+
     # === Comic-strip narrator ===
     # Generate a plain-language panel and append it ATOMICALLY via SQL.
     # We run this LAST (after the ORM has flushed all its other writes) so

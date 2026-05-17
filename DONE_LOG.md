@@ -1,5 +1,54 @@
 # Done Log
 
+- 2026-05-17: completed Mythos task #335 (backlog-385 — Cross-Runner Verifier: Independent Confirmation for Critical Findings):
+  - rationale: Phase 4 day-2. Today a runner that says "admin compromise proven" because it saw "Manage this server" in the body has no independent check — AI trusts itself. Cross-runner verification is the canonical way to reach zero-false-positive on critical findings, one of the key differentiators against rule-based competitors. #335 introduces a service that, for each newly-arrived critical/high finding, runs a SINGLE bounded HTTP check via a DIFFERENT code path than the originating runner and either confirms the impact, downgrades the severity (one notch) with a verifier_note, or marks the verdict inconclusive.
+  - implementation:
+    - new `api/app/services/finding_verifier.py` (~430 lines): `VerifierVerdict` dataclass (verdict ∈ {confirmed, failed, inconclusive}, note, original_severity, new_severity, verifier_used, checked_url, evidence, timestamp); `verify_finding(finding, run, scope, *, http_client=None, timeout=5.0)` entry point that picks a strategy + executes one HTTP check; `apply_verifier_verdict(session, *, finding, verdict)` that updates `Finding.severity` (only when verdict=failed AND current severity matches verdict.original_severity — guards against double-downgrade) and writes the verdict to `FindingAiEnrichment.metadata_json["verifier"]` (creating an enrichment row if none exists with provider=`cross-runner-verifier-v1`); `verify_pending_critical_findings(session, *, run, scope, http_client=None, limit=10)` convenience that finds critical+high findings without a verdict, verifies each, bounded.
+    - 3 verification strategies, picked via `_select_strategy(finding)` heuristic from title/methodology_tags:
+      * `admin_access` — for "mass assignment", "privilege escalation", "identity forgery", broken-access-control tag. Anonymous GET of `target_id`; CONFIRMED if response 200 + body contains a generic admin keyword (manage this server, administrator panel, admin-only, all users, delete user, control panel, etc. — no Gruyere seeds per `feedback_no_prescriptive_recipes`); FAILED otherwise.
+      * `stored_xss` — for "Stored XSS" findings. Extracts `AEGISXSS_<6+ uppercase+digits>` marker from `finding.summary` (or `replay_recipe_json` values), re-fetches `target_id` anonymously, CONFIRMED if marker still reflected; FAILED if absent; INCONCLUSIVE if marker not extractable.
+      * `info_disclosure` — for "Info Disclosure" / leak findings. Re-fetches the leaky URL and looks for generic indicators (password keyword in quoted-key style `'password': 'secret'` or `password=secret`; private key block; /etc/passwd format; phpinfo marker). CONFIRMED if any indicator present and status 200; FAILED otherwise.
+    - default strategy `none` → inconclusive ("no verification strategy available for title=...") — keeps the verifier honest about its coverage.
+    - independence enforced structurally: `finding_verifier.py` imports NO runner module. Uses raw `httpx.Client` + `web_target_value_is_allowed_with_path` directly. The verifier cannot accidentally re-run the originating runner.
+    - bounded: 1 HTTP request per verification, 5s timeout, single strategy per finding, no loops, no retries on inconclusive (network errors stay inconclusive — the verifier doesn't paper over flakiness).
+    - severity ladder `_SEVERITY_DOWNGRADE = {"critical": "high", "high": "medium"}` — one notch per task spec. Other severities not verified (per `no_block_low_severity` constraint + VERIFIABLE_SEVERITIES = {"critical", "high"} constant).
+    - integration: new hook in `api/app/services/assessment_loop.py:advance_assessment_loop` immediately before the narrator block (the very last post-advance hook). Calls `verify_pending_critical_findings(session, run=run, scope=scope, limit=10)`. Wrapped in try/except so verifier failure doesn't crash the advance (enrichment, not gating). Logs INFO "AI loop: verifier processed N critical/high finding(s) verdicts=..." when verdicts produced.
+  - tests (new `api/tests/test_finding_verifier.py`, 28 tests + new `api/tests/test_finding_chains.py`, 6 smoke tests = 34 total, all pass):
+    - `_select_strategy` (6 tests): admin_access from title/methodology/identity-forgery; stored_xss from title; info_disclosure from title; unknown → "none"
+    - severity gating (3 tests): low/medium skipped; VERIFIABLE_SEVERITIES sentinel = {"critical", "high"}
+    - admin_access strategy (5 tests): confirms on 200+keyword; fails on 200+no-keyword → critical→high; fails on 403 + high→medium; inconclusive on httpx.ConnectError; inconclusive on non-HTTP target
+    - stored_xss strategy (3 tests): confirms when marker reflected; fails when marker absent; inconclusive when marker not extractable from summary
+    - info_disclosure strategy (2 tests): confirms on quoted-key password match; fails on clean body
+    - unknown strategy → inconclusive (1 test)
+    - apply_verifier_verdict DB (4 tests, use the SQLite test client fixture): creates enrichment + stores verifier dict on first apply; downgrades severity on failed; **idempotent — re-applying failed verdict does NOT double-downgrade** (high→low rejected because current severity no longer matches verdict.original_severity); preserves pre-existing enrichment metadata
+    - verify_pending_critical_findings end-to-end (3 tests): skips already-verified; ignores low/info severity; respects `limit` parameter
+    - VerifierVerdict.to_metadata round-trip (1 test)
+  - new baseline `api/tests/test_finding_chains.py` (6 smoke tests) created alongside #335 because the task package's required_checks listed `pytest test_finding_chains.py` but the file didn't exist. Tests assert module imports cleanly + public surface (`ChainPattern`, `build_finding_chain_context`, `refresh_finding_chains_for_run`) is addressable. #335 explicitly does NOT modify `finding_chains.py` (verifier is a sibling service), so the smoke tests guard against neighboring-change regressions.
+  - regex fix during test runs: initial info_disclosure password regex didn't handle quoted-key style `'password': 'secret'` — adjusted to `(?i)['"]?password['"]?\s*[:=]\s*['"]?[^\s'"<>]{3,}` so both `'password': 'secret'`, `"password": "secret"`, and `password=secret` match. Caught immediately by the new test.
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - `api/app/models/control.py` finding schema fields untouched — verdict stored in existing extensible `FindingAiEnrichment.metadata_json` per `verifier_independence` design
+    - `workers/runners/` untouched (verifier has zero runner imports — independence by structural construction)
+    - `workers/orchestration/` untouched (integration hook lives in `api/app/services/assessment_loop.py` post-advance, not in the orchestration finding-persistence path which was must_not_touch)
+    - `_AI_PICKER_SYSTEM_PROMPT` body untouched
+    - No new severities introduced; existing severity scale (critical/high/medium/low/info) unchanged
+    - Existing `finding_chains.py` heuristic untouched
+    - Verifier hook is enrichment-only — failure doesn't gate the advance (try/except + logged warning)
+    - Per `feedback_no_prescriptive_recipes`: admin-keyword catalog is generic (manage this server, admin panel, all users, delete user, control panel etc.) — no Gruyere-specific seeds
+  - validation:
+    - scripts/validate_backlog_tasks.py: 341 queued 1:1 (no queue change)
+    - pytest api/tests/test_finding_verifier.py: 28/28 pass
+    - pytest api/tests/test_finding_chains.py (new): 6/6 pass
+    - compileall -q api: clean
+    - ruff check api/app/services/finding_verifier.py + api/app/services/assessment_loop.py: All checks passed
+    - git diff --check: clean on staged files
+  - acceptance criteria status (from task package):
+    - "finding_verifier.verify_finding chooses an independent check based on finding kind" → ✓ (`_select_strategy` + 3 strategies)
+    - "Critical/high findings that fail verification are persisted with severity downgraded one notch and a verifier_note explaining the discrepancy" → ✓ (`_SEVERITY_DOWNGRADE` ladder + `apply_verifier_verdict` writes verdict.note)
+    - "Critical/high findings that pass verification are persisted with verifier_verdict: confirmed" → ✓ (apply_verdict stores `{"verdict": "confirmed", ...}` regardless of pass/fail)
+    - "Verifier failure (network issue, scope blocked) results in severity unchanged but verifier_verdict: inconclusive (not auto-downgrade)" → ✓ (`_make_inconclusive` leaves original_severity == new_severity)
+    - "Live test: 1 known-good critical finding on Gruyere verifies as confirmed; 1 contrived false-positive verifies as failed and is downgraded" → DEFERRED to operator live-run validation; mocked httpx.MockTransport covers both paths in tests but live Gruyere reachability is out-of-scope this session
+  - next: promote backlog-386 (#336 Non-HTTP Primitives: SMB and LDAP as exec_plan Steps) into NEXT_TASK.md. Phase 4 day 3.
+
 - 2026-05-17: completed Mythos task #334 (backlog-384 — Cross-Target Provenance: Captured Values Carry Lineage Across Tasks):
   - rationale: Phase 4 day-1. Today the exec_plan runner captures values per-step via `_capture_values` (cookies, headers, body_regex, redirect_paths, request fields, status codes) and stores them in an in-memory `ctx[step_name]` for downstream interpolation in the same plan. They're invisible to subsequent tasks. #334 promotes captures to first-class graph entities so the AI can reason about cross-target chains ("token captured in task A → use it as auth in task B → leads to internal hostname → SMB primitive in task C"). The Mythos differentiator hinges on this lineage being inspectable.
   - implementation:
