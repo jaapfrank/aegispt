@@ -1,0 +1,96 @@
+{
+  "id": "backlog-396-auth-recipe-cache-eviction",
+  "task_file": "codex/tasks/backlog-396-auth-recipe-cache-eviction.json",
+  "task_type": "auth_pipeline",
+  "title": "Auth-recipe cache eviction policy + schema migration path (closes #327 silent-fail gap)",
+  "goal": "#327 made store_recipe REJECT new entries when the 50 KB dir cap engages — no eviction, no LRU, just permanent rejection. Once the cache is full, NEW fingerprints get an absent verdict forever and pay the Claude Haiku call on EVERY run. Same problem: schema_version mismatch returns absent (forward-compat), but there is no migration path — older recipes are simply ignored forever (re-paying the AI call) until manually deleted. This task adds (a) an LRU eviction policy when the dir cap engages, keyed on `last_confirmed_at`, and (b) a schema-migration hook that upgrades v1→v2 recipes in place on first read (or marks them for re-derivation in a bounded way) instead of silently discarding them.",
+  "scope": "Extend `api/app/services/auth_discoverer.py` store_recipe(): when dir-cap is breached, instead of returning False, evict the N oldest entries (by last_confirmed_at, falling back to created_at) until the new entry fits, then proceed. Cap eviction at 25% of entries per call to prevent thrashing. Also add `_migrate_recipe(recipe_dict, *, target_schema_version)` that handles known version-up patterns (v1→v2 field renames if any exist by then); for unknown source versions, return None and log a single warning per fingerprint per process (not per call). Update lookup_recipe to call _migrate_recipe before returning fresh.",
+  "status": "queued",
+  "generated_by": "deferred-capability-followup-audit-20260517",
+  "generation_reason": "Identified during the 10-task deferred-capability audit. #327 task body said 'store rejects when dir cap engages (loop writes ~140 entries until dir reaches 50 KB, then a fresh hash also fails)' as a SUCCESS criterion — but in production, the cache filling up means we re-pay $$$ AI calls forever on new fingerprints. That's a regression dressed as a feature. Same for schema_version: 'forward-compat path returns absent' means every old recipe becomes dead weight on schema bump. No follow-up was filed. Operator pushback 2026-05-17 spirit: 'constraints moet je zelf oplossen, niet doorlopen'.",
+  "source_context": {
+    "queue_index": 346,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_2_followup",
+    "key_files": [
+      "api/app/services/auth_discoverer.py",
+      "api/app/services/memory_backend.py",
+      "api/tests/test_auth_discoverer_cache.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Eviction + migration only. Do NOT change the 2 KB per-file cap (#327 contract), do NOT change the 50 KB dir cap (#327 contract), do NOT alter the verdict vocabulary (fresh/stale/absent — #327 contract), do NOT touch the build_recipe AI path (#326 contract).",
+    "bounded_eviction": "Eviction caps at 25% of entries per store call to prevent thrashing under churn.",
+    "non_destructive_on_uncertainty": "If two entries have the SAME last_confirmed_at, evict the one with the lower confidence score; ties beyond that → evict neither (force the store call to return False rather than make an arbitrary choice).",
+    "schema_migration_idempotent": "Calling _migrate_recipe on an already-migrated recipe is a no-op (returns input unchanged)."
+  },
+  "success_criteria": [
+    "store_recipe with full cache evicts oldest entries (by last_confirmed_at) and accepts the new entry, instead of returning False.",
+    "Eviction is bounded to 25% of entries per call.",
+    "Schema-mismatched recipes from a known older version are migrated in place and returned as fresh.",
+    "Schema-mismatched recipes from an unknown version still return absent + log a single warning per fingerprint per process (not per call).",
+    "Unit tests: cache eviction frees space; eviction order is correct (oldest first); tie-breaking on confidence; ties beyond that → store returns False; migration round-trip; unknown version returns absent + warning fired exactly once.",
+    "No regression in the 29 existing test_auth_discoverer_cache.py tests."
+  ],
+  "likely_touched_files": [
+    "api/app/services/auth_discoverer.py",
+    "api/tests/test_auth_discoverer_cache.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/memory_backend.py public API",
+    "build_recipe / fingerprint_application / verify_recipe (#325/#326 contracts)",
+    "5 migrated probes (consume cache through lookup_recipe — interface unchanged)",
+    "workers/runners/",
+    "workers/orchestration/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_auth_discoverer_cache.py api/tests/test_auth_discoverer_recipe.py api/tests/test_auth_discoverer.py api/tests/test_auth_discoverer_acquire_session.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/auth_discoverer.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Full cache + new store call → eviction + accept, not silent rejection.",
+      "Schema migration upgrades v1→vN in place; unknown version → absent + single warning.",
+      "All existing cache tests pass; new eviction + migration tests added."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Raising the dir cap.",
+    "Per-target cache pinning.",
+    "Cross-engagement cache sharing."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

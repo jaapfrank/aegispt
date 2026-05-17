@@ -1,0 +1,101 @@
+{
+  "id": "backlog-394-verifier-pre-persistence-hook",
+  "task_file": "codex/tasks/backlog-394-verifier-pre-persistence-hook.json",
+  "task_type": "evidence_model",
+  "title": "Move finding_verifier hook from post-advance (assessment_loop) to pre-persistence (workers/orchestration/findings.py) — closes #335 visibility window",
+  "goal": "#335 wired the verifier as a post-advance hook in `assessment_loop.py`. That means findings are FIRST persisted with their original (un-verified) severity, then the verifier runs in the next advance and downgrades. There is a brief window — possibly several seconds, longer if the next picker call stalls — where downstream consumers (UI Mission Control polling, report exporters, webhooks) see a critical severity that the verifier would have downgraded. The fix is to call the verifier from the orchestration finding-persistence path BEFORE the finding row is written, so the severity that lands in the DB is already verifier-adjusted.",
+  "scope": "Add a verifier call inside `workers/orchestration/findings.py` (or whichever module is the canonical persistence point — confirm via Grep at task start) at the point where a finding row is about to be committed. For critical/high findings, call `finding_verifier.verify_finding(finding, run, scope)` synchronously, apply the verdict to the in-memory Finding object before flush, then persist. Remove or downgrade the assessment_loop.py hook (keep it as a backstop for findings that bypass the orchestration path, if any). Tests: prove that on persistence of a critical finding the DB row already carries the verifier verdict + adjusted severity (no second-pass downgrade visible).",
+  "status": "queued",
+  "generated_by": "deferred-capability-followup-audit-20260517",
+  "generation_reason": "Identified during the 10-task deferred-capability audit. #335 chose the assessment_loop hook because workers/orchestration/ was must_not_touch in #335's package — but the contract for #335 was 'enforce that critical/high findings are verifier-checked before persistence', and post-hoc downgrade leaks the un-verified state. Operator pushback 2026-05-17: 'Findings worden eerst gepersisteerd met ORIGINAL severity, dan downgradet de verifier mogelijk. Klein venster waar consumers un-verified critical zien.' This task explicitly permits touching workers/orchestration/findings.py because closing the visibility window is the actual contract.",
+  "source_context": {
+    "queue_index": 344,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_convergence_phase_4_cross_target_followup",
+    "key_files": [
+      "workers/orchestration/findings.py",
+      "api/app/services/finding_verifier.py",
+      "api/app/services/assessment_loop.py",
+      "api/tests/test_finding_verifier.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Hook relocation + small orchestration change only. Do NOT modify the verifier strategies (#335 contract), do NOT add new severities, do NOT change FindingAiEnrichment.metadata_json layout, do NOT extend the verifier to medium/low/info severity.",
+    "structural_independence": "Verifier still imports zero runner modules (per #335). Orchestration imports the verifier service, not the other way around.",
+    "non_blocking_for_low_severity": "Only critical/high findings go through the verifier (VERIFIABLE_SEVERITIES = {critical, high} per #335). Medium/low/info persist unchanged.",
+    "graceful_degradation": "If verifier raises (network error inside the orchestration thread), log warning, persist finding with original severity + verifier_verdict=inconclusive — do NOT block finding persistence."
+  },
+  "success_criteria": [
+    "workers/orchestration/findings.py persists critical/high findings with verifier verdict already attached to the Finding row at first flush — no second-pass severity update.",
+    "assessment_loop.py post-advance hook is either removed (preferred) or kept as a defensive backstop that no-ops when the verdict is already present.",
+    "Unit test: persist a critical finding through the orchestration path → DB row immediately shows verifier_verdict in FindingAiEnrichment.metadata_json + adjusted severity if verdict=failed.",
+    "Unit test: simulate verifier exception → finding still persists, verdict=inconclusive, severity unchanged.",
+    "No regression in the 28 existing test_finding_verifier.py tests.",
+    "Live: run a real assessment loop end-to-end and confirm via DB inspection that no critical row exists without a verifier verdict for more than a single transaction."
+  ],
+  "likely_touched_files": [
+    "workers/orchestration/findings.py",
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_finding_verifier.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/finding_verifier.py strategy functions (_verify_admin_access, _verify_stored_xss, _verify_info_disclosure)",
+    "VerifierVerdict dataclass shape (#335 contract)",
+    "VERIFIABLE_SEVERITIES / _SEVERITY_DOWNGRADE constants (#335 contract)",
+    "FindingAiEnrichment.metadata_json key layout (#335 contract: verdict stored under metadata_json['verifier'])",
+    "api/app/models/control.py finding schema",
+    "workers/runners/",
+    "_AI_PICKER_SYSTEM_PROMPT"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_finding_verifier.py api/tests/test_finding_chains.py workers/tests/",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check workers/orchestration/findings.py api/app/services/finding_verifier.py api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Critical finding persistence path includes synchronous verifier call before flush.",
+      "No window exists where a critical row is visible without a verifier verdict.",
+      "Verifier exception is logged but does not block finding persistence."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-385 (#335) must remain merged — this is a follow-up, not a revert."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with the relocation rationale + before/after timing argument.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued item into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Extending verifier to medium/low severity.",
+    "New verifier strategies.",
+    "Cross-target verifier (still single-finding scope)."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
