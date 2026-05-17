@@ -1,0 +1,131 @@
+{
+  "id": "backlog-390-broader-codebase-hygiene-sweep",
+  "task_file": "codex/tasks/backlog-390-broader-codebase-hygiene-sweep.json",
+  "task_type": "hygiene",
+  "title": "Broader codebase hygiene: 27 ruff errors + 21 pre-existing pytest failures + ui-v2 build/lint cleanup",
+  "goal": "Clear the long-standing pre-existing test/lint/build failures that accumulated across multiple sessions and were flagged by the operator's broader-check runs during #328 and #332. Restore green `.venv/bin/ruff check api workers scripts`, `.venv/bin/pytest api/tests workers/tests scripts/tests`, and `cd ui-v2 && npm run build/lint`.",
+  "scope": "Fix 27 ruff lint errors (import-order in api/app/models/__init__.py + workers/orchestration/tasks.py + workers/orchestration/findings.py; semicolons in api/app/services/reports.py; unused imports across tests). Resolve 21 pre-existing pytest failures by either updating tests to match current code OR fixing code that drifted, decision per cluster documented in commit. Fix ui-v2 unused-vars + the real Property 'name' type error in MissionControlV3.tsx:1073. Align runner capability/contract metadata (67 valid vs 74 registered). Does NOT introduce new features; does NOT touch Mythos #325-#332 contracts.",
+  "status": "queued",
+  "generated_by": "operator-decision-2026-05-17",
+  "generation_reason": "Operator ran broader checks during #328 and again during #332 and found 21 pytest failures, 27 ruff errors, and ui-v2 build/lint errors that pre-date Phase 2/3 work and reside in must_not_touch files for the active Mythos tasks. Captured here as a discrete hygiene task so they don't bleed into Phase 4 scope.",
+  "source_context": {
+    "queue_index": 340,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "codebase_hygiene_post_phase_3",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "api/app/services/reports.py",
+      "api/app/models/__init__.py",
+      "workers/orchestration/tasks.py",
+      "workers/orchestration/findings.py",
+      "api/tests/test_assessment_loop.py",
+      "api/tests/test_ai_planner.py",
+      "api/tests/test_ai_action_selector.py",
+      "api/tests/test_runner_capabilities.py",
+      "api/tests/test_runner_contracts.py",
+      "api/tests/test_backup_restore.py",
+      "api/tests/test_burp_dispatch.py",
+      "api/tests/test_runs.py",
+      "api/tests/test_assessment_planner.py",
+      "api/tests/test_gruyere_ai_benchmark.py",
+      "workers/tests/test_task_ai_callbacks.py",
+      "ui-v2/src/components/screens/MissionControl.tsx",
+      "ui-v2/src/components/screens/MissionControlV3.tsx"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md. Most appropriate execution slot is after Phase 3 closes (#333) and before / between Phase 4 tasks.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Hygiene only - lint cleanup, drift fixes, unused-import removal, test-expectation updates to match current code. Do NOT introduce new features, do NOT change runner contracts or planner behavior beyond what is necessary to make tests match reality.",
+    "test_strategy": "For each failing test: either (a) the test asserts old behavior and the code is correctly new -> update the test, or (b) the test asserts correct behavior and the code drifted -> fix the code. Document the decision per cluster in the commit message.",
+    "ui_v2_scope": "Fix unused-vars across MissionControl.tsx + MissionControlV3.tsx and the one real type error (Property 'name' does not exist on type 'Run'). Do NOT redesign components - this is parking-lot cleanup."
+  },
+  "success_criteria": [
+    "`.venv/bin/ruff check api workers scripts` returns 'All checks passed!' (currently 27 errors).",
+    "`.venv/bin/pytest api/tests workers/tests scripts/tests -q` returns 0 failures (currently 21 pre-existing + already-fixed cache regression from #332).",
+    "`cd ui-v2 && npm run build` succeeds.",
+    "`cd ui-v2 && npm run lint` returns 0 errors.",
+    "Runner capability/contract drift (67 valid vs 74 registered) resolved: either capabilities.json updated for the 7 missing runners, or those runners removed from SUPPORTED_TOOLS.",
+    "AGENT_SYSTEM_MAP.md section 12 anti-patterns is updated with any new lessons (e.g., 'periodically run broader-check; don't let drift accumulate')."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/reports.py",
+    "api/app/models/__init__.py",
+    "workers/orchestration/tasks.py",
+    "workers/orchestration/findings.py",
+    "workers/runners/capabilities.json",
+    "api/tests/test_assessment_loop.py",
+    "api/tests/test_ai_planner.py",
+    "api/tests/test_ai_action_selector.py",
+    "api/tests/test_runner_capabilities.py",
+    "api/tests/test_runner_contracts.py",
+    "api/tests/test_backup_restore.py",
+    "api/tests/test_burp_dispatch.py",
+    "api/tests/test_runs.py",
+    "api/tests/test_assessment_planner.py",
+    "api/tests/test_gruyere_ai_benchmark.py",
+    "workers/tests/test_task_ai_callbacks.py",
+    "ui-v2/src/components/screens/MissionControl.tsx",
+    "ui-v2/src/components/screens/MissionControlV3.tsx",
+    "docs/AGENT_SYSTEM_MAP.md",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md"
+  ],
+  "must_not_touch": [
+    "Mythos picker schema in assessment_loop.py (_PICKER_OUTPUT_SCHEMA, _decode_picker_plan, _call_picker_with_retries) - those are #330/#331 contracts and must not regress",
+    "auth_discoverer.py core API (#325-#328 surface)",
+    "memory_backend.py truncation/rotation API (#332 surface)",
+    "All 5 migrated probes' auth flow (#328 surface)"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/ruff check api workers scripts",
+      ".venv/bin/pytest api/tests workers/tests scripts/tests -q",
+      "cd ui-v2 && npm run build",
+      "cd ui-v2 && npm run lint",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Zero ruff errors across api, workers, scripts.",
+      "Zero pytest failures (excluding any explicitly skipped tests).",
+      "ui-v2 build + lint green.",
+      "No Mythos surface (#325-#332) behavior changes - only deduplication, drift fixes, lint cleanup.",
+      "Commit message documents per-cluster the rationale: test-was-wrong vs code-was-wrong."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Phase 3 review checkpoint (#333) must show as DONE in DONE_LOG.md."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md.",
+      "Update CURRENT_STATE.md.",
+      "Promote the next queued item into NEXT_TASK.md (likely Phase 4 day 1 = #334 if not already running)."
+    ]
+  },
+  "out_of_scope": [
+    "New feature work.",
+    "Mythos surface area changes (#325-#332 contracts must stay).",
+    "Runner refactors beyond capability metadata alignment."
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}
