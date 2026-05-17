@@ -16,15 +16,17 @@ this module defines:
 3. `load_run_observations()` — graph-side helper called by
    build_normalized_evidence_graph to load observations as normalized nodes.
 
-Validation: only the entity types already supported by
-build_normalized_evidence_graph are accepted. Per backlog-372 scope, we do not
-add new node types in this task — observations augment existing taxonomy.
+Validation: only the entity types in :data:`ACCEPTED_ENTITY_TYPES` are
+accepted. Per backlog-372 scope (#322) we did not add new node types;
+backlog-384 (#334) extends the set with ``captured_value`` for cross-target
+provenance tracking.
 
 See `docs/evidence_graph_adoption_plan.md` for the full design context.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import uuid
 from typing import Any, Iterable
@@ -36,9 +38,10 @@ from api.app.models import EvidenceObservation, Run, Task
 
 logger = logging.getLogger(__name__)
 
-# Entity types accepted by this task. These are the existing types that
-# build_normalized_evidence_graph already understands; we are NOT introducing
-# new types in #322. Future tasks may extend this set.
+# Entity types accepted. ``captured_value`` added in #334 (backlog-384)
+# for cross-target provenance: captured values from exec_plan steps
+# (JWT, cookie, internal hostname, etc.) become first-class graph
+# entities with origin_task_id + origin_step_name in attributes.
 ACCEPTED_ENTITY_TYPES: frozenset[str] = frozenset(
     {
         "asset",  # host, service, endpoint
@@ -47,8 +50,20 @@ ACCEPTED_ENTITY_TYPES: frozenset[str] = frozenset(
         "credential_ref",  # captured credential
         "permission",  # role/permission grant
         "saas_connector",  # SaaS integration
+        "captured_value",  # cross-target captured value (#334)
     }
 )
+
+# Known value-kind subtypes for captured_value. Free-form; this list is
+# documentation only — the schema accepts any subtype string.
+CAPTURED_VALUE_KINDS: frozenset[str] = frozenset(
+    {"token", "cookie", "hostname", "credential_ref", "url", "other"}
+)
+
+# Bytes preserved verbatim in the redacted preview for token-like values.
+REDACT_TAIL_CHARS = 4
+# Max length below which a non-sensitive value is kept full.
+VALUE_KEEP_FULL_MAX = 64
 
 MAX_LABEL_LEN = 480
 MAX_SOURCE_ID_LEN = 240

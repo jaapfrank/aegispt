@@ -21,22 +21,26 @@ When a runner captures a value (JWT, cookie, internal hostname, credential) duri
 - Captured values include credentials/tokens — apply scope/ROE checks and credential vault patterns where they exist.
 - Per `feedback_no_prescriptive_recipes` memory: emergent only; don't seed lineage patterns in code.
 
+## Note on out-of-band intervention
+
+The previous instance of NEXT_TASK was temporarily switched to `backlog-389` (UI Approve-Next button) when the operator hit the broken button live during Phase-3 validation. `backlog-389` was completed inline (commit pending in the same Phase 3 / Phase 4 push) and #334 is re-promoted here. Partial in-progress state on #334: design notes added to evidence_ingest.py (new `captured_value` entity type + redaction constants); implementation still to do — exec_plan runner emission, graph projection helper, tests. Resume from there.
+
 ## Source Package
 
 `codex/tasks/backlog-384-cross-target-provenance-tracking.json`
 
 ## Reference
 
-- `api/app/services/evidence_ingest.py` (#322 — `make_observation`, `persist_runner_observations`, `load_run_observations`)
+- `api/app/services/evidence_ingest.py` (#322 — `make_observation`, `persist_runner_observations`, `load_run_observations`; #334 partial start: `captured_value` added to ACCEPTED_ENTITY_TYPES + redaction constants)
 - `api/app/services/assessment_graph.py` (`build_normalized_evidence_graph`, `project_graph_for_picker` from #323)
-- `workers/runners/exec_plan/runner.py` (the exec-plan engine with current per-step capture logic)
+- `workers/runners/exec_plan/runner.py` (the exec-plan engine with current per-step capture logic at `_capture_values` line 144)
 - `docs/checkpoints/2026-mythos-phase3-review.md` (Phase 3 GO decision; Phase 4 entry point)
 - AGENT_SYSTEM_MAP §4 (Evidence model — what exists, post Phase-1 reality)
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_cross_target_provenance.py api/tests/test_evidence_ingest.py`
+- `.venv/bin/pytest api/tests/test_cross_target_provenance.py api/tests/test_evidence_ingest.py api/tests/test_assessment_graph.py`
 - `python3 -m compileall -q api workers`
 - `.venv/bin/ruff check api/app/services/evidence_ingest.py api/app/services/assessment_graph.py workers/runners/exec_plan/`
 - `git diff --check`

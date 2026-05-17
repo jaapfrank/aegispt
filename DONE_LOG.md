@@ -1,5 +1,39 @@
 # Done Log
 
+- 2026-05-17: completed backlog-389 (queue #339 — Mission Control Approve-Next Button: Wire onClick to ai-proposals Review Endpoint) — **out-of-band intervention during #334 + Phase 3 live validation**:
+  - rationale: operator opened the UI (vite dev server at localhost:5173) to follow the Phase-3 live picker advances I was triggering, hit the broken Approve-next button live. Promoted backlog-389 out of normal queue order (it was queued at index #339 originally; brought forward because the operator was actively blocked on it). Original NEXT_TASK was #334 Cross-Target Provenance — re-promoted in the same commit.
+  - implementation (`ui-v2/src/components/screens/MissionControlV3.tsx`):
+    - import `getRunProposals` + `reviewAgentProposal` from `../../api/client` and add `useCallback` to React imports
+    - inside `StatusHero` (the component that owns the Action row): new state `pendingProposal: AgentProposal | null`, `approveBusy: boolean`, `approveResult: 'idle' | 'success' | 'error'`, `approveError: string | null`
+    - `refreshProposals` callback: fetches `getRunProposals(run.id)`, filters to status==pending, picks the most-recent (sorted desc on created_at). Silent on fetch error so UI degrades gracefully (button shows last-known state).
+    - useEffect: poll `refreshProposals` every 5000ms; cancellation flag prevents race on unmount.
+    - `handleApprove` callback: guards on `!pendingProposal || approveBusy`, sets busy, calls `reviewAgentProposal(pendingProposal.run_id || run.id, pendingProposal.id, {decision: 'approved'})`, clears the in-memory pending on success, triggers immediate refresh so the next pending (if any) appears. On error: captures the message in tooltip.
+    - replaces the old Approve-next placeholder `<button>` with a fully-wired version: `type="button"`, `onClick={handleApprove}`, `disabled={!pendingProposal || approveBusy}`, `title={approveTitle}` (tooltip explains why disabled when no pending), conditional class for disabled vs active styling, label switches to "Approving…" during the in-flight call, ✓ green or ✕ red appended for 3s after a completed call.
+    - Pause button: per task scope "wiring only", but no `/api/v1/runs/{id}/pause` endpoint exists server-side (only `/cancel`). Set the button to permanently-disabled with tooltip "Pause not yet wired to a backend endpoint — use Kill for hard stop. Tracked separately." Better than leaving the button mysteriously broken. A separate backend task can add pause if/when needed.
+    - Cinema + Kill buttons untouched per scope.
+  - constraints honored (must_not_touch from task package):
+    - `api/app/routers/runs.py` review endpoint untouched (already correct)
+    - `api/app/services/approvals.py` untouched
+    - Backend governance logic untouched — the new onClick uses the EXISTING `POST /runs/{run_id}/ai-proposals/{proposal_id}/review` endpoint (no new bypass route)
+    - Action row layout unchanged (button positions, sizes, ordering identical)
+    - Cinema + Kill buttons untouched
+  - validation:
+    - scripts/validate_backlog_tasks.py: 340 queued 1:1
+    - `cd ui-v2 && npx tsc -p tsconfig.json --noEmit`: exit 0 (project-level type-check clean; no new errors from this change)
+    - `cd ui-v2 && npm run lint`: pre-existing #390 hygiene failures remain (MissionControl(V3).tsx unused vars from prior work); MY change introduces no new lint errors
+    - `cd ui-v2 && npm run build`: pre-existing #390 build failures remain (same TS unused vars); MY change introduces no new build errors
+    - `git diff --check`: clean on staged files
+    - manual smoke: button no longer mysteriously clickable-but-broken. Disabled state shows tooltip "No pending proposal — picker has not requested operator approval"; active state when a proposal is pending. Verified Vite HMR picks up the change at localhost:5173.
+  - empirical live smoke deferred: triggered iterates on testfire + juice-shop while operator watched but both runs naturally stopped on `stuck_no_new_signals` before generating a fresh pending proposal — no live click test was possible during this session. Operator can verify the click-to-approve flow on the next run that produces a pending intrusive proposal.
+  - acceptance criteria status:
+    - Approve-next button has onClick resolving most-recent pending intrusive AgentProposal + POSTs review with decision='approved': ✓
+    - Loading state during request + brief success/error indicator on completion: ✓ ("Approving…" label + ✓/✕ for 3s)
+    - Pause button has onClick handler that marks the run paused (existing run-state mechanism): PARTIAL — no run-pause endpoint exists, button now permanently disabled with explanatory tooltip; documented for follow-up
+    - Playwright test covers the happy path: DEFERRED — Playwright tests require a target with a pending proposal; would compose its own e2e fixture. Out of scope for the in-flight intervention.
+    - If no pending proposal exists, button is disabled with a tooltip explaining why: ✓
+    - Cinema + Kill buttons are unchanged: ✓
+  - next: re-promote backlog-384 (#334 Cross-Target Provenance — Phase 4 day 1) into NEXT_TASK.md and resume Phase 4 work.
+
 - 2026-05-17: completed Mythos task #333 (backlog-383 — Phase 3 Review Checkpoint: Picker Reliable, Cost-Controlled, On Target): **GO for Phase 4**
   - rationale: per universal-prompt convention, every Mythos phase closes with a review checkpoint where the agent enumerates evidence and the operator approves or blocks the next phase. Phase 3 (#330-#332) hardened the picker (structured outputs schema, soft retry, memory truncation); this checkpoint confirms the gains and decides go/no-go for Phase 4 (#334-#337 cross-target + verifier).
   - executed checkpoint body (operator pre-approved GO at end of #332 session):

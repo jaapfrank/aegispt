@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CircleStop, MonitorPlay, ChevronDown, ChevronRight, Pause } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { AgentProposal, Finding, Run, Task } from '../../api/types';
+import { getRunProposals, reviewAgentProposal } from '../../api/client';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -199,6 +200,69 @@ function StatusHero({
 
   const leadsCount = counts.critical + counts.high;
 
+  // #339 (backlog-389): wire Approve-next button.
+  // Poll the run's AI proposals every 5s and surface the most recent
+  // pending one. Approve button calls the existing review endpoint via
+  // reviewAgentProposal (no new bypass route).
+  const [pendingProposal, setPendingProposal] = useState<AgentProposal | null>(null);
+  const [approveBusy, setApproveBusy] = useState(false);
+  const [approveResult, setApproveResult] = useState<'idle' | 'success' | 'error'>('idle');
+  const [approveError, setApproveError] = useState<string | null>(null);
+
+  const refreshProposals = useCallback(async () => {
+    try {
+      const proposals = await getRunProposals(run.id);
+      const pending = proposals.filter((p) => (p.status || '').toLowerCase() === 'pending');
+      // Most recent pending wins (per task package: "most recent pending").
+      const mostRecent = pending.sort((a, b) =>
+        String(b.created_at || '').localeCompare(String(a.created_at || '')),
+      )[0] ?? null;
+      setPendingProposal(mostRecent);
+    } catch {
+      // Silent — keep last known proposal; UI shows disabled state if none.
+    }
+  }, [run.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void refreshProposals();
+    const id = window.setInterval(() => {
+      if (!cancelled) void refreshProposals();
+    }, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [refreshProposals]);
+
+  const handleApprove = useCallback(async () => {
+    if (!pendingProposal || approveBusy) return;
+    setApproveBusy(true);
+    setApproveResult('idle');
+    setApproveError(null);
+    try {
+      await reviewAgentProposal(pendingProposal.run_id || run.id, pendingProposal.id, {
+        decision: 'approved',
+      });
+      setApproveResult('success');
+      setPendingProposal(null);
+      // Refresh proposals so the next pending one (if any) appears.
+      void refreshProposals();
+    } catch (err) {
+      setApproveResult('error');
+      setApproveError(err instanceof Error ? err.message : String(err).slice(0, 120));
+    } finally {
+      setApproveBusy(false);
+      // Auto-clear the result indicator after a few seconds.
+      window.setTimeout(() => setApproveResult('idle'), 3000);
+    }
+  }, [pendingProposal, approveBusy, run.id, refreshProposals]);
+
+  const approveDisabled = !pendingProposal || approveBusy;
+  const approveTitle = pendingProposal
+    ? `Approve proposal ${String(pendingProposal.id).slice(0, 8)}`
+    : 'No pending proposal — picker has not requested operator approval';
+
   return (
     <div className={cn('border-b-2 px-6 py-5', state.toneBg)}>
       <div className="flex items-start gap-5">
@@ -241,10 +305,30 @@ function StatusHero({
 
           {/* Action row */}
           <div className="flex items-center gap-2">
-            <button className="rounded border border-cyan/40 bg-cyan/15 px-4 py-1.5 text-[0.85rem] font-semibold text-cyan hover:bg-cyan/25 transition-colors">
-              Approve next ⏎
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={approveDisabled}
+              title={approveTitle}
+              className={cn(
+                'rounded border px-4 py-1.5 text-[0.85rem] font-semibold transition-colors',
+                approveDisabled
+                  ? 'border-line bg-surface-2 text-muted cursor-not-allowed'
+                  : 'border-cyan/40 bg-cyan/15 text-cyan hover:bg-cyan/25',
+              )}
+            >
+              {approveBusy ? 'Approving…' : 'Approve next ⏎'}
+              {approveResult === 'success' && <span className="ml-2 text-green">✓</span>}
+              {approveResult === 'error' && (
+                <span className="ml-2 text-red" title={approveError ?? ''}>✕</span>
+              )}
             </button>
-            <button className="rounded border border-line bg-surface-2 px-3 py-1.5 text-[0.85rem] font-medium text-soft hover:text-text transition-colors">
+            <button
+              type="button"
+              disabled
+              title="Pause not yet wired to a backend endpoint — use Kill for hard stop. Tracked separately."
+              className="rounded border border-line bg-surface-2 px-3 py-1.5 text-[0.85rem] font-medium text-muted cursor-not-allowed opacity-60"
+            >
               <Pause size={13} className="inline -mt-0.5 mr-1" /> Pause
             </button>
             <button
