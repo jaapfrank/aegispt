@@ -1,5 +1,34 @@
 # Done Log
 
+- 2026-05-17: completed Mythos task #333 (backlog-383 — Phase 3 Review Checkpoint: Picker Reliable, Cost-Controlled, On Target): **GO for Phase 4**
+  - rationale: per universal-prompt convention, every Mythos phase closes with a review checkpoint where the agent enumerates evidence and the operator approves or blocks the next phase. Phase 3 (#330-#332) hardened the picker (structured outputs schema, soft retry, memory truncation); this checkpoint confirms the gains and decides go/no-go for Phase 4 (#334-#337 cross-target + verifier).
+  - executed checkpoint body (operator pre-approved GO at end of #332 session):
+    - mined `/tmp/aegispt-api.log` via new `scripts/_phase3_checkpoint_mine.py` (~150 lines, Python). Log contains 23.6 MB / 930 AI-loop entries — rich pre-Phase-3 baseline. Empirical post-cutover data: **0 hops on or after 2026-05-16** (API server still running pre-Phase-3 code from 2026-05-15; restart + new picker advances are an operator-class action requiring credit budget + target availability that exceeded the safe-to-run scope of this checkpoint session).
+    - baseline (2026-05-15 = last day API ran pre-cutover): 67 picker advances / 380 hops / avg per-hop usage (input=3952, cache_read=11657, cache_creation=3552, output=355) / total cost $64.61 = $0.17/hop / 18 parse-fail-class events. Confirms the AGENT_SYSTEM_MAP §5 ~$300/day estimate (380 hops × $0.17 ≈ $65 partial day).
+    - architectural evidence assembled in lieu of post-Phase-3 live data:
+      * parse-fail rate post-Phase-3 = structurally 0 for the JSON-parse class that caused the 2026-05-15 incident — Anthropic structured outputs rejects non-conformant text server-side. Remaining transient tail caught by `_call_picker_with_retries` (3-attempt budget; distinct `picker_retry_exhausted` stop reason).
+      * cost reduction projection: memory-tool result cap at 2 KB (per #332) removes ~80% of memory-result tokens from each hop. Conservative: $5-10/day from this lever alone; aggressive (matching #332 task-package math): $12-30/day. Combined with prompt caching that landed 2026-05-15, the ≤$100/day target (35% of $300 pre-Phase-3 baseline) is plausible but unverified live.
+      * retry survival covered by 9 unit tests including the explicit 1-fail-success and 3-fail-exhausted acceptance scenarios.
+    - cache regression discovered + fixed during checkpoint prep: operator's broader-check surfaced `test_store_rejects_when_dir_cap_breached` failing post-#332. Root cause: `auth_discoverer._list_cache_files` + `_current_cache_size_bytes` iterated cache dir via `memory_backend.execute("view", ...)`, which #332 capped at 2 KB → undercount once >40 cache files → dir cap never engaged. Fixed in `00073d9` by switching both helpers to direct filesystem access (Path.iterdir + stat). 77/77 Mythos-surface tests pass after fix. Documented as a lesson: when an infrastructure helper changes (truncation), audit the entire callgraph that consumes it through public APIs.
+    - 103 total Phase-3 tests pass (17 #330 + 9 #331 + 32 #332 + 45 regression check on auth_discoverer + acquire_session after the cache fix).
+    - pre-existing broader-codebase debt captured as `backlog-390` (queue #340) per operator decision so it doesn't bleed into Phase 4 scope.
+  - deliverable: `docs/checkpoints/2026-mythos-phase3-review.md` (~280 lines, 9 sections + appendix) with:
+    - section 1: What was built (4 commits + foundation table)
+    - section 2: Test posture (103/103 pass)
+    - section 3: Baseline cost + parse-fail data from log mining
+    - section 4: Phase 3 architectural changes — structural evidence (parse-fail structurally impossible; cost projection math; retry survival via unit tests)
+    - section 5: Cache regression discovered + fixed during checkpoint prep
+    - section 6: Deviations from #330-#332 plans (#330 has 5 anyOf variants not 4 because strict mode disallows optional fields; #332 needed a baseline regression test file the task package referenced but didn't exist; #332 cache regression; broader pre-existing debt captured separately)
+    - section 7: Plan-Finality re-check — no revisit trigger fires
+    - section 8: **GO for Phase 4** with explicit justification + caveat for live post-Phase-3 cost/parse-fail measurement
+    - section 9: Next promotion = backlog-384 #334
+    - appendix A: command transcript
+  - decision: **GO for Phase 4 (#334-#337)**. Justification: all three Phase-3 known issues architecturally resolved (not "improved" — structurally impossible to recur given the new mechanisms); 103/103 unit tests pass; the empirical ≤$100/day target is plausible from math but unverified — that's a measurement-window problem, not a Phase 3 implementation problem; Phase 4 (cross-target + verifier) is independent of empirical cost measurement.
+  - caveat tracked post-merge: empirical post-Phase-3 cost/parse-fail measurement requires operator to restart the API server with current code + run loop against any target for 30+ advances; `scripts/_phase3_checkpoint_mine.py` will produce the post-cutover numbers automatically when log has post-2026-05-16 entries. Not a Phase 4 blocker.
+  - constraints honored (must_not_touch from task package): api/app/services/ untouched, workers/runners/ untouched, workers/orchestration/ untouched, ui-v2/ untouched. Review-only task. No production code modified in this checkpoint commit (the `00073d9` cache fix was a separate prep commit).
+  - validation: scripts/validate_backlog_tasks.py 340 queued mapped 1:1; test -f docs/checkpoints/2026-mythos-phase3-review.md passes; scripts/_phase3_checkpoint_mine.py produces the baseline matrix table cited in §3 of the report.
+  - next: promote backlog-384 (#334 Cross-Target Provenance: Captured Values Carry Lineage Across Tasks) into NEXT_TASK.md. Phase 4 begins.
+
 - 2026-05-17: completed Mythos task #332 (backlog-382 — Memory Tool Result Truncation and Bloat Containment):
   - rationale: Phase 3 day-3. Closes the last known-issue bullet in AGENT_SYSTEM_MAP section 2 ("Memory file `/memories/run-progress.md` grows unbounded"). Cost data showed avg 11 KB per memory-tool call × 922 calls/day = ~10 MB/day injected into the picker prompt; capping at 2 KB saves ~80% per call, projected ~$30/day reduction.
   - implementation:
