@@ -1235,40 +1235,50 @@ def _load_cache_entry(logical_path: str) -> dict[str, Any] | None:
 
 def _list_cache_files() -> list[str]:
     """List logical paths of all cache files under CACHE_DIR_LOGICAL.
-    Empty list if directory doesn't exist."""
-    response = memory_backend.execute("view", path=CACHE_DIR_LOGICAL)
-    if response.startswith("The path") or response.startswith("Error"):
+    Empty list if directory doesn't exist.
+
+    Uses direct filesystem access via :func:`memory_backend._resolve`
+    rather than ``memory_backend.execute("view", ...)`` because the
+    view response is capped at 2 KB by #332 — fine for Claude-facing
+    prompts but undercount-prone for internal accounting that needs
+    to see every cache file."""
+    try:
+        cache_dir = memory_backend._resolve(CACHE_DIR_LOGICAL)
+    except ValueError:
+        return []
+    if not cache_dir.exists() or not cache_dir.is_dir():
         return []
     files: list[str] = []
-    for line in response.splitlines()[1:]:
-        # Each line is "<size>\t<logical_path>". Skip the directory
-        # itself (which is the inserted root entry).
-        parts = line.split("\t", 1)
-        if len(parts) != 2:
-            continue
-        logical = parts[1].strip()
-        if logical.endswith(".json") and logical != CACHE_DIR_LOGICAL:
-            files.append(logical)
+    try:
+        for entry in sorted(cache_dir.iterdir()):
+            if entry.is_file() and entry.suffix == ".json":
+                # Reconstruct the logical path Claude uses.
+                files.append(f"{CACHE_DIR_LOGICAL}/{entry.name}")
+    except OSError:
+        return []
     return files
 
 
 def _current_cache_size_bytes() -> int:
     """Sum the sizes of every cache file. Best-effort — counts only
-    files we can read."""
+    files we can stat. Uses direct filesystem access (see
+    :func:`_list_cache_files` for the rationale)."""
     total = 0
-    for logical in _list_cache_files():
-        response = memory_backend.execute("view", path=logical)
-        if response.startswith("Error") or response.startswith("The path"):
-            continue
-        # Strip header + line-number prefixes to get a tight estimate of
-        # the actual JSON payload size.
-        body_chars = 0
-        for line in response.splitlines()[1:]:
-            if "\t" in line:
-                body_chars += len(line.split("\t", 1)[1]) + 1  # +1 for newline
-            else:
-                body_chars += len(line) + 1
-        total += body_chars
+    try:
+        cache_dir = memory_backend._resolve(CACHE_DIR_LOGICAL)
+    except ValueError:
+        return 0
+    if not cache_dir.exists() or not cache_dir.is_dir():
+        return 0
+    try:
+        for entry in cache_dir.iterdir():
+            if entry.is_file() and entry.suffix == ".json":
+                try:
+                    total += entry.stat().st_size
+                except OSError:
+                    continue
+    except OSError:
+        return 0
     return total
 
 
