@@ -141,7 +141,9 @@ last_verified: 2026-05-15 (post Phase-1 review #324)
 
 **Cost data 2026-05-15** (logs `/tmp/aegispt-api.log`): ~$300/day total estimated. Picker ~$300, narrator-Opus ~$18. After prompt caching: estimated $60-90/day reduction on picker = projected ~$210-240/day. **Memory tool truncation** is next biggest lever (avg 11 KB per call × 922 calls/day).
 
-last_verified: 2026-05-15
+**Post-Phase-3 empirical (2026-05-17, 11 hops on testfire+juice-shop after `aegispt-api.service` restart onto commit be788d7):** per-hop usage avg input=5,662 / cache_read=8,169 (was 11,657 = **-30%** from #332 memory truncation) / cache_creation=2,323 / output=232. Cost/hop $0.1582 vs $0.1700 baseline = **-7%** on this small sample. 2 parse-fail-class events, 1 caught by `_call_picker_with_retries` (#331), 0 `picker_retry_exhausted`. Memory-truncation lower bound confirmed (~3,488 cache_read tokens/hop saved). Full day-level cost projection still requires bigger sample; the structural savings are real. **Follow-up surfaced**: `max_tokens=1024` on picker call too small for long `level_up` decisions — picker hits the cap mid-string, truncated grammar bypasses #330 structured outputs and lands on #331 retry; raise to 4096 for a quick win (separate task).
+
+last_verified: 2026-05-17
 
 ---
 

@@ -360,3 +360,4 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 338. Mythos Tool Breadth — Specialized Tool Pack Fork from HexStrike (10-15 wrappers) `codex/tasks/backlog-388-specialized-tool-pack-fork-from-hexstrike.json`
 339. Mission Control Approve-Next Button — Wire onClick to ai-proposals review endpoint (UI bug surfaced during #324 checkpoint) `codex/tasks/backlog-389-ui-approve-next-button-broken-onclick-wiring.json`
 340. Broader codebase hygiene sweep — 27 ruff errors + 21 pre-existing pytest failures + ui-v2 build/lint cleanup (created during #332 broader-check 2026-05-17, execute after Phase 3 close-out) `codex/tasks/backlog-390-broader-codebase-hygiene-sweep.json`
+341. Picker max_tokens raise: 1024 → 4096 to eliminate truncated-response retry class (surfaced during Phase 3 live validation #333 on 2026-05-17) `codex/tasks/backlog-391-picker-max-tokens-raise.json`
