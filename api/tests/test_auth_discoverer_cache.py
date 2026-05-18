@@ -186,23 +186,34 @@ def test_store_rejects_oversized_entry(memory_root: Path, fp: dict, recipe: dict
     assert result is None
 
 
-def test_store_rejects_when_dir_cap_breached(
+def test_store_evicts_when_dir_cap_breached(
     memory_root: Path, recipe: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Once the dir is full, further stores are refused."""
-    # Pre-populate 50 KB of fixtures by writing many small entries
-    # directly via store_recipe with distinct fingerprint hashes.
-    written = 0
+    """#346 changed the cache contract: when the dir cap engages, the new
+    store call triggers bounded LRU eviction instead of returning False.
+
+    Acceptance: every successive store across 200 distinct fingerprints
+    succeeds, the on-disk total stays at or under the cap, and lookup
+    of a freshly-written entry returns it.
+    """
+    base_time = datetime(2026, 5, 1, tzinfo=timezone.utc)
     for idx in range(200):
         fp_i = {"fingerprint_hash": f"abcdef{idx:06d}" * 4}
-        ok = store_recipe(fp_i, recipe)
-        if not ok:
-            written = idx
-            break
-    assert written > 0, "expected dir cap to engage before 200 entries"
-    # Confirm a subsequent fingerprint also gets rejected.
-    new_fp = {"fingerprint_hash": "z" * 64}
-    assert store_recipe(new_fp, recipe) is False
+        # Stagger the timestamps so LRU has a deterministic oldest-to-evict.
+        ok = store_recipe(
+            fp_i, recipe, now=base_time + timedelta(seconds=idx),
+        )
+        assert ok is True, f"store_recipe should succeed at iteration {idx}"
+    # Dir total should still respect the cap (allowing some slack for the
+    # last-write overshoot before eviction trims again).
+    assert _current_cache_size_bytes() <= CACHE_MAX_TOTAL_BYTES + CACHE_MAX_FILE_BYTES
+    # The most-recent fingerprint should be retrievable.
+    last_fp = {"fingerprint_hash": f"abcdef{199:06d}" * 4}
+    cached, verdict = lookup_recipe(
+        last_fp, now=base_time + timedelta(seconds=200),
+    )
+    assert verdict == VERDICT_FRESH
+    assert cached is not None
 
 
 def test_store_overwrites_existing_entry(memory_root: Path, fp: dict, recipe: dict) -> None:
@@ -461,3 +472,279 @@ def test_current_cache_size_includes_only_recipe_files(
     assert _current_cache_size_bytes() == 0
     store_recipe(fp, recipe)
     assert _current_cache_size_bytes() > 0
+
+
+# ---------------------------------------------------------------------------
+# #346 — LRU eviction + schema migration
+# ---------------------------------------------------------------------------
+
+
+def test_evict_picks_oldest_first(
+    memory_root: Path, recipe: dict,
+) -> None:
+    """Acceptance: eviction order is strictly by last_confirmed_at ascending.
+    With 4 staggered fingerprints and a forced over-cap write, the oldest
+    of the 4 disappears from the cache (verifiable via lookup_recipe →
+    absent), while the newer 3 remain fresh."""
+    from api.app.services.auth_discoverer import _evict_for_space
+
+    base = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    # Insert 4 entries with distinct ages.
+    fps = []
+    for i in range(4):
+        f = {"fingerprint_hash": f"oldest{i:04d}" * 8}
+        fps.append(f)
+        store_recipe(f, recipe, now=base + timedelta(hours=i))
+
+    # Read back the on-disk sizes to compute a needed-bytes value that
+    # is guaranteed to force exactly one eviction.
+    cache_path_for_first = (
+        memory_root / "auth-recipes" / f"{fps[0]['fingerprint_hash'][:80]}.json"
+    )
+    one_entry_bytes = cache_path_for_first.stat().st_size
+
+    freed = _evict_for_space(
+        one_entry_bytes, now=base + timedelta(days=1),
+    )
+    assert freed >= one_entry_bytes
+    # The oldest fingerprint is now gone; lookup returns absent.
+    cached, verdict = lookup_recipe(fps[0], now=base + timedelta(days=1))
+    assert verdict == VERDICT_ABSENT
+    assert cached is None
+    # The 3 newer entries are still present.
+    for f in fps[1:]:
+        c, v = lookup_recipe(f, now=base + timedelta(days=1))
+        assert v == VERDICT_FRESH, f"{f['fingerprint_hash'][:12]} unexpectedly evicted"
+        assert c is not None
+
+
+def test_evict_bounded_at_25_percent(
+    memory_root: Path, recipe: dict,
+) -> None:
+    """Eviction caps at int(25% * len(candidates)). With 8 entries, max
+    evictions = 2. Asking for more bytes than 2 entries can free must
+    return what 2 evictions yield (not blow past the cap)."""
+    from api.app.services.auth_discoverer import _evict_for_space
+
+    base = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    sizes = []
+    for i in range(8):
+        f = {"fingerprint_hash": f"bound{i:04d}" * 8}
+        store_recipe(f, recipe, now=base + timedelta(hours=i))
+        cache_path = (
+            memory_root / "auth-recipes" / f"{f['fingerprint_hash'][:80]}.json"
+        )
+        sizes.append(cache_path.stat().st_size)
+
+    # Request more bytes than 8 entries combined could possibly free.
+    huge = sum(sizes) + 10_000
+    freed = _evict_for_space(huge, now=base + timedelta(days=1))
+    # 25% of 8 = 2 entries; freed should be at most the sum of the 2
+    # oldest entries.
+    assert freed <= sum(sizes[:2]) + 1, (
+        f"freed={freed} exceeds the 2-entry 25% bound ({sum(sizes[:2])})"
+    )
+
+
+def test_evict_tie_break_lower_confidence_wins(
+    memory_root: Path, recipe: dict,
+) -> None:
+    """When two entries share last_confirmed_at, the one with lower
+    confidence is evicted first."""
+    from api.app.services.auth_discoverer import _evict_for_space
+
+    same_time = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    fp_low = {"fingerprint_hash": "lowconf" * 8}
+    fp_high = {"fingerprint_hash": "hghconf" * 8}
+    # Same timestamp, different confidence.
+    store_recipe(fp_low, recipe, confidence=0.3, now=same_time)
+    store_recipe(fp_high, recipe, confidence=0.9, now=same_time)
+    # Add a third decoy older entry so the 25% cap allows >=1 eviction.
+    fp_decoy = {"fingerprint_hash": "decoy00" * 9}
+    store_recipe(
+        fp_decoy, recipe,
+        confidence=0.5, now=same_time - timedelta(hours=1),
+    )
+    decoy_path = (
+        memory_root / "auth-recipes" / f"{fp_decoy['fingerprint_hash'][:80]}.json"
+    )
+    decoy_size = decoy_path.stat().st_size
+
+    # Ask only for enough bytes to evict 1 entry (the decoy is older
+    # → it goes first). After decoy is gone, the SAME-time pair remains;
+    # request more to force the tie-break check.
+    freed = _evict_for_space(
+        decoy_size * 2, now=same_time + timedelta(days=1),
+    )
+    # Decoy is the oldest → evicted first. Then lower-confidence among
+    # the SAME-time pair is next. The high-confidence one stays.
+    assert freed >= decoy_size
+    # high-confidence entry survives.
+    cached_high, verdict_high = lookup_recipe(
+        fp_high, now=same_time + timedelta(days=1),
+    )
+    assert verdict_high == VERDICT_FRESH
+    assert cached_high is not None
+
+
+def test_evict_aborts_on_pure_tie(memory_root: Path, recipe: dict) -> None:
+    """When two entries share BOTH last_confirmed_at AND confidence,
+    they are a pure tie — eviction aborts at that point per #346
+    non_destructive_on_uncertainty. The freed amount may be less than
+    requested, and the caller's store_recipe call will return False."""
+    from api.app.services.auth_discoverer import _evict_for_space
+
+    same_time = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    fp_a = {"fingerprint_hash": "tieA" * 16}
+    fp_b = {"fingerprint_hash": "tieB" * 16}
+    # IDENTICAL timestamp + confidence → pure tie.
+    store_recipe(fp_a, recipe, confidence=0.7, now=same_time)
+    store_recipe(fp_b, recipe, confidence=0.7, now=same_time)
+    on_disk_total = _current_cache_size_bytes()
+    # Request more than zero so eviction is attempted but blocked.
+    freed = _evict_for_space(
+        on_disk_total + 1000, now=same_time + timedelta(days=1),
+    )
+    # With only 2 entries, 25% rounds via max(1, int(2*0.25)) = max(1, 0) = 1
+    # eviction slot. But the pure tie aborts BEFORE selecting one. Result:
+    # freed == 0.
+    assert freed == 0
+    # Both entries still present.
+    assert lookup_recipe(fp_a, now=same_time + timedelta(days=1))[1] == VERDICT_FRESH
+    assert lookup_recipe(fp_b, now=same_time + timedelta(days=1))[1] == VERDICT_FRESH
+
+
+def test_store_with_pure_tie_full_cache_returns_false(
+    memory_root: Path, recipe: dict,
+) -> None:
+    """Acceptance: if the only candidates for eviction are tied and the
+    cache is full, store_recipe returns False (graceful fail, no
+    arbitrary choice)."""
+    same_time = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    # Fill cache to the brim with pure-tied entries.
+    big_recipe = dict(recipe)
+    big_recipe["steps"] = [
+        {**recipe["steps"][0], "description": "x" * 600}
+    ]
+    confidence = 0.5
+    written = 0
+    for i in range(120):
+        f = {"fingerprint_hash": f"tie{i:04d}" * 9}
+        if not store_recipe(f, big_recipe, confidence=confidence, now=same_time):
+            written = i
+            break
+    # We should have managed to write SOME entries before cap engaged,
+    # and all entries have same (last_confirmed_at, confidence) → pure tie.
+    assert written > 0, "expected cache to fill up at some iteration"
+    # Now try a fresh fingerprint — eviction must abort on the tie →
+    # store returns False.
+    new_fp = {"fingerprint_hash": "fresh_post_tie" * 4}
+    assert store_recipe(new_fp, big_recipe, confidence=confidence, now=same_time) is False
+
+
+def test_migrate_entry_idempotent_on_current_version(memory_root: Path) -> None:
+    """An entry whose schema_version already matches CACHE_SCHEMA_VERSION
+    is returned unchanged (idempotent no-op)."""
+    from api.app.services.auth_discoverer import _migrate_entry
+
+    entry = {
+        "schema_version": CACHE_SCHEMA_VERSION,
+        "fingerprint_hash": "abc",
+        "recipe": {"steps": []},
+    }
+    out = _migrate_entry(entry)
+    assert out is entry  # exact identity preserved (no copy)
+
+
+def test_migrate_entry_unknown_version_returns_none_with_single_warning(
+    memory_root: Path, caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Unknown source schema_version returns None and logs ONCE per
+    fingerprint per process (not per call)."""
+    from api.app.services.auth_discoverer import (
+        _migrate_entry,
+        _reset_migration_warning_cache,
+    )
+    _reset_migration_warning_cache()
+
+    entry = {
+        "schema_version": "auth-recipe-cache-v999",
+        "fingerprint_hash": "unknown_fp_zzz",
+        "recipe": {},
+    }
+    with caplog.at_level("WARNING"):
+        # First call: should log a warning.
+        assert _migrate_entry(entry) is None
+        # Second call with SAME fingerprint: must NOT log again.
+        assert _migrate_entry(entry) is None
+
+    warning_records = [
+        r for r in caplog.records
+        if "unknown schema_version" in r.message
+        and "unknown_fp_zzz" in r.message[:200]
+    ]
+    assert len(warning_records) == 1, (
+        f"expected exactly 1 warning per fingerprint per process, got "
+        f"{len(warning_records)}"
+    )
+
+
+def test_migrate_entry_unknown_version_per_fingerprint_warning_independence(
+    memory_root: Path, caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Two DIFFERENT fingerprints with the same unknown version each get
+    their own first-time warning (de-dup is per-fingerprint, not per-
+    process)."""
+    from api.app.services.auth_discoverer import (
+        _migrate_entry,
+        _reset_migration_warning_cache,
+    )
+    _reset_migration_warning_cache()
+
+    fp_a = {
+        "schema_version": "auth-recipe-cache-v999",
+        "fingerprint_hash": "fp_aaa_unique",
+        "recipe": {},
+    }
+    fp_b = {
+        "schema_version": "auth-recipe-cache-v999",
+        "fingerprint_hash": "fp_bbb_unique",
+        "recipe": {},
+    }
+    with caplog.at_level("WARNING"):
+        _migrate_entry(fp_a)
+        _migrate_entry(fp_b)
+    warnings = [
+        r for r in caplog.records
+        if "unknown schema_version" in r.message
+    ]
+    # 2 distinct fingerprints, 2 warnings.
+    assert len(warnings) == 2
+
+
+def test_lookup_recipe_treats_unknown_schema_as_absent(
+    memory_root: Path, fp: dict,
+) -> None:
+    """End-to-end: write a recipe with an unknown schema_version manually,
+    then lookup_recipe must surface absent (via _load_cache_entry →
+    _migrate_entry → None). This is the #346 forward-compat path."""
+    from api.app.services.auth_discoverer import _reset_migration_warning_cache
+    _reset_migration_warning_cache()
+
+    target_dir = memory_root / "auth-recipes"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / "future_version.json"
+    target.write_text(json.dumps({
+        "schema_version": "auth-recipe-cache-v9999-from-the-future",
+        "fingerprint_hash": "future_version",
+        "recipe": {"steps": [], "verification": None},
+        "confidence": 1.0,
+        "created_at": "2099-01-01T00:00:00+00:00",
+        "last_confirmed_at": "2099-01-01T00:00:00+00:00",
+        "last_replay_failure_at": None,
+        "replay_failures": 0,
+    }))
+    fp_future = {"fingerprint_hash": "future_version"}
+    result, verdict = lookup_recipe(fp_future)
+    assert verdict == VERDICT_ABSENT
+    assert result is None

@@ -1,5 +1,54 @@
 # Done Log
 
+- 2026-05-18: completed backlog-396 (queue #346 — Auth-recipe cache eviction + schema migration) — **fifth of the 6 deferred-capability follow-ups (#342-#347), #327 follow-up**:
+  - rationale: #327 made `store_recipe` REJECT new entries when the 50 KB dir cap engaged — no eviction, no LRU, just permanent rejection. Once the cache filled, NEW fingerprints got an absent verdict forever and paid the Claude Haiku call on EVERY run. Same problem on `schema_version` mismatch: `_load_cache_entry` returned `None` (forward-compat absent) but there was no migration path, so older entries became permanent dead weight on a schema bump. #327 task body called both "successes" but in production they're regressions dressed as features — exactly the deferred-capability pattern the operator audit on 2026-05-17 surfaced.
+  - implementation in `api/app/services/auth_discoverer.py` (~210 added lines):
+    - new `CACHE_EVICTION_FRACTION_MAX = 0.25` constant — the per-store eviction ceiling.
+    - new `_RECIPE_MIGRATIONS: dict[str, callable] = {}` registry — empty by design because only v1 exists today; the registry is the forward-compat hook that future tasks can populate when a v2 schema lands (`_RECIPE_MIGRATIONS["auth-recipe-cache-v1"] = _migrate_v1_to_v2`). The chain walker forwards-chains automatically so a v1 entry on disk gets transparently upgraded on first read after deployment.
+    - new `_MIGRATION_WARNED_FINGERPRINTS: set[str] = set()` — per-process warning de-dup so a stale fleet doesn't spam logs.
+    - new public test seam `_reset_migration_warning_cache()` — resets the per-process set; production code never calls it.
+    - new `_migrate_entry(entry, *, target_schema_version=CACHE_SCHEMA_VERSION) -> dict | None`: handles version-up migration. Idempotent on already-current entries (returns input unchanged with exact identity preservation). For unknown source versions: logs a single WARNING per (fingerprint_hash, process) and returns None. Cycle-defense via `visited` set in the migration walk. Migration callable exception caught + logged (returns None) — never propagates.
+    - new `_evict_for_space(needed_bytes, *, now, keep_path=None) -> int`: bounded LRU eviction helper. Sorts candidates by (anchor_timestamp_asc, confidence_asc) where anchor = `last_confirmed_at or created_at` (None anchors sink to +inf so they don't pre-empt valid entries). Caps eviction at `max(1, int(len(candidates) * 0.25))` per call. Tie-break: when the NEXT candidate has the SAME (anchor, confidence), `_evict_for_space` aborts at that point (per `non_destructive_on_uncertainty` constraint — no arbitrary choice) and returns whatever it freed so far. Each successful eviction calls `memory_backend.execute("delete", path=...)` and accumulates byte counts; failures are logged at DEBUG and the loop continues.
+    - `_load_cache_entry` schema_version handling moved from "strict reject" to "call `_migrate_entry`". This means callers of `_load_cache_entry` automatically get the migrated entry without changing their call signature. Cleaner than wiring `_migrate_entry` separately in `lookup_recipe` — every read site benefits (including `store_recipe`'s pre-overwrite read for accurate byte accounting).
+    - `store_recipe` cap-breach branch: was `if projected > CACHE_MAX_TOTAL_BYTES: return False`. Now: compute `needed = projected - cap`, call `_evict_for_space(needed, now=now_dt, keep_path=logical)`, and only return False if `freed < needed`. The `keep_path` argument prevents an in-flight overwrite from evicting itself.
+  - tests (9 new tests in `api/tests/test_auth_discoverer_cache.py` under "#346 — LRU eviction + schema migration" section, 1 existing test rewritten, all pass):
+    - **rewritten** `test_store_evicts_when_dir_cap_breached` (was `test_store_rejects_when_dir_cap_breached`): #327's silent-reject test became #346's evict-and-accept test. 200 staggered stores all succeed, on-disk total stays ≤ cap + one-file slack, last fingerprint retrievable.
+    - `test_evict_picks_oldest_first`: 4 staggered entries → ask for one-entry size → oldest disappears, 3 newer remain fresh.
+    - `test_evict_bounded_at_25_percent`: 8 entries → ask for sum-of-all+10KB → freed ≤ sum of 2 oldest (25% of 8 = 2 slots).
+    - `test_evict_tie_break_lower_confidence_wins`: 3 entries with deliberate confidence + timestamp setup → high-confidence entry survives an over-cap eviction request.
+    - `test_evict_aborts_on_pure_tie`: 2 entries with IDENTICAL (last_confirmed_at, confidence) → eviction abort path → freed=0, both entries preserved.
+    - `test_store_with_pure_tie_full_cache_returns_false`: end-to-end — fill cache with pure-tied entries → fresh fingerprint store returns False (the abort path bubbles up correctly).
+    - `test_migrate_entry_idempotent_on_current_version`: `_migrate_entry(v1_entry)` returns the input object with exact `is` identity (no copy).
+    - `test_migrate_entry_unknown_version_returns_none_with_single_warning`: unknown schema_version returns None, WARNING fires exactly once across 2 calls with the same fingerprint (per-fingerprint dedup proof).
+    - `test_migrate_entry_unknown_version_per_fingerprint_warning_independence`: 2 distinct fingerprints with the same unknown version each get their first-time warning (dedup is per-fingerprint, not per-process).
+    - `test_lookup_recipe_treats_unknown_schema_as_absent`: end-to-end — write a v9999-from-the-future entry directly to disk → `lookup_recipe` returns (None, VERDICT_ABSENT) via the `_load_cache_entry → _migrate_entry → None` chain.
+    - 91/91 pass across all 4 auth_discoverer test files (29 cache incl. 9 new + 17 recipe + 17 base + 16 acquire + 12 acquire-session). No regression on #325-#328a + #345 surface.
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - `CACHE_MAX_FILE_BYTES` (2 KB) and `CACHE_MAX_TOTAL_BYTES` (50 KB) unchanged (#327 contract)
+    - verdict vocabulary (`fresh`/`stale`/`absent`) unchanged — `_load_cache_entry` returning None for unknown-version migrations naturally surfaces as `VERDICT_ABSENT` to callers via `lookup_recipe`'s existing None-check
+    - `build_recipe` / `fingerprint_application` / `verify_recipe` (#325/#326 contracts) untouched
+    - the 5 migrated probes (#328) consume the cache through `lookup_recipe`, which keeps its `(recipe, verdict)` return shape unchanged
+    - `memory_backend.py` public API untouched — eviction only uses `memory_backend.execute("delete", ...)` which has been part of the API since #332
+    - workers/runners/ and workers/orchestration/ untouched
+    - eviction bounded at 25% per call (`bounded_eviction` constraint)
+    - non-destructive on uncertainty: pure ties abort eviction rather than make an arbitrary choice (`non_destructive_on_uncertainty` constraint, proven by `test_evict_aborts_on_pure_tie`)
+    - migration idempotent on already-current entries (`schema_migration_idempotent` constraint, proven by `test_migrate_entry_idempotent_on_current_version`)
+  - validation:
+    - scripts/validate_backlog_tasks.py: 347 queued 1:1 (no queue change)
+    - .venv/bin/pytest of all 4 auth_discoverer test files: 91/91 pass
+    - python3 -m compileall -q api: clean
+    - .venv/bin/ruff check api/app/services/auth_discoverer.py: All checks passed
+    - git diff --check on touched files: clean
+  - acceptance criteria status (from task package):
+    - "store_recipe with full cache evicts oldest entries and accepts the new entry, instead of returning False" → ✓ (test_store_evicts_when_dir_cap_breached: 200 successive stores succeed)
+    - "Eviction is bounded to 25% of entries per call" → ✓ (test_evict_bounded_at_25_percent)
+    - "Schema-mismatched recipes from a known older version are migrated in place and returned as fresh" → STRUCTURAL ✓ (registry walker + chain forward; currently only v1 exists, the registry is empty by design — the structural infrastructure is in place for when v2 ships)
+    - "Schema-mismatched recipes from an unknown version still return absent + log a single warning per fingerprint per process (not per call)" → ✓ (test_migrate_entry_unknown_version_returns_none_with_single_warning + test_lookup_recipe_treats_unknown_schema_as_absent)
+    - "Unit tests: cache eviction frees space; eviction order is correct (oldest first); tie-breaking on confidence; ties beyond that → store returns False; migration round-trip; unknown version returns absent + warning fired exactly once" → ✓ (all 9 explicit)
+    - "No regression in the 29 existing test_auth_discoverer_cache.py tests" → ✓ (the original `test_store_rejects_when_dir_cap_breached` was deliberately rewritten because its assertion captured the #327 contract that #346 replaces — the 28 OTHER tests pass unchanged)
+  - load-bearing constraint that forced the design: must_not_touch on `memory_backend.py` public API forced the use of `memory_backend.execute("delete", ...)` (existing) rather than adding a batch-delete primitive. Second constraint: `verdict vocabulary unchanged` forced migration to return None+absent rather than introduce a `migrated` verdict variant — clean because `_load_cache_entry` is already the existing "None means treat as absent" boundary.
+  - next: promote backlog-397 (#347 — Empirical Phase-3 live validation: restart API + 30+ advances + mine post-cutover cost/parse-fail/retry/capture-usage data) into NEXT_TASK.md. Sixth and FINAL of the 6 deferred-capability follow-ups (#330/#332/#333 follow-up — closes the live-validation gap). After #347 lands, NEXT_TASK returns to backlog-386 (#336 Non-HTTP Primitives SMB+LDAP) for Phase 4 day 3.
+
 - 2026-05-18: completed backlog-395 (queue #345 — Operator-credentialed auth path for login-only targets) — **fourth of the 6 deferred-capability follow-ups (#342-#347), #328/#329 follow-up**:
   - rationale: `auth_discoverer.acquire_session()` (built in #328a) did EMERGENT registration only — created a new user via the discovered register form, then attached the resulting session to the http client. Real-world live targets (DVWA, customer staging, internal corporate apps) frequently have NO registration flow; only login with pre-existing credentials. acquire_session correctly returned None on those, but the whole universal-auth pipeline (5 migrated probes from #328, downstream cross-target tasks) silently no-op'd. #329 post-merge addendum 2026-05-16 explicitly flagged this as "worth filing as a Phase 2.5 / Phase 4 enhancement" — never filed until the #326-#335 audit on 2026-05-17.
   - implementation:

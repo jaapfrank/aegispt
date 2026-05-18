@@ -1152,10 +1152,96 @@ CACHE_MAX_FILE_BYTES = 2048           # 2 KB per recipe file
 CACHE_MAX_TOTAL_BYTES = 50 * 1024     # 50 KB across all recipe files
 CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60     # 30 days
 CACHE_FAILURE_COOLDOWN_SECONDS = 60 * 60      # 1 hour
+CACHE_EVICTION_FRACTION_MAX = 0.25    # #346: cap per-store eviction at 25%
 
 VERDICT_FRESH = "fresh"
 VERDICT_STALE = "stale"
 VERDICT_ABSENT = "absent"
+
+# #346 — Migration registry.
+#
+# When a future task ships a v2 schema, register the migration here:
+#     _RECIPE_MIGRATIONS["auth-recipe-cache-v1"] = _migrate_v1_to_v2
+# The chain is walked forward (v1 → v2 → … → current) so a v1 entry on
+# disk gets transparently upgraded on first read after deployment.
+#
+# Currently only v1 exists; the registry is empty by design. With an
+# empty registry, _migrate_entry is a strict no-op for v1 entries
+# (idempotent) and returns None+warning for any non-v1 version. This
+# matches the #346 contract for unknown source versions.
+_RECIPE_MIGRATIONS: dict[str, Any] = {}
+
+# Track fingerprints we've already warned about per-process so a stale
+# fleet doesn't spam logs. Reset between unit tests via the public
+# _reset_migration_warning_cache() helper.
+_MIGRATION_WARNED_FINGERPRINTS: set[str] = set()
+
+
+def _reset_migration_warning_cache() -> None:
+    """Test seam: reset the per-process 'already warned' set. Production
+    code never calls this — the warning suppression is per-process."""
+    _MIGRATION_WARNED_FINGERPRINTS.clear()
+
+
+def _migrate_entry(
+    entry: dict[str, Any],
+    *,
+    target_schema_version: str = CACHE_SCHEMA_VERSION,
+) -> dict[str, Any] | None:
+    """Migrate a cache entry to ``target_schema_version`` (#346).
+
+    Returns:
+    - The input dict unchanged if already at target (idempotent no-op).
+    - A migrated dict if a registered migration path exists.
+    - ``None`` if the source version is unknown — logs a single warning
+      per (fingerprint_hash, process) so a stale fleet doesn't spam.
+
+    Caller treats ``None`` like a cache miss (verdict ``absent``), which
+    is the existing forward-compat behavior carried forward from
+    :func:`_load_cache_entry`.
+    """
+    if not isinstance(entry, dict):
+        return None
+    src = str(entry.get("schema_version") or "")
+    if src == target_schema_version:
+        return entry  # idempotent — already current
+    cur: dict[str, Any] = entry
+    visited: set[str] = set()
+    while str(cur.get("schema_version") or "") != target_schema_version:
+        version = str(cur.get("schema_version") or "")
+        if version in visited:
+            # Cycle in migration registry — defensive; shouldn't happen.
+            logger.warning(
+                "auth_discoverer.cache: migration cycle detected at %r — "
+                "treating entry as absent",
+                version,
+            )
+            return None
+        visited.add(version)
+        migration = _RECIPE_MIGRATIONS.get(version)
+        if migration is None:
+            fp = str(cur.get("fingerprint_hash") or "?")
+            if fp not in _MIGRATION_WARNED_FINGERPRINTS:
+                _MIGRATION_WARNED_FINGERPRINTS.add(fp)
+                logger.warning(
+                    "auth_discoverer.cache: unknown schema_version=%r for "
+                    "fingerprint=%s — treating as absent. Manual rebuild "
+                    "(delete %s) will recover; otherwise re-derivation "
+                    "happens on the next discovery run.",
+                    version, fp[:16], CACHE_DIR_LOGICAL,
+                )
+            return None
+        try:
+            cur = migration(cur)
+        except Exception as exc:
+            logger.warning(
+                "auth_discoverer.cache: migration from %s failed: %s",
+                version, exc,
+            )
+            return None
+        if not isinstance(cur, dict):
+            return None
+    return cur
 
 
 def _utc_now(now: datetime | None = None) -> datetime:
@@ -1228,9 +1314,11 @@ def _load_cache_entry(logical_path: str) -> dict[str, Any] | None:
         return None
     if not isinstance(data, dict):
         return None
-    if data.get("schema_version") != CACHE_SCHEMA_VERSION:
-        return None
-    return data
+    # #346 — defer schema-version handling to the migration layer so that
+    # older versions can be upgraded transparently. Unknown versions
+    # surface as None (caller treats as cache miss / verdict ABSENT)
+    # plus a single warning per fingerprint per process.
+    return _migrate_entry(data)
 
 
 def _list_cache_files() -> list[str]:
@@ -1280,6 +1368,111 @@ def _current_cache_size_bytes() -> int:
     except OSError:
         return 0
     return total
+
+
+def _evict_for_space(
+    needed_bytes: int,
+    *,
+    now: datetime,  # noqa: ARG001 — reserved for future age-aware policies
+    keep_path: str | None = None,
+) -> int:
+    """Free at least ``needed_bytes`` from the cache directory by removing
+    the oldest entries (by ``last_confirmed_at``, then ``created_at``),
+    tie-broken by ``confidence`` ascending. Bounded by
+    :data:`CACHE_EVICTION_FRACTION_MAX` (25% of entries).
+
+    Tie-breaking semantics (#346):
+    - If two entries share the SAME (anchor_timestamp, confidence), they
+      are considered tied — the function aborts further eviction at that
+      point ("ties beyond that → evict neither"). Returns whatever was
+      freed up to the abort point; caller checks against
+      ``needed_bytes``.
+
+    ``keep_path`` is the logical path of an entry we must NOT evict
+    (typically the one being stored — if it already exists it's about
+    to be overwritten, not evicted).
+
+    Returns the number of bytes freed.
+    """
+    if needed_bytes <= 0:
+        return 0
+
+    candidates: list[tuple[float, float, int, str]] = []
+    for path in _list_cache_files():
+        if path == keep_path:
+            continue
+        entry = _load_cache_entry(path)
+        if entry is None:
+            # Could be a migration miss (unknown version) — those rows
+            # are pure dead weight. Treat them as evictable to recover
+            # space; size is read via stat directly.
+            try:
+                real = memory_backend._resolve(path)
+                size = real.stat().st_size
+            except (ValueError, OSError):
+                continue
+            candidates.append((float("inf"), -1.0, size, path))
+            continue
+        anchor_dt = (
+            _from_iso(entry.get("last_confirmed_at"))
+            or _from_iso(entry.get("created_at"))
+        )
+        # Entries with no anchor (corrupt or v.old) sort LAST so we
+        # don't pre-empt entries with a real timestamp. Use +inf so
+        # they come after every valid anchor.
+        anchor_ts = anchor_dt.timestamp() if anchor_dt is not None else float("inf")
+        confidence = float(entry.get("confidence") or 0.0)
+        try:
+            real = memory_backend._resolve(path)
+            size = real.stat().st_size
+        except (ValueError, OSError):
+            continue
+        candidates.append((anchor_ts, confidence, size, path))
+
+    if not candidates:
+        return 0
+
+    # Sort oldest first, then lowest confidence first (so when two share
+    # the same anchor, the lower-confidence one is the legitimate pick).
+    candidates.sort(key=lambda t: (t[0], t[1]))
+
+    max_evictions = max(1, int(len(candidates) * CACHE_EVICTION_FRACTION_MAX))
+    freed = 0
+    evicted_count = 0
+    i = 0
+    while (
+        i < len(candidates)
+        and freed < needed_bytes
+        and evicted_count < max_evictions
+    ):
+        anchor_ts, conf, size, path = candidates[i]
+        if i + 1 < len(candidates):
+            next_anchor, next_conf, _, _ = candidates[i + 1]
+            if anchor_ts == next_anchor and conf == next_conf:
+                # Ambiguous tie — bail per #346 non_destructive_on_uncertainty.
+                logger.debug(
+                    "auth_discoverer.cache: eviction aborted at tie "
+                    "(anchor=%s conf=%s) — freed=%d/%d bytes",
+                    anchor_ts, conf, freed, needed_bytes,
+                )
+                break
+        try:
+            memory_backend.execute("delete", path=path)
+            freed += size
+            evicted_count += 1
+        except Exception as exc:
+            logger.debug(
+                "auth_discoverer.cache: failed to evict %s: %s",
+                path, exc,
+            )
+        i += 1
+
+    logger.info(
+        "auth_discoverer.cache: evicted %d entries freeing %d bytes "
+        "(needed=%d, max_evictions=%d)",
+        evicted_count, freed, needed_bytes, max_evictions,
+    )
+    return freed
 
 
 def _verdict_for_entry(entry: dict[str, Any], now: datetime) -> str:
@@ -1390,15 +1583,21 @@ def store_recipe(
             json.dumps(existing, separators=(",", ":")).encode("utf-8")
         )
         current_total = max(0, current_total - existing_bytes)
-    projected = current_total + len(serialized.encode("utf-8"))
+    entry_bytes = len(serialized.encode("utf-8"))
+    projected = current_total + entry_bytes
     if projected > CACHE_MAX_TOTAL_BYTES:
-        logger.debug(
-            "auth_discoverer.cache: dir cap reached (%d + %d > %d), skipping store",
-            current_total,
-            len(serialized.encode("utf-8")),
-            CACHE_MAX_TOTAL_BYTES,
-        )
-        return False
+        # #346 — try bounded LRU eviction before giving up. The 25%
+        # cap + tie-break-abort semantics live inside _evict_for_space.
+        needed = projected - CACHE_MAX_TOTAL_BYTES
+        freed = _evict_for_space(needed, now=now_dt, keep_path=logical)
+        if freed < needed:
+            logger.debug(
+                "auth_discoverer.cache: dir cap reached (current=%d entry=%d "
+                "cap=%d) and eviction only freed %d/%d — skipping store",
+                current_total, entry_bytes, CACHE_MAX_TOTAL_BYTES,
+                freed, needed,
+            )
+            return False
 
     # Overwrite atomically: delete existing then create.
     if existing is not None:
