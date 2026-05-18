@@ -84,13 +84,15 @@ External-tool wrappers — generic by virtue of being thin layers on mature tool
 
 **Empirical test 2026-05-16 (post-#328 generality run)**: `scripts/test_probe_generality.py` against juice-shop + demo.testfire.net + testasp.vulnweb.com confirms all 5 probes reach the testing stage (`attempts > 0`) on all 3 non-Gruyere targets, satisfying the no-regression-on-non-Gruyere acceptance criterion. Gruyere parity verified via 15/15 mock-based parity tests in `workers/tests/test_*_probe.py`.
 
+**Operator-credentialed strategy (#345, 2026-05-18)**: `auth_discoverer.acquire_session()` now supports two strategies. When `session` + `run` kwargs are passed, the function consults `run_credential_vault` for a `password`-kind secret whose `metadata['target']` host matches `base_url`. On hit, dispatch goes to `acquire_session_with_credentials(base_url, username=..., password=...)` which strips `register_form` from the fingerprint, builds a login-only recipe via the existing `build_recipe`, and replays it with operator credentials. On miss (or no kwargs), the existing emergent-registration path runs unchanged — the #328 probe contract is preserved (probes that call `acquire_session(base_url, scope_allowlist=...)` see no behavior change). Credentials never appear in the returned session dict, graph entities, or audit logs: full values stay encrypted at rest in the vault, only the username and server-issued cookies surface. This closes the structural gap surfaced after #328/#329 — login-only targets (DVWA, customer staging, internal corporate apps) silently no-op'd under emergent registration; now they succeed when operator credentials are pre-staged in the vault.
+
 ### (no longer present) Verified Gruyere-specific
 This category was empty after #328. The 5 probes formerly listed here have been migrated and moved to "Verified generic" above. The reference history is kept in `DONE_LOG.md` under the #328 entry.
 
 ### The exec_plan engine (the existing primitive composer)
 `workers/runners/exec_plan/runner.py` (391 lines, 9 functions). **This is the closest thing to "Mythos-stijl" we already have.** Claude generates multi-step HTTP plans with capture/expect/on_success.create_finding. Used via `action: "exec_plan"` from picker. Grammar documented in `_AI_PICKER_SYSTEM_PROMPT` lines 210-300.
 
-last_verified: 2026-05-15
+last_verified: 2026-05-18 (post-#345 operator-credentialed strategy)
 
 ---
 

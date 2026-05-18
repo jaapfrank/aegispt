@@ -2,41 +2,40 @@
 
 ## Title
 
-Operator-credentialed auth path for login-only targets (closes the \#328/\#329 emergent-registration-only gap) (backfill 4 of 6)
+Auth-recipe cache eviction policy + schema migration path (closes the \#327 silent-fail gap) (backfill 5 of 6)
 
 ## Goal
 
-`auth_discoverer.acquire_session()` currently does EMERGENT registration only — it creates a new user via the discovered register form, then attaches the resulting session to the http client. Real-world live targets (DVWA, customer staging, internal corporate apps) frequently have NO registration flow; they only expose login with pre-existing credentials. `acquire_session` correctly returns None on those, but the entire universal-auth pipeline (the 5 migrated probes from \#328, all downstream cross-target tasks) silently no-ops. This task adds a second strategy — operator-supplied credentials — wired through the existing `acquire_session` contract, so the same probes work on login-only targets.
+\#327 made `store_recipe` REJECT new entries when the 50 KB dir cap engages — no eviction, no LRU, just permanent rejection. Once the cache is full, NEW fingerprints get an absent verdict forever and pay the Claude Haiku call on EVERY run. Same problem: `schema_version` mismatch returns absent (forward-compat), but there is no migration path — older recipes are simply ignored forever (re-paying the AI call) until manually deleted. This task adds (a) an LRU eviction policy when the dir cap engages, keyed on `last_confirmed_at`, and (b) a schema-migration hook that upgrades v1→v2 recipes in place on first read (or marks them for re-derivation in a bounded way) instead of silently discarding them.
 
 ## Scope
 
-- Extend `api/app/services/auth_discoverer.py` with `acquire_session_with_credentials(base_url, *, username, password, scope_allowlist=None, ...)` that re-uses `fingerprint_application` + `build_recipe` but POSTs to the LOGIN form (not register) with operator-provided credentials.
-- Credentials are pulled from the existing `run_credential_vault` keyed by (run_id, target_id).
-- Update `acquire_session()` to: (1) check if credentials are present in the vault for the target, (2) if yes, prefer the login path, (3) if no, fall back to the existing emergent-registration path.
-- Per `feedback_no_prescriptive_recipes` memory: no app-specific seeds. The LOGIN recipe is built by Claude Haiku from the fingerprint exactly like the REGISTER recipe is. Operator-supplied credentials are per-run inputs, not app-specific seeds.
+- Extend `api/app/services/auth_discoverer.py` `store_recipe()`: when dir-cap is breached, instead of returning False, evict the N oldest entries (by `last_confirmed_at`, falling back to `created_at`) until the new entry fits, then proceed. Cap eviction at 25% of entries per call to prevent thrashing.
+- Add `_migrate_recipe(recipe_dict, *, target_schema_version)` that handles known version-up patterns (v1→v2 field renames if any exist by then); for unknown source versions, return None and log a single warning per fingerprint per process (not per call).
+- Update `lookup_recipe` to call `_migrate_recipe` before returning fresh.
 
 ## Constraints
 
-- New strategy + vault integration ONLY. Do NOT change `fingerprint_application`, `build_recipe`, or the existing emergent-registration code path. Do NOT add a new fingerprint shape. Do NOT touch the 5 migrated probes — they consume `acquire_session` unchanged.
-- Credentials NEVER appear in graph entities (captured_value, observation attributes) per the \#334 redaction policy. Full values stay in `run_credential_vault`. Recipe execution carries them only as in-memory POST body fields.
-- Per-engagement only — credential lookup is keyed by (run_id, target_id), inherits memory_backend isolation.
-- Must NOT touch: `fingerprint_application` (\#325 contract), `build_recipe` register-strategy logic (\#326 contract), auth-recipe cache layer (\#327 contract), the 5 migrated probe runners (\#328 contract), `workers/runners/`, `workers/orchestration/`, `_AI_PICKER_SYSTEM_PROMPT` body.
+- Eviction + migration ONLY. Do NOT change the 2 KB per-file cap (\#327 contract), do NOT change the 50 KB dir cap (\#327 contract), do NOT alter the verdict vocabulary (`fresh`/`stale`/`absent` — \#327 contract), do NOT touch the `build_recipe` AI path (\#326 contract).
+- Eviction caps at 25% of entries per `store_recipe` call to prevent thrashing under churn.
+- If two entries have the SAME `last_confirmed_at`, evict the one with the lower confidence score; ties beyond that → evict neither (force the store call to return False rather than make an arbitrary choice).
+- Calling `_migrate_recipe` on an already-migrated recipe is a no-op (returns input unchanged).
+- Must NOT touch: `api/app/services/memory_backend.py` public API, `build_recipe` / `fingerprint_application` / `verify_recipe` (\#325/\#326 contracts), the 5 migrated probes (they consume the cache through `lookup_recipe` unchanged), `workers/runners/`, `workers/orchestration/`.
 
 ## Source Package
 
-`codex/tasks/backlog-395-operator-credentialed-auth-path.json`
+`codex/tasks/backlog-396-auth-recipe-cache-eviction.json`
 
 ## Reference
 
-- `api/app/services/auth_discoverer.py` — existing `acquire_session`, `fingerprint_application`, `build_recipe`, `_resolve_field_value` intent vocabulary
-- `api/app/services/run_credential_vault.py` — read-only consumer; vault lookup API to consult
-- `api/tests/test_auth_discoverer_acquire_session.py` — existing 16 tests must continue to pass
-- DONE_LOG entry for \#329 post-merge addendum (the original mention of "Phase 2.5 / Phase 4 enhancement worth filing") + \#328 (5 probes that consume `acquire_session`)
+- `api/app/services/auth_discoverer.py` — existing `store_recipe`, `lookup_recipe`, `mark_recipe_stale`, `verify_recipe`, `_list_cache_files`, `_current_cache_size_bytes`
+- `api/tests/test_auth_discoverer_cache.py` — 29 existing tests must continue to pass; new eviction + migration tests added here
+- DONE_LOG entry for \#327 (Auth Pattern Cache) for the cache contract this task extends
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_auth_discoverer_acquire_session.py api/tests/test_auth_discoverer_credentialed.py api/tests/test_auth_discoverer_cache.py api/tests/test_auth_discoverer_recipe.py api/tests/test_auth_discoverer.py`
+- `.venv/bin/pytest api/tests/test_auth_discoverer_cache.py api/tests/test_auth_discoverer_recipe.py api/tests/test_auth_discoverer.py api/tests/test_auth_discoverer_acquire_session.py`
 - `python3 -m compileall -q api`
 - `.venv/bin/ruff check api/app/services/auth_discoverer.py`
 - `git diff --check`

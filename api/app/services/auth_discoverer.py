@@ -1688,6 +1688,8 @@ def acquire_session(
     timeout_seconds: float = ACQUIRE_DEFAULT_TIMEOUT,
     probe_limit: int = ACQUIRE_DEFAULT_PROBE_LIMIT,
     now: datetime | None = None,
+    session: Any = None,
+    run: Any = None,
 ) -> dict[str, Any] | None:
     """End-to-end integration helper: discover -> fingerprint -> cache ->
     (build_recipe on miss) -> verify -> execute -> return session.
@@ -1727,9 +1729,40 @@ def acquire_session(
     should use :func:`fetch_auth_pages` + :func:`fingerprint_application`
     directly — :func:`acquire_session` is intentionally for probes that need
     a clean authenticated session.
+
+    Operator-credentialed dispatch (#345): when BOTH ``session`` and ``run``
+    are provided AND the run's credential vault contains a password-kind
+    secret targeting ``base_url``'s host, this function delegates to
+    :func:`acquire_session_with_credentials` (login strategy) instead of
+    falling through to the emergent-registration path. Probes that do NOT
+    pass session/run keep their previous behavior unchanged (default
+    ``None`` ⇒ emergent path), which preserves the #328 contract that the
+    5 migrated probes consume ``acquire_session`` without signature changes
+    in their call sites.
     """
     if not isinstance(base_url, str) or not base_url:
         return None
+
+    # === #345 — operator-credentialed dispatch ===
+    # When a session + run are wired through, check the run credential vault
+    # for a password-kind secret matching this base_url. Vault hit ⇒ use
+    # the login strategy with operator credentials. Vault miss ⇒ fall
+    # through to the existing emergent-registration path (no behavior
+    # change for sandbox/Gruyere-style targets that have a register form).
+    if session is not None and run is not None:
+        creds = _lookup_operator_credentials(session, run=run, base_url=base_url)
+        if creds is not None:
+            return acquire_session_with_credentials(
+                base_url,
+                username=creds[0],
+                password=creds[1],
+                scope_allowlist=scope_allowlist,
+                http_client=http_client,
+                anthropic_client=anthropic_client,
+                timeout_seconds=timeout_seconds,
+                probe_limit=probe_limit,
+                now=now,
+            )
 
     owns_client = False
     client = http_client
@@ -1832,6 +1865,260 @@ def acquire_session(
         # Only close the client when we own it AND we are returning None
         # (or raising). On success the caller takes ownership of the
         # client + populated cookie jar.
+        if owns_client and not success:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover — defensive
+                pass
+
+
+# ===========================================================================
+# #345 — Operator-credentialed strategy
+# ===========================================================================
+#
+# acquire_session does emergent registration only — it creates a new user
+# via the discovered register form. Real-world login-only targets (DVWA,
+# customer staging, internal corporate apps) have no register form, so
+# acquire_session returns None on those. This block adds a parallel
+# strategy: operator-supplied credentials looked up from the run credential
+# vault, replayed against the login form.
+#
+# Credential handling rules (carried forward from #334 redaction policy):
+# - Credentials are NEVER stored in graph entities or observation attributes.
+# - Full values stay in run_credential_vault (encrypted at rest).
+# - Recipe execution carries them only as in-memory POST body fields.
+# - The returned session dict deliberately does NOT include the operator
+#   password — only generated metadata + populated cookie jar.
+
+
+def _base_url_host(base_url: str) -> str:
+    """Extract the lowercase host (no port, no scheme) from base_url."""
+    try:
+        parsed = urlparse(base_url)
+    except (TypeError, ValueError):
+        return ""
+    host = parsed.hostname or ""
+    return host.lower()
+
+
+def _lookup_operator_credentials(
+    session: Any,
+    *,
+    run: Any,
+    base_url: str,
+) -> tuple[str, str] | None:
+    """Query the run credential vault for a password-kind secret targeting
+    ``base_url``'s host. Returns ``(username, password)`` or None.
+
+    Matching rules:
+    - secret_kind must be ``password`` (canonical, hyphens-normalized
+      via run_credential_vault.store_run_credential_vault_secret).
+    - metadata['target'] must resolve to the same host as base_url
+      (port and scheme ignored — credentials are usually scope-of-host
+      not scope-of-port).
+    - metadata['username'] must be set (a login flow without a
+      username is not a valid credentialed strategy).
+
+    Decryption uses the same storage_backend that wrote the secret. Any
+    decrypt error or missing settings returns None for that ref and the
+    iteration continues. If no ref matches, returns None.
+    """
+    target_host = _base_url_host(base_url)
+    if not target_host:
+        return None
+    try:
+        from api.app.config import get_settings
+        from api.app.services.run_credential_vault import _vault_refs_for_run
+        from api.app.services.secrets import decrypt_secret_value
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.debug("auth_discoverer: vault module import failed: %s", exc)
+        return None
+
+    try:
+        refs = _vault_refs_for_run(session, run=run)
+    except Exception as exc:
+        logger.debug("auth_discoverer: vault lookup failed: %s", exc)
+        return None
+
+    settings = None
+    for ref in refs:
+        if getattr(ref, "secret_kind", "") != "password":
+            continue
+        meta = getattr(ref, "metadata_json", None) or {}
+        if not isinstance(meta, dict):
+            continue
+        target_value = str(meta.get("target") or "")
+        if not target_value:
+            continue
+        if _base_url_host(target_value) != target_host:
+            continue
+        username = str(meta.get("username") or "").strip()
+        if not username:
+            continue
+        try:
+            if settings is None:
+                settings = get_settings()
+            password = decrypt_secret_value(
+                getattr(ref, "encrypted_value", "") or "",
+                settings,
+                storage_backend=getattr(ref, "storage_backend", "encrypted_local"),
+            )
+        except Exception as exc:
+            logger.debug(
+                "auth_discoverer: decrypt failed for ref=%s: %s",
+                str(getattr(ref, "id", ""))[:8], exc,
+            )
+            continue
+        if not password:
+            continue
+        return (username, password)
+    return None
+
+
+def _login_only_fingerprint(fingerprint: dict[str, Any]) -> dict[str, Any]:
+    """Return a shallow copy of ``fingerprint`` with ``register_form``
+    removed, so :func:`build_recipe` is forced to synthesize a LOGIN
+    recipe (its prompt already supports both intents; with register
+    absent, the model has no choice).
+
+    Does NOT mutate the input. The fingerprint_hash field is left
+    unchanged — the credentialed path skips the cache entirely so a
+    hash collision doesn't matter.
+    """
+    out = dict(fingerprint)
+    out["register_form"] = None
+    return out
+
+
+def acquire_session_with_credentials(
+    base_url: str,
+    *,
+    username: str,
+    password: str,
+    scope_allowlist: dict[str, Any] | None = None,
+    http_client: httpx_client.Client | None = None,
+    anthropic_client: Any = None,
+    timeout_seconds: float = ACQUIRE_DEFAULT_TIMEOUT,
+    probe_limit: int = ACQUIRE_DEFAULT_PROBE_LIMIT,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
+    """Operator-credentialed login-form variant of :func:`acquire_session`.
+
+    Same fetch+fingerprint pipeline, but:
+
+    - skips the recipe cache (lookup_recipe / store_recipe / mark_stale)
+      because cached recipes were derived against the emergent path with
+      register_form preferred; replaying them with operator credentials
+      against a register flow is meaningless. Cache namespacing for the
+      credentialed path is a separate task (backlog-396).
+    - strips ``register_form`` from the fingerprint copy passed to
+      :func:`build_recipe`, so the model produces login-only steps.
+    - replays the recipe with operator-supplied ``(username, password)``
+      instead of :func:`_generate_credentials`. An ``email`` is derived
+      from the username only for the rare case where the login form
+      includes an email field mapped via the ``email`` intent.
+    - returns the same session dict shape as :func:`acquire_session`
+      EXCEPT the ``password`` field is omitted (operator-secret hygiene
+      — full value stays in the vault) and ``email`` reflects the
+      derived value, not a generated mailbox.
+
+    Returns None on any pipeline failure (no pages, no login form, recipe
+    build failure, execute failure, verify failure). The caller is
+    responsible for closing ``client`` if they own it.
+    """
+    if not isinstance(base_url, str) or not base_url:
+        return None
+    if not isinstance(username, str) or not username.strip():
+        return None
+    if not isinstance(password, str) or not password:
+        return None
+    username = username.strip()
+
+    owns_client = False
+    client = http_client
+    if client is None:
+        client = httpx_client.Client(
+            timeout=timeout_seconds, follow_redirects=False, verify=True
+        )
+        owns_client = True
+
+    success = False
+    try:
+        pages = fetch_auth_pages(
+            base_url,
+            scope_allowlist=scope_allowlist,
+            timeout_seconds=timeout_seconds,
+            probe_limit=probe_limit,
+            client=client,
+        )
+        if not pages:
+            return None
+        fingerprint = fingerprint_application(pages)
+        if not fingerprint.get("login_form"):
+            # No observable login form ⇒ credentialed strategy cannot
+            # proceed. Distinct from the emergent path which would fall
+            # through to register_form. Caller can decide whether to
+            # retry without credentials (see acquire_session dispatch).
+            return None
+
+        login_fp = _login_only_fingerprint(fingerprint)
+        recipe = build_recipe(login_fp, anthropic_client=anthropic_client)
+        if recipe is None:
+            return None
+
+        # Synthesize a non-PII email derived from the username; harmless
+        # for login forms because the email intent is only resolved when
+        # the login form has an explicit email field, which is rare.
+        email = f"{username}@aegispt.test"
+
+        form_field_values = _form_field_value_map(pages)
+        ok = _execute_recipe_steps(
+            recipe,
+            client=client,
+            username=username,
+            password=password,
+            email=email,
+            form_field_values=form_field_values,
+            scope_allowlist=scope_allowlist,
+        )
+        if not ok:
+            return None
+
+        if not verify_recipe(
+            recipe, http_client=client, timeout_seconds=timeout_seconds,
+        ):
+            return None
+
+        cookies: dict[str, str] = {}
+        try:
+            for cookie in client.cookies.jar:
+                if cookie.name:
+                    cookies[cookie.name] = cookie.value or ""
+        except AttributeError:
+            try:
+                cookies = {k: v for k, v in client.cookies.items()}
+            except AttributeError:
+                cookies = {}
+
+        success = True
+        # NOTE: the password is DELIBERATELY omitted from the returned
+        # dict (credential_handling per task #345). Callers that need
+        # the password must read it from the run_credential_vault, not
+        # from the session dict.
+        return {
+            "client": client,
+            "username": username,
+            "email": email,
+            "fingerprint_hash": str(fingerprint.get("fingerprint_hash") or ""),
+            "from_cache": False,
+            "from_credentials": True,
+            "recipe": recipe,
+            "session_cookies": cookies,
+        }
+    except Exception as exc:
+        logger.debug("auth_discoverer.acquire_session_with_credentials: error: %s", exc)
+        return None
+    finally:
         if owns_client and not success:
             try:
                 client.close()
