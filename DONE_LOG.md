@@ -1,5 +1,54 @@
 # Done Log
 
+- 2026-05-18: completed backlog-392 (queue #342 — Wire rotate_run_progress() into the assessment loop) — **first of the 6 deferred-capability follow-ups (#342-#347) filed on 2026-05-17**:
+  - rationale: #332 added `memory_backend.rotate_run_progress(*, threshold_bytes, keep_bytes)` but never invoked it from any code path. The function was dead. The ~$30/day saving claimed in #332's DONE_LOG entry did not materialize because `/memories/run-progress.md` continued to grow unbounded across advances. Operator audit 2026-05-17 surfaced this as one of three load-bearing deferred capabilities; queued for the next session.
+  - implementation:
+    - new helper `_rotate_run_progress_safely() -> dict[str, int] | None` in `api/app/services/assessment_loop.py` placed immediately above `advance_assessment_loop`. Local import of `memory_backend` (matches the existing #335 verifier-hook pattern). Calls `memory_backend.rotate_run_progress()` and swallows any exception, logging `WARNING "rotate_run_progress: skipped (%s)"`. On successful rotation, logs `INFO "AI loop: run-progress rotated before=%d after=%d dropped=%d"` so operators can spot the saving live in `/tmp/aegispt-api.log`.
+    - wire call: single line `_rotate_run_progress_safely()` placed at the end of `advance_assessment_loop`, immediately after the comic-strip narrator block and immediately before the final `return {...}`. This is the LAST hook in the post-advance chain so it never blocks anything; if it fails, the advance has already produced all its primary outputs.
+    - early-return paths (waiting_for_execution, max_iterations_reached, etc.) deliberately do NOT call the rotation — those branches don't dispatch the picker, so there's no new memory-tool activity to rotate. Rotation fires once per advance that actually reaches the picker.
+    - kept everything else untouched per scope_creep_guard: `rotate_run_progress()` body unchanged, ROTATE_THRESHOLD_BYTES (8192) / ROTATE_KEEP_BYTES (6144) unchanged, view-truncation helpers unchanged, picker prompt untouched, workers/ untouched.
+  - tests (4 new tests appended to `api/tests/test_memory_backend_truncation.py` under a "#342 — assessment_loop wire-up" section header, all pass):
+    - `test_rotate_safely_helper_returns_none_under_threshold`: helper is a no-op when file is under 8 KB
+    - `test_rotate_safely_helper_actually_trims_oversized_file`: end-to-end — write 25 KB → call helper once → file shrinks below ROTATE_KEEP_BYTES+512 header overhead. Acceptance criterion: 'oversized /memories/run-progress.md is actually trimmed end-to-end after one advance'
+    - `test_rotate_safely_helper_swallows_exception`: monkeypatch `rotate_run_progress` to raise OSError → helper returns None + WARNING log fires + no exception propagates (resilience)
+    - `test_advance_assessment_loop_source_wires_rotate_helper`: source-level sentinel — `inspect.getsource(advance_assessment_loop)` MUST contain `_rotate_run_progress_safely()`. If a future refactor removes the call site, this test fails loudly. This is the protection that makes "#342 wiring stays wired" testable without spinning up a full DB+Run+Scope integration fixture.
+    - 48/48 pass when run alongside test_assessment_loop_soft_retry.py + test_assessment_loop_structured_outputs.py — no regression on #330/#331 surface.
+  - CRLF cleanup: the Edit tool path through `\\wsl.localhost\` converted `api/app/services/assessment_loop.py` from LF to CRLF (a Windows path-resolver quirk), which made `git diff --check` flag every line as trailing whitespace. Fixed with `sed -i 's/\r$//'` inside WSL; only the actual 33 inserted lines remain in the diff. No content change from the sed pass — verified by re-running the 48-test suite green afterward.
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - `rotate_run_progress()` body unchanged
+    - ROTATE_THRESHOLD_BYTES / ROTATE_KEEP_BYTES / VIEW_MAX_BYTES constants unchanged (#332 contract)
+    - `_AI_PICKER_SYSTEM_PROMPT` untouched
+    - workers/runners/ and workers/orchestration/ untouched
+    - Non-gating: rotation exception is caught + logged, never crashes the advance (proven by test_rotate_safely_helper_swallows_exception)
+  - validation:
+    - scripts/validate_backlog_tasks.py: 347 queued 1:1 (no queue change)
+    - .venv/bin/pytest api/tests/test_memory_backend_truncation.py api/tests/test_assessment_loop_soft_retry.py: 31/31 pass (15 + 17 from #332 baseline + 4 new #342 wire tests minus one shared rotate sentinel = 31)
+    - .venv/bin/pytest including test_assessment_loop_structured_outputs.py: 48/48 pass
+    - python3 -m compileall -q api: clean
+    - .venv/bin/ruff check api/app/services/assessment_loop.py: All checks passed
+    - git diff --check: clean (after CRLF fix)
+  - acceptance criteria status (from task package):
+    - "advance_assessment_loop calls memory_backend.rotate_run_progress() at most once per advance, on a stable hook point" → ✓ (single call at end of main return path, early-return paths untouched)
+    - "Unit test proves the call fires on a typical advance" → ✓ via test_advance_assessment_loop_source_wires_rotate_helper (source-level proof) + test_rotate_safely_helper_actually_trims_oversized_file (behavioral end-to-end)
+    - "Unit test proves an oversized /memories/run-progress.md is actually trimmed end-to-end after one advance" → ✓
+    - "Unit test proves an under-threshold file is untouched" → ✓ via test_rotate_safely_helper_returns_none_under_threshold
+    - "Rotation exception is caught + logged, never crashes the advance" → ✓ via test_rotate_safely_helper_swallows_exception
+  - load-bearing constraint that forced the design: must_not_touch on `rotate_run_progress()` body (#332 contract) → couldn't change the rotation logic itself; had to wrap it in a tiny safe-call helper at the call site instead. The helper extraction also made the wire UNIT-TESTABLE without a full Run+Scope+Session fixture (the source-grep sentinel test depends on a named function existing).
+  - next: promote backlog-393 (#343 — Picker prompt addendum: instruct Claude to chain-reason over RECENT_CAPTURES) into NEXT_TASK.md. Second of the 6 deferred-capability follow-ups (#334 follow-up).
+
+- 2026-05-17: filed 6 deferred-capability follow-ups (backlog-392 through 397, queue #342-#347):
+  - rationale: operator audit 2026-05-17 of the last 10 Mythos tasks (#326-#335) found 6 cases where I declared "out of scope" / "DEFERRED to operator" / "tracked in MEMORY" and shipped instead of filing a backlog task. The capabilities the tasks were meant to deliver were therefore left incomplete. Operator pushback: "Het moet straks niet zo zijn dat er dingen achterwege gelaten zijn omdat jij dat niet kon. Dit soort constraints moet je zelf oplossen."
+  - 6 tasks filed:
+    - backlog-392 (#342): wire `rotate_run_progress()` into the assessment loop — #332's claimed ~$30/day saving needs this to materialize
+    - backlog-393 (#343): picker prompt addendum for RECENT_CAPTURES chain reasoning — #334 surfaces the data but Claude was never instructed to use it
+    - backlog-394 (#344): move finding_verifier hook from post-advance to pre-persistence in workers/orchestration/findings.py — closes #335's brief un-verified critical visibility window
+    - backlog-395 (#345): operator-credentialed auth path for login-only targets — #328/#329 acquire_session does emergent registration only; most real targets silently no-op
+    - backlog-396 (#346): auth-recipe cache eviction + schema migration — #327 silently rejects new entries when cache full + ignores schema_version mismatches forever
+    - backlog-397 (#347): empirical Phase-3 live validation script — #330/#332/#333 deferred this; agent-runnable per feedback_self_validation
+  - meta-rule captured as `feedback_deferred_capability_followup` memory entry: when must_not_touch blocks task intent, FILE a follow-up in the same commit; never just say "out of scope" and ship.
+  - validation: scripts/validate_backlog_tasks.py 347 queued mapped 1:1.
+  - next: backfill execution begins with #342 (smallest, most concrete — closes a dead-code claim). Order chosen agent-side per operator instruction "wat jij het beste vind maar zorg ervoor dat het wel allemaal wordt gedaan".
+
 - 2026-05-17: completed Mythos task #335 (backlog-385 — Cross-Runner Verifier: Independent Confirmation for Critical Findings):
   - rationale: Phase 4 day-2. Today a runner that says "admin compromise proven" because it saw "Manage this server" in the body has no independent check — AI trusts itself. Cross-runner verification is the canonical way to reach zero-false-positive on critical findings, one of the key differentiators against rule-based competitors. #335 introduces a service that, for each newly-arrived critical/high finding, runs a SINGLE bounded HTTP check via a DIFFERENT code path than the originating runner and either confirms the impact, downgrades the severity (one notch) with a verifier_note, or marks the verdict inconclusive.
   - implementation:

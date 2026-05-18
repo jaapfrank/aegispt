@@ -2844,6 +2844,32 @@ def record_assessment_loop_goal(
     return build_assessment_loop_state(session, run=run, scope=scope)
 
 
+def _rotate_run_progress_safely() -> dict[str, int] | None:
+    """Invoke ``memory_backend.rotate_run_progress()`` and swallow any
+    exception. Returns the rotation result dict (or None) for callers
+    that want to log/inspect. Wire-up for #332 rotation, filed as #342.
+
+    Rotation is housekeeping: a failure here MUST NOT crash the advance.
+    The wired call site sits just before ``advance_assessment_loop``'s
+    final return so it fires once per advance that reaches the picker
+    dispatch path.
+    """
+    try:
+        from api.app.services import memory_backend as _memory_backend
+        result = _memory_backend.rotate_run_progress()
+    except Exception as exc:
+        logger.warning("rotate_run_progress: skipped (%s)", exc)
+        return None
+    if result is not None:
+        logger.info(
+            "AI loop: run-progress rotated before=%d after=%d dropped=%d",
+            result["before"],
+            result["after"],
+            result["dropped"],
+        )
+    return result
+
+
 def advance_assessment_loop(
     session: Session,
     *,
@@ -3760,6 +3786,13 @@ def advance_assessment_loop(
             session.refresh(run, ["configuration_json"])
     except Exception as _narr_exc:
         logger.warning("narrator: panel generation skipped: %s", _narr_exc)
+
+    # === Memory rotation (#332 wire-up, #342) ===
+    # Trim /memories/run-progress.md when it exceeds ROTATE_THRESHOLD_BYTES
+    # (8 KB) so the next picker hop's memory-tool view stays bounded
+    # alongside the per-view cap from #332. Housekeeping only: failure
+    # here MUST NOT crash the advance.
+    _rotate_run_progress_safely()
 
     return {
         **build_assessment_loop_state(session, run=run, scope=scope),

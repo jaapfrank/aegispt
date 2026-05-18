@@ -223,3 +223,98 @@ def test_constants_match_task_contract() -> None:
     assert ROTATE_KEEP_BYTES == 6144
     assert RUN_PROGRESS_LOGICAL_PATH == "/memories/run-progress.md"
     assert ROTATE_KEEP_BYTES < ROTATE_THRESHOLD_BYTES  # rotation must shrink
+
+
+# ---------------------------------------------------------------------------
+# #342 — assessment_loop wire-up
+# ---------------------------------------------------------------------------
+#
+# #332 added rotate_run_progress() but never invoked it from any code path.
+# #342 wires it into advance_assessment_loop via the
+# `_rotate_run_progress_safely` helper. These tests cover:
+#   - the helper invokes rotate and returns its result on the happy path
+#   - the helper returns None when the file is under threshold
+#   - the helper actually trims an over-threshold file end-to-end
+#   - the helper swallows exceptions (housekeeping, not gating)
+#   - advance_assessment_loop's source contains the wire call (sentinel
+#     against accidental removal during refactors).
+
+
+def _import_loop_helper():
+    """Import on demand — assessment_loop pulls heavy SQLAlchemy + Anthropic
+    deps at import time. Kept inside the test so the rest of this file
+    runs cleanly without that surface."""
+    from api.app.services.assessment_loop import _rotate_run_progress_safely
+    return _rotate_run_progress_safely
+
+
+def test_rotate_safely_helper_returns_none_under_threshold(
+    isolated_memory_root: Path,
+) -> None:
+    """Helper is a no-op when the file is under threshold."""
+    helper = _import_loop_helper()
+    memory_backend.execute(
+        "create",
+        path=RUN_PROGRESS_LOGICAL_PATH,
+        file_text="small log\n" * 10,  # well under 8 KB
+    )
+    assert helper() is None
+
+
+def test_rotate_safely_helper_actually_trims_oversized_file(
+    isolated_memory_root: Path,
+) -> None:
+    """End-to-end wire test: over-threshold file is actually trimmed after
+    one invocation of the wire helper. This is the #342 acceptance criterion
+    'oversized /memories/run-progress.md is actually trimmed end-to-end'."""
+    helper = _import_loop_helper()
+    big = "log line padded for size\n" * 1000  # ~25 KB, well over 8 KB
+    memory_backend.execute(
+        "create", path=RUN_PROGRESS_LOGICAL_PATH, file_text=big,
+    )
+    rel = RUN_PROGRESS_LOGICAL_PATH.removeprefix("/memories/")
+    before_size = (isolated_memory_root / rel).stat().st_size
+    assert before_size > ROTATE_THRESHOLD_BYTES
+
+    result = helper()
+
+    assert result is not None
+    after_size = (isolated_memory_root / rel).stat().st_size
+    assert after_size < before_size, "file was not trimmed by the wire helper"
+    assert after_size <= ROTATE_KEEP_BYTES + 512  # keep + header overhead
+
+
+def test_rotate_safely_helper_swallows_exception(
+    isolated_memory_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """If rotate_run_progress raises, the wire helper must swallow it and
+    return None — rotation is housekeeping, not gating, so a transient
+    disk error must not crash the advance."""
+    from api.app.services import memory_backend as mb
+
+    def _boom(**_kwargs):
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr(mb, "rotate_run_progress", _boom)
+    helper = _import_loop_helper()
+    with caplog.at_level("WARNING"):
+        assert helper() is None
+    assert any("rotate_run_progress" in rec.message for rec in caplog.records)
+
+
+def test_advance_assessment_loop_source_wires_rotate_helper() -> None:
+    """Sentinel: advance_assessment_loop's source MUST call
+    _rotate_run_progress_safely(). Without this wire the #332 saving
+    is dead code — the whole point of #342.
+
+    If a future refactor removes the call site, this test fails loudly.
+    """
+    import inspect
+    from api.app.services.assessment_loop import advance_assessment_loop
+    src = inspect.getsource(advance_assessment_loop)
+    assert "_rotate_run_progress_safely()" in src, (
+        "advance_assessment_loop must call _rotate_run_progress_safely() — "
+        "removing this call disables the #332 rotation saving (#342 wire)."
+    )

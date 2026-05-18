@@ -2,42 +2,41 @@
 
 ## Title
 
-Non-HTTP Primitives: SMB and LDAP as exec_plan Steps (Phase 4 day 3)
+Picker prompt addendum: instruct Claude to chain-reason over the RECENT_CAPTURES projection (#334 follow-up, backfill 2 of 6)
 
 ## Goal
 
-Extend the exec_plan grammar to allow SMB (list shares, file read, NTLM auth attempt) and LDAP (bind, search) as step types alongside HTTP. First move toward truly universal cross-protocol attack composition: AI can now write a single exec_plan that proves web → SMB or web → LDAP chains in one continuous narrative.
+Task \#334 added a RECENT_CAPTURES section to the graph projection showing the picker the last 5 captured_value entities (tokens, cookies, hostnames, etc.) with origin step + redacted preview. The data is now in the prompt but the system-prompt body never tells Claude HOW to use it for cross-target chain reasoning. Without an explicit instruction, Claude reads the section as background context rather than actionable lineage. This task adds a small instruction block — appended OUTSIDE the protected lines 1-200 of `_AI_PICKER_SYSTEM_PROMPT` — that explicitly directs the picker to reuse a previously-captured value when its kind matches a step's needed parameter (e.g., captured token of kind=token becomes Authorization header in the next task; captured hostname becomes the target_id of a new pivot task).
 
 ## Scope
 
-- Extend `workers/runners/exec_plan/runner.py` with two new step kinds:
-  - `smb_request` (subcommands list / read / auth using existing impacket or netexec primitives)
-  - `ldap_request` (using existing ldap_enum primitives)
-- Reuse the existing scope check + capture/expect/on_success contract.
-- Schema updates documented in system prompt minimally (the prompt body is otherwise must_not_touch; brief note can be appended outside lines 1-200).
+- Append a single 10-15 line "CHAIN REASONING ON RECENT_CAPTURES" addendum to `_AI_PICKER_SYSTEM_PROMPT` BELOW line 300 (outside the must_not_touch range).
+- Phrase it as guidance, not as a hard rule: "When you see a RECENT_CAPTURES entry whose kind matches a parameter needed by a candidate step, prefer that value as the parameter source via interpolation rather than re-acquiring it."
+- Add 2 unit tests:
+  - (a) the new addendum is present in the live prompt
+  - (b) the addendum sits outside lines 1-200
 
 ## Constraints
 
-- New step kinds only. Do NOT change the existing HTTP step grammar, do NOT add other protocols (FTP, SSH, etc.) in this task, do NOT replace the underlying impacket/netexec/ldap_enum runners.
-- Reuse existing scope/ROE/tier governance — no new bypass routes.
-- Bounded: per-step timeout + overall plan budget honored (existing exec_plan caps apply).
-- Must NOT touch: `_AI_PICKER_SYSTEM_PROMPT` body lines 1-200, finding schema fields, `workers/runners/impacket/`/`workers/runners/netexec/`/`workers/runners/ldap_enum/` runner implementations (consume them, don't modify).
+- Append-only text addition outside lines 1-200. Do NOT modify the existing prompt body, do NOT add new tools, do NOT change the schema or `output_config` (#330 contract), do NOT change the RECENT_CAPTURES section format itself.
+- Per `feedback_no_prescriptive_recipes` memory: instruction must be GENERIC ("when a captured value-kind matches a needed parameter, prefer it"); NO Gruyere/juice-shop/testfire-specific patterns or recipes. Emergent discovery only.
+- Must NOT touch: `_AI_PICKER_SYSTEM_PROMPT` body lines 1-200, `_PICKER_OUTPUT_SCHEMA` (#330), RECENT_CAPTURES section format in `assessment_graph.py` (#334 contract), evidence_ingest captured_value redaction policy (#334 contract), `workers/runners/`, `workers/orchestration/`.
 
 ## Source Package
 
-`codex/tasks/backlog-386-non-http-primitives-smb-ldap.json`
+`codex/tasks/backlog-393-picker-prompt-recent-captures-chain-reasoning.json`
 
 ## Reference
 
-- `workers/runners/exec_plan/runner.py` (existing HTTP step engine; #334 added captured_value emission)
-- `workers/runners/impacket/runner.py` + `workers/runners/netexec/runner.py` + `workers/runners/ldap_enum/runner.py` (underlying primitives)
-- `api/app/services/finding_verifier.py` (#335 — verifier strategies could later extend to cover SMB/LDAP findings)
-- `docs/AGENT_SYSTEM_MAP.md` §7 (scope/ROE governance) + §3 (exec_plan grammar)
+- `api/app/services/assessment_loop.py` — `_AI_PICKER_SYSTEM_PROMPT` constant (the body to append below, NOT inside lines 1-200)
+- `api/app/services/assessment_graph.py` — `project_graph_for_picker` RECENT_CAPTURES section format (#334)
+- `api/tests/test_cross_target_provenance.py` — where the new tests should sit
+- DONE_LOG entry for #334 (Cross-Target Provenance) for the data layer this prompt-side instruction sits on top of
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest workers/tests/test_exec_plan_smb_ldap.py workers/tests/test_exec_plan_runner.py`
-- `python3 -m compileall -q workers`
-- `.venv/bin/ruff check workers/runners/exec_plan/`
+- `.venv/bin/pytest api/tests/test_assessment_loop_structured_outputs.py api/tests/test_cross_target_provenance.py`
+- `python3 -m compileall -q api`
+- `.venv/bin/ruff check api/app/services/assessment_loop.py`
 - `git diff --check`
