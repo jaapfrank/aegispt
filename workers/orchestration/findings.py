@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass, replace
 
@@ -23,13 +24,20 @@ from workers.runners.camera_test.runner import CAMERA_TEST_RESULTS_ARTIFACT_NAME
 from workers.runners.cicd_security.runner import CICD_SECURITY_RESULTS_ARTIFACT_NAME
 from workers.runners.client_state.runner import CLIENT_STATE_RESULTS_ARTIFACT_NAME
 from workers.runners.cloud_native.runner import CLOUD_NATIVE_RESULTS_ARTIFACT_NAME
+from workers.runners.cookie_tamper_probe.runner import (
+    RESULTS_ARTIFACT_NAME as COOKIE_TAMPER_PROBE_RESULTS_ARTIFACT_NAME,
+)
 from workers.runners.credential_attacks.runner import (
     CREDENTIAL_ATTACK_RESULTS_ARTIFACT_NAME,
 )
 from workers.runners.crypto_audit.runner import CRYPTO_AUDIT_RESULTS_ARTIFACT_NAME
 from workers.runners.deserialization_probe.runner import DESERIALIZATION_RESULTS_ARTIFACT_NAME
 from workers.runners.desktop_client.runner import DESKTOP_CLIENT_RESULTS_ARTIFACT_NAME
+from workers.runners.exec_plan.runner import EXEC_PLAN_ARTIFACT_NAME
 from workers.runners.external_infra.runner import EXTERNAL_INFRA_RESULTS_ARTIFACT_NAME
+from workers.runners.file_upload_probe.runner import (
+    RESULTS_ARTIFACT_NAME as FILE_UPLOAD_PROBE_RESULTS_ARTIFACT_NAME,
+)
 from workers.runners.graphql_command_injection.runner import (
     GRAPHQL_COMMAND_INJECTION_RESULTS_ARTIFACT_NAME,
 )
@@ -38,17 +46,15 @@ from workers.runners.headers_security.runner import HEADERS_SECURITY_RESULTS_ART
 from workers.runners.http_smuggling.runner import HTTP_SMUGGLING_RESULTS_ARTIFACT_NAME
 from workers.runners.idor_bac.runner import IDOR_BAC_ARTIFACT_NAME
 from workers.runners.impacket.runner import IMPACKET_RESULTS_ARTIFACT_NAME
+from workers.runners.info_disclosure_probe.runner import (
+    RESULTS_ARTIFACT_NAME as INFO_DISCLOSURE_RESULTS_ARTIFACT_NAME,
+)
 from workers.runners.iot_default_creds.runner import IOT_DEFAULT_CREDS_ARTIFACT_NAME
 from workers.runners.ipv6_discovery.runner import IPV6_DISCOVERY_RESULTS_ARTIFACT_NAME
 from workers.runners.ldap_enum.runner import LDAP_ENUM_ARTIFACT_NAME
 from workers.runners.leak_check.runner import LEAK_CHECK_RESULTS_ARTIFACT_NAME
 from workers.runners.llm_probe import LLM_PROBE_ARTIFACT_NAME
 from workers.runners.logging_probe.runner import LOGGING_PROBE_RESULTS_ARTIFACT_NAME
-from workers.runners.info_disclosure_probe.runner import RESULTS_ARTIFACT_NAME as INFO_DISCLOSURE_RESULTS_ARTIFACT_NAME
-from workers.runners.param_pollution_probe.runner import RESULTS_ARTIFACT_NAME as PARAM_POLLUTION_RESULTS_ARTIFACT_NAME
-from workers.runners.stored_xss_probe.runner import RESULTS_ARTIFACT_NAME as STORED_XSS_PROBE_RESULTS_ARTIFACT_NAME
-from workers.runners.cookie_tamper_probe.runner import RESULTS_ARTIFACT_NAME as COOKIE_TAMPER_PROBE_RESULTS_ARTIFACT_NAME
-from workers.runners.file_upload_probe.runner import RESULTS_ARTIFACT_NAME as FILE_UPLOAD_PROBE_RESULTS_ARTIFACT_NAME
 from workers.runners.malware_sim.runner import MALWARE_SIM_RESULTS_ARTIFACT_NAME
 from workers.runners.mdns_ssdp.runner import MDNS_SSDP_ARTIFACT_NAME
 from workers.runners.metasploit.runner import METASPLOIT_RESULTS_ARTIFACT_NAME
@@ -57,6 +63,9 @@ from workers.runners.netexec.runner import NETEXEC_RESULTS_ARTIFACT_NAME
 from workers.runners.network_capture.runner import NETWORK_CAPTURE_RESULTS_ARTIFACT_NAME
 from workers.runners.network_segmentation.runner import NETWORK_SEGMENTATION_ARTIFACT_NAME
 from workers.runners.oauth_probe.runner import OAUTH_PROBE_RESULTS_ARTIFACT_NAME
+from workers.runners.param_pollution_probe.runner import (
+    RESULTS_ARTIFACT_NAME as PARAM_POLLUTION_RESULTS_ARTIFACT_NAME,
+)
 from workers.runners.playwright_web.runner import PLAYWRIGHT_WEB_RESULTS_ARTIFACT_NAME
 from workers.runners.priv_esc_linux.runner import PRIV_ESC_LINUX_RESULTS_ARTIFACT_NAME
 from workers.runners.responder.runner import RESPONDER_RESULTS_ARTIFACT_NAME
@@ -69,6 +78,9 @@ from workers.runners.social_campaign.runner import SOCIAL_CAMPAIGN_RESULTS_ARTIF
 from workers.runners.ssh_brute.runner import SSH_BRUTE_RESULTS_ARTIFACT_NAME
 from workers.runners.ssrf_probe.runner import SSRF_RESULTS_ARTIFACT_NAME
 from workers.runners.ssti_probe.runner import SSTI_RESULTS_ARTIFACT_NAME
+from workers.runners.stored_xss_probe.runner import (
+    RESULTS_ARTIFACT_NAME as STORED_XSS_PROBE_RESULTS_ARTIFACT_NAME,
+)
 from workers.runners.target_intel.runner import TARGET_INTEL_ARTIFACT_NAME
 from workers.runners.waf_detect.runner import WAF_DETECT_RESULTS_ARTIFACT_NAME
 from workers.runners.web_depth.runner import (
@@ -83,7 +95,8 @@ from workers.runners.web_depth.runner import (
 from workers.runners.wifi_survey.runner import WIFI_SURVEY_RESULTS_ARTIFACT_NAME
 from workers.runners.xss_extended.runner import XSS_EXTENDED_RESULTS_ARTIFACT_NAME
 from workers.runners.xss_proof.runner import XSS_PROOF_RESULTS_ARTIFACT_NAME
-from workers.runners.exec_plan.runner import EXEC_PLAN_ARTIFACT_NAME
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -2263,6 +2276,49 @@ def extract_responder_findings(
     return findings
 
 
+def _verify_pre_persistence(*, finding: "Finding", run: "object | None") -> "object | None":
+    """For #344: run the cross-runner verifier against a NEW critical/high
+    finding BEFORE the Finding row is flushed. Mutates ``finding.severity``
+    in place if the verdict comes back ``failed`` so the severity that
+    lands in the DB is already verifier-adjusted (no visibility window
+    where consumers see un-verified critical).
+
+    Returns the :class:`VerifierVerdict` so the caller can attach it as
+    ``FindingAiEnrichment.metadata_json['verifier']`` after persistence.
+    Returns None when the finding is below threshold, the run is missing,
+    or the verifier raises.
+
+    Graceful: any exception from the verifier returns None (logged) — the
+    finding still persists with its original severity. Per #344
+    graceful_degradation: 'verifier failure does NOT block finding
+    persistence.'
+    """
+    from api.app.services.finding_verifier import (
+        VERIFIABLE_SEVERITIES,
+        verify_finding,
+    )
+
+    sev = str(getattr(finding, "severity", "") or "").lower()
+    if sev not in VERIFIABLE_SEVERITIES:
+        return None
+    if run is None:
+        return None
+    try:
+        verdict = verify_finding(finding, run, scope=None)
+    except Exception as exc:
+        logger.warning(
+            "finding_verifier: pre-persistence verify failed for finding=%s severity=%s: %s",
+            str(getattr(finding, "id", "?"))[:8], sev, exc,
+        )
+        return None
+    if (
+        getattr(verdict, "verdict", None) == "failed"
+        and str(getattr(finding, "severity", "") or "") == getattr(verdict, "original_severity", None)
+    ):
+        finding.severity = verdict.new_severity
+    return verdict
+
+
 def store_findings(
     *,
     session,
@@ -2339,6 +2395,14 @@ def store_findings(
                 control_family=finding.control_family,
                 status="open",
             )
+            # #344 — pre-persistence verifier: for critical/high findings,
+            # run the cross-runner verifier BEFORE the row is flushed so the
+            # severity that lands in the DB is already verdict-adjusted. The
+            # severity mutation (if verdict=failed) happens in place on
+            # created_finding so the audit event below also reflects it.
+            _verifier_verdict = _verify_pre_persistence(
+                finding=created_finding, run=task.run,
+            )
             apply_finding_sla(session, created_finding, settings=get_settings())
             session.add(created_finding)
             session.flush()
@@ -2360,6 +2424,24 @@ def store_findings(
             )
             existing_findings[signature] = created_finding
             _store_optional_ai_enrichment(session=session, finding=created_finding)
+            # #344 — attach verifier verdict as enrichment metadata after the
+            # Finding row is flushed + the optional async enrichment slot
+            # exists. apply_verifier_verdict is idempotent + creates the
+            # FindingAiEnrichment row if needed. Wrapped in try/except so a
+            # verdict-application failure (e.g. enrichment row conflict) does
+            # NOT block finding persistence — verdict is enrichment, not
+            # gating.
+            if _verifier_verdict is not None:
+                from api.app.services.finding_verifier import apply_verifier_verdict
+                try:
+                    apply_verifier_verdict(
+                        session, finding=created_finding, verdict=_verifier_verdict,
+                    )
+                except Exception as _apply_exc:
+                    logger.warning(
+                        "finding_verifier: apply_verdict failed for finding=%s: %s",
+                        str(created_finding.id)[:8], _apply_exc,
+                    )
             created_findings.append(created_finding)
 
     return created_findings

@@ -571,3 +571,251 @@ def test_verdict_to_metadata_round_trip() -> None:
     assert md["evidence"] == {"a": 1, "b": "two"}
     assert md["timestamp"]
     assert "verifier_used" in md
+
+
+# ---------------------------------------------------------------------------
+# #344 — pre-persistence verifier hook in workers/orchestration/findings.py
+# ---------------------------------------------------------------------------
+#
+# #335 wired the verifier as a post-advance hook in assessment_loop.py —
+# findings were persisted with original severity, then downgraded on the
+# next advance. That left a brief window where consumers saw un-verified
+# critical severity. #344 moves the call to pre-persistence inside
+# workers/orchestration/findings.store_findings so the severity that lands
+# in the DB is already verifier-adjusted. The assessment_loop hook stays
+# as a self-no-opping defensive backstop (verify_pending_critical_findings
+# already skips findings whose ai_enrichment.metadata_json carries a
+# 'verifier' key).
+
+
+def test_pre_persistence_helper_returns_none_for_low_severity() -> None:
+    """Per non_blocking_for_low_severity constraint: medium/low/info skip
+    the verifier entirely. No HTTP call, no exception."""
+    from workers.orchestration.findings import _verify_pre_persistence
+
+    finding = Finding(
+        run_id=None,
+        title="Some medium issue",
+        severity="medium",
+        target_id="http://target.test/",
+        finding_origin="standard",
+        summary=None,
+        methodology_tags=[],
+        status="open",
+    )
+    # run can be anything truthy; we shouldn't reach the verify_finding call.
+    assert _verify_pre_persistence(finding=finding, run=object()) is None
+    assert finding.severity == "medium"  # severity untouched
+
+
+def test_pre_persistence_helper_returns_none_when_run_missing() -> None:
+    """Defensive: a finding with no associated run can't be verified
+    (verifier looks up scope via run.engagement). Returns None gracefully."""
+    from workers.orchestration.findings import _verify_pre_persistence
+
+    finding = Finding(
+        run_id=None,
+        title="Mass assignment to admin",
+        severity="critical",
+        target_id="http://target.test/manage",
+        finding_origin="standard",
+        summary=None,
+        methodology_tags=[],
+        status="open",
+    )
+    assert _verify_pre_persistence(finding=finding, run=None) is None
+    assert finding.severity == "critical"  # untouched
+
+
+def test_pre_persistence_helper_mutates_severity_on_failed_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Acceptance: the helper mutates finding.severity IN PLACE when the
+    verdict says failed — so when the caller flushes the Finding row, the
+    DB sees the downgraded severity from the first INSERT (no second-pass
+    update visible to consumers)."""
+    from workers.orchestration import findings as findings_mod
+
+    fake_verdict = VerifierVerdict(
+        verdict="failed",
+        note="admin keyword absent",
+        original_severity="critical",
+        new_severity="high",
+        verifier_used="admin_access",
+        checked_url="http://target.test/manage",
+        evidence={"status": 200},
+    )
+
+    def _fake_verify(*_args, **_kwargs):
+        return fake_verdict
+
+    monkeypatch.setattr(
+        "api.app.services.finding_verifier.verify_finding", _fake_verify,
+    )
+
+    finding = Finding(
+        run_id=None,
+        title="Mass assignment to admin context",
+        severity="critical",
+        target_id="http://target.test/manage",
+        finding_origin="standard",
+        summary=None,
+        methodology_tags=[],
+        status="open",
+    )
+    verdict = findings_mod._verify_pre_persistence(finding=finding, run=object())
+    assert verdict is fake_verdict
+    # The PRIMARY acceptance criterion of #344: severity downgraded before
+    # the caller flushes. Consumers reading finding.severity now see "high".
+    assert finding.severity == "high"
+
+
+def test_pre_persistence_helper_does_not_double_downgrade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If the finding's current severity no longer matches the verdict's
+    original_severity (e.g. the caller called the helper twice, or merged
+    a higher severity in), the helper does NOT re-mutate severity. Mirrors
+    the guard inside apply_verifier_verdict for idempotency."""
+    from workers.orchestration import findings as findings_mod
+
+    fake_verdict = VerifierVerdict(
+        verdict="failed",
+        note="x",
+        original_severity="critical",  # verdict was computed against critical
+        new_severity="high",
+        verifier_used="admin_access",
+        checked_url="http://x/",
+        evidence={},
+    )
+    monkeypatch.setattr(
+        "api.app.services.finding_verifier.verify_finding",
+        lambda *_a, **_k: fake_verdict,
+    )
+
+    finding = Finding(
+        run_id=None,
+        title="Mass assignment",
+        severity="high",  # already mid-downgrade — verdict.original_severity != current
+        target_id="http://target.test/manage",
+        finding_origin="standard",
+        summary=None,
+        methodology_tags=[],
+        status="open",
+    )
+    findings_mod._verify_pre_persistence(finding=finding, run=object())
+    # Helper still returned the verdict but did NOT re-downgrade because
+    # current severity (high) ≠ verdict.original_severity (critical).
+    assert finding.severity == "high"
+
+
+def test_pre_persistence_helper_returns_verdict_on_confirmed_no_severity_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the verdict is 'confirmed', severity stays put — only failed
+    downgrades. The verdict is still returned so the caller can attach it
+    as enrichment metadata."""
+    from workers.orchestration import findings as findings_mod
+
+    fake_verdict = VerifierVerdict(
+        verdict="confirmed",
+        note="admin keyword observed",
+        original_severity="critical",
+        new_severity="critical",
+        verifier_used="admin_access",
+        checked_url="http://target.test/manage",
+        evidence={"status": 200, "admin_keyword": "manage this server"},
+    )
+    monkeypatch.setattr(
+        "api.app.services.finding_verifier.verify_finding",
+        lambda *_a, **_k: fake_verdict,
+    )
+
+    finding = Finding(
+        run_id=None,
+        title="Mass assignment to admin",
+        severity="critical",
+        target_id="http://target.test/manage",
+        finding_origin="standard",
+        summary=None,
+        methodology_tags=[],
+        status="open",
+    )
+    verdict = findings_mod._verify_pre_persistence(finding=finding, run=object())
+    assert verdict is fake_verdict
+    assert finding.severity == "critical"
+
+
+def test_pre_persistence_helper_swallows_verify_exception(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Per graceful_degradation: a verifier exception (network error,
+    scope lookup blow-up, etc.) must NOT propagate. Helper returns None
+    + logs a warning, and the finding persists with its original severity.
+    Acceptance criterion: 'verifier failure does NOT block finding
+    persistence.'"""
+    from workers.orchestration import findings as findings_mod
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("simulated verifier failure")
+
+    monkeypatch.setattr(
+        "api.app.services.finding_verifier.verify_finding", _boom,
+    )
+
+    finding = Finding(
+        run_id=None,
+        title="Mass assignment to admin",
+        severity="critical",
+        target_id="http://target.test/manage",
+        finding_origin="standard",
+        summary=None,
+        methodology_tags=[],
+        status="open",
+    )
+    with caplog.at_level("WARNING"):
+        result = findings_mod._verify_pre_persistence(finding=finding, run=object())
+    assert result is None
+    assert finding.severity == "critical"  # untouched
+    assert any("pre-persistence verify failed" in rec.message for rec in caplog.records)
+
+
+def test_store_findings_source_wires_pre_persistence_helper() -> None:
+    """Sentinel: workers/orchestration/findings.store_findings MUST call
+    _verify_pre_persistence inside the new-finding branch. If a future
+    refactor removes the call, this test fails loudly and the #344
+    visibility-window closure regresses.
+    """
+    import inspect
+    from workers.orchestration.findings import store_findings
+
+    src = inspect.getsource(store_findings)
+    assert "_verify_pre_persistence(" in src, (
+        "store_findings must call _verify_pre_persistence before the Finding "
+        "row is flushed — removing this call reopens the #335 un-verified "
+        "critical visibility window."
+    )
+    # The post-flush apply_verifier_verdict step also must remain.
+    assert "apply_verifier_verdict(" in src, (
+        "store_findings must call apply_verifier_verdict after persistence "
+        "to write the verdict into FindingAiEnrichment.metadata_json['verifier']"
+    )
+
+
+def test_assessment_loop_post_advance_hook_stays_as_backstop() -> None:
+    """The #335 post-advance hook in assessment_loop.advance_assessment_loop
+    is INTENTIONALLY left in place after #344 — it becomes a
+    self-no-opping defensive backstop, because
+    verify_pending_critical_findings skips findings whose
+    ai_enrichment.metadata_json already carries a 'verifier' key. This
+    test guards the backstop from being deleted as 'dead code'."""
+    import inspect
+    from api.app.services.assessment_loop import advance_assessment_loop
+
+    src = inspect.getsource(advance_assessment_loop)
+    assert "verify_pending_critical_findings" in src, (
+        "advance_assessment_loop must keep the verifier backstop call — "
+        "the in-orchestration pre-persistence hook is the primary path, "
+        "but this is the defensive net for findings that bypass store_findings."
+    )

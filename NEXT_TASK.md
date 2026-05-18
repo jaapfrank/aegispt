@@ -2,42 +2,41 @@
 
 ## Title
 
-Move finding_verifier hook from post-advance (assessment_loop) to pre-persistence (workers/orchestration/findings.py) — closes the #335 un-verified critical visibility window (backfill 3 of 6)
+Operator-credentialed auth path for login-only targets (closes the \#328/\#329 emergent-registration-only gap) (backfill 4 of 6)
 
 ## Goal
 
-Task \#335 wired the verifier as a POST-advance hook in `assessment_loop.py`. Findings are first persisted with their original (un-verified) severity, then the verifier runs in the next advance and downgrades. There is a brief window — possibly several seconds, longer if the next picker call stalls — where downstream consumers (UI Mission Control polling, report exporters, webhooks) see a critical severity that the verifier would have downgraded. The fix is to call the verifier from the orchestration finding-persistence path BEFORE the finding row is committed, so the severity that lands in the DB is already verifier-adjusted.
+`auth_discoverer.acquire_session()` currently does EMERGENT registration only — it creates a new user via the discovered register form, then attaches the resulting session to the http client. Real-world live targets (DVWA, customer staging, internal corporate apps) frequently have NO registration flow; they only expose login with pre-existing credentials. `acquire_session` correctly returns None on those, but the entire universal-auth pipeline (the 5 migrated probes from \#328, all downstream cross-target tasks) silently no-ops. This task adds a second strategy — operator-supplied credentials — wired through the existing `acquire_session` contract, so the same probes work on login-only targets.
 
 ## Scope
 
-- Confirm via Grep which module is the canonical finding-persistence point (likely `workers/orchestration/findings.py`).
-- For critical/high findings (VERIFIABLE_SEVERITIES from \#335), call `finding_verifier.verify_finding(finding, run, scope)` synchronously BEFORE the Finding row is flushed; apply the verdict to the in-memory Finding object via `apply_verifier_verdict`; THEN persist.
-- Remove or downgrade the `assessment_loop.py` post-advance hook — prefer removal, fall back to a defensive backstop that no-ops when the verdict is already present.
-- Tests prove: (a) DB row carries the verifier verdict + adjusted severity at first flush, (b) verifier exception → finding still persists with verdict=inconclusive, (c) no regression in the 28 existing test_finding_verifier tests.
+- Extend `api/app/services/auth_discoverer.py` with `acquire_session_with_credentials(base_url, *, username, password, scope_allowlist=None, ...)` that re-uses `fingerprint_application` + `build_recipe` but POSTs to the LOGIN form (not register) with operator-provided credentials.
+- Credentials are pulled from the existing `run_credential_vault` keyed by (run_id, target_id).
+- Update `acquire_session()` to: (1) check if credentials are present in the vault for the target, (2) if yes, prefer the login path, (3) if no, fall back to the existing emergent-registration path.
+- Per `feedback_no_prescriptive_recipes` memory: no app-specific seeds. The LOGIN recipe is built by Claude Haiku from the fingerprint exactly like the REGISTER recipe is. Operator-supplied credentials are per-run inputs, not app-specific seeds.
 
 ## Constraints
 
-- Hook relocation + small orchestration change ONLY. Do NOT modify the verifier strategies (\#335 contract), do NOT add new severities, do NOT change `FindingAiEnrichment.metadata_json` layout, do NOT extend the verifier to medium/low/info severity.
-- Structural independence preserved: verifier still imports zero runner modules. Orchestration imports verifier, not the other way.
-- Non-blocking for low severity: VERIFIABLE_SEVERITIES = {critical, high} unchanged. Medium/low/info persist unchanged.
-- Graceful degradation: if verifier raises, log warning + persist with verdict=inconclusive + severity unchanged — do NOT block finding persistence.
-- Must NOT touch: `finding_verifier.py` strategy functions, `VerifierVerdict` dataclass shape, `VERIFIABLE_SEVERITIES` / `_SEVERITY_DOWNGRADE` constants, `FindingAiEnrichment.metadata_json` key layout, finding schema in `models/control.py`, `workers/runners/`, `_AI_PICKER_SYSTEM_PROMPT`.
+- New strategy + vault integration ONLY. Do NOT change `fingerprint_application`, `build_recipe`, or the existing emergent-registration code path. Do NOT add a new fingerprint shape. Do NOT touch the 5 migrated probes — they consume `acquire_session` unchanged.
+- Credentials NEVER appear in graph entities (captured_value, observation attributes) per the \#334 redaction policy. Full values stay in `run_credential_vault`. Recipe execution carries them only as in-memory POST body fields.
+- Per-engagement only — credential lookup is keyed by (run_id, target_id), inherits memory_backend isolation.
+- Must NOT touch: `fingerprint_application` (\#325 contract), `build_recipe` register-strategy logic (\#326 contract), auth-recipe cache layer (\#327 contract), the 5 migrated probe runners (\#328 contract), `workers/runners/`, `workers/orchestration/`, `_AI_PICKER_SYSTEM_PROMPT` body.
 
 ## Source Package
 
-`codex/tasks/backlog-394-verifier-pre-persistence-hook.json`
+`codex/tasks/backlog-395-operator-credentialed-auth-path.json`
 
 ## Reference
 
-- `workers/orchestration/findings.py` (the relocation target — canonical finding-persistence path)
-- `api/app/services/finding_verifier.py` (\#335 — strategies are must_not_touch; consume via `verify_finding` + `apply_verifier_verdict`)
-- `api/app/services/assessment_loop.py` (current post-advance hook to remove or backstop)
-- `api/tests/test_finding_verifier.py` (where new pre-persistence tests should sit; 28 existing tests must continue to pass)
+- `api/app/services/auth_discoverer.py` — existing `acquire_session`, `fingerprint_application`, `build_recipe`, `_resolve_field_value` intent vocabulary
+- `api/app/services/run_credential_vault.py` — read-only consumer; vault lookup API to consult
+- `api/tests/test_auth_discoverer_acquire_session.py` — existing 16 tests must continue to pass
+- DONE_LOG entry for \#329 post-merge addendum (the original mention of "Phase 2.5 / Phase 4 enhancement worth filing") + \#328 (5 probes that consume `acquire_session`)
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_finding_verifier.py api/tests/test_finding_chains.py workers/tests/`
-- `python3 -m compileall -q api workers`
-- `.venv/bin/ruff check workers/orchestration/findings.py api/app/services/finding_verifier.py api/app/services/assessment_loop.py`
+- `.venv/bin/pytest api/tests/test_auth_discoverer_acquire_session.py api/tests/test_auth_discoverer_credentialed.py api/tests/test_auth_discoverer_cache.py api/tests/test_auth_discoverer_recipe.py api/tests/test_auth_discoverer.py`
+- `python3 -m compileall -q api`
+- `.venv/bin/ruff check api/app/services/auth_discoverer.py`
 - `git diff --check`
