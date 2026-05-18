@@ -355,15 +355,23 @@ Run `python3 scripts/validate_backlog_tasks.py` before promoting a queued packag
 333. Mythos Phase 3 — Review Checkpoint: Picker Reliable, Cost-Controlled, On Target `codex/tasks/backlog-383-review-checkpoint-picker-reliable.json`
 334. Mythos Phase 4 — Cross-Target Provenance: Captured Values Carry Lineage Across Tasks `codex/tasks/backlog-384-cross-target-provenance-tracking.json`
 335. Mythos Phase 4 — Cross-Runner Verifier: Independent Confirmation for Critical Findings `codex/tasks/backlog-385-cross-runner-verifier-system.json`
-336. Mythos Phase 4 — Non-HTTP Primitives: SMB and LDAP as exec_plan Steps `codex/tasks/backlog-386-non-http-primitives-smb-ldap.json`
-337. Mythos Final Review — Convergence Demo and Capability Sign-Off `codex/tasks/backlog-387-final-review-mythos-convergence-demo.json`
-338. Mythos Tool Breadth — Specialized Tool Pack Fork from HexStrike (10-15 wrappers) `codex/tasks/backlog-388-specialized-tool-pack-fork-from-hexstrike.json`
-339. Mission Control Approve-Next Button — Wire onClick to ai-proposals review endpoint (UI bug surfaced during #324 checkpoint) `codex/tasks/backlog-389-ui-approve-next-button-broken-onclick-wiring.json`
-340. Broader codebase hygiene sweep — 27 ruff errors + 21 pre-existing pytest failures + ui-v2 build/lint cleanup (created during #332 broader-check 2026-05-17, execute after Phase 3 close-out) `codex/tasks/backlog-390-broader-codebase-hygiene-sweep.json`
-341. Picker max_tokens raise: 1024 → 4096 to eliminate truncated-response retry class (surfaced during Phase 3 live validation #333 on 2026-05-17) `codex/tasks/backlog-391-picker-max-tokens-raise.json`
-342. Wire rotate_run_progress() into the assessment loop so the #332 ~$30/day saving actually materializes (deferred-capability follow-up filed 2026-05-17) `codex/tasks/backlog-392-wire-rotate-run-progress-into-loop.json`
-343. Picker prompt addendum: instruct Claude to chain-reason over RECENT_CAPTURES (#334 follow-up — data is surfaced but never instructed to use; Mythos cross-target differentiator was incomplete) `codex/tasks/backlog-393-picker-prompt-recent-captures-chain-reasoning.json`
-344. Move finding_verifier hook from post-advance to pre-persistence in workers/orchestration/findings.py (#335 follow-up — closes the un-verified critical visibility window) `codex/tasks/backlog-394-verifier-pre-persistence-hook.json`
-345. Operator-credentialed auth path for login-only targets (#328/#329 deferred — closes the emergent-registration-only gap; most real targets are login-only) `codex/tasks/backlog-395-operator-credentialed-auth-path.json`
-346. Auth-recipe cache eviction policy + schema migration (#327 deferred — full cache currently silently rejects new entries, paying $$$ AI calls forever) `codex/tasks/backlog-396-auth-recipe-cache-eviction.json`
-347. Empirical Phase-3 live validation: restart API + 30+ advances + mine post-cutover cost/parse-fail/retry/capture-usage data (#330/#332/#333 deferred — agent-runnable per feedback_self_validation) `codex/tasks/backlog-397-empirical-phase3-live-validation.json`
+<!-- Live-Gruyere reliability fixes — surfaced 2026-05-18 during deferred-capability live validation.
+     Run 9f951a0f against https://google-gruyere.appspot.com/<instance>/ produced 0/17 known Gruyere
+     classes despite intrusive_allowed=True. Three root-cause bugs identified; all three must land
+     before the Mythos demo (#340 was #337 Final Review) can credibly claim live coverage. -->
+
+336. Live-reliability — assessment_planner respects run.autonomous_intrusive_allowed (planner currently overrides operator opt-in and blocks all exec_plan / impacket / metasploit picks) `codex/tasks/backlog-398-planner-respects-intrusive-allowed.json`
+337. Live-reliability — auth_discoverer: discover register/login from target_intel hints + index link-scan, not just the hardcoded REGISTER_PATHS list (Gruyere's signup.gtl is not in catalog → register_form=None → all 5 #328 probes no-op) `codex/tasks/backlog-399-auth-discoverer-app-specific-paths.json`
+338. Live-reliability — probe path-catalogs are stack-aware (target_intel observations augment info_disclosure / file_upload / param_pollution / cookie_tamper / stored_xss PROBE_PATHS at runtime; #328 'generality' threw away Gruyere's /dump.gtl and replaced it with nothing) `codex/tasks/backlog-400-probe-path-stack-augmentation.json`
+339. Mythos Phase 4 — Non-HTTP Primitives: SMB and LDAP as exec_plan Steps `codex/tasks/backlog-386-non-http-primitives-smb-ldap.json`
+340. Mythos Final Review — Convergence Demo and Capability Sign-Off `codex/tasks/backlog-387-final-review-mythos-convergence-demo.json`
+341. Mythos Tool Breadth — Specialized Tool Pack Fork from HexStrike (10-15 wrappers) `codex/tasks/backlog-388-specialized-tool-pack-fork-from-hexstrike.json`
+342. Mission Control Approve-Next Button — Wire onClick to ai-proposals review endpoint (UI bug surfaced during #324 checkpoint) `codex/tasks/backlog-389-ui-approve-next-button-broken-onclick-wiring.json`
+343. Broader codebase hygiene sweep — 27 ruff errors + 21 pre-existing pytest failures + ui-v2 build/lint cleanup (created during #332 broader-check 2026-05-17, execute after Phase 3 close-out) `codex/tasks/backlog-390-broader-codebase-hygiene-sweep.json`
+344. Picker max_tokens raise: 1024 → 4096 to eliminate truncated-response retry class (surfaced during Phase 3 live validation #333 on 2026-05-17) `codex/tasks/backlog-391-picker-max-tokens-raise.json`
+345. Wire rotate_run_progress() into the assessment loop so the #332 ~$30/day saving actually materializes (deferred-capability follow-up filed 2026-05-17) `codex/tasks/backlog-392-wire-rotate-run-progress-into-loop.json`
+346. Picker prompt addendum: instruct Claude to chain-reason over RECENT_CAPTURES (#334 follow-up — data is surfaced but never instructed to use; Mythos cross-target differentiator was incomplete) `codex/tasks/backlog-393-picker-prompt-recent-captures-chain-reasoning.json`
+347. Move finding_verifier hook from post-advance to pre-persistence in workers/orchestration/findings.py (#335 follow-up — closes the un-verified critical visibility window) `codex/tasks/backlog-394-verifier-pre-persistence-hook.json`
+348. Operator-credentialed auth path for login-only targets (#328/#329 deferred — closes the emergent-registration-only gap; most real targets are login-only) `codex/tasks/backlog-395-operator-credentialed-auth-path.json`
+349. Auth-recipe cache eviction policy + schema migration (#327 deferred — full cache currently silently rejects new entries, paying $$$ AI calls forever) `codex/tasks/backlog-396-auth-recipe-cache-eviction.json`
+350. Empirical Phase-3 live validation: restart API + 30+ advances + mine post-cutover cost/parse-fail/retry/capture-usage data (#330/#332/#333 deferred — agent-runnable per feedback_self_validation) `codex/tasks/backlog-397-empirical-phase3-live-validation.json`

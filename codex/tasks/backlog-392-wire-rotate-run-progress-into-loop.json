@@ -7,9 +7,9 @@
   "scope": "Add ONE call to `memory_backend.rotate_run_progress()` inside `api/app/services/assessment_loop.py:advance_assessment_loop` immediately after the picker dispatch but before the next-advance return. Wrap in try/except (rotation is housekeeping, not gating). Add 2-3 unit tests proving (a) the call fires once per advance, (b) over-threshold file rotates, (c) under-threshold file is left alone.",
   "status": "queued",
   "generated_by": "deferred-capability-followup-audit-20260517",
-  "generation_reason": "Identified during the 10-task deferred-capability audit (DONE_LOG #326-#335). #332 task body called rotation 'safe to call repeatedly. Caller (assessment loop) can invoke between advances; out of #332 scope to wire that call.' That wire-up never landed. Operator pushback 2026-05-17: 'rotation is dead code — de geclaimde ~$30/dag besparing materialiseert NIET zonder de wire.' Filing this as the explicit follow-up.",
+  "generation_reason": "Identified during the 10-task deferred-capability audit (DONE_LOG #326-#335). #332 task body called rotation 'safe to call repeatedly. Caller (assessment loop) can invoke between advances; out of #332 scope to wire that call.' That wire-up never landed. Operator pushback 2026-05-17: 'rotation is dead code \u2014 de geclaimde ~$30/dag besparing materialiseert NIET zonder de wire.' Filing this as the explicit follow-up.",
   "source_context": {
-    "queue_index": 342,
+    "queue_index": 345,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,
@@ -31,7 +31,7 @@
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
     "scope_creep_guard": "Single call-site addition + 2-3 tests. Do NOT change rotate_run_progress() internals, do NOT change the 8192/6144 thresholds (defaults from #332 contract), do NOT touch the truncation helpers or the picker prompt.",
-    "non_gating": "Rotation failure must not crash advance — wrap in try/except, log warning on failure, continue."
+    "non_gating": "Rotation failure must not crash advance \u2014 wrap in try/except, log warning on failure, continue."
   },
   "success_criteria": [
     "advance_assessment_loop calls memory_backend.rotate_run_progress() at most once per advance, on a stable hook point (after picker dispatch, before return).",

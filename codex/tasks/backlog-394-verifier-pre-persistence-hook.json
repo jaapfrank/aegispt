@@ -2,14 +2,14 @@
   "id": "backlog-394-verifier-pre-persistence-hook",
   "task_file": "codex/tasks/backlog-394-verifier-pre-persistence-hook.json",
   "task_type": "evidence_model",
-  "title": "Move finding_verifier hook from post-advance (assessment_loop) to pre-persistence (workers/orchestration/findings.py) — closes #335 visibility window",
-  "goal": "#335 wired the verifier as a post-advance hook in `assessment_loop.py`. That means findings are FIRST persisted with their original (un-verified) severity, then the verifier runs in the next advance and downgrades. There is a brief window — possibly several seconds, longer if the next picker call stalls — where downstream consumers (UI Mission Control polling, report exporters, webhooks) see a critical severity that the verifier would have downgraded. The fix is to call the verifier from the orchestration finding-persistence path BEFORE the finding row is written, so the severity that lands in the DB is already verifier-adjusted.",
-  "scope": "Add a verifier call inside `workers/orchestration/findings.py` (or whichever module is the canonical persistence point — confirm via Grep at task start) at the point where a finding row is about to be committed. For critical/high findings, call `finding_verifier.verify_finding(finding, run, scope)` synchronously, apply the verdict to the in-memory Finding object before flush, then persist. Remove or downgrade the assessment_loop.py hook (keep it as a backstop for findings that bypass the orchestration path, if any). Tests: prove that on persistence of a critical finding the DB row already carries the verifier verdict + adjusted severity (no second-pass downgrade visible).",
+  "title": "Move finding_verifier hook from post-advance (assessment_loop) to pre-persistence (workers/orchestration/findings.py) \u2014 closes #335 visibility window",
+  "goal": "#335 wired the verifier as a post-advance hook in `assessment_loop.py`. That means findings are FIRST persisted with their original (un-verified) severity, then the verifier runs in the next advance and downgrades. There is a brief window \u2014 possibly several seconds, longer if the next picker call stalls \u2014 where downstream consumers (UI Mission Control polling, report exporters, webhooks) see a critical severity that the verifier would have downgraded. The fix is to call the verifier from the orchestration finding-persistence path BEFORE the finding row is written, so the severity that lands in the DB is already verifier-adjusted.",
+  "scope": "Add a verifier call inside `workers/orchestration/findings.py` (or whichever module is the canonical persistence point \u2014 confirm via Grep at task start) at the point where a finding row is about to be committed. For critical/high findings, call `finding_verifier.verify_finding(finding, run, scope)` synchronously, apply the verdict to the in-memory Finding object before flush, then persist. Remove or downgrade the assessment_loop.py hook (keep it as a backstop for findings that bypass the orchestration path, if any). Tests: prove that on persistence of a critical finding the DB row already carries the verifier verdict + adjusted severity (no second-pass downgrade visible).",
   "status": "queued",
   "generated_by": "deferred-capability-followup-audit-20260517",
-  "generation_reason": "Identified during the 10-task deferred-capability audit. #335 chose the assessment_loop hook because workers/orchestration/ was must_not_touch in #335's package — but the contract for #335 was 'enforce that critical/high findings are verifier-checked before persistence', and post-hoc downgrade leaks the un-verified state. Operator pushback 2026-05-17: 'Findings worden eerst gepersisteerd met ORIGINAL severity, dan downgradet de verifier mogelijk. Klein venster waar consumers un-verified critical zien.' This task explicitly permits touching workers/orchestration/findings.py because closing the visibility window is the actual contract.",
+  "generation_reason": "Identified during the 10-task deferred-capability audit. #335 chose the assessment_loop hook because workers/orchestration/ was must_not_touch in #335's package \u2014 but the contract for #335 was 'enforce that critical/high findings are verifier-checked before persistence', and post-hoc downgrade leaks the un-verified state. Operator pushback 2026-05-17: 'Findings worden eerst gepersisteerd met ORIGINAL severity, dan downgradet de verifier mogelijk. Klein venster waar consumers un-verified critical zien.' This task explicitly permits touching workers/orchestration/findings.py because closing the visibility window is the actual contract.",
   "source_context": {
-    "queue_index": 344,
+    "queue_index": 347,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,
@@ -34,13 +34,13 @@
     "scope_creep_guard": "Hook relocation + small orchestration change only. Do NOT modify the verifier strategies (#335 contract), do NOT add new severities, do NOT change FindingAiEnrichment.metadata_json layout, do NOT extend the verifier to medium/low/info severity.",
     "structural_independence": "Verifier still imports zero runner modules (per #335). Orchestration imports the verifier service, not the other way around.",
     "non_blocking_for_low_severity": "Only critical/high findings go through the verifier (VERIFIABLE_SEVERITIES = {critical, high} per #335). Medium/low/info persist unchanged.",
-    "graceful_degradation": "If verifier raises (network error inside the orchestration thread), log warning, persist finding with original severity + verifier_verdict=inconclusive — do NOT block finding persistence."
+    "graceful_degradation": "If verifier raises (network error inside the orchestration thread), log warning, persist finding with original severity + verifier_verdict=inconclusive \u2014 do NOT block finding persistence."
   },
   "success_criteria": [
-    "workers/orchestration/findings.py persists critical/high findings with verifier verdict already attached to the Finding row at first flush — no second-pass severity update.",
+    "workers/orchestration/findings.py persists critical/high findings with verifier verdict already attached to the Finding row at first flush \u2014 no second-pass severity update.",
     "assessment_loop.py post-advance hook is either removed (preferred) or kept as a defensive backstop that no-ops when the verdict is already present.",
-    "Unit test: persist a critical finding through the orchestration path → DB row immediately shows verifier_verdict in FindingAiEnrichment.metadata_json + adjusted severity if verdict=failed.",
-    "Unit test: simulate verifier exception → finding still persists, verdict=inconclusive, severity unchanged.",
+    "Unit test: persist a critical finding through the orchestration path \u2192 DB row immediately shows verifier_verdict in FindingAiEnrichment.metadata_json + adjusted severity if verdict=failed.",
+    "Unit test: simulate verifier exception \u2192 finding still persists, verdict=inconclusive, severity unchanged.",
     "No regression in the 28 existing test_finding_verifier.py tests.",
     "Live: run a real assessment loop end-to-end and confirm via DB inspection that no critical row exists without a verifier verdict for more than a single transaction."
   ],
@@ -77,7 +77,7 @@
   "promotion_requirements": {
     "before_promotion": [
       "NEXT_TASK.md must contain this task as the single active task.",
-      "backlog-385 (#335) must remain merged — this is a follow-up, not a revert."
+      "backlog-385 (#335) must remain merged \u2014 this is a follow-up, not a revert."
     ],
     "after_completion": [
       "Update DONE_LOG.md with the relocation rationale + before/after timing argument.",
