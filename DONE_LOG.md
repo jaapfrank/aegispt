@@ -1,5 +1,38 @@
 # Done Log
 
+- 2026-05-18: completed backlog-393 (queue #343 — Picker prompt addendum: instruct Claude to chain-reason over RECENT_CAPTURES) — **second of the 6 deferred-capability follow-ups (#342-#347), #334 follow-up**:
+  - rationale: #334 added a RECENT_CAPTURES section to the graph projection showing the picker the last 5 captured_value entities with origin step + kind + redacted preview, but the system-prompt body was never updated to tell Claude HOW to use it for cross-target chain reasoning. Surfacing data without instructing the model how to consume it is half a feature — Claude reads the section as background context rather than actionable lineage. Operator pushback 2026-05-17: "Claude ziet de data maar weet niet ermee te chainen — de hele Mythos-differentiator (cross-target reasoning) is incompleet."
+  - implementation:
+    - appended a 14-line "CHAIN REASONING ON RECENT_CAPTURES (#334 + #343)" block to `_AI_PICKER_SYSTEM_PROMPT` in `api/app/services/assessment_loop.py`, inserted between the existing #330 STRUCTURED OUTPUT NOTE (lines 301-306) and the closing `"""` (was line 307, now line 322). The new block starts at prompt-internal line 308 — well outside the protected lines 1-200 must_not_touch range carried forward from #330/#331/#332/#334.
+    - content (generic, guidance-not-rule, no app-specific seeds per `feedback_no_prescriptive_recipes`): describes the kinds vocabulary (`token / cookie / hostname / credential_ref / url / other`), notes that the full value lives in the run credential vault (only redacted preview in prompt), tells Claude to prefer `${step_name.field}` interpolation when a capture kind matches a needed parameter rather than re-acquiring (chains the proof AND saves a round-trip), hedges that captures are HINTS not requirements (no kind match → proceed without), warns against pasting redacted previews into step bodies (interpolation resolves at execution time), and tells Claude to ignore the note when RECENT_CAPTURES is empty/absent.
+    - no other changes to the prompt body, no schema change (#330 contract untouched), no projection format change (#334 contract untouched), no new tools.
+  - tests (3 new tests appended to `api/tests/test_cross_target_provenance.py` under "#343 — Picker prompt CHAIN REASONING addendum" section header, all pass):
+    - `test_picker_prompt_includes_chain_reasoning_addendum`: header literal `"CHAIN REASONING ON RECENT_CAPTURES"` present + load-bearing phrases survived (`${step_name.field}` interpolation reference + `HINT` hedge keyword)
+    - `test_chain_reasoning_addendum_sits_outside_protected_lines_1_200`: sentinel — locates the header line via splitlines + index, asserts the 1-based line number > 200. Found at line 308 in practice; the test fails loudly if a future refactor accidentally moves the addendum into the protected range, protecting the #330/#331/#332/#334 contracts carried forward.
+    - `test_chain_reasoning_addendum_has_no_app_specific_seeds`: greps the 30-line block from the header for forbidden tokens (`/saveprofile`, `google-gruyere`, `is_admin=true`, `juice-shop`, `testfire`, `testasp`, `aegispt_`). If a future well-meaning edit adds a Gruyere flow or testfire pattern, the test fires. The grep is scoped to just the addendum block (extracted via splitlines from header forward) so it doesn't false-positive on legitimate uses of those terms elsewhere in the prompt.
+    - 44/44 pass when run alongside test_assessment_loop_structured_outputs.py (the full Phase 3 + #334 surface): no regression on #330 schema shape, no regression on existing 24 cross-target-provenance tests.
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - `_AI_PICKER_SYSTEM_PROMPT` body lines 1-200 untouched (addendum sits at line 308 inside the prompt string)
+    - `_PICKER_OUTPUT_SCHEMA` (#330) untouched — schema constraints unchanged, only the natural-language guidance was extended
+    - RECENT_CAPTURES section format in `assessment_graph.py` (#334) untouched — the prompt teaches Claude to consume the existing format; format itself unchanged
+    - evidence_ingest captured_value redaction policy (#334) untouched — full values still vault-only, addendum reinforces this by explicitly forbidding the model from pasting redacted previews into step bodies
+    - workers/runners/ and workers/orchestration/ untouched
+    - Per `feedback_no_prescriptive_recipes`: addendum uses generic kind names + generic parameter categories (Authorization header, session cookie, pivot target host) — no Gruyere/juice-shop/testfire-specific patterns; greppable check enforces this via test_chain_reasoning_addendum_has_no_app_specific_seeds
+  - validation:
+    - scripts/validate_backlog_tasks.py: 347 queued 1:1 (no queue change)
+    - .venv/bin/pytest api/tests/test_assessment_loop_structured_outputs.py api/tests/test_cross_target_provenance.py: 44/44 pass (17 #330 structured outputs + 24 existing #334 cross-target + 3 new #343 addendum tests)
+    - python3 -m compileall -q api: clean
+    - .venv/bin/ruff check api/app/services/assessment_loop.py: All checks passed
+    - git diff --check: clean (LF endings preserved; no CRLF conversion this session)
+  - acceptance criteria status (from task package):
+    - "_AI_PICKER_SYSTEM_PROMPT contains a CHAIN REASONING ON RECENT_CAPTURES section ≤15 lines, appended below line 300" → ✓ (14 lines, starts at line 308)
+    - "Unit test asserts the addendum text is present in the live prompt string" → ✓ (test_picker_prompt_includes_chain_reasoning_addendum)
+    - "Unit test asserts the addendum starts AFTER line 200" → ✓ (test_chain_reasoning_addendum_sits_outside_protected_lines_1_200)
+    - "Existing structured-output / soft-retry / cross-target-provenance tests still pass" → ✓ (44/44 across the 2 test files; no regression on #330 / #334)
+    - "No app-specific recipes in the addendum (generic instruction only)" → ✓ (test_chain_reasoning_addendum_has_no_app_specific_seeds enforces this in CI)
+  - load-bearing constraint that forced the design: must_not_touch on prompt lines 1-200 forced the append-below-line-300 placement. The placement decision (after #330 STRUCTURED OUTPUT NOTE, before the closing `"""`) keeps related machine-readable-output guidance grouped at the prompt tail; the sentinel test locks this in.
+  - next: promote backlog-394 (#344 — Move finding_verifier hook from post-advance to pre-persistence in workers/orchestration/findings.py) into NEXT_TASK.md. Third of the 6 deferred-capability follow-ups (#335 follow-up — closes the un-verified critical visibility window).
+
 - 2026-05-18: completed backlog-392 (queue #342 — Wire rotate_run_progress() into the assessment loop) — **first of the 6 deferred-capability follow-ups (#342-#347) filed on 2026-05-17**:
   - rationale: #332 added `memory_backend.rotate_run_progress(*, threshold_bytes, keep_bytes)` but never invoked it from any code path. The function was dead. The ~$30/day saving claimed in #332's DONE_LOG entry did not materialize because `/memories/run-progress.md` continued to grow unbounded across advances. Operator audit 2026-05-17 surfaced this as one of three load-bearing deferred capabilities; queued for the next session.
   - implementation:

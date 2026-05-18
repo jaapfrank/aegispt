@@ -444,3 +444,84 @@ def test_projection_recent_captures_line_length_bounded() -> None:
         # Allow some overhead for prefix/suffix but the underlying join
         # respects the per-entry truncation.
         assert "..." in capture_line or len(capture_line) < _PROJECTION_LINE_CHAR_CAP * 5
+
+
+# ---------------------------------------------------------------------------
+# #343 — Picker prompt CHAIN REASONING addendum
+# ---------------------------------------------------------------------------
+#
+# #334 added the RECENT_CAPTURES section to the projection but never told
+# Claude how to use it. #343 appends a guidance block to _AI_PICKER_SYSTEM_PROMPT
+# below the #330 STRUCTURED OUTPUT NOTE. These tests guard:
+#   - the addendum text is present in the live prompt
+#   - the addendum sits OUTSIDE the protected lines 1-200 (must_not_touch
+#     contract carried forward from #330/#331/#332/#334)
+#   - the addendum stays generic (no Gruyere/juice-shop/testfire seeds
+#     per feedback_no_prescriptive_recipes)
+
+
+def test_picker_prompt_includes_chain_reasoning_addendum() -> None:
+    """The picker prompt must contain the #343 chain-reasoning guidance
+    block so Claude knows how to consume the #334 RECENT_CAPTURES data."""
+    from api.app.services.assessment_loop import _AI_PICKER_SYSTEM_PROMPT
+    assert "CHAIN REASONING ON RECENT_CAPTURES" in _AI_PICKER_SYSTEM_PROMPT, (
+        "_AI_PICKER_SYSTEM_PROMPT must contain the #343 addendum header"
+    )
+    # Spot-check that the load-bearing phrases survived: kinds vocab,
+    # interpolation grammar reference, hint-not-rule hedge.
+    assert "${step_name.field}" in _AI_PICKER_SYSTEM_PROMPT, (
+        "addendum must reference the existing interpolation grammar"
+    )
+    assert "HINT" in _AI_PICKER_SYSTEM_PROMPT, (
+        "addendum must hedge — captures are hints not requirements"
+    )
+
+
+def test_chain_reasoning_addendum_sits_outside_protected_lines_1_200() -> None:
+    """Sentinel: the addendum MUST start AFTER line 200 of the prompt.
+    Lines 1-200 are the locked-in must_not_touch range carried forward
+    from #330/#331/#332/#334 contracts. Future refactors that move the
+    addendum into the protected range would break those contracts."""
+    from api.app.services.assessment_loop import _AI_PICKER_SYSTEM_PROMPT
+    lines = _AI_PICKER_SYSTEM_PROMPT.splitlines()
+    # Find the 1-based index of the header line within the prompt string.
+    header_idx_in_prompt = next(
+        (i for i, ln in enumerate(lines, start=1)
+         if "CHAIN REASONING ON RECENT_CAPTURES" in ln),
+        -1,
+    )
+    assert header_idx_in_prompt > 0, "addendum header not found in prompt"
+    assert header_idx_in_prompt > 200, (
+        f"addendum sits at prompt-internal line {header_idx_in_prompt}, "
+        f"must be > 200 (protected range)"
+    )
+
+
+def test_chain_reasoning_addendum_has_no_app_specific_seeds() -> None:
+    """Per feedback_no_prescriptive_recipes: the addendum must teach the
+    pattern generically, not seed specific Gruyere/juice-shop/testfire
+    flows. Greppable assertion against the prompt body — if a future
+    well-meaning edit adds `/saveprofile` or `is_admin=True` to the
+    addendum, this test fails."""
+    from api.app.services.assessment_loop import _AI_PICKER_SYSTEM_PROMPT
+    # Extract just the addendum block (from header to next blank-line-
+    # or-section boundary) so this test doesn't false-positive on
+    # examples elsewhere in the prompt.
+    lines = _AI_PICKER_SYSTEM_PROMPT.splitlines()
+    start = next(i for i, ln in enumerate(lines)
+                 if "CHAIN REASONING ON RECENT_CAPTURES" in ln)
+    # Take up to 30 lines from the header to cover the whole addendum.
+    block = "\n".join(lines[start:start + 30]).lower()
+    forbidden = [
+        "/saveprofile",
+        "google-gruyere",
+        "is_admin=true",
+        "juice-shop",
+        "testfire",
+        "testasp",
+        "aegispt_",  # platform-internal username prefix, not a recipe seed
+    ]
+    for needle in forbidden:
+        assert needle not in block, (
+            f"addendum contains app-specific seed '{needle}' — must be generic"
+        )

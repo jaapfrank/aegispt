@@ -304,6 +304,20 @@ include a plan, the `plan` field MUST be a JSON-encoded STRING of the plan
 body — not a nested object. Example: `"plan": "{\"name\":\"slug\",\"steps\":[...]}"`.
 The client decodes this back to an object before execution. All other
 fields are plain JSON values (strings, numbers, arrays, enums).
+
+CHAIN REASONING ON RECENT_CAPTURES (#334 + #343):
+The graph projection includes a RECENT_CAPTURES section listing the most-recent
+captured_value entities from prior tasks in this run — each with origin step,
+kind (token / cookie / hostname / credential_ref / url / other), and a
+redacted preview (full value lives in the run credential vault, not in this
+prompt). When a candidate step needs a parameter whose kind matches a capture
+(e.g. an Authorization header or session cookie for the next request, a host
+parameter for a pivot target), prefer referencing that capture via the existing
+`${step_name.field}` interpolation grammar instead of re-acquiring it. This
+chains the proof across tasks AND saves a round-trip. The capture is a HINT,
+not a hard requirement — if no kind matches, proceed without it. Do NOT paste
+a redacted preview into a step body; interpolation resolves to the full value
+at execution time. If RECENT_CAPTURES is empty or absent, ignore this note.
 """
 
 
