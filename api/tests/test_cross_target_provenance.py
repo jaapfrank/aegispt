@@ -30,7 +30,6 @@ from api.app.services.evidence_ingest import (
     make_observation,
 )
 
-
 # ---------------------------------------------------------------------------
 # _redact_value pure helper
 # ---------------------------------------------------------------------------
@@ -399,7 +398,10 @@ def test_projection_includes_recent_captures_section() -> None:
 
 
 def test_projection_caps_recent_captures_at_5_with_more_suffix() -> None:
-    from api.app.services.assessment_graph import project_graph_for_picker, _PROJECTION_RECENT_CAPTURES_LIMIT
+    from api.app.services.assessment_graph import (
+        _PROJECTION_RECENT_CAPTURES_LIMIT,
+        project_graph_for_picker,
+    )
     nodes = [_capture_node(i, created_at=f"2026-05-17T10:{i:02d}:00Z") for i in range(10)]
     out = project_graph_for_picker({"nodes": nodes})
     assert "RECENT_CAPTURES (10):" in out
@@ -424,7 +426,10 @@ def test_projection_omits_section_when_no_captures() -> None:
 
 def test_projection_recent_captures_line_length_bounded() -> None:
     """A pathological super-long var_name doesn't blow past the per-line cap."""
-    from api.app.services.assessment_graph import project_graph_for_picker, _PROJECTION_LINE_CHAR_CAP
+    from api.app.services.assessment_graph import (
+        _PROJECTION_LINE_CHAR_CAP,
+        project_graph_for_picker,
+    )
     nodes = [{
         "type": "captured_value",
         "label": "x" * 500,

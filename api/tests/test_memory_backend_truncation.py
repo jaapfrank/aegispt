@@ -312,6 +312,7 @@ def test_advance_assessment_loop_source_wires_rotate_helper() -> None:
     If a future refactor removes the call site, this test fails loudly.
     """
     import inspect
+
     from api.app.services.assessment_loop import advance_assessment_loop
     src = inspect.getsource(advance_assessment_loop)
     assert "_rotate_run_progress_safely()" in src, (

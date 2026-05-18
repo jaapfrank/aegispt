@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
 import pytest
 from sqlalchemy import select
@@ -92,7 +90,7 @@ def _make_finding(
 def _client_factory(handler):
     def factory(*args, **kwargs):
         kwargs.pop("transport", None)
-        return httpx.Client(transport=httpx.MockTransport(handler), *args, **kwargs)
+        return httpx.Client(*args, transport=httpx.MockTransport(handler), **kwargs)
 
     return factory
 
@@ -788,6 +786,7 @@ def test_store_findings_source_wires_pre_persistence_helper() -> None:
     visibility-window closure regresses.
     """
     import inspect
+
     from workers.orchestration.findings import store_findings
 
     src = inspect.getsource(store_findings)
@@ -811,6 +810,7 @@ def test_assessment_loop_post_advance_hook_stays_as_backstop() -> None:
     ai_enrichment.metadata_json already carries a 'verifier' key. This
     test guards the backstop from being deleted as 'dead code'."""
     import inspect
+
     from api.app.services.assessment_loop import advance_assessment_loop
 
     src = inspect.getsource(advance_assessment_loop)
