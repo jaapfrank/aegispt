@@ -1,281 +1,252 @@
-"""Stack-aware path augmentation for the 5 #328-migrated probes.
+"""Dynamic path augmentation driven by target_intel's emergent observations.
 
-#338 / backlog-400 — the hardcoded ``PROBE_PATHS`` catalogs that
-``info_disclosure_probe`` and friends ship with are stack-agnostic
-generics (``/dump``, ``/.env``, ``/backup.sql``, ...). On live Gruyere
-2026-05-18 those covered 0% of the actual leak surface because
-Gruyere's debug endpoint is ``/dump.gtl`` — stripped from the catalog
-in #328 "for generality" and not replaced.
+Replaces the static per-stack registries from #337/#338 (deleted in backlog-402
+per `feedback_live_proof_must_be_diverse_real_targets`). The smart-system
+contract is that target_intel reads the actual response at runtime and emits
+`attack_candidates` — concrete (path, vuln_class, evidence_basis) tuples — that
+downstream probes consume directly. No pre-baked stack→paths table.
 
-This module is the "look here too" layer the probes consult AT
-RUNTIME, keyed on stack-family hints derived from prior ``target_intel``
-observations:
+Data flow::
 
-    base_catalog = (...)  # the existing PROBE_PATHS
-    extra = paths_for_stack(stack_hints, "debug-dump")
-    full_catalog = base_catalog + extra
+    target_intel (Claude)  →  EvidenceObservation.attributes_json["attack_candidates"]
+                              [{"path": "/some-path", "vuln_class": "info-leak",
+                                "evidence_basis": "...", "suggested_runner_or_primitive": "..."}]
 
-Per ``feedback_no_prescriptive_recipes``: the registry only carries
-discovery PATH strings, never payloads or exploit recipes. The probes
-still apply their existing detection heuristics to whatever response
-each path returns. No app-instance-specific identifiers — only
-stack-family-level paths.
+    workers/orchestration/tasks.py  →  attack_candidates_for_run(session, run_id)
 
-Source of stack hints: ``target_intel`` runner emits
-``EvidenceObservation`` rows with ``attributes_json['technology_stack']``
-containing AI-generated stack-description strings (e.g. "Google App
-Engine — Gruyere training app", "ASP.NET MVC", "Tomcat Servlet
-Container"). The :func:`stack_hints_from_observations` normalizer
-maps those raw strings onto the registry's key vocabulary
-(``python_gruyere``, ``aspnet``, ``ruby_rails``, ...).
+    probe runner (info_disclosure / file_upload / stored_xss / param_pollution /
+                  cookie_tamper) → paths_for_category(candidates, "info-leak")
+                                 → augmented_PROBE_PATHS
+
+Categories the probes consume (matched against ``vuln_class`` from target_intel):
+
+  - ``info-leak`` / ``info-disclosure`` / ``debug-dump``  →  info_disclosure_probe
+  - ``file-upload`` / ``file-upload-target``              →  file_upload_probe
+  - ``register-action`` / ``auth-bypass``                  →  param_pollution_probe / cookie_tamper_probe
+  - ``stored-xss`` / ``xss-stored``                        →  stored_xss_probe
+
+Per ``feedback_no_prescriptive_recipes`` + ``feedback_live_proof_must_be_diverse_real_targets``:
+this module is a READER over target_intel output. It contains NO seed data,
+NO per-stack tables, NO per-target paths. The grep-guard test in
+``tests/test_multi_target_validation_grep_guard.py`` will fail if any
+target-hostname literal leaks in here.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-# --------------------------------------------------------------------------
-# Categories the probes consume.
-#
-# Each of the 5 #328-migrated probes maps to one or two categories:
-#   - info_disclosure_probe   →  "debug-dump"
-#   - file_upload_probe       →  "file-upload-target"
-#   - param_pollution_probe   →  "register-action"
-#   - cookie_tamper_probe     →  "register-action"
-#   - stored_xss_probe        →  "stored-xss-page"  (where stored XSS
-#                                                    typically renders)
-# --------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
 
-_CAT_DEBUG_DUMP = "debug-dump"
-_CAT_FILE_UPLOAD = "file-upload-target"
-_CAT_REGISTER_ACTION = "register-action"
-_CAT_STORED_XSS = "stored-xss-page"
+# Vuln-class → category mapping. Probes filter target_intel candidates by
+# category. We accept a generous synonym set because target_intel's Claude is
+# free to phrase vuln classes naturally — the smart-system contract is that
+# the model reasons about WHAT the path is for, not which keyword we expect.
 
-KNOWN_CATEGORIES: frozenset[str] = frozenset({
-    _CAT_DEBUG_DUMP,
-    _CAT_FILE_UPLOAD,
-    _CAT_REGISTER_ACTION,
-    _CAT_STORED_XSS,
-})
+_CATEGORY_INFO_LEAK = "info-leak"
+_CATEGORY_FILE_UPLOAD = "file-upload"
+_CATEGORY_REGISTER_ACTION = "register-action"
+_CATEGORY_STORED_XSS = "stored-xss"
 
-# --------------------------------------------------------------------------
-# Registry: stack-hint → category → list of (path, label) tuples.
-#
-# Label is what the consuming probe stores in its result row to indicate
-# WHY that path was tried. It mirrors the per-path label conventions in
-# the existing PROBE_PATHS tuples (e.g. "debug-dump", "phpinfo",
-# "config-leak"). Probes feed it back as the `category` field on
-# findings so operators can group leaks by detection bucket.
-# --------------------------------------------------------------------------
-
-_STACK_PATH_REGISTRY: dict[str, dict[str, tuple[tuple[str, str], ...]]] = {
-    # Google Gruyere — purpose-built training app, .gtl debug endpoints.
-    "python_gruyere": {
-        _CAT_DEBUG_DUMP: (
-            ("/dump.gtl", "debug-dump"),
-            ("/debug.gtl", "debug-dump"),
-        ),
-        _CAT_REGISTER_ACTION: (
-            # signup form lives at /signup.gtl; the form action is
-            # discovered via fingerprint, not seeded here.
-            ("/signup.gtl", "register-form"),
-        ),
-        _CAT_STORED_XSS: (
-            # Snippet store renders user-supplied HTML.
-            ("/snippets.gtl", "snippet-store"),
-        ),
-    },
-    # ASP.NET (WebForms + classic) — Elmah error log + Trace handler are
-    # the canonical post-config leaks. /elmah.axd documented at
-    # https://github.com/elmah/Elmah; /trace.axd at
-    # https://learn.microsoft.com/en-us/previous-versions/aspnet/wwh16c6c.
-    "aspnet": {
-        _CAT_DEBUG_DUMP: (
-            ("/elmah.axd", "elmah-leak"),
-            ("/trace.axd", "asp-trace"),
-            ("/Web.config", "config-leak"),
-        ),
-    },
-    # ASP.NET MVC — same elmah surface plus the conventional debug
-    # endpoint.
-    "aspnet_mvc": {
-        _CAT_DEBUG_DUMP: (
-            ("/elmah.axd", "elmah-leak"),
-            ("/trace.axd", "asp-trace"),
-        ),
-    },
-    # PHP — phpinfo is the textbook info-disclosure path. /phpmyadmin/
-    # is a frequently-exposed admin UI on misconfigured LAMP stacks.
-    "php": {
-        _CAT_DEBUG_DUMP: (
-            ("/info.php", "phpinfo"),
-            ("/phpinfo.php", "phpinfo"),
-            ("/phpmyadmin/", "admin-ui"),
-            ("/phpmyadmin/index.php", "admin-ui"),
-        ),
-    },
-    "php_laravel": {
-        _CAT_DEBUG_DUMP: (
-            # Laravel's telescope debug UI when env=local was left on.
-            ("/telescope", "laravel-telescope"),
-            ("/_ignition/health-check", "laravel-ignition"),
-        ),
-    },
-    # Java JSP / Servlet — Tomcat manager console is the canonical
-    # post-default-creds leak vector.
-    "java_jsp": {
-        _CAT_DEBUG_DUMP: (
-            ("/admin/console.jsp", "admin-console"),
-            ("/manager/html", "tomcat-manager"),
-            ("/manager/status", "tomcat-manager"),
-            ("/host-manager/html", "tomcat-manager"),
-        ),
-    },
-    "java_servlet": {
-        _CAT_DEBUG_DUMP: (
-            ("/manager/html", "tomcat-manager"),
-            ("/manager/status", "tomcat-manager"),
-            ("/jmx-console/", "jmx-console"),
-        ),
-    },
-    # Node / Express — the .well-known/express-status convention
-    # (express-status-monitor) plus the common health endpoint.
-    "node_express": {
-        _CAT_DEBUG_DUMP: (
-            ("/.well-known/express-status", "express-status"),
-            ("/status", "node-status"),
-        ),
-    },
-    # Django — accounts/login often exposes the admin redirect; the
-    # `/admin/` URL itself is the convention when DEBUG=False isn't set.
-    "python_django": {
-        _CAT_DEBUG_DUMP: (
-            ("/admin/", "django-admin"),
-            ("/admin/login/", "django-admin"),
-        ),
-    },
-    "ruby_rails": {
-        _CAT_DEBUG_DUMP: (
-            ("/rails/info", "rails-info"),
-            ("/rails/info/properties", "rails-info"),
-            ("/rails/info/routes", "rails-info"),
-        ),
-    },
+_VULN_CLASS_SYNONYMS: dict[str, str] = {
+    # info-leak / debug-dump family
+    "info-leak": _CATEGORY_INFO_LEAK,
+    "info-disclosure": _CATEGORY_INFO_LEAK,
+    "info_disclosure": _CATEGORY_INFO_LEAK,
+    "information-disclosure": _CATEGORY_INFO_LEAK,
+    "debug-dump": _CATEGORY_INFO_LEAK,
+    "debug_dump": _CATEGORY_INFO_LEAK,
+    "config-leak": _CATEGORY_INFO_LEAK,
+    "secret-exposure": _CATEGORY_INFO_LEAK,
+    "data-exposure": _CATEGORY_INFO_LEAK,
+    # file-upload family
+    "file-upload": _CATEGORY_FILE_UPLOAD,
+    "file_upload": _CATEGORY_FILE_UPLOAD,
+    "unrestricted-upload": _CATEGORY_FILE_UPLOAD,
+    "upload-bypass": _CATEGORY_FILE_UPLOAD,
+    # auth / register family
+    "register-action": _CATEGORY_REGISTER_ACTION,
+    "register_action": _CATEGORY_REGISTER_ACTION,
+    "auth-bypass": _CATEGORY_REGISTER_ACTION,
+    "auth_bypass": _CATEGORY_REGISTER_ACTION,
+    "mass-assignment": _CATEGORY_REGISTER_ACTION,
+    "mass_assignment": _CATEGORY_REGISTER_ACTION,
+    "privilege-escalation": _CATEGORY_REGISTER_ACTION,
+    "identity-forgery": _CATEGORY_REGISTER_ACTION,
+    # stored-xss family
+    "stored-xss": _CATEGORY_STORED_XSS,
+    "stored_xss": _CATEGORY_STORED_XSS,
+    "xss-stored": _CATEGORY_STORED_XSS,
+    "persistent-xss": _CATEGORY_STORED_XSS,
 }
 
-# --------------------------------------------------------------------------
-# Normalizer: turn raw target_intel "technology_stack" strings into
-# registry keys. The mapping is keyword-based — if a phrase contains a
-# known token, we add the corresponding hint. Multi-hint outputs are
-# possible (e.g. "Apache Tomcat with JSP" → both java_servlet AND
-# java_jsp) and the probes use that natively (union of paths).
-# --------------------------------------------------------------------------
-
-_STACK_KEYWORD_HINTS: tuple[tuple[str, str], ...] = (
-    ("gruyere", "python_gruyere"),
-    ("asp.net mvc", "aspnet_mvc"),
-    ("aspnet mvc", "aspnet_mvc"),
-    ("asp.net", "aspnet"),
-    ("aspnet", "aspnet"),
-    ("rails", "ruby_rails"),
-    ("django", "python_django"),
-    ("laravel", "php_laravel"),
-    ("symfony", "php"),
-    ("express", "node_express"),
-    ("node.js", "node_express"),
-    ("nodejs", "node_express"),
-    (".jsp", "java_jsp"),
-    ("jsp ", "java_jsp"),
-    ("jsp/", "java_jsp"),
-    ("tomcat", "java_servlet"),
-    ("servlet", "java_servlet"),
-    ("jboss", "java_servlet"),
-    ("wildfly", "java_servlet"),
-    (".php", "php"),
-    ("php ", "php"),
-    ("php/", "php"),
-    ("php-fpm", "php"),
-)
+KNOWN_CATEGORIES: frozenset[str] = frozenset({
+    _CATEGORY_INFO_LEAK,
+    _CATEGORY_FILE_UPLOAD,
+    _CATEGORY_REGISTER_ACTION,
+    _CATEGORY_STORED_XSS,
+})
 
 
-def paths_for_stack(
-    stack_hints: list[str] | None,
+def _normalize_vuln_class(vuln_class: Any) -> str | None:
+    """Map a free-text vuln_class to a category, or None if unknown."""
+    if not isinstance(vuln_class, str):
+        return None
+    key = vuln_class.strip().lower().replace(" ", "-")
+    return _VULN_CLASS_SYNONYMS.get(key)
+
+
+def attack_candidates_for_run(session: Any, run_id: Any) -> list[dict[str, Any]]:
+    """Read target_intel's emitted ``attack_candidates`` from EvidenceObservation rows.
+
+    Returns a flat list of candidate dicts with shape::
+
+        {"path": str, "vuln_class": str, "evidence_basis": str,
+         "suggested_runner_or_primitive": str | None,
+         "source_url": str | None}
+
+    Best-effort: any exception (missing table, malformed attributes_json) is
+    swallowed and returns []. The probes already handle an empty/None candidates
+    list gracefully — their baseline catalogs continue to drive discovery.
+    """
+    if run_id is None:
+        return []
+    try:
+        from sqlalchemy import select as _select
+
+        from api.app.models import EvidenceObservation  # type: ignore
+
+        rows = session.scalars(
+            _select(EvidenceObservation).where(EvidenceObservation.run_id == run_id)
+        ).all()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            attrs = (row.attributes_json or {}) if hasattr(row, "attributes_json") else {}
+            if not isinstance(attrs, dict):
+                continue
+            raw_candidates = attrs.get("attack_candidates")
+            if not isinstance(raw_candidates, list):
+                continue
+            for item in raw_candidates:
+                if not isinstance(item, dict):
+                    continue
+                path = item.get("path")
+                vuln_class = item.get("vuln_class")
+                if not isinstance(path, str) or not path.strip():
+                    continue
+                if not isinstance(vuln_class, str) or not vuln_class.strip():
+                    continue
+                out.append({
+                    "path": path.strip(),
+                    "vuln_class": vuln_class.strip(),
+                    "evidence_basis": str(item.get("evidence_basis", "")).strip() or None,
+                    "suggested_runner_or_primitive": (
+                        str(item.get("suggested_runner_or_primitive", "")).strip() or None
+                    ),
+                    "source_url": str(item.get("source_url", "")).strip() or None,
+                })
+        return out
+    except Exception as exc:  # best-effort; never block dispatch
+        logger.debug("attack_candidates_for_run: skipped (%s)", exc)
+        return []
+
+
+def observed_paths_for_run(session: Any, run_id: Any) -> list[dict[str, Any]]:
+    """Read target_intel's emitted ``observed_paths`` from EvidenceObservation rows.
+
+    Returns a flat list of observed-path dicts with shape::
+
+        {"url": str, "source": str, "hypothesis": str | None,
+         "confidence": float | None}
+
+    Used primarily by auth_discoverer to thread register/login candidate paths.
+    """
+    if run_id is None:
+        return []
+    try:
+        from sqlalchemy import select as _select
+
+        from api.app.models import EvidenceObservation  # type: ignore
+
+        rows = session.scalars(
+            _select(EvidenceObservation).where(EvidenceObservation.run_id == run_id)
+        ).all()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            attrs = (row.attributes_json or {}) if hasattr(row, "attributes_json") else {}
+            if not isinstance(attrs, dict):
+                continue
+            raw_paths = attrs.get("observed_paths")
+            if not isinstance(raw_paths, list):
+                continue
+            for item in raw_paths:
+                if not isinstance(item, dict):
+                    continue
+                url = item.get("url")
+                if not isinstance(url, str) or not url.strip():
+                    continue
+                out.append({
+                    "url": url.strip(),
+                    "source": str(item.get("source", "")).strip() or "unknown",
+                    "hypothesis": str(item.get("hypothesis", "")).strip() or None,
+                    "confidence": (
+                        float(item["confidence"])
+                        if isinstance(item.get("confidence"), (int, float))
+                        else None
+                    ),
+                })
+        return out
+    except Exception as exc:
+        logger.debug("observed_paths_for_run: skipped (%s)", exc)
+        return []
+
+
+def paths_for_category(
+    attack_candidates: list[dict[str, Any]] | None,
     category: str,
 ) -> list[tuple[str, str]]:
-    """Return (path, label) tuples for ``category`` from the stack
-    registry.
+    """Filter ``attack_candidates`` to ``category`` and return (path, label) tuples.
 
-    Empty list when ``stack_hints`` is None / empty / unknown — caller's
-    base catalog continues to drive discovery.
+    ``category`` is one of :data:`KNOWN_CATEGORIES`. The ``vuln_class`` field on
+    each candidate is matched against the synonym table — so a candidate
+    declaring ``vuln_class="information-disclosure"`` matches category
+    ``"info-leak"`` because both normalize to ``info-leak``.
 
-    Result is order-preserving (registry order per hint, then hint
-    order) and deduplicated on path-string. Category is matched
-    case-insensitive.
+    The label is the candidate's `vuln_class` (as emitted by target_intel),
+    propagated to the probe's finding output so operators can trace which
+    detection bucket a path landed in.
+
+    Returns [] when ``attack_candidates`` is None / empty / category unknown.
+    Deduplicates on path string. Order: registry-order from target_intel.
     """
-    if not stack_hints:
+    if not attack_candidates:
         return []
     cat_normalized = (category or "").strip().lower()
     if cat_normalized not in KNOWN_CATEGORIES:
         return []
+    seen: set[str] = set()
     out: list[tuple[str, str]] = []
-    seen_paths: set[str] = set()
-    for hint in stack_hints:
-        normalized_hint = str(hint or "").strip().lower()
-        if not normalized_hint:
+    for cand in attack_candidates:
+        if not isinstance(cand, dict):
             continue
-        cat_map = _STACK_PATH_REGISTRY.get(normalized_hint)
-        if not cat_map:
+        cand_category = _normalize_vuln_class(cand.get("vuln_class"))
+        if cand_category != cat_normalized:
             continue
-        for path, label in cat_map.get(cat_normalized, ()):
-            if path in seen_paths:
-                continue
-            seen_paths.add(path)
-            out.append((path, label))
+        path = cand.get("path")
+        if not isinstance(path, str) or not path.strip():
+            continue
+        path = path.strip()
+        if path in seen:
+            continue
+        seen.add(path)
+        label = str(cand.get("vuln_class", cat_normalized)).strip() or cat_normalized
+        out.append((path, label))
     return out
-
-
-def stack_hints_from_observations(
-    observations: list[dict[str, Any]] | None,
-) -> list[str]:
-    """Normalize raw ``target_intel`` observation rows into the
-    registry's stack-key vocabulary.
-
-    Reads ``attributes_json['technology_stack']`` (list of free-text
-    strings) and matches them keyword-by-keyword against
-    :data:`_STACK_KEYWORD_HINTS`. Output is deduplicated and sorted for
-    deterministic ordering across runs.
-
-    Empty list when ``observations`` is None, empty, or contains no
-    matchable strings.
-
-    The probes consume this via the orchestrator wiring at
-    ``workers/orchestration/tasks.py``; tests construct synthetic
-    observation dicts to exercise the normalization without a DB.
-    """
-    if not observations:
-        return []
-    hits: set[str] = set()
-    for obs in observations:
-        if not isinstance(obs, dict):
-            continue
-        attrs = obs.get("attributes") or obs.get("attributes_json") or {}
-        if not isinstance(attrs, dict):
-            continue
-        tech = attrs.get("technology_stack") or attrs.get("stack_hints") or []
-        if isinstance(tech, str):
-            tech = [tech]
-        if not isinstance(tech, list):
-            continue
-        joined = " ".join(str(t).lower() for t in tech if t)
-        if not joined:
-            continue
-        for needle, hint in _STACK_KEYWORD_HINTS:
-            if needle in joined:
-                hits.add(hint)
-    return sorted(hits)
 
 
 __all__ = [
     "KNOWN_CATEGORIES",
-    "paths_for_stack",
-    "stack_hints_from_observations",
+    "attack_candidates_for_run",
+    "observed_paths_for_run",
+    "paths_for_category",
 ]

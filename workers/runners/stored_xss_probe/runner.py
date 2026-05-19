@@ -118,6 +118,7 @@ def execute_stored_xss_probe(
     scope_allowlist: dict[str, Any] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
     stack_hints: list[str] | None = None,
+    attack_candidates: list[dict[str, Any]] | None = None,
 ) -> RunnerExecution:
     # #338 — accept stack_hints for forward-compat. SUBMIT_RENDER_PAIRS
     # is a 3-tuple shape (submit_path, param_name, render_path) which

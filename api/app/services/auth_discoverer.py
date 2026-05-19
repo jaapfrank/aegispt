@@ -151,74 +151,15 @@ MAX_PAGE_HTML_BYTES = 200_000  # truncate large bodies
 MAX_FIELDS_PER_FORM = 30
 FINGERPRINT_MAX_BYTES = 1900  # acceptance criterion: <2 KB
 
-# #337 — Stack-specific auth path registry. When `fetch_auth_pages` is
-# called with a `stack_hints` list (typically derived from prior
-# target_intel observations or fingerprint passes), the registry
-# contributes extra register / login paths that the baseline catalogs
-# (REGISTER_PATHS / LOGIN_PATHS) don't cover. These are DISCOVERY hints
-# — path strings only — never exploit recipes. The probes still use
-# build_recipe + acquire_session to learn the form fields + flow.
-#
-# Per feedback_no_prescriptive_recipes: this is the "look here too"
-# layer, not the "send this payload" layer. We add stack-family-level
-# paths only — no app-instance-specific identifiers (no per-user
-# Gruyere instance IDs, no operator-specific endpoints).
-_STACK_REGISTER_PATHS: dict[str, tuple[str, ...]] = {
-    # python_gruyere: only the form-page path. The POST action URL
-    # (which Gruyere happens to expose as a query-param endpoint) is
-    # discovered by parsing the form's `action` attribute on this page
-    # — we do NOT seed it directly to stay clear of the "no
-    # prescriptive recipe" contract enforced by
-    # test_no_gruyere_strings_in_module.
-    "python_gruyere": ("/signup.gtl",),
-    "aspnet": ("/Account/Register.aspx", "/register.aspx"),
-    "aspnet_mvc": ("/Account/Register",),
-    "ruby_rails": ("/users/sign_up", "/users/new"),
-    "python_django": ("/accounts/signup/", "/accounts/register/"),
-    "php_laravel": ("/register", "/auth/register"),
-    "node_express": ("/users", "/api/users", "/api/register"),
-    "java_jsp": ("/register.jsp", "/signup.jsp"),
-    "java_servlet": ("/register", "/signup"),
-}
-_STACK_LOGIN_PATHS: dict[str, tuple[str, ...]] = {
-    "python_gruyere": ("/login",),
-    "aspnet": ("/Account/Login.aspx", "/login.aspx"),
-    "aspnet_mvc": ("/Account/Login",),
-    "ruby_rails": ("/users/sign_in",),
-    "python_django": ("/accounts/login/",),
-    "php_laravel": ("/login", "/auth/login"),
-    "node_express": ("/api/login", "/api/auth/login"),
-    "java_jsp": ("/login.jsp",),
-    "java_servlet": ("/login",),
-}
-
-
-def _stack_specific_paths(stack_hints: list[str] | None) -> tuple[list[str], list[str]]:
-    """Return (register_paths, login_paths) lists from the stack-hint
-    registry. Paths are deduplicated, order-preserving, scoped to
-    stack-family level (no app-instance specifics).
-
-    Empty list when ``stack_hints`` is None or contains no known hints
-    — the baseline REGISTER_PATHS / LOGIN_PATHS catalogs still drive
-    discovery, so the function is safe to call with arbitrary input.
-    """
-    register: list[str] = []
-    login: list[str] = []
-    seen_r: set[str] = set()
-    seen_l: set[str] = set()
-    for hint in (stack_hints or []):
-        normalized = str(hint or "").strip().lower()
-        if not normalized:
-            continue
-        for path in _STACK_REGISTER_PATHS.get(normalized, ()):
-            if path not in seen_r:
-                seen_r.add(path)
-                register.append(path)
-        for path in _STACK_LOGIN_PATHS.get(normalized, ()):
-            if path not in seen_l:
-                seen_l.add(path)
-                login.append(path)
-    return register, login
+# backlog-402 (#341) — Removed the static `_STACK_REGISTER_PATHS` /
+# `_STACK_LOGIN_PATHS` registries from #337. Per
+# `feedback_live_proof_must_be_diverse_real_targets`, per-stack tables
+# encode per-app knowledge that doesn't generalize — only the
+# enumerated stacks work. The replacement is dynamic discovery via the
+# new `candidate_paths` kwarg on `fetch_auth_pages`: the caller (the
+# orchestrator or test code) fills it from target_intel's emitted
+# `observed_paths` list, scoped to source=="register-link" /
+# "login-link". This way the discovery is emergent per target.
 
 _FORM_RE = re.compile(r"<form([^>]*)>(.*?)</form>", re.DOTALL | re.IGNORECASE)
 _INPUT_RE = re.compile(r"<input([^>]*?)/?>", re.IGNORECASE)
@@ -236,7 +177,8 @@ def fetch_auth_pages(
     timeout_seconds: float = DEFAULT_TIMEOUT,
     probe_limit: int = DEFAULT_PROBE_LIMIT,
     client: httpx_client.Client | None = None,
-    stack_hints: list[str] | None = None,
+    stack_hints: list[str] | None = None,  # backward-compat no-op (#402)
+    candidate_paths: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Probe common register / login paths under ``base_url`` and return
     observed pages.
@@ -281,12 +223,19 @@ def fetch_auth_pages(
     if path_parts:
         instance_prefix = "/" + path_parts[0]
 
-    # #337 — fold stack-specific paths in (after the baseline catalog so
-    # the baseline still gets first crack at the probe budget for any
-    # stack the registry doesn't recognize).
-    extra_register, extra_login = _stack_specific_paths(stack_hints)
-    register_paths: tuple[str, ...] = REGISTER_PATHS + tuple(extra_register)
-    login_paths: tuple[str, ...] = LOGIN_PATHS + tuple(extra_login)
+    # backlog-402 (#341) — fold target_intel's emergent candidate_paths
+    # in (after baseline catalog). stack_hints kwarg retained as no-op
+    # for backward-compat with the previous orchestrator wiring.
+    _ = stack_hints  # explicitly unused — see #402 docstring
+    candidates_clean = [str(p).strip() for p in (candidate_paths or []) if str(p).strip()]
+    seen_extra: set[str] = set()
+    extra_paths: list[str] = []
+    for p in candidates_clean:
+        if p not in seen_extra:
+            seen_extra.add(p)
+            extra_paths.append(p)
+    register_paths: tuple[str, ...] = REGISTER_PATHS + tuple(extra_paths)
+    login_paths: tuple[str, ...] = LOGIN_PATHS + tuple(extra_paths)
 
     candidates: list[tuple[str, str]] = [(base_url, "index")]
     for path in register_paths:
@@ -305,12 +254,12 @@ def fetch_auth_pages(
             continue
         seen_urls.add(url)
         deduped.append((url, kind))
-    # #337 — when stack_hints are provided the candidate list is longer
-    # than the historical default; raise the effective ceiling so the
-    # stack-specific paths don't get truncated. The hard upper bound
-    # protects against unbounded fan-out from a runaway hint list.
-    if stack_hints:
-        effective_limit = min(len(deduped), max(probe_limit, probe_limit + len(extra_register) + len(extra_login)))
+    # backlog-402 — when candidate_paths are provided the candidate list
+    # is longer than the historical default; raise the effective ceiling
+    # so dynamic paths don't get truncated. Hard upper bound caps
+    # runaway fan-out from a misbehaving target_intel emit.
+    if candidates_clean:
+        effective_limit = min(len(deduped), max(probe_limit, probe_limit + len(extra_paths) * 2))
     else:
         effective_limit = probe_limit
     deduped = deduped[:effective_limit]

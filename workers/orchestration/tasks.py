@@ -736,12 +736,16 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
     # don't repeat the request.params.get(...) call site noise. None /
     # missing → probes use their baseline catalog.
     _stack_hints = request.params.get("stack_hints") if isinstance(request.params, dict) else None
+    _attack_candidates = (
+        request.params.get("attack_candidates") if isinstance(request.params, dict) else None
+    )
     if request.tool == "info-disclosure-probe":
         return execute_info_disclosure_probe(
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
             stack_hints=_stack_hints,
+            attack_candidates=_attack_candidates,
         )
     if request.tool == "param-pollution-probe":
         return execute_param_pollution_probe(
@@ -749,6 +753,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
             stack_hints=_stack_hints,
+            attack_candidates=_attack_candidates,
         )
     if request.tool == "stored-xss-probe":
         return execute_stored_xss_probe(
@@ -756,6 +761,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
             stack_hints=_stack_hints,
+            attack_candidates=_attack_candidates,
         )
     if request.tool == "cookie-tamper-probe":
         return execute_cookie_tamper_probe(
@@ -763,6 +769,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
             stack_hints=_stack_hints,
+            attack_candidates=_attack_candidates,
         )
     if request.tool == "file-upload-probe":
         return execute_file_upload_probe(
@@ -770,6 +777,7 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
             stack_hints=_stack_hints,
+            attack_candidates=_attack_candidates,
         )
     if request.tool == "logging-probe":
         return execute_logging_probe(
@@ -2870,35 +2878,24 @@ _STACK_HINT_AWARE_TOOLS: frozenset[str] = frozenset({
 })
 
 
-def _stack_hints_for_run(session, run_id) -> list[str]:
-    """Read EvidenceObservation rows for ``run_id`` and normalize their
-    ``technology_stack`` strings to the path-augmentation registry's
-    stack-key vocabulary.
+def _attack_candidates_for_run(session, run_id) -> list[dict]:
+    """Read target_intel's emitted ``attack_candidates`` for ``run_id``.
 
-    Returns [] when run_id is None, no observations exist, or none of
-    them carry matchable stack-hint text — the probes then fall back to
-    their baseline catalogs unchanged.
+    Replaces the deleted ``_stack_hints_for_run`` per backlog-402 — instead
+    of normalizing free-text technology_stack into a fixed stack-key
+    vocabulary, the orchestrator now consumes target_intel's emergent
+    per-target candidate paths directly.
+
+    Returns [] when run_id is None, no observations exist, or no rows carry
+    an ``attack_candidates`` field — the probes' baseline catalogs drive
+    discovery unchanged.
     """
     if run_id is None:
         return []
     try:
-        from sqlalchemy import select as _select
-
-        from workers.runners._path_augmentation import (
-            stack_hints_from_observations as _normalize,
-        )
-        rows = session.scalars(
-            _select(EvidenceObservation).where(EvidenceObservation.run_id == run_id)
-        ).all()
-        obs_dicts = [
-            {"attributes_json": (r.attributes_json or {})}
-            for r in rows
-        ]
-        return _normalize(obs_dicts)
+        from workers.runners._path_augmentation import attack_candidates_for_run as _read
+        return _read(session, run_id)
     except Exception:
-        # Best-effort: if the observation table is missing or the query
-        # blows up, fall back to baseline catalogs. The probes already
-        # handle stack_hints=None / [].
         return []
 
 
@@ -5135,10 +5132,10 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
             # observations / no matchable strings, the augmentation
             # is a no-op and probes fall back to their baseline
             # catalogs.
-            if task.tool in _STACK_HINT_AWARE_TOOLS and "stack_hints" not in runner_params:
-                hints = _stack_hints_for_run(session, task.run_id)
-                if hints:
-                    runner_params["stack_hints"] = hints
+            if task.tool in _STACK_HINT_AWARE_TOOLS and "attack_candidates" not in runner_params:
+                candidates = _attack_candidates_for_run(session, task.run_id)
+                if candidates:
+                    runner_params["attack_candidates"] = candidates
             append_task_stdout(
                 task.id,
                 _runner_command_preview(task.tool, task_targets, runner_params),

@@ -24,7 +24,7 @@ from urllib.parse import urljoin, urlparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
-from workers.runners._path_augmentation import paths_for_stack
+from workers.runners._path_augmentation import paths_for_category
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 logger = logging.getLogger(__name__)
@@ -154,7 +154,8 @@ def _root_for(target: str) -> str:
 def _probe_urls(
     target_url: str,
     *,
-    stack_hints: list[str] | None = None,
+    stack_hints: list[str] | None = None,  # backward-compat no-op (#402)
+    attack_candidates: list[dict[str, Any]] | None = None,
 ) -> list[tuple[str, str]]:
     """Build (url, category) tuples for a target.
 
@@ -178,8 +179,12 @@ def _probe_urls(
         # Strip filename, keep directory.
         path = path.rsplit("/", 1)[0] + "/"
     seen: set[str] = set()
+    # #402 — target_intel-emitted attack_candidates (vuln_class=info-leak)
+    # extend the base PROBE_PATHS dynamically. stack_hints kwarg is a no-op
+    # carried for backward-compat with the orchestrator wiring.
+    _ = stack_hints  # explicitly unused (deprecated)
     augmented_paths: tuple[tuple[str, str], ...] = PROBE_PATHS + tuple(
-        paths_for_stack(stack_hints, "debug-dump")
+        paths_for_category(attack_candidates, "info-leak")
     )
     for rel, cat in augmented_paths:
         for prefix in ("", path.rstrip("/")):
@@ -208,7 +213,8 @@ def execute_info_disclosure_probe(
     *,
     scope_allowlist: dict[str, Any] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
-    stack_hints: list[str] | None = None,
+    stack_hints: list[str] | None = None,  # backward-compat no-op (#402)
+    attack_candidates: list[dict[str, Any]] | None = None,
 ) -> RunnerExecution:
     findings_payload: list[dict[str, Any]] = []
     raw_results: list[dict[str, Any]] = []
@@ -237,7 +243,7 @@ def execute_info_disclosure_probe(
 
     with httpx_client.Client(timeout=timeout_seconds, follow_redirects=False) as client:
         for target in web_targets:
-            for url, category in _probe_urls(target, stack_hints=stack_hints):
+            for url, category in _probe_urls(target, stack_hints=stack_hints, attack_candidates=attack_candidates):
                 if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, url):
                     continue
                 try:

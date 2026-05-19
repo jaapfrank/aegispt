@@ -32,7 +32,7 @@ import httpx as httpx_client
 
 from api.app.services.auth_discoverer import acquire_session
 from api.app.services.runs import web_target_value_is_allowed_with_path
-from workers.runners._path_augmentation import paths_for_stack
+from workers.runners._path_augmentation import paths_for_category
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 logger = logging.getLogger(__name__)
@@ -121,6 +121,7 @@ def execute_file_upload_probe(
     scope_allowlist: dict[str, Any] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
     stack_hints: list[str] | None = None,
+    attack_candidates: list[dict[str, Any]] | None = None,
 ) -> RunnerExecution:
     findings_payload: list[dict[str, Any]] = []
     trace: list[dict[str, Any]] = []
@@ -130,7 +131,7 @@ def execute_file_upload_probe(
     # paths to the baseline UPLOAD_ENDPOINTS catalog. Registry currently
     # empty for "file-upload-target"; future entries auto-propagate.
     augmented_upload_endpoints: tuple[str, ...] = UPLOAD_ENDPOINTS + tuple(
-        path for path, _label in paths_for_stack(stack_hints, "file-upload-target")
+        path for path, _label in paths_for_category(attack_candidates, "file-upload")
     )
 
     web_targets: list[str] = []

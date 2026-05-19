@@ -56,8 +56,24 @@ Return ONLY valid JSON, max 8 test_plan entries:
   "cves_to_check": [{"cve": "CVE-YYYY-NNNNN", "reason": "why this version/tech is affected", "severity": "critical/high/medium"}],
   "attack_surface": ["specific vectors visible in this response"],
   "test_plan": [{"priority": 1, "tool": "aegispt_tool_name", "reason": "why for THIS target specifically", "params": {}, "expected_finding": "what to look for"}],
-  "sensitive_data_found": ["any keys/tokens/credentials visible in the response"]
+  "sensitive_data_found": ["any keys/tokens/credentials visible in the response"],
+  "observed_paths": [
+    {"url": "/path/seen-in-response", "source": "html-link|sitemap|robots|script-src|form-action|response-header",
+     "hypothesis": "what this path likely does based on context", "confidence": 0.0-1.0}
+  ],
+  "attack_candidates": [
+    {"path": "/path", "vuln_class": "info-leak|file-upload|register-action|stored-xss|auth-bypass|mass-assignment|other",
+     "evidence_basis": "concrete reason from the response why you flagged this — quote or paraphrase the evidence",
+     "suggested_runner_or_primitive": "info-disclosure-probe|file-upload-probe|stored-xss-probe|param-pollution-probe|cookie-tamper-probe|exec-plan|null"}
+  ]
 }
+
+CRITICAL RULES for observed_paths and attack_candidates:
+- ONLY include paths you actually SAW in the response (HTML hrefs, sitemap entries, robots.txt rules, form actions, script src, header values, JS-embedded URLs). Do NOT invent paths.
+- Do NOT seed app-specific or stack-conventional paths you "expect to exist" — only what you observed.
+- evidence_basis MUST quote or paraphrase the actual response text that triggered your hypothesis.
+- vuln_class MUST come from the enum above (or "other"); generic strings like "potential issue" are useless to downstream probes.
+- If you have no observed_paths or attack_candidates, emit empty arrays — do not invent.
 
 AegisPT tools available: httpx, nmap, xss-extended, xss-proof, smart-web-probe,
 ai-pentest-agent, zap, nikto, content-discovery, nuclei, sqlmap, ssrf-probe,
@@ -313,8 +329,9 @@ def execute_target_intel(
     # The host itself becomes an asset; discovered extra_paths become apis.
     observations: list[dict[str, Any]] = []
     try:
-        from api.app.services.evidence_ingest import make_observation
         from urllib.parse import urlparse
+
+        from api.app.services.evidence_ingest import make_observation
 
         host = urlparse(base_target).hostname or base_target
         observations.append(
@@ -327,6 +344,21 @@ def execute_target_intel(
                     "site_type": analysis.get("site_type"),
                     "technology_stack": analysis.get("technology_stack") or [],
                     "server_header": (context.get("headers") or {}).get("server"),
+                    # backlog-402 — emergent per-target discovery payload.
+                    # Downstream consumers: workers/runners/_path_augmentation.attack_candidates_for_run
+                    # (probes), api/app/services/auth_discoverer.fetch_auth_pages
+                    # (auth-flow). See SESSION_PROMPT.md for the smart-system
+                    # contract that forbids static per-stack registries.
+                    "observed_paths": (
+                        analysis.get("observed_paths")
+                        if isinstance(analysis.get("observed_paths"), list)
+                        else []
+                    ),
+                    "attack_candidates": (
+                        analysis.get("attack_candidates")
+                        if isinstance(analysis.get("attack_candidates"), list)
+                        else []
+                    ),
                 },
                 confidence=0.85,
                 evidence_refs=[base_target],

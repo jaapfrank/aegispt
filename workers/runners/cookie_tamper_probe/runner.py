@@ -32,7 +32,7 @@ from api.app.services.auth_discoverer import (
     fingerprint_application,
 )
 from api.app.services.runs import web_target_value_is_allowed_with_path
-from workers.runners._path_augmentation import paths_for_stack
+from workers.runners._path_augmentation import paths_for_category
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 logger = logging.getLogger(__name__)
@@ -159,10 +159,11 @@ def _check_admin_access(
     base: str,
     *,
     stack_hints: list[str] | None = None,
+    attack_candidates: list[dict[str, Any]] | None = None,
 ) -> tuple[bool, str, str]:
     # #338 — augment ADMIN_VERIFY_ENDPOINTS with stack-specific paths.
     augmented_paths: tuple[str, ...] = ADMIN_VERIFY_ENDPOINTS + tuple(
-        path for path, _label in paths_for_stack(stack_hints, "debug-dump")
+        path for path, _label in paths_for_category(attack_candidates, "info-leak")
     )
     for path in augmented_paths:
         url = urljoin(base, path)
@@ -182,6 +183,7 @@ def execute_cookie_tamper_probe(
     scope_allowlist: dict[str, Any] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
     stack_hints: list[str] | None = None,
+    attack_candidates: list[dict[str, Any]] | None = None,
 ) -> RunnerExecution:
     findings_payload: list[dict[str, Any]] = []
     trace: list[dict[str, Any]] = []
