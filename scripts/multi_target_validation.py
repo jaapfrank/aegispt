@@ -142,7 +142,7 @@ def register_engagement_and_scope(
         "retention_days": 1,
     }
     r = api_client.post("/api/v1/engagements", json=payload)
-    r.raise_for_status()
+    _raise_with_body(r)
     engagement_id = uuid.UUID(r.json()["id"])
 
     scope_payload = {
@@ -158,7 +158,7 @@ def register_engagement_and_scope(
         "denylist_json": {},
     }
     r = api_client.post(f"/api/v1/engagements/{engagement_id}/scope", json=scope_payload)
-    r.raise_for_status()
+    _raise_with_body(r)
     return engagement_id
 
 
@@ -174,11 +174,25 @@ def start_run(
         },
         "autonomous_mode": True,
         "autonomous_intrusive_allowed": True,
-        "dispatch_after_create": True,
+        "dispatch_after_create": False,
     }
     r = api_client.post(f"/api/v1/engagements/{engagement_id}/runs", json=payload)
-    r.raise_for_status()
+    _raise_with_body(r)
     return uuid.UUID(r.json()["id"])
+
+
+def _raise_with_body(response: httpx.Response) -> None:
+    """Raise on 4xx/5xx with the response body included in the exception message.
+
+    httpx's default raise_for_status loses the body, which makes diagnosing API
+    rejections (e.g. 409 from auto-queue conflict) needlessly painful.
+    """
+    if 400 <= response.status_code:
+        body = (response.text or "")[:500]
+        raise RuntimeError(
+            f"{response.request.method} {response.request.url} → "
+            f"http_{response.status_code}: {body}"
+        )
 
 
 def drive_advance_loop(api_client: httpx.Client, run_id: uuid.UUID) -> None:
@@ -187,7 +201,7 @@ def drive_advance_loop(api_client: httpx.Client, run_id: uuid.UUID) -> None:
             r = api_client.post(
                 f"/api/v1/runs/{run_id}/assessment-loop/iterate", json={}, timeout=60.0
             )
-            r.raise_for_status()
+            _raise_with_body(r)
             data = r.json() or {}
             status = (data.get("status") or "").lower()
             stop_reason = (data.get("stop_reason") or "").lower()
@@ -264,7 +278,7 @@ def render_report(
     lines: list[str] = [
         f"# Multi-target validation report — phase={phase}",
         "",
-        f"Generated: {dt.datetime.utcnow().isoformat(timespec='seconds')}Z",
+        f"Generated: {dt.datetime.now(dt.UTC).isoformat(timespec='seconds')}Z",
         "Harness: `scripts/multi_target_validation.py` (backlog-406)",
         "",
         "Per `feedback_live_proof_must_be_diverse_real_targets`: 5 unrelated real-world OSS apps,",
@@ -383,7 +397,7 @@ def main() -> int:
         if args.target == "all"
         else [t for t in TARGETS if t.target_id == args.target]
     )
-    run_label = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+    run_label = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%S")
     results: dict[str, dict[str, Any]] = {}
 
     for target in selected:
