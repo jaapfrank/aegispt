@@ -3206,12 +3206,21 @@ def advance_assessment_loop(
                 break
 
     selector_targets = _context_targets(context_document) or targets
+    # backlog-404 — when the operator explicitly opted into
+    # autonomous-intrusive at run-create time, the selector returns
+    # RUN instead of APPROVAL for active/intrusive runners. This makes
+    # the Claude picker (or selector fallback) the dispatch authority
+    # rather than competing with an APPROVAL workflow that no operator
+    # is watching.
     selector_report = select_next_best_action_for_run(
         session,
         run=run,
         scope=scope,
         approved_targets=selector_targets,
         tested_action_keys=tested_keys,
+        allow_active_without_review=bool(
+            getattr(run, "autonomous_intrusive_allowed", False)
+        ),
     )
     goal_candidate = _goal_oriented_candidate(
         run=run,

@@ -147,13 +147,8 @@ def register_engagement_and_scope(
 
     scope_payload = {
         "allowlist_json": {
-            "scope_rules": [
-                {
-                    "rule_type": "web_target",
-                    "value": f"http://127.0.0.1:{target.host_port}/",
-                    "active": True,
-                }
-            ]
+            "urls": [f"http://127.0.0.1:{target.host_port}/"],
+            "hosts": ["127.0.0.1"],
         },
         "denylist_json": {},
     }
@@ -168,6 +163,7 @@ def start_run(
     payload = {
         "profile_name": PROFILE,
         "configuration_json": {
+            "run_mode": "ai_loop",  # /iterate endpoint requires this gate
             "targets": [
                 {"value": f"http://127.0.0.1:{target.host_port}/", "tier": "active"}
             ],

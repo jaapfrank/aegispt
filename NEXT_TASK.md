@@ -4,56 +4,60 @@
 
 ## Title
 
-Single dispatch authority on autonomous-intrusive runs — Claude becomes THE picker; next_best_action_selector + auto_queue gated on `autonomous_intrusive_allowed=True` (sprint mythos-foundation, task 4 of 5)
+Evidence projection as attack-graph — RECENT_CAPTURES becomes RECENT_CHAINS with causal lineage between observations and consuming capabilities (sprint mythos-foundation, task 5 of 5; sprint-gate task)
 
 ## Goal
 
-Today three parallel dispatch engines compete on every autonomous-intrusive advance: (1) `auto_queue_active` / `auto_queue_passive` rules in `workers/orchestration/tasks.py` queue capability tasks based on signal triggers, (2) `next_best_action_selector` (deterministic rule-based) wraps every pick in `selector_decision='APPROVAL'`, and (3) the Claude picker via `_call_picker_with_exec_plan_refinement` (now hardened by backlog-403). On the after-402 harness run, runs persisted in `status=queued` with `tasks=[]` because the Claude picker never fired — auto_queue + selector were running first and producing APPROVAL-wrapped proposals that the harness's polling loop didn't satisfy.
+Today `project_graph_for_picker` (`api/app/services/assessment_graph.py`) projects observations as a flat bag-of-signals: `form_with_post_action`, `cookie_weakness`, `xss_confirmed`, `session_cookie_present` each appear as separate lines with no connection. After-404 confirmed the dispatch fix lands the picker firing (claude_picks=13, exec_plan_successful=5 on 3/5 targets) — but chain_findings stays at 0 because the picker doesn't see how observations CHAIN. The Mythos differentiator hinges on this: a smart system reasons "I have a stored-XSS at /snippets that reflects on /admin; I have a session-cookie sid=abc from /login response; the cookie matches the session-required parameter on /admin" — not the three signals separately.
 
-This task makes the Claude picker THE picker for `run.autonomous_intrusive_allowed=True` runs: auto_queue is skipped, selector emits suggestions for Claude to consume (not competing APPROVAL proposals). Operator-supervised runs (flag=False) keep all 3 engines unchanged.
+This task replaces the existing RECENT_CAPTURES section (#334) with a richer RECENT_CHAINS section that projects attack-chains: per captured_value, list the task it came from + the capabilities-or-runners that could consume it (based on required-input matching) + the observed evidence connecting them. Chain depth capped at 4 hops; max 5 chains projected per advance.
 
-## Baseline anchor
+## Baseline anchor (proof from prior sprint tasks)
 
-- backlog-406 baseline: 5/5 targets at 0/0/0/0/0/0 (5 runs all status=queued with tasks=0)
-- backlog-402 after-402: same 0/0/0/0/0/0 on harness metrics; observed_paths emit proven via direct invocation only
-- backlog-403 (just landed): code-level refinement loop ready; live picker firing requires THIS task
+backlog-404 after-404 baseline (2026-05-20):
 
-backlog-404 closes the chicken-egg.
+| target | claude_picks | exec_plan_ok | chain_findings | high+crit |
+|---|---:|---:|---:|---:|
+| mantis | 3 | 2 | 0 | 2 |
+| mediawiki | 3 | 1 | 0 | 3 |
+| roundcube | 2 | 0 | 0 | 0 |
+| gitea | 2 | 2 | 0 | 1 |
+| etherpad | 3 | 0 | 0 | 0 |
+
+`chain_findings` is the missing metric. backlog-405 moves it.
 
 ## Scope
 
-Three coordinated edits across api/app/services + workers/orchestration:
+Two coordinated edits in `api/app/services/assessment_graph.py`:
 
-1. `api/app/services/assessment_loop.py` — audit every `selector_decision='APPROVAL'` write-site (currently 2: lines ~2381 and ~3540 per grep). When `run.autonomous_intrusive_allowed=True`, replace APPROVAL with direct dispatch. The selector's top suggestions become INPUTS to the Claude picker prompt (new helper `_collect_selector_suggestions(run, scope) -> list[dict]`), not competing proposals.
-2. `workers/orchestration/tasks.py` — audit `auto_queue_active` / `auto_queue_passive` call sites. When `run.autonomous_intrusive_allowed=True`, skip auto-queue dispatch and emit a single audit AgentReasoning row stating "auto-queue skipped (autonomous-intrusive mode); Claude picker is sole dispatch authority".
-3. `api/app/services/ai_agent.py` — `select_next_best_action_for_run` callers also gate on the flag.
+1. New `_project_chains(observations, capabilities) -> list[str]` helper that for each `captured_value` observation walks forward: find target capabilities whose `required_inputs` field type matches the capture's `value_kind`; emit a chain line `[origin_task/observation_X] → [capture: value_kind=cookie var=sid] → [consumer: exec_plan POST /admin with cookie] | status: 1/3 hops materialized`. The walk uses `workers/runners/capabilities.json` `required_inputs` declarations + a small heuristic mapping (cookie → session-required, captured-token → bearer-required, etc.).
+2. `project_graph_for_picker` calls `_project_chains` and inserts RECENT_CHAINS section in place of (or above) the existing RECENT_CAPTURES section. The flat captures section is preserved BELOW the chains section so reviewers still see the raw data; the chains section is what Claude reads strategically.
 
 ## Constraints
 
 - Per SESSION_PROMPT §2 forbidden: no per-target conditionals, no pre-baked path/payload registries, no claiming DONE on green unit tests alone.
-- `non_autonomous_path_preserved`: for runs with autonomous_intrusive_allowed=False (operator-supervised default), behavior is UNCHANGED — APPROVAL wrappers fire, auto_queue runs, selector emits proposals. The bypass strictly opens autonomous behavior, never closes operator-supervised behavior.
-- `approval_path_still_exists`: approval workflow code stays intact for the non-autonomous case. Not removing approvals — only skipping them when the operator explicitly opted into autonomous-intrusive.
-- Existing `autonomous_intrusive_allowed` column is the sole gate — no new flag introduced.
-- Scope creep guard: 3 coordinated edits at the documented sites only.
+- No new entity types in `evidence_ingest`. The captured_value type from #334 stays the only chain-bearing type.
+- No changes to `workers/runners/capabilities.json` schema (only consume existing `required_inputs` declarations).
+- Per `feedback_no_prescriptive_recipes`: chain-discovery is heuristic over observed type-matchings (cookie kind matches session-required parameter), NOT hardcoded chain-templates.
+- Bounded projection: max chain depth = 4 hops. Max chains projected = 5 per advance. Per-line length ≤ 200 chars. Section omitted entirely when 0 chains materialize.
 
 ## Source Package
 
-`codex/tasks/backlog-404-single-dispatch-authority-on-autonomous-intrusive.json`
+`codex/tasks/backlog-405-evidence-projection-as-attack-graph.json`
 
 ## Reference
 
-- backlog-402 after-402 report (`docs/validation/sprint-2026-mythos-foundation-2026-05-19-after-402.md`) — empirical evidence that runs stay in status=queued with 0 tasks
-- backlog-403 DONE_LOG entry — refinement loop ready, picker hardened
-- Live run `3e2cfa5b` empirical baseline: 14/14 AgentReasoning rows with `next_best_action_selector_used=True` + `selector_decision='APPROVAL'`
-- Memory: [[feedback_live_proof_before_done]], [[feedback_live_proof_must_be_diverse_real_targets]], [[feedback_intrusive_pivot_approval]]
-- #336 fixed the planner-level bypass; this task is the matching dispatch-layer fix
+- backlog-404 after-404 report (`docs/validation/sprint-2026-mythos-foundation-2026-05-20-after-404.md`) — empirical evidence that picker now fires, exec_plan succeeds on 3/5 targets, but chain_findings stays 0
+- backlog-402 + backlog-403 + backlog-404 DONE_LOG entries
+- Memory: [[feedback_live_proof_before_done]], [[feedback_live_proof_must_be_diverse_real_targets]]
+- After backlog-405 lands: the after-405 harness phase evaluates the SPRINT-GATE PASS predicate from backlog-406: `exec_plan_successful ≥ 1 AND chain_findings ≥ 1 on ≥2 of 5 targets`.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_assessment_loop_dispatch_authority.py api/tests/test_assessment_loop.py api/tests/test_assessment_planner.py`
-- `python3 -m compileall -q api workers`
-- `.venv/bin/ruff check api/app/services/ workers/orchestration/`
-- `.venv/bin/pytest tests/test_multi_target_validation_grep_guard.py` (must still pass)
+- `.venv/bin/pytest api/tests/test_attack_graph_projection.py api/tests/test_cross_target_provenance.py api/tests/test_assessment_graph.py api/tests/test_assessment_loop_structured_outputs.py`
+- `python3 -m compileall -q api`
+- `.venv/bin/ruff check api/app/services/assessment_graph.py`
 - `git diff --check`
-- Live: API restart → harness `--phase after-404` on the 5 targets → ≥1 target shows non-zero on claude_picks AND at least one Task row with `decision_source='ai_loop_claude_picker'` AND 0 AgentReasoning rows with `selector_decision='APPROVAL'` on the autonomous-intrusive runs. Regression check: a non-autonomous control run still produces APPROVAL-wrapped proposals.
+- `.venv/bin/pytest tests/test_multi_target_validation_grep_guard.py` (must still pass)
+- Live: API restart → harness `--phase after-405` on the 5 targets → ≥1 target with a RECENT_CHAINS section in the picker prompt (verifiable via API log) AND **the sprint-gate PASS predicate met (`exec_plan_successful ≥ 1 AND chain_findings ≥ 1` on ≥2 of 5 targets)**.

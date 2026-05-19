@@ -857,6 +857,9 @@ def _build_operator_workbench(
                             for index, step in enumerate(goal_path, start=1)
                         ],
                     }
+            # backlog-404 — same flag-thread as in assessment_loop.py: when
+            # the operator opted into autonomous-intrusive, the selector
+            # returns RUN for active/intrusive runners instead of APPROVAL.
             next_best_actions = select_next_best_action_for_run(
                 session,
                 run=run,
@@ -864,6 +867,9 @@ def _build_operator_workbench(
                 approved_targets=derive_targets_for_run(scope, run),
                 tested_action_keys=tested_action_keys,
                 settings=settings,
+                allow_active_without_review=bool(
+                    getattr(run, "autonomous_intrusive_allowed", False)
+                ),
             )
             coverage_truth = build_coverage_truth(session, run=run, scope=scope)
             pending_standard_proposals = [
