@@ -1,0 +1,107 @@
+{
+  "id": "backlog-405-evidence-projection-as-attack-graph",
+  "task_file": "codex/tasks/backlog-405-evidence-projection-as-attack-graph.json",
+  "task_type": "ai_loop",
+  "title": "Evidence projection as attack-graph — RECENT_CAPTURES becomes RECENT_CHAINS with causal lineage between observations and capabilities that can consume them",
+  "goal": "Today `project_graph_for_picker` (api/app/services/assessment_graph.py) projects observations as a flat bag-of-signals: `form_with_post_action`, `cookie_weakness`, `xss_confirmed`, `session_cookie_present` each appear as separate lines with no connection. Claude sees the signals but not the causal chain: 'I have a stored-XSS at /snippets that reflects on /admin; I have a session-cookie sid=abc from /login response; the cookie matches the session-required parameter on /admin'. This task replaces the existing RECENT_CAPTURES section (#334) with a richer RECENT_CHAINS section that shows projected attack-chains: per captured_value, list the task it came from + the capabilities-or-runners that could consume it (based on required-input matching) + the observed evidence connecting them. Chain depth capped at 4 hops; max 5 chains projected per advance.",
+  "scope": "Two coordinated edits in api/app/services/assessment_graph.py: (1) new `_project_chains(observations, capabilities) -> list[str]` helper that for each captured_value observation walks forward: find target capabilities whose `required_inputs` field type matches the capture's `value_kind`; emit a chain line `[origin_task/observation_X] → [capture: value_kind=cookie var=sid] → [consumer: exec_plan POST /admin with cookie] | status: 2/3 hops materialized`. The walk uses workers/runners/capabilities.json `required_inputs` declarations + a small heuristic mapping (cookie → session-required, captured-token → bearer-required, etc.). (2) `project_graph_for_picker` calls _project_chains and inserts the RECENT_CHAINS section in place of (or above) the existing RECENT_CAPTURES section. The flat captures section is preserved below the chains section so reviewers still see the raw data; the chains section is what Claude reads strategically.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
+  "generation_reason": "Empirical evidence from run 3e2cfa5b: 14 picker reasonings showed Claude reasoning over flat lists of signals ('xss-extended is the next best observation candidate from form_with_post_action, http_service_present, web_target_present'). No row connected 'xss_confirmed' to 'session_cookie_present' to 'admin_endpoint_observed' as a chain. Without that connection, the picker has no signal that finding A enables capability B. #343 added a CHAIN REASONING ADDENDUM to the prompt instructing Claude to use RECENT_CAPTURES, but the addendum is inert because (a) 0 captured_value entities exist when exec_plan never dispatches successfully, and (b) even with captures, the flat projection doesn't connect them. This task projects the chain causally so the picker prompt is actionable.",
+  "source_context": {
+    "queue_index": 343,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_foundation_sprint",
+    "key_files": [
+      "api/app/services/assessment_graph.py",
+      "api/app/services/evidence_ingest.py",
+      "workers/runners/capabilities.json",
+      "api/tests/test_cross_target_provenance.py",
+      "api/tests/test_assessment_graph.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Two coordinated edits in assessment_graph.py. Do NOT add new entity types to evidence_ingest. Do NOT change captured_value redaction policy (#334 contract). Do NOT change capabilities.json schema — only consume its existing required_inputs declarations.",
+    "no_prescriptive_recipes": "Chain projection is heuristic over observed type-matchings (cookie value_kind matches capability required_input='session-cookie'). No hardcoded chain-templates per app, per stack, or per vuln-class. Greppable test asserts no app-specific strings introduced.",
+    "bounded_projection": "Max chain depth = 4 hops. Max chains projected = 5 per advance. Per-line length ≤ 200 chars. Section omitted entirely when 0 chains materialize."
+  },
+  "success_criteria": [
+    "New helper `_project_chains(observations, capabilities) -> list[str]` exists in assessment_graph.py.",
+    "RECENT_CHAINS section appears in picker prompt projection above (or instead of) RECENT_CAPTURES when ≥1 chain materializes.",
+    "Chain format: `chain N: [task=T1/obs=O1] → [capture: value_kind=K var=V] → [consumer: capability/runner C with required_input matching K] | status: progress hint`.",
+    "When 0 captured_value entities exist (e.g. exec_plan never dispatched), section is omitted entirely. No empty/dummy section.",
+    "When chains exceed the max=5 cap, suffix `| +M more chains` appended to last shown chain.",
+    "Heuristic type-matchings documented in module docstring: value_kind=cookie ⇆ required_input contains 'session', value_kind=token ⇆ 'bearer'/'auth-token', value_kind=hostname ⇆ 'target-host', value_kind=credential_ref ⇆ 'credential'.",
+    "Live re-test on backlog-406 harness: on ≥1 of the 5 targets where exec_plan dispatched ≥1 captured_value emitted, the picker prompt contains a RECENT_CHAINS line. Verifiable via picker call log grep.",
+    "Live re-test: on a 2nd target, RECENT_CHAINS shows a DIFFERENT chain shape (emergent, not template). Verifiable by diffing the chain strings.",
+    "Unit tests: (a) flat observations with no captured_value → section omitted; (b) 1 cookie capture + 1 session-requiring capability → 1 chain emitted with correct format; (c) 6 chains in the graph → section caps at 5 + '+1 more'; (d) chain depth caps at 4 hops; (e) per-line cap enforced even when capability names are pathologically long; (f) no app-specific seed strings in production source."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_graph.py",
+    "api/tests/test_cross_target_provenance.py",
+    "api/tests/test_assessment_graph.py",
+    "api/tests/test_attack_graph_projection.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "api/app/services/evidence_ingest.py (entity types + captured_value redaction policy from #334)",
+    "_AI_PICKER_SYSTEM_PROMPT body lines 1-200 (the addendum from #343 stays; this task changes what data the addendum operates on, not the addendum text)",
+    "workers/runners/capabilities.json schema (only consume existing required_inputs)",
+    "workers/runners/ runtime behavior",
+    "api/app/services/run_credential_vault.py"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_attack_graph_projection.py api/tests/test_cross_target_provenance.py api/tests/test_assessment_graph.py api/tests/test_assessment_loop_structured_outputs.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_graph.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live test on ≥2 unrelated real-world targets (per feedback_live_proof_must_be_diverse_real_targets): picker prompt contains a RECENT_CHAINS section with target-specific chain shapes.",
+      "Empirical chain emerges differently per target (greppable diff between targets' chain projections).",
+      "When no exec_plan has dispatched yet (0 captured_value entities), section is correctly omitted (not empty/placeholder)."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-403 must be DONE (exec_plan must actually run + emit captured_value entities to feed the projection).",
+      "backlog-404 must be DONE (Claude picker must actually be the dispatch authority for the projection to influence behavior)."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: chain projection samples per target (anonymized if needed), evidence that the prompt influence is empirically traceable to Claude's subsequent picks.",
+      "Update CURRENT_STATE.md.",
+      "Run backlog-406 harness as part of acceptance.",
+      "Promote backlog-406 (queue #344 — validation harness) into NEXT_TASK.md if not already in flight."
+    ]
+  },
+  "out_of_scope": [
+    "Adding new entity types to evidence_ingest (#334 captured_value stays the only chain-bearing type)",
+    "Changing required_inputs declarations in capabilities.json (separate task if heuristic ever needs more granular matching)",
+    "Cross-run chain projection (only within-run for now; cross-run is a future Mythos extension)",
+    "UI visualization of the attack-graph (out of scope; UI continues to display the projected text section)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

@@ -9,7 +9,7 @@
   "generated_by": "operator-decision-2026-05-17",
   "generation_reason": "Operator ran broader checks during #328 and again during #332 and found 21 pytest failures, 27 ruff errors, and ui-v2 build/lint errors that pre-date Phase 2/3 work and reside in must_not_touch files for the active Mythos tasks. Captured here as a discrete hygiene task so they don't bleed into Phase 4 scope.",
   "source_context": {
-    "queue_index": 344,
+    "queue_index": 349,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

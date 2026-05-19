@@ -1,0 +1,111 @@
+{
+  "id": "backlog-403-exec-plan-iterative-refinement",
+  "task_file": "codex/tasks/backlog-403-exec-plan-iterative-refinement.json",
+  "task_type": "ai_loop",
+  "title": "exec_plan iterative refinement loop — bounded re-prompt with failure context when plan body is empty / malformed / a step fails",
+  "goal": "Today when Claude emits an exec_plan with `steps=[]` or a plan whose JSON is truncated (`max_tokens=1024` cuts it mid-string) or whose step assertion fails at runtime, the loop logs 'rejected' and falls through to a single-tool pick. Claude is never told WHY his plan failed and never given a chance to refine. This task adds a bounded refinement loop (max 3 attempts per advance) where each failed attempt feeds back to Claude: `{previous_plan, failure_reason, current_evidence_state, runner_observed_responses_so_far}`. As part of the same task, the picker call's `max_tokens` is raised from 1024 to 4096 so the model has room to write a real multi-step plan body. This subsumes backlog-391 (max_tokens raise) which is closed as part of this task.",
+  "scope": "Two coordinated edits: (1) `api/app/services/assessment_loop.py` — `_claude_select_next_action` raises max_tokens to 4096 in the messages.create call. (2) New wrapper `_call_exec_plan_with_refinement(...)` in assessment_loop.py that wraps the exec_plan dispatch path: on (a) empty `plan.steps`, (b) malformed plan JSON, (c) `exec_plan_rejected` runner outcome from a prior step in the same advance, re-call Claude with a refinement prompt containing `previous_plan_attempt`, `failure_reason`, and `runner_evidence_summary` and accept the refined plan. Bounded at `EXEC_PLAN_MAX_REFINEMENTS = 2` (initial + 2 refinements = 3 attempts total). On exhaustion: log INFO 'exec_plan refinement exhausted after N attempts' and fall back to the existing single-tool pick path.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
+  "generation_reason": "Empirical evidence from run 3e2cfa5b log: 'Claude said EXEC_PLAN plan_name=admin-takeover-via-leaked-creds steps=0', followed by 'AI loop: exec_plan rejected — empty or malformed plan body'. Also: 'picker JSON parse failed despite structured-output schema; err=Unterminated string starting at: line 1 column 1158 (char 1157)' — the schema is valid but max_tokens=1024 truncates mid-string, and the structured-output enforcement does not (and cannot) prevent token-budget truncation. Claude is being asked to produce a complete multi-step attack plan in 1024 tokens; that's structurally too small for even a 3-step chain with proper assertions. The deeper issue is that the loop never tells Claude why his plan failed, so even with more tokens he can't iterate. This task addresses both: more budget + a feedback loop. Subsumes backlog-391 (filed 2026-05-17, never executed).",
+  "source_context": {
+    "queue_index": 341,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_foundation_sprint",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "workers/runners/exec_plan/runner.py",
+      "api/tests/test_assessment_loop_structured_outputs.py",
+      "api/tests/test_assessment_loop_soft_retry.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Two coordinated edits only: max_tokens raise + refinement wrapper. Do NOT change the structured-output schema (#330). Do NOT change exec_plan runner step execution semantics. Do NOT change auto_queue_active dispatch (separate task: backlog-404).",
+    "bounded_refinement": "Hard cap at EXEC_PLAN_MAX_REFINEMENTS = 2 (3 total attempts per advance). Each refinement counts against the same advance's budget — no nested loops, no unbounded retry on transient failures.",
+    "feedback_context_bounded": "The refinement prompt includes only: previous plan body (truncated to last 500 chars if longer), failure_reason (1 sentence), runner_evidence_summary (existing _summarize_findings_for_ai helper output, capped at 1000 chars). No accumulation across advances.",
+    "no_prescriptive_recipes": "The refinement prompt must NOT seed concrete fix templates ('try is_admin=True' etc.). Generic only: 'your previous plan had failure_reason=X; revise to address it'."
+  },
+  "success_criteria": [
+    "`max_tokens` in the picker `messages.create` call is 4096 (constant `PICKER_MAX_TOKENS` introduced).",
+    "New module-level constant `EXEC_PLAN_MAX_REFINEMENTS = 2`.",
+    "New wrapper `_call_exec_plan_with_refinement(...)` exists in assessment_loop.py and is called from the exec_plan dispatch path.",
+    "On empty plan.steps OR malformed plan JSON: loop logs 'exec_plan refining (attempt N/3) — reason=...' and re-calls Claude with the refinement prompt.",
+    "On runtime step failure (3rd-party HTTP error, assertion mismatch): if subsequent steps remain, log + re-call Claude with the actual response body (capped at 500 chars) so the next attempt can correct.",
+    "On exhaustion (3 attempts all failed): log INFO 'exec_plan refinement exhausted', set loop_state['exec_plan_refinement_exhausted'] = True, fall back to single-tool pick.",
+    "loop_state also carries 'exec_plan_refinements_attempted: int' for telemetry.",
+    "Live re-test on backlog-406 validation harness: on ≥1 of the 5 targets, log shows 'exec_plan refined after 1 attempt' AND the refined plan dispatches successfully (verifiable via Task row).",
+    "Live re-test: on a 2nd target, the refinement loop fires AND produces evidence of multi-step execution (≥2 steps complete with assertions passing).",
+    "Unit tests: (a) 1 fail + 1 success at attempt-2 produces dispatched refined plan; (b) 3 fails marks exhausted + falls back; (c) max_tokens constant is 4096; (d) refinement prompt includes failure_reason + previous_plan + evidence_summary; (e) refinement prompt does NOT include any app-specific seed strings (greppable test)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/tests/test_assessment_loop_structured_outputs.py",
+    "api/tests/test_exec_plan_refinement.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "workers/runners/exec_plan/runner.py (step execution semantics)",
+    "_AI_PICKER_SYSTEM_PROMPT body lines 1-200 (refinement prompt is built separately, not appended to system prompt)",
+    "_PICKER_OUTPUT_SCHEMA (#330 contract)",
+    "_call_picker_with_retries (#331 — soft retry on TRANSIENT failure stays; refinement is for SEMANTIC failure)",
+    "workers/orchestration/tasks.py dispatch path",
+    "evidence_ingest entity types"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_assessment_loop_structured_outputs.py api/tests/test_assessment_loop_soft_retry.py api/tests/test_exec_plan_refinement.py",
+      "python3 -m compileall -q api",
+      ".venv/bin/ruff check api/app/services/assessment_loop.py",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live test on ≥2 unrelated real-world targets (per feedback_live_proof_must_be_diverse_real_targets): at least one exec_plan refinement loop fires AND the refined plan dispatches with ≥2 successful steps.",
+      "max_tokens raise empirically eliminates the 'Unterminated string' parse-fail class (verifiable in /tmp/aegispt-api.log post-deploy: 0 occurrences of 'picker JSON parse failed' on a 20-advance run).",
+      "Refinement loop is bounded at 3 attempts; never infinite.",
+      "Refinement prompt is generic (no app-specific seeds verifiable by greppable test).",
+      "backlog-391 marked SUBSUMED-BY-backlog-403 and closed in DONE_LOG."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-402 must be DONE (target_intel emits observed_paths so the refinement loop has actionable evidence to feed back to Claude)."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: before/after refinement loop firings, parse-fail count delta, observed multi-step exec_plan dispatches.",
+      "Update CURRENT_STATE.md.",
+      "Close backlog-391 as SUBSUMED-BY-backlog-403 in DONE_LOG.md + TASK_QUEUE.md.",
+      "Run backlog-406 harness as part of acceptance.",
+      "Promote backlog-404 (queue #342 — single dispatch authority) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "target_intel emit (backlog-402 — landed first)",
+    "Approval-bypass in selector / auto-queue (backlog-404)",
+    "Graph chain projection (backlog-405)",
+    "Validation harness (backlog-406)",
+    "Changing the structured-output schema (#330 contract)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

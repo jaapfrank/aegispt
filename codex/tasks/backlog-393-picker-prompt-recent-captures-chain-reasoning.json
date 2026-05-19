@@ -9,7 +9,7 @@
   "generated_by": "deferred-capability-followup-audit-20260517",
   "generation_reason": "Identified during the 10-task deferred-capability audit. #334 task body explicitly noted '_AI_PICKER_SYSTEM_PROMPT body untouched (no system-prompt changes; the new RECENT_CAPTURES section appears in the dynamic graph projection block, which the picker already consumes via #323's plumbing).' But surfacing data without instructing the model how to use it is half a feature. Operator pushback 2026-05-17: 'Claude ziet de data maar weet niet ermee te chainen \u2014 de hele Mythos-differentiator (cross-target reasoning) is incompleet.'",
   "source_context": {
-    "queue_index": 347,
+    "queue_index": 352,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

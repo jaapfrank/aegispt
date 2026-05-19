@@ -1,0 +1,126 @@
+{
+  "id": "backlog-402-target-intel-emit-observed-paths",
+  "task_file": "codex/tasks/backlog-402-target-intel-emit-observed-paths.json",
+  "task_type": "ai_loop",
+  "title": "target_intel emit observed paths + concrete attack recommendations; remove _STACK_*_REGISTRY anti-patterns from #337/#338",
+  "goal": "Make target_intel the source of dynamic, per-target attack candidates instead of a stack-string identifier that downstream consumers re-classify via hand-built registries. target_intel's Claude prompt is extended to emit `attributes_json` carrying (a) `observed_paths` — concrete URL paths seen in response body / links / sitemap / robots / forms with provenance + plausible vuln-class, and (b) `attack_candidates` — a ranked list of (path, vuln_class, evidence_basis, suggested_primitive) tuples derived from those observations. Downstream consumers (the 5 #328 probes, auth_discoverer) read those fields directly. As part of the same task, the per-stack path tables added in #337 (_STACK_REGISTER_PATHS / _STACK_LOGIN_PATHS) and #338 (_STACK_PATH_REGISTRY / _STACK_KEYWORD_HINTS) are removed — they are anti-patterns per feedback_live_proof_must_be_diverse_real_targets, because they encode per-app knowledge that does not generalize beyond the targets in the table.",
+  "scope": "Three coordinated edits: (1) `workers/runners/target_intel/runner.py` — Claude prompt asks for JSON shape `{observed_paths: [{url, source, hypothesis, confidence}], attack_candidates: [{path, vuln_class, evidence_basis, suggested_runner_or_primitive}], technology_stack: [string]}`. Existing technology_stack output preserved for backward-compat readers. (2) `workers/runners/_path_augmentation.py` — REMOVE `_STACK_PATH_REGISTRY`, `_STACK_KEYWORD_HINTS`, `paths_for_stack`, `stack_hints_from_observations`. Replace with `attack_candidates_for_run(session, run_id) -> list[dict]` that reads target_intel's emitted `attack_candidates` from EvidenceObservation. (3) `api/app/services/auth_discoverer.py` — REMOVE `_STACK_REGISTER_PATHS`, `_STACK_LOGIN_PATHS`, `_stack_specific_paths` and the `stack_hints` kwarg on `fetch_auth_pages`. `fetch_auth_pages` accepts a new optional `candidate_paths: list[str] | None = None` kwarg that the caller fills from target_intel's `observed_paths` of source==register-link / source==login-link. Probe runners (#328 set) keep their `stack_hints` kwarg signature backward-compat for one release, internally route via `attack_candidates_for_run`. Tests for the removed registries are deleted; new tests assert target_intel output schema + downstream consumption.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
+  "generation_reason": "Empirical diagnosis 2026-05-19 of run 3e2cfa5b showed `next_best_action_selector_used=True` on all 14 AgentReasoning rows + 0 exec_plan picks + 0 chain-attacks. Operator pushback 2026-05-19: 'Waarom alleen Gruyere — een slim systeem moet op elke website elke target kunnen werken... Hierdoor moet het systeem dus juist slim zijn.' Live evidence + the new feedback_live_proof_must_be_diverse_real_targets memory rule force the conclusion that #337/#338's per-stack registries are anti-patterns: they only help on targets enumerated in the table. The smart-system fix is dynamic discovery by target_intel, not registry expansion. backlog-401 (broaden the keyword table) is queued as `blocked-pending #344-backlog-406 validation` — if this task's replacement covers what #401 was supposed to fix, #401 is closed as subsumed.",
+  "source_context": {
+    "queue_index": 340,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_foundation_sprint",
+    "key_files": [
+      "workers/runners/target_intel/runner.py",
+      "workers/runners/_path_augmentation.py",
+      "api/app/services/auth_discoverer.py",
+      "workers/orchestration/tasks.py",
+      "workers/runners/info_disclosure_probe/runner.py",
+      "workers/runners/stored_xss_probe/runner.py",
+      "workers/runners/file_upload_probe/runner.py",
+      "workers/runners/param_pollution_probe/runner.py",
+      "workers/runners/cookie_tamper_probe/runner.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Three coordinated edits only: target_intel prompt+schema, _path_augmentation removal, auth_discoverer removal. Do NOT change the 5 probe runners' detection heuristics (only the path-source plumbing). Do NOT touch the assessment loop's picker call. Do NOT touch evidence_ingest's entity types.",
+    "no_prescriptive_recipes": "Per feedback_no_prescriptive_recipes + feedback_live_proof_must_be_diverse_real_targets: target_intel's Claude prompt may NOT seed app-specific paths (no /dump.gtl mention, no /elmah.axd mention). The model must derive observed_paths from the response it actually sees. Greppable check: no app-specific path literals introduced anywhere in the diff.",
+    "registry_removal_required": "_STACK_PATH_REGISTRY, _STACK_KEYWORD_HINTS, _STACK_REGISTER_PATHS, _STACK_LOGIN_PATHS, _stack_specific_paths and `paths_for_stack` / `stack_hints_from_observations` MUST be deleted in this task. Do NOT deprecate-and-keep; the registries are anti-patterns. If validation harness backlog-406 demonstrates the replacement is insufficient, this task is reverted, not partially merged.",
+    "backward_compat_window": "Probe runners keep `stack_hints` kwarg in their signature for one release but route to the new `attack_candidates_for_run` helper internally. The kwarg becomes a no-op."
+  },
+  "success_criteria": [
+    "target_intel's Claude prompt asks for a JSON object containing observed_paths (list) + attack_candidates (list) + technology_stack (list, preserved).",
+    "target_intel's runner persists those fields into the EvidenceObservation attributes_json on its asset observation.",
+    "New helper `attack_candidates_for_run(session, run_id) -> list[dict]` reads attack_candidates from EvidenceObservation rows.",
+    "`_STACK_PATH_REGISTRY`, `_STACK_KEYWORD_HINTS`, `_STACK_REGISTER_PATHS`, `_STACK_LOGIN_PATHS` are deleted from production code. `git grep` returns 0 matches in `workers/`, `api/`.",
+    "5 #328 migrated probes consume `attack_candidates_for_run` for their PROBE_PATHS / UPLOAD_ENDPOINTS / ADMIN_VERIFY_ENDPOINTS augmentation. Their hardcoded base catalogs remain unchanged (acceptable as generic fallback when target_intel produces no candidates).",
+    "auth_discoverer.fetch_auth_pages accepts `candidate_paths: list[str] | None`. acquire_session caller threads register-links from target_intel into this kwarg.",
+    "Live re-test on the validation harness (backlog-406): on ≥1 of the 5 chosen real-world targets, target_intel emits ≥3 observed_paths in attributes_json AND a downstream probe consumes one of them. Verifiable via DB query on EvidenceObservation rows.",
+    "Live re-test: on ≥2 of the 5 targets, target_intel emits a different attack_candidates list (proves emergent output, not template).",
+    "No new app-specific path literals in production code (greppable check: `/dump`, `/elmah`, `/signup`, `/snippets` etc. are NOT in `workers/` or `api/` source files except as test fixtures).",
+    "All unit tests pass; the 19 #338 path_augmentation tests are deleted (not adapted) and the 11 #337 stack-specific tests are deleted (not adapted)."
+  ],
+  "likely_touched_files": [
+    "workers/runners/target_intel/runner.py",
+    "workers/runners/_path_augmentation.py",
+    "api/app/services/auth_discoverer.py",
+    "workers/orchestration/tasks.py",
+    "workers/runners/info_disclosure_probe/runner.py",
+    "workers/runners/stored_xss_probe/runner.py",
+    "workers/runners/file_upload_probe/runner.py",
+    "workers/runners/param_pollution_probe/runner.py",
+    "workers/runners/cookie_tamper_probe/runner.py",
+    "workers/tests/test_target_intel_runner.py",
+    "api/tests/test_auth_discoverer.py",
+    "workers/tests/test_path_augmentation.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "5 #328 probe detection heuristics (`_detect_sensitive`, `_check_admin_access` body content matching, etc.) — only their PATH SOURCE plumbing changes",
+    "`_AI_PICKER_SYSTEM_PROMPT` body lines 1-200",
+    "`api/app/services/assessment_loop.py:_claude_select_next_action`",
+    "`workers/orchestration/tasks.py:dispatch_runner` core logic",
+    "evidence_ingest.ACCEPTED_ENTITY_TYPES",
+    "memory_backend.py",
+    "ui-v2/"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_auth_discoverer.py workers/tests/test_target_intel_runner.py workers/tests/test_info_disclosure_probe.py workers/tests/test_stored_xss_probe.py workers/tests/test_file_upload_probe.py workers/tests/test_param_pollution_probe.py workers/tests/test_cookie_tamper_probe.py",
+      "python3 -m compileall -q workers api",
+      ".venv/bin/ruff check workers/ api/",
+      "git diff --check",
+      "git grep -nE '_STACK_PATH_REGISTRY|_STACK_KEYWORD_HINTS|_STACK_REGISTER_PATHS|_STACK_LOGIN_PATHS' -- workers/ api/ || true"
+    ],
+    "acceptance_criteria": [
+      "Live test on ≥2 unrelated real-world targets (per feedback_live_proof_must_be_diverse_real_targets) from the backlog-406 harness: target_intel emits attributes_json containing observed_paths + attack_candidates with target-specific content.",
+      "Probes consume attack_candidates and probe paths that came from observation (not from a deleted registry).",
+      "No app-specific path literals introduced in production code.",
+      "All prior registry-based tests are deleted; no test relies on _STACK_*_REGISTRY behavior."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "Validation harness backlog-406 task package must already be filed (so the live-acceptance criteria refers to a real harness)."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: before/after observed_paths counts per target; the deleted registry LoC; live evidence that probes consumed dynamic paths.",
+      "Update CURRENT_STATE.md.",
+      "Run backlog-406 harness as part of acceptance — DONE only if harness passes on ≥1 target.",
+      "If harness validates: reconsider backlog-401 closure (file the closure rationale in DONE_LOG referencing this task's live evidence).",
+      "Promote backlog-403 (queue #341 — exec_plan iterative refinement) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "Iterative exec_plan refinement (backlog-403)",
+    "Approval-bypass in next_best_action_selector (backlog-404)",
+    "Chain projection in graph (backlog-405)",
+    "Multi-target validation harness construction (backlog-406)",
+    "Any UI changes"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

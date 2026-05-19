@@ -9,7 +9,7 @@
   "generated_by": "mythos-spike-verdict-20260515",
   "generation_reason": "HexStrike spike on 2026-05-15 confirmed that their tool-wrapper pattern is trivially liftable - a Volatility wrapper is ~45 lines Flask handler + 20 lines MCP layer. Their server is monolithic (no clean library exists to depend on), but per-tool fork is ~30-60 minutes AI-paced. Forking adds capabilities we don't have without taking architectural lock-in. Spike report: docs/research/2026-05-15-hexstrike-code-spike.md.",
   "source_context": {
-    "queue_index": 342,
+    "queue_index": 347,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

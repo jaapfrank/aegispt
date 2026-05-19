@@ -1,0 +1,105 @@
+{
+  "id": "backlog-404-single-dispatch-authority-on-autonomous-intrusive",
+  "task_file": "codex/tasks/backlog-404-single-dispatch-authority-on-autonomous-intrusive.json",
+  "task_type": "ai_loop",
+  "title": "Single dispatch authority on autonomous-intrusive runs — Claude becomes THE picker; next_best_action_selector and auto_queue_active are skipped or routed-through-Claude",
+  "goal": "Today the autonomous-intrusive loop runs THREE competing dispatch engines in parallel: (1) auto_queue_active / auto_queue_passive rules in workers/orchestration that queue capability tasks based on signal triggers, (2) next_best_action_selector — a deterministic rule-based 'AI proposal' generator that wraps each pick in APPROVAL workflow, and (3) the Claude picker in assessment_loop.py. On run 3e2cfa5b all 14 AgentReasoning rows carried `next_best_action_selector_used=True` and `selector_decision='APPROVAL'` despite `autonomous_intrusive_allowed=True`. Claude was effectively advisory: 17 tasks dispatched mostly via auto-queue, Claude's picks repeatedly rejected (memory tool, empty exec_plan). #336 fixed the planner — this task fixes the dispatch layer. When `run.autonomous_intrusive_allowed=True`, the Claude picker is THE picker: auto_queue_active is skipped, next_best_action_selector emits suggestions for Claude to consume rather than directly creating APPROVAL proposals.",
+  "scope": "Three coordinated edits across api/app/services + workers/orchestration: (1) `api/app/services/assessment_loop.py` — audit every `selector_decision='APPROVAL'` write-site (currently 2: lines ~2381 and ~3540). When `run.autonomous_intrusive_allowed=True`, replace APPROVAL with direct dispatch path. The selector's suggestions become inputs to the Claude picker prompt (existing `target_intel_plan` projection extends to include selector_top_3 candidates). (2) `workers/orchestration/tasks.py` — audit `_auto_queue_active_capabilities` / `_auto_queue_passive_capabilities` call sites. When `run.autonomous_intrusive_allowed=True`, skip auto-queue dispatch and emit a single AgentReasoning row 'auto-queue skipped (autonomous-intrusive mode); Claude picker is sole dispatch authority'. (3) `api/app/services/ai_agent.py` — `select_next_best_action_for_run` callers in this module also gate on `autonomous_intrusive_allowed`.",
+  "status": "queued",
+  "generated_by": "sprint-2026-mythos-foundation-2026-05-19",
+  "generation_reason": "Empirical evidence from run 3e2cfa5b: 14/14 AgentReasoning rows have `next_best_action_selector_used=True` + `selector_decision='APPROVAL'` + `action_text='Create a reviewable AI proposal; execution waits for existing approval flow'`. The deterministic selector is treating an autonomous-intrusive run as if it were operator-supervised. Meanwhile auto_queue_active fired ~17 dispatches without Claude consultation. #336 fixed the planner-level bypass; this is the matching fix at the dispatch layer. Without this, the Claude picker can never be 'in charge' regardless of how good his reasoning gets.",
+  "source_context": {
+    "queue_index": 342,
+    "queue_file": "TASK_QUEUE.md",
+    "pack_id": null,
+    "pack_version": null,
+    "inventory_snapshot_id": null,
+    "relevance_decision_id": null,
+    "threat_intel_refs": []
+  },
+  "inputs": {
+    "prerequisite_active_task": "NEXT_TASK.md",
+    "broader_theme": "mythos_foundation_sprint",
+    "key_files": [
+      "api/app/services/assessment_loop.py",
+      "api/app/services/ai_agent.py",
+      "api/app/services/ai_action_selector.py",
+      "workers/orchestration/tasks.py"
+    ]
+  },
+  "constraints": {
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "no_silent_reprioritization": true,
+    "no_untracked_future_work": true,
+    "scope_creep_guard": "Three coordinated edits at the documented sites only. Do NOT introduce a new flag — the existing `run.autonomous_intrusive_allowed` is the sole gate. Do NOT change non-autonomous run behavior (regression guard).",
+    "non_autonomous_path_preserved": "For runs with autonomous_intrusive_allowed=False (operator-supervised default), behavior is UNCHANGED: APPROVAL wrappers fire, auto_queue runs, selector emits proposals. The bypass strictly opens autonomous behavior, never closes operator-supervised behavior.",
+    "approval_path_still_exists": "The approval workflow code path stays intact for the non-autonomous case. We are NOT removing approvals; we are skipping them only when the operator explicitly opted into autonomous-intrusive."
+  },
+  "success_criteria": [
+    "All `selector_decision='APPROVAL'` write sites in assessment_loop.py + ai_agent.py are gated on `not run.autonomous_intrusive_allowed`. When the flag is True, the code path takes direct dispatch instead.",
+    "auto_queue_active / auto_queue_passive in workers/orchestration/tasks.py gate on `not run.autonomous_intrusive_allowed`. When True, auto-queue is skipped + a single audit AgentReasoning row records the skip.",
+    "When auto_queue is skipped, the next_best_action_selector's top-3 candidates are projected into the picker prompt (new helper `_collect_selector_suggestions(run, scope) -> list[dict]` reuses select_next_best_action_for_run internally) so Claude has the deterministic candidates as INPUT, not COMPETITION.",
+    "Live re-test on backlog-406 harness: on ≥1 of the 5 targets with autonomous_intrusive_allowed=True, 0 AgentReasoning rows have selector_decision='APPROVAL'. ≥80% of dispatched tasks have `decision_source='ai_loop_claude_picker'`.",
+    "Live re-test on a 2nd target: same metrics.",
+    "Regression: a non-autonomous run still produces APPROVAL-wrapped proposals + auto_queue dispatches. Verifiable via DB query on a control run.",
+    "Unit tests: (a) flag=False preserves all 3 dispatch paths; (b) flag=True skips auto_queue + replaces APPROVAL with direct dispatch + threads selector suggestions to picker; (c) source-grep sentinel asserts the gate is consistently applied at every write site (test fails if a future refactor introduces a new APPROVAL write site without the gate)."
+  ],
+  "likely_touched_files": [
+    "api/app/services/assessment_loop.py",
+    "api/app/services/ai_agent.py",
+    "workers/orchestration/tasks.py",
+    "api/tests/test_assessment_loop_dispatch_authority.py",
+    "DONE_LOG.md",
+    "CURRENT_STATE.md",
+    "TASK_QUEUE.md"
+  ],
+  "must_not_touch": [
+    "approvals.py / approval_workflows.py — the approval flow code stays intact, only its CALLERS gate on the new condition",
+    "api/app/models/control.py (no schema changes; the existing autonomous_intrusive_allowed column is the sole input)",
+    "ai_action_selector.py:select_next_best_action_for_run body — only its CALLERS change",
+    "workers/runners/ — runners are agnostic to which dispatcher fired them",
+    "_AI_PICKER_SYSTEM_PROMPT body lines 1-200",
+    "ui-v2/ — UI continues to display whatever dispatch records get written"
+  ],
+  "validation": {
+    "required_checks": [
+      "python3 scripts/validate_backlog_tasks.py",
+      ".venv/bin/pytest api/tests/test_assessment_loop_dispatch_authority.py api/tests/test_assessment_loop.py api/tests/test_assessment_planner.py",
+      "python3 -m compileall -q api workers",
+      ".venv/bin/ruff check api/app/services/ workers/orchestration/",
+      "git diff --check"
+    ],
+    "acceptance_criteria": [
+      "Live test on ≥2 unrelated real-world targets (per feedback_live_proof_must_be_diverse_real_targets) with autonomous_intrusive_allowed=True: 0 AgentReasoning rows have selector_decision='APPROVAL'. Claude picker is dispatch authority.",
+      "Live test on a non-autonomous control run on one of the same targets: APPROVAL workflow still fires (regression check).",
+      "Source-grep sentinel: all selector_decision='APPROVAL' write sites are gated on the flag."
+    ]
+  },
+  "promotion_requirements": {
+    "before_promotion": [
+      "NEXT_TASK.md must contain this task as the single active task.",
+      "backlog-403 (exec_plan refinement) must be DONE so Claude's picks are actually viable when he becomes sole authority."
+    ],
+    "after_completion": [
+      "Update DONE_LOG.md with: % of dispatches via Claude picker before/after; per-target selector_decision distribution.",
+      "Update CURRENT_STATE.md.",
+      "Run backlog-406 harness as part of acceptance.",
+      "Promote backlog-405 (queue #343 — evidence projection as attack-graph) into NEXT_TASK.md."
+    ]
+  },
+  "out_of_scope": [
+    "target_intel emit (backlog-402)",
+    "exec_plan refinement (backlog-403 — must already be landed)",
+    "Graph chain projection (backlog-405)",
+    "Validation harness (backlog-406)",
+    "Removing the approval flow entirely (out of scope; operator-supervised flow remains intact)"
+  ],
+  "expected_output": {
+    "decision_complete": true,
+    "task_package_type": "single_clear_slice",
+    "validation_required": true,
+    "docs_update_required": true
+  },
+  "validation_status": "task_package_ready",
+  "approval_status": "queued_not_promoted"
+}

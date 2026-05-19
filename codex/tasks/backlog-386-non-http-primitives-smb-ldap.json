@@ -9,7 +9,7 @@
   "generated_by": "mythos-convergence-planning-20260515",
   "generation_reason": "exec_plan currently composes HTTP only. Cross-target chains demand non-HTTP step types. SMB and LDAP are the two highest-value additions because they unlock the canonical web -> infra -> AD pivot story. Underlying tooling (impacket, netexec, ldap_enum) already exists as runners; this exposes them as primitives Claude can compose.",
   "source_context": {
-    "queue_index": 340,
+    "queue_index": 345,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

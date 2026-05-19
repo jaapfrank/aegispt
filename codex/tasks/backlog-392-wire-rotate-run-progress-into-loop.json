@@ -9,7 +9,7 @@
   "generated_by": "deferred-capability-followup-audit-20260517",
   "generation_reason": "Identified during the 10-task deferred-capability audit (DONE_LOG #326-#335). #332 task body called rotation 'safe to call repeatedly. Caller (assessment loop) can invoke between advances; out of #332 scope to wire that call.' That wire-up never landed. Operator pushback 2026-05-17: 'rotation is dead code \u2014 de geclaimde ~$30/dag besparing materialiseert NIET zonder de wire.' Filing this as the explicit follow-up.",
   "source_context": {
-    "queue_index": 346,
+    "queue_index": 351,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

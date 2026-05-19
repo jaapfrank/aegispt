@@ -9,7 +9,7 @@
   "generated_by": "phase1-checkpoint-bug-surface-20260515",
   "generation_reason": "Operator surfaced on 2026-05-15 during Phase 1 checkpoint #324 that clicking the Approve-next button has no effect. Code inspection confirmed MissionControlV3.tsx:244 has no onClick handler \u2014 pure cosmetic placeholder. The correct backend endpoint exists (POST /runs/{run_id}/ai-proposals/{proposal_id}/review at api/app/routers/runs.py:1921) but the UI is not calling it. This is a real operator workflow break: intrusive-tier governance shows the approval gate but cannot be acted on from the UI.",
   "source_context": {
-    "queue_index": 343,
+    "queue_index": 348,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

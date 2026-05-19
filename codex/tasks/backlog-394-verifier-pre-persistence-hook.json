@@ -9,7 +9,7 @@
   "generated_by": "deferred-capability-followup-audit-20260517",
   "generation_reason": "Identified during the 10-task deferred-capability audit. #335 chose the assessment_loop hook because workers/orchestration/ was must_not_touch in #335's package \u2014 but the contract for #335 was 'enforce that critical/high findings are verifier-checked before persistence', and post-hoc downgrade leaks the un-verified state. Operator pushback 2026-05-17: 'Findings worden eerst gepersisteerd met ORIGINAL severity, dan downgradet de verifier mogelijk. Klein venster waar consumers un-verified critical zien.' This task explicitly permits touching workers/orchestration/findings.py because closing the visibility window is the actual contract.",
   "source_context": {
-    "queue_index": 348,
+    "queue_index": 353,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,
