@@ -9,7 +9,7 @@
   "generated_by": "deferred-capability-followup-audit-20260517",
   "generation_reason": "Identified during the 10-task deferred-capability audit. #330 said 'Live test on Gruyere produces zero JSON parse failures across 20+ picker advances \u2192 DEFERRED to operator validation'. #332 said 'Logged cache_read_input_tokens per picker hop drops measurably after deployment \u2192 DEFERRED'. #333 said 'empirical post-Phase-3 cost/parse-fail measurement requires operator to restart the API server with current code + run loop against any target for 30+ advances'. All three are AGENT-RUNNABLE per [[feedback_self_validation]] memory. This task makes the validation explicit and assigns it to the agent.",
   "source_context": {
-    "queue_index": 350,
+    "queue_index": 351,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

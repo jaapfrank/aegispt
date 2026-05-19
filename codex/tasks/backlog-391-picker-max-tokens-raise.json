@@ -9,7 +9,7 @@
   "generated_by": "phase3-checkpoint-empirical-finding-20260517",
   "generation_reason": "Captured live in /tmp/aegispt-api.log on 2026-05-17 during the Phase 3 checkpoint validation: picker output=1024 tokens exactly = response cut off mid-string at char 927. `_call_picker_with_retries` from #331 saved the loop, but this should not be a regular event \u2014 it wastes a Claude call per truncation. The retry mechanism is for transient cases, not predictable budget overruns. See docs/checkpoints/2026-mythos-phase3-review.md \u00a74.2 + \u00a74 follow-up.",
   "source_context": {
-    "queue_index": 344,
+    "queue_index": 345,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

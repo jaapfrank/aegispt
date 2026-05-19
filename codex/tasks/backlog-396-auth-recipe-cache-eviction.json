@@ -9,7 +9,7 @@
   "generated_by": "deferred-capability-followup-audit-20260517",
   "generation_reason": "Identified during the 10-task deferred-capability audit. #327 task body said 'store rejects when dir cap engages (loop writes ~140 entries until dir reaches 50 KB, then a fresh hash also fails)' as a SUCCESS criterion \u2014 but in production, the cache filling up means we re-pay $$$ AI calls forever on new fingerprints. That's a regression dressed as a feature. Same for schema_version: 'forward-compat path returns absent' means every old recipe becomes dead weight on schema bump. No follow-up was filed. Operator pushback 2026-05-17 spirit: 'constraints moet je zelf oplossen, niet doorlopen'.",
   "source_context": {
-    "queue_index": 349,
+    "queue_index": 350,
     "queue_file": "TASK_QUEUE.md",
     "pack_id": null,
     "pack_version": null,

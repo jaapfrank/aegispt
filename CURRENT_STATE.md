@@ -1,6 +1,18 @@
 # Current State
 
-## Latest Continuation — #338 Live-reliability fix 3/3: probe path-catalogs stack-aware via target_intel-driven registry (2026-05-19)
+## Latest Continuation — Live Gruyere validation of #336/#337/#338 + #339 backlog-401 follow-up filed (2026-05-19)
+
+Operator pushback "Dus je weet gewoon niet of het daadwerkelijk werkt? Hoe kun je dan zeggen dat het af is?" was correct — I ran the live re-test myself per `feedback_self_validation`. Three restart iterations needed (v1 missed worker env, v2 missed `DATABASE_URL`, v3 booted clean on `ac3a147`). Live run `3e2cfa5b` against `https://google-gruyere.appspot.com/<instance>/` produced **20 findings (1 critical + 8 high + 3 medium + 8 info)** in 8 completed tasks — vs the May-18 baseline run `9f951a0f` which had only 1 high. **2/14 known Gruyere classes now detected** (snippet stored-XSS + path traversal) including the critical "Session Cookie Theft via XSS".
+
+**#336 + #337 demonstrably contribute live value.** The planner gate now correctly lets exec_plan / xss-proof / smart-web-probe through; the auth_discoverer expansion + link-scan tightening picks up Gruyere's snippet/profile surfaces.
+
+**#338 plumbing is correct but the normalizer didn't fire.** Empirical proof: target_intel emitted `technology_stack=['Python/AppEngine (Google Frontend server)', 'HTML 4.01 Transitional', 'Custom JavaScript (lib.js)', 'Custom backend application']`. None of `_STACK_KEYWORD_HINTS`'s patterns (gruyere/tomcat/rails/django/laravel/express/jsp/php) match those strings. `stack_hints_from_observations` returned `[]`, `paths_for_stack` got nothing, `/dump.gtl` was NOT probed, and Gruyere's Debug Dump leak went undetected. The bridge from target_intel's free-text output to the registry's keyed vocabulary is too narrow.
+
+Filed `backlog-401` (queue #339) — *Stack-hint extraction: broaden matching + add explicit stack_family field from target_intel*. Two-part fix: (1) extend keyword table with App Engine / ASP.NET Core / Spring / Symfony patterns target_intel actually emits, (2) update target_intel's Claude prompt to ALSO emit `attributes_json['stack_family']` as a single registry-key string so normalization isn't needed in the first place. Queue renumber: #339 (was backlog-386 SMB/LDAP) shifted to #340; downstream +1 across #339-#350 (now #340-#351).
+
+**NEXT_TASK promoted to backlog-401 (#339)** — the empirically-driven follow-up the operator's question forced into existence. After it lands, a fourth live re-test measures the 2/14 → ?/14 detection delta.
+
+## Earlier — #338 Live-reliability fix 3/3: probe path-catalogs stack-aware via target_intel-driven registry (2026-05-19)
 
 Third + final of the 3 live-reliability fixes from the 2026-05-18 Gruyere diagnosis. `info_disclosure_probe` returned 0 findings on live Gruyere despite `/dump.gtl` openly leaking `_cookie: {'is_admin': False, 'is_author': False, 'uid': None}` — the path was stripped from the catalog in #328 "for generality". Same gap on most production stacks: ASP.NET `/elmah.axd`, PHP `/info.php`, Java `/manager/html` — none in the generic 51-path catalog.
 
