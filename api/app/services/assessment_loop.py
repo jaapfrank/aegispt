@@ -663,6 +663,20 @@ def _extract_target_intel_test_plan(run: Run) -> list[dict[str, Any]]:
 
 PICKER_MAX_RETRIES = 2
 
+# backlog-403 — picker output budget. The original 1024 truncated multi-step
+# exec_plan bodies mid-JSON (verified empirically on run 3e2cfa5b
+# 2026-05-19: "Unterminated string starting at: line 1 column 1158"). 4096
+# fits a typical 3-5 step plan + reasoning headroom; still cache-friendly.
+PICKER_MAX_TOKENS = 4096
+
+# backlog-403 — bounded refinement budget. When Claude emits action=exec_plan
+# with empty/malformed plan body, re-call the picker with a refinement
+# context (max EXEC_PLAN_MAX_REFINEMENTS additional attempts). Different from
+# PICKER_MAX_RETRIES (which retries on TRANSIENT None returns). Refinement
+# is for SEMANTIC failure: the model returned a syntactically-valid response
+# whose plan body is empty.
+EXEC_PLAN_MAX_REFINEMENTS = 2
+
 
 def _call_picker_with_retries(
     *,
@@ -673,13 +687,18 @@ def _call_picker_with_retries(
     scope: Scope | None,
     session: Session | None,
     loop_state: dict[str, Any],
+    extra_recent_rejections: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """Call :func:`_claude_select_next_action` with bounded soft retry.
 
     Records retry telemetry on ``loop_state`` so operators can spot a
     flapping picker even when the eventual outcome is success. The
     function is otherwise a drop-in replacement — same signature shape,
-    same return value (decision dict or None)."""
+    same return value (decision dict or None).
+
+    ``extra_recent_rejections`` (backlog-403) — threaded to
+    :func:`_claude_select_next_action`. Used by the refinement wrapper.
+    """
     loop_state["retries_this_advance"] = 0
     loop_state["picker_retry_exhausted"] = False
     total_attempts = PICKER_MAX_RETRIES + 1
@@ -697,6 +716,7 @@ def _call_picker_with_retries(
             targets=targets,
             scope=scope,
             session=session,
+            extra_recent_rejections=extra_recent_rejections,
         )
         if decision is not None:
             if attempt_index > 0:
@@ -719,6 +739,120 @@ def _call_picker_with_retries(
     return None
 
 
+def _call_picker_with_exec_plan_refinement(
+    *,
+    run: Run,
+    tested_keys: set[str],
+    available_tools: list[str],
+    targets: list[dict[str, Any]],
+    scope: Scope | None,
+    session: Session | None,
+    loop_state: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Wrap :func:`_call_picker_with_retries` with bounded re-prompting
+    when Claude returns ``action=exec_plan`` with empty/malformed plan.
+
+    Backlog-403 fix for the empirically-observed pattern (run 3e2cfa5b
+    2026-05-19):
+
+        AI loop: Claude said EXEC_PLAN plan_name='admin-takeover-...' steps=0
+        AI loop: exec_plan rejected — empty or malformed plan body
+
+    Without this wrapper the loop logs the rejection and falls through to
+    a single-tool pick. Now we re-prompt up to
+    :data:`EXEC_PLAN_MAX_REFINEMENTS` additional times with the previous
+    plan + failure_reason in the picker's recent_rejections context, so
+    Claude can correct the specific issue (empty steps / malformed JSON)
+    rather than rediscovering it next advance.
+
+    Updates ``loop_state``:
+
+      exec_plan_refinements_attempted:   int (0 if first attempt succeeded
+                                          or first decision wasn't exec_plan)
+      exec_plan_refinement_exhausted:    bool (True iff every attempt
+                                          returned malformed exec_plan)
+
+    Returns the final decision dict (may be the last malformed one when
+    exhausted — caller's existing rejection_sink handler will route it).
+    Returns None when the underlying picker returns None.
+    """
+    loop_state["exec_plan_refinements_attempted"] = 0
+    loop_state["exec_plan_refinement_exhausted"] = False
+
+    refinement_notes: list[dict[str, Any]] = []
+    decision: dict[str, Any] | None = None
+    total_attempts = EXEC_PLAN_MAX_REFINEMENTS + 1
+    for attempt_index in range(total_attempts):
+        decision = _call_picker_with_retries(
+            run=run,
+            tested_keys=tested_keys,
+            available_tools=available_tools,
+            targets=targets,
+            scope=scope,
+            session=session,
+            loop_state=loop_state,
+            extra_recent_rejections=refinement_notes if refinement_notes else None,
+        )
+        if decision is None:
+            # Underlying retry budget exhausted; nothing to refine.
+            return None
+        action = str(decision.get("action") or "").lower()
+        if action != "exec_plan":
+            # Decision isn't an exec_plan — refinement isn't applicable;
+            # caller handles other actions normally.
+            return decision
+        plan = decision.get("plan")
+        steps_ok = (
+            isinstance(plan, dict)
+            and isinstance(plan.get("steps"), list)
+            and len(plan.get("steps") or []) > 0
+        )
+        if steps_ok:
+            if attempt_index > 0:
+                logger.info(
+                    "AI loop: exec_plan refined after %d attempt(s) — final plan has %d step(s)",
+                    attempt_index,
+                    len(plan["steps"]),
+                )
+            return decision
+        # Plan body empty/malformed — try refinement if budget remains.
+        if attempt_index >= EXEC_PLAN_MAX_REFINEMENTS:
+            logger.info(
+                "AI loop: exec_plan refinement exhausted after %d attempts",
+                attempt_index + 1,
+            )
+            loop_state["exec_plan_refinement_exhausted"] = True
+            return decision
+        loop_state["exec_plan_refinements_attempted"] = attempt_index + 1
+        # Truncate plan summary so the refinement context stays small.
+        prev_plan_summary = (
+            json.dumps(plan)[:500] if isinstance(plan, dict) else "(plan field absent)"
+        )
+        failure_reason = (
+            "the 'steps' array was empty"
+            if isinstance(plan, dict)
+            else "the 'plan' field was missing or not a JSON object"
+        )
+        refinement_notes.append({
+            "reason": "exec_plan_refinement_needed",
+            "detail": (
+                f"Your previous exec_plan attempt was rejected because {failure_reason}. "
+                f"Previous plan body (truncated to 500 chars): {prev_plan_summary}. "
+                "Revise: produce a concrete multi-step plan body with at least 2 'steps' "
+                "that addresses the target's observed evidence. Do NOT re-emit an empty "
+                "or malformed plan."
+            ),
+            "at": _now(),
+        })
+        logger.info(
+            "AI loop: exec_plan refining (attempt %d/%d) — reason=%s",
+            attempt_index + 2,
+            total_attempts,
+            "empty_steps" if isinstance(plan, dict) else "malformed_plan",
+        )
+    return decision  # safety; loop exits via returns above
+
+
 def _claude_select_next_action(
     *,
     run: Run,
@@ -727,11 +861,17 @@ def _claude_select_next_action(
     targets: list[dict[str, Any]],
     scope: Scope | None = None,
     session: Any = None,
+    extra_recent_rejections: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """Ask Claude Haiku to pick the next action given current evidence.
 
     Returns the parsed JSON dict from Claude, or None if Claude is unreachable
     or returns an unparseable response. Caller falls back to heuristic cascade.
+
+    ``extra_recent_rejections`` (backlog-403) — when provided, REPLACES the
+    DB-read rejections for this single call. Used by the refinement wrapper
+    to feed in-this-advance rejection notes (e.g. "your previous exec_plan
+    had empty steps; revise") without persisting them to run config first.
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
@@ -759,7 +899,12 @@ def _claude_select_next_action(
     loop_state_for_rejections = _as_dict(
         _as_dict(run.configuration_json or {}).get(LOOP_CONFIG_KEY)
     )
-    recent_rejections = list(loop_state_for_rejections.get("recent_rejections") or [])[-6:]
+    if extra_recent_rejections is not None:
+        # backlog-403 — refinement override: bypass DB read, use fresh
+        # in-advance rejection notes.
+        recent_rejections = list(extra_recent_rejections)[-6:]
+    else:
+        recent_rejections = list(loop_state_for_rejections.get("recent_rejections") or [])[-6:]
     # Pull the AI-generated test_plan that target-intel produced. This is a
     # ranked list of recommended tools (smart-web-probe, xss-extended, ...) based
     # on actual analysis of the site content. Claude often picks generic tools
@@ -1040,7 +1185,7 @@ def _claude_select_next_action(
             _set_thinking_state("thinking", _hop, "Calling Claude for next action")
             msg = client.messages.create(
                 model="claude-opus-4-7",
-                max_tokens=1024,
+                max_tokens=PICKER_MAX_TOKENS,
                 system=[{
                     "type": "text",
                     "text": _AI_PICKER_SYSTEM_PROMPT,
@@ -3135,7 +3280,7 @@ def advance_assessment_loop(
     )
     if tested_keys:
         available_tools = supported_execution_tools()
-        decision = _call_picker_with_retries(
+        decision = _call_picker_with_exec_plan_refinement(
             run=run,
             tested_keys=tested_keys,
             available_tools=sorted(available_tools),

@@ -1,5 +1,48 @@
 # Done Log
 
+- 2026-05-19: completed backlog-403 (queue #342 — exec_plan iterative refinement loop + picker max_tokens 1024 → 4096) — **sprint task 3 of 5 (mythos-foundation); subsumes backlog-391**:
+  - rationale: empirical evidence from run 3e2cfa5b 2026-05-19 showed two failure modes that previously terminated picker output: (a) `picker JSON parse failed despite structured-output schema; err=Unterminated string starting at: line 1 column 1158` (max_tokens=1024 truncated mid-string), (b) `Claude said EXEC_PLAN plan_name='admin-takeover-via-leaked-creds' steps=0` → `exec_plan rejected — empty or malformed plan body` (loop logged + fell through to single-tool pick; Claude was never told WHY his plan failed). Backlog-403 fixes both with a token-budget raise + bounded refinement loop.
+  - delta-doelstelling declared before code-edit (per SESSION_PROMPT §1):
+    - Unit-level: 3-fail-exhaustion handled, 1-fail+1-success continues, `PICKER_MAX_TOKENS=4096` + `EXEC_PLAN_MAX_REFINEMENTS=2` constants enforced via sentinels.
+    - Live-targeted: refinement wrapper firing on a real Anthropic API call is **deferred to backlog-404** because dispatch is currently broken (autonomous-intrusive runs stay in `status=queued` with `tasks=[]`, so the picker is never invoked). Honest acknowledgement, no false claim.
+  - implementation (single commit):
+    - `api/app/services/assessment_loop.py`: new module constants `PICKER_MAX_TOKENS = 4096` (replaces the hardcoded 1024 in `_claude_select_next_action`'s `messages.create` call) and `EXEC_PLAN_MAX_REFINEMENTS = 2` (3 total attempts per advance — initial + 2 refinements).
+    - new `_call_picker_with_exec_plan_refinement(...)` wrapper between the main advance loop's picker call site and `_call_picker_with_retries`. On `action=exec_plan` with empty/malformed plan body, re-calls the picker (up to budget) with a `refinement_notes` list passed through the new `extra_recent_rejections` kwarg. The note tells Claude exactly which failure mode he hit (empty steps vs malformed plan) + a 500-char truncation of his previous plan body, then asks for a revision.
+    - `_claude_select_next_action` and `_call_picker_with_retries` both got a new `extra_recent_rejections: list[dict] | None = None` kwarg. When provided, REPLACES the DB-read rejections (which would be stale from prior advances) for that single picker call. Default None preserves existing behaviour for any caller that doesn't yet know about refinement.
+    - main advance call site at line ~3138 switched from `_call_picker_with_retries(...)` to `_call_picker_with_exec_plan_refinement(...)`. Same signature shape so other branches (action=stop / level_up / pick) flow through unchanged when the decision isn't exec_plan.
+    - loop_state telemetry: `exec_plan_refinements_attempted` (int, 0 if first attempt succeeded or wasn't exec_plan) + `exec_plan_refinement_exhausted` (bool, True iff every attempt returned malformed exec_plan).
+  - tests (new `api/tests/test_exec_plan_refinement.py`, 13 tests, all pass):
+    - happy path: valid exec_plan on first try → no refinement, counter=0
+    - acceptance #4: empty-steps → refined to valid plan (counter=1, wrapper called twice, second call carries the refinement note in `extra_recent_rejections`)
+    - acceptance #5: 3 empty-steps in a row → `exec_plan_refinement_exhausted=True`, counter=EXEC_PLAN_MAX_REFINEMENTS, total picker calls = 3, last (still-malformed) decision returned to caller so the existing rejection_sink path fires
+    - malformed plan body (plan='string instead of dict') → still triggers refinement
+    - non-exec_plan decision (action=pick) → wrapper short-circuits, no refinement applied
+    - underlying picker returns None → wrapper returns None immediately, no refinement attempted
+    - sentinel: `PICKER_MAX_TOKENS == 4096`
+    - sentinel: `EXEC_PLAN_MAX_REFINEMENTS == 2`
+    - source-grep sentinel: `messages.create` call uses `max_tokens=PICKER_MAX_TOKENS` literal (catches future refactors that silently re-introduce 1024)
+    - source-grep sentinel: wrapper is wired in (defined + ≥1 call site reference)
+    - per `feedback_no_prescriptive_recipes`: refinement message contains zero app-specific seeds (greppable forbidden-token check: `is_admin=true`, `/saveprofile`, `/dump.gtl`, `/elmah.axd`, `google-gruyere`, `juice-shop`, `testfire`, `wp-login.php`, `phpinfo`)
+    - refinement note carries truncated previous plan body so Claude can see WHAT he tried last time
+  - constraints honored (per task package):
+    - 2 coordinated edits only: max_tokens raise + refinement wrapper. Picker structured-output schema (#330) untouched. exec_plan runner step execution semantics untouched. auto_queue dispatch (backlog-404 territory) untouched.
+    - `_call_picker_with_retries` (#331) kept intact — refinement wraps it rather than replacing it. Soft retry handles TRANSIENT failures (None returns); refinement handles SEMANTIC failures (empty plan body).
+    - `_AI_PICKER_SYSTEM_PROMPT` body lines 1-200 untouched (the addendum from #343 still in place).
+    - `feedback_no_prescriptive_recipes` + `feedback_live_proof_must_be_diverse_real_targets`: refinement prompt is generic ("your previous plan had failure_reason=X; revise to address it"). No concrete fix templates like "try is_admin=True". Greppable test enforces.
+    - backlog-406 grep-guard test (`tests/test_multi_target_validation_grep_guard.py`) still passes 3/3 after deleting the literal "etherpad" reference from a comment in target_intel/runner.py.
+  - validation:
+    - python3 scripts/validate_backlog_tasks.py: 356 queued 1:1
+    - .venv/bin/pytest api/tests/test_exec_plan_refinement.py api/tests/test_assessment_loop_soft_retry.py api/tests/test_assessment_loop_structured_outputs.py tests/test_multi_target_validation_grep_guard.py: 42/42 pass
+    - python3 -m compileall -q api: clean
+    - .venv/bin/ruff check api/app/services/assessment_loop.py api/tests/test_exec_plan_refinement.py workers/runners/target_intel/runner.py: All checks passed
+    - git diff --check: clean
+  - known limitations (surfaced honestly, not hidden):
+    - **NO live picker invocation against real Anthropic API was performed.** Reason: the autonomous-intrusive runs against the 5 validation harness targets still terminate with `status=queued` and `tasks=[]` (verified in backlog-402's after-402 run), meaning the picker is never invoked end-to-end. Constructing a synthetic Run object that bypasses dispatch to test the refinement loop against the real Anthropic API would require touching code outside backlog-403's scope. Per the SESSION_PROMPT §6 stop-gate, this is acknowledged here rather than fabricated.
+    - The refinement wrapper's first proof-on-fire-via-real-Claude will happen in the after-404 phase, once dispatch is restored and the picker actually runs. At that point the API log will show either `picker recovered after N retry(ies)` (#331 path) or `exec_plan refined after N attempt(s)` (this task's path) on real engagements.
+  - subsumes: backlog-391 (Picker max_tokens raise) — closed as SUBSUMED-BY-backlog-403 in TASK_QUEUE.md. The 1024→4096 portion of this task fully covers #391's scope.
+  - load-bearing constraint that forced the design: the requirement to feed REFINEMENT context to the picker IN THE SAME ADVANCE (not "next iterate") forced the `extra_recent_rejections` override kwarg. The pre-existing `rejection_sink → loop_state["recent_rejections"] → DB → next advance reads` flow only persists between advances; refinement needs in-advance immediacy.
+  - next: promote backlog-404 (queue #343 — single dispatch authority on autonomous-intrusive runs) into NEXT_TASK.md. Sprint task 4 of 5. After backlog-404 lands: re-run harness with `--phase after-404` to measure the first end-to-end picker activity (now that target_intel emits real attack_candidates AND the picker can actually run AND its exec_plans are refinable AND it has dispatch authority).
+
 - 2026-05-19: completed backlog-402 (queue #341 — target_intel emit observed_paths + attack_candidates; REMOVE _STACK_*_REGISTRY anti-patterns) — **sprint task 2 of 5 (mythos-foundation)**:
   - rationale: per `feedback_live_proof_must_be_diverse_real_targets`, the per-stack registries from #337 (`_STACK_REGISTER_PATHS` / `_STACK_LOGIN_PATHS`) and #338 (`_STACK_PATH_REGISTRY` / `_STACK_KEYWORD_HINTS`) encode per-app knowledge that doesn't generalize. The smart-system fix is dynamic discovery by target_intel reading actual responses at runtime, then emitting concrete (path, vuln_class, evidence_basis) tuples downstream consumers use directly.
   - delta-doelstelling declared before code-edit (per SESSION_PROMPT §1): `observed_paths ≥3 on ≥1 of the 5 targets`, verifiable via DB query on EvidenceObservation.attributes_json.

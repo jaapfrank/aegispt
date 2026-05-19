@@ -4,48 +4,56 @@
 
 ## Title
 
-exec_plan iterative refinement loop — bounded re-prompt on empty/malformed/failed plan; raises picker max_tokens 1024 → 4096 (sprint mythos-foundation, task 3 of 5; subsumes backlog-391)
+Single dispatch authority on autonomous-intrusive runs — Claude becomes THE picker; next_best_action_selector + auto_queue gated on `autonomous_intrusive_allowed=True` (sprint mythos-foundation, task 4 of 5)
 
 ## Goal
 
-Today when Claude emits an `exec_plan` with `steps=[]` or a plan whose JSON is truncated (`max_tokens=1024` cuts it mid-string) or whose step assertion fails at runtime, the loop logs 'rejected' and falls through to a single-tool pick. Claude is never told WHY his plan failed and never given a chance to refine. This task adds a bounded refinement loop (max 3 attempts per advance) where each failed attempt feeds back to Claude: `{previous_plan, failure_reason, current_evidence_state, runner_observed_responses_so_far}`. As part of the same task, the picker call's `max_tokens` is raised from 1024 to 4096 so the model has room to write a real multi-step plan body. This subsumes backlog-391 (max_tokens raise) which is closed as part of this task.
+Today three parallel dispatch engines compete on every autonomous-intrusive advance: (1) `auto_queue_active` / `auto_queue_passive` rules in `workers/orchestration/tasks.py` queue capability tasks based on signal triggers, (2) `next_best_action_selector` (deterministic rule-based) wraps every pick in `selector_decision='APPROVAL'`, and (3) the Claude picker via `_call_picker_with_exec_plan_refinement` (now hardened by backlog-403). On the after-402 harness run, runs persisted in `status=queued` with `tasks=[]` because the Claude picker never fired — auto_queue + selector were running first and producing APPROVAL-wrapped proposals that the harness's polling loop didn't satisfy.
+
+This task makes the Claude picker THE picker for `run.autonomous_intrusive_allowed=True` runs: auto_queue is skipped, selector emits suggestions for Claude to consume (not competing APPROVAL proposals). Operator-supervised runs (flag=False) keep all 3 engines unchanged.
 
 ## Baseline anchor
 
-backlog-406 baseline (2026-05-19): all 5 targets at 0/0/0/0/0/0. backlog-402 (just landed) added `observed_paths` + `attack_candidates` to target_intel emit — but the system still produces 0 dispatches because the Claude picker repeatedly fails. backlog-403 fixes the picker mechanics so Claude's choices actually land.
+- backlog-406 baseline: 5/5 targets at 0/0/0/0/0/0 (5 runs all status=queued with tasks=0)
+- backlog-402 after-402: same 0/0/0/0/0/0 on harness metrics; observed_paths emit proven via direct invocation only
+- backlog-403 (just landed): code-level refinement loop ready; live picker firing requires THIS task
+
+backlog-404 closes the chicken-egg.
 
 ## Scope
 
-Two coordinated edits in `api/app/services/assessment_loop.py`:
+Three coordinated edits across api/app/services + workers/orchestration:
 
-1. `_claude_select_next_action` raises `max_tokens` to 4096 in the `messages.create` call.
-2. New wrapper `_call_exec_plan_with_refinement(...)` that wraps the exec_plan dispatch path: on (a) empty `plan.steps`, (b) malformed plan JSON, (c) `exec_plan_rejected` runner outcome from a prior step in the same advance, re-call Claude with a refinement prompt containing `previous_plan_attempt`, `failure_reason`, and `runner_evidence_summary` and accept the refined plan. Bounded at `EXEC_PLAN_MAX_REFINEMENTS = 2` (initial + 2 refinements = 3 attempts total). On exhaustion: log INFO 'exec_plan refinement exhausted after N attempts' and fall back to the existing single-tool pick path.
+1. `api/app/services/assessment_loop.py` — audit every `selector_decision='APPROVAL'` write-site (currently 2: lines ~2381 and ~3540 per grep). When `run.autonomous_intrusive_allowed=True`, replace APPROVAL with direct dispatch. The selector's top suggestions become INPUTS to the Claude picker prompt (new helper `_collect_selector_suggestions(run, scope) -> list[dict]`), not competing proposals.
+2. `workers/orchestration/tasks.py` — audit `auto_queue_active` / `auto_queue_passive` call sites. When `run.autonomous_intrusive_allowed=True`, skip auto-queue dispatch and emit a single audit AgentReasoning row stating "auto-queue skipped (autonomous-intrusive mode); Claude picker is sole dispatch authority".
+3. `api/app/services/ai_agent.py` — `select_next_best_action_for_run` callers also gate on the flag.
 
 ## Constraints
 
-- Per `SESSION_PROMPT.md` §2 forbidden: no per-target conditionals, no pre-baked path/payload registries, no claiming DONE on green unit tests alone.
-- Per `feedback_no_prescriptive_recipes`: refinement prompt must NOT seed concrete fix templates ("try is_admin=True" etc.). Generic only: "your previous plan had failure_reason=X; revise to address it".
-- Bounded refinement: hard cap at `EXEC_PLAN_MAX_REFINEMENTS = 2` (3 total attempts per advance). No nested loops, no unbounded retry on transient failures.
-- Feedback context bounded: refinement prompt includes only previous plan body (truncated to last 500 chars), failure_reason (1 sentence), runner_evidence_summary (existing helper, capped at 1000 chars). No accumulation across advances.
-- Scope creep guard: 2 coordinated edits only. Do NOT change the structured-output schema (#330). Do NOT change exec_plan runner step execution semantics. Do NOT change auto_queue_active dispatch (backlog-404's territory).
+- Per SESSION_PROMPT §2 forbidden: no per-target conditionals, no pre-baked path/payload registries, no claiming DONE on green unit tests alone.
+- `non_autonomous_path_preserved`: for runs with autonomous_intrusive_allowed=False (operator-supervised default), behavior is UNCHANGED — APPROVAL wrappers fire, auto_queue runs, selector emits proposals. The bypass strictly opens autonomous behavior, never closes operator-supervised behavior.
+- `approval_path_still_exists`: approval workflow code stays intact for the non-autonomous case. Not removing approvals — only skipping them when the operator explicitly opted into autonomous-intrusive.
+- Existing `autonomous_intrusive_allowed` column is the sole gate — no new flag introduced.
+- Scope creep guard: 3 coordinated edits at the documented sites only.
 
 ## Source Package
 
-`codex/tasks/backlog-403-exec-plan-iterative-refinement.json`
+`codex/tasks/backlog-404-single-dispatch-authority-on-autonomous-intrusive.json`
 
 ## Reference
 
-- Backlog-406 baseline + backlog-402 after-402 reports in `docs/validation/`
-- Live run `3e2cfa5b` empirical evidence (DONE_LOG.md): "Claude said EXEC_PLAN plan_name=admin-takeover-via-leaked-creds steps=0", "exec_plan rejected — empty or malformed plan body", "picker JSON parse failed despite structured-output schema; err=Unterminated string starting at: line 1 column 1158"
-- Memory: [[feedback_live_proof_before_done]], [[feedback_live_proof_must_be_diverse_real_targets]]
-- Subsumes: backlog-391 (Picker max_tokens raise) — close on DONE
+- backlog-402 after-402 report (`docs/validation/sprint-2026-mythos-foundation-2026-05-19-after-402.md`) — empirical evidence that runs stay in status=queued with 0 tasks
+- backlog-403 DONE_LOG entry — refinement loop ready, picker hardened
+- Live run `3e2cfa5b` empirical baseline: 14/14 AgentReasoning rows with `next_best_action_selector_used=True` + `selector_decision='APPROVAL'`
+- Memory: [[feedback_live_proof_before_done]], [[feedback_live_proof_must_be_diverse_real_targets]], [[feedback_intrusive_pivot_approval]]
+- #336 fixed the planner-level bypass; this task is the matching dispatch-layer fix
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_assessment_loop_structured_outputs.py api/tests/test_assessment_loop_soft_retry.py api/tests/test_exec_plan_refinement.py`
-- `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/assessment_loop.py`
-- `git diff --check`
+- `.venv/bin/pytest api/tests/test_assessment_loop_dispatch_authority.py api/tests/test_assessment_loop.py api/tests/test_assessment_planner.py`
+- `python3 -m compileall -q api workers`
+- `.venv/bin/ruff check api/app/services/ workers/orchestration/`
 - `.venv/bin/pytest tests/test_multi_target_validation_grep_guard.py` (must still pass)
-- Live: API restart → harness `--phase after-403` on the 5 targets → ≥1 successful exec_plan dispatch with ≥2 steps + log shows refinement firing on ≥1 occasion. Verifiable via `/tmp/aegispt-api.log` grep for `picker recovered after N retry` / `exec_plan refined after N attempt`.
+- `git diff --check`
+- Live: API restart → harness `--phase after-404` on the 5 targets → ≥1 target shows non-zero on claude_picks AND at least one Task row with `decision_source='ai_loop_claude_picker'` AND 0 AgentReasoning rows with `selector_decision='APPROVAL'` on the autonomous-intrusive runs. Regression check: a non-autonomous control run still produces APPROVAL-wrapped proposals.
