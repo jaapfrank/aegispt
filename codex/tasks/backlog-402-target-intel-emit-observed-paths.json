@@ -33,7 +33,7 @@
     ]
   },
   "constraints": {
-    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND SESSION_PROMPT.md has been loaded as the session kickoff prompt (forbidden patterns, required_checks, live-acceptance gate, DONE-definitie). The session prompt overrides Claude instinct on every conflict.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
     "scope_creep_guard": "Three coordinated edits only: target_intel prompt+schema, _path_augmentation removal, auth_discoverer removal. Do NOT change the 5 probe runners' detection heuristics (only the path-source plumbing). Do NOT touch the assessment loop's picker call. Do NOT touch evidence_ingest's entity types.",

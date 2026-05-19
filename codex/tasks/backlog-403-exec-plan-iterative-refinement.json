@@ -28,7 +28,7 @@
     ]
   },
   "constraints": {
-    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND SESSION_PROMPT.md has been loaded as the session kickoff prompt (forbidden patterns, required_checks, live-acceptance gate, DONE-definitie). The session prompt overrides Claude instinct on every conflict.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
     "scope_creep_guard": "Two coordinated edits only: max_tokens raise + refinement wrapper. Do NOT change the structured-output schema (#330). Do NOT change exec_plan runner step execution semantics. Do NOT change auto_queue_active dispatch (separate task: backlog-404).",

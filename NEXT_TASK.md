@@ -1,5 +1,7 @@
 # Active Task
 
+> **Read first:** [`SESSION_PROMPT.md`](SESSION_PROMPT.md) — kickoff discipline for AegisPT sessions (forbidden patterns, required_checks, live-acceptance gate, DONE-definitie). De regels daar overschrijven Claude's instinct.
+
 ## Title
 
 target_intel emit observed_paths + concrete attack_candidates; REMOVE _STACK_*_REGISTRY anti-patterns from #337/#338 (sprint mythos-foundation, task 2 of 5)

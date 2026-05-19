@@ -28,7 +28,7 @@
     ]
   },
   "constraints": {
-    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md.",
+    "active_task_gate": "Do not implement until this package is the single active task in NEXT_TASK.md AND SESSION_PROMPT.md has been loaded as the session kickoff prompt (forbidden patterns, required_checks, live-acceptance gate, DONE-definitie). The session prompt overrides Claude instinct on every conflict.",
     "no_silent_reprioritization": true,
     "no_untracked_future_work": true,
     "scope_creep_guard": "Three coordinated edits at the documented sites only. Do NOT introduce a new flag — the existing `run.autonomous_intrusive_allowed` is the sole gate. Do NOT change non-autonomous run behavior (regression guard).",
