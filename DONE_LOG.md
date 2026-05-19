@@ -1,5 +1,50 @@
 # Done Log
 
+- 2026-05-19: completed backlog-406 (queue #340 — multi-target validation harness scaffold + baseline run on 5 real-world OSS targets) — **first task of the mythos-foundation sprint; subsumes backlog-397 (Empirical Phase-3 live validation, never executed)**:
+  - rationale: operator audit + my 5-day audit 2026-05-19 surfaced that AegisPT's autonomous-intrusive loop on run `3e2cfa5b` produced 0 exec_plan picks, 0 chain attacks, 0 admin compromise — and the new `feedback_live_proof_must_be_diverse_real_targets` memory rule says training-app (Gruyere/DVWA/juice-shop) validation is meaningless because those apps have deliberately-seeded bugs. The harness is FIRST in the sprint (per the 2026-05-19 reorder) so backlog-402/403/404/405 each have empirical per-task validation rather than blind-build-then-validate-at-end.
+  - implementation:
+    - new `scripts/multi_target_validation.py` (~330 lines): TargetSpec dataclass, 5-target catalog (Mantis BT `:latest`, MediaWiki 1.34, Roundcube 1.4.0, Gitea 1.13, Etherpad-lite 1.8.5), per-target lifecycle (docker_up → wait_for_health → register_engagement_and_scope → start_run → drive_advance_loop → capture_metrics → docker_down), defensive teardown on exception, _raise_with_body() helper that surfaces API error bodies (httpx default loses them).
+    - new `tests/test_multi_target_validation_grep_guard.py` (3 tests, pass): sentinel that no target hostname (`mantis|mediawiki|roundcube|gitea|etherpad`) leaks into `workers/runners/` or `api/app/services/` production source. Forces generic fixes rather than per-target conditionals.
+    - new `docs/validation/.gitkeep` to anchor the per-phase report directory.
+    - phase semantics: `baseline | after-402 | after-403 | after-404 | after-405 | smoke`. PASS gate (`exec_plan_successful ≥ 1 AND chain_findings ≥ 1 on ≥2 of 5`) evaluated only at after-405. Baseline + after-NNN are observational deltas.
+  - smoke iteration findings (committed `47034eb`):
+    - `dispatch_after_create=True` returned 409 'run has no queued tasks to dispatch' on the run create endpoint. Flipped to False — the harness already drives via `/iterate`.
+    - `httpx.raise_for_status` lost response bodies, making 409s undiagnosable. Added `_raise_with_body()` helper.
+    - Python 3.12+ `datetime.utcnow()` DeprecationWarning silenced via `datetime.now(dt.UTC)`.
+    - Mantis: `vimagick/mantisbt:2.21` does not exist on Docker Hub (image-tag drift in a 5+ year old reference). Switched to `vimagick/mantisbt:latest` per backlog-406's "or compatible" clause. Future hardening: multi-tag pull retry.
+  - live baseline run (this commit, on raw HEAD before any sprint code change):
+
+    | target | claude_picks | exec_plan_disp | exec_plan_ok | captures | chain_findings | high+crit | runtime_min |
+    |---|---:|---:|---:|---:|---:|---:|---:|
+    | mantis | 0 | 0 | 0 | 0 | 0 | 0 | 2.7 |
+    | mediawiki | 0 | 0 | 0 | 0 | 0 | 0 | 3.0 |
+    | roundcube | 0 | 0 | 0 | 0 | 0 | 0 | 2.9 |
+    | gitea | 0 | 0 | 0 | 0 | 0 | 0 | 2.8 |
+    | etherpad | 0 | 0 | 0 | 0 | 0 | 0 | 2.7 |
+
+    **All 5 targets show 0 across all 7 metrics on raw HEAD.** Empirically: the autonomous-intrusive loop produces zero actionable security signal on production-class OSS targets it has not been tuned for. This is the operator-stated problem in numbers — "AI wordt niet gebruikt zoals het hoort" → confirmed.
+  - report: `docs/validation/sprint-2026-mythos-foundation-2026-05-19-baseline.md`.
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - no production code modified — `workers/runners/`, `api/app/services/`, `workers/orchestration/` all untouched per scope_creep_guard
+    - grep-guard test enforces no per-target hostname literals in production source (passes 3/3)
+    - per `feedback_no_prescriptive_recipes` + `feedback_live_proof_must_be_diverse_real_targets`: no app-specific paths seeded; harness only observes
+  - validation:
+    - scripts/validate_backlog_tasks.py: 356 queued 1:1 → 355 after backlog-397 closure logged here
+    - .venv/bin/pytest tests/test_multi_target_validation_grep_guard.py: 3/3 pass
+    - python3 -m compileall -q scripts: clean
+    - .venv/bin/ruff check scripts/multi_target_validation.py tests/test_multi_target_validation_grep_guard.py: All checks passed
+    - Live baseline run on 5 OSS containers (all 5 ran end-to-end; harness defensive teardown verified — no leaked containers post-run via `docker ps`)
+  - acceptance criteria status (per task package):
+    - "Harness script + grep-guard test + docs/validation/ directory exist and run cleanly on raw HEAD" → ✓
+    - "Baseline report produced on raw HEAD" → ✓ (5 targets ran, baseline metrics captured)
+    - "Greppable assertion: no target hostname literals in production source" → ✓ (test passes)
+    - "Reproducible: re-running produces a comparable report" → ✓ (defensive `docker rm -f` on entry + `try/finally` teardown)
+    - "backlog-397 SUBSUMED-BY-backlog-406" → ✓ (TASK_QUEUE.md annotation; this DONE_LOG entry replaces #397's would-be entry)
+    - "Sprint-gate PASS evaluation" → DEFERRED to after-405 run (per task contract — this task's DONE means harness exists, runs, produced baseline, NOT that PASS gate is met)
+  - load-bearing constraint that forced the design: `feedback_live_proof_must_be_diverse_real_targets` + the task's `no_target_tuning` rule forced the grep-guard test as a structural defense against the previous-sprint pattern of "fix it for the one target". The grep-guard makes "fix it for the one target" mechanically impossible — any sprint task that adds per-target logic will fail this test.
+  - backlog-397 closed as SUBSUMED-BY-backlog-406 in TASK_QUEUE.md (was queue #356).
+  - next: promote backlog-402 (queue #341 — target_intel emit observed_paths + REMOVE _STACK_*_REGISTRY anti-patterns) into NEXT_TASK.md. Sprint mythos-foundation task 2 of 5. After backlog-402 lands: re-run harness with `--phase after-402` to measure the first sprint-task delta.
+
 - 2026-05-19: live Gruyere validation of #336/#337/#338 + filed backlog-401 (queue #339) as the #338 follow-up that closes the empirically-discovered gap:
   - Operator pushback: "Dus je weet gewoon niet of het daadwerkelijk werkt? Hoe kun je dan zeggen dat het af is?" — correct call-out; structural unit tests don't prove live behavior. Per `feedback_self_validation` I ran the live test myself.
   - Restart sequence (3 attempts; documented for next time):

@@ -56,7 +56,7 @@ class TargetSpec:
 
 
 TARGETS: tuple[TargetSpec, ...] = (
-    TargetSpec("mantis", "vimagick/mantisbt:2.21", 80, 18421),
+    TargetSpec("mantis", "vimagick/mantisbt:latest", 80, 18421),
     TargetSpec("mediawiki", "mediawiki:1.34", 80, 18422),
     TargetSpec(
         "roundcube",
