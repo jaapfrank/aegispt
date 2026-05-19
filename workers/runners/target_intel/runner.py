@@ -164,7 +164,11 @@ def _call_claude(context: dict[str, Any], target_url: str) -> dict[str, Any]:
 
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",  # Haiku: faster + cheaper for initial analysis
-            max_tokens=2048,
+            # backlog-402: bumped from 2048 → 4096 because the extended schema
+            # (observed_paths + attack_candidates) on real targets routinely
+            # exceeds 2048 tokens and was truncating mid-JSON (verified
+            # 2026-05-19 etherpad smoke produced JSON parse error at char 6408).
+            max_tokens=4096,
             system=ANALYSIS_PROMPT,
             messages=[{"role": "user", "content": user_content}],
             timeout=60.0,
