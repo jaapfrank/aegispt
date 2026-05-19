@@ -2,43 +2,48 @@
 
 ## Title
 
-auth_discoverer: discover register/login from target_intel hints + index link-scan, not just a hardcoded REGISTER_PATHS list (live-reliability fix 2 of 3)
+Probe path-catalogs are stack-aware: target_intel observations augment info_disclosure / file_upload / param_pollution / cookie_tamper / stored_xss PROBE_PATHS at runtime (live-reliability fix 3 of 3)
 
 ## Goal
 
-`auth_discoverer.fetch_auth_pages` probes a hardcoded list of 15 register-paths + 13 login-paths. When a target's real auth endpoints are NOT in that list (Gruyere's `signup.gtl` + `saveprofile?action=new`; most production apps with `/account/new` variants, `/users` POST endpoints, SPA-routed `#/signup`, framework-specific paths like Rails `/users/sign_up`, ASP.NET `Account/Register`), `fingerprint_application` returns `register_form=None`. `acquire_session()` then returns `None`, and the 5 \#328-migrated probes that consume it no-op with 0 findings.
+The 5 \#328-migrated probes (`info_disclosure_probe` / `stored_xss_probe` / `file_upload_probe` / `param_pollution_probe` / `cookie_tamper_probe`) each carry a hardcoded path catalog. \#328 stripped Gruyere-specific `.gtl` paths "for generality", but the generic catalog covers 0% of Gruyere's surface on live testing (verified 2026-05-18: `/dump.gtl` returns HTTP 200 with `_cookie: {'is_admin': False, 'is_author': False, 'uid': None}` — a textbook info-disclosure leak — but our catalog doesn't probe that path).
 
-Live Gruyere 2026-05-18 confirms this: 16 pages fetched (Gruyere serves HTTP 200 on every path — soft-404), 0 with a register form, fingerprint says `register_form=None`. The actual Gruyere register endpoint is `/signup.gtl` — `.gtl` paths were specifically stripped "for generality" in \#328 and the generic catalog covers 0% of Gruyere's auth surface.
+This task makes the catalogs stack-aware: `target_intel` observations carry `stack_hints`; the probes consult those hints to augment their paths at runtime. No Gruyere-specific seed in the runner source — the augmentation lives in a registry keyed on stack_hint values.
 
 ## Scope
 
-- Extend `api/app/services/auth_discoverer.fetch_auth_pages` to derive its probe-path set from TWO sources additive to the existing catalog:
-  - (1) URLs in the target's homepage HTML that text-match `REGISTER_LINK_KEYWORDS` / `LOGIN_LINK_KEYWORDS` (the existing link-scan in lines 292-340 already does this but is bounded by `probe_limit + 5` AND only fires when the index path is the FIRST candidate)
-  - (2) Stack-specific extensions injected from `target_intel` observations — if `stack_hints` contains `python_gruyere`, append `signup.gtl` + `saveprofile`; for `aspnet_webforms` append `Account/Register.aspx`; for `rails`, `/users/sign_up`; for `django`, `accounts/signup`
-- When `fingerprint_application` returns `register_form=None` BUT a form exists on a page classified as `kind=register` (even if score < threshold), elevate it to `register_form` rather than discard
+- New module `workers/runners/_path_augmentation.py` exposing `paths_for_stack(stack_hints: list[str], category: str) -> list[tuple[str, str]]`. Category covers `debug-dump` / `file-upload-target` / `register-action` / `mass-assignment-target` / `cookie-name`.
+- Stack registry maps known hints:
+  - `python_gruyere` → `.gtl` debug paths
+  - `java_jsp` → `/admin/console.jsp`
+  - `aspnet` → `/elmah.axd`, `/trace.axd`
+  - `php` → `/info.php`, `/phpmyadmin/`
+  - `node_express` → `/.well-known/express-status`
+- Each of the 5 probes calls `paths_for_stack(stack_hints, category)` and merges with its hardcoded base catalog.
+- `stack_hints` come from `EvidenceObservation` rows with `entity_type=stack_hint` or `attributes_json['technology_stack']`, written by target_intel.
 
 ## Constraints
 
-- Additive paths only — do NOT remove anything from the existing `REGISTER_PATHS` / `LOGIN_PATHS` catalogs (they still work for the apps they cover). Do NOT add app-specific RECIPES; only path-DISCOVERY hints. The recipe construction stays Claude-driven via `build_recipe`.
-- Per `feedback_no_prescriptive_recipes`: a `signup.gtl` path-string is a discovery hint, not an exploit recipe. The probes still need `build_recipe` / `acquire_session` to learn the form fields + flow. We're only saying "try this path too", not "send is_admin=True to this path".
-- Tighten the existing index-page link-scan: when the index returns 200 + a body, scan ALL anchor hrefs (not just the first `probe_limit + 5`), and ALWAYS include matched register/login candidates even if they put us over probe_limit. Probe limit was meant to bound NETWORK cost, not discovery breadth.
-- Must NOT touch: `build_recipe` (\#326 contract — still synthesizes recipes from fingerprint), 5 migrated probes (consume `acquire_session` unchanged), `workers/runners/target_intel/runner.py` (we only READ its observations; no signature change), `memory_backend` / cache layer (\#327 contract), `_AI_PICKER_SYSTEM_PROMPT`.
+- New `_path_augmentation` module + 5 small probe-side consumers. Do NOT change the existing hardcoded base catalogs (they keep working for the stacks they cover). Do NOT add app-instance-specific paths (e.g. Gruyere's per-user instance ID); only stack-family-level paths (e.g. `.gtl` for the python_gruyere family).
+- Per `feedback_no_prescriptive_recipes`: a path like `/dump.gtl` is a discovery hint, not an exploit recipe. We're saying "look here too", not "send this specific payload to this path". The probes still apply their existing detection heuristics on whatever the path returns.
+- `stack_hints` MUST come from `target_intel`-emitted `EvidenceObservation` rows (`entity_type='stack_hint'` or `attributes_json['technology_stack']`). Do NOT seed stack_hints from the probe runner itself or from hardcoded URL pattern matching — the AI/recon stage owns stack detection.
+- Must NOT touch: `target_intel` runner (we only consume its observations), `build_recipe` (\#326), `acquire_session` (\#328a — was fixed in backlog-399). Anti-pattern: NO seeding of `/saveprofile?action=new` style payload-bearing patterns. Only path strings.
 
 ## Source Package
 
-`codex/tasks/backlog-399-auth-discoverer-app-specific-paths.json`
+`codex/tasks/backlog-400-probe-path-stack-augmentation.json`
 
 ## Reference
 
-- `api/app/services/auth_discoverer.py` — existing `fetch_auth_pages` lines 163-340 (probe loop + link-scan), `fingerprint_application` line 568, `REGISTER_LINK_KEYWORDS` / `LOGIN_LINK_KEYWORDS` regex
-- `workers/runners/target_intel/runner.py` — produces `EvidenceObservation` rows with `stack_hints` / `technology_stack` in `attributes_json` (read-only consumer)
-- Live Gruyere diag from 2026-05-18: 16 pages fetched (all 200, soft-404), 0 with form, register_form=None
-- backlog-398 / \#336 just landed — assessment_planner now respects `autonomous_intrusive_allowed`. This unblocks the exec_plan path the live re-test will exercise once \#337 + \#338 ship.
+- `workers/runners/info_disclosure_probe/runner.py` — existing PROBE_PATHS (51 entries, none match Gruyere)
+- `workers/runners/{stored_xss,file_upload,param_pollution,cookie_tamper}_probe/runner.py` — 4 other probes with similar hardcoded path patterns
+- `workers/runners/target_intel/runner.py` — produces `EvidenceObservation` with `technology_stack` (read-only consumer)
+- `api/app/services/auth_discoverer.py` — already has `_STACK_REGISTER_PATHS` / `_STACK_LOGIN_PATHS` pattern (#337 landed today); follow that shape
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest api/tests/test_auth_discoverer.py api/tests/test_auth_discoverer_acquire_session.py api/tests/test_auth_discoverer_recipe.py api/tests/test_auth_discoverer_cache.py api/tests/test_auth_discoverer_credentialed.py`
-- `python3 -m compileall -q api`
-- `.venv/bin/ruff check api/app/services/auth_discoverer.py`
+- `.venv/bin/pytest workers/tests/test_info_disclosure_probe.py workers/tests/test_stored_xss_probe.py workers/tests/test_file_upload_probe.py workers/tests/test_param_pollution_probe.py workers/tests/test_cookie_tamper_probe.py workers/tests/test_path_augmentation.py`
+- `python3 -m compileall -q workers`
+- `.venv/bin/ruff check workers/runners/_path_augmentation.py workers/runners/info_disclosure_probe/ workers/runners/stored_xss_probe/ workers/runners/file_upload_probe/ workers/runners/param_pollution_probe/ workers/runners/cookie_tamper_probe/`
 - `git diff --check`

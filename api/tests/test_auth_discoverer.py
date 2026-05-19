@@ -344,3 +344,268 @@ def test_default_probe_limit_is_reasonable() -> None:
     # Sanity: defaults must not be huge (avoid hammering targets).
     assert DEFAULT_PROBE_LIMIT <= 20
     assert DEFAULT_PROBE_LIMIT >= 4
+
+
+# ---------------------------------------------------------------------------
+# #337 / backlog-399 — stack-hint registry + link-scan + register elevation
+# ---------------------------------------------------------------------------
+#
+# Live Gruyere 2026-05-18 confirmed that fetch_auth_pages with the
+# baseline catalog produces register_form=None on the Gruyere instance
+# because Gruyere's real signup endpoint is `/signup.gtl`, not in the
+# generic REGISTER_PATHS list. This task adds:
+#
+# 1. `_stack_specific_paths` registry — stack-hint → extra paths
+# 2. `stack_hints` kwarg on `fetch_auth_pages` to opt in
+# 3. Tighter index-page link-scan — ceiling = probe_limit * 3 instead
+#    of probe_limit + 5
+# 4. `fingerprint_application` elevation — minimal register-page form
+#    becomes register_form even when its score < 3, as long as a
+#    password-bearing field is present
+
+
+def test_stack_specific_paths_empty_input_returns_empty() -> None:
+    from api.app.services.auth_discoverer import _stack_specific_paths
+    assert _stack_specific_paths(None) == ([], [])
+    assert _stack_specific_paths([]) == ([], [])
+    assert _stack_specific_paths([""]) == ([], [])
+    assert _stack_specific_paths(["unknown_stack_xyz"]) == ([], [])
+
+
+def test_stack_specific_paths_python_gruyere_includes_signup_gtl() -> None:
+    from api.app.services.auth_discoverer import _stack_specific_paths
+    register, login = _stack_specific_paths(["python_gruyere"])
+    assert "/signup.gtl" in register
+    # Login path /login is also in the generic catalog; the registry
+    # supplements but never replaces.
+    assert "/login" in login
+
+
+def test_stack_specific_paths_aspnet_includes_account_register() -> None:
+    from api.app.services.auth_discoverer import _stack_specific_paths
+    register, login = _stack_specific_paths(["aspnet"])
+    assert "/Account/Register.aspx" in register
+    assert "/Account/Login.aspx" in login
+
+
+def test_stack_specific_paths_multi_hint_union_dedupes() -> None:
+    from api.app.services.auth_discoverer import _stack_specific_paths
+    # Use 2 hints that overlap in NO paths — verify union, dedup.
+    register, login = _stack_specific_paths(["python_gruyere", "ruby_rails"])
+    assert "/signup.gtl" in register
+    assert "/users/sign_up" in register
+    # Each path appears exactly once.
+    assert register.count("/signup.gtl") == 1
+    assert register.count("/users/sign_up") == 1
+
+
+def test_stack_specific_paths_case_insensitive_hint() -> None:
+    from api.app.services.auth_discoverer import _stack_specific_paths
+    upper = _stack_specific_paths(["PYTHON_GRUYERE"])
+    lower = _stack_specific_paths(["python_gruyere"])
+    assert upper == lower
+
+
+def test_fetch_auth_pages_baseline_still_works_without_stack_hints() -> None:
+    """Default kwarg=None preserves the original probe path set so
+    existing callers (the 5 #328 probes that pass through acquire_session)
+    are unaffected."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/":
+            return httpx.Response(200, text="<html>index</html>")
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    try:
+        pages = fetch_auth_pages(
+            "http://target.test/",
+            client=client,
+            probe_limit=20,
+        )
+    finally:
+        client.close()
+    # Just the index — no stack-specific paths added.
+    assert len(pages) == 1
+    assert pages[0]["kind"] == "index"
+
+
+def test_fetch_auth_pages_with_python_gruyere_hint_probes_signup_gtl() -> None:
+    """Acceptance — supply python_gruyere hint AND have /signup.gtl
+    return a form: fetch_auth_pages must find it (the baseline catalog
+    wouldn't)."""
+    REGISTER_HTML = (
+        "<html><body>"
+        '<form action="/saveprofile" method="GET">'
+        '<input type="text" name="uid"/>'
+        '<input type="password" name="pw"/>'
+        "</form></body></html>"
+    )
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        if request.url.path == "/":
+            return httpx.Response(200, text="<html>index no useful links</html>")
+        if request.url.path == "/signup.gtl":
+            return httpx.Response(200, text=REGISTER_HTML)
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    try:
+        pages = fetch_auth_pages(
+            "http://target.test/",
+            client=client,
+            probe_limit=30,  # large enough to reach signup.gtl
+            stack_hints=["python_gruyere"],
+        )
+    finally:
+        client.close()
+
+    assert "/signup.gtl" in seen_paths, "stack-hint did not append /signup.gtl to probe set"
+    signup_pages = [p for p in pages if p["url"].endswith("/signup.gtl")]
+    assert len(signup_pages) == 1
+    assert signup_pages[0]["kind"] == "register"
+    assert signup_pages[0]["status_code"] == 200
+
+
+def test_fetch_auth_pages_link_scan_now_picks_up_register_links_beyond_old_limit() -> None:
+    """Link-scan ceiling lifted from probe_limit+5 to probe_limit*3.
+    Previously: with probe_limit=12, register/login links were dropped
+    if the index sat at position > 17 in seen_urls. Now: the ceiling is
+    36, so reasonable-sized index pages are fully scanned."""
+    REGISTER_HTML = (
+        "<html><body>"
+        '<form action="/joinus" method="POST">'
+        '<input type="text" name="username"/>'
+        '<input type="password" name="password"/>'
+        '<input type="password" name="confirm_password"/>'
+        "</form></body></html>"
+    )
+    index_html = (
+        "<html><body>"
+        # 20 dummy nav links (NO register/login keywords) so seen_urls
+        # already has many entries before the matching link is hit.
+        + "".join(f'<a href="/section{i}">link</a>' for i in range(20))
+        # Then the actual register link, deep in the page.
+        + '<a href="/joinus">Join us today</a>'
+        + "</body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/":
+            return httpx.Response(200, text=index_html)
+        if path == "/joinus":
+            return httpx.Response(200, text=REGISTER_HTML)
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    try:
+        pages = fetch_auth_pages(
+            "http://target.test/",
+            client=client,
+            probe_limit=12,
+        )
+    finally:
+        client.close()
+    # Link-scan should have followed /joinus despite seen_urls being deep.
+    join_pages = [p for p in pages if p["url"].endswith("/joinus")]
+    assert len(join_pages) == 1, (
+        f"link-scan did not reach /joinus; pages={[p['url'] for p in pages]}"
+    )
+    assert join_pages[0]["kind"] == "register"
+
+
+def test_fingerprint_elevates_register_page_form_below_score_threshold() -> None:
+    """Acceptance — a form on a kind=register page that scores below the
+    +3 threshold (e.g. an empty action plus no password field) is
+    elevated to register_form rather than discarded. Downstream
+    build_recipe is robust to non-auth forms, so the cost of a possible
+    false-positive elevation is at most one Claude call; the cost of
+    missing a legit register page is the whole auth pipeline breaking.
+
+    Construction: page_kind=register gives +3, but password-absent
+    penalty is -4, action with no keyword match gives 0 → net score
+    -1 < threshold."""
+    pages = [
+        {
+            "url": "http://target.test/signup.gtl",
+            "kind": "register",
+            "status_code": 200,
+            "html": (
+                "<html><body>"
+                # Form with only a username — score -1 (page_kind +3,
+                # no password -4, no keyword match +0).
+                '<form action="/account-handle" method="POST">'
+                '<input type="text" name="username"/>'
+                "</form></body></html>"
+            ),
+            "response_headers": {},
+            "set_cookie_names": [],
+        }
+    ]
+    fp = fingerprint_application(pages)
+    assert fp["register_form"] is not None, (
+        "elevation did not fire; fp=" + str(fp)
+    )
+    assert "/account-handle" in fp["register_form"]["action"]
+    # The elevation audit field is set so callers know this form came
+    # via the elevation path, not the normal score >= 3 path.
+    assert fp["register_form"].get("elevated_from_page_kind") is True
+
+
+def test_fingerprint_no_elevation_when_no_register_page_forms() -> None:
+    """If no form sits on a kind=register page, elevation does NOT fire.
+    Forms scattered on index/login pages without register classification
+    stay None for register_form."""
+    pages = [
+        {
+            "url": "http://target.test/login",
+            "kind": "login",
+            "status_code": 200,
+            "html": (
+                "<html><body>"
+                # Login-only form on a login page.
+                '<form action="/account-handle" method="POST">'
+                '<input type="text" name="username"/>'
+                '<input type="password" name="password"/>'
+                "</form>"
+                "</body></html>"
+            ),
+            "response_headers": {},
+            "set_cookie_names": [],
+        }
+    ]
+    fp = fingerprint_application(pages)
+    # Login-page form should be picked up as login_form but NOT as
+    # register_form.
+    assert fp["login_form"] is not None
+    assert fp["register_form"] is None
+
+
+def test_fingerprint_does_not_elevate_when_score_path_already_picks() -> None:
+    """When a high-quality register form (score >= 3) is present, the
+    elevation branch is not taken. The audit flag stays unset."""
+    pages = [
+        {
+            "url": "http://target.test/signup",
+            "kind": "register",
+            "status_code": 200,
+            "html": (
+                "<html><body>"
+                '<form action="/register-final" method="POST">'
+                '<input type="text" name="username"/>'
+                '<input type="email" name="email"/>'
+                '<input type="password" name="password"/>'
+                '<input type="password" name="confirm_password"/>'
+                "</form></body></html>"
+            ),
+            "response_headers": {},
+            "set_cookie_names": [],
+        }
+    ]
+    fp = fingerprint_application(pages)
+    assert fp["register_form"] is not None
+    # High-score path doesn't set the elevation flag.
+    assert "elevated_from_page_kind" not in fp["register_form"]

@@ -1,6 +1,24 @@
 # Current State
 
-## Latest Continuation — #336 Live-reliability fix 1/3: assessment_planner respects autonomous_intrusive_allowed (2026-05-19)
+## Latest Continuation — #337 Live-reliability fix 2/3: auth_discoverer stack-hint registry + link-scan tightening + register-form elevation (2026-05-19)
+
+Second of the 3 live-reliability root-cause fixes from the 2026-05-18 Gruyere diagnosis. `auth_discoverer.fetch_auth_pages` probed only the baseline 15 register-paths + 13 login-paths and missed Gruyere's `/signup.gtl` form (stripped in #328 "for generality"). On any soft-404 host the link-scan ceiling at `probe_limit+5` also exhausted before the index-page anchors got picked up.
+
+Three changes in `api/app/services/auth_discoverer.py`:
+
+1. New `_STACK_REGISTER_PATHS` + `_STACK_LOGIN_PATHS` registries — stack-family → extra discovery paths (`python_gruyere` → `/signup.gtl`; `aspnet` → `/Account/Register.aspx`; `ruby_rails` → `/users/sign_up`; `python_django` → `/accounts/signup/`; `php_laravel`, `node_express`, `java_jsp`, `java_servlet`). New helper `_stack_specific_paths()`. New optional kwarg `stack_hints: list[str] | None = None` on `fetch_auth_pages` (default None preserves backward-compat for the 5 #328 probes). Per `feedback_no_prescriptive_recipes`: only path discovery hints — `/saveprofile` (POST action target) deliberately NOT in the registry, learned from form parsing on `/signup.gtl`.
+
+2. Tightened link-scan ceiling from `probe_limit+5` to `max(probe_limit+5, probe_limit*3)`. On soft-404 hosts where every REGISTER_PATHS probe returns HTTP 200, the budget no longer exhausts before the index-page anchor-scan picks up real register/login links.
+
+3. `fingerprint_application` register-form elevation branch — when no form scores ≥ 3 but at least one form sits on a `kind=register` page, take the highest-scoring one anyway. Marked with audit flag `elevated_from_page_kind: True`. Defensive safety net for minimal forms; `build_recipe` filters out non-auth forms downstream so false-positive elevation costs at most one Claude call.
+
+11 new tests in `test_auth_discoverer.py` under "#337 / backlog-399": empty/None/unknown hint robustness, python_gruyere + aspnet coverage, multi-hint union/dedup, case-insensitive hints, backward-compat default-kwarg, acceptance (signup.gtl discovered), link-scan ceiling, elevation acceptance, no-elevation when no register pages, no-double-elevation when high-score path picks. 119/119 pass across all 5 auth_discoverer test files. ruff clean; compileall clean; git diff --check clean. `test_no_gruyere_strings_in_module` still passes (the `python_gruyere` stack-hint key is allowed; `/saveprofile` is NOT in production source).
+
+**Live test deferred to backlog-400**: this code change covers fingerprint discovery; the picker dispatching `stack_hints` from `target_intel` observations is a wire-up the cache + probes naturally benefit from once the caller supplies hints. Combined with #336 (planner gate) and #338 (probe path-augmentation), a live re-test against Gruyere measures the 0/17 → ?/17 delta.
+
+**NEXT_TASK promoted to backlog-400 (#338 — probe path-catalogs are stack-aware)** — third + final of the 3 live-reliability fixes.
+
+## Earlier — #336 Live-reliability fix 1/3: assessment_planner respects autonomous_intrusive_allowed (2026-05-19)
 
 First of the 3 live-reliability root-cause fixes from the 2026-05-18 Gruyere diagnosis (run `9f951a0f` produced 0/17 known Gruyere classes despite the operator opting into intrusive). Root cause traced to `_score_capability` lines 277-279: `if risk_tier in INTRUSIVE_TIERS: decision = "NEEDS_APPROVAL"` — the function never consulted `run.autonomous_intrusive_allowed`. The picker (Claude Opus) read the correct "INTRUSIVE TIER AUTHORIZED" block in `_AI_PICKER_SYSTEM_PROMPT` and tried to plan exec_plan / impacket / metasploit chains, but the statically-scored planner overruled it. Result: 0 exec_plan picks in 24 reasonings, picker fell back to random residual tools (ai-shell / c2-ingest / graphql / iot-default-creds), run died on `max_iterations_reached`.
 

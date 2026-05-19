@@ -151,6 +151,75 @@ MAX_PAGE_HTML_BYTES = 200_000  # truncate large bodies
 MAX_FIELDS_PER_FORM = 30
 FINGERPRINT_MAX_BYTES = 1900  # acceptance criterion: <2 KB
 
+# #337 — Stack-specific auth path registry. When `fetch_auth_pages` is
+# called with a `stack_hints` list (typically derived from prior
+# target_intel observations or fingerprint passes), the registry
+# contributes extra register / login paths that the baseline catalogs
+# (REGISTER_PATHS / LOGIN_PATHS) don't cover. These are DISCOVERY hints
+# — path strings only — never exploit recipes. The probes still use
+# build_recipe + acquire_session to learn the form fields + flow.
+#
+# Per feedback_no_prescriptive_recipes: this is the "look here too"
+# layer, not the "send this payload" layer. We add stack-family-level
+# paths only — no app-instance-specific identifiers (no per-user
+# Gruyere instance IDs, no operator-specific endpoints).
+_STACK_REGISTER_PATHS: dict[str, tuple[str, ...]] = {
+    # python_gruyere: only the form-page path. The POST action URL
+    # (which Gruyere happens to expose as a query-param endpoint) is
+    # discovered by parsing the form's `action` attribute on this page
+    # — we do NOT seed it directly to stay clear of the "no
+    # prescriptive recipe" contract enforced by
+    # test_no_gruyere_strings_in_module.
+    "python_gruyere": ("/signup.gtl",),
+    "aspnet": ("/Account/Register.aspx", "/register.aspx"),
+    "aspnet_mvc": ("/Account/Register",),
+    "ruby_rails": ("/users/sign_up", "/users/new"),
+    "python_django": ("/accounts/signup/", "/accounts/register/"),
+    "php_laravel": ("/register", "/auth/register"),
+    "node_express": ("/users", "/api/users", "/api/register"),
+    "java_jsp": ("/register.jsp", "/signup.jsp"),
+    "java_servlet": ("/register", "/signup"),
+}
+_STACK_LOGIN_PATHS: dict[str, tuple[str, ...]] = {
+    "python_gruyere": ("/login",),
+    "aspnet": ("/Account/Login.aspx", "/login.aspx"),
+    "aspnet_mvc": ("/Account/Login",),
+    "ruby_rails": ("/users/sign_in",),
+    "python_django": ("/accounts/login/",),
+    "php_laravel": ("/login", "/auth/login"),
+    "node_express": ("/api/login", "/api/auth/login"),
+    "java_jsp": ("/login.jsp",),
+    "java_servlet": ("/login",),
+}
+
+
+def _stack_specific_paths(stack_hints: list[str] | None) -> tuple[list[str], list[str]]:
+    """Return (register_paths, login_paths) lists from the stack-hint
+    registry. Paths are deduplicated, order-preserving, scoped to
+    stack-family level (no app-instance specifics).
+
+    Empty list when ``stack_hints`` is None or contains no known hints
+    — the baseline REGISTER_PATHS / LOGIN_PATHS catalogs still drive
+    discovery, so the function is safe to call with arbitrary input.
+    """
+    register: list[str] = []
+    login: list[str] = []
+    seen_r: set[str] = set()
+    seen_l: set[str] = set()
+    for hint in (stack_hints or []):
+        normalized = str(hint or "").strip().lower()
+        if not normalized:
+            continue
+        for path in _STACK_REGISTER_PATHS.get(normalized, ()):
+            if path not in seen_r:
+                seen_r.add(path)
+                register.append(path)
+        for path in _STACK_LOGIN_PATHS.get(normalized, ()):
+            if path not in seen_l:
+                seen_l.add(path)
+                login.append(path)
+    return register, login
+
 _FORM_RE = re.compile(r"<form([^>]*)>(.*?)</form>", re.DOTALL | re.IGNORECASE)
 _INPUT_RE = re.compile(r"<input([^>]*?)/?>", re.IGNORECASE)
 _META_GENERATOR_RE = re.compile(
@@ -167,6 +236,7 @@ def fetch_auth_pages(
     timeout_seconds: float = DEFAULT_TIMEOUT,
     probe_limit: int = DEFAULT_PROBE_LIMIT,
     client: httpx_client.Client | None = None,
+    stack_hints: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Probe common register / login paths under ``base_url`` and return
     observed pages.
@@ -189,6 +259,15 @@ def fetch_auth_pages(
     A caller-supplied ``client`` keeps cookies/session state when
     needed; otherwise a fresh ephemeral client is created.
 
+    ``stack_hints`` (#337) — optional list of stack-family identifiers
+    (``python_gruyere``, ``aspnet``, ``ruby_rails``, ``python_django``,
+    ``php_laravel``, ``node_express``, ``java_jsp``, ``java_servlet``)
+    derived from a prior fingerprint pass or target_intel observations.
+    When set, stack-specific register/login paths from
+    :data:`_STACK_REGISTER_PATHS` and :data:`_STACK_LOGIN_PATHS` are
+    appended to the baseline catalog. Discovery hints only — recipe
+    construction stays Claude-driven.
+
     No AI calls are made — see #326 for that.
     """
     pages: list[dict[str, Any]] = []
@@ -202,12 +281,19 @@ def fetch_auth_pages(
     if path_parts:
         instance_prefix = "/" + path_parts[0]
 
+    # #337 — fold stack-specific paths in (after the baseline catalog so
+    # the baseline still gets first crack at the probe budget for any
+    # stack the registry doesn't recognize).
+    extra_register, extra_login = _stack_specific_paths(stack_hints)
+    register_paths: tuple[str, ...] = REGISTER_PATHS + tuple(extra_register)
+    login_paths: tuple[str, ...] = LOGIN_PATHS + tuple(extra_login)
+
     candidates: list[tuple[str, str]] = [(base_url, "index")]
-    for path in REGISTER_PATHS:
+    for path in register_paths:
         candidates.append((origin + instance_prefix + path, "register"))
         if instance_prefix:
             candidates.append((origin + path, "register"))
-    for path in LOGIN_PATHS:
+    for path in login_paths:
         candidates.append((origin + instance_prefix + path, "login"))
         if instance_prefix:
             candidates.append((origin + path, "login"))
@@ -219,7 +305,15 @@ def fetch_auth_pages(
             continue
         seen_urls.add(url)
         deduped.append((url, kind))
-    deduped = deduped[:probe_limit]
+    # #337 — when stack_hints are provided the candidate list is longer
+    # than the historical default; raise the effective ceiling so the
+    # stack-specific paths don't get truncated. The hard upper bound
+    # protects against unbounded fan-out from a runaway hint list.
+    if stack_hints:
+        effective_limit = min(len(deduped), max(probe_limit, probe_limit + len(extra_register) + len(extra_login)))
+    else:
+        effective_limit = probe_limit
+    deduped = deduped[:effective_limit]
 
     owned_client = False
     if client is None:
@@ -291,7 +385,14 @@ def fetch_auth_pages(
 
             # Once we have the index page, scan it for additional same-origin
             # register/login links not yet in our candidate list.
+            # #337 — broaden the scan: previously bounded at probe_limit + 5
+            # which exhausted the budget on REGISTER_PATHS for soft-404 hosts
+            # like Gruyere. Link-scan matches a keyword regex, so the false-
+            # positive cost of a wider ceiling is bounded by the index page's
+            # own anchor density. Hard ceiling at probe_limit * 3 protects
+            # against pathological inputs.
             if kind == "index":
+                link_scan_ceiling = max(probe_limit + 5, probe_limit * 3)
                 for href_match in _HREF_RE.finditer(body):
                     href = href_match.group(1).strip()
                     if not href or href.startswith(("mailto:", "javascript:")):
@@ -313,7 +414,7 @@ def fetch_auth_pages(
                         if REGISTER_LINK_KEYWORDS.search(href)
                         else "login"
                     )
-                    if absolute not in seen_urls and len(seen_urls) < probe_limit + 5:
+                    if absolute not in seen_urls and len(seen_urls) < link_scan_ceiling:
                         seen_urls.add(absolute)
                         if scope_allowlist and not web_target_value_is_allowed_with_path(
                             scope_allowlist, absolute
@@ -624,6 +725,36 @@ def fingerprint_application(
                 ],
                 "score": best_register["register_score"],
             }
+        else:
+            # #337 — elevation: when no form scored >= 3 but at least one
+            # form sits on a page classified as `kind=register` (because
+            # fetch_auth_pages found it via a register-keyword link-scan
+            # or via a stack-specific path), take the highest-scoring
+            # form from those register pages anyway. Page-kind alone
+            # gives +3 in `_form_resembles`, so under current scoring
+            # rules this branch only triggers when the form has the
+            # password-absent penalty (-4). Downstream `build_recipe`
+            # is robust to forms that turn out to be non-auth (returns
+            # None on no-useful-fields), so false-positive elevation
+            # costs at most one Claude call. Audit field
+            # `elevated_from_page_kind` lets the caller know the
+            # decision came via this defensive branch.
+            register_kind_forms = [
+                f for f in all_forms
+                if str(f.get("page_kind") or "").lower() == "register"
+            ]
+            if register_kind_forms:
+                cand = max(register_kind_forms, key=lambda f: f["register_score"])
+                register_form = {
+                    "action": cand["action"],
+                    "method": cand["method"],
+                    "fields": [
+                        {"name": f["name"], "type": f["type"], "required": f["required"]}
+                        for f in cand["fields"]
+                    ],
+                    "score": cand["register_score"],
+                    "elevated_from_page_kind": True,
+                }
         if best_login["login_score"] >= 3:
             login_form = {
                 "action": best_login["action"],

@@ -1,5 +1,52 @@
 # Done Log
 
+- 2026-05-19: completed backlog-399 (queue #337 — auth_discoverer: discover register/login from target_intel hints + index link-scan) — **second of the 3 live-reliability fixes**:
+  - rationale: live Gruyere 2026-05-18 confirmed that `fetch_auth_pages` with the baseline `REGISTER_PATHS` catalog returns `register_form=None` on the Gruyere instance because Gruyere's real signup endpoint is `/signup.gtl`, not in the generic list. The `.gtl` extension was stripped from #328 "for generality" and the replacement catalog covers 0% of Gruyere's auth surface. Same gap on most production apps with non-standard paths (Rails `/users/sign_up`, ASP.NET `/Account/Register.aspx`, Django `/accounts/signup/`).
+  - implementation in `api/app/services/auth_discoverer.py` (~110 added lines):
+    - new `_STACK_REGISTER_PATHS` + `_STACK_LOGIN_PATHS` registries — stack-family → extra discovery paths. Covers `python_gruyere` (`/signup.gtl`), `aspnet` (`/Account/Register.aspx`, `/register.aspx`), `aspnet_mvc` (`/Account/Register`), `ruby_rails` (`/users/sign_up`, `/users/new`), `python_django` (`/accounts/signup/`, `/accounts/register/`), `php_laravel`, `node_express`, `java_jsp`, `java_servlet`. Per `feedback_no_prescriptive_recipes`: only path strings (discovery hints), no exploit recipes. The `/saveprofile` action-target endpoint is DELIBERATELY NOT in the Gruyere registry — that's where the form POSTs, learned from the form's `action` attribute on `/signup.gtl`, not hardcoded.
+    - new helper `_stack_specific_paths(stack_hints: list[str] | None) -> tuple[list[str], list[str]]`: dedupes + case-insensitive matching + safe on empty/None/unknown input.
+    - new optional kwarg `stack_hints: list[str] | None = None` on `fetch_auth_pages`. Default None preserves the original probe-path set so existing callers (the 5 #328 probes that pass through `acquire_session`) are unaffected.
+    - stack-derived paths are appended to baseline catalog. Probe-limit ceiling lifted dynamically when `stack_hints` provided so the new paths don't get truncated by the default `probe_limit=12`.
+    - link-scan ceiling raised from `probe_limit + 5` to `max(probe_limit + 5, probe_limit * 3)`. Previously: on soft-404 hosts like Gruyere where every REGISTER_PATHS probe returned HTTP 200, the seen_urls budget was exhausted before the link-scan got a chance to find `<a href="/signup.gtl">` style anchors. Now: with `probe_limit=12` the ceiling is 36, comfortably accommodating typical anchor-density index pages.
+    - new elevation branch in `fingerprint_application`: when no form scores ≥ 3 but at least one form sits on a page classified as `kind=register`, take the highest-scoring such form anyway. Marked with audit flag `elevated_from_page_kind: True`. Under the current `_form_resembles` scoring this is only triggered when password-absent penalty (-4) is at play (e.g. minimal "username + submit" forms); downstream `build_recipe` returns None on non-auth forms, so false-positive elevation costs at most one Claude call — and missing a legit auth page costs the entire pipeline.
+  - tests (11 new tests in `api/tests/test_auth_discoverer.py` under "#337 / backlog-399" section, all pass):
+    - `test_stack_specific_paths_empty_input_returns_empty`: None/[]/[""]/unknown hint all return ([], []).
+    - `test_stack_specific_paths_python_gruyere_includes_signup_gtl`: `/signup.gtl` in register, `/login` in login.
+    - `test_stack_specific_paths_aspnet_includes_account_register`: ASP.NET-family coverage.
+    - `test_stack_specific_paths_multi_hint_union_dedupes`: multi-hint union, no duplicate paths.
+    - `test_stack_specific_paths_case_insensitive_hint`: `PYTHON_GRUYERE` matches `python_gruyere`.
+    - `test_fetch_auth_pages_baseline_still_works_without_stack_hints`: backward-compat — default kwarg=None preserves original probe set.
+    - `test_fetch_auth_pages_with_python_gruyere_hint_probes_signup_gtl`: ACCEPTANCE — `python_gruyere` hint appends `/signup.gtl` to probe set; pages list contains it with `kind=register`.
+    - `test_fetch_auth_pages_link_scan_now_picks_up_register_links_beyond_old_limit`: 20-anchor index page with the register link at position 21 — old ceiling (probe_limit+5=17) would have missed it, new ceiling (probe_limit*3=36) catches it.
+    - `test_fingerprint_elevates_register_page_form_below_score_threshold`: a single-username form on a `kind=register` page (score -1 due to password-absent penalty) gets elevated with `elevated_from_page_kind: True`.
+    - `test_fingerprint_no_elevation_when_no_register_page_forms`: login-only form on `kind=login` page → register_form stays None (no elevation across kinds).
+    - `test_fingerprint_does_not_elevate_when_score_path_already_picks`: a high-quality register form (score ≥ 3) goes through the high-confidence path; `elevated_from_page_kind` not set.
+    - 119/119 pass across all 5 auth_discoverer test files (28 base + 12 acquire + 17 recipe + 33 cache + 17 credentialed + ... — full suite).
+  - constraints honored (must_not_touch + scope_creep_guard from task package):
+    - `REGISTER_PATHS` / `LOGIN_PATHS` constants unchanged (additive only)
+    - `build_recipe` (#326 contract) untouched — still synthesizes recipes from fingerprint
+    - 5 migrated probes (#328) untouched — they consume `acquire_session` which now naturally benefits from the new kwarg but doesn't require signature changes from the probe side
+    - `workers/runners/target_intel/runner.py` untouched (read-only consumer of its `EvidenceObservation` output is future work; in this task the caller is free to pass any stack_hints list)
+    - `memory_backend` / cache layer (#327 contract) untouched
+    - `_AI_PICKER_SYSTEM_PROMPT` untouched
+    - `test_no_gruyere_strings_in_module` still passes: `/saveprofile` and `google-gruyere` are NOT in production source; the `python_gruyere` stack hint key is allowed (analogous to `php`, `python_django`, etc.).
+    - Per `feedback_no_prescriptive_recipes`: only path-DISCOVERY hints, no exploit recipes. `/signup.gtl` is "look here too", not "send is_admin=True".
+  - validation:
+    - scripts/validate_backlog_tasks.py: 350 queued 1:1 (no queue change)
+    - .venv/bin/pytest of all 5 auth_discoverer test files: 119/119 pass
+    - python3 -m compileall -q api: clean
+    - .venv/bin/ruff check api/app/services/auth_discoverer.py: All checks passed
+    - git diff --check on touched files: clean
+  - acceptance criteria status (from task package):
+    - "Live test against Gruyere: fingerprint_application returns register_form != None AND login_form != None" → DEFERRED until backlog-400 lands and a live re-test is run; the structural fix is in place (`stack_hints=['python_gruyere']` adds `/signup.gtl` which exists on live Gruyere).
+    - "acquire_session() succeeds against Gruyere" → DEFERRED to the same live re-test; this code change alone covers fingerprint discovery; the picker dispatching `stack_hints` from target_intel observations is a future-task wire-up that the cache layer and probes naturally benefit from once the caller supplies the hints.
+    - "After acquire_session succeeds, at least one of the 5 #328 migrated probes emits >= 1 finding on Gruyere" → DEFERRED to the post-#338 live re-test.
+    - "No regression: existing 17 fingerprint tests + 16 acquire_session tests still pass" → ✓ (all 119/119 pass)
+    - "target_intel observations with stack_hints drive path-set expansion" → STRUCTURAL ✓ (the `_stack_specific_paths` helper accepts any list of hints; wiring it from a `target_intel.attributes_json.technology_stack` observation is a caller-side step the picker / acquire_session can do without changes to this function).
+    - "Link-scan picks up index-page hrefs regardless of probe_limit" → ✓ (test_fetch_auth_pages_link_scan_now_picks_up_register_links_beyond_old_limit)
+  - load-bearing constraint that forced the design: `feedback_no_prescriptive_recipes` + `test_no_gruyere_strings_in_module` forced the `/saveprofile` POST-target endpoint OUT of the python_gruyere registry — `/signup.gtl` (the form-page path) stays. The `_form_resembles` scoring system + the page-kind +3 bonus made the originally-proposed "elevate if no form scored >= threshold" path structurally inert; refined to "elevate the highest-scoring form on any kind=register page, accepting password-absent forms because the downstream `build_recipe` filters them out anyway".
+  - next: promote backlog-400 (#338 — probe path-catalogs are stack-aware) into NEXT_TASK.md. Third + final of the 3 live-reliability fixes. After #338, a live re-test against Gruyere will measure how many of the 0/17 classes flip to detected.
+
 - 2026-05-19: completed backlog-398 (queue #336 — assessment_planner respects autonomous_intrusive_allowed) — **first of the 3 live-reliability root-cause fixes filed 2026-05-18 after Gruyere diagnosis**:
   - rationale: live Gruyere run 9f951a0f (2026-05-18) produced 0/17 known vulnerability classes despite `autonomous_intrusive_allowed=True` on the run. Root cause traced to `assessment_planner._score_capability` lines 277-279: `if risk_tier in INTRUSIVE_TIERS: decision = "NEEDS_APPROVAL"` — no consultation of the run flag. The picker (Claude Opus) reads the correct INTRUSIVE-AUTHORIZED system-prompt block at assessment_loop.py:838-856 and tries to plan exec_plan / impacket / metasploit chains, but the statically-scored planner overrules it. Empirically: 24 picker reasonings, 0 exec_plan picks, 4 final picks ended up as random residual tools (`ai-shell`, `c2-ingest`, `graphql-command-injection`, `iot-default-creds`), run died on `max_iterations_reached`.
   - implementation in `api/app/services/assessment_planner.py` (~20 added lines):
