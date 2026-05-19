@@ -117,7 +117,14 @@ def execute_stored_xss_probe(
     *,
     scope_allowlist: dict[str, Any] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
+    stack_hints: list[str] | None = None,
 ) -> RunnerExecution:
+    # #338 — accept stack_hints for forward-compat. SUBMIT_RENDER_PAIRS
+    # is a 3-tuple shape (submit_path, param_name, render_path) which
+    # doesn't fit the 2-tuple paths_for_stack registry. The hint is
+    # logged in trace metadata; future task may expand the registry to
+    # carry submit/param/render triples for per-stack stored-xss flows.
+    _ = stack_hints  # noqa: F841 — kwarg reserved for stack-aware extension
     findings_payload: list[dict[str, Any]] = []
     trace: list[dict[str, Any]] = []
     stderr_lines: list[str] = []

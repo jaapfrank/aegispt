@@ -20,6 +20,7 @@ from sqlalchemy.orm import joinedload
 from api.app.config import get_settings
 from api.app.models import EvidenceArtifact as EvidenceArtifactRecord
 from api.app.models import (
+    EvidenceObservation,
     Finding,
     InventorySnapshot,
     Run,
@@ -731,35 +732,44 @@ def dispatch_runner(request: RunnerRequest) -> RunnerExecution:
             ),
             timeout_seconds=timeout_seconds,
         )
+    # #338 — extract stack-hints once for all 5 stack-aware probes so we
+    # don't repeat the request.params.get(...) call site noise. None /
+    # missing → probes use their baseline catalog.
+    _stack_hints = request.params.get("stack_hints") if isinstance(request.params, dict) else None
     if request.tool == "info-disclosure-probe":
         return execute_info_disclosure_probe(
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
+            stack_hints=_stack_hints,
         )
     if request.tool == "param-pollution-probe":
         return execute_param_pollution_probe(
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
+            stack_hints=_stack_hints,
         )
     if request.tool == "stored-xss-probe":
         return execute_stored_xss_probe(
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
+            stack_hints=_stack_hints,
         )
     if request.tool == "cookie-tamper-probe":
         return execute_cookie_tamper_probe(
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
+            stack_hints=_stack_hints,
         )
     if request.tool == "file-upload-probe":
         return execute_file_upload_probe(
             targets=request.targets,
             scope_allowlist=request.scope_allowlist,
             timeout_seconds=timeout_seconds,
+            stack_hints=_stack_hints,
         )
     if request.tool == "logging-probe":
         return execute_logging_probe(
@@ -2844,6 +2854,52 @@ def _materialize_credential_attack_password_candidates(
             }
         )
     return materialized_candidates
+
+
+# #338 — tools that read stack-aware path augmentation. The set must be
+# kept in sync with the probes that accept a `stack_hints` kwarg in
+# workers/runners/<probe>/runner.py. Adding a tool here makes the
+# orchestrator query EvidenceObservation rows and inject normalized
+# hints into runner_params["stack_hints"] before dispatch.
+_STACK_HINT_AWARE_TOOLS: frozenset[str] = frozenset({
+    "info-disclosure-probe",
+    "stored-xss-probe",
+    "file-upload-probe",
+    "param-pollution-probe",
+    "cookie-tamper-probe",
+})
+
+
+def _stack_hints_for_run(session, run_id) -> list[str]:
+    """Read EvidenceObservation rows for ``run_id`` and normalize their
+    ``technology_stack`` strings to the path-augmentation registry's
+    stack-key vocabulary.
+
+    Returns [] when run_id is None, no observations exist, or none of
+    them carry matchable stack-hint text — the probes then fall back to
+    their baseline catalogs unchanged.
+    """
+    if run_id is None:
+        return []
+    try:
+        from sqlalchemy import select as _select
+
+        from workers.runners._path_augmentation import (
+            stack_hints_from_observations as _normalize,
+        )
+        rows = session.scalars(
+            _select(EvidenceObservation).where(EvidenceObservation.run_id == run_id)
+        ).all()
+        obs_dicts = [
+            {"attributes_json": (r.attributes_json or {})}
+            for r in rows
+        ]
+        return _normalize(obs_dicts)
+    except Exception:
+        # Best-effort: if the observation table is missing or the query
+        # blows up, fall back to baseline catalogs. The probes already
+        # handle stack_hints=None / [].
+        return []
 
 
 def _runner_params_for_task(session, task: Task) -> dict[str, object]:
@@ -5071,6 +5127,18 @@ def process_task_by_id(task_id: str) -> dict[str, object]:
                 "timeout_seconds",
                 float(os.getenv("RUNNER_TIMEOUT_SECONDS", "10.0")),
             )
+            # #338 — for the 5 #328-migrated probes, query prior
+            # target_intel-emitted EvidenceObservation rows on this run
+            # and normalize their `technology_stack` strings into our
+            # stack-hint vocabulary. Probes consume the resulting list
+            # via the `stack_hints` kwarg they each accept; with no
+            # observations / no matchable strings, the augmentation
+            # is a no-op and probes fall back to their baseline
+            # catalogs.
+            if task.tool in _STACK_HINT_AWARE_TOOLS and "stack_hints" not in runner_params:
+                hints = _stack_hints_for_run(session, task.run_id)
+                if hints:
+                    runner_params["stack_hints"] = hints
             append_task_stdout(
                 task.id,
                 _runner_command_preview(task.tool, task_targets, runner_params),

@@ -1,6 +1,26 @@
 # Current State
 
-## Latest Continuation — #337 Live-reliability fix 2/3: auth_discoverer stack-hint registry + link-scan tightening + register-form elevation (2026-05-19)
+## Latest Continuation — #338 Live-reliability fix 3/3: probe path-catalogs stack-aware via target_intel-driven registry (2026-05-19)
+
+Third + final of the 3 live-reliability fixes from the 2026-05-18 Gruyere diagnosis. `info_disclosure_probe` returned 0 findings on live Gruyere despite `/dump.gtl` openly leaking `_cookie: {'is_admin': False, 'is_author': False, 'uid': None}` — the path was stripped from the catalog in #328 "for generality". Same gap on most production stacks: ASP.NET `/elmah.axd`, PHP `/info.php`, Java `/manager/html` — none in the generic 51-path catalog.
+
+This commit ships the third leg of the live-reliability triad:
+
+1. New `workers/runners/_path_augmentation.py` (~250 lines): `_STACK_PATH_REGISTRY` covering 10 stack families (python_gruyere, aspnet, aspnet_mvc, php, php_laravel, java_jsp, java_servlet, node_express, python_django, ruby_rails); `paths_for_stack(stack_hints, category)` pure helper; `stack_hints_from_observations()` normalizer that turns target_intel's free-text `technology_stack` strings into registry keys via a keyword table. 4 categories: `debug-dump` / `file-upload-target` / `register-action` / `stored-xss-page`.
+
+2. 5 probes wired with additive `stack_hints: list[str] | None = None` kwarg. `info_disclosure_probe` augments PROBE_PATHS (the largest delta — `/dump.gtl` is now reachable on `python_gruyere` hint). `file_upload_probe` augments UPLOAD_ENDPOINTS (registry empty for now — forward-compat). `param_pollution_probe` + `cookie_tamper_probe` augment ADMIN_VERIFY_ENDPOINTS used in `_check_admin_access`. `stored_xss_probe` accepts the kwarg as no-op (3-tuple SUBMIT_RENDER_PAIRS shape doesn't fit the 2-tuple registry yet — future task).
+
+3. Orchestrator (`workers/orchestration/tasks.py`): new `_STACK_HINT_AWARE_TOOLS` set + `_stack_hints_for_run(session, run_id)` helper that queries `EvidenceObservation` rows on the run and normalizes them. Before constructing `RunnerRequest` for any of the 5 probes, hints land in `runner_params["stack_hints"]`. `dispatch_runner` extracts once + threads to all 5 execute_* sites.
+
+19 new tests in `workers/tests/test_path_augmentation.py`: 8 paths_for_stack (empty/unknown/multi-hint/case-insensitive/category contract), 8 normalizer (Gruyere/aspnet/multi-stack/string-tolerant/deterministic), 2 end-to-end smoke (info_disclosure_probe with `stack_hints=["python_gruyere"]` PROBES `/dump.gtl` AND emits the Debug Dump finding; baseline call without the hint does NOT probe `/dump.gtl`). 34/34 pass across the 6 target test files. 283/285 in the full workers suite (2 pre-existing `test_worker_ai_loop_advances_*` failures verified independent of #338). ruff clean; compileall clean; git diff --check clean. Smoke verify: live `python -c` import sanity confirms module loads, registry returns `[('/dump.gtl', 'debug-dump'), ('/debug.gtl', 'debug-dump')]` for python_gruyere, and orchestrator's `_STACK_HINT_AWARE_TOOLS` contains all 5 probe tool names.
+
+Constraints honored: `target_intel`/`build_recipe`/`acquire_session` untouched, base catalogs unchanged, per `feedback_no_prescriptive_recipes` only path-discovery strings (NO `/saveprofile` payload-target), all 4 probe `test_no_gruyere_strings_in_module` tests still pass — only the `python_gruyere` registry KEY is in production source, analogous to `php` / `python_django` / `ruby_rails`.
+
+**The 3 live-reliability fixes (#336/#337/#338) are now all merged.** A live Gruyere re-test (operator-class: restart API onto current HEAD, trigger a run with target_intel completing first) measures the 0/17 → ?/17 detection delta.
+
+**NEXT_TASK promoted to backlog-386 (#339 — Mythos Phase 4 — Non-HTTP Primitives: SMB and LDAP as exec_plan Steps)** — Phase 4 day 3 work resumes.
+
+## Earlier — #337 Live-reliability fix 2/3: auth_discoverer stack-hint registry + link-scan tightening + register-form elevation (2026-05-19)
 
 Second of the 3 live-reliability root-cause fixes from the 2026-05-18 Gruyere diagnosis. `auth_discoverer.fetch_auth_pages` probed only the baseline 15 register-paths + 13 login-paths and missed Gruyere's `/signup.gtl` form (stripped in #328 "for generality"). On any soft-404 host the link-scan ceiling at `probe_limit+5` also exhausted before the index-page anchors got picked up.
 

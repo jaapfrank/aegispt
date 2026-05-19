@@ -24,6 +24,7 @@ from urllib.parse import urljoin, urlparse
 import httpx as httpx_client
 
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners._path_augmentation import paths_for_stack
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 logger = logging.getLogger(__name__)
@@ -150,13 +151,23 @@ def _root_for(target: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
-def _probe_urls(target_url: str) -> list[tuple[str, str]]:
+def _probe_urls(
+    target_url: str,
+    *,
+    stack_hints: list[str] | None = None,
+) -> list[tuple[str, str]]:
     """Build (url, category) tuples for a target.
 
     Strategy: probe relative to BOTH the host root and the path root of the
     target, so `/dump.gtl` is tested under both `https://host/dump.gtl` AND
     `https://host/{instance}/dump.gtl`. The latter is what apps like Gruyere
     actually expose.
+
+    When ``stack_hints`` are supplied (#338), per-stack paths from
+    :func:`workers.runners._path_augmentation.paths_for_stack` are
+    appended to the baseline PROBE_PATHS so the catalog reflects the
+    target's actual stack. Discovery hints only — no exploit recipes
+    seeded.
     """
     out: list[tuple[str, str]] = []
     base = _root_for(target_url)
@@ -167,7 +178,10 @@ def _probe_urls(target_url: str) -> list[tuple[str, str]]:
         # Strip filename, keep directory.
         path = path.rsplit("/", 1)[0] + "/"
     seen: set[str] = set()
-    for rel, cat in PROBE_PATHS:
+    augmented_paths: tuple[tuple[str, str], ...] = PROBE_PATHS + tuple(
+        paths_for_stack(stack_hints, "debug-dump")
+    )
+    for rel, cat in augmented_paths:
         for prefix in ("", path.rstrip("/")):
             full = urljoin(base + "/", prefix + rel)
             if full in seen:
@@ -194,6 +208,7 @@ def execute_info_disclosure_probe(
     *,
     scope_allowlist: dict[str, Any] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
+    stack_hints: list[str] | None = None,
 ) -> RunnerExecution:
     findings_payload: list[dict[str, Any]] = []
     raw_results: list[dict[str, Any]] = []
@@ -222,7 +237,7 @@ def execute_info_disclosure_probe(
 
     with httpx_client.Client(timeout=timeout_seconds, follow_redirects=False) as client:
         for target in web_targets:
-            for url, category in _probe_urls(target):
+            for url, category in _probe_urls(target, stack_hints=stack_hints):
                 if scope_allowlist and not web_target_value_is_allowed_with_path(scope_allowlist, url):
                     continue
                 try:

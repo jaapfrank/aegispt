@@ -32,6 +32,7 @@ from api.app.services.auth_discoverer import (
     fingerprint_application,
 )
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners._path_augmentation import paths_for_stack
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 logger = logging.getLogger(__name__)
@@ -153,8 +154,17 @@ def _discover_register_form(
     }
 
 
-def _check_admin_access(client: httpx_client.Client, base: str) -> tuple[bool, str, str]:
-    for path in ADMIN_VERIFY_ENDPOINTS:
+def _check_admin_access(
+    client: httpx_client.Client,
+    base: str,
+    *,
+    stack_hints: list[str] | None = None,
+) -> tuple[bool, str, str]:
+    # #338 — augment ADMIN_VERIFY_ENDPOINTS with stack-specific paths.
+    augmented_paths: tuple[str, ...] = ADMIN_VERIFY_ENDPOINTS + tuple(
+        path for path, _label in paths_for_stack(stack_hints, "debug-dump")
+    )
+    for path in augmented_paths:
         url = urljoin(base, path)
         try:
             resp = client.get(url, follow_redirects=False)
@@ -171,6 +181,7 @@ def execute_cookie_tamper_probe(
     *,
     scope_allowlist: dict[str, Any] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
+    stack_hints: list[str] | None = None,
 ) -> RunnerExecution:
     findings_payload: list[dict[str, Any]] = []
     trace: list[dict[str, Any]] = []
@@ -261,7 +272,9 @@ def execute_cookie_tamper_probe(
                             pass
                     if len(client.cookies) == 0:
                         continue
-                    is_admin, admin_url, evidence = _check_admin_access(client, base)
+                    is_admin, admin_url, evidence = _check_admin_access(
+                        client, base, stack_hints=stack_hints,
+                    )
                     cookie_dump = {k: v for k, v in client.cookies.items()}
                     trace_entry["attempts"].append({
                         "endpoint": register_url,

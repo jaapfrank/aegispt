@@ -2,48 +2,44 @@
 
 ## Title
 
-Probe path-catalogs are stack-aware: target_intel observations augment info_disclosure / file_upload / param_pollution / cookie_tamper / stored_xss PROBE_PATHS at runtime (live-reliability fix 3 of 3)
+Mythos Phase 4 — Non-HTTP Primitives: SMB and LDAP as exec_plan Steps
 
 ## Goal
 
-The 5 \#328-migrated probes (`info_disclosure_probe` / `stored_xss_probe` / `file_upload_probe` / `param_pollution_probe` / `cookie_tamper_probe`) each carry a hardcoded path catalog. \#328 stripped Gruyere-specific `.gtl` paths "for generality", but the generic catalog covers 0% of Gruyere's surface on live testing (verified 2026-05-18: `/dump.gtl` returns HTTP 200 with `_cookie: {'is_admin': False, 'is_author': False, 'uid': None}` — a textbook info-disclosure leak — but our catalog doesn't probe that path).
-
-This task makes the catalogs stack-aware: `target_intel` observations carry `stack_hints`; the probes consult those hints to augment their paths at runtime. No Gruyere-specific seed in the runner source — the augmentation lives in a registry keyed on stack_hint values.
+Extend the `exec_plan` grammar to allow SMB (list shares, file read, NTLM auth attempt) and LDAP (bind, search) as step types alongside HTTP. First move toward truly universal cross-protocol attack composition: AI can now write a single exec_plan that proves web → SMB or web → LDAP chains in one continuous narrative.
 
 ## Scope
 
-- New module `workers/runners/_path_augmentation.py` exposing `paths_for_stack(stack_hints: list[str], category: str) -> list[tuple[str, str]]`. Category covers `debug-dump` / `file-upload-target` / `register-action` / `mass-assignment-target` / `cookie-name`.
-- Stack registry maps known hints:
-  - `python_gruyere` → `.gtl` debug paths
-  - `java_jsp` → `/admin/console.jsp`
-  - `aspnet` → `/elmah.axd`, `/trace.axd`
-  - `php` → `/info.php`, `/phpmyadmin/`
-  - `node_express` → `/.well-known/express-status`
-- Each of the 5 probes calls `paths_for_stack(stack_hints, category)` and merges with its hardcoded base catalog.
-- `stack_hints` come from `EvidenceObservation` rows with `entity_type=stack_hint` or `attributes_json['technology_stack']`, written by target_intel.
+- Extend `workers/runners/exec_plan/runner.py` with two new step kinds:
+  - `smb_request` with subcommands `list_shares` / `read_file` / `ntlm_auth_attempt`, wrapping the existing impacket / netexec primitives.
+  - `ldap_request` with subcommands `bind` / `search`, wrapping the existing `ldap_enum` primitives.
+- Reuse the existing scope check + capture / expect / on_success contract.
+- System prompt grammar section gets a BRIEF addendum showing the two new step kinds (no rewrite of existing exec_plan grammar).
 
 ## Constraints
 
-- New `_path_augmentation` module + 5 small probe-side consumers. Do NOT change the existing hardcoded base catalogs (they keep working for the stacks they cover). Do NOT add app-instance-specific paths (e.g. Gruyere's per-user instance ID); only stack-family-level paths (e.g. `.gtl` for the python_gruyere family).
-- Per `feedback_no_prescriptive_recipes`: a path like `/dump.gtl` is a discovery hint, not an exploit recipe. We're saying "look here too", not "send this specific payload to this path". The probes still apply their existing detection heuristics on whatever the path returns.
-- `stack_hints` MUST come from `target_intel`-emitted `EvidenceObservation` rows (`entity_type='stack_hint'` or `attributes_json['technology_stack']`). Do NOT seed stack_hints from the probe runner itself or from hardcoded URL pattern matching — the AI/recon stage owns stack detection.
-- Must NOT touch: `target_intel` runner (we only consume its observations), `build_recipe` (\#326), `acquire_session` (\#328a — was fixed in backlog-399). Anti-pattern: NO seeding of `/saveprofile?action=new` style payload-bearing patterns. Only path strings.
+- SMB + LDAP ONLY. Do NOT add SSH, RDP, Kerberos, or DNS step kinds in this task — those are follow-up scope.
+- Implementation MUST wrap existing `impacket` / `netexec` / `ldap_enum` primitives, not re-implement protocol clients.
+- SMB step kinds are intrusive tier by default. LDAP queries can be active tier (read-only).
+- System prompt grammar section gets a brief addendum showing the two new step kinds — do NOT rewrite existing exec_plan grammar.
+- Must NOT touch: `workers/runners/impacket/` core logic, `workers/runners/netexec/runner.py` core logic, `workers/runners/ldap_enum/runner.py` core logic, `api/app/models/control.py`, `api/app/services/run_credential_vault.py`.
 
 ## Source Package
 
-`codex/tasks/backlog-400-probe-path-stack-augmentation.json`
+`codex/tasks/backlog-386-non-http-primitives-smb-ldap.json`
 
 ## Reference
 
-- `workers/runners/info_disclosure_probe/runner.py` — existing PROBE_PATHS (51 entries, none match Gruyere)
-- `workers/runners/{stored_xss,file_upload,param_pollution,cookie_tamper}_probe/runner.py` — 4 other probes with similar hardcoded path patterns
-- `workers/runners/target_intel/runner.py` — produces `EvidenceObservation` with `technology_stack` (read-only consumer)
-- `api/app/services/auth_discoverer.py` — already has `_STACK_REGISTER_PATHS` / `_STACK_LOGIN_PATHS` pattern (#337 landed today); follow that shape
+- `workers/runners/exec_plan/runner.py` — existing HTTP step grammar (the addendum follows the same shape)
+- `workers/runners/impacket/runner.py` + `workers/runners/netexec/runner.py` — SMB primitives we consume
+- `workers/runners/ldap_enum/runner.py` — LDAP primitives we consume
+- `api/app/services/assessment_loop.py` — `_AI_PICKER_SYSTEM_PROMPT`; the grammar addendum lands BELOW line 200 (the protected range carried forward from #330/#331/#332/#334/#343)
+- The 3 live-reliability fixes (#336/#337/#338) just merged — a live re-test against Gruyere is now operator-class action; this task continues Phase 4 work in parallel.
 
 ## Validation
 
 - `python3 scripts/validate_backlog_tasks.py`
-- `.venv/bin/pytest workers/tests/test_info_disclosure_probe.py workers/tests/test_stored_xss_probe.py workers/tests/test_file_upload_probe.py workers/tests/test_param_pollution_probe.py workers/tests/test_cookie_tamper_probe.py workers/tests/test_path_augmentation.py`
-- `python3 -m compileall -q workers`
-- `.venv/bin/ruff check workers/runners/_path_augmentation.py workers/runners/info_disclosure_probe/ workers/runners/stored_xss_probe/ workers/runners/file_upload_probe/ workers/runners/param_pollution_probe/ workers/runners/cookie_tamper_probe/`
+- `.venv/bin/pytest workers/tests/test_exec_plan.py workers/tests/test_exec_plan_smb.py workers/tests/test_exec_plan_ldap.py`
+- `python3 -m compileall -q workers api`
+- `.venv/bin/ruff check workers/runners/exec_plan/runner.py`
 - `git diff --check`

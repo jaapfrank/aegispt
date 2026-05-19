@@ -32,6 +32,7 @@ from api.app.services.auth_discoverer import (
     fingerprint_application,
 )
 from api.app.services.runs import web_target_value_is_allowed_with_path
+from workers.runners._path_augmentation import paths_for_stack
 from workers.runners.base.contracts import EvidenceArtifact, RunnerExecution
 
 logger = logging.getLogger(__name__)
@@ -182,10 +183,21 @@ def _discover_register_form(
 
 
 def _check_admin_access(
-    client: httpx_client.Client, base: str
+    client: httpx_client.Client,
+    base: str,
+    *,
+    stack_hints: list[str] | None = None,
 ) -> tuple[bool, str, str]:
-    """Check if the client's cookie jar grants admin access."""
-    for path in ADMIN_VERIFY_ENDPOINTS:
+    """Check if the client's cookie jar grants admin access.
+
+    #338 — augment ADMIN_VERIFY_ENDPOINTS with stack-specific paths
+    (e.g. /elmah.axd for aspnet, /admin/console.jsp for java_jsp, etc.)
+    when stack_hints is supplied.
+    """
+    augmented_paths: tuple[str, ...] = ADMIN_VERIFY_ENDPOINTS + tuple(
+        path for path, _label in paths_for_stack(stack_hints, "debug-dump")
+    )
+    for path in augmented_paths:
         url = urljoin(base, path)
         try:
             resp = client.get(url, follow_redirects=False)
@@ -203,6 +215,7 @@ def execute_param_pollution_probe(
     scope_allowlist: dict[str, Any] | None = None,
     injected_cookies: dict[str, str] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT,
+    stack_hints: list[str] | None = None,
 ) -> RunnerExecution:
     findings_payload: list[dict[str, Any]] = []
     trace: list[dict[str, Any]] = []
@@ -298,7 +311,9 @@ def execute_param_pollution_probe(
                         pass
                 if len(client.cookies) == 0:
                     continue
-                is_admin, admin_url, evidence = _check_admin_access(client, base)
+                is_admin, admin_url, evidence = _check_admin_access(
+                    client, base, stack_hints=stack_hints,
+                )
                 trace_entry["steps"].append({
                     "step": "register_with_polluted_param",
                     "endpoint": register_url,
